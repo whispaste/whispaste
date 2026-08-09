@@ -18,6 +18,8 @@ import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_filter_chip.dart';
+import '../../widgets/wp_focus_ring.dart';
 import '../../widgets/wp_text_field.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
@@ -197,46 +199,47 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   // Category selection
                   Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
                   const SizedBox(height: WpSpacing.md),
+                  // `WpFilterChip`, not a local chip class: this row picks one
+                  // of a set, which is exactly the job History, Notes and the
+                  // analytics period selector already use it for. The private
+                  // `_CategoryChip` it replaces was the fifth reimplementation
+                  // of that widget and repeated the same two defects the
+                  // analytics one had — a bare `GestureDetector`, so the
+                  // control was unreachable by keyboard, and a `label:` on a
+                  // `Semantics` whose child renders the same text, so each chip
+                  // announced its name twice. It also hand-mixed its active
+                  // border at `accent` 30%, which is the `accentBorder30` rung
+                  // spelled out longhand.
                   Wrap(
                     spacing: WpSpacing.sm,
                     runSpacing: WpSpacing.sm,
                     children: [
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
-                      _CategoryChip(
-                        icon: LucideIcons.bug,
-                        label: l10n.feedbackCategoryBug,
-                        value: 'bug',
-                        selected: _category,
-                        isDark: isDark,
-                        onTap: (v) => setState(() => _category = v),
-                      ),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
-                      _CategoryChip(
-                        icon: LucideIcons.lightbulb,
-                        label: l10n.feedbackCategoryFeature,
-                        value: 'feature',
-                        selected: _category,
-                        isDark: isDark,
-                        onTap: (v) => setState(() => _category = v),
-                      ),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
-                      _CategoryChip(
-                        icon: LucideIcons.messageCircle,
-                        label: l10n.feedbackCategoryGeneral,
-                        value: 'general',
-                        selected: _category,
-                        isDark: isDark,
-                        onTap: (v) => setState(() => _category = v),
-                      ),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
-                      _CategoryChip(
-                        icon: LucideIcons.sparkles,
-                        label: l10n.feedbackCategoryAiQuality,
-                        value: 'ai',
-                        selected: _category,
-                        isDark: isDark,
-                        onTap: (v) => setState(() => _category = v),
-                      ),
+                      for (final (value, icon, label)
+                          in <(String, IconData, String)>[
+                            ('bug', LucideIcons.bug, l10n.feedbackCategoryBug),
+                            (
+                              'feature',
+                              LucideIcons.lightbulb,
+                              l10n.feedbackCategoryFeature,
+                            ),
+                            (
+                              'general',
+                              LucideIcons.messageCircle,
+                              l10n.feedbackCategoryGeneral,
+                            ),
+                            (
+                              'ai',
+                              LucideIcons.sparkles,
+                              l10n.feedbackCategoryAiQuality,
+                            ),
+                          ])
+                        WpFilterChip(
+                          icon: icon,
+                          label: label,
+                          isActive: _category == value,
+                          isDark: isDark,
+                          onTap: () => setState(() => _category = value),
+                        ),
                     ],
                   ),
 
@@ -693,113 +696,6 @@ class _ReviewSupportCtas extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Category chips — selectable feedback type
-// ---------------------------------------------------------------------------
-
-class _CategoryChip extends StatefulWidget {
-  const _CategoryChip({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.selected,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String selected;
-  final bool isDark;
-  final ValueChanged<String> onTap;
-
-  @override
-  State<_CategoryChip> createState() => _CategoryChipState();
-}
-
-class _CategoryChipState extends State<_CategoryChip> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = widget.value == widget.selected;
-
-    final Color bg;
-    final Color fg;
-
-    if (isActive) {
-      bg = widget.isDark
-          ? WpColorsDark.accentSubtle
-          : WpColorsLight.accentSubtle;
-      fg = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    } else if (_hovered) {
-      bg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
-      fg = widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    } else {
-      bg = widget.isDark
-          ? WpColorsDark.surfaceVariant
-          : WpColorsLight.surfaceVariant;
-      fg = widget.isDark
-          ? WpColorsDark.textSecondary
-          : WpColorsLight.textSecondary;
-    }
-
-    return Semantics(
-      button: true,
-      selected: isActive,
-      label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: () => widget.onTap(widget.value),
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: WpRadius.borderFull,
-              border: isActive
-                  ? Border.all(
-                      color:
-                          (widget.isDark
-                                  ? WpColorsDark.accent
-                                  : WpColorsLight.accent)
-                              .withValues(alpha: 0.3),
-                    )
-                  : Border.all(color: Colors.transparent),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(widget.icon, size: WpIconSize.sm, color: fg),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: WpTypography.body,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Emoji rating row — modern, chat-app-like rating
 // ---------------------------------------------------------------------------
 
@@ -828,65 +724,156 @@ class _EmojiRatingRow extends StatelessWidget {
     ];
     return Row(
       children: List.generate(5, (i) {
-        final isSelected = rating == i + 1;
         return Expanded(
-          child: GestureDetector(
+          child: _EmojiRatingOption(
+            emoji: _emojis[i],
+            label: labels[i],
+            isSelected: rating == i + 1,
+            isDark: isDark,
+            isLast: i == 4,
             onTap: () => onChanged(i + 1),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: AnimatedContainer(
-                duration: WpMotion.durationFor(context, WpMotion.fast),
-                margin: EdgeInsets.only(right: i < 4 ? WpSpacing.xs : 0),
-                padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (isDark
-                            ? WpColorsDark.accentSubtle
-                            : WpColorsLight.accentSubtle)
-                      : (isDark
-                            ? WpColorsDark.surfaceVariant
-                            : WpColorsLight.surfaceVariant),
-                  borderRadius: WpRadius.borderMd,
-                  border: isSelected
-                      ? Border.all(
-                          color:
-                              (isDark
-                                      ? WpColorsDark.accent
-                                      : WpColorsLight.accent)
-                                  .withValues(alpha: 0.4),
-                        )
-                      : Border.all(color: Colors.transparent),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      _emojis[i],
-                      style: TextStyle(fontSize: isSelected ? 28 : 22),
-                    ),
-                    const SizedBox(height: WpSpacing.xxs),
-                    Text(
-                      labels[i],
-                      style: TextStyle(
-                        fontSize: WpTypography.micro,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isSelected
-                            ? (isDark
-                                  ? WpColorsDark.textPrimary
-                                  : WpColorsLight.textPrimary)
-                            : (isDark
-                                  ? WpColorsDark.textMuted
-                                  : WpColorsLight.textMuted),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
         );
       }),
+    );
+  }
+}
+
+/// One face in [_EmojiRatingRow].
+///
+/// Stateful only to own a [FocusNode]: the row used to be five bare
+/// `GestureDetector`s, so the rating — one of the three inputs on this form —
+/// could not be reached, seen or operated from the keyboard at all, and
+/// carried no semantics whatsoever, leaving a screen reader with five
+/// unlabelled faces and no way to tell which one was chosen. The structure
+/// below is the same one `WpFilterChip` uses for the chips higher up this
+/// page, so both of this form's pickers now behave identically.
+class _EmojiRatingOption extends StatefulWidget {
+  const _EmojiRatingOption({
+    required this.emoji,
+    required this.label,
+    required this.isSelected,
+    required this.isDark,
+    required this.isLast,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final String label;
+  final bool isSelected;
+  final bool isDark;
+  final bool isLast;
+  final VoidCallback onTap;
+
+  @override
+  State<_EmojiRatingOption> createState() => _EmojiRatingOptionState();
+}
+
+class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'EmojiRatingOption');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accentSubtle = widget.isDark
+        ? WpColorsDark.accentSubtle
+        : WpColorsLight.accentSubtle;
+    final surfaceVariant = widget.isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
+
+    final tile = AnimatedContainer(
+      duration: WpMotion.durationFor(context, WpMotion.fast),
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
+      decoration: BoxDecoration(
+        color: widget.isSelected ? accentSubtle : surfaceVariant,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(
+          // `accentBorder30`, the same rung the chips at the top of this form
+          // use for the same job. It used to be a hand-mixed `accent` at 40% —
+          // the one place on this page where picking something drew a
+          // different outline than picking something one section above it.
+          color: widget.isSelected
+              ? (widget.isDark
+                    ? WpColorsDark.accentBorder30
+                    : WpColorsLight.accentBorder30)
+              : Colors.transparent,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Scaled, not resized. The face used to jump from 22 px to 28 px on
+          // selection, which grew the row and pushed the comment field below
+          // it down — a layout shift under the pointer every time the user
+          // compared two ratings. `AnimatedScale` is paint-only, so the
+          // emphasis survives and the reflow does not. It also keeps a single
+          // font size, which the OS text scaler can still act on.
+          ExcludeSemantics(
+            // The label underneath already names this option. Without this,
+            // a screen reader reads the glyph too ("worried face, Frustrated").
+            child: AnimatedScale(
+              scale: widget.isSelected ? 1.25 : 1.0,
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              curve: WpMotion.defaultCurve,
+              child: Text(widget.emoji, style: const TextStyle(fontSize: 22)),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            widget.label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: WpTypography.micro,
+              fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: widget.isSelected
+                  ? (widget.isDark
+                        ? WpColorsDark.textPrimary
+                        : WpColorsLight.textPrimary)
+                  : (widget.isDark
+                        ? WpColorsDark.textMuted
+                        : WpColorsLight.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(right: widget.isLast ? 0 : WpSpacing.xs),
+      child: MergeSemantics(
+        // `inMutuallyExclusiveGroup` is the honest role: this is one of five,
+        // and picking it unpicks the rest. `selected` is what tells a screen
+        // reader which face is currently chosen — the visual fill was the only
+        // carrier of that before.
+        child: Semantics(
+          button: true,
+          selected: widget.isSelected,
+          inMutuallyExclusiveGroup: true,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: InkWell(
+              onTap: widget.onTap,
+              focusNode: _focusNode,
+              borderRadius: WpRadius.borderMd,
+              // WpFocusRing owns all focus visuals — suppress InkWell's own.
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: WpFocusRing(
+                focusNode: _focusNode,
+                radius: WpRadius.md,
+                child: tile,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

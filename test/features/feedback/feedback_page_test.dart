@@ -546,4 +546,106 @@ void main() {
       expect(capturedUrl, kGitHubRepoUrl);
     });
   });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // The two pickers are real controls
+  //
+  // Both were bare `GestureDetector`s: two of this form's three inputs could
+  // not be reached, focused or operated without a mouse, on a page whose
+  // audience explicitly includes people with RSI. These tests pin the
+  // interaction contract so a later refactor cannot quietly drop it again.
+  // ───────────────────────────────────────────────────────────────────────
+  group('Feedback pickers', () {
+    // Own `setUpAll` rather than borrowing the widget group's: this group must
+    // pass when run on its own with `--plain-name`, not only in file order.
+    setUpAll(() async {
+      l10n = await L10n.delegate.load(const Locale('en'));
+    });
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    testWidgets(
+      'announce themselves once, as buttons, with a selection state',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _sentService()),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(find.text(l10n.feedbackCategoryBug)),
+          // The label is asserted verbatim on purpose: a `Semantics(label:)`
+          // over a subtree that renders the same text prepends rather than
+          // replaces, which used to make every chip say its own name twice.
+          isSemantics(
+            isButton: true,
+            label: l10n.feedbackCategoryBug,
+            hasTapAction: true,
+          ),
+        );
+
+        expect(
+          tester.getSemantics(find.text(l10n.feedbackRatingOkay)),
+          isSemantics(
+            isButton: true,
+            // One of five, and picking it unpicks the rest.
+            isInMutuallyExclusiveGroup: true,
+            // The emoji glyph is excluded, so the name is the word, not
+            // "slightly smiling face, Okay".
+            label: l10n.feedbackRatingOkay,
+            hasTapAction: true,
+          ),
+        );
+
+        handle.dispose();
+      },
+    );
+
+    testWidgets('can be operated from the keyboard alone', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> activateByKeyboard(String label) async {
+        final inkWell = tester.widget<InkWell>(
+          find
+              .ancestor(of: find.text(label), matching: find.byType(InkWell))
+              .first,
+        );
+        expect(
+          inkWell.focusNode,
+          isNotNull,
+          reason: '"$label" must own a focus node to be reachable by Tab',
+        );
+        inkWell.focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+      }
+
+      await activateByKeyboard(l10n.feedbackCategoryBug);
+      await activateByKeyboard(l10n.feedbackRatingLoveIt);
+
+      expect(
+        tester.getSemantics(find.text(l10n.feedbackCategoryBug)),
+        isSemantics(isSelected: true),
+      );
+      expect(
+        tester.getSemantics(find.text(l10n.feedbackRatingLoveIt)),
+        isSemantics(isSelected: true),
+      );
+
+      handle.dispose();
+    });
+  });
 }
