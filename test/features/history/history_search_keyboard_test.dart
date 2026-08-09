@@ -90,15 +90,18 @@ void main() {
       expect(field.controller!.text, 'lang:ro ');
     });
 
-    testWidgets('Tab accepts too', (tester) async {
+    testWidgets('Tab keeps moving focus instead of accepting', (tester) async {
       final field = await _openLangSuggestions(tester);
 
-      // Completing a token with Tab is what the key means in every shell this
-      // audience already works in.
+      // Shell-style Tab completion is deliberately not implemented: the search
+      // field is the entry point of the whole screen, and swallowing Tab while
+      // the list is open would remove the one key that carries focus onwards to
+      // the filter chips — a keyboard trap in place of a keyboard gap. Escape
+      // closes the list and hands Tab straight back.
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
 
-      expect(field.controller!.text, 'lang:de ');
+      expect(field.controller!.text, 'lang:');
     });
 
     testWidgets('Escape closes the list without discarding the query', (

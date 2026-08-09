@@ -192,9 +192,13 @@ class _HistorySearchFilterBarState
       return KeyEventResult.handled;
     }
 
-    // Tab accepts as well as Enter: completing a token mid-query is what the
-    // Tab key means in every shell these users already live in.
-    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.tab) {
+    // Enter only — deliberately not Tab, even though shell-style completion is
+    // tempting here. Consuming Tab while the list is open would take away the
+    // one key that moves focus out of the search field into the filter chips,
+    // i.e. it would trade a keyboard gap for a keyboard trap. Escape closes the
+    // list and hands Tab straight back. Matches settings_search_field.dart:120,
+    // which is also Enter-only.
+    if (key == LogicalKeyboardKey.enter) {
       if (_selectedIdx >= 0 && _selectedIdx < _suggestions.length) {
         _selectSuggestion(_suggestions[_selectedIdx]);
         return KeyEventResult.handled;
