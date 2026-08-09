@@ -8,6 +8,7 @@ import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/services/auto_updater_service.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/update_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -154,7 +155,11 @@ void main() {
   // app that promises you never have to reach for the mouse, and a doubled
   // announcement. Both are pinned here.
   group('About affordances are keyboard-reachable and named once', () {
-    testWidgets('the GitHub quick action is a focusable link, named once', (
+    // "Star on GitHub" is a WpButton since the page's four hand-built button
+    // dialects were folded into it. The name it announces is therefore the
+    // button's own label rather than a hand-written Semantics label — which is
+    // the same guarantee this test always made, one layer lower.
+    testWidgets('the GitHub support action is a focusable button, named once', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
@@ -164,15 +169,27 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final node = tester.getSemantics(
+        // Walking up from the caption lands on the button's own node: a
+        // WpButton merges its label into one node, so there is nothing in
+        // between to pick up by accident.
+        final node = tester.getSemantics(find.text(l10n.aboutStarOnGitHub));
+        expect(
           find.ancestor(
             of: find.text(l10n.aboutStarOnGitHub),
-            matching: find.byType(MergeSemantics),
+            matching: find.byType(WpButton),
           ),
+          findsOneWidget,
         );
 
         // Exactly the rendered caption — not "Star on GitHub\nStar on GitHub".
         expect(node.label, l10n.aboutStarOnGitHub);
+        expect(
+          node.getSemanticsData().flagsCollection.isButton,
+          isTrue,
+          reason:
+              'the four hand-built affordances announced as links; as '
+              'WpButtons they announce as buttons',
+        );
         // …and it can be reached and triggered without a pointer.
         expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
         expect(

@@ -26,8 +26,21 @@ import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 import '../settings/settings_widgets.dart' show HotkeyDisplay;
+import '../../widgets/wp_button.dart';
 import '../../widgets/wp_focus_ring.dart';
 import 'diagnostics_report.dart';
+
+/// Opens [url] in the system browser, silently doing nothing when the platform
+/// can't handle it.
+///
+/// Four call sites on this page used to inline the same two-line
+/// `canLaunchUrl`/`launchUrl` closure.
+Future<void> _launchUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
 
 /// About page — app info, version, open-source links, support, credits,
 /// keyboard shortcuts, privacy, and system diagnostics.
@@ -49,6 +62,14 @@ class AboutPage extends ConsumerWidget {
     final reviewSupportUrl = Platform.isWindows
         ? kWindowsStoreReviewUrl
         : kGitHubRepoUrl;
+    // Resolved up front, like `updates_section.dart` does for the same action:
+    // the button itself sits inside a collection-if and can't declare locals.
+    final (updateIcon, updateLabel) = resolveUpdateActionDisplay(
+      phase: updateState.phase,
+      channel: channel,
+      state: updateState,
+      l10n: l10n,
+    );
     return WpPageShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,41 +96,56 @@ class AboutPage extends ConsumerWidget {
           const SizedBox(height: WpSpacing.lg),
 
           // ── Quick actions ──
+          //
+          // Four peers in one row, so they share one look: the app's
+          // `secondary` button on the `neutral` tone. Neutral rather than the
+          // accent default because these sit directly under the brand hero and
+          // are wayfinding, not the thing the page asks you to do — the accent
+          // is spent one card further down, on Support.
           Wrap(
             spacing: WpSpacing.sm,
             runSpacing: WpSpacing.sm,
             alignment: WrapAlignment.center,
             children: [
-              _QuickAction(
-                icon: LucideIcons.sparkles,
+              WpButton(
                 label: l10n.aboutWhatsNew,
-                url: 'https://whispaste.de/changelog',
-                isDark: isDark,
+                variant: WpButtonVariant.secondary,
+                tone: WpButtonTone.neutral,
+                icon: LucideIcons.sparkles,
+                onPressed: () => _launchUrl('https://whispaste.de/changelog'),
               ),
-              _QuickAction(
-                icon: FontAwesomeIcons.github.data,
+              WpButton(
                 label: l10n.aboutGitHub,
-                url: kGitHubRepoUrl,
-                isDark: isDark,
+                variant: WpButtonVariant.secondary,
+                tone: WpButtonTone.neutral,
+                icon: FontAwesomeIcons.github.data,
+                onPressed: () => _launchUrl(kGitHubRepoUrl),
               ),
-              _QuickAction(
-                icon: LucideIcons.circleAlert,
+              WpButton(
                 label: l10n.aboutReportIssue,
-                url: '$kGitHubRepoUrl/issues',
-                isDark: isDark,
+                variant: WpButtonVariant.secondary,
+                tone: WpButtonTone.neutral,
+                icon: LucideIcons.circleAlert,
+                onPressed: () => _launchUrl('$kGitHubRepoUrl/issues'),
               ),
               if (!isExternallyManaged(channel))
-                // loam-ignore: a11y-interactive-semantics – semantics provided in _UpdateCheckAction.build
-                _UpdateCheckAction(
-                  updateState: updateState,
-                  channel: channel,
-                  isDark: isDark,
-                  l10n: l10n,
-                  onTap: () => triggerUpdateAction(
-                    ref: ref,
-                    updateState: updateState,
-                    channel: channel,
-                  ),
+                WpButton(
+                  label: updateLabel,
+                  variant: WpButtonVariant.secondary,
+                  tone: WpButtonTone.neutral,
+                  icon: updateIcon,
+                  // The spinner takes the icon's slot rather than a slot of
+                  // its own, so the button doesn't jump width while it works.
+                  isLoading: updateState.isBusy,
+                  // `isLoading` already disables, but spelling the null out
+                  // keeps "busy means unpressable" readable at the call site.
+                  onPressed: updateState.isBusy
+                      ? null
+                      : () => triggerUpdateAction(
+                          ref: ref,
+                          updateState: updateState,
+                          channel: channel,
+                        ),
                 ),
             ],
           ),
@@ -131,33 +167,37 @@ class AboutPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: WpSpacing.md),
+              // The one place on this page that keeps the accent tone: these
+              // four are the ask. Same `secondary` box as the quick actions —
+              // the hierarchy is carried by the label/icon colour, since the
+              // outline is `borderSubtle` on both tones.
               Wrap(
                 spacing: WpSpacing.sm,
                 runSpacing: WpSpacing.sm,
                 children: [
-                  _SupportButton(
-                    icon: LucideIcons.star,
+                  WpButton(
                     label: l10n.reviewSupportEntry,
-                    url: reviewSupportUrl,
-                    isDark: isDark,
-                  ),
-                  _SupportButton(
-                    icon: LucideIcons.heart,
-                    label: l10n.aboutGitHubSponsors,
-                    url: kGitHubSponsorsUrl,
-                    isDark: isDark,
-                  ),
-                  _SupportButton(
-                    icon: FontAwesomeIcons.mugHot.data,
-                    label: l10n.aboutKofi,
-                    url: kKofiUrl,
-                    isDark: isDark,
-                  ),
-                  _SupportButton(
+                    variant: WpButtonVariant.secondary,
                     icon: LucideIcons.star,
+                    onPressed: () => _launchUrl(reviewSupportUrl),
+                  ),
+                  WpButton(
+                    label: l10n.aboutGitHubSponsors,
+                    variant: WpButtonVariant.secondary,
+                    icon: LucideIcons.heart,
+                    onPressed: () => _launchUrl(kGitHubSponsorsUrl),
+                  ),
+                  WpButton(
+                    label: l10n.aboutKofi,
+                    variant: WpButtonVariant.secondary,
+                    icon: FontAwesomeIcons.mugHot.data,
+                    onPressed: () => _launchUrl(kKofiUrl),
+                  ),
+                  WpButton(
                     label: l10n.aboutStarOnGitHub,
-                    url: kGitHubRepoUrl,
-                    isDark: isDark,
+                    variant: WpButtonVariant.secondary,
+                    icon: LucideIcons.star,
+                    onPressed: () => _launchUrl(kGitHubRepoUrl),
                   ),
                 ],
               ),
@@ -306,9 +346,9 @@ class AboutPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: WpSpacing.sm),
-              Align(
+              const Align(
                 alignment: Alignment.centerLeft,
-                child: _CopyDiagnosticsButton(isDark: isDark),
+                child: _CopyDiagnosticsButton(),
               ),
             ],
           ),
@@ -405,31 +445,29 @@ class _AboutCard extends StatelessWidget {
 /// *prepended*, not substituted, so every one of them announced twice
 /// (`_LinkRow` announced four fragments). Hence the house idiom from
 /// `section.dart`/`wp_filter_chip.dart`: [MergeSemantics] plus a *label-less*
-/// [Semantics], letting the visible text be the accessible name. That also
-/// keeps state honest for free — the copy button's label flips to "Kopiert!"
-/// in the semantics tree because the rendered text is the name.
+/// [Semantics], letting the visible text be the accessible name — `_LinkRow`
+/// now announces its label and its URL as one sentence rather than four
+/// fragments.
 ///
-/// `button`/`link` follow `onTap`, so a disabled affordance (update check
-/// while busy) stops advertising itself as pressable instead of lying.
+/// `button`/`link` still follow `onTap` rather than being hardcoded, even
+/// though neither remaining caller can be disabled today — `_SponsorChip`
+/// returns its bare chip when the sponsor has no URL and never wraps at all.
 ///
-/// Deliberately *not* a restyle: ink and hover are transparent here, each
-/// caller keeps painting its own surface. Routing these four dialects through
-/// [WpButton] is the right end state but changes how the page looks, so it
-/// needs maintainer sign-off — see the audit befund.
+/// Scope note: this is what remains after the page's four *button* dialects
+/// (quick action, update check, support, copy diagnostics) moved to
+/// [WpButton]. It survives for the two affordances that are not buttons —
+/// `_SponsorChip` and `_LinkRow`, each a full-width or free-form row that
+/// paints its own surface — and it is deliberately *not* a restyle: ink and
+/// hover are transparent here, the caller owns the look.
 class _AboutTapTarget extends StatefulWidget {
   const _AboutTapTarget({
     required this.child,
     required this.onTap,
-    this.radius = WpRadius.sm,
     this.isLink = false,
   });
 
   final Widget child;
   final VoidCallback? onTap;
-
-  /// Focus-ring corner radius. Pill-shaped callers pass [WpRadius.lg] rather
-  /// than [WpRadius.full] — same choice `WpFilterChip` makes for its pill.
-  final double radius;
 
   /// Announce as a link instead of a button (opens a URL in the browser).
   final bool isLink;
@@ -439,6 +477,8 @@ class _AboutTapTarget extends StatefulWidget {
 }
 
 class _AboutTapTargetState extends State<_AboutTapTarget> {
+  static const double _radius = WpRadius.sm;
+
   final _focusNode = FocusNode(debugLabel: 'AboutTapTarget');
 
   @override
@@ -456,279 +496,20 @@ class _AboutTapTargetState extends State<_AboutTapTarget> {
         link: enabled && widget.isLink,
         child: WpFocusRing(
           focusNode: _focusNode,
-          radius: widget.radius,
+          // Both remaining callers paint a `WpRadius.sm` corner, so the ring
+          // reads it from here rather than from a parameter nobody varies —
+          // the pill-shaped callers that needed `WpRadius.lg` are now WpButtons.
+          radius: _radius,
           child: InkWell(
             onTap: widget.onTap,
             focusNode: _focusNode,
-            borderRadius: BorderRadius.circular(widget.radius),
+            borderRadius: BorderRadius.circular(_radius),
             // WpFocusRing owns all focus visuals; callers own their surface.
             focusColor: Colors.transparent,
             hoverColor: Colors.transparent,
             splashColor: Colors.transparent,
             highlightColor: Colors.transparent,
             child: widget.child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Quick action pill ───────────────────────────────────────────────────────
-
-class _QuickAction extends StatefulWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.url,
-    required this.isDark,
-  });
-  final IconData icon;
-  final String label;
-  final String url;
-  final bool isDark;
-
-  @override
-  State<_QuickAction> createState() => _QuickActionState();
-}
-
-class _QuickActionState extends State<_QuickAction> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
-    return _AboutTapTarget(
-      radius: WpRadius.lg,
-      isLink: true,
-      onTap: () async {
-        final uri = Uri.parse(widget.url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      },
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(
-            context,
-            _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : (widget.isDark
-                      ? WpColorsDark.surfaceVariant
-                      : WpColorsLight.surfaceVariant),
-            borderRadius: WpRadius.borderFull,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                widget.icon,
-                size: WpIconSize.sm,
-                color: widget.isDark
-                    ? WpColorsDark.accent
-                    : WpColorsLight.accent,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w500,
-                  color: widget.isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Update check action ────────────────────────────────────────────────────
-
-class _UpdateCheckAction extends StatefulWidget {
-  const _UpdateCheckAction({
-    required this.updateState,
-    required this.channel,
-    required this.isDark,
-    required this.l10n,
-    required this.onTap,
-  });
-  final UpdateState updateState;
-  final DeployChannel channel;
-  final bool isDark;
-  final L10n l10n;
-  final VoidCallback onTap;
-
-  @override
-  State<_UpdateCheckAction> createState() => _UpdateCheckActionState();
-}
-
-class _UpdateCheckActionState extends State<_UpdateCheckAction> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final (IconData icon, String label) = _resolveDisplay();
-
-    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
-    return _AboutTapTarget(
-      radius: WpRadius.lg,
-      // Null while busy, so the semantics tree stops calling it a button for
-      // as long as pressing it does nothing.
-      onTap: widget.updateState.isBusy ? null : widget.onTap,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(
-            context,
-            _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : (widget.isDark
-                      ? WpColorsDark.surfaceVariant
-                      : WpColorsLight.surfaceVariant),
-            borderRadius: WpRadius.borderFull,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.updateState.isBusy)
-                SizedBox(
-                  width: WpIconSize.sm,
-                  height: WpIconSize.sm,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: widget.isDark
-                        ? WpColorsDark.accent
-                        : WpColorsLight.accent,
-                  ),
-                )
-              else
-                Icon(
-                  icon,
-                  size: WpIconSize.sm,
-                  color: widget.isDark
-                      ? WpColorsDark.accent
-                      : WpColorsLight.accent,
-                ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w500,
-                  color: widget.isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  (IconData, String) _resolveDisplay() => resolveUpdateActionDisplay(
-    phase: widget.updateState.phase,
-    channel: widget.channel,
-    state: widget.updateState,
-    l10n: widget.l10n,
-  );
-}
-
-// ─── Support button ──────────────────────────────────────────────────────────
-
-class _SupportButton extends StatefulWidget {
-  const _SupportButton({
-    required this.icon,
-    required this.label,
-    required this.url,
-    required this.isDark,
-  });
-  final IconData icon;
-  final String label;
-  final String url;
-  final bool isDark;
-
-  @override
-  State<_SupportButton> createState() => _SupportButtonState();
-}
-
-class _SupportButtonState extends State<_SupportButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final accentColor = widget.isDark
-        ? WpColorsDark.accent
-        : WpColorsLight.accent;
-    final accentBadgeFill = widget.isDark
-        ? WpColorsDark.accentBadgeFill
-        : WpColorsLight.accentBadgeFill;
-    final accentButtonFill = widget.isDark
-        ? WpColorsDark.accentButtonFill
-        : WpColorsLight.accentButtonFill;
-
-    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
-    return _AboutTapTarget(
-      isLink: true,
-      onTap: () async {
-        final uri = Uri.parse(widget.url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      },
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(
-            context,
-            _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: _hovered ? accentBadgeFill : accentButtonFill,
-            borderRadius: WpRadius.borderSm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, size: WpIconSize.sm, color: accentColor),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: accentColor,
-                ),
-              ),
-            ],
           ),
         ),
       ),
@@ -776,12 +557,7 @@ class _SponsorChip extends StatelessWidget {
     // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
     return _AboutTapTarget(
       isLink: true,
-      onTap: () async {
-        final uri = Uri.parse(url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      },
+      onTap: () => _launchUrl(url),
       child: chip,
     );
   }
@@ -959,13 +735,6 @@ class _LinkRow extends StatefulWidget {
 class _LinkRowState extends State<_LinkRow> {
   bool _isHovered = false;
 
-  Future<void> _launch() async {
-    final uri = Uri.parse(widget.url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // The old `label: '$label: $displayUrl'` sat above a subtree that renders
@@ -974,7 +743,7 @@ class _LinkRowState extends State<_LinkRow> {
     // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
     return _AboutTapTarget(
       isLink: true,
-      onTap: _launch,
+      onTap: () => _launchUrl(widget.url),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -1043,8 +812,7 @@ class _LinkRowState extends State<_LinkRow> {
 // ─── Copy diagnostics button ─────────────────────────────────────────────────
 
 class _CopyDiagnosticsButton extends ConsumerStatefulWidget {
-  const _CopyDiagnosticsButton({required this.isDark});
-  final bool isDark;
+  const _CopyDiagnosticsButton();
 
   @override
   ConsumerState<_CopyDiagnosticsButton> createState() =>
@@ -1113,68 +881,23 @@ class _CopyDiagnosticsButtonState
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    // No `label:` — the rendered text is the accessible name, so the "Kopiert!"
-    // confirmation now reaches a screen reader too. The hardcoded label used to
-    // pin the announcement to "Debug-Infos kopieren" forever, which meant the
-    // one bit of feedback this button gives was sighted-users-only.
-    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
-    return _AboutTapTarget(
-      onTap: _copy,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: widget.isDark
-              ? WpColorsDark.surfaceVariant
-              : WpColorsLight.surfaceVariant,
-          borderRadius: WpRadius.borderSm,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_busy)
-              SizedBox(
-                width: WpIconSize.sm,
-                height: WpIconSize.sm,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: widget.isDark
-                      ? WpColorsDark.textSecondary
-                      : WpColorsLight.textSecondary,
-                ),
-              )
-            else
-              Icon(
-                _copied ? LucideIcons.checkCheck : LucideIcons.copy,
-                size: WpIconSize.sm,
-                color: _copied
-                    ? (widget.isDark
-                          ? WpColorsDark.success
-                          : WpColorsLight.success)
-                    : (widget.isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary),
-              ),
-            const SizedBox(width: WpSpacing.xs),
-            Text(
-              _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                fontWeight: FontWeight.w500,
-                color: _copied
-                    ? (widget.isDark
-                          ? WpColorsDark.success
-                          : WpColorsLight.success)
-                    : (widget.isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary),
-              ),
-            ),
-          ],
-        ),
-      ),
+    // Label and icon carry the confirmation, and because the label *is* the
+    // accessible name a screen reader hears "Kopiert!" too — the hardcoded
+    // `Semantics(label:)` this button used to sit under pinned the
+    // announcement to "Debug-Infos kopieren" forever.
+    //
+    // What the swap to WpButton costs: the success *green*. The button's tones
+    // are accent/neutral/danger, and there is no success among them — adding
+    // one for a single call site would put a fourth meaning into a shared
+    // component to tint two seconds of feedback. The check-check glyph plus the
+    // changed word carry the same message without it.
+    return WpButton(
+      label: _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,
+      variant: WpButtonVariant.secondary,
+      tone: WpButtonTone.neutral,
+      icon: _copied ? LucideIcons.checkCheck : LucideIcons.copy,
+      isLoading: _busy,
+      onPressed: _copy,
     );
   }
 }
