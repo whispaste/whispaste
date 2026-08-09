@@ -830,7 +830,7 @@ abstract final class OverlayDesignSpec {
   /// glassmorphism analyses): without a compositor blur the FILL cannot carry
   /// the glass identity — it only tints; the identity moves to the highlight
   /// layer (Fresnel rim light, inner edge band, specular top streak — see the
-  /// glass constants below). Cross-platform (pure Dart in [OverlayPainter],
+  /// glass constants below). Cross-platform (pure Dart in [WpOverlayPainter],
   /// identical on macOS/Windows/Linux); no OS-level blur is used.
   ///
   /// Trade-off, explicitly sanctioned: below the old text-safety product
@@ -844,7 +844,7 @@ abstract final class OverlayDesignSpec {
   /// (accessibility, ADR 0002).
   /// (0.35 → 0.22 → 0.14 across the Dock-glass rounds, 2026-07-29 —
   /// together with the shadow knock-out under the capsule, see
-  /// [OverlayPainter], the pill now reads as a bare glass body. The content
+  /// [WpOverlayPainter], the pill now reads as a bare glass body. The content
   /// no longer depends on the fill at all: every dark-ink glyph became a
   /// white glyph with a dark outline — see [contentGlyphFill].)
   static const double fillOpacityFactor = 0.14;
@@ -1010,7 +1010,7 @@ abstract final class OverlayDesignSpec {
   static const double liquidWobbleBaseAmplitudePx = 1.2;
 
   /// Additional ripple amplitude at full audio level (own, finer waveform —
-  /// see [OverlayPainter]).
+  /// see [WpOverlayPainter]).
   static const double liquidWobbleAudioAmplitudePx = 2.4;
 
   /// Number of perimeter sample points (Catmull-Rom smoothed).
@@ -1431,7 +1431,7 @@ abstract final class OverlayDesignSpec {
   ///
   /// Convenience wrapper: `sizeSpec.width × pillWidthRatio(state)` (mini:
   /// [miniPillWidthRatio]). Callers pass this directly as `pillWidth` to
-  /// [OverlayPainter].
+  /// [WpOverlayPainter].
   static double pillWidthFor(
     OverlayDesignState state,
     OverlaySizeSpec sizeSpec,
@@ -1446,7 +1446,7 @@ abstract final class OverlayDesignSpec {
   /// macOS). Clamped to [sizeSpec.width] (the `recording`-state/full width,
   /// which is also what [windowSize] sizes the native host window to) so the
   /// pill never exceeds the space the native shell actually reserves —
-  /// pathologically long text still falls back to [OverlayPainter]'s
+  /// pathologically long text still falls back to [WpOverlayPainter]'s
   /// ellipsis at that point.
   static double pillWidthForText(
     OverlayDesignState state,
@@ -1458,7 +1458,7 @@ abstract final class OverlayDesignSpec {
     // Mini renders no status text — nothing to grow for.
     if (sizeSpec.minimalContent) return baseWidth;
     if (text.isEmpty) return baseWidth;
-    // Mirrors OverlayPainter._drawContent's textLeft/maxTextWidth geometry:
+    // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry:
     // textLeft sits at padH + dotInset + timerGap from the pill's left edge,
     // and padH is reserved again on the right — solved for the pill width
     // that gives the measured text exactly enough room.
@@ -1469,7 +1469,7 @@ abstract final class OverlayDesignSpec {
   }
 
   /// Natural (untruncated) single-line width of [text] at [fontSize], using
-  /// the same style [OverlayPainter._drawText] paints status/done/error text
+  /// the same style [WpOverlayPainter._drawText] paints status/done/error text
   /// with (weight + tabular figures both affect layout width).
   static double _measureTextWidth(String text, double fontSize) {
     final tp = TextPainter(

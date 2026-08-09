@@ -5,7 +5,7 @@
 /// It does **not** import [AppSettings], [settingsProvider], or any Drift type.
 ///
 /// The only way settings are updated is via the [onModelSelected] callback,
-/// which the parent (e.g. [SttModelManager]) supplies.
+/// which the parent (e.g. [WpSttModelManager]) supplies.
 library;
 
 import 'package:flutter/material.dart';
@@ -171,7 +171,7 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
 
 // ---------------------------------------------------------------------------
 // Tier row — shows quality tier with icon, description, status, actions.
-// (Identical to the private _TierRow in model_download_card.dart — extracted
+// (Identical to the private _TierRow in wp_stt_model_manager.dart — extracted
 // here so SttModelSelector carries its own rendering logic.)
 // ---------------------------------------------------------------------------
 
@@ -267,13 +267,15 @@ class _TierRowState extends State<_TierRow> {
     // Performance info is only shown on the current tier
     final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
     final infoMessage = showPerformanceInfo
-        ? TierPerformancePresentation.message(
+        ? WpTierPerformancePresentation.message(
             l10n: widget.l10n,
             tier: widget.tier,
             performance: widget.performance,
           )
         : null;
-    final infoColor = TierPerformancePresentation.color(isDark: widget.isDark);
+    final infoColor = WpTierPerformancePresentation.color(
+      isDark: widget.isDark,
+    );
 
     final bool isSelectable =
         widget.onSelect != null && (!widget.isCurrentTier || !_isDownloaded);
@@ -591,7 +593,7 @@ class _TierRowInfo extends StatelessWidget {
           Row(
             children: [
               Icon(
-                TierPerformancePresentation.icon(performance),
+                WpTierPerformancePresentation.icon(performance),
                 size: WpIconSize.xs,
                 color: infoColor,
               ),

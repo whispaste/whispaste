@@ -23,7 +23,7 @@ import '../../../services/stt/stt_bundle.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
-import '../../../widgets/model_download_card.dart';
+import '../../../widgets/wp_stt_model_manager.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
@@ -173,7 +173,7 @@ class _SpeechRecognitionSectionState
             if (settings.onDeviceEngine == OnDeviceEngine.parakeet)
               _ParakeetModelRow(l10n: l10n)
             else
-              const SttModelManager(),
+              const WpSttModelManager(),
             const SizedBox(height: WpSpacing.xs),
             // Re-run benchmark button — whisper only (Parakeet has no tiers
             // to benchmark yet, see plan risk #1 in the PRD chapter above).

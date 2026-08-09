@@ -4,8 +4,8 @@
 /// Linux GTK) through the production `FloatingOverlayController` /
 /// `FloatingButtonController`, feeding them a fixed recording-style snapshot.
 /// The native shell lazily creates its always-on-top window and boots the
-/// second Flutter engine that paints the shared `FloatingOverlayView` /
-/// `FloatingButtonView` (ADR 0002). This shows the genuine on-desktop overlay
+/// second Flutter engine that paints the shared `WpFloatingOverlayView` /
+/// `WpFloatingButtonView` (ADR 0002). This shows the genuine on-desktop overlay
 /// and button — the real integration — WITHOUT the mic/Whisper recording
 /// pipeline, so it can be screenshot deterministically on every OS.
 ///

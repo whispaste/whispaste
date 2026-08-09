@@ -2,7 +2,7 @@
 ///
 /// Covers:
 ///  - AC1: the painter is sourced **only** from [OverlayDesignSpec] — colours,
-///    size and layout wired by [FloatingOverlayView.painterFor]
+///    size and layout wired by [WpFloatingOverlayView.painterFor]
 ///    equal the spec values, never a platform-local constant.
 ///  - Spike fidelity: the painter consumes the approved capsule/tint/layout
 ///    tokens (capsule radius, tint-gradient fill stops, accent dot, spike
@@ -42,18 +42,18 @@ FloatingOverlaySnapshot _snap(
 }
 
 void main() {
-  group('FloatingOverlayView.painterFor — spec sourcing (AC1)', () {
+  group('WpFloatingOverlayView.painterFor — spec sourcing (AC1)', () {
     test('theme mapping comes from the spec', () {
-      expect(FloatingOverlayView.themeFor(true), OverlayDesignTheme.dark);
-      expect(FloatingOverlayView.themeFor(false), OverlayDesignTheme.light);
+      expect(WpFloatingOverlayView.themeFor(true), OverlayDesignTheme.dark);
+      expect(WpFloatingOverlayView.themeFor(false), OverlayDesignTheme.light);
     });
 
     test('design-state mapping covers every visual state', () {
       for (final s in OverlayVisualState.values) {
-        expect(() => FloatingOverlayView.designStateFor(s), returnsNormally);
+        expect(() => WpFloatingOverlayView.designStateFor(s), returnsNormally);
       }
       expect(
-        FloatingOverlayView.designStateFor(OverlayVisualState.transcribing),
+        WpFloatingOverlayView.designStateFor(OverlayVisualState.transcribing),
         OverlayDesignState.transcribing,
       );
     });
@@ -61,7 +61,7 @@ void main() {
     test('colours, size and layout are taken from OverlayDesignSpec', () {
       for (final isDark in [true, false]) {
         for (final size in OverlaySizeVariant.values) {
-          final painter = FloatingOverlayView.painterFor(
+          final painter = WpFloatingOverlayView.painterFor(
             snapshot: _snap(
               OverlayVisualState.recording,
               isDark: isDark,
@@ -88,11 +88,11 @@ void main() {
         OverlayDesignSpec.waveform.barCount,
         0.5,
       );
-      final recording = FloatingOverlayView.painterFor(
+      final recording = WpFloatingOverlayView.painterFor(
         snapshot: _snap(OverlayVisualState.recording, isDark: true),
         waveformBars: bars,
       );
-      final done = FloatingOverlayView.painterFor(
+      final done = WpFloatingOverlayView.painterFor(
         snapshot: _snap(OverlayVisualState.done, isDark: true),
         waveformBars: bars,
       );
@@ -267,7 +267,7 @@ void main() {
     );
   });
 
-  group('OverlayPainter — pillWidth parameter', () {
+  group('WpOverlayPainter — pillWidth parameter', () {
     test('shouldRepaint detects pillWidth change', () {
       const snap = FloatingOverlaySnapshot(
         visible: true,
@@ -277,15 +277,15 @@ void main() {
         elapsed: '0:05',
         progress: 0.1,
       );
-      final p330 = FloatingOverlayView.painterFor(
+      final p330 = WpFloatingOverlayView.painterFor(
         snapshot: snap,
         pillWidth: 330.0,
       );
-      final p200 = FloatingOverlayView.painterFor(
+      final p200 = WpFloatingOverlayView.painterFor(
         snapshot: snap,
         pillWidth: 200.0,
       );
-      final p330b = FloatingOverlayView.painterFor(
+      final p330b = WpFloatingOverlayView.painterFor(
         snapshot: snap,
         pillWidth: 330.0,
       );
@@ -307,7 +307,7 @@ void main() {
       );
     });
 
-    test('pillWidth field is forwarded to OverlayPainter', () {
+    test('pillWidth field is forwarded to WpOverlayPainter', () {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.transcribing,
@@ -316,7 +316,7 @@ void main() {
         elapsed: '',
         progress: 0.0,
       );
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: snap,
         pillWidth: 250.0,
       );
@@ -332,14 +332,14 @@ void main() {
         elapsed: '0:01',
         progress: 0.0,
       );
-      final painter = FloatingOverlayView.painterFor(snapshot: snap);
+      final painter = WpFloatingOverlayView.painterFor(snapshot: snap);
       expect(painter.pillWidth, isNull);
     });
   });
 
-  group('OverlayPainter — mini (waveform-first) wiring', () {
+  group('WpOverlayPainter — mini (waveform-first) wiring', () {
     test('painterFor resolves the mini spec + layout from the snapshot', () {
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
           isDark: false,
@@ -380,7 +380,7 @@ void main() {
     });
   });
 
-  group('FloatingOverlayView — paints every state/theme/size (AC2)', () {
+  group('WpFloatingOverlayView — paints every state/theme/size (AC2)', () {
     for (final state in OverlayVisualState.values) {
       for (final isDark in [true, false]) {
         for (final size in OverlaySizeVariant.values) {
@@ -394,7 +394,7 @@ void main() {
               Directionality(
                 textDirection: TextDirection.ltr,
                 child: Center(
-                  child: FloatingOverlayView(
+                  child: WpFloatingOverlayView(
                     snapshot: _snap(state, isDark: isDark, size: size),
                     waveformBars: bars,
                   ),

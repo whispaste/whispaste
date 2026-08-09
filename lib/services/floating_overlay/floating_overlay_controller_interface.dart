@@ -78,7 +78,7 @@ class FloatingOverlaySnapshot {
   /// Used by the in-process overlay render engine (ADR 0002 phase 2): the
   /// native shell relays the main engine's [toMap] payload to the dedicated
   /// overlay Flutter engine, which deserialises it here before feeding
-  /// [FloatingOverlayView]. Unknown/absent `state` falls back to
+  /// [WpFloatingOverlayView]. Unknown/absent `state` falls back to
   /// [OverlayVisualState.recording] so a malformed relay never crashes the
   /// render isolate.
   factory FloatingOverlaySnapshot.fromMap(Map<dynamic, dynamic> map) {

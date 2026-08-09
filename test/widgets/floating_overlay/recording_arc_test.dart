@@ -7,7 +7,7 @@
 ///  - AC4: Anti-goals — no glow in spec; arc motion limited to appear +
 ///    state-crossfade (no scattered/decorative effects).
 ///  - AC6: Reduced-motion respected — dot pulse stops, spring is instant when
-///    MediaQuery.disableAnimations is true; gates in FloatingOverlayView.
+///    MediaQuery.disableAnimations is true; gates in WpFloatingOverlayView.
 ///
 /// AC3 (litmus "five dictated sentences") and AC5 (HITL feel + vibrancy
 /// sign-off) are human acceptance gates performed AFTER this build.
@@ -74,7 +74,7 @@ void main() {
           );
           await tester.pumpWidget(
             _wrap(
-              FloatingOverlayView(
+              WpFloatingOverlayView(
                 snapshot: _snap(
                   state,
                   size: size,
@@ -105,7 +105,7 @@ void main() {
         0.7,
       );
       for (final state in OverlayVisualState.values) {
-        final painter = FloatingOverlayView.painterFor(
+        final painter = WpFloatingOverlayView.painterFor(
           snapshot: _snap(state, elapsed: '0:12', progress: 0.1),
           waveformBars: bars,
         );
@@ -129,7 +129,7 @@ void main() {
       'done state with paste-confirmation doneMessage flows to statusText',
       () {
         const pasteMsg = 'Eingefügt!';
-        final painter = FloatingOverlayView.painterFor(
+        final painter = WpFloatingOverlayView.painterFor(
           snapshot: _snap(OverlayVisualState.done, doneMessage: pasteMsg),
         );
         expect(painter.statusText, pasteMsg);
@@ -157,7 +157,7 @@ void main() {
 
       for (final snap in [standby, recording, transcribing, done]) {
         expect(
-          () => FloatingOverlayView.painterFor(snapshot: snap),
+          () => WpFloatingOverlayView.painterFor(snapshot: snap),
           returnsNormally,
         );
       }
@@ -172,7 +172,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.recording, visible: false),
           ),
         ),
@@ -188,7 +188,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: true),
             ),
           ),
@@ -205,7 +205,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: false),
             ),
           ),
@@ -214,7 +214,7 @@ void main() {
         // Flip visible → triggers spring-in animation.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(
                 OverlayVisualState.recording,
                 visible: true,
@@ -243,7 +243,7 @@ void main() {
       '(regression — overlay was invisible on every recording after the first)',
       (tester) async {
         Widget view(bool visible) => _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(
               OverlayVisualState.recording,
               visible: visible,
@@ -285,14 +285,14 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.recording, visible: false),
           ),
         ),
       );
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.recording, visible: true),
           ),
         ),
@@ -492,7 +492,7 @@ void main() {
       // Mount with recording visible and let appear settle.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(
               OverlayVisualState.recording,
               visible: true,
@@ -509,7 +509,7 @@ void main() {
       // Transition to transcribing (visible → visible state change).
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.transcribing, visible: true),
           ),
         ),
@@ -541,15 +541,15 @@ void main() {
     });
 
     test(
-      '(b) OverlayPainter paintFill/paintContent flags affect shouldRepaint',
+      '(b) WpOverlayPainter paintFill/paintContent flags affect shouldRepaint',
       () {
         final snap = _snap(OverlayVisualState.recording, visible: true);
-        final base = FloatingOverlayView.painterFor(snapshot: snap);
-        final fillOnly = FloatingOverlayView.painterFor(
+        final base = WpFloatingOverlayView.painterFor(snapshot: snap);
+        final fillOnly = WpFloatingOverlayView.painterFor(
           snapshot: snap,
           paintContent: false,
         );
-        final contentOnly = FloatingOverlayView.painterFor(
+        final contentOnly = WpFloatingOverlayView.painterFor(
           snapshot: snap,
           paintFill: false,
         );
@@ -580,7 +580,7 @@ void main() {
         // Mount recording visible under reduced-motion.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(
                 OverlayVisualState.recording,
                 visible: true,
@@ -595,7 +595,7 @@ void main() {
         // Transition to transcribing.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.transcribing, visible: true),
             ),
             disableAnimations: true,
@@ -625,7 +625,7 @@ void main() {
         // Start hidden.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: false),
             ),
             disableAnimations: true,
@@ -635,7 +635,7 @@ void main() {
         // Flip to visible.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(
                 OverlayVisualState.recording,
                 visible: true,
@@ -664,7 +664,7 @@ void main() {
         await tester.pumpWidget(
           _wrap(
             // animate: true would normally start the repeating pulse.
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: true),
               animate: true,
             ),
@@ -684,7 +684,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: true),
               animate: true,
             ),
@@ -709,7 +709,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: false),
             ),
             disableAnimations: true,
@@ -717,7 +717,7 @@ void main() {
         );
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(OverlayVisualState.recording, visible: true),
             ),
             disableAnimations: true,
@@ -756,7 +756,7 @@ void main() {
       // Mount recording state, visible, reduced-motion.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(
               OverlayVisualState.recording,
               visible: true,
@@ -772,7 +772,7 @@ void main() {
       // Transition to done — under reduced-motion the spring must not start.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(
               OverlayVisualState.done,
               visible: true,
@@ -803,7 +803,7 @@ void main() {
         // Mount recording visible — appear settles to 1.0.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(
                 OverlayVisualState.recording,
                 visible: true,
@@ -821,7 +821,7 @@ void main() {
         // Transition to done — spring should start.
         await tester.pumpWidget(
           _wrap(
-            FloatingOverlayView(
+            WpFloatingOverlayView(
               snapshot: _snap(
                 OverlayVisualState.done,
                 visible: true,
@@ -854,7 +854,7 @@ void main() {
         '(interruption test)', (tester) async {
       Future<void> push(OverlayVisualState s) async {
         await tester.pumpWidget(
-          _wrap(FloatingOverlayView(snapshot: _snap(s, visible: true))),
+          _wrap(WpFloatingOverlayView(snapshot: _snap(s, visible: true))),
         );
         await tester.pump(const Duration(milliseconds: 30));
       }
@@ -884,7 +884,7 @@ void main() {
       final painters = tester
           .widgetList<CustomPaint>(find.byType(CustomPaint))
           .map((w) => w.painter)
-          .whereType<OverlayPainter>()
+          .whereType<WpOverlayPainter>()
           .toList();
       // Steady state renders exactly one painter; during a crossfade there are
       // three. We only assert in steady state.
@@ -916,7 +916,7 @@ void main() {
       // Episode 1: recording visible — pill at full recording width.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.recording, visible: true),
           ),
         ),
@@ -927,7 +927,7 @@ void main() {
       // recording → done: pill springs to the narrow done width.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(
               OverlayVisualState.done,
               visible: true,
@@ -947,7 +947,7 @@ void main() {
       // so the next show is NOT a state change — reproduce that exactly.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.recording, visible: false),
           ),
         ),
@@ -957,7 +957,7 @@ void main() {
       // Episode 2: re-show recording — pill MUST be back to full width.
       await tester.pumpWidget(
         _wrap(
-          FloatingOverlayView(
+          WpFloatingOverlayView(
             snapshot: _snap(OverlayVisualState.recording, visible: true),
           ),
         ),

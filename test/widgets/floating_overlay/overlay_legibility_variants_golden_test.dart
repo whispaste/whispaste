@@ -58,7 +58,7 @@ Widget _frame({
         padding: const EdgeInsets.all(12),
         child: CustomPaint(
           size: windowSize,
-          painter: FloatingOverlayView.painterFor(
+          painter: WpFloatingOverlayView.painterFor(
             snapshot: snapshot,
             waveformBars: bars,
             dotPulse: 1.0,

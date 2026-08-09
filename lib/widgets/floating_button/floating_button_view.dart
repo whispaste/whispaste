@@ -5,7 +5,7 @@
 /// lifecycle-only hosts for this widget (the native conversion is issue 08b,
 /// hardware-in-the-loop). It takes the button's [FloatingButtonVisualState],
 /// the resolved dark flag, the settings-owned disc diameter and the master
-/// opacity, then feeds the shared [FloatingButtonPainter] that reproduces the
+/// opacity, then feeds the shared [WpFloatingButtonPainter] that reproduces the
 /// approved spike V2 button (white disc, dark mic, hairline border — no glow).
 ///
 /// ## Native window sizing
@@ -25,8 +25,8 @@ import '../../core/theme/overlay_design_spec.dart';
 import '../../services/floating_button/floating_button_controller_interface.dart';
 import 'floating_button_painter.dart';
 
-/// Hosts the shared [FloatingButtonPainter].
-class FloatingButtonView extends StatelessWidget {
+/// Hosts the shared [WpFloatingButtonPainter].
+class WpFloatingButtonView extends StatelessWidget {
   /// Creates the button view.
   ///
   /// There is deliberately no `isDark` parameter: the V2 disc (white disc, dark
@@ -34,7 +34,7 @@ class FloatingButtonView extends StatelessWidget {
   /// light. The dark-mode sync the issue asks for lives one layer up — the
   /// service resolves `isDark` via the shared `resolveFloatingSurfaceIsDark`
   /// (same path as the overlay) and forwards it to the native shell.
-  const FloatingButtonView({
+  const WpFloatingButtonView({
     super.key,
     required this.state,
     this.diameter = 56,
@@ -66,16 +66,16 @@ class FloatingButtonView extends StatelessWidget {
     return OverlayDesignSpec.stateGradients[design]?.stops;
   }
 
-  /// Builds the spec-sourced [FloatingButtonPainter] for the given inputs.
+  /// Builds the spec-sourced [WpFloatingButtonPainter] for the given inputs.
   ///
   /// The whole painter configuration is derived from [OverlayDesignSpec] here —
   /// nothing platform-local feeds the renderer. Exposed statically so the
-  /// wiring is directly unit-testable (mirrors `FloatingOverlayView.painterFor`).
-  static FloatingButtonPainter painterFor({
+  /// wiring is directly unit-testable (mirrors `WpFloatingOverlayView.painterFor`).
+  static WpFloatingButtonPainter painterFor({
     required FloatingButtonVisualState state,
     double diameter = 56,
   }) {
-    return FloatingButtonPainter(
+    return WpFloatingButtonPainter(
       spec: OverlayDesignSpec.button,
       diameter: diameter,
       iconColor: OverlayDesignSpec.button.iconColor,

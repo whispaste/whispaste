@@ -3,7 +3,7 @@
 /// Covers:
 ///  - AC1: the painter is sourced **only** from [OverlayDesignSpec] — disc
 ///    gradient, border, mic geometry and per-state tint wired by
-///    [FloatingButtonView.painterFor] equal spec values, never a platform-local
+///    [WpFloatingButtonView.painterFor] equal spec values, never a platform-local
 ///    constant. (Native-on-device pixel parity is issue 08b/hardware.)
 ///  - AC4: the done state tints the mic with the SSOT done gradient whose
 ///    middle stop is the canonical green `#30C065`.
@@ -19,9 +19,9 @@ import 'package:whispaste/services/floating_button/floating_button_controller_in
 import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 
 void main() {
-  group('FloatingButtonView.painterFor — spec sourcing (AC1)', () {
+  group('WpFloatingButtonView.painterFor — spec sourcing (AC1)', () {
     test('disc, border and mic geometry come from OverlayDesignSpec', () {
-      final painter = FloatingButtonView.painterFor(
+      final painter = WpFloatingButtonView.painterFor(
         state: FloatingButtonVisualState.idle,
       );
       expect(painter.spec, same(OverlayDesignSpec.button));
@@ -41,17 +41,19 @@ void main() {
         FloatingButtonVisualState.idle,
         FloatingButtonVisualState.disabled,
       ]) {
-        expect(FloatingButtonView.painterFor(state: s).iconGradient, isNull);
+        expect(WpFloatingButtonView.painterFor(state: s).iconGradient, isNull);
       }
     });
 
     test('active states map to the SSOT state gradients', () {
       expect(
-        FloatingButtonView.iconGradientFor(FloatingButtonVisualState.recording),
+        WpFloatingButtonView.iconGradientFor(
+          FloatingButtonVisualState.recording,
+        ),
         OverlayDesignSpec.stateGradients[OverlayDesignState.recording]!.stops,
       );
       expect(
-        FloatingButtonView.designStateFor(
+        WpFloatingButtonView.designStateFor(
           FloatingButtonVisualState.transcribing,
         ),
         OverlayDesignState.transcribing,
@@ -63,7 +65,7 @@ void main() {
     test(
       'the done mic tint carries the canonical green as its middle stop',
       () {
-        final painter = FloatingButtonView.painterFor(
+        final painter = WpFloatingButtonView.painterFor(
           state: FloatingButtonVisualState.done,
         );
         expect(painter.iconGradient, isNotNull);
@@ -95,7 +97,7 @@ void main() {
     });
   });
 
-  group('FloatingButtonView — paints every state & size (AC5)', () {
+  group('WpFloatingButtonView — paints every state & size (AC5)', () {
     for (final state in FloatingButtonVisualState.values) {
       for (final size in const [44.0, 56.0, 80.0]) {
         testWidgets('${state.name} · ${size.toInt()}px builds & paints', (
@@ -105,7 +107,7 @@ void main() {
             Directionality(
               textDirection: TextDirection.ltr,
               child: Center(
-                child: FloatingButtonView(state: state, diameter: size),
+                child: WpFloatingButtonView(state: state, diameter: size),
               ),
             ),
           );
@@ -118,12 +120,12 @@ void main() {
     }
   });
 
-  group('FloatingButtonPainter.shouldRepaint', () {
+  group('WpFloatingButtonPainter.shouldRepaint', () {
     test('repaints when state gradient changes', () {
-      final idle = FloatingButtonView.painterFor(
+      final idle = WpFloatingButtonView.painterFor(
         state: FloatingButtonVisualState.idle,
       );
-      final done = FloatingButtonView.painterFor(
+      final done = WpFloatingButtonView.painterFor(
         state: FloatingButtonVisualState.done,
       );
       expect(idle.shouldRepaint(done), isTrue);

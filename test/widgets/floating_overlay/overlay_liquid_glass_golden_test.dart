@@ -48,7 +48,7 @@ void main() {
               height: windowSize.height,
               child: CustomPaint(
                 size: windowSize,
-                painter: FloatingOverlayView.painterFor(
+                painter: WpFloatingOverlayView.painterFor(
                   snapshot: snapshot,
                   waveformBars: bars,
                   dotPulse: 1.0,

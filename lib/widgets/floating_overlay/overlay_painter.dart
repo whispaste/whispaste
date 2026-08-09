@@ -24,7 +24,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/theme/overlay_design_spec.dart';
 
 /// Paints the overlay capsule and its per-state content from the SSOT spec.
-class OverlayPainter extends CustomPainter {
+class WpOverlayPainter extends CustomPainter {
   /// Creates a painter for one immutable overlay frame.
   ///
   /// [paintFill] and [paintContent] let the host widget split the draw into two
@@ -33,7 +33,7 @@ class OverlayPainter extends CustomPainter {
   /// content layer (dot, text, waveform, icons) is crossfaded. Drawing the
   /// semi-transparent fill twice at different opacities would darken the capsule
   /// during the transition; this flag pair prevents that.
-  const OverlayPainter({
+  const WpOverlayPainter({
     required this.state,
     required this.theme,
     required this.sizeSpec,
@@ -921,7 +921,7 @@ class OverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant OverlayPainter old) {
+  bool shouldRepaint(covariant WpOverlayPainter old) {
     return old.state != state ||
         old.theme != theme ||
         old.sizeSpec != sizeSpec ||

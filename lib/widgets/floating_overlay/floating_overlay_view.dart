@@ -4,7 +4,7 @@
 /// and become lifecycle-only hosts for this widget. It takes a fully-resolved
 /// [FloatingOverlaySnapshot] (localized, themed, formatted by
 /// `FloatingOverlayService`) plus the live waveform levels, drives the calm
-/// accent-dot pulse, and feeds the shared [OverlayPainter] that reproduces the
+/// accent-dot pulse, and feeds the shared [WpOverlayPainter] that reproduces the
 /// approved spike capsule design.
 ///
 /// ## Signature recording arc (issue 09 — C1a)
@@ -57,10 +57,10 @@ import '../../core/theme/overlay_design_spec.dart';
 import '../../services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'overlay_painter.dart';
 
-/// Hosts the shared [OverlayPainter] and drives the recording-arc animations.
-class FloatingOverlayView extends StatefulWidget {
+/// Hosts the shared [WpOverlayPainter] and drives the recording-arc animations.
+class WpFloatingOverlayView extends StatefulWidget {
   /// Creates the overlay view for one [snapshot].
-  const FloatingOverlayView({
+  const WpFloatingOverlayView({
     super.key,
     required this.snapshot,
     this.waveformBars = const [],
@@ -97,15 +97,15 @@ class FloatingOverlayView extends StatefulWidget {
   static String statusTextFor(FloatingOverlaySnapshot snapshot) =>
       snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label;
 
-  /// Builds the spec-sourced [OverlayPainter] for [snapshot].
+  /// Builds the spec-sourced [WpOverlayPainter] for [snapshot].
   ///
   /// The whole painter configuration is derived from [OverlayDesignSpec] here —
   /// nothing platform-local feeds the renderer (issue 05 AC1). Exposed
   /// statically so the wiring is directly unit-testable.
   ///
-  /// [paintFill] and [paintContent] are forwarded to [OverlayPainter] to enable
+  /// [paintFill] and [paintContent] are forwarded to [WpOverlayPainter] to enable
   /// split-layer rendering during the state-transition crossfade (issue 09).
-  static OverlayPainter painterFor({
+  static WpOverlayPainter painterFor({
     required FloatingOverlaySnapshot snapshot,
     List<double> waveformBars = const [],
     double dotPulse = 1.0,
@@ -119,7 +119,7 @@ class FloatingOverlayView extends StatefulWidget {
   }) {
     final theme = themeFor(snapshot.isDark);
     final designState = designStateFor(snapshot.state);
-    return OverlayPainter(
+    return WpOverlayPainter(
       state: designState,
       theme: theme,
       sizeSpec: OverlayDesignSpec.sizeFor(snapshot.size),
@@ -143,10 +143,10 @@ class FloatingOverlayView extends StatefulWidget {
   }
 
   @override
-  State<FloatingOverlayView> createState() => _FloatingOverlayViewState();
+  State<WpFloatingOverlayView> createState() => _WpFloatingOverlayViewState();
 }
 
-class _FloatingOverlayViewState extends State<FloatingOverlayView>
+class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     with TickerProviderStateMixin {
   // -- Dot pulse (accent dot during recording / transcribing) ------------------
 
@@ -156,7 +156,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
 
   /// Drives the liquid-glass phase: one slow 8 s loop that drifts the
   /// specular streak (±6 px), parallax-shifts the sheen and breathes the
-  /// rim. Runs only while [FloatingOverlayView.animate] and not under
+  /// rim. Runs only while [WpFloatingOverlayView.animate] and not under
   /// reduced motion; otherwise it rests at 0.0 — the exact static frame.
   late final AnimationController _glass;
 
@@ -249,7 +249,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     // Pill-width spring controller: value in [0, 1] maps fromWidth → toWidth.
     // Initialise to the target width for the current state so no animation
     // fires on mount (value=1.0 → _currentPillWidth = _pillToWidth = target).
-    final initialDesignState = FloatingOverlayView.designStateFor(
+    final initialDesignState = WpFloatingOverlayView.designStateFor(
       widget.snapshot.state,
     );
     final initialSizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
@@ -257,7 +257,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       initialDesignState,
       initialSizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
-      FloatingOverlayView.statusTextFor(widget.snapshot),
+      WpFloatingOverlayView.statusTextFor(widget.snapshot),
     );
     _pillFromWidth = initialWidth;
     _pillToWidth = initialWidth;
@@ -297,14 +297,14 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _outgoing = null;
       // Snap pill width to the current state's target immediately.
       final sizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
-      final designState = FloatingOverlayView.designStateFor(
+      final designState = WpFloatingOverlayView.designStateFor(
         widget.snapshot.state,
       );
       final targetWidth = OverlayDesignSpec.pillWidthForText(
         designState,
         sizeSpec,
         OverlayDesignSpec.layoutFor(widget.snapshot.size),
-        FloatingOverlayView.statusTextFor(widget.snapshot),
+        WpFloatingOverlayView.statusTextFor(widget.snapshot),
       );
       _pillFromWidth = targetWidth;
       _pillToWidth = targetWidth;
@@ -319,7 +319,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   }
 
   @override
-  void didUpdateWidget(FloatingOverlayView oldWidget) {
+  void didUpdateWidget(WpFloatingOverlayView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     // Appear / dismiss when visibility changes.
@@ -356,7 +356,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _snapPillToCurrentState();
     }
 
-    // Size-only change (e.g. the Settings size picker / OverlayRealPreview
+    // Size-only change (e.g. the Settings size picker / WpOverlayRealPreview
     // cycling normal ↔ compact ↔ mini while state/visible stay constant):
     // re-target the pill width immediately. Without this, `build()` resizes
     // the window/canvas to the new size right away (it reads
@@ -408,7 +408,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // Pill-width spring: morphs width to the new state's target.
       // Reduced-motion is handled inside _startPillSpring (snap, not spring).
       _startPillSpring(
-        FloatingOverlayView.designStateFor(widget.snapshot.state),
+        WpFloatingOverlayView.designStateFor(widget.snapshot.state),
       );
     }
 
@@ -434,10 +434,10 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   void _snapPillToCurrentState() {
     final sizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
     final width = OverlayDesignSpec.pillWidthForText(
-      FloatingOverlayView.designStateFor(widget.snapshot.state),
+      WpFloatingOverlayView.designStateFor(widget.snapshot.state),
       sizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
-      FloatingOverlayView.statusTextFor(widget.snapshot),
+      WpFloatingOverlayView.statusTextFor(widget.snapshot),
     );
     _pillFromWidth = width;
     _pillToWidth = width;
@@ -456,7 +456,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       newState,
       sizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
-      FloatingOverlayView.statusTextFor(widget.snapshot),
+      WpFloatingOverlayView.statusTextFor(widget.snapshot),
     );
     final currentWidth = _currentPillWidth;
 
@@ -572,7 +572,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                   // Layer 1: capsule background for the incoming state (fill only).
                   CustomPaint(
                     size: window,
-                    painter: FloatingOverlayView.painterFor(
+                    painter: WpFloatingOverlayView.painterFor(
                       snapshot: widget.snapshot,
                       waveformBars: widget.waveformBars,
                       dotPulse: _dot.value,
@@ -589,7 +589,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                     opacity: 1.0 - ct,
                     child: CustomPaint(
                       size: window,
-                      painter: FloatingOverlayView.painterFor(
+                      painter: WpFloatingOverlayView.painterFor(
                         snapshot: outgoing,
                         waveformBars: widget.waveformBars,
                         dotPulse: _dot.value,
@@ -607,7 +607,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                     opacity: ct,
                     child: CustomPaint(
                       size: window,
-                      painter: FloatingOverlayView.painterFor(
+                      painter: WpFloatingOverlayView.painterFor(
                         snapshot: widget.snapshot,
                         waveformBars: widget.waveformBars,
                         dotPulse: _dot.value,
@@ -624,7 +624,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
               // Steady state: single painter, full fill + content.
               content = CustomPaint(
                 size: window,
-                painter: FloatingOverlayView.painterFor(
+                painter: WpFloatingOverlayView.painterFor(
                   snapshot: widget.snapshot,
                   waveformBars: widget.waveformBars,
                   dotPulse: _dot.value,

@@ -2,11 +2,11 @@
 /// "Sobald ich eine andere Overlay-Art auswähle, wird sie auch nicht mehr
 /// sauber angezeigt."
 ///
-/// Root cause: [FloatingOverlayView.didUpdateWidget] recomputes the animated
+/// Root cause: [WpFloatingOverlayView.didUpdateWidget] recomputes the animated
 /// pill-width target (`_pillFromWidth` / `_pillToWidth`) only when
 /// `snapshot.visible` or `snapshot.state` changes — never when only
 /// `snapshot.size` changes. The Settings-page live preview
-/// (`OverlayRealPreview`) keeps `visible: true` and `state: recording`
+/// (`WpOverlayRealPreview`) keeps `visible: true` and `state: recording`
 /// constant while the user cycles the size radio buttons, so a pure
 /// size-only snapshot update slips through both branches: the window
 /// (`SizedBox`/`CustomPaint` `size:`) resizes immediately in `build()`
@@ -41,15 +41,15 @@ Widget _wrap(Widget child) => MediaQuery(
   child: Directionality(textDirection: TextDirection.ltr, child: child),
 );
 
-/// Reads the [OverlayPainter] currently driving the single (steady-state)
+/// Reads the [WpOverlayPainter] currently driving the single (steady-state)
 /// `CustomPaint` in the tree.
-OverlayPainter _currentPainter(WidgetTester tester) {
+WpOverlayPainter _currentPainter(WidgetTester tester) {
   final painters = tester
       .widgetList<CustomPaint>(find.byType(CustomPaint))
       .map((w) => w.painter)
-      .whereType<OverlayPainter>()
+      .whereType<WpOverlayPainter>()
       .toList();
-  // Steady state (no crossfade in flight) renders exactly one OverlayPainter.
+  // Steady state (no crossfade in flight) renders exactly one WpOverlayPainter.
   expect(
     painters,
     hasLength(1),
@@ -63,10 +63,10 @@ void main() {
       'painted pill width to the NEW size — not the stale previous size', (
     tester,
   ) async {
-    // Mirrors the Settings page's OverlayRealPreview: visible=true and
+    // Mirrors the Settings page's WpOverlayRealPreview: visible=true and
     // state=recording never change while the user cycles the size radio.
     await tester.pumpWidget(
-      _wrap(FloatingOverlayView(snapshot: _snap(OverlaySizeVariant.normal))),
+      _wrap(WpFloatingOverlayView(snapshot: _snap(OverlaySizeVariant.normal))),
     );
     await tester.pump();
 
@@ -75,7 +75,7 @@ void main() {
 
     // Switch to mini — visible and state are unchanged, only size differs.
     await tester.pumpWidget(
-      _wrap(FloatingOverlayView(snapshot: _snap(OverlaySizeVariant.mini))),
+      _wrap(WpFloatingOverlayView(snapshot: _snap(OverlaySizeVariant.mini))),
     );
     await tester.pump();
 
@@ -94,7 +94,7 @@ void main() {
 
     // Switch back to normal — same check in the other direction.
     await tester.pumpWidget(
-      _wrap(FloatingOverlayView(snapshot: _snap(OverlaySizeVariant.normal))),
+      _wrap(WpFloatingOverlayView(snapshot: _snap(OverlaySizeVariant.normal))),
     );
     await tester.pump();
 
@@ -107,12 +107,14 @@ void main() {
     'consistently with the pill width (no cross-size mismatch)',
     (tester) async {
       await tester.pumpWidget(
-        _wrap(FloatingOverlayView(snapshot: _snap(OverlaySizeVariant.normal))),
+        _wrap(
+          WpFloatingOverlayView(snapshot: _snap(OverlaySizeVariant.normal)),
+        ),
       );
       await tester.pump();
 
       await tester.pumpWidget(
-        _wrap(FloatingOverlayView(snapshot: _snap(OverlaySizeVariant.mini))),
+        _wrap(WpFloatingOverlayView(snapshot: _snap(OverlaySizeVariant.mini))),
       );
       await tester.pump();
 

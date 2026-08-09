@@ -4,10 +4,10 @@
 /// - OverlaySection: consolidated start-position dropdown (off = overlay
 ///   disabled; real position = overlay enabled). No separate show-overlay
 ///   toggle row.
-/// - OverlaySection: real overlay preview (OverlayRealPreview / FloatingOverlayView)
+/// - OverlaySection: real overlay preview (WpOverlayRealPreview / WpFloatingOverlayView)
 ///   in its own full-size row below the size row when enabled, absent when disabled.
 /// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true).
-///   FloatingButtonView is always visible in the trailing of the toggle row.
+///   WpFloatingButtonView is always visible in the trailing of the toggle row.
 ///
 /// Platform notes:
 /// - OverlaySection renders on all desktop platforms (Windows / macOS / Linux).
@@ -120,7 +120,7 @@ void main() {
         // the 'Aus' (off) entry when the overlay is disabled.
         expect(find.byType(DropdownButton<String>), findsOneWidget);
         // Size dropdown hidden — overlay is off.
-        expect(find.byType(OverlayRealPreview), findsNothing);
+        expect(find.byType(WpOverlayRealPreview), findsNothing);
       },
     );
 
@@ -166,31 +166,30 @@ void main() {
       },
     );
 
-    testWidgets(
-      'nested overlay dropdowns appear when overlayMode is floating',
-      (tester) async {
-        if (!_isDesktop) return; // Platform guard.
+    testWidgets('nested overlay dropdowns appear when overlayMode is floating', (
+      tester,
+    ) async {
+      if (!_isDesktop) return; // Platform guard.
 
-        final notifier = _FakeSettingsNotifier(
-          AppSettings.defaults.copyWithSections(
-            overlay: const OverlaySettings(overlayMode: 'floating'),
-          ),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: OverlaySection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-          ),
-        );
-        // FloatingOverlayView has an infinite AnimationController — use pump()
-        // instead of pumpAndSettle() to avoid a timeout.
-        await tester.pump();
-        await tester.pump();
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(overlayMode: 'floating'),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      // WpFloatingOverlayView has an infinite AnimationController — use pump()
+      // instead of pumpAndSettle() to avoid a timeout.
+      await tester.pump();
+      await tester.pump();
 
-        // Floating mode reveals start-position + size dropdowns.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
-      },
-    );
+      // Floating mode reveals start-position + size dropdowns.
+      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+    });
 
     // -- AC (a) ---------------------------------------------------------------
     testWidgets(
@@ -229,7 +228,7 @@ void main() {
         expect(notifier.state.value!.overlay.showOverlay, isFalse);
         // Only start-position dropdown remains; size row hidden.
         expect(find.byType(DropdownButton<String>), findsOneWidget);
-        expect(find.byType(OverlayRealPreview), findsNothing);
+        expect(find.byType(WpOverlayRealPreview), findsNothing);
       },
     );
 
@@ -298,7 +297,7 @@ void main() {
 
     // -- AC (d) ---------------------------------------------------------------
     testWidgets(
-      'OverlayRealPreview is a standalone full-size row below the size row',
+      'WpOverlayRealPreview is a standalone full-size row below the size row',
       (tester) async {
         if (!_isDesktop) return; // Platform guard.
 
@@ -317,7 +316,7 @@ void main() {
         await tester.pump();
 
         // Preview is present as its own row, rendered at real (1:1) size …
-        expect(find.byType(OverlayRealPreview), findsOneWidget);
+        expect(find.byType(WpOverlayRealPreview), findsOneWidget);
         // … with its own Divider: one before the size row, one before the
         // standalone preview row → two Dividers in the floating sub-section.
         expect(find.byType(Divider), findsNWidgets(2));
@@ -353,7 +352,7 @@ void main() {
             size: const Size(400, 600),
           ),
         );
-        // FloatingOverlayView has an infinite AnimationController — pump() only.
+        // WpFloatingOverlayView has an infinite AnimationController — pump() only.
         await tester.pump();
         await tester.pump();
 
@@ -431,7 +430,7 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
           // The size picker was removed in issue 11 (fixed 56 dp design token).
-          // Only the toggle (and the FloatingButtonView in trailing) are rendered.
+          // Only the toggle (and the WpFloatingButtonView in trailing) are rendered.
           for (final show in [false, true]) {
             final notifier = _FakeSettingsNotifier(
               AppSettings.defaults.copyWithSections(
@@ -485,8 +484,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(OverlayRealPreview), findsNothing);
-      expect(find.byType(FloatingOverlayView), findsNothing);
+      expect(find.byType(WpOverlayRealPreview), findsNothing);
+      expect(find.byType(WpFloatingOverlayView), findsNothing);
     });
 
     testWidgets('preview present when overlay is floating', (tester) async {
@@ -503,12 +502,12 @@ void main() {
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
-      // FloatingOverlayView has an infinite AnimationController — pump() only.
+      // WpFloatingOverlayView has an infinite AnimationController — pump() only.
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(OverlayRealPreview), findsOneWidget);
-      expect(find.byType(FloatingOverlayView), findsOneWidget);
+      expect(find.byType(WpOverlayRealPreview), findsOneWidget);
+      expect(find.byType(WpFloatingOverlayView), findsOneWidget);
     });
 
     testWidgets('preview key reflects normal size', (tester) async {
@@ -528,7 +527,7 @@ void main() {
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
-      // FloatingOverlayView has an infinite AnimationController — pump() only.
+      // WpFloatingOverlayView has an infinite AnimationController — pump() only.
       await tester.pump();
       await tester.pump();
 
@@ -555,7 +554,7 @@ void main() {
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
-      // FloatingOverlayView has an infinite AnimationController — pump() only.
+      // WpFloatingOverlayView has an infinite AnimationController — pump() only.
       await tester.pump();
       await tester.pump();
 
@@ -584,7 +583,7 @@ void main() {
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
-      // FloatingOverlayView has an infinite AnimationController — pump() only.
+      // WpFloatingOverlayView has an infinite AnimationController — pump() only.
       await tester.pump();
       await tester.pump();
 
@@ -612,7 +611,7 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('FloatingButtonSection button in trailing', () {
-    testWidgets('FloatingButtonView always present in row on Windows', (
+    testWidgets('WpFloatingButtonView always present in row on Windows', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
@@ -632,10 +631,10 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(
-            find.byType(FloatingButtonView),
+            find.byType(WpFloatingButtonView),
             findsOneWidget,
             reason:
-                'FloatingButtonView must be in trailing regardless of '
+                'WpFloatingButtonView must be in trailing regardless of '
                 'showFloatingButton=$show',
           );
         }
@@ -644,7 +643,7 @@ void main() {
       }
     });
 
-    testWidgets('FloatingButtonView always present in row on macOS', (
+    testWidgets('WpFloatingButtonView always present in row on macOS', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -658,13 +657,13 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(FloatingButtonView), findsOneWidget);
+        expect(find.byType(WpFloatingButtonView), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     });
 
-    testWidgets('entire section hidden on Linux (no FloatingButtonView)', (
+    testWidgets('entire section hidden on Linux (no WpFloatingButtonView)', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -682,7 +681,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(FloatingButtonView), findsNothing);
+        expect(find.byType(WpFloatingButtonView), findsNothing);
         expect(find.byType(Switch), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;

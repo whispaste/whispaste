@@ -2,7 +2,7 @@
 ///
 /// Renders every shared floating-surface frame (the 16-cell overlay matrix
 /// `4 states × 2 themes × 2 sizes` plus the 6 floating-button states) with the
-/// exact same `OverlayPainter` / `FloatingButtonPainter` the native shells host
+/// exact same `WpOverlayPainter` / `WpFloatingButtonPainter` the native shells host
 /// (ADR 0002). It then captures itself to a single PNG via
 /// `RepaintBoundary.toImage` and exits.
 ///
@@ -248,7 +248,7 @@ class _OverlayTile extends StatelessWidget {
             size: window,
             child: CustomPaint(
               size: window,
-              painter: FloatingOverlayView.painterFor(
+              painter: WpFloatingOverlayView.painterFor(
                 snapshot: snapshot,
                 waveformBars: bars,
                 dotPulse: 1,
@@ -282,7 +282,7 @@ class _ButtonTile extends StatelessWidget {
             size: window,
             child: CustomPaint(
               size: window,
-              painter: FloatingButtonView.painterFor(
+              painter: WpFloatingButtonView.painterFor(
                 state: state,
                 diameter: diameter,
               ),

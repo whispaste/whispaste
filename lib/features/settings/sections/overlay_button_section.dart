@@ -117,7 +117,7 @@ class OverlaySection extends ConsumerWidget {
             // Preview at real (1:1) size in its own full-width row so the
             // Normal vs. Compact difference is actually recognisable. FittedBox
             // inside only scales down on windows narrower than the real pill.
-            OverlayRealPreview(size: settings.overlaySizeType),
+            WpOverlayRealPreview(size: settings.overlaySizeType),
           ],
         ],
       ),
@@ -164,7 +164,7 @@ class FloatingButtonSection extends ConsumerWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const FloatingButtonView(
+                const WpFloatingButtonView(
                   state: FloatingButtonVisualState.idle,
                   diameter: 32,
                 ),

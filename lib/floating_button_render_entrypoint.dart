@@ -3,7 +3,7 @@
 /// ADR 0002 (Approach 1 / Variant B) makes the native button window a
 /// lifecycle-only shell: it no longer draws with CoreGraphics, it hosts a
 /// **second, headless-ish Flutter engine** whose only job is to paint the
-/// shared [FloatingButtonView]. That engine is booted by the Swift
+/// shared [WpFloatingButtonView]. That engine is booted by the Swift
 /// `FloatingButtonHost` with the `floatingButtonMain` entrypoint and pinned
 /// into a transparent non-activating [FloatingButtonPanel].
 ///
@@ -114,6 +114,6 @@ class _ButtonRenderAppState
     onTap: channel.clicked,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,
-    child: FloatingButtonView(state: _state, diameter: _diameter),
+    child: WpFloatingButtonView(state: _state, diameter: _diameter),
   );
 }

@@ -5,7 +5,7 @@
 /// Done/Error-Messages, progress-Berechnung).
 ///
 /// Alle Tests laufen ohne Widget-Pump (reine Dart-Unit-Tests), da sie nur die
-/// Mapping-Logik und das public interface von [FloatingOverlayView.painterFor]
+/// Mapping-Logik und das public interface von [WpFloatingOverlayView.painterFor]
 /// sowie [doneMessageFor] verifizieren.
 library;
 
@@ -86,7 +86,7 @@ void main() {
 
     test('painterFor leitet elapsed als timerText durch (recording)', () {
       // Verifiziert die Verdrahtung snapshot.elapsed → painter.timerText.
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
           elapsed: '1:30',
@@ -106,7 +106,7 @@ void main() {
         // Die Service-Logik: elapsed wird nur bei recording gesetzt.
         // painterFor leitet statusText aus label/doneMessage/errorMessage ab,
         // nicht aus elapsed.
-        final painter = FloatingOverlayView.painterFor(
+        final painter = WpFloatingOverlayView.painterFor(
           snapshot: _snap(
             state,
             elapsed: '', // korrekt vom Service gesetzt
@@ -140,7 +140,7 @@ void main() {
     });
 
     test('painterFor leitet label als statusText durch (transcribing)', () {
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.transcribing,
           label: l10n.overlayTranscribing,
@@ -182,7 +182,7 @@ void main() {
     });
 
     test('painterFor: doneMessage hat Vorrang vor label (done-State)', () {
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.done,
           doneMessage: l10n.overlayDonePasted,
@@ -195,7 +195,7 @@ void main() {
 
     test('painterFor: errorMessage hat Vorrang vor label (error-State)', () {
       const localisedError = 'Network timeout';
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.error,
           errorMessage: localisedError,
@@ -208,7 +208,7 @@ void main() {
     test(
       'painterFor: label als Fallback wenn doneMessage/errorMessage null',
       () {
-        final painter = FloatingOverlayView.painterFor(
+        final painter = WpFloatingOverlayView.painterFor(
           snapshot: _snap(
             OverlayVisualState.done,
             label: l10n.overlayDoneReady,
@@ -223,7 +223,7 @@ void main() {
 
   group('progress — Weitergabe und Berechnung', () {
     test('progress 0.4 → painter.progress = 0.4', () {
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
           progress: 0.4,
@@ -235,7 +235,7 @@ void main() {
     });
 
     test('progress 0.0 → kein Timeline-Bereich (Unlimited)', () {
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
           progress: 0.0,
@@ -247,7 +247,7 @@ void main() {
     });
 
     test('progress 1.0 (volle Dauer erreicht)', () {
-      final painter = FloatingOverlayView.painterFor(
+      final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
           progress: 1.0,
@@ -264,7 +264,7 @@ void main() {
         OverlayVisualState.done,
         OverlayVisualState.error,
       ]) {
-        final painter = FloatingOverlayView.painterFor(
+        final painter = WpFloatingOverlayView.painterFor(
           snapshot: _snap(state, progress: 0.0),
         );
         expect(
@@ -281,28 +281,28 @@ void main() {
   group('designStateFor — OverlayVisualState → OverlayDesignState', () {
     test('recording → recording', () {
       expect(
-        FloatingOverlayView.designStateFor(OverlayVisualState.recording),
+        WpFloatingOverlayView.designStateFor(OverlayVisualState.recording),
         OverlayDesignState.recording,
       );
     });
 
     test('transcribing → transcribing', () {
       expect(
-        FloatingOverlayView.designStateFor(OverlayVisualState.transcribing),
+        WpFloatingOverlayView.designStateFor(OverlayVisualState.transcribing),
         OverlayDesignState.transcribing,
       );
     });
 
     test('done → done', () {
       expect(
-        FloatingOverlayView.designStateFor(OverlayVisualState.done),
+        WpFloatingOverlayView.designStateFor(OverlayVisualState.done),
         OverlayDesignState.done,
       );
     });
 
     test('error → error', () {
       expect(
-        FloatingOverlayView.designStateFor(OverlayVisualState.error),
+        WpFloatingOverlayView.designStateFor(OverlayVisualState.error),
         OverlayDesignState.error,
       );
     });

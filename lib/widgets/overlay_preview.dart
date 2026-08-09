@@ -2,11 +2,11 @@
 ///
 /// The schematic screen simulation (OverlayPositionPreview,
 /// FloatingButtonPositionPreview, _ScreenPreview, etc.) has been replaced by
-/// the real [FloatingOverlayView], rendered with a deterministic static
+/// the real [WpFloatingOverlayView], rendered with a deterministic static
 /// snapshot — no live audio.
 ///
 /// Public widget:
-/// - [OverlayRealPreview] — renders the real [FloatingOverlayView] at the
+/// - [WpOverlayRealPreview] — renders the real [WpFloatingOverlayView] at the
 ///   currently selected size (Normal/Compact/Mini), reactive to settings
 ///   changes.
 library;
@@ -25,12 +25,12 @@ import 'floating_overlay/floating_overlay_view.dart';
 /// Real preview of the Floating Overlay, rendered at [size]
 /// (Normal/Compact/Mini).
 ///
-/// Feeds [FloatingOverlayView] with a deterministic static snapshot — no live
-/// audio. The inner [FloatingOverlayView] carries
+/// Feeds [WpFloatingOverlayView] with a deterministic static snapshot — no live
+/// audio. The inner [WpFloatingOverlayView] carries
 /// `ValueKey('overlay-real-preview-<size.value>')` so widget tests can
 /// observe size changes without reaching into painter internals.
-class OverlayRealPreview extends StatelessWidget {
-  const OverlayRealPreview({super.key, required this.size});
+class WpOverlayRealPreview extends StatelessWidget {
+  const WpOverlayRealPreview({super.key, required this.size});
 
   final FloatingOverlaySize size;
 
@@ -60,7 +60,7 @@ class OverlayRealPreview extends StatelessWidget {
       child: Center(
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: FloatingOverlayView(
+          child: WpFloatingOverlayView(
             key: ValueKey('overlay-real-preview-${size.value}'),
             snapshot: snapshot,
             waveformBars: _sampleBars,

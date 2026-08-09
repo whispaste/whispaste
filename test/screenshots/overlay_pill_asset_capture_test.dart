@@ -1,6 +1,6 @@
 /// Marketing-Asset-Generator für die Store-Composites — KEIN Vergleichstest.
 ///
-/// Rendert den echten [OverlayPainter] (recording, normal + compact,
+/// Rendert den echten [WpOverlayPainter] (recording, normal + compact,
 /// dark + light) auf transparentem Canvas und schreibt die PNGs nach
 /// `tools/appstore-screens/assets/overlay-recording-*.png`. Diese Dateien
 /// bettet die Screenshot-Pipeline (render-hero-device.cjs / generate.cjs)
@@ -79,7 +79,7 @@ void main() {
                     height: windowSize.height,
                     child: CustomPaint(
                       size: windowSize,
-                      painter: FloatingOverlayView.painterFor(
+                      painter: WpFloatingOverlayView.painterFor(
                         snapshot: snapshot,
                         waveformBars: bars,
                         dotPulse: 1.0,

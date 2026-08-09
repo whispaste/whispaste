@@ -1,6 +1,6 @@
 /// Parität-Golden-Tests für den geteilten Overlay-Renderer.
 ///
-/// Ein einziger [OverlayPainter] zeichnet auf allen Plattformen. Da alle
+/// Ein einziger [WpOverlayPainter] zeichnet auf allen Plattformen. Da alle
 /// Plattformen denselben Painter-Output konsumieren, erzwingt ein Golden-Match
 /// mechanisch die Parität (ADR 0002 / Issue 06).
 ///
@@ -50,7 +50,7 @@ FloatingOverlaySnapshot _snap(
 
 /// Baut einen statischen, deterministischen Overlay-Frame ohne AnimationController.
 ///
-/// Verwendet [FloatingOverlayView.painterFor] mit festem [dotPulse] = 1.0, damit
+/// Verwendet [WpFloatingOverlayView.painterFor] mit festem [dotPulse] = 1.0, damit
 /// das PNG-Ergebnis frame-unabhängig ist. Die nativen Hüllen erhalten denselben
 /// Painter — das Golden ist damit per Definition der Parität-Beweis.
 Widget _buildStaticFrame({
@@ -72,7 +72,7 @@ Widget _buildStaticFrame({
         height: windowSize.height,
         child: CustomPaint(
           size: windowSize,
-          painter: FloatingOverlayView.painterFor(
+          painter: WpFloatingOverlayView.painterFor(
             snapshot: snapshot,
             waveformBars: bars,
             dotPulse: 1.0,
@@ -92,7 +92,7 @@ void main() {
   // `setUpAll` guarantees the font is registered before any test pumps.
   setUpAll(() => loadAppFonts(onlyLoadTheseFonts: {'Inter'}));
 
-  group('OverlayPainter parität-goldens (4 states × 2 themes × 3 sizes)', () {
+  group('WpOverlayPainter parität-goldens (4 states × 2 themes × 3 sizes)', () {
     for (final state in OverlayVisualState.values) {
       for (final isDark in [true, false]) {
         for (final size in OverlaySizeVariant.values) {

@@ -21,9 +21,9 @@ import 'package:flutter/widgets.dart';
 import '../../core/theme/overlay_design_spec.dart';
 
 /// Paints the V2 floating-button disc and its mic glyph from the SSOT spec.
-class FloatingButtonPainter extends CustomPainter {
+class WpFloatingButtonPainter extends CustomPainter {
   /// Creates a painter for one immutable button frame.
-  const FloatingButtonPainter({
+  const WpFloatingButtonPainter({
     required this.spec,
     required this.diameter,
     required this.iconColor,
@@ -169,7 +169,7 @@ class FloatingButtonPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant FloatingButtonPainter old) {
+  bool shouldRepaint(covariant WpFloatingButtonPainter old) {
     return old.spec != spec ||
         old.diameter != diameter ||
         old.iconColor != iconColor ||

@@ -3,7 +3,7 @@
 ///
 /// The rendering logic lives in [SttModelSelector]
 /// (`lib/features/settings/stt_model_selector.dart`). This file keeps
-/// [SttModelManager] as the settings-aware wrapper that supplies
+/// [WpSttModelManager] as the settings-aware wrapper that supplies
 /// [currentModelId] / [benchmarkRtf] from [settingsProvider] and wires the
 /// [onModelSelected] callback back to the settings notifier.
 library;
@@ -20,8 +20,8 @@ import '../services/hardware_info_service.dart' as hw;
 /// Reads [settingsProvider] and [hw.gpuInfoProvider] so that [SttModelSelector]
 /// itself remains free of Drift / settings dependencies and is independently
 /// testable.
-class SttModelManager extends ConsumerWidget {
-  const SttModelManager({super.key});
+class WpSttModelManager extends ConsumerWidget {
+  const WpSttModelManager({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

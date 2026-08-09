@@ -3,7 +3,7 @@
 /// ADR 0002 (Approach 1 / Variant B) makes the native overlay window a
 /// lifecycle-only shell: it no longer draws with CoreGraphics, it hosts a
 /// **second, headless-ish Flutter engine** whose only job is to paint the
-/// shared [FloatingOverlayView]. That engine is booted by the Swift
+/// shared [WpFloatingOverlayView]. That engine is booted by the Swift
 /// `FloatingOverlayHost` with the `floatingOverlayMain` entrypoint and pinned
 /// into a transparent non-activating `NSPanel`.
 ///
@@ -90,13 +90,13 @@ class _OverlayRenderAppState
   }
 
   /// The static role label plus the currently-painted status text (mirrors
-  /// [FloatingOverlayView.statusTextFor]), so a screen-reader user who
+  /// [WpFloatingOverlayView.statusTextFor]), so a screen-reader user who
   /// explores this element on demand — not just one listening for the
   /// [announce] fired on state change — also hears the current state
   /// instead of only a generic "recording overlay".
   String get _composedSemanticsLabel {
     if (!_snapshot.visible) return semanticsLabel;
-    final statusText = FloatingOverlayView.statusTextFor(_snapshot);
+    final statusText = WpFloatingOverlayView.statusTextFor(_snapshot);
     return statusText.isEmpty ? semanticsLabel : '$semanticsLabel, $statusText';
   }
 
@@ -109,6 +109,6 @@ class _OverlayRenderAppState
     onTap: channel.bodyClicked,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,
-    child: FloatingOverlayView(snapshot: _snapshot, waveformBars: _bars),
+    child: WpFloatingOverlayView(snapshot: _snapshot, waveformBars: _bars),
   );
 }
