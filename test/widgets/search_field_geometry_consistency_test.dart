@@ -21,32 +21,70 @@
 /// 1.0x can therefore still diverge at 1.5x, which is the size the maintainer's
 /// own UI checks run at.
 ///
-/// ## Width
+/// ## Height stays a strict equality
 ///
-/// Width used to be the one axis excluded here, because it was set by whatever
-/// shared the toolbar row. That was the remaining drift: History and Settings
-/// have no neighbour and took the whole content column (980 dp at the default
-/// 1100 dp window), Notes and Replacements/Snippets were ~200 dp narrower
-/// because an Add button was subtracted from the same row — one control, two
-/// readings of how padded it is. `WpSearchField.maxWidth` ends that, so width
-/// is now pinned alongside everything else.
+/// Height never left [_shape] and this rewrite doesn't loosen it. History is
+/// the one area whose field carries a `suffix` (the search-syntax help button)
+/// that no other area has, so it is also the one area where a stray touch
+/// target could push the box past the 48 dp icon-slot floor while every
+/// sibling stays at it. The equality below is what keeps that from happening
+/// silently — measured, at three window widths and both text scales.
 ///
-/// It is pinned at *two* window sizes on purpose, because the cap and the
-/// neighbour trade places between them:
+/// The constraints each area hands *in* are pinned beside it, because the
+/// component answers for its width and leaves height to its intrinsic 48 dp.
+/// That is only safe while every call site keeps the vertical loose; a bounded
+/// height would stretch the box into whatever slot it was given. The equality
+/// is the symptom, `hasBoundedHeight` is the cause — both are asserted, so a
+/// failure says which of the two happened.
 ///
-/// * At a roomy window every call site reaches the cap and the record —
-///   width included — is identical everywhere.
-/// * At the 800 dp minimum window the Add button leaves its row less than
-///   560 dp, so Notes and Replacements/Snippets come out narrower. That is
-///   the one sanctioned exception: a structural neighbour may take width
-///   *from* the field, never give width *to* it. The second test pins that
-///   direction, so a call site can still not drift back to "full row".
+/// ## Width is deliberately *not* one of the equalities
+///
+/// This file briefly pinned width too, back when the component capped itself
+/// at 560 dp so that History and Settings (no toolbar neighbour) couldn't read
+/// as roomier than Notes and Replacements/Snippets (an Add button subtracted
+/// from the same row). The maintainer asked for the opposite rule, for every
+/// search field in the app: take the room the row actually has — the whole
+/// content column where nothing sits to the right, up to the neighbour where
+/// something does — and stay consistent on every *other* axis while doing it.
+/// The cap is gone, and with it the idea that width is a property of the
+/// component.
+///
+/// So width gets the opposite treatment from every other axis here. The
+/// equality assertions run over [_shape] — height, offsets, glyph slot and
+/// text insets — while width is asserted per area against *the room that area
+/// actually has*:
+///
+/// * No toolbar neighbour (History, Settings): the box spans from its left
+///   inset to the mirror-image right inset, i.e. the whole content column.
+///   Asserted against the measured surface rather than against a padding
+///   token, so it holds for `WpPageShell`'s header slot and a hand-rolled
+///   `Padding` bar alike.
+/// * A toolbar neighbour (Notes, Replacements/Snippets): the box runs up to
+///   exactly `WpSpacing.sm` short of that button. Not "narrower than X" —
+///   how much the button takes is a function of its label, which any wording
+///   change moves. What must hold is that nothing *but* the button stops the
+///   field.
+///
+/// Both hold at every window size, which is the point: three sizes are probed
+/// (the 800 dp minimum, the 1100 dp default, and a roomy 1800 dp) and a
+/// dedicated test pins that every dp the window gains reaches the field
+/// instead of pooling beside it — the direct proof that the old cap is gone.
+///
+/// ## And what hangs under the field
+///
+/// History's operator hint and suggestion panel and Settings' suggestion
+/// dropdown belong to the field, not to the content column, so they have to
+/// end exactly where the field ends. That rule survived the cap that used to
+/// express it (`maxWidth`), so it is asserted here directly — right edge
+/// against right edge, at the same three window widths — rather than through
+/// whatever constant the call sites happen to share.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
@@ -57,6 +95,7 @@ import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/widgets/page_shell.dart';
 import 'package:whispaste/widgets/searchable_list_page.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_discoverability_hint.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -66,8 +105,9 @@ import '../fixtures/test_helpers.dart';
 // ---------------------------------------------------------------------------
 
 /// Everything about a rendered search field that "how padded does it look"
-/// actually depends on — width included, ever since the field caps itself
-/// instead of taking whatever its row has left over.
+/// actually depends on. Width is in here to be *reported* — the per-area width
+/// assertions read it — but it is excluded from the cross-area equality by
+/// [_shape]; see the library docs.
 typedef _FieldGeometry = ({
   double boxHeight,
   double boxWidth,
@@ -79,21 +119,43 @@ typedef _FieldGeometry = ({
   double textBottomInset,
 });
 
+/// The same record minus width: the axes that must be identical in every area.
+typedef _FieldShape = ({
+  double boxHeight,
+  double boxLeft,
+  double boxTop,
+  double glyphLeftInset,
+  double textLeftInset,
+  double textTopInset,
+  double textBottomInset,
+});
+
+_FieldShape _shape(_FieldGeometry g) => (
+  boxHeight: g.boxHeight,
+  boxLeft: g.boxLeft,
+  boxTop: g.boxTop,
+  glyphLeftInset: g.glyphLeftInset,
+  textLeftInset: g.textLeftInset,
+  textTopInset: g.textTopInset,
+  textBottomInset: g.textBottomInset,
+);
+
 Rect _rect(WidgetTester tester, Finder finder) {
   final box = tester.renderObject<RenderBox>(finder);
   return box.localToGlobal(Offset.zero) & box.size;
 }
 
+/// The field's painted box — the [AnimatedContainer] that carries fill and
+/// border, i.e. exactly what the maintainer sees an edge of.
+Finder _fieldBox() => find
+    .descendant(
+      of: find.byType(WpSearchField),
+      matching: find.byType(AnimatedContainer),
+    )
+    .first;
+
 _FieldGeometry _measure(WidgetTester tester) {
-  final box = _rect(
-    tester,
-    find
-        .descendant(
-          of: find.byType(WpSearchField),
-          matching: find.byType(AnimatedContainer),
-        )
-        .first,
-  );
+  final box = _rect(tester, _fieldBox());
   final text = _rect(
     tester,
     find.descendant(
@@ -161,37 +223,68 @@ Widget _searchableList() => WpSearchableListPage<String>(
   itemBuilder: (_, _, _) => const SizedBox(height: 40),
 );
 
+Widget _notes(TextEditingController controller, FocusNode focus) =>
+    NotesSearchBar(
+      currentFilter: NotesFilter.active,
+      onFilterChanged: (_) {},
+      isDark: true,
+      searchController: controller,
+      searchFocusNode: focus,
+      onSearchChanged: () {},
+      resultCount: 0,
+      showResultCount: false,
+      onCreate: () {},
+    );
+
+Widget _history(TextEditingController controller) => HistorySearchFilterBar(
+  controller: controller,
+  activeFilter: HistoryFilter.all,
+  isDark: true,
+  onFilterChanged: (_) {},
+  onSearchChanged: () {},
+  resultCount: 0,
+  viewMode: HistoryViewMode.list,
+  onViewModeChanged: (_) {},
+  multiSelectMode: false,
+  onToggleMultiSelect: () {},
+  sortOrder: HistorySortOrder.newest,
+  onSortOrderChanged: (_) {},
+);
+
 /// Renders all four call sites one after another at [scale] and returns what
 /// each one measured, keyed by area.
 ///
 /// `neighbourGap` is the distance from the field's right edge to the toolbar
-/// button beside it, for the two areas that have one. It answers the question
-/// a raw width can't: whether a field narrower than the cap is narrow
-/// *because* its neighbour needed the room, or just sloppily sized.
+/// button beside it, for the two areas that have one — the assertion that a
+/// narrower field is narrow *because* its neighbour needed the room, rather
+/// than idly sized. `surfaceWidth` is the rendered width of the whole probe
+/// surface, which is what the two neighbourless areas are measured against.
 Future<
-  ({Map<String, _FieldGeometry> geometry, Map<String, double> neighbourGap})
+  ({
+    Map<String, _FieldGeometry> geometry,
+    Map<String, double> neighbourGap,
+    Map<String, BoxConstraints> incoming,
+    double surfaceWidth,
+  })
 >
 _measureAllAreas(WidgetTester tester, double scale) async {
   final measured = <String, _FieldGeometry>{};
   final gaps = <String, double>{};
+  final incoming = <String, BoxConstraints>{};
+  var surfaceWidth = 0.0;
 
   Future<void> probe(String area, Widget Function() build) async {
     await tester.pumpWidget(makeTestable(_scaled(build(), scale)));
     await tester.pump();
     measured[area] = _measure(tester);
+    incoming[area] = tester
+        .renderObject<RenderBox>(find.byType(WpSearchField))
+        .constraints;
+    surfaceWidth = _rect(tester, find.byType(MaterialApp)).width;
     final button = find.byType(WpButton);
     if (button.evaluate().isNotEmpty) {
       gaps[area] =
-          _rect(tester, button.first).left -
-          _rect(
-            tester,
-            find
-                .descendant(
-                  of: find.byType(WpSearchField),
-                  matching: find.byType(AnimatedContainer),
-                )
-                .first,
-          ).right;
+          _rect(tester, button.first).left - _rect(tester, _fieldBox()).right;
     }
   }
 
@@ -206,17 +299,7 @@ _measureAllAreas(WidgetTester tester, double scale) async {
     'notes',
     () => Align(
       alignment: Alignment.topCenter,
-      child: NotesSearchBar(
-        currentFilter: NotesFilter.active,
-        onFilterChanged: (_) {},
-        isDark: true,
-        searchController: notesController,
-        searchFocusNode: notesFocus,
-        onSearchChanged: () {},
-        resultCount: 0,
-        showResultCount: false,
-        onCreate: () {},
-      ),
+      child: _notes(notesController, notesFocus),
     ),
   );
 
@@ -226,29 +309,30 @@ _measureAllAreas(WidgetTester tester, double scale) async {
     'history',
     () => Align(
       alignment: Alignment.topCenter,
-      child: HistorySearchFilterBar(
-        controller: historyController,
-        activeFilter: HistoryFilter.all,
-        isDark: true,
-        onFilterChanged: (_) {},
-        onSearchChanged: () {},
-        resultCount: 0,
-        viewMode: HistoryViewMode.list,
-        onViewModeChanged: (_) {},
-        multiSelectMode: false,
-        onToggleMultiSelect: () {},
-        sortOrder: HistorySortOrder.newest,
-        onSortOrderChanged: (_) {},
-      ),
+      child: _history(historyController),
     ),
   );
 
-  return (geometry: measured, neighbourGap: gaps);
+  return (
+    geometry: measured,
+    neighbourGap: gaps,
+    incoming: incoming,
+    surfaceWidth: surfaceWidth,
+  );
 }
 
 /// Layout width the app's content column has at a given window width: the
 /// window minus the fixed sidebar. The bars bring their own `xl` side padding.
 double _contentWidth(double windowWidth) => windowWidth - WpLayout.sidebarWidth;
+
+/// The 800 dp minimum window, the 1100 dp default, and a roomy one.
+const _windows = [800.0, 1100.0, 1800.0];
+
+/// Nothing shares their toolbar row, so the whole content column is theirs.
+const _neighbourless = ['settings', 'history'];
+
+/// An Add / "new note" button sits at the end of their row.
+const _withNeighbour = ['notes', 'replacements/snippets'];
 
 void main() {
   for (final scale in const [1.0, 1.5]) {
@@ -257,85 +341,295 @@ void main() {
     testWidgets('search field renders identically in all four areas at $at', (
       tester,
     ) async {
-      // The default 1100 dp window: every row has more than
-      // `WpSearchField.maxWidth` to give, so the cap — not the neighbour —
-      // decides everywhere and width can be pinned like every other value.
-      await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final measured = (await _measureAllAreas(tester, scale)).geometry;
+      for (final window in _windows) {
+        await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
 
-      final reference = measured['settings']!;
-      for (final entry in measured.entries) {
-        expect(
-          entry.value,
-          reference,
-          reason:
-              'The search field must look the same in every area — the '
-              'sidebar entry the user clicked may change what sits *beside* '
-              'the field, never the field itself. "${entry.key}" drifted from '
-              '"settings" at $at.\n'
-              '  settings:      $reference\n'
-              '  ${entry.key}: ${entry.value}',
-        );
+        final probed = await _measureAllAreas(tester, scale);
+        final measured = probed.geometry;
+        final reference = _shape(measured['settings']!);
+
+        for (final entry in probed.incoming.entries) {
+          // The component sizes itself horizontally and leaves height to its
+          // intrinsic 48 dp — which only holds while no call site hands it a
+          // bounded height. If one ever does, the box stretches into that
+          // slot and the equality below is the symptom; this is the cause,
+          // named. (`WpSearchField` re-derives nothing from this — see the
+          // build-method comment.)
+          expect(
+            entry.value.hasBoundedHeight,
+            isFalse,
+            reason:
+                '"${entry.key}" hands the search field a bounded height '
+                '(${entry.value}) at $at in a ${window.toInt()} dp window. '
+                'The field has no heightFactor, so it will stretch to fill it '
+                'instead of keeping the height every other area has',
+          );
+        }
+
+        for (final entry in measured.entries) {
+          expect(
+            _shape(entry.value),
+            reference,
+            reason:
+                'The search field must look the same in every area — the '
+                'sidebar entry the user clicked may change what sits *beside* '
+                'the field, never the field itself. "${entry.key}" drifted '
+                'from "settings" at $at in a ${window.toInt()} dp window.\n'
+                '  settings:      $reference\n'
+                '  ${entry.key}: ${_shape(entry.value)}',
+          );
+        }
       }
-
-      expect(
-        reference.boxWidth,
-        WpSearchField.maxWidth,
-        reason:
-            'the one width is WpSearchField.maxWidth itself — if this is the '
-            'full content column again, the cap stopped being applied',
-      );
     });
 
-    testWidgets('at the 800 dp minimum window a toolbar neighbour may take '
-        'width from the field, never give width to it, at $at', (tester) async {
-      // The narrowest window the app can be resized to. Notes and
-      // Replacements/Snippets share their row with an Add button that leaves
-      // less than the cap here, so they come out narrower — the one sanctioned
-      // width exception (see the library docs of WpSearchField).
-      await tester.binding.setSurfaceSize(Size(_contentWidth(800), 550));
+    testWidgets('every field takes exactly the room its own row has, at $at', (
+      tester,
+    ) async {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final probed = await _measureAllAreas(tester, scale);
-      final measured = probed.geometry;
+      for (final window in _windows) {
+        await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
 
-      for (final entry in measured.entries) {
-        expect(
-          entry.value.boxWidth,
-          lessThanOrEqualTo(WpSearchField.maxWidth),
-          reason:
-              '"${entry.key}" is wider than the cap at $at — no area may go '
-              'back to taking the whole row',
-        );
-      }
-      for (final area in const ['settings', 'history']) {
-        expect(
-          measured[area]!.boxWidth,
-          WpSearchField.maxWidth,
-          reason:
-              '"$area" has no toolbar neighbour, so nothing may keep it from '
-              'reaching the cap even at the minimum window',
-        );
-      }
-      for (final area in const ['notes', 'replacements/snippets']) {
-        // Deliberately not `lessThan(maxWidth)`: how far under the cap these
-        // land is a function of the Add button's label, which any wording
-        // change moves. What must hold is *why* they are under it — the field
-        // grew until it hit its neighbour's gap, so nothing but the button
-        // kept it from the cap.
-        expect(
-          probed.neighbourGap[area],
-          closeTo(WpSpacing.sm, 0.01),
-          reason:
-              '"$area" shares its row with an Add button. At the minimum '
-              'window the field must run right up to that button, i.e. be '
-              'stopped by the neighbour rather than be idly narrow',
-        );
+        final probed = await _measureAllAreas(tester, scale);
+        final w = window.toInt();
+
+        for (final area in _neighbourless) {
+          final g = probed.geometry[area]!;
+          expect(
+            probed.surfaceWidth - (g.boxLeft + g.boxWidth),
+            closeTo(g.boxLeft, 0.01),
+            reason:
+                '"$area" has nothing to the right of its field, so the field '
+                'must run to the mirror image of its own left inset — i.e. '
+                'the whole content column. It stopped '
+                '${(probed.surfaceWidth - (g.boxLeft + g.boxWidth)).toStringAsFixed(1)} dp '
+                'short instead of ${g.boxLeft.toStringAsFixed(1)} dp, at $at '
+                'in a $w dp window',
+          );
+        }
+
+        for (final area in _withNeighbour) {
+          expect(
+            probed.neighbourGap[area],
+            closeTo(WpSpacing.sm, 0.01),
+            reason:
+                '"$area" shares its row with a toolbar button, so the field '
+                'must grow until exactly one WpSpacing.sm gap is left before '
+                'that button — no more (dead space), no less (a collision). '
+                'At $at in a $w dp window',
+          );
+        }
       }
     });
   }
+
+  testWidgets('every dp the window gains reaches the field, in every area', (
+    tester,
+  ) async {
+    // The direct proof that the field no longer caps itself: between the
+    // default window and a roomy one, all four fields grow by the full 700 dp
+    // the window grew by. A cap of any size — or a re-introduced "preferred
+    // width" — shows up here as a growth of less than that.
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
+    final narrow = (await _measureAllAreas(tester, 1.0)).geometry;
+    await tester.binding.setSurfaceSize(Size(_contentWidth(1800), 700));
+    final wide = (await _measureAllAreas(tester, 1.0)).geometry;
+
+    for (final area in narrow.keys) {
+      expect(
+        wide[area]!.boxWidth - narrow[area]!.boxWidth,
+        closeTo(700, 0.01),
+        reason:
+            '"$area" kept ${(700 - (wide[area]!.boxWidth - narrow[area]!.boxWidth)).toStringAsFixed(1)} dp '
+            'of the 700 dp the window gained out of the field — the field is '
+            'capped or preferred-width again instead of answering to the '
+            'window',
+      );
+    }
+  });
+
+  testWidgets('the whole search bar is the same height on History as on Notes', (
+    tester,
+  ) async {
+    // The field box is only half of what "the search" means to someone
+    // looking at the page: the bar around it — same `xl/sm` padding, same two
+    // stacked rows (search, then filter chips) — is what the eye measures.
+    // History's was 132 dp against Notes' 128 dp because it separated the two
+    // rows with `sm` where Notes uses `xs`; that 4 dp is what this pins.
+    //
+    // The operator hint is dismissed here on purpose. It is a one-time,
+    // dismissible discoverability line that only History carries, and while
+    // it is up the bar is genuinely ~21 dp taller — a deliberate, temporary
+    // piece of content rather than geometry drift. The assertion below is
+    // about the *resting* bar, i.e. what every user sees from the first
+    // dismissal onwards.
+    // Both spellings on purpose: the mock store has carried the `flutter.`
+    // prefix on and off across shared_preferences versions, and a key that
+    // silently misses would leave the hint up and measure it instead.
+    SharedPreferences.setMockInitialValues({
+      'discoverability_hint_seen_search_operators': true,
+      'flutter.discoverability_hint_seen_search_operators': true,
+    });
+    await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final notesController = TextEditingController();
+    final notesFocus = FocusNode();
+    addTearDown(notesController.dispose);
+    addTearDown(notesFocus.dispose);
+    await tester.pumpWidget(
+      makeTestable(
+        Align(
+          alignment: Alignment.topCenter,
+          child: _notes(notesController, notesFocus),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final notesBar = _rect(tester, find.byType(NotesSearchBar)).height;
+
+    final historyController = TextEditingController();
+    addTearDown(historyController.dispose);
+    await tester.pumpWidget(
+      makeTestable(
+        Align(
+          alignment: Alignment.topCenter,
+          child: _history(historyController),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // The hint widget stays in the tree once dismissed and renders a
+    // zero-height `SizedBox.shrink`, so this asks for its *size*, not its
+    // presence — a fixture that stopped dismissing would otherwise be
+    // measured as part of the bar below.
+    expect(
+      _rect(tester, find.byType(WpDiscoverabilityHint)).height,
+      0,
+      reason:
+          'the dismissed-hint fixture stopped working, so the number below '
+          'would be measuring the hint rather than the bar',
+    );
+    final historyBar = _rect(
+      tester,
+      find.byType(HistorySearchFilterBar),
+    ).height;
+
+    expect(
+      historyBar,
+      closeTo(notesBar, 0.01),
+      reason:
+          'History\'s search bar is $historyBar dp against Notes\' $notesBar dp. '
+          'Both stack a search row and a filter-chip row inside the same '
+          'padding, so anything but an equal height is drift — the search '
+          'area must not change size when the sidebar entry changes',
+    );
+  });
+
+  testWidgets('what hangs under the field ends where the field ends', (
+    tester,
+  ) async {
+    // A suggestion panel or an inline hint belongs to the *field*, not to the
+    // content column. This used to be expressed by repeating the field's own
+    // max width at each call site; with the cap gone it is asserted directly,
+    // edge against edge, so no shared constant has to stay in sync.
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final window in _windows) {
+      await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
+      final w = window.toInt();
+
+      // ── History: the operator hint (shown while the query is empty) ──────
+      final historyController = TextEditingController();
+      addTearDown(historyController.dispose);
+      await tester.pumpWidget(
+        makeTestable(
+          Align(
+            alignment: Alignment.topCenter,
+            child: _history(historyController),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      var box = _rect(tester, _fieldBox());
+      final hint = _rect(tester, find.byType(WpDiscoverabilityHint));
+      expect(
+        hint.right,
+        closeTo(box.right, 0.01),
+        reason:
+            "History's operator hint must end where the field ends, not "
+            'where the content column does, in a $w dp window',
+      );
+      expect(hint.left, closeTo(box.left, 0.01));
+
+      // ── History: the suggestion panel (`lang:` needs no database) ────────
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(WpSearchField),
+          matching: find.byType(EditableText),
+        ),
+        'lang:',
+      );
+      await tester.pumpAndSettle();
+
+      box = _rect(tester, _fieldBox());
+      final historyPanel = _rect(
+        tester,
+        find
+            .descendant(
+              of: find.byType(AnimatedSize),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        historyPanel.right,
+        closeTo(box.right, 0.01),
+        reason:
+            "History's suggestion panel must end where the field ends in a "
+            '$w dp window — its `minWidth: double.infinity` has to reach the '
+            'same edge the field reaches',
+      );
+      expect(historyPanel.left, closeTo(box.left, 0.01));
+
+      // ── Settings: the suggestion dropdown ────────────────────────────────
+      await tester.pumpWidget(makeTestable(_settings()));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(WpSearchField),
+          matching: find.byType(EditableText),
+        ),
+        'a',
+      );
+      await tester.pumpAndSettle();
+
+      box = _rect(tester, _fieldBox());
+      final settingsPanel = _rect(
+        tester,
+        find
+            .descendant(
+              of: find.byType(AnimatedSize),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        settingsPanel.right,
+        closeTo(box.right, 0.01),
+        reason:
+            "Settings' suggestion dropdown must end where the field ends in "
+            'a $w dp window',
+      );
+      expect(settingsPanel.left, closeTo(box.left, 0.01));
+    }
+  });
 
   testWidgets('the field grows into its vertical padding above 1.0x, rather '
       'than staying pinned to the 48 dp icon-slot floor', (tester) async {
@@ -401,40 +695,11 @@ void main() {
       final notesFocus = FocusNode();
       addTearDown(notesController.dispose);
       addTearDown(notesFocus.dispose);
-      await expectLabelled(
-        'notes',
-        () => NotesSearchBar(
-          currentFilter: NotesFilter.active,
-          onFilterChanged: (_) {},
-          isDark: true,
-          searchController: notesController,
-          searchFocusNode: notesFocus,
-          onSearchChanged: () {},
-          resultCount: 0,
-          showResultCount: false,
-          onCreate: () {},
-        ),
-      );
+      await expectLabelled('notes', () => _notes(notesController, notesFocus));
 
       final historyController = TextEditingController();
       addTearDown(historyController.dispose);
-      await expectLabelled(
-        'history',
-        () => HistorySearchFilterBar(
-          controller: historyController,
-          activeFilter: HistoryFilter.all,
-          isDark: true,
-          onFilterChanged: (_) {},
-          onSearchChanged: () {},
-          resultCount: 0,
-          viewMode: HistoryViewMode.list,
-          onViewModeChanged: (_) {},
-          multiSelectMode: false,
-          onToggleMultiSelect: () {},
-          sortOrder: HistorySortOrder.newest,
-          onSortOrderChanged: (_) {},
-        ),
-      );
+      await expectLabelled('history', () => _history(historyController));
     },
   );
 }

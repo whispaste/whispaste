@@ -268,11 +268,13 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                     border: Border.all(color: borderCol),
                     boxShadow: WpShadows.subtle,
                   ),
-                  // Same max width as the field it hangs under — the panel
-                  // belongs to the field, not to the content column.
+                  // Same width as the field it hangs under, which now takes
+                  // the full column — `minWidth` rather than a wrapper, so
+                  // the 240 dp height cap survives (`enforce()` clamps the
+                  // infinite minimum down to the parent's own maximum).
                   constraints: const BoxConstraints(
                     maxHeight: 240,
-                    maxWidth: WpSearchField.maxWidth,
+                    minWidth: double.infinity,
                   ),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(

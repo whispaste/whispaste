@@ -710,12 +710,10 @@ class _HistorySearchFilterBarState
 
           if (rawQuery.isEmpty)
             // The hint explains what to type *into the field*, so it ends
-            // where the field ends rather than running the full content width
-            // with its dismiss button stranded far to the right.
-            ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: WpSearchField.maxWidth,
-              ),
+            // where the field ends — which is now the end of the content
+            // column, since the field takes the full width it is offered.
+            SizedBox(
+              width: double.infinity,
               child: WpDiscoverabilityHint(
                 hintId: 'search_operators',
                 text: l10n.historySearchOperatorsHint,
@@ -738,11 +736,13 @@ class _HistorySearchFilterBarState
                       borderRadius: WpRadius.borderSm,
                       border: Border.all(color: borderCol),
                     ),
-                    // Width tied to the field above it, not to the content
-                    // column — see WpSearchField.maxWidth.
+                    // Width tied to the field above it, which now takes the
+                    // full column — `minWidth` rather than a wrapper, so the
+                    // 240 dp height cap survives (`enforce()` clamps the
+                    // infinite minimum down to the parent's own maximum).
                     constraints: const BoxConstraints(
                       maxHeight: 240,
-                      maxWidth: WpSearchField.maxWidth,
+                      minWidth: double.infinity,
                     ),
                     child: _suggestionType == _SuggestionType.smartPanel
                         ? _buildSmartPanel(l10n, accent, textMuted)
@@ -768,7 +768,15 @@ class _HistorySearchFilterBarState
             ),
           ],
 
-          const SizedBox(height: WpSpacing.sm),
+          // Same gap Notes puts between its search row and its filter chips.
+          // It used to be `sm` here, which made this whole bar 4 dp taller
+          // than the Notes one although both stack the same two rows between
+          // the same `xl/sm` padding — the kind of drift the maintainer reads
+          // as "the search on History is taller than the other searches", and
+          // the reason a search *bar* height equality is now pinned in
+          // `search_field_geometry_consistency_test.dart` alongside the
+          // field's own.
+          const SizedBox(height: WpSpacing.xs),
 
           // ── Filter chips + controls ──────────────────────────────────────
           Row(

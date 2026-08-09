@@ -61,44 +61,46 @@
 /// same density today. An enum with one value is speculative stock; it can be
 /// added the day a second density is actually needed.
 ///
-/// ## One width
+/// ## Full width, always
 ///
-/// [maxWidth] is not a density axis — it is the field refusing to be sized by
-/// whatever happens to sit beside it. Height, padding and type size were made
-/// identical across all call sites first; width was the one axis still decided
-/// by the row: History and Settings have no toolbar neighbour, so their field
-/// took the *whole* content column (980 dp at the default 1100 dp window),
-/// while Notes and Replacements/Snippets ended up ~200 dp narrower purely
-/// because an Add button was subtracted from the same row. A wide field with a
-/// short placeholder reads as "more air inside" than a narrow one, so the same
-/// control looked differently padded per sidebar entry — the exact class of
-/// drift this component exists to end, one axis later.
+/// The field takes the whole width its parent offers, and nothing about it
+/// says otherwise: no cap, no preferred width, no start-alignment inside a
+/// wider slot. Where the row holds nothing else it spans the entire content
+/// column; where a toolbar button shares the row — Notes' "New note", the
+/// Replacements/Snippets "Add" — the `Expanded` around it already ends at
+/// that button's gap, and the field now runs right up to it. Width is the one
+/// axis that answers to the window rather than to this component.
 ///
-/// 560 dp is the narrow reading, kept: it is within 3 dp of what the
-/// Replacements toolbar measures at the 800 dp minimum window, which is the
-/// field the maintainer picked as the reference. Above that width the field
-/// stops growing and sits at the start of its row; the free space goes to the
-/// row, not into the box.
+/// This replaces a 560 dp cap the component used to apply to itself. The cap
+/// came out of an equal-width argument: a wide field with a short placeholder
+/// reads as "more air inside" than a narrow one, so History and Settings (no
+/// neighbour, whole column) looked differently padded from Notes and
+/// Replacements/Snippets (~200 dp narrower because an Add button was
+/// subtracted from the same row). The maintainer asked for the opposite rule
+/// — the field grows and shrinks with the room to its right, and where a
+/// button sits there it runs up to that button — while every field in the app
+/// stays consistent on the axes that aren't width. So the cap went, and the
+/// consistency it was standing in for is asserted where it can actually be
+/// checked: `search_field_geometry_consistency_test.dart` pins height, offsets,
+/// glyph slot and text insets as equalities across all four areas, at three
+/// window widths and both text scales, and pins each area's *width* against the
+/// room that area's own row has.
 ///
-/// The cap is applied *inside* the component rather than at the four call
-/// sites, so it holds under both constraint shapes without any of them
-/// opting in: [Align] fills the tight width an `Expanded` hands it (Notes,
-/// Replacements/Snippets) as well as the loose width of a start-aligned
-/// `Column` (History, Settings), and the box is capped and start-aligned
-/// within it either way. Every toolbar neighbour therefore keeps the position
-/// it has today.
+/// The stretch is applied inside the component so no call site has to opt in,
+/// and it holds under both constraint shapes: the tight width of an `Expanded`
+/// is filled by definition, and the loose width of a start-aligned `Column` is
+/// taken in full by the `SizedBox(width: double.infinity)`. The shape it does
+/// *not* survive is an unbounded width — a horizontal scroller or an
+/// unconstrained `Row` slot asserts instead of shrink-wrapping, where the old
+/// [Align] would have silently sized to the placeholder. That is the right
+/// trade: a search field with no width to answer to has no width worth
+/// guessing.
 ///
-/// One documented exception, and it is structural: below roughly a 900 dp
-/// window the Add button leaves its row less than 560 dp, so on Notes and
-/// Replacements/Snippets the *neighbour* sets the width and the field is
-/// narrower than on History and Settings. A cap small enough to bind at every
-/// window size would have to be under 340 dp — narrower than the placeholders
-/// — so the field yields to the button instead of the reverse. It never
-/// exceeds the cap anywhere.
-///
-/// Anything the caller glues *under* the field — History's suggestion panel
-/// and operator hint, Settings' suggestion dropdown — has to carry the same
-/// [maxWidth], or it hangs out past the field it belongs to.
+/// Anything a caller glues *under* the field — History's suggestion panel and
+/// operator hint, Settings' suggestion dropdown — still has to end where the
+/// field ends. That rule didn't change, only the field's end did: those
+/// siblings now stretch to the full column too (`minWidth: double.infinity`)
+/// instead of repeating a shared width constant.
 ///
 /// ## One highlight per state
 ///
@@ -182,12 +184,6 @@ class WpSearchField extends StatefulWidget {
     this.semanticsLabel,
     this.autofocus = false,
   });
-
-  /// The width every search field settles at once its row has the room — see
-  /// "One width" in the library docs. Public because whatever a call site
-  /// attaches directly below the field (a suggestion panel, an inline hint)
-  /// has to end where the field ends.
-  static const double maxWidth = 560;
 
   /// Owned by the caller — every call site already holds one to read the query
   /// from, and several wire a listener to it.
@@ -434,18 +430,21 @@ class _WpSearchFieldState extends State<WpSearchField> {
       child: field,
     );
 
-    // Fills the row it was given — tight from an `Expanded`, loose from a
-    // start-aligned `Column` — and caps the box inside it. `heightFactor: 1`
-    // keeps the row's height the box's own; without it a caller with a
-    // bounded height would get a field centred in a taller invisible slot.
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      heightFactor: 1,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: WpSearchField.maxWidth),
-        child: box,
-      ),
-    );
+    // Takes the whole width the parent offers — tight from an `Expanded`
+    // (Notes, Replacements/Snippets), loose from a start-aligned `Column`
+    // (History, Settings, the snippet picker). See "Full width, always" in
+    // the library docs, including why an unbounded width is an assert here
+    // rather than a shrink-wrap.
+    //
+    // Height is deliberately left off, and that is measured rather than
+    // assumed: the geometry test reads the constraints each of the four
+    // in-window call sites hands in, and every one of them is loose in the
+    // vertical (`0.0<=h<=Infinity`), so the box keeps its intrinsic 48 dp
+    // without needing a `heightFactor` to stop it from stretching into a
+    // taller slot. A call site that ever handed down a *bounded* height would
+    // need one — hence that assertion, and the cross-area height equality
+    // beside it.
+    return SizedBox(width: double.infinity, child: box);
   }
 }
 
