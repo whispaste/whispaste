@@ -904,8 +904,19 @@ class _AutoPasteOffHintChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
+    // No `label:` — it used to repeat the tooltip string verbatim, so the
+    // chip stated the same fact three times in a row: once as the wrapper
+    // label ("Auto-Paste ist aktuell aus. Klicken, um die Einstellungen zu
+    // öffnen."), once as the rendered `Text` ("Auto-Paste deaktiviert, in
+    // Settings aktivierbar"), and once more as the tooltip the `Tooltip`
+    // below contributes by itself. `container: true` keeps the chip a single
+    // group; the name now comes from the visible text and the longer
+    // explanation stays where it belongs, in the tooltip field.
+    //
+    // Not `MergeSemantics`: the chip holds two independent targets — open
+    // settings, and dismiss — and merging would collapse them into one.
     return Semantics(
-      label: l10n.statusBarAutoPasteOffHintTooltip,
+      container: true,
       child: Tooltip(
         message: l10n.statusBarAutoPasteOffHintTooltip,
         child: Container(

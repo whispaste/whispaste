@@ -289,7 +289,13 @@ class _ToastCard extends StatelessWidget {
       // explicitly once, precisely when the toast is inserted — combining
       // that with liveRegion risks a double announcement (liveRegion fires
       // its own announcement on semantics-tree changes). The label here is
-      // for a screen-reader user who navigates directly to the toast.
+      // for a screen-reader user who navigates directly to the toast — the
+      // rendered message below is excluded so it is not stated twice, and
+      // because that `Text` is clipped to `_maxLines` with an ellipsis while
+      // this label carries the message whole.
+      //
+      // Not `MergeSemantics`: a toast can hold an action button and always
+      // holds a close button, and merging would swallow both.
       label: message,
       container: true,
       child: Material(
@@ -336,16 +342,19 @@ class _ToastCard extends StatelessWidget {
                 const SizedBox(width: WpSpacing.sm),
                 // Message
                 Flexible(
-                  child: Text(
-                    message,
-                    // labelMedium = Type/label role (13 / 500). Compact line-height
-                    // (1.3 vs theme's 1.4) preserved for the tight toast card layout.
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: textPrimary,
-                      height: 1.3,
+                  child: ExcludeSemantics(
+                    child: Text(
+                      message,
+                      // labelMedium = Type/label role (13 / 500). Compact
+                      // line-height (1.3 vs theme's 1.4) preserved for the
+                      // tight toast card layout.
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: textPrimary,
+                        height: 1.3,
+                      ),
+                      maxLines: _maxLines(context),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: _maxLines(context),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // Action button (optional)
