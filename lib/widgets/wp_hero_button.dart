@@ -22,9 +22,15 @@ class WpHeroButton extends StatefulWidget {
   final LinearGradient gradient;
   final VoidCallback? onPressed;
 
-  /// Vertical inner padding. Defaults to the regular CTA height; dense
-  /// surfaces (the merged Model & Hotkey onboarding page) pass a smaller
-  /// token to fit the fixed window without scrolling.
+  /// Vertical inner padding.
+  ///
+  /// Every call site is on the default. The dense-page overrides this once
+  /// described (`xs` on the model CTA, `sm` on the test-recording CTA) were
+  /// both retired in `fa601b95`, when the merged Model & Hotkey page they
+  /// paid for was split into two pages that fit the fixed window without
+  /// shortening anything. Keep it that way: a CTA that is shorter than the
+  /// rest of the flow's is a symptom of a page that does not fit, and the
+  /// fix belongs on the page.
   final double verticalPadding;
 
   @override
