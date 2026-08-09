@@ -58,6 +58,7 @@ Widget _field({
   VoidCallback? onClear,
   Widget? suffix,
   String? clearTooltip,
+  String? semanticsLabel,
 }) => WpSearchField(
   controller: controller,
   hintText: 'Suchen…',
@@ -67,6 +68,7 @@ Widget _field({
   onClear: onClear,
   suffix: suffix,
   clearTooltip: clearTooltip,
+  semanticsLabel: semanticsLabel,
 );
 
 void main() {
@@ -401,5 +403,73 @@ void main() {
       expect(tester.getRect(find.byIcon(LucideIcons.x)).center.dy, field);
       expect(tester.getRect(find.byType(EditableText)).center.dy, field);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // AC9 — semanticsLabel names the field itself
+  // -------------------------------------------------------------------------
+  group('AC9 — semanticsLabel', () {
+    testWidgets(
+      'lands on the same node as the field\'s own actions and state — not '
+      'on a separate, unfocusable ancestor node',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          makeTestable(
+            _field(controller: controller, semanticsLabel: 'Suche Notizen'),
+          ),
+        );
+
+        // A `container: true`-only wrapper would put the label on a node
+        // above the field's own — that node carries no actions/isFocusable,
+        // so a reader would land on it first and never reach an announced,
+        // operable field. Asserting label and interaction flags together on
+        // the *same* node is what pins that regression shut.
+        expect(
+          tester.getSemantics(find.byType(EditableText)),
+          matchesSemantics(
+            label: 'Suche Notizen\nSuchen…',
+            isTextField: true,
+            isFocusable: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'stays absent from the tree when the field has no semanticsLabel — '
+      'this axis never invents one',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(makeTestable(_field(controller: controller)));
+
+        expect(
+          tester.getSemantics(find.byType(EditableText)),
+          matchesSemantics(
+            label: 'Suchen…',
+            isTextField: true,
+            isFocusable: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+
+        handle.dispose();
+      },
+    );
   });
 }

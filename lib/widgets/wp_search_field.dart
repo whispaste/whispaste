@@ -381,17 +381,20 @@ class _WpSearchFieldState extends State<WpSearchField> {
     );
 
     if (widget.semanticsLabel != null) {
-      field = Semantics(
-        // Without an explicit boundary this label merges into the nearest
-        // *ancestor* Semantics node instead of staying on the field — on the
-        // Replacements screen that ancestor already carries the header
-        // switch's label, so the two ran together into one announcement.
-        // `container: true` gives the field its own node regardless of what
-        // sits above it in a given call site.
-        container: true,
-        label: widget.semanticsLabel!,
-        textField: true,
-        child: field,
+      // `Semantics(label:)` alone, without a boundary, doesn't attach the
+      // label to the field: it merges into whatever ancestor node happens to
+      // be collecting descendants — on the Replacements screen that was the
+      // header switch's own node, so the two announced as one. A plain
+      // `container: true` fixes the upward merge but creates the opposite
+      // split: the field's own node (focus/tap actions, `isTextField`) then
+      // sits *below* this one as a child instead of carrying the label
+      // itself, so a reader would land on an unlabelled, unfocusable node
+      // first. `MergeSemantics` folds the two back into one node — this
+      // label plus the field's own actions and state — and, per
+      // `toStringDeep()`'s "merge boundary", also blocks the upward merge
+      // this fix started from.
+      field = MergeSemantics(
+        child: Semantics(label: widget.semanticsLabel!, child: field),
       );
     }
 

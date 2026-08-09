@@ -227,8 +227,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // A substring match, not exact equality: [WpSearchField] merges this
+      // label onto the same node as its own hint-derived text (see its
+      // library docs), so the accessible name carries both — the identifying
+      // label plus the hint — rather than the label alone.
       expect(
-        find.bySemanticsLabel(l10n.settingsSearchFieldLabel),
+        find.bySemanticsLabel(RegExp(RegExp.escape(l10n.settingsSearchFieldLabel))),
         findsWidgets,
         reason: 'Search field must expose its accessible label',
       );
