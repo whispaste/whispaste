@@ -34,6 +34,10 @@ import 'wp_button.dart';
 
 /// Override for testing. When non-null, [WpStoreThankYouWatcher] uses this
 /// value instead of [Platform.isWindows].
+///
+/// Wp naming — deliberately unprefixed, same reasoning as
+/// [platformIsWindowsOverride] in `review_prompt_dialog.dart`:
+/// `@visibleForTesting` seams stay outside the component vocabulary.
 @visibleForTesting
 bool? storeThankYouPlatformIsWindowsOverride;
 

@@ -172,6 +172,12 @@ final _modifierKeys = <LogicalKeyboardKey>{
 /// Kept intentionally narrow — function keys and a few media keys that
 /// rarely appear in normal text input. All other keys require at least
 /// one modifier to prevent accidental capture of letter/number keys.
+///
+/// Wp naming — deliberately unprefixed: this is hotkey *domain* data (which
+/// keys the app considers bindable on their own), shared with the key
+/// resolver in the service layer, not part of the shared component
+/// vocabulary that the `Wp` prefix marks. It only sits in this file because
+/// [WpHotkeyRecorderDialog] is where the rule is enforced.
 final Set<LogicalKeyboardKey> singleKeyWhitelist = {
   // Function keys
   LogicalKeyboardKey.f1,

@@ -26,6 +26,11 @@ import 'wp_focus_ring.dart';
 ///
 /// Lives next to [WpStatusBar] so the visibility rule and the widget that
 /// consumes it stay locked together.
+///
+/// Wp naming — deliberately unprefixed: the prefix marks the shared component
+/// vocabulary of lib/widgets/ (types you instantiate, plus the `showWp*`
+/// launchers that are a component's own public API). This is a pure boolean
+/// predicate over settings, not something anyone puts in a widget tree.
 bool shouldShowAutoPasteOffHint({
   required AfterTranscriptionAction afterAction,
   required bool onboardingCompleted,

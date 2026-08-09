@@ -22,6 +22,11 @@ import 'wp_button.dart';
 
 /// Override for testing. When non-null, [WpReviewPromptWatcher] uses this value
 /// instead of [Platform.isWindows].
+///
+/// Wp naming — deliberately unprefixed: `@visibleForTesting` seams are not
+/// part of the component vocabulary the `Wp` prefix marks, and keeping them
+/// plain makes it obvious at the call site that this is a test hook rather
+/// than public component API.
 @visibleForTesting
 bool? platformIsWindowsOverride;
 

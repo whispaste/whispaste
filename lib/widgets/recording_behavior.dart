@@ -36,6 +36,15 @@ import 'toast.dart';
 // Localization helpers (error / info codes → human-readable messages)
 // ---------------------------------------------------------------------------
 
+// Wp naming — deliberate exception for everything in this file except
+// [WpRecordingBehavior] itself: the `Wp` prefix marks the shared *component*
+// vocabulary of lib/widgets/ (types you instantiate, plus the `showWp*`
+// launchers that are a component's own public API, e.g. showWpFormDialog).
+// The free functions below are neither — they are pure code→string mappings,
+// pure gate predicates, and call sites that pour recording-specific content
+// into the already-prefixed [WpToast]. Prefixing them would claim they are
+// components of the design system, which they are not.
+
 /// Maps error codes from the recording orchestrator to localized messages.
 String localizeRecordingError(L10n l10n, String errorCode) {
   switch (errorCode) {
@@ -495,6 +504,10 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
 // Recording-error toast — extracted the same way as [showPasteFailureToast]
 // below so widget tests can exercise the mic-permission-denied action wiring
 // directly without bootstrapping the full WpRecordingBehavior.
+//
+// Unprefixed on purpose (see the Wp-naming note at the top of this file):
+// this and the three toast helpers that follow are call sites of [WpToast],
+// not components of their own.
 // ---------------------------------------------------------------------------
 
 /// Renders the actionable toast for a recording-pipeline error.
