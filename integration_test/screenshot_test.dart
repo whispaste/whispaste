@@ -27,7 +27,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:whispaste/app.dart'
-    show wpNavDividerAfterIds, wpNavItems, wpPageTitle;
+    show wpNavDividerAfterIds, wpNavItems, wpPageTitle, wpSettingsNavItem;
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
@@ -48,7 +48,6 @@ import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/widgets/frame_watermark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/sidebar_settings_button.dart';
 import 'package:whispaste/widgets/status_bar.dart';
 import 'package:whispaste/widgets/title_bar.dart';
 
@@ -297,12 +296,7 @@ class _ScreenshotShell extends StatelessWidget {
                         dividerAfterIds: wpNavDividerAfterIds,
                         activeId: pageId,
                         onItemTap: (_) {},
-                        bottomItems: [
-                          WpSidebarSettingsButton(
-                            isActive: pageId == 'settings',
-                            onTap: () {},
-                          ),
-                        ],
+                        bottomItems: [wpSettingsNavItem(L10n.of(context))],
                       ),
                       // Content area — rounded panel with warm gradient
                       Expanded(

@@ -199,6 +199,53 @@ abstract final class WpLayout {
 }
 
 // ---------------------------------------------------------------------------
+// Navigation rail geometry
+//
+// The icon-only sidebar's internal measurements. They used to sit inline in
+// `sidebar.dart` *and* a second time in the now-deleted
+// `sidebar_settings_button.dart`, where they had already drifted apart — the
+// rail is chrome visible on every page, so a 1 px divergence between the nav
+// items and the pinned settings entry shows up on every screen at once.
+// Named here so both the rail and its screenshot shells read the same numbers.
+// ---------------------------------------------------------------------------
+abstract final class WpNavRail {
+  /// Full width of one rail row — spans [WpLayout.sidebarWidth] so the whole
+  /// row is the tap target, not just the pill.
+  static const double itemWidth = WpLayout.sidebarWidth;
+
+  /// Height of one rail row (pill plus its breathing room).
+  static const double itemHeight = 42;
+
+  /// The rounded square behind the icon; carries the active state's fill,
+  /// hairline and elevation.
+  static const double pillSize = 38;
+
+  /// Active-item accent bar, flush with the reading-start window edge.
+  static const double indicatorWidth = 3;
+  static const double indicatorHeight = 22;
+
+  /// Group-break hairline between nav sections. Deliberately narrower than
+  /// [pillSize] so it reads as a quiet break, not a full-width rule.
+  static const double dividerWidth = 36;
+  static const double dividerThickness = 1;
+
+  /// Unread/attention dot rendered at the pill's reading-end top corner.
+  static const double badgeSize = 8;
+
+  /// Inset of the badge from the pill's own top/end edge. The badge lives in
+  /// the row-sized stack (like the indicator bar), so the offsets below add
+  /// the pill's centering margin — that keeps the dot on the pill's corner
+  /// instead of the rail's, and keeps it clear of the glyph.
+  static const double badgeInset = 2;
+
+  /// Badge offset from the row's top edge: pill centering margin + inset.
+  static const double badgeTop = (itemHeight - pillSize) / 2 + badgeInset;
+
+  /// Badge offset from the row's reading-end edge: same derivation.
+  static const double badgeEnd = (itemWidth - pillSize) / 2 + badgeInset;
+}
+
+// ---------------------------------------------------------------------------
 // Icon sizes
 //
 // Usage rules (mobile-first):

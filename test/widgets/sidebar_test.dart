@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/widgets/sidebar.dart';
@@ -87,6 +88,82 @@ void main() {
       expect(item.id, 'test');
       expect(item.icon, LucideIcons.star);
       expect(item.label, 'Test');
+      expect(item.badgeHint, isNull);
+    });
+
+    testWidgets('bottom-pinned items report taps through onItemTap', (
+      tester,
+    ) async {
+      String? tappedId;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidebar(
+            items: testItems,
+            activeId: 'home',
+            onItemTap: (id) => tappedId = id,
+            bottomItems: const [
+              WpNavItem(
+                id: 'preferences',
+                icon: LucideIcons.settings,
+                label: 'Preferences',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Preferences'));
+      expect(tappedId, 'preferences');
+    });
+  });
+
+  group('WpSidebar attention badge', () {
+    // The dot is only ever legitimate together with the sentence that
+    // explains it, so the tests assert the two as one unit.
+    const badged = WpNavItem(
+      id: 'preferences',
+      icon: LucideIcons.settings,
+      label: 'Preferences',
+      badgeHint: 'Update available: v9.9.9',
+    );
+
+    Widget shellWith(List<WpNavItem> bottomItems) => makeTestable(
+      WpSidebar(
+        items: testItems,
+        activeId: 'home',
+        onItemTap: (_) {},
+        bottomItems: bottomItems,
+      ),
+    );
+
+    testWidgets('a hint puts its reason into tooltip and semantics', (
+      tester,
+    ) async {
+      await tester.pumpWidget(shellWith(const [badged]));
+
+      const expected = 'Preferences, Update available: v9.9.9';
+      expect(find.byTooltip(expected), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(expected),
+        findsOneWidget,
+        reason: 'A dot a screen reader cannot explain is not an announcement',
+      );
+    });
+
+    testWidgets('without a hint the label stays untouched', (tester) async {
+      await tester.pumpWidget(
+        shellWith(const [
+          WpNavItem(
+            id: 'preferences',
+            icon: LucideIcons.settings,
+            label: 'Preferences',
+          ),
+        ]),
+      );
+
+      expect(find.byTooltip('Preferences'), findsOneWidget);
+      expect(find.bySemanticsLabel('Preferences'), findsOneWidget);
     });
   });
 }

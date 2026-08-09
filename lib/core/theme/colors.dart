@@ -130,6 +130,20 @@ abstract final class WpColorsDark {
     colors: [Color(0xFF3CCBE6), Color(0xFF14B8D4), Color(0xFF0A99B8)],
   );
 
+  /// Nav-rail active pill — a *tonal* top-lit gradient on the existing accent,
+  /// not a new hue: 20 % accent at the top stop falling to 12 % at the bottom.
+  ///
+  /// The mean (16 %) sits on top of the flat [accentSubtle] (16.5 %) it
+  /// replaces, so the pill gains a lit top edge and a settled base without
+  /// getting louder overall. Deliberately *not* [accentWarmGradient] — that
+  /// one is opaque, and an opaque accent fill would swallow the accent-colored
+  /// icon standing on it.
+  static const LinearGradient navPillActiveGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x333CCBE6), Color(0x1F3CCBE6)],
+  );
+
   /// Glass tint — semi-transparent overlay for frosted panels
   static const Color glassTint = Color(0x18FFFFFF);
 
@@ -234,6 +248,18 @@ abstract final class WpColorsLight {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [Color(0xFF06678A), Color(0xFF0E7490), Color(0xFF155E75)],
+  );
+
+  /// Nav-rail active pill — see [WpColorsDark.navPillActiveGradient].
+  ///
+  /// Light keeps its own, lower alpha pair (14 % → 8 %, mean 11 %) rather than
+  /// reusing the dark stops: the deep-teal accent on a near-white pearl
+  /// surface reads heavier per unit alpha than cyan on navy does. The mean
+  /// again matches the flat [accentSubtle] (11 %) it replaces.
+  static const LinearGradient navPillActiveGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x2406678A), Color(0x1406678A)],
   );
 
   /// Glass tint — soft white overlay for light frosted panels

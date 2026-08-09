@@ -16,7 +16,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/widgets/dialog.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/sidebar_settings_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -167,19 +166,33 @@ void main() {
       );
     });
 
-    testWidgets('Settings button is keyboard-activatable via Enter', (
+    testWidgets('Bottom-pinned settings item is activatable via Enter', (
       tester,
     ) async {
-      bool tapped = false;
+      String? tappedId;
 
       await tester.pumpWidget(
         makeTestable(
-          Column(
+          // Row, not Column: the rail's `Spacer`s need a bounded height, and
+          // only the Row hands it the Scaffold's own.
+          Row(
             children: [
               const Focus(autofocus: true, child: SizedBox.shrink()),
-              WpSidebarSettingsButton(
-                isActive: false,
-                onTap: () => tapped = true,
+              // Rail with nothing but the pinned entry, so the first Tab out
+              // of the anchor lands on it. Since the settings entry became a
+              // regular `WpNavItem` it is no longer separately mountable —
+              // it only exists as a row of the rail.
+              WpSidebar(
+                items: const [],
+                activeId: 'history',
+                onItemTap: (id) => tappedId = id,
+                bottomItems: const [
+                  WpNavItem(
+                    id: 'settings',
+                    icon: LucideIcons.settings,
+                    label: 'Settings',
+                  ),
+                ],
               ),
             ],
           ),
@@ -187,14 +200,18 @@ void main() {
       );
       await _settle(tester);
 
-      // Tab from anchor to settings button.
+      // Tab from anchor to settings item.
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await _settle(tester);
 
-      expect(tapped, isTrue, reason: 'Enter should activate settings button');
+      expect(
+        tappedId,
+        'settings',
+        reason: 'Enter should activate the pinned settings item',
+      );
     });
   });
 

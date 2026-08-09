@@ -20,7 +20,6 @@ import 'core/theme/theme_provider.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
-import 'widgets/sidebar_settings_button.dart';
 import 'widgets/status_bar.dart';
 import 'widgets/frame_watermark.dart';
 import 'widgets/recording_indicator_bar.dart';
@@ -151,6 +150,22 @@ List<WpNavItem> wpNavItems(L10n l10n) => [
 /// single source of truth for every [WpSidebar] call site (app shell,
 /// screenshot shells), so grouping stays consistent everywhere.
 const Set<String> wpNavDividerAfterIds = {'snippets'};
+
+/// The Settings entry pinned to the bottom of the rail.
+///
+/// Same [WpNavItem] type and same renderer as [wpNavItems] — it used to be a
+/// hand-copied widget, which is how it acquired an RTL-blind indicator bar and
+/// a vertical rhythm 16 px tighter than the items above it. Public so the
+/// screenshot shells build the identical rail.
+///
+/// [badgeHint] carries the attention dot's *reason*, not a flag: pass the
+/// sentence a screen reader should read, or null for no dot.
+WpNavItem wpSettingsNavItem(L10n l10n, {String? badgeHint}) => WpNavItem(
+  id: 'settings',
+  icon: LucideIcons.settings,
+  label: l10n.navSettings,
+  badgeHint: badgeHint,
+);
 
 /// Resolves the page title — checks nav items first, falls back for
 /// bottom-pinned pages (e.g. Settings).
@@ -965,12 +980,22 @@ class _AppShellState extends ConsumerState<_AppShell>
                                         .setPage(id);
                                   },
                                   bottomItems: [
-                                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpSidebarSettingsButton.build
-                                    WpSidebarSettingsButton(
-                                      isActive: activePage == 'settings',
-                                      onTap: () => ref
-                                          .read(activePageProvider.notifier)
-                                          .setPage('settings'),
+                                    // Attention dot on the gear whenever a
+                                    // newer version is waiting — reuses the
+                                    // existing `updateProvider` phase rather
+                                    // than tracking a second "seen" state,
+                                    // and reuses the sentence the status bar
+                                    // already shows so the dot is never a
+                                    // bare, unexplained mark.
+                                    wpSettingsNavItem(
+                                      l10n,
+                                      badgeHint:
+                                          updateState.phase ==
+                                              UpdatePhase.available
+                                          ? l10n.updateAvailable(
+                                              updateState.latestVersion ?? '',
+                                            )
+                                          : null,
                                     ),
                                   ],
                                 ),
@@ -1223,11 +1248,6 @@ class _ThemeToggle extends ConsumerWidget {
     );
   }
 }
-
-/// Settings shortcut pinned to sidebar bottom — mirrors nav item style.
-///
-/// Re-exported from [WpSidebarSettingsButton] (lib/widgets/sidebar_settings_button.dart).
-/// Kept as a comment anchor for git-blame readability.
 
 /// Thin animated bar at the top of the content panel.
 ///

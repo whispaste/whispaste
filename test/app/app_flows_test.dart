@@ -23,7 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/app.dart'
-    show activePageProvider, wpNavItems, wpPageWidgets;
+    show activePageProvider, wpNavItems, wpPageWidgets, wpSettingsNavItem;
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -45,7 +45,6 @@ import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/features/history/data/providers.dart'
     show historyEntriesProvider, archivedEntriesProvider, trashEntriesProvider;
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/sidebar_settings_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -222,13 +221,7 @@ class _TestNavShell extends ConsumerWidget {
           items: navItems,
           activeId: activePage,
           onItemTap: (id) => ref.read(activePageProvider.notifier).setPage(id),
-          bottomItems: [
-            WpSidebarSettingsButton(
-              isActive: activePage == 'settings',
-              onTap: () =>
-                  ref.read(activePageProvider.notifier).setPage('settings'),
-            ),
-          ],
+          bottomItems: [wpSettingsNavItem(l10n)],
         ),
         Expanded(child: wpPageWidgets[activePage] ?? const SizedBox.shrink()),
       ],

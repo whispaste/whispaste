@@ -18,10 +18,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whispaste/app.dart' show wpNavDividerAfterIds, wpNavItems;
+import 'package:whispaste/app.dart'
+    show wpNavDividerAfterIds, wpNavItems, wpSettingsNavItem;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/sidebar_settings_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -39,9 +39,7 @@ void main() {
               dividerAfterIds: wpNavDividerAfterIds,
               activeId: 'history',
               onItemTap: (_) {},
-              bottomItems: [
-                WpSidebarSettingsButton(isActive: false, onTap: () {}),
-              ],
+              bottomItems: [wpSettingsNavItem(L10n.of(context))],
             ),
             const Expanded(child: SizedBox.shrink()),
           ],

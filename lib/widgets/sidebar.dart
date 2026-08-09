@@ -5,11 +5,26 @@ import 'wp_focus_ring.dart';
 
 /// Navigation item data for the sidebar.
 class WpNavItem {
-  const WpNavItem({required this.id, required this.icon, required this.label});
+  const WpNavItem({
+    required this.id,
+    required this.icon,
+    required this.label,
+    this.badgeHint,
+  });
 
   final String id;
   final IconData icon;
   final String label;
+
+  /// Reason the attention dot is shown — e.g. "Version 1.2.3 verfügbar".
+  ///
+  /// Deliberately a sentence and not a `bool`: the dot itself is invisible to
+  /// screen readers and meaningless to anyone who cannot guess what changed,
+  /// so the badge only exists together with the phrase that explains it. When
+  /// set, the phrase is appended to the item's tooltip *and* its semantics
+  /// label; when null, no dot is painted and both stay byte-identical to a
+  /// plain item.
+  final String? badgeHint;
 }
 
 /// Gaming-launcher sidebar — icon-only rail, seamless with content.
@@ -29,7 +44,14 @@ class WpSidebar extends StatelessWidget {
   final List<WpNavItem> items;
   final String activeId;
   final ValueChanged<String> onItemTap;
-  final List<Widget> bottomItems;
+
+  /// Rail entries pinned to the bottom (e.g. Settings).
+  ///
+  /// Same type and same renderer as [items] — they only differ in where the
+  /// rail puts them. They used to be arbitrary `Widget`s, which is how a
+  /// second copy of the nav-item look grew its own RTL bug and its own
+  /// vertical rhythm; there is now exactly one implementation.
+  final List<WpNavItem> bottomItems;
 
   /// Item ids after which a subtle group divider is rendered.
   ///
@@ -61,7 +83,14 @@ class WpSidebar extends StatelessWidget {
           ],
           const Spacer(flex: 6),
           // Bottom items pinned to bottom
-          ...bottomItems,
+          for (final item in bottomItems)
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
+            _NavItemWidget(
+              item: item,
+              isActive: item.id == activeId,
+              onTap: () => onItemTap(item.id),
+              isDark: isDark,
+            ),
           const SizedBox(height: WpSpacing.md),
         ],
       ),
@@ -71,8 +100,10 @@ class WpSidebar extends StatelessWidget {
 
 /// Subtle horizontal hairline separating nav-item groups.
 ///
-/// Purely decorative (no semantics, not focusable): narrower than the 38px
-/// icon pill so it reads as a quiet group break, not a full-width rule.
+/// Purely decorative (no semantics, not focusable): narrower than the icon
+/// pill so it reads as a quiet group break, not a full-width rule. Stays a
+/// hairline rather than a tinted group plate — the rail's vertical budget is
+/// already tight at the enforced minimum window size.
 class _SidebarGroupDivider extends StatelessWidget {
   const _SidebarGroupDivider({required this.isDark});
 
@@ -83,9 +114,14 @@ class _SidebarGroupDivider extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
       child: Container(
-        width: 28,
-        height: 1,
-        color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
+        width: WpNavRail.dividerWidth,
+        height: WpNavRail.dividerThickness,
+        // `borderDefault`, not `borderSubtle`: at 36 px wide and 1 px tall
+        // between two icon groups, the subtle tone read as a rendering
+        // artifact rather than as a deliberate break.
+        color: isDark
+            ? WpColorsDark.borderDefault
+            : WpColorsLight.borderDefault,
       ),
     );
   }
@@ -120,9 +156,14 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Active: accent-subtle bg + accent icon + left indicator bar
-    // Hovered: simple bg-hover + text-primary — clean, like old app
+    // Active: tonal accent gradient + hairline + elevation, accent icon,
+    //         reading-start indicator bar
+    // Hovered: flat bg-hover + text-primary — clean, like old app
     // Default: muted icon, transparent
+    //
+    // Only the active pill lifts off the rail. Hover and idle stay flat on
+    // purpose: elevation here means "this is where you are", and a rail where
+    // the cursor also raises pills has two things claiming that meaning.
     final Color iconColor;
     final Color bgColor;
 
@@ -145,12 +186,39 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
           : WpColorsLight.hoverTransparent;
     }
 
+    // Everything the pill fills is routed through the *gradient* channel,
+    // never `color`. `BoxDecoration.lerp` interpolates `color` and `gradient`
+    // independently, so a `color -> gradient` cross-fade produces a frame
+    // where both are non-null — which the BoxDecoration constructor asserts
+    // against. Inactive states therefore use a flat two-stop gradient with
+    // the same axis and stop count as the active one, which also keeps
+    // `LinearGradient.lerp` on its cheap same-shape path.
+    final Gradient pillGradient = widget.isActive
+        ? (widget.isDark
+              ? WpColorsDark.navPillActiveGradient
+              : WpColorsLight.navPillActiveGradient)
+        : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [bgColor, bgColor],
+          );
+
+    final Color accent = widget.isDark
+        ? WpColorsDark.accent
+        : WpColorsLight.accent;
+    final String? badgeHint = widget.item.badgeHint;
+    // The dot is decorative — it carries no semantics of its own, so the
+    // reason it appeared has to travel in the label the item already has.
+    final String description = badgeHint == null
+        ? widget.item.label
+        : '${widget.item.label}, $badgeHint';
+
     return Semantics(
-      label: widget.item.label,
+      label: description,
       button: true,
       selected: widget.isActive,
       child: Tooltip(
-        message: widget.item.label,
+        message: description,
         preferBelow: false,
         waitDuration: const Duration(milliseconds: 400),
         child: MouseRegion(
@@ -171,8 +239,8 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
                 child: SizedBox(
-                  width: WpLayout.sidebarWidth,
-                  height: 42,
+                  width: WpNavRail.itemWidth,
+                  height: WpNavRail.itemHeight,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -183,8 +251,8 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                         PositionedDirectional(
                           start: 0,
                           child: Container(
-                            width: 3,
-                            height: 22,
+                            width: WpNavRail.indicatorWidth,
+                            height: WpNavRail.indicatorHeight,
                             decoration: BoxDecoration(
                               gradient: widget.isDark
                                   ? WpColorsDark.accentWarmGradient
@@ -209,11 +277,31 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                           WpMotion.hoverIn,
                         ),
                         curve: WpMotion.defaultCurve,
-                        width: 38,
-                        height: 38,
+                        width: WpNavRail.pillSize,
+                        height: WpNavRail.pillSize,
                         decoration: BoxDecoration(
-                          color: bgColor,
+                          gradient: pillGradient,
                           borderRadius: BorderRadius.circular(WpRadius.md),
+                          // Always a 1 px border, only its colour animates —
+                          // a null->Border cross-fade scales the *width* up
+                          // from zero, which would nudge the glyph by half a
+                          // pixel mid-transition.
+                          border: Border.all(
+                            color: widget.isActive
+                                ? (widget.isDark
+                                      ? WpColorsDark.accentBorder20
+                                      : WpColorsLight.accentBorder20)
+                                : Colors.transparent,
+                          ),
+                          // `subtleFor`, not the hardcoded dark-theme
+                          // `subtle` — black-alpha shadows read far heavier
+                          // over the pearl light surfaces. The off state is
+                          // the alpha-0 twin rather than null, so toggling
+                          // fades the ink out instead of shrinking it into a
+                          // harder-edged patch for one frame.
+                          boxShadow: widget.isActive
+                              ? WpShadows.subtleFor(widget.isDark)
+                              : WpShadows.subtleTransparent,
                         ),
                         alignment: Alignment.center,
                         child: Icon(
@@ -222,6 +310,20 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                           size: WpIconSize.md,
                         ),
                       ),
+                      // Attention dot on the pill's reading-end top corner.
+                      if (badgeHint != null)
+                        PositionedDirectional(
+                          top: WpNavRail.badgeTop,
+                          end: WpNavRail.badgeEnd,
+                          child: Container(
+                            width: WpNavRail.badgeSize,
+                            height: WpNavRail.badgeSize,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

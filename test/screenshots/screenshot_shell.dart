@@ -20,7 +20,6 @@ import 'package:whispaste/widgets/brand_wordmark.dart';
 import 'package:whispaste/widgets/frame_watermark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/sidebar_settings_button.dart';
 import 'package:whispaste/widgets/status_bar.dart';
 
 /// Full-window visual shell — static, test-safe.
@@ -89,12 +88,7 @@ class WpScreenshotShell extends StatelessWidget {
                         dividerAfterIds: wpNavDividerAfterIds,
                         activeId: activePageId,
                         onItemTap: (_) {},
-                        bottomItems: [
-                          WpSidebarSettingsButton(
-                            isActive: activePageId == 'settings',
-                            onTap: () {},
-                          ),
-                        ],
+                        bottomItems: [wpSettingsNavItem(L10n.of(context))],
                       ),
                       Expanded(
                         child: Container(
