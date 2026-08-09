@@ -272,6 +272,150 @@ abstract final class WpSharedColors {
   static const Color pinnedAccent = Color(0xFFFFB300); // Colors.amber.shade600
 }
 
+/// Theme-paired rendering recipe for the history-entry avatar disc.
+///
+/// [WpSharedColors.avatarPalette] is deliberately theme-*independent*, so the
+/// whole light/dark adaptation has to live in how a palette hue is prepared —
+/// not in the hue itself. Every value below is therefore mirrored rather than
+/// merely scaled: on dark the hue is pushed **toward light** and the fill kept
+/// thin; on light it is pushed **toward ink** and the fill made *denser*, which
+/// is the opposite of the usual "light theme needs less ink" compensation (that
+/// rule exists for tokens whose base color already darkens per theme — this one
+/// does not, so a thinner fill on pearl-white would simply erase the disc).
+///
+/// The lightness shifts are clamped into a legibility band. The band is what
+/// keeps the recipe hue-agnostic: a pure shift drives already-dark hues
+/// (emerald, teal) to near-black glyphs on light and washes pale hues out on
+/// dark, so the band caps both ends without flattening the hues that sit in
+/// between. On today's palette the dark bands never bind — they are a guard for
+/// a future palette, not an active correction.
+///
+/// Calibrated against two contrast targets, verified per slot and per theme in
+/// `test/core/theme/wcag_contrast_test.dart`:
+/// * disc vs. `surface`/`surfaceElevated` ≥ 1.5:1 (WCAG 1.4.11, graphical
+///   object) — the disc has to be *seen*;
+/// * glyph vs. disc ≥ 3:1 — the icon has to be *read*.
+///
+/// Both targets pull against each other on light (a denser disc drags the glyph
+/// further toward ink), which is why they are calibrated together.
+final class WpAvatarTint {
+  const WpAvatarTint._({
+    required this.fillTopAlpha,
+    required this.fillBottomAlpha,
+    required this.edgeAlpha,
+    required this.glyphAlpha,
+    required this.fillLightnessShift,
+    required this.fillLightnessMin,
+    required this.fillLightnessMax,
+    required this.topStopLightnessDelta,
+    required this.glyphLightnessShift,
+    required this.glyphLightnessMin,
+    required this.glyphLightnessMax,
+  });
+
+  /// Alpha of the lit (top-left) gradient stop.
+  final double fillTopAlpha;
+
+  /// Alpha of the shaded (bottom-right) gradient stop.
+  final double fillBottomAlpha;
+
+  /// Alpha of the 1px hue-tinted rim.
+  final double edgeAlpha;
+
+  /// Alpha of the icon glyph.
+  final double glyphAlpha;
+
+  /// Lightness shift applied to the palette hue before it fills the disc.
+  /// Positive on dark, negative on light — the mirror that makes the fill
+  /// separate from its ground instead of dissolving into it.
+  final double fillLightnessShift;
+
+  /// Legibility band for the shifted fill lightness.
+  final double fillLightnessMin;
+  final double fillLightnessMax;
+
+  /// Extra lightness delta of the lit stop over the shaded one. Carries the
+  /// same sign as [fillLightnessShift]: "lit" means away from the ground.
+  final double topStopLightnessDelta;
+
+  /// Lightness shift applied to the palette hue for the glyph. Same sign as
+  /// [fillLightnessShift] but larger, so the icon separates from the disc it
+  /// sits on. Keep it clear of `fillLightnessShift + topStopLightnessDelta` —
+  /// at equality the glyph and the lit stop collapse onto the same color and
+  /// only their alphas still tell them apart.
+  final double glyphLightnessShift;
+
+  /// Legibility band for the shifted glyph lightness.
+  final double glyphLightnessMin;
+  final double glyphLightnessMax;
+
+  /// Dark theme: thin fill, hue pushed lighter, glyph lighter still.
+  static const WpAvatarTint dark = WpAvatarTint._(
+    fillTopAlpha: 0.28,
+    fillBottomAlpha: 0.20,
+    edgeAlpha: 0.30,
+    glyphAlpha: 0.95,
+    fillLightnessShift: 0.12,
+    fillLightnessMin: 0.45,
+    fillLightnessMax: 0.86,
+    topStopLightnessDelta: 0.12,
+    glyphLightnessShift: 0.20,
+    glyphLightnessMin: 0.55,
+    glyphLightnessMax: 0.92,
+  );
+
+  /// Light theme: denser fill (not thinner), hue pushed toward ink, glyph
+  /// darker still — every sign mirrored against [dark].
+  static const WpAvatarTint light = WpAvatarTint._(
+    fillTopAlpha: 0.36,
+    fillBottomAlpha: 0.26,
+    edgeAlpha: 0.44,
+    glyphAlpha: 0.95,
+    fillLightnessShift: -0.20,
+    fillLightnessMin: 0.22,
+    fillLightnessMax: 0.56,
+    topStopLightnessDelta: -0.12,
+    glyphLightnessShift: -0.36,
+    glyphLightnessMin: 0.14,
+    glyphLightnessMax: 0.34,
+  );
+
+  static WpAvatarTint of(bool isDark) => isDark ? dark : light;
+
+  /// Lit (top-left) gradient stop for [base], alpha included.
+  Color fillTop(Color base) => _shift(
+    base,
+    fillLightnessShift + topStopLightnessDelta,
+    fillLightnessMin + topStopLightnessDelta,
+    fillLightnessMax + topStopLightnessDelta,
+  ).withValues(alpha: fillTopAlpha);
+
+  /// Shaded (bottom-right) gradient stop for [base], alpha included.
+  Color fillBottom(Color base) =>
+      _fillBase(base).withValues(alpha: fillBottomAlpha);
+
+  /// Hue-tinted rim for [base], alpha included.
+  Color edge(Color base) => _fillBase(base).withValues(alpha: edgeAlpha);
+
+  /// Icon color for [base], alpha included.
+  Color glyph(Color base) => _shift(
+    base,
+    glyphLightnessShift,
+    glyphLightnessMin,
+    glyphLightnessMax,
+  ).withValues(alpha: glyphAlpha);
+
+  Color _fillBase(Color base) =>
+      _shift(base, fillLightnessShift, fillLightnessMin, fillLightnessMax);
+
+  static Color _shift(Color base, double delta, double min, double max) {
+    final hsl = HSLColor.fromColor(base);
+    return hsl
+        .withLightness((hsl.lightness + delta).clamp(min, max).clamp(0.0, 1.0))
+        .toColor();
+  }
+}
+
 /// The translucent scrim behind a [BackdropFilter]-blurred dialog barrier.
 ///
 /// Needs true black/white rather than a themed surface token — the blur

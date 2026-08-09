@@ -116,11 +116,21 @@ IconData historyAvatarIcon(HistoryEntry entry) {
 
 /// Entry avatar — colored circle with icon (Discord/WhatsApp identity).
 ///
-/// "Belichtete Scheibe": a lightness-shifted top-to-bottom fill gradient
-/// (same hue, +12% L top stop) plus a 1px hue-tinted edge border and a soft
-/// `WpShadows.subtle` lift — glow-free materiality on top of the flat fill
-/// this used to be. Only lightness/alpha vary per-hue (shift ≤ 8°), so all 8
-/// palette colors stay instantly distinguishable and scannable.
+/// "Belichtete Scheibe": a lightness-shifted fill gradient (same hue, the lit
+/// stop offset by [WpAvatarTint.topStopLightnessDelta]) plus a 1px hue-tinted
+/// edge border and a soft, theme-resolved `WpShadows.subtleFor` lift —
+/// glow-free materiality on top of the flat fill this used to be.
+///
+/// Every lightness and alpha comes from [WpAvatarTint], and every one of them
+/// is *mirrored* between the themes: the palette hue itself is theme-
+/// independent, so the disc only separates from its ground if the preparation
+/// flips direction — lighter and thin on navy, toward ink and denser on pearl.
+/// The shifts are clamped into a legibility band, so a hue that already sits
+/// near the band edge is held there instead of collapsing into the ground or
+/// into near-black; hues in between keep their own lightness character. Result
+/// is calibrated to keep the disc visible (≥1.5:1 against surface) and the
+/// glyph readable (≥3:1 against the disc) for every palette slot in both
+/// themes — gated in `test/core/theme/wcag_contrast_test.dart`.
 class HistoryEntryAvatar extends StatelessWidget {
   const HistoryEntryAvatar({
     super.key,
@@ -140,13 +150,7 @@ class HistoryEntryAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconSize = (size * 0.44).roundToDouble();
-    final hsl = HSLColor.fromColor(color);
-    final topStop = hsl
-        .withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0))
-        .toColor();
-    final iconColor = hsl
-        .withLightness((hsl.lightness + 0.08).clamp(0.0, 1.0))
-        .toColor();
+    final tint = WpAvatarTint.of(isDark);
     return SizedBox(
       width: size + 6,
       height: size + 6,
@@ -164,23 +168,13 @@ class HistoryEntryAvatar extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    topStop.withValues(alpha: isDark ? 0.22 : 0.16),
-                    color.withValues(alpha: isDark ? 0.12 : 0.10),
-                  ],
+                  colors: [tint.fillTop(color), tint.fillBottom(color)],
                 ),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: color.withValues(alpha: 0.25),
-                  width: 1,
-                ),
-                boxShadow: WpShadows.subtle,
+                border: Border.all(color: tint.edge(color), width: 1),
+                boxShadow: WpShadows.subtleFor(isDark),
               ),
-              child: Icon(
-                icon,
-                size: iconSize,
-                color: iconColor.withValues(alpha: 0.95),
-              ),
+              child: Icon(icon, size: iconSize, color: tint.glyph(color)),
             ),
           ),
           // Favorite badge — star icon in top-right corner
