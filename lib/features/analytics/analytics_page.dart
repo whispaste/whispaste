@@ -176,10 +176,17 @@ class _AnalyticsDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Row 1: Hero stat cards ──────────────────────────────
+          //
+          // The period selector rides in the section header, not at the page
+          // foot where it used to sit: it is the caption for every number
+          // below it, and a caption you only meet after reading the whole
+          // dashboard has already failed. On the header line it is the first
+          // thing in reading order after the section title.
           WpSection(
             title: l10n.analyticsOverview,
             subtitle: l10n.analyticsOverviewSubtitle,
             padding: EdgeInsets.zero,
+            trailing: _PeriodSelector(isDark: isDark),
             child: _HeroStatsRow(data: data, isDark: isDark),
           ),
 
@@ -230,8 +237,8 @@ class _AnalyticsDashboard extends StatelessWidget {
 
           const SizedBox(height: WpSpacing.xxl),
 
-          // ── Row 4: Period selector + Reset ─────────────────────
-          _PeriodAndResetRow(isDark: isDark),
+          // ── Row 4: Reset ───────────────────────────────────────
+          _ResetRow(isDark: isDark),
 
           const SizedBox(height: WpSpacing.xl),
         ],
@@ -456,8 +463,11 @@ class _HeroStatsRow extends StatelessWidget {
   }
 }
 
-/// Pill-shaped stat block: flat, subtle border, gradient accent strip at top,
-/// animated count-up number, and hover interaction.
+/// Pill-shaped stat block: flat, subtle border, gradient accent strip at top
+/// and a number that counts up once on entry. Deliberately not interactive —
+/// the doc used to promise a "hover interaction" that the widget no longer
+/// has, and a stat card that lights up under the pointer would imply a click
+/// target this app does not offer here.
 class _HeroPill extends StatefulWidget {
   const _HeroPill({
     required this.isDark,
@@ -486,10 +496,17 @@ class _HeroPillState extends State<_HeroPill>
   @override
   void initState() {
     super.initState();
-    _counter = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
+    // `dramatic` (500 ms) is the app's ceiling for a one-shot transition, and
+    // this count-up used to run 1200 ms — more than twice it. Every other
+    // duration above the ceiling in this codebase is either a timer or a
+    // *periodic* pulse (waveform, recording bar, overlay dot), where a long
+    // period is the point; among one-shot entrance animations these two on
+    // this screen were the only ones out of band. It matters more here than
+    // it looks: while the count-up runs, the card does not show the number
+    // smaller, it shows a *different* number — a total of 347 reads 12, then
+    // 98, then 210. That is decoration instead of the information rather than
+    // on top of it, so the time spent unreadable is the thing worth cutting.
+    _counter = AnimationController(vsync: this, duration: WpMotion.dramatic);
     _curve = CurvedAnimation(parent: _counter, curve: Curves.easeOutCubic);
   }
 
@@ -498,10 +515,7 @@ class _HeroPillState extends State<_HeroPill>
     super.didChangeDependencies();
     // `forward()` bakes in `duration` at call time, so the reduced-motion
     // duration must be set before the first (only) forward() call, not after.
-    _counter.duration = WpMotion.durationFor(
-      context,
-      const Duration(milliseconds: 1200),
-    );
+    _counter.duration = WpMotion.durationFor(context, WpMotion.dramatic);
     if (!_started) {
       _started = true;
       _counter.forward();
@@ -625,10 +639,12 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
   @override
   void initState() {
     super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
+    // Same ceiling as the hero pills above (see `_HeroPillState`). The bars
+    // are less harmful than the count-up while they grow — a rising bar is a
+    // readable convention and its shape *is* the information — but the two
+    // animations start together on one screen, so they should also end
+    // together instead of the chart finishing 400 ms before the numbers.
+    _anim = AnimationController(vsync: this, duration: WpMotion.dramatic);
     _curve = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
   }
 
@@ -637,10 +653,7 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
     super.didChangeDependencies();
     // `forward()` bakes in `duration` at call time, so the reduced-motion
     // duration must be set before the first (only) forward() call, not after.
-    _anim.duration = WpMotion.durationFor(
-      context,
-      const Duration(milliseconds: 800),
-    );
+    _anim.duration = WpMotion.durationFor(context, WpMotion.dramatic);
     if (!_started) {
       _started = true;
       _anim.forward();
@@ -1142,22 +1155,42 @@ class _CostRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Row 4 — Period selector + Reset
+// Overview header — period selector
 // ---------------------------------------------------------------------------
 
-class _PeriodAndResetRow extends ConsumerStatefulWidget {
-  const _PeriodAndResetRow({required this.isDark});
+/// The chip row that decides which period every number on this page describes.
+///
+/// Lives in the Overview section's `trailing` slot. It used to sit at the very
+/// bottom of the page, beside the Reset button, which meant the reader met the
+/// scope of the statistics only *after* reading all of them — and met it next
+/// to a destructive control, as if picking a period were the same kind of act
+/// as wiping the history.
+///
+/// A [Row] with `mainAxisSize.min`, deliberately not a [Wrap]: `RenderFlex`
+/// measures its non-flexible children — this widget — against an *unbounded*
+/// main axis and only then hands the remainder to the header's `Expanded`
+/// title column. A `Wrap` here could therefore never wrap; it would silently
+/// stay on one line and push the squeeze onto the title instead. If the chips
+/// ever stop fitting, the fix belongs one level up, in `_AnalyticsDashboard`,
+/// where the width is bounded and a full-width row above the stat cards is
+/// still available.
+///
+/// It does fit, measured rather than assumed. At 800 px — the app's minimum
+/// window width — the header line is 740 px wide, and German, the tightest of
+/// the three locales, spends 336 of them on chips and 255 on the subtitle at
+/// normal text size; at 1.15× it is 364 + 291. Only at a 1.5× accessibility
+/// size does the pair stop fitting, and then the subtitle reflows onto a
+/// second line under the title while the chips stay put — no clipping, no
+/// overflow. `analytics_page_test.dart` pins all of that for de/en/he, with
+/// the real Inter faces loaded, because the default test font is roughly
+/// twice as wide per glyph and would have condemned a layout that ships fine.
+class _PeriodSelector extends ConsumerWidget {
+  const _PeriodSelector({required this.isDark});
 
   final bool isDark;
 
   @override
-  ConsumerState<_PeriodAndResetRow> createState() => _PeriodAndResetRowState();
-}
-
-class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = widget.isDark;
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final periods = [
       l10n.analyticsPeriod7d,
@@ -1169,39 +1202,68 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
     final currentPeriod = ref.watch(analyticsPeriodProvider);
     final selectedIndex = AnalyticsPeriod.values.indexOf(currentPeriod);
 
+    // Period chips — WpFilterChip, the app's one selectable chip.
+    //
+    // These were a fourth independent reimplementation of it, and the
+    // worst-off: bare GestureDetectors with no Semantics at all, so the
+    // control that decides what the whole page shows was invisible to a
+    // screen reader, unreachable by keyboard, and never announced which
+    // period was selected. WpFilterChip brings the focus ring, `selected:`
+    // and a 44 dp tap target with it, and History/Notes already read this
+    // way, so the same widget now answers the same question everywhere.
+    return Padding(
+      // Keeps the chips off the section title/subtitle, which the header's
+      // Expanded lets run right up to this widget's leading edge.
+      padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(periods.length, (i) {
+          return Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: i == 0 ? 0 : WpSpacing.xs,
+            ),
+            child: WpFilterChip(
+              label: periods[i],
+              isActive: i == selectedIndex,
+              isDark: isDark,
+              onTap: () => ref
+                  .read(analyticsPeriodProvider.notifier)
+                  .setPeriod(AnalyticsPeriod.values[i]),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row 4 — Reset
+// ---------------------------------------------------------------------------
+
+/// The page's destructive action, alone at the foot of the dashboard.
+///
+/// Stays last on purpose — wiping the statistics is the one thing on this page
+/// that cannot be undone, so it belongs where nobody reaches it on the way to
+/// something else. Only the period selector moved up; see [_PeriodSelector].
+class _ResetRow extends ConsumerStatefulWidget {
+  const _ResetRow({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  ConsumerState<_ResetRow> createState() => _ResetRowState();
+}
+
+class _ResetRowState extends ConsumerState<_ResetRow> {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final l10n = L10n.of(context);
+
     return Row(
       children: [
-        // Period chips — WpFilterChip, the app's one selectable chip.
-        //
-        // These were a fourth independent reimplementation of it, and the
-        // worst-off: bare GestureDetectors with no Semantics at all, so the
-        // control that decides what the whole page shows was invisible to a
-        // screen reader, unreachable by keyboard, and never announced which
-        // period was selected. WpFilterChip brings the focus ring, `selected:`
-        // and a 44 dp tap target with it, and History/Notes already read this
-        // way, so the same widget now answers the same question everywhere.
-        //
-        // Visible change, accepted: resting chips gain WpFilterChip's
-        // surfaceVariant fill instead of an outline, and the row grows to the
-        // minimum touch target. Keeping the old outline would have meant
-        // parameterising the shared chip for this one caller.
-        Expanded(
-          child: Wrap(
-            spacing: WpSpacing.xs,
-            runSpacing: WpSpacing.xs,
-            children: List.generate(periods.length, (i) {
-              return WpFilterChip(
-                label: periods[i],
-                isActive: i == selectedIndex,
-                isDark: isDark,
-                onTap: () => ref
-                    .read(analyticsPeriodProvider.notifier)
-                    .setPeriod(AnalyticsPeriod.values[i]),
-              );
-            }),
-          ),
-        ),
-
+        const Spacer(),
         // Reset button
         // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
         WpButton(
