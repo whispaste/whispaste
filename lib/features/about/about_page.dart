@@ -7,7 +7,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/settings_enums.dart' show OnDeviceEngine;
-import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/app_info.dart';
 import '../../core/app_urls.dart';
@@ -26,6 +25,7 @@ import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
+import '../settings/settings_widgets.dart' show HotkeyDisplay;
 import '../../widgets/wp_focus_ring.dart';
 import 'diagnostics_report.dart';
 
@@ -49,14 +49,6 @@ class AboutPage extends ConsumerWidget {
     final reviewSupportUrl = Platform.isWindows
         ? kWindowsStoreReviewUrl
         : kGitHubRepoUrl;
-    final hotkeyLabel = formatHotkeyShortcut(
-      settings.hotkeyModifiers,
-      settings.hotkeyKey,
-      separator: ' + ',
-      l10n: l10n,
-      displayOverride: settings.hotkey.hotkeyKeyDisplay,
-    );
-
     return WpPageShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -245,8 +237,16 @@ class AboutPage extends ConsumerWidget {
             children: [
               _ShortcutRow(
                 label: l10n.aboutShortcutRecord,
-                shortcut: hotkeyLabel,
-                isDark: isDark,
+                // The app's keycap component, the same one Settings and the
+                // onboarding use. This row used to flatten the very same
+                // hotkey into one string and draw its own single wide cap, so
+                // "Ctrl + Shift + V" appeared here as one key and three keys
+                // two screens away.
+                shortcut: HotkeyDisplay(
+                  hotkeyKey: settings.hotkeyKey,
+                  hotkeyModifiers: settings.hotkeyModifiers,
+                  hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+                ),
               ),
             ],
           ),
@@ -905,14 +905,14 @@ class _PrivacyPoint extends StatelessWidget {
 // ─── Shortcut row ────────────────────────────────────────────────────────────
 
 class _ShortcutRow extends StatelessWidget {
-  const _ShortcutRow({
-    required this.label,
-    required this.shortcut,
-    required this.isDark,
-  });
+  const _ShortcutRow({required this.label, required this.shortcut});
+
   final String label;
-  final String shortcut;
-  final bool isDark;
+
+  /// The keycaps themselves — always a [HotkeyDisplay]. Typed as a widget so
+  /// this row stays a label/keycap layout and the app keeps exactly one thing
+  /// that knows what a key looks like.
+  final Widget shortcut;
 
   @override
   Widget build(BuildContext context) {
@@ -921,44 +921,9 @@ class _ShortcutRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isDark
-                    ? WpColorsDark.textSecondary
-                    : WpColorsLight.textSecondary,
-                fontSize: WpTypography.subheading,
-              ),
-            ),
+            child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs,
-              vertical: WpSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceVariant
-                  : WpColorsLight.surfaceVariant,
-              borderRadius: WpRadius.borderSm,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.borderDefault
-                    : WpColorsLight.borderDefault,
-              ),
-            ),
-            child: Text(
-              shortcut,
-              style: TextStyle(
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
-                fontSize: WpTypography.small,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
+          shortcut,
         ],
       ),
     );
