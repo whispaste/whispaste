@@ -51,10 +51,16 @@ class PrivacyStep extends ConsumerWidget {
       // box. Whitespace separates them now, as in the reference.
       //
       // The pair is one body block, so this page's 248 px of spare height
-      // (511-px content area) goes above and below it, never between the
-      // two rows: they are separate decisions but the same kind of
-      // decision, and a gap as wide as the one under the heading would stop
-      // them reading as a pair. See [OnboardingPageBody].
+      // (511-px content area) never lands between the two rows: they are
+      // separate decisions but the same kind of decision, and a gap as wide
+      // as the one under the heading would stop them reading as a pair.
+      //
+      // That spare height used to be split above and below the pair, which
+      // put ~124 px between the heading and the consents it introduces. It
+      // all goes below them now — trailing space under a short settings page
+      // is unremarkable, a heading floating away from its own content is
+      // not. See [OnboardingPage.bodyAlignment].
+      bodyAlignment: Alignment.topCenter,
       body: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

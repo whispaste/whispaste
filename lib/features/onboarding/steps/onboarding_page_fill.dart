@@ -62,6 +62,7 @@ class OnboardingPage extends StatelessWidget {
     required this.header,
     required this.body,
     this.headerGap = kOnboardingHeaderGap,
+    this.bodyAlignment = Alignment.center,
   });
 
   /// The page's fixed reading start — an `OnboardingPageHeading` on every page
@@ -79,6 +80,26 @@ class OnboardingPage extends StatelessWidget {
   /// the canonical gap).
   final double headerGap;
 
+  /// Where [body] sits in the leftover height. Centred by default.
+  ///
+  /// [Alignment.topCenter] is for the *sparse* pages, and it exists because
+  /// centring cannot be tuned out of them: the body is `Expanded(Center(...))`,
+  /// so the leftover height is split into equal voids above and below it, and
+  /// growing the body only ever reclaims half of what it adds from each side.
+  /// On a page whose content comes to 226 px in a 551 px viewport that leaves
+  /// ~160 px between the heading and the first thing it introduces — the
+  /// heading reads as orphaned, and no amount of internal spacing reaches it.
+  ///
+  /// Top-aligning is not "the same fix applied harder": it moves the whole
+  /// slack to the bottom, where trailing space under a short settings page is
+  /// ordinary, instead of splitting it around the one gap that has to stay
+  /// small. Opt-in per page rather than flipped globally, because the pages
+  /// that fill or nearly fill the viewport (Welcome, Model, Appearance,
+  /// Try & Go) have little slack to place and are unaffected either way — and
+  /// leaving them on the default keeps their layout, and the measured heights
+  /// in `onboarding_overlay_test.dart`, identical by construction.
+  final AlignmentGeometry bodyAlignment;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -87,7 +108,7 @@ class OnboardingPage extends StatelessWidget {
       children: [
         header,
         SizedBox(height: headerGap),
-        OnboardingPageBody(child: body),
+        OnboardingPageBody(alignment: bodyAlignment, child: body),
       ],
     );
   }
@@ -144,14 +165,25 @@ class OnboardingPageFill extends StatelessWidget {
 /// child would assert — this collapses to the child itself, so a page with no
 /// space to give keeps exactly the spacing it had.
 class OnboardingPageBody extends StatelessWidget {
-  const OnboardingPageBody({super.key, required this.child});
+  const OnboardingPageBody({
+    super.key,
+    required this.child,
+    this.alignment = Alignment.center,
+  });
 
   final Widget child;
+
+  /// See [OnboardingPage.bodyAlignment]. The default is the identity case:
+  /// `Align(alignment: Alignment.center)` is what [Center] is, so every page
+  /// that does not pass this renders exactly as before.
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
     return _OnboardingFillScope.isFilling(context)
-        ? Expanded(child: Center(child: child))
+        ? Expanded(
+            child: Align(alignment: alignment, child: child),
+          )
         : child;
   }
 }

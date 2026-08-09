@@ -632,6 +632,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // subtitle above it is what makes the tighter gap read as intentional
       // rather than cramped. Re-measure German before touching either.
       headerGap: hasConflict ? WpSpacing.sm : kOnboardingHeaderGap,
+      // Sparsest page in the flow (226 px of 551), so its two setting rows
+      // follow the heading instead of floating in the middle of the page with
+      // ~160 px of nothing above them. The conflict branch is unaffected in
+      // practice — at 534 px it has almost no slack left to place.
+      bodyAlignment: Alignment.topCenter,
       body: const TriggerStep(),
     );
   }
@@ -686,6 +691,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           title: l10n.onboardingPasteTitle,
           subtitle: l10n.onboardingPasteSubtitle,
         ),
+        // Same reason as the Hotkey page: at 189 px this is the sparsest page
+        // in the flow, and centring left its single toggle stranded in the
+        // middle. The troubleshoot branch (492 px) has little slack to place
+        // and looks the same either way.
+        bodyAlignment: Alignment.topCenter,
         body: const AutoPasteStep(),
       ),
       // Two columns, not a stack: as one column the page measured 739 px of
