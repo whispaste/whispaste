@@ -503,8 +503,14 @@ class _ReplacementTileState extends State<_ReplacementTile> {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label:
-          '${L10n.of(context).replacementsEditShortcut}: ${widget.replacement.triggers.join(', ')}',
+      // Affordance as `hint:`, identity from the rendered trigger chips —
+      // same reasoning and same shape as _SnippetTile, which see. The label
+      // used to repeat the trigger phrases the chips already render, and a
+      // Semantics label is prepended to its subtree's text rather than
+      // substituted for it, so each row announced "Ersetzung bearbeiten:
+      // mfg, mfg, …". MergeSemantics is not an option: the delete action
+      // mounts as a second interactive node once the row is active.
+      hint: L10n.of(context).replacementsEditShortcut,
       child: FocusableActionDetector(
         onShowFocusHighlight: (value) {
           if (_isFocused == value) return;

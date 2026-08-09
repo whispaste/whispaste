@@ -518,7 +518,20 @@ class _SnippetTileState extends State<_SnippetTile> {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '${L10n.of(context).snippetsEditSnippet}: ${widget.snippet.title}',
+      // Affordance as `hint:`, identity from the rendered text. The label
+      // used to read "<Snippet bearbeiten>: <Titel>" around a subtree that
+      // renders that same title as Text, and a Semantics label is prepended
+      // to its subtree's text rather than substituted for it — so the title
+      // was announced twice. Keeping the identity in the rendered text also
+      // puts it first, which is what a screen-reader user scanning a list
+      // needs to hear before the affordance. `hint:` is precisely the slot
+      // for "what happens when you activate this".
+      //
+      // The house alternative (MergeSemantics around a label-less Semantics)
+      // is ruled out: the delete action mounts as a second interactive node
+      // inside this subtree the moment the row is hovered or focused, and
+      // merging would swallow it. Same treatment in _ReplacementTile.
+      hint: L10n.of(context).snippetsEditSnippet,
       child: FocusableActionDetector(
         onShowFocusHighlight: (value) {
           if (_isFocused == value) return;
