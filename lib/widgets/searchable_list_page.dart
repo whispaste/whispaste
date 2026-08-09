@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -8,6 +11,7 @@ import 'dialog.dart';
 import 'empty_state.dart';
 import 'page_shell.dart';
 import 'wp_button.dart';
+import 'wp_list_skeleton.dart';
 import 'wp_search_field.dart';
 
 /// Shared scaffold for the searchable-list settings features (Replacements,
@@ -89,13 +93,22 @@ class WpSearchableListPage<T> extends StatefulWidget {
       _WpSearchableListPageState<T>();
 }
 
+/// Placeholder-bar height of the loading skeleton, matched to the real rows.
+/// Measured at full list width: a Snippets tile and a Replacements tile both
+/// render at exactly 70 dp (identical anatomy — `md`/`sm` padding around a
+/// title line plus a one-line preview), so the two features share one value
+/// instead of each guessing its own.
+const _searchableListSkeletonRowHeight = 70.0;
+
 class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   String _searchQuery = '';
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -119,7 +132,20 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     final l10n = L10n.of(context);
 
     final body = widget.asyncAll.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      // Same list-shaped placeholder History and Notes use. A centred spinner
+      // used to sit here, which made these two the only list surfaces in the
+      // app whose loading state neither reserved the rows' space nor matched
+      // its siblings — the list visibly re-flowed the moment data arrived.
+      loading: () => WpListSkeleton(
+        isDark: isDark,
+        rowHeight: _searchableListSkeletonRowHeight,
+        // The real rows below sit on the `xl` gutter, not the skeleton's
+        // history/notes default — pass it so the bars land on their edge.
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.xl,
+          vertical: WpSpacing.xs,
+        ),
+      ),
       error: (e, _) => WpEmptyState(
         icon: LucideIcons.triangleAlert,
         title: l10n.errorGeneric,
@@ -176,6 +202,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                   Expanded(
                     child: WpSearchField(
                       controller: _searchController,
+                      focusNode: _searchFocusNode,
                       hintText: widget.searchHint,
                       variant: WpSearchFieldVariant.outlined,
                       onChanged: (v) => setState(() => _searchQuery = v),
@@ -201,17 +228,37 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
       },
     );
 
-    return WpPageShell(
-      scrollable: false,
-      padding: EdgeInsets.zero,
-      child: widget.header == null
-          ? body
-          : Column(
-              children: [
-                widget.header!,
-                Expanded(child: body),
-              ],
-            ),
+    // Ctrl+F / Cmd+F focuses the search field — the one shortcut History,
+    // Notes and Settings all bind. Snippets and Replacements were the only
+    // searchable surfaces without it, so the muscle memory broke on exactly
+    // two of five screens. Binding it on the shared shell fixes both at once.
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): _searchFocusNode.requestFocus,
+      },
+      // `skipTraversal` so this wrapper never becomes a Tab stop of its own;
+      // it exists only to give the shortcut a focused descendant to bubble
+      // from, exactly as `SettingsPage` does it.
+      child: Focus(
+        autofocus: true,
+        skipTraversal: true,
+        child: WpPageShell(
+          scrollable: false,
+          padding: EdgeInsets.zero,
+          child: widget.header == null
+              ? body
+              : Column(
+                  children: [
+                    widget.header!,
+                    Expanded(child: body),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 }

@@ -118,7 +118,9 @@ class _WpSidebarSettingsButtonState extends State<WpSidebarSettingsButton> {
                       child: Icon(
                         LucideIcons.settings,
                         color: iconColor,
-                        size: 21,
+                        // Same rung as the nav items above it — this button
+                        // is the rail's last row and must not sit 1 px off.
+                        size: WpIconSize.md,
                       ),
                     ),
                   ],

@@ -163,16 +163,31 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
 
-    return Semantics(
-      label: title,
-      button: onTap != null,
-      child: focusNode != null
-          ? WpFocusRing(
-              focusNode: focusNode,
-              radius: WpRadius.sm,
-              child: inkWell,
-            )
-          : inkWell,
+    // House idiom for a composed control (see `mic_permission_chip.dart`):
+    // MergeSemantics + a *label-less* Semantics. A `label:` here would not
+    // replace the subtree's own text, it would be prepended to it — the
+    // rendered `Text(title)` still contributes a node, so a screen reader
+    // read the title twice ("Title, Title, Subtitle") on all ~20 call sites
+    // of this header. Verified against the framework, not assumed.
+    //
+    // `header: true` rather than `button:` alone: this *is* the section
+    // heading, so it should show up in a screen reader's heading rotor even
+    // when it is not collapsible. `expanded` is set only for the collapsible
+    // variant, where it is the one piece of state the visual chevron carries
+    // and the semantics tree previously did not.
+    return MergeSemantics(
+      child: Semantics(
+        header: true,
+        button: onTap != null,
+        expanded: isExpanded,
+        child: focusNode != null
+            ? WpFocusRing(
+                focusNode: focusNode,
+                radius: WpRadius.sm,
+                child: inkWell,
+              )
+            : inkWell,
+      ),
     );
   }
 }

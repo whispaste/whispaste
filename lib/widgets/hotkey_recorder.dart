@@ -682,7 +682,11 @@ class _KeyComboDisplay extends StatelessWidget {
     // Nothing recorded yet — show placeholder
     if (modifiers.isEmpty && keyLabel.isEmpty) {
       return Container(
-        height: 48,
+        // `minHeight`, not a fixed `height` — the populated branch below
+        // already uses the constraint form, and a hard 48 clipped this text
+        // once the system font scaler pushed the 17 px placeholder past the
+        // box. Both branches now reserve the same 48 dp floor and grow.
+        constraints: const BoxConstraints(minHeight: 48),
         alignment: Alignment.center,
         child: Text(
           '—',

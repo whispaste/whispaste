@@ -21,9 +21,18 @@ class WpListSkeleton extends StatelessWidget {
     required this.isDark,
     required this.rowHeight,
     this.count = 6,
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: WpSpacing.md,
+      vertical: WpSpacing.sm,
+    ),
   });
 
   final bool isDark;
+
+  /// Inset of the placeholder column. Defaults to the history/notes gutter;
+  /// callers whose real rows sit on a different edge pass their own so the
+  /// bars land where the rows will (`WpSearchableListPage` uses `xl`).
+  final EdgeInsets padding;
 
   /// Height of a single placeholder bar, in logical pixels — the measured
   /// height of the real row this skeleton stands in for.
@@ -40,10 +49,7 @@ class WpListSkeleton extends StatelessWidget {
         : WpColorsLight.borderSubtle;
 
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
+      padding: padding,
       itemCount: count,
       separatorBuilder: (_, _) => const SizedBox(height: WpSpacing.xs),
       itemBuilder: (_, _) => Container(

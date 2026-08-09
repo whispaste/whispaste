@@ -189,9 +189,15 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                               gradient: widget.isDark
                                   ? WpColorsDark.accentWarmGradient
                                   : WpColorsLight.accentWarmGradient,
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(WpRadius.sm),
-                                bottomRight: Radius.circular(WpRadius.sm),
+                              // Directional, like the `start: 0` above it:
+                              // the bar is flush with the window edge and
+                              // rounds on its *inner* side. With the plain
+                              // `topRight`/`bottomRight` it used to round on
+                              // the outer edge in RTL (Hebrew) — the shape
+                              // flipped while the position did not.
+                              borderRadius: const BorderRadiusDirectional.only(
+                                topEnd: Radius.circular(WpRadius.sm),
+                                bottomEnd: Radius.circular(WpRadius.sm),
                               ),
                             ),
                           ),
@@ -213,7 +219,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                         child: Icon(
                           widget.item.icon,
                           color: iconColor,
-                          size: 21,
+                          size: WpIconSize.md,
                         ),
                       ),
                     ],
