@@ -404,47 +404,6 @@ void main() {
         expect(find.text(l10n.notesMovedToTrash), findsNothing);
       },
     );
-
-    testWidgets(
-      'Ctrl/Cmd+N does not create a note while the editor is focused',
-      (tester) async {
-        final notes = [_sampleNote(id: 'n1', content: 'Hello')];
-        await tester.pumpWidget(
-          makeTestable(
-            const NotesPage(),
-            overrides: [
-              notesProvider.overrideWith((ref) => Stream.value(notes)),
-              ..._noTagOverrides,
-            ],
-            locale: const Locale('en'),
-          ),
-        );
-        await _settle(tester);
-
-        await tester.tap(find.text('Hello'));
-        await _settle(tester);
-        await tester.tap(_editorTextField());
-        await _settle(tester);
-
-        if (Platform.isMacOS) {
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
-        } else {
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
-        }
-        await _settle(tester);
-
-        // Still exactly the one original note — no new note was created.
-        expect(find.byType(NoteEditorPanel), findsOneWidget);
-        final field = tester.widget<TextField>(_editorTextField());
-        expect(field.controller!.text, 'Hello');
-      },
-    );
   });
 
   // ---------------------------------------------------------------------------
@@ -468,6 +427,58 @@ void main() {
           locale: const Locale('en'),
         ),
       );
+      await _settle(tester);
+
+      if (Platform.isMacOS) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      } else {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      }
+      await _settle(tester);
+
+      expect(actions.createCalled, isTrue);
+    });
+
+    testWidgets('Ctrl/Cmd+N creates a note even while the editor is focused', (
+      tester,
+    ) async {
+      // This used to assert the opposite: an isTextFieldFocused() guard sat
+      // on Ctrl/Cmd+N, grouped with the bare-key guards (Backspace, Delete,
+      // F) by analogy. The analogy does not hold — those are bare keys that
+      // genuinely collide with typing, while Ctrl/Cmd+N collides with
+      // nothing (Flutter binds keyN in its macOS Emacs set only, as Ctrl+N,
+      // and on macOS we send Cmd+N). The guard therefore bought no safety
+      // and cost the shortcut outright: this page's editor is an
+      // always-focused text field that grabs focus after every create, so
+      // from the second note onwards Ctrl+N was inert — in the one area of
+      // the app whose audience is defined by never reaching for the mouse.
+      final notes = [_sampleNote(id: 'n1', content: 'Hello')];
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final actions = _RecordingActions(db);
+      addTearDown(db.close);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            notesActionsProvider.overrideWith((ref) => actions),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+
+      await tester.tap(find.text('Hello'));
+      await _settle(tester);
+      await tester.tap(_editorTextField());
       await _settle(tester);
 
       if (Platform.isMacOS) {

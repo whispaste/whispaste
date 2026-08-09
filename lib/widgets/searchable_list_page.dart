@@ -232,6 +232,15 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     // Notes and Settings all bind. Snippets and Replacements were the only
     // searchable surfaces without it, so the muscle memory broke on exactly
     // two of five screens. Binding it on the shared shell fixes both at once.
+    //
+    // Ctrl+N / Cmd+N adds an item, for the same reason: Notes had it, its two
+    // sibling list screens did not, so "create without reaching for the
+    // mouse" was a skill that only worked on one of the three. No
+    // text-field guard, deliberately — Ctrl/Cmd+N is not a text-editing
+    // binding on any of the three platforms (Flutter binds Ctrl+N to
+    // "line down" only in its macOS Emacs set, and there we send Cmd+N), so
+    // consuming it while the search field has focus costs nothing and firing
+    // it there is what every desktop app does.
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         SingleActivator(
@@ -239,6 +248,11 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
           control: !Platform.isMacOS,
           meta: Platform.isMacOS,
         ): _searchFocusNode.requestFocus,
+        SingleActivator(
+          LogicalKeyboardKey.keyN,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): widget.onAdd,
       },
       // `skipTraversal` so this wrapper never becomes a Tab stop of its own;
       // it exists only to give the shortcut a focused descendant to bubble

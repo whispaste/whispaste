@@ -8,6 +8,7 @@ import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -27,6 +28,18 @@ late L10n l10n;
 /// shifts every subsequent `find.byType(TextField).at(N)` index by one on
 /// macOS relative to Windows/Linux.
 final _fieldOffset = Platform.isMacOS ? 1 : 0;
+
+/// Sends the platform's "new item" chord — Cmd on macOS, Ctrl elsewhere,
+/// exactly as `WpSearchableListPage` binds it.
+Future<void> _pressNewItemChord(WidgetTester tester) async {
+  final modifier = Platform.isMacOS
+      ? LogicalKeyboardKey.meta
+      : LogicalKeyboardKey.control;
+  await tester.sendKeyDownEvent(modifier);
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+  await tester.sendKeyUpEvent(modifier);
+}
 
 void main() {
   setUpAll(() async {
@@ -323,6 +336,43 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
+    });
+
+    // Notizen bound Ctrl/Cmd+N from the start; its two sibling list screens
+    // did not, so "create the next one without leaving the keyboard" was a
+    // skill that only paid off on one of the three. The shared shell binds
+    // it for both.
+    testWidgets('Ctrl/Cmd+N opens the add dialog', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.snippetsNewSnippet), findsNothing);
+
+      await _pressNewItemChord(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
+    });
+
+    testWidgets('Ctrl/Cmd+N also fires while the search field has focus', (
+      tester,
+    ) async {
+      // Deliberately unguarded: Ctrl/Cmd+N is not a text-editing binding on
+      // any of the three platforms, so the chord means "new snippet"
+      // wherever the caret happens to sit — the same contract Notizen has.
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(TextField).at(_fieldOffset));
+      await tester.pumpAndSettle();
+
+      await _pressNewItemChord(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
     });
   });
 }

@@ -5,9 +5,11 @@
 /// hover → delete confirmation.
 library;
 
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -350,6 +352,32 @@ void main() {
 
       // Confirm dialog should appear with the correct title
       expect(find.text(l10n.replacementsDeleteTitle), findsOneWidget);
+    });
+
+    // -------------------------------------------------------------------------
+    // 7. Keyboard
+    // -------------------------------------------------------------------------
+
+    testWidgets('Ctrl/Cmd+N opens the add dialog', (tester) async {
+      // Notizen bound this from the start, its two sibling list screens did
+      // not — so "create the next one without leaving the keyboard" only
+      // paid off on one of the three. Now bound once on the shared shell.
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.replacementsNewShortcut), findsNothing);
+
+      final modifier = Platform.isMacOS
+          ? LogicalKeyboardKey.meta
+          : LogicalKeyboardKey.control;
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
     });
   });
 }
