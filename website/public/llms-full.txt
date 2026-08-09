@@ -133,6 +133,25 @@ Trennung „kann Auto-Paste gerade ausführen?" (Probe, ohne Side-Effekt) vs. �
 
 `Paster` = tiefe Abstraktion (`prime`/`paste`/`checkCapability`); `PasteCapabilityNotifier` = Riverpod-Schicht darüber (Polling, Coalescing, Breadcrumbs, `hadFailedGrantAttempt`).
 
+### 3.7 Mikrofon-Berechtigungs-Surface
+
+Mirror von §3.6, für die Systemberechtigung statt für die Paste-Fähigkeit: Trennung „hat die App die
+Mikrofon-**Berechtigung**?" von „funktioniert die Aufnahme **tatsächlich**?" (Letzteres bleibt
+Readiness/§3.4 — Hardware, Modell-Ladezustand, Geräteverfügbarkeit sind eigene Fragen, die
+Berechtigung erteilt sein kann und die Aufnahme trotzdem scheitert).
+
+- **MicPermissionNotifier** — Riverpod-Notifier (`micPermissionNotifierProvider`,
+  `lib/services/permissions/mic_permission_notifier.dart`): eine Zustandsquelle für Onboarding-Schritt
+  1 (Welcome, stellt die Anfrage beim Verlassen), Try&Go/Schritt 5 (`MicPermissionChip`, §5.6.2) und
+  den Startup-Permission-Gate — statt dass jede Stelle einen eigenen Ad-hoc-Bool hält.
+- **MicPermissionStatus** — `unknown` (noch keine Anfrage in diesem Prozess aufgelöst) /
+  `requesting` (Anfrage läuft) / `granted` / `denied`. `denied` ist nur über
+  `MicPermissionNotifier.request()` erreichbar — ein passiver `check()` kann „nie gefragt" nicht von
+  „abgelehnt" unterscheiden (die Plattform-API liefert für beides stumm `false`) und darf `denied`
+  deshalb nie behaupten.
+- Deep-Link in die System-Einstellungen (macOS Privacy-Pane, Windows `ms-settings:privacy-microphone`)
+  liegt ebenfalls im Notifier, kein zweiter Deep-Link-Code an einer Aufrufstelle.
+
 ## 4. STT-Vokabular
 
 Vier Ebenen, bewusst getrennt (im Alltag oft synonym verwendet):
