@@ -916,12 +916,25 @@ void main() {
   // strip 48 → 32 px, bottom gap 16 → 32 px): the two moves are equal and
   // opposite by construction, see `_kOnboardingBottomGap`.
   //
+  // Re-measured wholesale on 2026-08-09 rather than patching only the rows
+  // that moved, because three rows had drifted from the code without anyone
+  // noticing (page 3 read 390/390/377 but measures 410/410/397, page 6 read
+  // 190 but measures 189) and a half-stale table is worse than none — nobody
+  // downstream can tell which rows still mean anything. Every number below
+  // comes from one run of the same harness on the same day; treat them as a
+  // set, and when you re-measure, re-measure all of them.
+  //
   //   page 1  Welcome       529 / 529 / 529   (22 px slack)
   //   page 2  Privacy       303 / 303 / 303   (248 px distributed)
-  //   page 3  Model         390 / 390 / 377
-  //   page 4  Hotkey        222 / 222 / 222   (the sparsest page in the flow)
+  //   page 3  Model         410 / 410 / 397
+  //   page 4  Hotkey        226 / 226 / 226   (the sparsest page in the flow;
+  //                                            was 218 until the gap between
+  //                                            its two setting rows went
+  //                                            `sm` → `lg` on the nominal
+  //                                            branch — the conflict branch
+  //                                            keeps `sm`, see trigger_step)
   //   page 5  Appearance    380 / 401 / 380   (theme tiles + autostart row)
-  //   page 6  Auto-Paste    190 / 190 / 190   (macOS/Windows only)
+  //   page 6  Auto-Paste    189 / 189 / 189   (macOS/Windows only)
   //   page 7  Try & Go      519 / 498 / 498   (32 px slack — the mic-bypass
   //                                            escape hatch moved from a raw
   //                                            TextButton to WpButton

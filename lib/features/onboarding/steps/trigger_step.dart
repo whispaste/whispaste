@@ -179,7 +179,27 @@ class TriggerStep extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: WpSpacing.sm),
+        // Gap between two sibling setting rows, so `lg` — the same token the
+        // Privacy page puts between its two rows, which is the flow's rhythm
+        // for exactly this role. It used to be a flat `sm` on both branches,
+        // which read as two rows jammed together under an orphaned heading:
+        // this page is sparse (218 px of content in a 551-px viewport), so the
+        // fill scope centres the whole block and the leftover height lands as
+        // two ~180-px voids above and below rather than as breathing room
+        // between the rows that need it.
+        //
+        // Conditional, not raised outright, because the conflict branch is the
+        // binding one: it measures 534 px against 551 and cannot pay 8 px. The
+        // comment on that branch above already describes its gaps as "one step
+        // tighter than the page's usual rhythm" — that was true of the header
+        // gap (see the overlay's `_buildHotkeyPage`, same conditional pattern)
+        // but not yet of this one, which simply stayed tight everywhere. Now it
+        // is what it claimed to be.
+        SizedBox(
+          height: status == HotkeyRegistrationStatus.conflict
+              ? WpSpacing.sm
+              : WpSpacing.lg,
+        ),
 
         // Mode row — hold vs. toggle. The switch stays the single control;
         // the row's subtitle re-words itself to describe the currently
