@@ -16,6 +16,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart'
+    show SettingRow;
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -307,10 +309,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Starts enabled — switch is ON and label says "disable"
+      // Starts enabled — switch is ON and the header card says so in words.
       final switchOn = tester.widget<Switch>(find.byType(Switch));
       expect(switchOn.value, isTrue);
-      expect(find.text(l10n.replacementsDisableAction), findsOneWidget);
+      expect(find.text(l10n.replacementsToggleLabel), findsOneWidget);
+      expect(find.text(l10n.replacementsToggleEnabled), findsOneWidget);
 
       // Tap toggle to disable
       await tester.tap(find.byType(Switch));
@@ -321,6 +324,44 @@ void main() {
         isFalse,
         reason: 'Provider should reflect the new disabled state',
       );
+    });
+
+    testWidgets('the master switch is announced with a name and its state', (
+      tester,
+    ) async {
+      // In the toolbar this switch was an unnamed node: measured on the
+      // semantics tree it carried an empty label while its visible caption
+      // merged into the page-level focus node, so a screen reader read
+      // "switch, on" with nothing to say what it switches.
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            overrides: [
+              settingsProvider.overrideWith(
+                () => _FakeSettingsNotifier(
+                  AppSettings.defaults.copyWith(textReplacementsEnabled: true),
+                ),
+              ),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(find.byType(SettingRow)),
+          isSemantics(
+            label: l10n.replacementsToggleLabel,
+            hint: l10n.replacementsToggleEnabled,
+            hasToggledState: true,
+            isToggled: true,
+          ),
+        );
+      } finally {
+        handle.dispose();
+      }
     });
 
     // -------------------------------------------------------------------------

@@ -14,7 +14,7 @@ import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
-import '../settings/settings_widgets.dart' show settingsToggle;
+import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -169,6 +169,30 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final enabled = settings?.textReplacementsEnabled ?? true;
 
     return WpSearchableListPage<Replacement>(
+      // The master switch lives in a header card, not in the toolbar.
+      //
+      // In the toolbar it was a bare `Text` next to an unlabelled `Switch`:
+      // measured on the semantics tree, the switch node carried an empty
+      // label while its caption merged into the page-level focus node far
+      // away from it — a screen reader announced "switch, on" with no clue
+      // what it switches. It also broke the house tooltip rule by putting a
+      // Tooltip on a control that already had a visible caption.
+      //
+      // `SettingRow` is the shape the app already uses for "labelled control
+      // with an explanatory subtitle", it names the switch correctly by
+      // construction (see no_double_announcement_test), and it puts this
+      // screen's own setting exactly where the sibling Snippets screen puts
+      // its picker-trigger field. That leaves all three screens with the
+      // same toolbar: search plus the add button, nothing else.
+      //
+      // Unlike the Snippets header this one is not platform-gated —
+      // replacements run on all three platforms.
+      header: _ReplacementsToggleCard(
+        enabled: enabled,
+        onChanged: (v) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
+      ),
       asyncAll: ref.watch(replacementsProvider),
       searchMatches: (r, q) =>
           r.triggers.any((t) => t.toLowerCase().contains(q)) ||
@@ -183,28 +207,6 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       emptyActionLabel: l10n.replacementsAdd,
       noMatchesTitle: l10n.replacementsNoMatches,
       noMatchesHint: l10n.replacementsNoMatchesHint,
-      // Enable/disable toggle — label is context-sensitive
-      toolbarTrailing: [
-        Text(
-          enabled
-              ? l10n.replacementsDisableAction
-              : l10n.replacementsEnableAction,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(width: WpSpacing.xs),
-        Tooltip(
-          message: enabled
-              ? l10n.replacementsToggleEnabled
-              : l10n.replacementsToggleDisabled,
-          child: settingsToggle(
-            value: enabled,
-            onChanged: (v) => ref
-                .read(settingsProvider.notifier)
-                .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
-          ),
-        ),
-        const SizedBox(width: WpSpacing.xs),
-      ],
       // Content — dimmed when disabled so users can still see their shortcuts
       contentWrapper: (context, child) => AnimatedOpacity(
         duration: WpMotion.durationFor(context, WpMotion.normal),
@@ -256,6 +258,70 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       title: l10n.replacementsDeleteTitle,
       message: l10n.replacementsDeleteMessage(r.triggers.join(', ')),
       onConfirm: () => ref.read(replacementsProvider.notifier).remove(r.id),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Master switch
+// ---------------------------------------------------------------------------
+
+/// Header card above the replacement list: the single switch that turns
+/// automatic text replacement on or off during dictation.
+///
+/// Lives on this page rather than in Settings because it only matters in the
+/// context of the list it governs — the same placement rule that keeps the
+/// Snippets picker-trigger field on the Snippets page. Card geometry is
+/// deliberately identical to `_SnippetPickerTriggerField`'s so switching
+/// between the two sibling screens never nudges the toolbar below it.
+class _ReplacementsToggleCard extends StatelessWidget {
+  const _ReplacementsToggleCard({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.sm,
+        WpSpacing.xl,
+        0,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(WpSpacing.xxs),
+        decoration: BoxDecoration(
+          color: isDark
+              ? WpColorsDark.surfaceElevated
+              : WpColorsLight.surfaceElevated,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(
+            color: isDark
+                ? WpColorsDark.borderSubtle
+                : WpColorsLight.borderSubtle,
+          ),
+        ),
+        child: SettingRow(
+          icon: LucideIcons.replace,
+          label: l10n.replacementsToggleLabel,
+          // The subtitle states the current state in words, which is what
+          // the toolbar's caption used to do — except a screen reader now
+          // gets it too, and `semanticToggledValue` adds the on/off state to
+          // the row's own announcement. No Tooltip: the row is labelled on
+          // screen, so one would only repeat what is already there.
+          subtitle: enabled
+              ? l10n.replacementsToggleEnabled
+              : l10n.replacementsToggleDisabled,
+          semanticToggledValue: enabled,
+          trailing: settingsToggle(value: enabled, onChanged: onChanged),
+        ),
+      ),
     );
   }
 }

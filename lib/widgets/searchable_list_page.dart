@@ -37,7 +37,6 @@ class WpSearchableListPage<T> extends StatefulWidget {
     required this.noMatchesTitle,
     required this.noMatchesHint,
     required this.itemBuilder,
-    this.toolbarTrailing = const [],
     this.contentWrapper,
     this.header,
   });
@@ -74,11 +73,6 @@ class WpSearchableListPage<T> extends StatefulWidget {
   /// Builds one list tile. [isDark] is the current theme brightness, passed
   /// through so tiles don't each re-derive it.
   final Widget Function(BuildContext context, T item, bool isDark) itemBuilder;
-
-  /// Extra toolbar widgets between the search field and the Add button
-  /// (e.g. the Replacements enable/disable switch). Include your own
-  /// trailing spacing.
-  final List<Widget> toolbarTrailing;
 
   /// Optional wrapper around the list / empty-state area (e.g. dimming via
   /// `AnimatedOpacity` while the feature is disabled).
@@ -209,7 +203,6 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  ...widget.toolbarTrailing,
                   // Add button
                   WpButton(
                     label: widget.addLabel,
