@@ -60,6 +60,22 @@ class _SettingRowState extends State<SettingRow> {
       color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
     );
 
+    // The label and hint stay on the wrapper, but the rendered title and
+    // subtitle are excluded from the semantics tree below (see the
+    // `ExcludeSemantics` further down). A `label:` does not replace the
+    // subtree's own text, it is prepended to it, and `hint:` is announced on
+    // top of that — so before this the row read "Label, Label, Untertitel"
+    // and then repeated the subtitle a third time as the hint.
+    //
+    // `ExcludeSemantics` rather than the `MergeSemantics` idiom the
+    // single-target controls use, because `trailing` is arbitrary here: a
+    // Switch, a dropdown, a slider, a text field, or a Row of two buttons.
+    // Merging would swallow all of those into the row node; dropping the
+    // label instead and letting the text speak for itself would leave a
+    // dropdown announced as a bare "Deutsch" with no clue which setting it
+    // belongs to. Excluding only the text keeps the row a named group *and*
+    // every trailing control independently reachable — verified across all
+    // four trailing shapes.
     return Semantics(
       label: widget.label,
       hint: widget.subtitle,
@@ -89,19 +105,24 @@ class _SettingRowState extends State<SettingRow> {
                 Icon(widget.icon, size: WpIconSize.sm, color: cs.secondary),
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(widget.label, style: tt.bodyLarge),
-                      if (widget.subtitle != null)
-                        Padding(
-                          // 2px title-subtitle gap: tighter than WpSpacing.xxs
-                          // so the pair reads as one unit.
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(widget.subtitle!, style: subtitleStyle),
-                        ),
-                    ],
+                  // Excluded because the wrapping Semantics above already
+                  // states both strings, as label and hint. Without this the
+                  // row announced each of them twice.
+                  child: ExcludeSemantics(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(widget.label, style: tt.bodyLarge),
+                        if (widget.subtitle != null)
+                          Padding(
+                            // 2px title-subtitle gap: tighter than
+                            // WpSpacing.xxs so the pair reads as one unit.
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(widget.subtitle!, style: subtitleStyle),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: WpSpacing.sm),
