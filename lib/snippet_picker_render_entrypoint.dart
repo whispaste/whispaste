@@ -132,6 +132,17 @@ class _SnippetPickerRenderAppState
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: _isDark ? wpDarkTheme() : wpLightTheme(),
+      // [WpSearchField] (the capsule field below) reads `L10n.of(context)`
+      // itself rather than taking [resolvedL10n] as a parameter — the shared
+      // component was built for the main engine, where `app.dart` always
+      // wires these three. Without them, `Localizations.of<L10n>` has no
+      // delegate to resolve and `WpSearchField` crashes on its very first
+      // build. Pinning `locale` to [resolvedL10n] (rather than leaving it
+      // null for device-locale resolution) keeps the ambient lookup in sync
+      // with the same value already threaded through as `l10n:` below.
+      locale: Locale(resolvedL10n.localeName),
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
       home: Scaffold(
         backgroundColor: Colors.transparent,
         body: Directionality(
