@@ -224,12 +224,16 @@ List<HistoryEntry> _applyParsedSearch(
   List<HistoryEntry> entries,
   ParsedSearchQuery parsed,
 ) {
+  // PERF (Bolt): Precompile RegExp for case-insensitive matching to avoid
+  // excessive string allocation from .toLowerCase() in tight loops.
+  final RegExp? freeTextRe = parsed.freeText.isNotEmpty
+      ? RegExp(RegExp.escape(parsed.freeText), caseSensitive: false)
+      : null;
+
   return entries.where((e) {
     // Free-text match
-    if (parsed.freeText.isNotEmpty) {
-      final lower = parsed.freeText.toLowerCase();
-      if (!e.title.toLowerCase().contains(lower) &&
-          !e.content.toLowerCase().contains(lower)) {
+    if (freeTextRe != null) {
+      if (!freeTextRe.hasMatch(e.title) && !freeTextRe.hasMatch(e.content)) {
         return false;
       }
     }
