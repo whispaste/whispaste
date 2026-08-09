@@ -169,6 +169,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       searchMatches: (s, q) =>
           s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
       searchHint: l10n.snippetsSearch,
+      searchFieldLabel: l10n.snippetsSearchFieldLabel,
       addLabel: l10n.snippetsAdd,
       onAdd: () => _showAddEditDialog(),
       onRetry: () => ref.invalidate(snippetsProvider),

@@ -148,6 +148,7 @@ Widget _searchableList() => WpSearchableListPage<String>(
   asyncAll: const AsyncValue.data(['item']),
   searchMatches: (_, _) => true,
   searchHint: 'Search',
+  searchFieldLabel: 'Search items',
   addLabel: 'Add',
   onAdd: () {},
   onRetry: () {},
@@ -370,4 +371,70 @@ void main() {
           'above it — the text must not be pushed out of the box instead',
     );
   });
+
+  testWidgets(
+    'every in-window search field carries an explicit semanticsLabel',
+    (tester) async {
+      // hintText alone is not enough — see WpSearchField's library docs: an
+      // InputDecoration hint publishes as a Semantics *hint*, not a *label*,
+      // so a screen reader needs semanticsLabel to announce the field at all
+      // (the same class of bug this component already fixed once for the
+      // clear button's IconButton tooltip). The snippet picker isn't probed
+      // here — it lives in a secondary Flutter engine this harness can't
+      // mount — but its call site sets the same parameter.
+      Future<void> expectLabelled(String area, Widget Function() build) async {
+        await tester.pumpWidget(makeTestable(build()));
+        await tester.pump();
+        final field = tester.widget<WpSearchField>(find.byType(WpSearchField));
+        expect(
+          field.semanticsLabel,
+          isNotNull,
+          reason: '"$area" search field has no semanticsLabel',
+        );
+        expect(field.semanticsLabel, isNotEmpty);
+      }
+
+      await expectLabelled('settings', _settings);
+      await expectLabelled('replacements/snippets', _searchableList);
+
+      final notesController = TextEditingController();
+      final notesFocus = FocusNode();
+      addTearDown(notesController.dispose);
+      addTearDown(notesFocus.dispose);
+      await expectLabelled(
+        'notes',
+        () => NotesSearchBar(
+          currentFilter: NotesFilter.active,
+          onFilterChanged: (_) {},
+          isDark: true,
+          searchController: notesController,
+          searchFocusNode: notesFocus,
+          onSearchChanged: () {},
+          resultCount: 0,
+          showResultCount: false,
+          onCreate: () {},
+        ),
+      );
+
+      final historyController = TextEditingController();
+      addTearDown(historyController.dispose);
+      await expectLabelled(
+        'history',
+        () => HistorySearchFilterBar(
+          controller: historyController,
+          activeFilter: HistoryFilter.all,
+          isDark: true,
+          onFilterChanged: (_) {},
+          onSearchChanged: () {},
+          resultCount: 0,
+          viewMode: HistoryViewMode.list,
+          onViewModeChanged: (_) {},
+          multiSelectMode: false,
+          onToggleMultiSelect: () {},
+          sortOrder: HistorySortOrder.newest,
+          onSortOrderChanged: (_) {},
+        ),
+      );
+    },
+  );
 }

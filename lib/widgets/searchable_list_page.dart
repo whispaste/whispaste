@@ -27,6 +27,7 @@ class WpSearchableListPage<T> extends StatefulWidget {
     required this.asyncAll,
     required this.searchMatches,
     required this.searchHint,
+    required this.searchFieldLabel,
     required this.addLabel,
     required this.onAdd,
     required this.onRetry,
@@ -50,6 +51,12 @@ class WpSearchableListPage<T> extends StatefulWidget {
 
   /// Hint text of the toolbar search field.
   final String searchHint;
+
+  /// Accessible name of the toolbar search field. Distinct from [searchHint]:
+  /// a `hintText` publishes as a Semantics *hint*, not a *label* — see
+  /// [WpSearchField]'s library docs — so a screen reader needs this to
+  /// announce the field at all rather than reading it unnamed.
+  final String searchFieldLabel;
 
   /// Label of the toolbar Add button.
   final String addLabel;
@@ -200,6 +207,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                       hintText: widget.searchHint,
                       variant: WpSearchFieldVariant.outlined,
                       onChanged: (v) => setState(() => _searchQuery = v),
+                      semanticsLabel: widget.searchFieldLabel,
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),

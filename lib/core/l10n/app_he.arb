@@ -65,6 +65,7 @@
   "historyReadingTimeUnder1": "פחות מדקה קריאה",
   "historyEditing": "עריכה",
   "historySearchTranscriptions": "חפש בתמלולים…",
+  "historySearchFieldLabel": "חפש בתמלולים",
   "historyNoResults": "אין תוצאות",
   "historyNoResultsHint": "אין תמלולים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
   "@historyNoResultsHint": {
@@ -410,6 +411,7 @@
     }
   },
   "replacementsSearch": "חפש החלפות…",
+  "replacementsSearchFieldLabel": "חפש החלפות",
   "replacementsAdd": "הוסף",
   "replacementsEmpty": "עדיין אין החלפות",
   "replacementsEmptyHint": "הוסף החלפות כדי להחליף אוטומטית מילים בזמן הקלטה.\nדוגמה: \"btw\" → \"אגב\"",
@@ -440,6 +442,7 @@
   },
 
   "snippetsSearch": "חפש קטעים…",
+  "snippetsSearchFieldLabel": "חפש קטעים",
   "snippetsAdd": "הוסף",
   "snippetsEmpty": "עדיין אין קטעים",
   "snippetsEmptyHint": "הוסף קטע כדי לעשות שימוש חוזר מהיר בבלוק טקסט — כמו חתימה או תשובה סטנדרטית.",
@@ -1099,6 +1102,7 @@
   "notesAddTag": "הוסף תגית",
   "notesTagPlaceholder": "שם התגית…",
   "notesSearchPlaceholder": "חפש בפתקים…",
+  "notesSearchFieldLabel": "חפש בפתקים",
   "notesNoResults": "אין תוצאות",
   "notesNoResultsHint": "אין פתקים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
   "@notesNoResultsHint": {

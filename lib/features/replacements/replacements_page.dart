@@ -198,6 +198,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           r.triggers.any((t) => t.toLowerCase().contains(q)) ||
           r.replacement.toLowerCase().contains(q),
       searchHint: l10n.replacementsSearch,
+      searchFieldLabel: l10n.replacementsSearchFieldLabel,
       addLabel: l10n.replacementsAdd,
       onAdd: () => _showAddEditDialog(),
       onRetry: () => ref.invalidate(replacementsProvider),

@@ -524,6 +524,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
       autofocus: true,
       onChanged: _onQueryChanged,
       onSubmitted: (_) => _submit(),
+      semanticsLabel: l10n.snippetsSearchFieldLabel,
     );
   }
 

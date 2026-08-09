@@ -382,6 +382,13 @@ class _WpSearchFieldState extends State<WpSearchField> {
 
     if (widget.semanticsLabel != null) {
       field = Semantics(
+        // Without an explicit boundary this label merges into the nearest
+        // *ancestor* Semantics node instead of staying on the field — on the
+        // Replacements screen that ancestor already carries the header
+        // switch's label, so the two ran together into one announcement.
+        // `container: true` gives the field its own node regardless of what
+        // sits above it in a given call site.
+        container: true,
         label: widget.semanticsLabel!,
         textField: true,
         child: field,

@@ -399,6 +399,12 @@ abstract class L10n {
   /// **'Search transcriptions…'**
   String get historySearchTranscriptions;
 
+  /// No description provided for @historySearchFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search transcriptions'**
+  String get historySearchFieldLabel;
+
   /// One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery.
   ///
   /// In en, this message translates to:
@@ -2199,6 +2205,12 @@ abstract class L10n {
   /// **'Search replacements…'**
   String get replacementsSearch;
 
+  /// No description provided for @replacementsSearchFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search replacements'**
+  String get replacementsSearchFieldLabel;
+
   /// No description provided for @replacementsAdd.
   ///
   /// In en, this message translates to:
@@ -2342,6 +2354,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Search snippets…'**
   String get snippetsSearch;
+
+  /// No description provided for @snippetsSearchFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search snippets'**
+  String get snippetsSearchFieldLabel;
 
   /// No description provided for @snippetsAdd.
   ///
@@ -5789,6 +5807,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Search notes…'**
   String get notesSearchPlaceholder;
+
+  /// No description provided for @notesSearchFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search notes'**
+  String get notesSearchFieldLabel;
 
   /// No description provided for @notesNoResults.
   ///

@@ -73,6 +73,7 @@ class NotesSearchBar extends StatelessWidget {
                   hintText: l10n.notesSearchPlaceholder,
                   variant: WpSearchFieldVariant.outlined,
                   onChanged: (_) => onSearchChanged(),
+                  semanticsLabel: l10n.notesSearchFieldLabel,
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),

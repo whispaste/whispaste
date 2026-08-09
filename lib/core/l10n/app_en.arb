@@ -66,6 +66,7 @@
   "historyReadingTimeUnder1": "< 1 min read",
   "historyEditing": "Editing",
   "historySearchTranscriptions": "Search transcriptions…",
+  "historySearchFieldLabel": "Search transcriptions",
   "historySearchOperatorsHint": "Tip: type #tag or lang:xx to filter as you search.",
   "@historySearchOperatorsHint": {
     "description": "One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery."
@@ -466,6 +467,7 @@
   },
 
   "replacementsSearch": "Search replacements…",
+  "replacementsSearchFieldLabel": "Search replacements",
   "replacementsAdd": "Add",
   "replacementsEmpty": "No replacements yet",
   "replacementsEmptyHint": "Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"",
@@ -496,6 +498,7 @@
   },
 
   "snippetsSearch": "Search snippets…",
+  "snippetsSearchFieldLabel": "Search snippets",
   "snippetsAdd": "Add",
   "snippetsEmpty": "No snippets yet",
   "snippetsEmptyHint": "Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.",
@@ -1224,6 +1227,7 @@
   "notesAddTag": "Add tag",
   "notesTagPlaceholder": "Tag name…",
   "notesSearchPlaceholder": "Search notes…",
+  "notesSearchFieldLabel": "Search notes",
   "notesNoResults": "No results",
   "notesNoResultsHint": "No notes match \"{query}\".\nTry a different search term.",
   "@notesNoResultsHint": {

@@ -61,6 +61,7 @@
   "historyReadingTimeUnder1": "< 1 Min. Lesezeit",
   "historyEditing": "Bearbeiten",
   "historySearchTranscriptions": "Transkriptionen suchen…",
+  "historySearchFieldLabel": "Transkriptionen suchen",
   "historySearchOperatorsHint": "Tipp: Tippe #tag oder lang:xx zum Filtern.",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
@@ -377,6 +378,7 @@
   "analyticsSpentAmount": "{amount} ausgegeben",
 
   "replacementsSearch": "Ersetzungen suchen…",
+  "replacementsSearchFieldLabel": "Ersetzungen suchen",
   "replacementsAdd": "Hinzufügen",
   "replacementsEmpty": "Noch keine Ersetzungen",
   "replacementsEmptyHint": "Füge Ersetzungen hinzu, um Wörter beim Aufnehmen automatisch zu ersetzen.\nBeispiel: \"mfg\" → \"mit freundlichen Grüßen\"",
@@ -402,6 +404,7 @@
   "replacementsDeleteMessage": "Ersetzung \"{trigger}\" entfernen? Dies kann nicht rückgängig gemacht werden.",
 
   "snippetsSearch": "Snippets suchen…",
+  "snippetsSearchFieldLabel": "Snippets suchen",
   "snippetsAdd": "Hinzufügen",
   "snippetsEmpty": "Noch keine Snippets",
   "snippetsEmptyHint": "Füge einen Snippet hinzu, um wiederkehrende Textbausteine schnell wiederzuverwenden — z. B. eine Signatur oder eine Standardantwort.",
@@ -1087,6 +1090,7 @@
   "notesAddTag": "Tag hinzufügen",
   "notesTagPlaceholder": "Tag-Name…",
   "notesSearchPlaceholder": "Notizen durchsuchen…",
+  "notesSearchFieldLabel": "Notizen durchsuchen",
   "notesNoResults": "Keine Ergebnisse",
   "notesNoResultsHint": "Keine Notizen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
   "@notesNoResultsHint": {

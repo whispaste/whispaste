@@ -166,6 +166,9 @@ class L10nHe extends L10n {
   String get historySearchTranscriptions => 'חפש בתמלולים…';
 
   @override
+  String get historySearchFieldLabel => 'חפש בתמלולים';
+
+  @override
   String get historySearchOperatorsHint =>
       'Tip: type #tag or lang:xx to filter as you search.';
 
@@ -1184,6 +1187,9 @@ class L10nHe extends L10n {
   String get replacementsSearch => 'חפש החלפות…';
 
   @override
+  String get replacementsSearchFieldLabel => 'חפש החלפות';
+
+  @override
   String get replacementsAdd => 'הוסף';
 
   @override
@@ -1259,6 +1265,9 @@ class L10nHe extends L10n {
 
   @override
   String get snippetsSearch => 'חפש קטעים…';
+
+  @override
+  String get snippetsSearchFieldLabel => 'חפש קטעים';
 
   @override
   String get snippetsAdd => 'הוסף';
@@ -3202,6 +3211,9 @@ class L10nHe extends L10n {
 
   @override
   String get notesSearchPlaceholder => 'חפש בפתקים…';
+
+  @override
+  String get notesSearchFieldLabel => 'חפש בפתקים';
 
   @override
   String get notesNoResults => 'אין תוצאות';

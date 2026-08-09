@@ -166,6 +166,9 @@ class L10nEn extends L10n {
   String get historySearchTranscriptions => 'Search transcriptions…';
 
   @override
+  String get historySearchFieldLabel => 'Search transcriptions';
+
+  @override
   String get historySearchOperatorsHint =>
       'Tip: type #tag or lang:xx to filter as you search.';
 
@@ -1196,6 +1199,9 @@ class L10nEn extends L10n {
   String get replacementsSearch => 'Search replacements…';
 
   @override
+  String get replacementsSearchFieldLabel => 'Search replacements';
+
+  @override
   String get replacementsAdd => 'Add';
 
   @override
@@ -1271,6 +1277,9 @@ class L10nEn extends L10n {
 
   @override
   String get snippetsSearch => 'Search snippets…';
+
+  @override
+  String get snippetsSearchFieldLabel => 'Search snippets';
 
   @override
   String get snippetsAdd => 'Add';
@@ -3250,6 +3259,9 @@ class L10nEn extends L10n {
 
   @override
   String get notesSearchPlaceholder => 'Search notes…';
+
+  @override
+  String get notesSearchFieldLabel => 'Search notes';
 
   @override
   String get notesNoResults => 'No results';

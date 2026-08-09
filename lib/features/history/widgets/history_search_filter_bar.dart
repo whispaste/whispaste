@@ -705,6 +705,7 @@ class _HistorySearchFilterBarState
             variant: WpSearchFieldVariant.outlined,
             onClear: _clearSuggestions,
             suffix: _SearchHelpButton(isDark: widget.isDark),
+            semanticsLabel: l10n.historySearchFieldLabel,
           ),
 
           if (rawQuery.isEmpty)
