@@ -31,8 +31,8 @@ class WpTagInput extends StatefulWidget {
     this.suggestions = const [],
     this.suggestionCounts = const {},
     this.onSearchChanged,
-    this.hintText = 'Add tag…',
-    this.searchHintText = 'Search or create…',
+    required this.hintText,
+    required this.searchHintText,
     this.inlineLabel,
   });
 
@@ -43,6 +43,15 @@ class WpTagInput extends StatefulWidget {
   final List<Tag> suggestions;
   final Map<String, int> suggestionCounts;
   final ValueChanged<String>? onSearchChanged;
+
+  /// Required rather than defaulted, for the reason spelled out on
+  /// [WpSection.padding]: a default no caller wants is not a default, it is a
+  /// trap. Both existing call sites pass a localized string; the defaults
+  /// they replaced were the hardcoded English 'Add tag…' / 'Search or
+  /// create…', so a third caller that forgot them would have shipped
+  /// untranslated placeholder text into a German or Hebrew UI without any
+  /// warning. Making them required moves that from a silent runtime defect
+  /// to a compile error.
   final String hintText;
   final String searchHintText;
 
@@ -570,48 +579,57 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
 
-    return Semantics(
-      button: true,
-      label: widget.label ?? 'Add tag',
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: _isHovered ? 0.08 : 0.0),
-              borderRadius: WpRadius.borderFull,
-              border: Border.all(
-                color: accent.withValues(alpha: _isHovered ? 0.4 : 0.15),
+    // Two shapes in one control, so the semantics has to branch with it.
+    // With a label the trigger renders that same string as `Text`, so the
+    // wrapper must not repeat it (house idiom: MergeSemantics + a label-less
+    // Semantics, and a single tap target here makes merging safe). Without
+    // one it is a bare "+" icon and does need a spoken name — which used to
+    // be the hardcoded English 'Add tag' in an app shipping German and
+    // Hebrew. `notesAddTag` is that string, already translated.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        label: widget.label == null ? L10n.of(context).notesAddTag : null,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.xxs,
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  LucideIcons.plus,
-                  size: WpIconSize.xs,
-                  color: accent.withValues(alpha: _isHovered ? 0.7 : 0.4),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: _isHovered ? 0.08 : 0.0),
+                borderRadius: WpRadius.borderFull,
+                border: Border.all(
+                  color: accent.withValues(alpha: _isHovered ? 0.4 : 0.15),
                 ),
-                if (widget.label != null) ...[
-                  const SizedBox(width: WpSpacing.xxs),
-                  Text(
-                    widget.label!,
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textMuted,
-                    ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.plus,
+                    size: WpIconSize.xs,
+                    color: accent.withValues(alpha: _isHovered ? 0.7 : 0.4),
                   ),
+                  if (widget.label != null) ...[
+                    const SizedBox(width: WpSpacing.xxs),
+                    Text(
+                      widget.label!,
+                      style: TextStyle(
+                        fontSize: WpTypography.small,
+                        color: textMuted,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
