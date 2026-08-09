@@ -30,6 +30,7 @@ import '../../../services/update_channel_service.dart';
 import '../../../services/update_service.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_focus_ring.dart';
 import '../settings_widgets.dart';
 
 class UpdatesSection extends ConsumerWidget {
@@ -156,6 +157,74 @@ class UpdatesSection extends ConsumerWidget {
 /// established in `insufficient_ram_screen.dart` (warning-tinted surface,
 /// icon, text), token-bound throughout. No new component, no new visual
 /// language.
+/// The "go back to stable vX" link inside [_StableRevertHintNotice].
+///
+/// Was a bare [GestureDetector] under a `Semantics(link:, label:)` that
+/// repeated the [Text] beneath it — pointer-only *and* announced twice. Of
+/// every link in the app this is the one that must not need a working mouse:
+/// it is the way out of a beta that may be misbehaving.
+///
+/// Same contract as every other tappable thing in the app: [InkWell] carries
+/// focus and Enter/Space, [WpFocusRing] draws the focus visual through the
+/// shared node, and the house `MergeSemantics` + label-less [Semantics] idiom
+/// lets the rendered text be the accessible name.
+class _StableRevertLink extends StatefulWidget {
+  const _StableRevertLink({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  State<_StableRevertLink> createState() => _StableRevertLinkState();
+}
+
+class _StableRevertLinkState extends State<_StableRevertLink> {
+  final _focusNode = FocusNode(debugLabel: 'StableRevertLink');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text
+    return MergeSemantics(
+      child: Semantics(
+        link: true,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.sm,
+          child: InkWell(
+            onTap: widget.onTap,
+            focusNode: _focusNode,
+            borderRadius: WpRadius.borderSm,
+            // WpFocusRing owns the focus visual.
+            focusColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            child: Text(
+              widget.label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: widget.color,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+                decorationColor: widget.color,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StableRevertHintNotice extends StatelessWidget {
   const _StableRevertHintNotice({
     required this.stableVersion,
@@ -213,21 +282,10 @@ class _StableRevertHintNotice extends StatelessWidget {
                   ).textTheme.bodySmall?.copyWith(color: textPrimary),
                 ),
                 const SizedBox(height: WpSpacing.xxs),
-                Semantics(
-                  link: true,
+                _StableRevertLink(
                   label: l10n.settingsStableRevertHintLink(stableVersion),
-                  child: GestureDetector(
-                    onTap: () => unawaited(_openStableRelease()),
-                    child: Text(
-                      l10n.settingsStableRevertHintLink(stableVersion),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: warning,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                        decorationColor: warning,
-                      ),
-                    ),
-                  ),
+                  color: warning,
+                  onTap: () => unawaited(_openStableRelease()),
                 ),
               ],
             ),

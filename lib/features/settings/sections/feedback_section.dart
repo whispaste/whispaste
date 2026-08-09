@@ -59,44 +59,52 @@ class KeyboardShortcutSection extends ConsumerWidget {
           AnimatedOpacity(
             opacity: settings.hotkeyEnabled ? 1.0 : 0.4,
             duration: WpMotion.durationFor(context, WpMotion.normal),
-            child: IgnorePointer(
-              ignoring: !settings.hotkeyEnabled,
-              child: SettingRow(
-                icon: LucideIcons.keyboard,
-                label: l10n.settingsCurrentHotkey,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    HotkeyDisplay(
-                      hotkeyKey: settings.hotkeyKey,
-                      hotkeyModifiers: settings.hotkeyModifiers,
-                      hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
-                    ),
-                    const SizedBox(width: WpSpacing.sm),
-                    WpButton(
-                      label: l10n.settingsChangeHotkey,
-                      variant: WpButtonVariant.secondary,
-                      onPressed: () async {
-                        final result = await HotkeyRecorderDialog.show(
-                          context,
-                          initialKey: settings.hotkeyKey,
-                          initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
-                          initialModifiers: settings.hotkeyModifiers,
-                        );
-                        if (result != null) {
-                          ref
-                              .read(settingsProvider.notifier)
-                              .updateSettings(
-                                (s) => s.copyWith(
-                                  hotkeyKey: result.key,
-                                  hotkeyKeyDisplay: result.displayKey,
-                                  hotkeyModifiers: result.modifiers,
-                                ),
-                              );
-                        }
-                      },
-                    ),
-                  ],
+            // ExcludeFocus alongside IgnorePointer: the dimmed row blocked the
+            // mouse but stayed in the tab order, so keyboard users could focus
+            // a 40%-opacity "Change hotkey" button and open the recorder for a
+            // hotkey that is switched off. Blocking one input device and not
+            // the other is the defect; both go together.
+            child: ExcludeFocus(
+              excluding: !settings.hotkeyEnabled,
+              child: IgnorePointer(
+                ignoring: !settings.hotkeyEnabled,
+                child: SettingRow(
+                  icon: LucideIcons.keyboard,
+                  label: l10n.settingsCurrentHotkey,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      HotkeyDisplay(
+                        hotkeyKey: settings.hotkeyKey,
+                        hotkeyModifiers: settings.hotkeyModifiers,
+                        hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+                      ),
+                      const SizedBox(width: WpSpacing.sm),
+                      WpButton(
+                        label: l10n.settingsChangeHotkey,
+                        variant: WpButtonVariant.secondary,
+                        onPressed: () async {
+                          final result = await HotkeyRecorderDialog.show(
+                            context,
+                            initialKey: settings.hotkeyKey,
+                            initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
+                            initialModifiers: settings.hotkeyModifiers,
+                          );
+                          if (result != null) {
+                            ref
+                                .read(settingsProvider.notifier)
+                                .updateSettings(
+                                  (s) => s.copyWith(
+                                    hotkeyKey: result.key,
+                                    hotkeyKeyDisplay: result.displayKey,
+                                    hotkeyModifiers: result.modifiers,
+                                  ),
+                                );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -150,9 +158,23 @@ class _PushToTalkRow extends ConsumerWidget {
           : null, // null disables the switch
     );
 
+    // Mirrors the onboarding twin in `trigger_step.dart`: the subtitle always
+    // describes what pressing the hotkey does *right now*, so the toggle's
+    // effect is never abstract. The two rows had drifted apart despite the
+    // comment over there promising they would not — this row had neither the
+    // live hint nor a state a screen reader could hear.
+    final modeHint = settings.pushToTalk && supportsKeyUp
+        ? l10n.onboardingTriggerModeHoldHint
+        : l10n.onboardingTriggerModeToggleHint;
+
     return SettingRow(
       icon: LucideIcons.hand,
       label: l10n.settingsHoldToRecord,
+      subtitle: modeHint,
+      // Was the one toggle row in all of Settings that never announced its
+      // state. Null where the platform cannot do push-to-talk, so the row
+      // does not claim a state its disabled switch will not accept.
+      semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
       trailing: supportsKeyUp
           ? toggle
           : Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
