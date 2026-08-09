@@ -296,6 +296,17 @@ List<String> _activityDayLabels(L10n l10n) => [
 // ---------------------------------------------------------------------------
 
 /// Section header inside a flat panel — icon + title with thin accent underline.
+///
+/// A third header vocabulary alongside [WpSection] and `SettingRow`, and the
+/// accent underline is the very decoration ticket 07 removed from the About
+/// page. Kept anyway, as a deliberate exception: this is a genuine *second*
+/// level, a panel head nested inside a [WpSection] that already spent its
+/// accent bar on the level above. About had no such need — its `_AboutCard`
+/// border already framed the group, so there the underline was decoration on
+/// top of decoration. Here it is the only thing separating two header ranks.
+///
+/// Making it a `WpSection` instead would mean two accent bars stacked eight
+/// pixels apart, which is worse than the small inconsistency it would fix.
 class _PanelHeader extends StatelessWidget {
   const _PanelHeader({
     required this.icon,
