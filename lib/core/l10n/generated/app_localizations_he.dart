@@ -172,6 +172,9 @@ class L10nHe extends L10n {
   String get historyNewRecording => 'הקלטה חדשה';
 
   @override
+  String get historyStopRecording => 'עצור הקלטה';
+
+  @override
   String get historyNoResults => 'אין תוצאות';
 
   @override

@@ -71,6 +71,10 @@
   "@historyNewRecording": {
     "description": "Label of the primary button beside the History search field. Starts the same recording the systemwide hotkey starts; worded like the items the page calls recordings, not like the transcription the search field mentions."
   },
+  "historyStopRecording": "Stop recording",
+  "@historyStopRecording": {
+    "description": "Label the same button takes on while a recording runs — it stops that recording. Wording follows the tray item trayStopRecording, which ends the same recording from the other end of the app."
+  },
   "historyNoResults": "No results",
   "historyNoResultsHint": "No transcriptions match \"{query}\".\nTry a different search term.",
   "@historyNoResultsHint": {

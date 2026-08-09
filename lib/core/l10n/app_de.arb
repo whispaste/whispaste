@@ -63,6 +63,7 @@
   "historySearchTranscriptions": "Transkriptionen suchen…",
   "historySearchFieldLabel": "Transkriptionen suchen",
   "historyNewRecording": "Neue Aufnahme",
+  "historyStopRecording": "Aufnahme beenden",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
   "historyTrashEmpty": "Papierkorb ist leer",

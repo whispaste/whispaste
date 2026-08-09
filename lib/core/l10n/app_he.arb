@@ -67,6 +67,7 @@
   "historySearchTranscriptions": "חפש בתמלולים…",
   "historySearchFieldLabel": "חפש בתמלולים",
   "historyNewRecording": "הקלטה חדשה",
+  "historyStopRecording": "עצור הקלטה",
   "historyNoResults": "אין תוצאות",
   "historyNoResultsHint": "אין תמלולים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
   "@historyNoResultsHint": {

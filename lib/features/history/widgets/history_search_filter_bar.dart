@@ -1556,11 +1556,23 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
 /// orchestrator leaves the text in the clipboard and says so. The History
 /// entry is written either way.
 ///
-/// Because `toggleRecording` *toggles*, an enabled button during a running
-/// recording would let a click here stop a recording someone started from a
-/// completely different window. So the button only acts while the pipeline is
-/// idle: it spins while the transcription finishes and is otherwise disabled
-/// with the running phase as its explanation.
+/// And because `toggleRecording` *toggles*, the same button stops the
+/// recording it started. That is the point rather than a side effect: the
+/// recording overlay can be switched off, and a hotkey is not always where the
+/// hand is — someone who started a recording from this button has to be able
+/// to end it from this button. So it never greys out while a recording runs;
+/// it changes what it says it will do.
+///
+/// The two states borrow [WpVoiceInputButton]'s vocabulary rather than
+/// inventing a second one: microphone glyph to start, filled square to stop,
+/// and the stop state carries the `danger` tone, which is the same red that
+/// button uses for "running, tap to end". `danger` here reads as "this ends
+/// something that is live", not "this destroys data" — the label says which.
+///
+/// Transcribing is the one state that does disable, and only because
+/// `toggleRecording` is a documented no-op there: the audio is already on its
+/// way through the pipeline, and nothing sensible remains to stop. The
+/// spinner says so, the tooltip names the phase.
 class _NewRecordingButton extends ConsumerWidget {
   const _NewRecordingButton();
 
@@ -1570,23 +1582,22 @@ class _NewRecordingButton extends ConsumerWidget {
     final phase = ref.watch(recordingPhaseProvider);
     final isRecording = phase == RecordingPhase.recording;
     final isTranscribing = phase == RecordingPhase.transcribing;
-    final isIdle = phase == RecordingPhase.idle;
 
     return WpButton(
-      label: l10n.historyNewRecording,
+      label: isRecording ? l10n.historyStopRecording : l10n.historyNewRecording,
       variant: WpButtonVariant.primary,
-      icon: LucideIcons.mic,
+      tone: isRecording ? WpButtonTone.danger : WpButtonTone.accent,
+      icon: isRecording ? LucideIcons.square : LucideIcons.mic,
       isLoading: isTranscribing,
-      disabledTooltip: isRecording
-          ? l10n.statusRecording
-          : isTranscribing
-          ? l10n.statusTranscribing
-          : null,
-      onPressed: isIdle
-          ? () => ref
+      disabledTooltip: isTranscribing ? l10n.statusTranscribing : null,
+      // Live in every phase but `transcribing` — `toggleRecording` decides
+      // what the press means (start from idle/done/error, stop while
+      // recording), exactly as it does for the hotkey.
+      onPressed: isTranscribing
+          ? null
+          : () => ref
                 .read(recordingOrchestratorProvider.notifier)
-                .toggleRecording()
-          : null,
+                .toggleRecording(),
     );
   }
 }

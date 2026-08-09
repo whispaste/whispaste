@@ -411,6 +411,12 @@ abstract class L10n {
   /// **'New recording'**
   String get historyNewRecording;
 
+  /// Label the same button takes on while a recording runs — it stops that recording. Wording follows the tray item trayStopRecording, which ends the same recording from the other end of the app.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop recording'**
+  String get historyStopRecording;
+
   /// No description provided for @historyNoResults.
   ///
   /// In en, this message translates to:

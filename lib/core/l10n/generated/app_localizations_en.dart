@@ -172,6 +172,9 @@ class L10nEn extends L10n {
   String get historyNewRecording => 'New recording';
 
   @override
+  String get historyStopRecording => 'Stop recording';
+
+  @override
   String get historyNoResults => 'No results';
 
   @override

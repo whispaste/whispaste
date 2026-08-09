@@ -172,6 +172,9 @@ class L10nDe extends L10n {
   String get historyNewRecording => 'Neue Aufnahme';
 
   @override
+  String get historyStopRecording => 'Aufnahme beenden';
+
+  @override
   String get historyNoResults => 'Keine Ergebnisse';
 
   @override
