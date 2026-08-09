@@ -252,9 +252,13 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
         : l10n.historyUntitledRecording;
 
     return Semantics(
+      // Group variant of the house idiom — see history_list_tile.dart:134 for
+      // the full reasoning; the card holds the same several interactive nodes,
+      // so the wrapper keeps `label:` and the rendered title is excluded below.
       label: semanticLabel,
       button: true,
-      selected: widget.isSelected,
+      // Arrow cursor, not detail selection — see history_list_tile.dart.
+      selected: widget.multiSelectMode ? widget.isSelected : widget.isFocused,
       focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -317,17 +321,22 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     ),
                     const SizedBox(width: WpSpacing.xs),
                     Expanded(
-                      child: HighlightedText(
-                        text: widget.entry.title.isNotEmpty
-                            ? widget.entry.title
-                            : l10n.historyUntitledRecording,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        isDark: isDark,
-                        style: TextStyle(
-                          fontSize: WpTypography.subheading,
-                          fontWeight: FontWeight.w700,
-                          color: textPrimary,
+                      // Duplicate of the wrapper's label — excluded so the
+                      // card's title is announced once, not twice. The preview
+                      // and metadata below stay announced.
+                      child: ExcludeSemantics(
+                        child: HighlightedText(
+                          text: widget.entry.title.isNotEmpty
+                              ? widget.entry.title
+                              : l10n.historyUntitledRecording,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          isDark: isDark,
+                          style: TextStyle(
+                            fontSize: WpTypography.subheading,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ),

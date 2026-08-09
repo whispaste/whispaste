@@ -6,6 +6,8 @@
 /// Scope: widgets addressed in issue 02-a11y-semantics-history.
 library;
 
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -151,6 +153,125 @@ void main() {
         reason:
             'HistoryDetailAction must expose its tooltip as a semantics label',
       );
+    });
+  });
+
+  group('HistoryEntryRow — title announced once', () {
+    testWidgets('the title appears exactly once in the merged label', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          makeTestable(
+            HistoryEntryRow(
+              entry: _makeEntry(title: 'Quartalsbericht'),
+              isDark: true,
+              isSelected: false,
+              onTap: () {},
+              onCopy: () {},
+              onPin: () {},
+              onDelete: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The wrapper's `label:` is prepended to the subtree's own text, so
+        // before the fix the rendered title contributed a second copy and the
+        // row read "Quartalsbericht, Quartalsbericht, <preview>…". The preview
+        // stays in the label on purpose — it is content, not a duplicate.
+        final label = tester.getSemantics(find.byType(HistoryEntryRow)).label;
+        expect('Quartalsbericht'.allMatches(label).length, 1);
+      } finally {
+        handle.dispose();
+      }
+    });
+  });
+
+  group('HistoryEntryRow — selected follows the arrow cursor', () {
+    Future<SemanticsNode> pumpRow(
+      WidgetTester tester, {
+      required bool isSelected,
+      required bool isFocused,
+      bool multiSelectMode = false,
+    }) async {
+      await tester.pumpWidget(
+        makeTestable(
+          HistoryEntryRow(
+            entry: _makeEntry(),
+            isDark: true,
+            isSelected: isSelected,
+            isFocused: isFocused,
+            multiSelectMode: multiSelectMode,
+            onTap: () {},
+            onCopy: () {},
+            onPin: () {},
+            onDelete: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return tester.getSemantics(find.byType(HistoryEntryRow));
+    }
+
+    testWidgets('the arrow-cursor row reports selected', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        // The list holds a single Focus node and the arrow keys move only an
+        // optical highlight. Without this flag a screen reader reported no
+        // change at all while arrowing — the row Enter/Delete would act on was
+        // simply not announced.
+        final node = await pumpRow(tester, isSelected: false, isFocused: true);
+        expect(
+          node.getSemanticsData().flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('a row the cursor has left does not also report selected', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        // Click row A (detail panel opens, isSelected), then arrow to row B.
+        // Exactly one row may claim selected in single-select mode, so the
+        // row the cursor left must drop the flag even though it is still the
+        // entry shown in the detail panel.
+        final node = await pumpRow(tester, isSelected: true, isFocused: false);
+        expect(
+          node.getSemanticsData().flagsCollection.isSelected,
+          Tristate.isFalse,
+        );
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('inside multi-select the flag reports the checked state', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        // The cursor is suppressed in multi-select (history_list_view.dart:72)
+        // and `isSelected` carries the checked state instead. Several rows
+        // reporting selected is correct for a multi-selection.
+        final node = await pumpRow(
+          tester,
+          isSelected: true,
+          isFocused: false,
+          multiSelectMode: true,
+        );
+        expect(
+          node.getSemanticsData().flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+      } finally {
+        handle.dispose();
+      }
     });
   });
 

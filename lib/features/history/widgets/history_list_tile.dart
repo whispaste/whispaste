@@ -132,13 +132,28 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         : l10n.historyUntitledRecording;
 
     return Semantics(
+      // House idiom, group variant (`no_double_announcement_test.dart`): the
+      // wrapper keeps its `label:` and the rendered title is hidden with
+      // ExcludeSemantics below, because this subtree holds several interactive
+      // nodes (checkbox, three row actions, tag chips). MergeSemantics — the
+      // other permitted shape — would swallow all of them into one node.
       label: semanticLabel,
       button: true,
-      selected: widget.isSelected,
-      // The list owns keyboard focus as a single node and tracks the
-      // "current" row by index (see HistoryPage's arrow-key navigation) —
-      // exposing that here lets a screen reader announce which row is
-      // virtually focused instead of only showing a visual border.
+      // `selected:` follows the arrow cursor, not the detail-panel selection.
+      // The list holds a single Focus node and the arrow keys move nothing but
+      // an optical highlight, so without this flag a screen reader reported no
+      // change at all while the user arrowed through the list — the same defect
+      // already fixed in the snippet picker, the export picker and the tag
+      // input, all of which map `selected:` onto the highlight.
+      //
+      // Exactly one row may report selected at a time in single-select mode,
+      // which is why this is not `isSelected || isFocused`: after a click both
+      // coincide anyway, and while arrowing away from a clicked row the cursor
+      // — the row Enter and Delete will act on — is the one worth announcing.
+      // Inside multi-select the cursor is suppressed (history_list_view.dart:72)
+      // and `isSelected` carries the checked state, so the flag reports the
+      // checked rows instead, which is correct for a multi-selection.
+      selected: widget.multiSelectMode ? widget.isSelected : widget.isFocused,
       focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -319,20 +334,27 @@ class _EntryRowContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: HighlightedText(
-                text: entry.title.isNotEmpty
-                    ? entry.title
-                    : l10n.historyUntitledRecording,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                isDark: isDark,
-                style: TextStyle(
-                  // Off-scale on purpose: one step above `subheading` (14)
-                  // — the preview line below stays at 14, so the title now
-                  // carries real size contrast instead of only weight/color.
-                  fontSize: WpTypography.heading,
-                  fontWeight: FontWeight.w600,
-                  color: textPrimary,
+              // Excluded because the row's Semantics wrapper already carries
+              // this exact string as its label; without this the title was
+              // announced twice, once from the label and once from the text
+              // the label was merely prepended to. The preview and metadata
+              // below stay announced — they are content, not a duplicate.
+              child: ExcludeSemantics(
+                child: HighlightedText(
+                  text: entry.title.isNotEmpty
+                      ? entry.title
+                      : l10n.historyUntitledRecording,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  isDark: isDark,
+                  style: TextStyle(
+                    // Off-scale on purpose: one step above `subheading` (14)
+                    // — the preview line below stays at 14, so the title now
+                    // carries real size contrast instead of only weight/color.
+                    fontSize: WpTypography.heading,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
                 ),
               ),
             ),
