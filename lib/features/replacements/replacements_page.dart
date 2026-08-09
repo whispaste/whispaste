@@ -592,6 +592,20 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                             : WpColorsLight.textSecondary,
                         fontSize: WpTypography.body,
                       ),
+                      // `maxLines: 1` is load-bearing, not cosmetic: without
+                      // it `overflow: ellipsis` still lets the text wrap to
+                      // as many lines as it likes (the Row leaves its cross
+                      // axis unbounded), so a long replacement grew the row
+                      // without limit while the sibling snippet row truncated
+                      // its body preview after one line — the same content
+                      // shape behaving differently on two neighbouring
+                      // screens. It also restores the premise
+                      // `WpSearchableListPage`'s skeleton row height rests on
+                      // ("a Snippets tile and a Replacements tile both render
+                      // at exactly 70 dp"). The trigger-chip `Wrap` above can
+                      // still add lines; that growth is deliberate and
+                      // documented, so 70 dp stays a base height, not a cap.
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
