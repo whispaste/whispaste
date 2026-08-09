@@ -225,33 +225,39 @@ void main() {
     });
   });
 
-  // ── Context-carryover side note (issue 10) ───────────────────────────────
+  // ── The closing column ends on the third step ────────────────────────────
   //
-  // WhisPaste carries recognition context from the previous recording for up
-  // to ten minutes; the closing content surfaces that as a muted tip, not as
-  // a fourth numbered instruction row.
+  // Issue 10 originally closed this column with a muted context-carryover tip
+  // (the ten-minute recognition-context window and when to pause before
+  // switching topic). It is deliberately gone: the 2026-08-08 UX audit named
+  // it as part of the final page's overload, and it explained a mechanism the
+  // reader cannot have noticed yet on the one page that already asks them to
+  // act. See the comment where it used to sit in `ready_step.dart`.
+  //
+  // Asserted rather than left implicit, because "add one more helpful muted
+  // line" is exactly how this page got dense the first time.
 
-  group('ReadyStep — context-carryover hint', () {
-    testWidgets(
-      'the carryover tip renders alongside the three quick-start rows',
-      (tester) async {
-        final settings = _FakeSettingsNotifier();
-        await _pumpStep(tester, settings: settings);
+  group('ReadyStep — quick-start rows', () {
+    testWidgets('exactly three numbered rows, and nothing trailing them', (
+      tester,
+    ) async {
+      final settings = _FakeSettingsNotifier();
+      await _pumpStep(tester, settings: settings);
 
-        expect(
-          find.text(l10n.onboardingReadyContextCarryoverHint),
-          findsOneWidget,
-          reason:
-              'The topic-switch tip must be visible on the closing content.',
-        );
-        // Still exactly three numbered instruction rows — the tip is a side
-        // note, not a fourth step.
-        expect(find.textContaining('1. '), findsOneWidget);
-        expect(find.textContaining('2. '), findsOneWidget);
-        expect(find.textContaining('3. '), findsOneWidget);
-        expect(find.textContaining('4. '), findsNothing);
-      },
-    );
+      expect(find.textContaining('1. '), findsOneWidget);
+      expect(find.textContaining('2. '), findsOneWidget);
+      expect(find.textContaining('3. '), findsOneWidget);
+      expect(find.textContaining('4. '), findsNothing);
+
+      expect(
+        find.text(l10n.onboardingReadyContextCarryoverHint),
+        findsNothing,
+        reason:
+            'The context-carryover tip was cut from the closing content — it '
+            'is behaviour trivia about something the reader has not been able '
+            'to observe yet, on the flow densest page.',
+      );
+    });
   });
 
   // ── Residual hotkey-conflict notice ──────────────────────────────────────

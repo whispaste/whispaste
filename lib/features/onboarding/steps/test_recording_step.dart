@@ -244,25 +244,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           ),
         ],
 
-        // Completion-gate explainer — the shell's "Los geht's" CTA stays
-        // disabled until a test recording succeeded (or the escape hatch was
-        // taken); this line names the reason so the disabled CTA never
-        // appears unexplained.
-        if (!testRecordingSucceeded && !micBypassed) ...[
-          const SizedBox(height: WpSpacing.sm),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: Text(
-              l10n.onboardingTestRecordingCompletionHint,
-              textAlign: TextAlign.start,
-              style: TextStyle(
-                fontSize: WpTypography.small,
-                color: textSecondary,
-              ),
-            ),
-          ),
-        ],
-
         // ONE ambient note under the record button, not two. It used to be a
         // reassurance line plus a separate recording-duration row, and with
         // the completion-gate hint above them that stacked three muted lines
@@ -282,7 +263,15 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // reassurance — and drops the leading info icon with it, since the
         // icon marks the duration information and the two variants never
         // appear together.
-        const SizedBox(height: WpSpacing.sm),
+        //
+        // `xs`, and directly under the field: this line is a caption of the
+        // button/field pair above it, and it now says so by sitting closer to
+        // them than to anything below. It used to be the middle of three
+        // evenly spaced muted items (`sm`/`sm`/`xs`), which split the two
+        // completion-gate items — the "record once to continue" line and the
+        // button that bypasses exactly that requirement — around a sentence
+        // that has nothing to do with either.
+        const SizedBox(height: WpSpacing.xs),
         Padding(
           padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
           child: Row(
@@ -320,15 +309,45 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           ),
         ),
 
-        // Escape hatch "continue without a microphone" — deliberately
-        // restrained (plain text button, never the accent gradient). Only
-        // bypasses the microphone condition of the completion gate; a
-        // confirmed hotkey conflict still keeps the CTA disabled (heads-up
-        // rendered by ReadyStep). Hidden once a recording succeeded — at
-        // that point it has nothing left to bypass.
+        // The completion gate, as ONE block: the reason the shell's "Los
+        // geht's" CTA is disabled, and the escape hatch that lifts it. Both
+        // exist only while no recording has succeeded, and they disappear
+        // together — so they are one conditional with one gap in front of it
+        // rather than two conditionals that happened to render next to each
+        // other.
+        //
+        // `lg` in front of the block (against the `xs` that binds the caption
+        // above to the field): that step is the whole point of the
+        // regrouping. It is the one gap on this column that separates two
+        // subjects rather than spacing items within one, and at the old flat
+        // `sm` the column read as five evenly stacked strips with no
+        // discernible grouping — the single densest spot in the flow.
+        //
+        // The escape hatch itself stays deliberately restrained (plain ghost
+        // button, never the accent gradient). It only bypasses the microphone
+        // condition; a confirmed hotkey conflict still keeps the CTA disabled
+        // (heads-up rendered by ReadyStep).
         if (!testRecordingSucceeded) ...[
-          const SizedBox(height: WpSpacing.xs),
-          if (!micBypassed)
+          const SizedBox(height: WpSpacing.lg),
+          if (!micBypassed) ...[
+            // Named reason for the disabled CTA, so it never appears
+            // unexplained. `textSecondary`, not `textMuted`: it is the one
+            // line here that states a requirement rather than offering
+            // ambient advice.
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: kSettingRowInset,
+              ),
+              child: Text(
+                l10n.onboardingTestRecordingCompletionHint,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: WpSpacing.xxs),
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: WpButton(
@@ -338,8 +357,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                 tone: WpButtonTone.neutral,
                 onPressed: _onMicBypassPressed,
               ),
-            )
-          else
+            ),
+          ] else
             // Honest consequence note: no recording works until a microphone
             // does, and where to catch up later.
             Row(

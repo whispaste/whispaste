@@ -131,43 +131,23 @@ class ReadyStep extends ConsumerWidget {
           textColor: textPrimary,
         ),
 
-        // Context-carryover side note — deliberately NOT a fourth numbered
-        // step (it's a tip, not part of the core loop). Mirrors the muted
-        // hint style of the recording-duration note on the Model & Hotkey
-        // page (appearance_section.dart).
+        // NO trailing side note. The context-carryover tip that used to close
+        // this column (two sentences on the ten-minute recognition-context
+        // window and when to pause before switching topic) is gone on
+        // purpose, and it is the single biggest cognitive-load cut on the
+        // page: it was ~250 characters of behaviour trivia about a mechanism
+        // the reader — who has not completed one real recording yet — has no
+        // way to have noticed, parked on the one page that already asks them
+        // to *do* something. The 2026-08-08 UX audit named it as part of this
+        // page's overload (`.scratch/onboarding-ux-audit/befund.md`,
+        // recommendation 1) and only the left column's two ambient lines were
+        // merged in response; this is the other half of that finding.
         //
-        // `lg`, not the `md` that separates the three numbered steps: at the
-        // same gap as its siblings the tip sat inside the list's rhythm and
-        // read as a fourth step regardless of what the comment above intends.
-        // The wider gap is what makes it a side note to the eye.
-        const SizedBox(height: WpSpacing.lg),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsetsDirectional.only(
-                top: 1,
-                start: kSettingRowInset,
-              ),
-              child: Icon(
-                LucideIcons.info,
-                size: WpIconSize.xs,
-                color: textMuted,
-              ),
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            Expanded(
-              child: Text(
-                l10n.onboardingReadyContextCarryoverHint,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: textMuted,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ],
-        ),
+        // The behaviour it described is unchanged and self-correcting in
+        // practice (a pause between topics), so nothing actionable is lost at
+        // the moment it is dropped. Its l10n key stays in the `.arb` files —
+        // removing it belongs to whoever gives the tip a permanent home in
+        // Settings, next to the setting it actually concerns.
       ],
     );
   }
