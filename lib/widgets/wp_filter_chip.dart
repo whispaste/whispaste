@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/tokens.dart';
-import '../../../widgets/wp_focus_ring.dart';
+import '../core/theme/colors.dart';
+import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
-// ---------------------------------------------------------------------------
-// Filter chip
-// ---------------------------------------------------------------------------
-
-class HistoryFilterChip extends StatefulWidget {
-  const HistoryFilterChip({
+/// The app's single selectable filter chip — one pill per filter in a list
+/// area's filter row (History, Notes).
+///
+/// Anatomy: a compact 12×6 pill on a `borderFull` radius, centred inside a
+/// [WpLayout.minTouchTarget]-tall tap surface, with the focus ring hugging the
+/// pill via [WpFocusRing]'s external-node mode. Three states, all from theme
+/// tokens: resting (`surfaceVariant` / `textSecondary`), hover (`hover` /
+/// `textPrimary`) and selected (`accentSubtle` fill, `accentBorder30` outline,
+/// `accent` label at w600). Call sites pass state, never colors.
+///
+/// [count] renders the optional hit-count badge behind the label — History
+/// feeds it from `searchCountsProvider`, Notes leaves it null.
+///
+/// Not to be confused with the neighbouring chip families: `WpTriggerChip`
+/// shows a value and the status-bar chips show a state; neither is selectable.
+/// This one is the only chip the user picks.
+class WpFilterChip extends StatefulWidget {
+  const WpFilterChip({
     super.key,
     required this.label,
     required this.isActive,
@@ -29,12 +41,12 @@ class HistoryFilterChip extends StatefulWidget {
   final int? count;
 
   @override
-  State<HistoryFilterChip> createState() => _HistoryFilterChipState();
+  State<WpFilterChip> createState() => _WpFilterChipState();
 }
 
-class _HistoryFilterChipState extends State<HistoryFilterChip> {
+class _WpFilterChipState extends State<WpFilterChip> {
   bool _isHovered = false;
-  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryFilterChip');
+  final FocusNode _focusNode = FocusNode(debugLabel: 'WpFilterChip');
 
   @override
   void dispose() {
@@ -110,6 +122,8 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
             Text(
               '${widget.count}',
               style: TextStyle(
+                // Foreground de-emphasis of the chip's own label color, not a
+                // surface tint — the 6/12/30% ladder does not apply here.
                 color: (!widget.isActive && widget.count! > 0)
                     ? (widget.isDark
                           ? WpColorsDark.accent

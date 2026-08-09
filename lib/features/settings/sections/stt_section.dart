@@ -25,7 +25,9 @@ import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -420,18 +422,24 @@ class _BenchmarkButton extends ConsumerWidget {
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : IconButton(
-              icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
-              onPressed: () {
-                ref.read(localSttBundleProvider.notifier).runBenchmark();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(l10n.qualityTierInfoBenchmarking),
+          : Semantics(
+              label: l10n.qualityTierBenchmarkReRun,
+              button: true,
+              child: IconButton(
+                icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
+                onPressed: () {
+                  ref.read(localSttBundleProvider.notifier).runBenchmark();
+                  // Progress notice, not a result — `info`, not `success`:
+                  // the benchmark has only just started here.
+                  WpToast.show(
+                    context,
+                    message: l10n.qualityTierInfoBenchmarking,
+                    type: WpToastType.info,
                     duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-              tooltip: l10n.qualityTierBenchmarkReRun,
+                  );
+                },
+                tooltip: l10n.qualityTierBenchmarkReRun,
+              ),
             ),
     );
   }
@@ -458,11 +466,15 @@ class _ParakeetModelRow extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(l10n.parakeetModelInstalled),
-          IconButton(
-            icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
-            tooltip: l10n.parakeetModelDelete,
-            onPressed: () =>
-                ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
+          Semantics(
+            label: l10n.parakeetModelDelete,
+            button: true,
+            child: IconButton(
+              icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
+              tooltip: l10n.parakeetModelDelete,
+              onPressed: () =>
+                  ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
+            ),
           ),
         ],
       );
@@ -477,12 +489,16 @@ class _ParakeetModelRow extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('${l10n.parakeetModelDownloading} ${dl.progressPercent}%'),
-                IconButton(
-                  icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
-                  tooltip: l10n.parakeetModelCancel,
-                  onPressed: () => ref
-                      .read(parakeetDownloadProvider.notifier)
-                      .cancelDownload(),
+                Semantics(
+                  label: l10n.parakeetModelCancel,
+                  button: true,
+                  child: IconButton(
+                    icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
+                    tooltip: l10n.parakeetModelCancel,
+                    onPressed: () => ref
+                        .read(parakeetDownloadProvider.notifier)
+                        .cancelDownload(),
+                  ),
                 ),
               ],
             ),
@@ -627,29 +643,14 @@ class _CustomVocabularyFieldState
             ],
           ),
           const SizedBox(height: WpSpacing.sm),
-          Semantics(
-            label: l10n.settingsCustomVocabulary,
-            textField: true,
-            child: TextField(
-              controller: _ctrl,
-              minLines: 2,
-              maxLines: 5,
-              onChanged: _save,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
-              ),
-              decoration: InputDecoration(
-                hintText: l10n.settingsCustomVocabularyPlaceholder,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.sm,
-                ),
-              ),
-            ),
+          WpTextField(
+            controller: _ctrl,
+            variant: WpTextFieldVariant.form,
+            semanticsLabel: l10n.settingsCustomVocabulary,
+            hintText: l10n.settingsCustomVocabularyPlaceholder,
+            minLines: 2,
+            maxLines: 5,
+            onChanged: _save,
           ),
         ],
       ),

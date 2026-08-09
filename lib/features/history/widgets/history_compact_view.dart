@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_row_action.dart';
+import '../../../widgets/wp_row_checkbox.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import 'highlighted_text.dart';
@@ -21,6 +24,9 @@ class HistoryCompactView extends StatelessWidget {
     required this.isDark,
     required this.selectedId,
     required this.onEntryTap,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
     required this.multiSelectMode,
     required this.selectedIds,
     this.focusedId,
@@ -30,6 +36,9 @@ class HistoryCompactView extends StatelessWidget {
   final bool isDark;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
+  final ValueChanged<HistoryEntry> onCopy;
+  final ValueChanged<HistoryEntry> onPin;
+  final ValueChanged<HistoryEntry> onDelete;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
@@ -62,6 +71,9 @@ class HistoryCompactView extends StatelessWidget {
               : entry.id == selectedId,
           isFocused: !multiSelectMode && entry.id == focusedId,
           onTap: () => onEntryTap(entry),
+          onCopy: () => onCopy(entry),
+          onPin: () => onPin(entry),
+          onDelete: () => onDelete(entry),
           multiSelectMode: multiSelectMode,
           isChecked: selectedIds.contains(entry.id),
         );
@@ -81,6 +93,9 @@ class HistoryCompactRow extends StatefulWidget {
     required this.isDark,
     required this.isSelected,
     required this.onTap,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
     this.multiSelectMode = false,
     this.isChecked = false,
     this.isFocused = false,
@@ -90,6 +105,9 @@ class HistoryCompactRow extends StatefulWidget {
   final bool isDark;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
@@ -129,9 +147,13 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
         : l10n.historyUntitledRecording;
 
     return Semantics(
+      // Group variant of the house idiom — see history_list_tile.dart:134 for
+      // the full reasoning; the row holds the same several interactive nodes,
+      // so the wrapper keeps `label:` and the rendered title is excluded below.
       label: semanticLabel,
       button: true,
-      selected: widget.isSelected,
+      // Arrow cursor, not detail selection — see history_list_tile.dart.
+      selected: widget.multiSelectMode ? widget.isSelected : widget.isFocused,
       focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -176,21 +198,10 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                     // between xxs (too tight next to the checkbox) and xs (too
                     // loose for this row density).
                     padding: const EdgeInsets.only(right: 6),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: Checkbox(
-                        value: widget.isChecked,
-                        onChanged: (_) => widget.onTap(),
-                        activeColor: accent,
-                        side: BorderSide(
-                          color: isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
-                        ),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
+                    child: WpRowCheckbox(
+                      value: widget.isChecked,
+                      onChanged: widget.onTap,
+                      isDark: isDark,
                     ),
                   ),
                 // Favorite indicator
@@ -207,19 +218,35 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   ),
                 // Title
                 Expanded(
-                  child: HighlightedText(
-                    text: widget.entry.title.isNotEmpty
-                        ? widget.entry.title
-                        : l10n.historyUntitledRecording,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    isDark: isDark,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      fontWeight: FontWeight.w500,
-                      color: textPrimary,
+                  // Duplicate of the wrapper's label — excluded so the row's
+                  // title is announced once, not twice. The duration and
+                  // language below stay announced.
+                  child: ExcludeSemantics(
+                    child: HighlightedText(
+                      text: widget.entry.title.isNotEmpty
+                          ? widget.entry.title
+                          : l10n.historyUntitledRecording,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      isDark: isDark,
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        fontWeight: FontWeight.w500,
+                        color: textPrimary,
+                      ),
                     ),
                   ),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                HistoryCompactRowActions(
+                  entry: widget.entry,
+                  isDark: isDark,
+                  visible:
+                      (_isHovered || widget.isFocused) &&
+                      !widget.multiSelectMode,
+                  onCopy: widget.onCopy,
+                  onPin: widget.onPin,
+                  onDelete: widget.onDelete,
                 ),
                 const SizedBox(width: WpSpacing.sm),
                 // Duration
@@ -256,6 +283,76 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact row actions — the same three the list and card views offer.
+// Switching the view changes the density, not the feature set
+// (CONTEXT.md §5.5.5); the compact row keeps the dense variant so it stays
+// several times denser than the list row. They sit ahead of the metadata so
+// duration/language/time stay anchored and only the flexible title gives way.
+//
+// Its own widget rather than an inline block: the compact row's build method
+// is already at the edge of loam's complexity budget, and the pinned-state
+// branching below would push it over.
+// ---------------------------------------------------------------------------
+
+class HistoryCompactRowActions extends StatelessWidget {
+  const HistoryCompactRowActions({
+    super.key,
+    required this.entry,
+    required this.isDark,
+    required this.visible,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool visible;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final pinned = entry.pinned;
+    return WpRowActions(
+      visible: visible,
+      dense: true,
+      children: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        WpRowAction(
+          icon: LucideIcons.copy,
+          tooltip: l10n.historyCopyText,
+          isDark: isDark,
+          onTap: onCopy,
+          dense: true,
+        ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        WpRowAction(
+          faIcon: pinned ? FontAwesomeIcons.solidStar : null,
+          icon: pinned ? null : LucideIcons.star,
+          activeColor: pinned ? WpSharedColors.pinnedAccent : null,
+          tooltip: pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+          isDark: isDark,
+          onTap: onPin,
+          dense: true,
+        ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        WpRowAction(
+          icon: LucideIcons.trash2,
+          tooltip: l10n.actionDelete,
+          isDark: isDark,
+          onTap: onDelete,
+          isDestructive: true,
+          dense: true,
+        ),
+      ],
     );
   }
 }

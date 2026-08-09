@@ -48,6 +48,7 @@ Widget _testShell(
   Widget page,
   Size size, {
   Brightness brightness = Brightness.dark,
+  double textScale = 1.0,
 }) {
   final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
   return ProviderScope(
@@ -72,7 +73,10 @@ Widget _testShell(
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       home: MediaQuery(
-        data: MediaQueryData(size: size),
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(textScale),
+        ),
         child: SizedBox(
           width: size.width,
           height: size.height,
@@ -130,6 +134,52 @@ void main() {
         );
       }
     });
+  }
+
+  // Extra: the two pages whose frame this ticket unified (About moved to
+  // WpSection's 16px headline, Settings to WpPageShell) — checked in both
+  // themes at an accessibility text size, where a grown section head is
+  // most likely to push a row over the edge.
+  for (final page in const <MapEntry<String, Widget>>[
+    MapEntry('About', AboutPage()),
+    MapEntry('Settings', SettingsPage()),
+  ]) {
+    for (final brightness in Brightness.values) {
+      testWidgets('${page.key} at textScaler 1.5, ${brightness.name}', (
+        tester,
+      ) async {
+        const size = Size(1280, 800);
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final overflows = <String>[];
+        final originalHandler = FlutterError.onError;
+        FlutterError.onError = (details) {
+          if (details.toString().contains('overflowed')) {
+            overflows.add(details.toString());
+          } else {
+            originalHandler?.call(details);
+          }
+        };
+        addTearDown(() => FlutterError.onError = originalHandler);
+
+        await tester.pumpWidget(
+          _testShell(page.value, size, brightness: brightness, textScale: 1.5),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          overflows,
+          isEmpty,
+          reason:
+              '${page.key} overflow at 1.5x text, ${brightness.name}:\n'
+              '${overflows.join('\n')}',
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
   }
 
   // Extra: test History with narrow detail panel (common overflow source)

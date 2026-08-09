@@ -178,9 +178,6 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get historyClearSearch => 'נקה חיפוש';
-
-  @override
   String get historyTrashEmpty => 'האשפה ריקה';
 
   @override
@@ -1019,6 +1016,9 @@ class L10nHe extends L10n {
   String get actionRetry => 'נסה שנית';
 
   @override
+  String get actionClearSearch => 'נקה חיפוש';
+
+  @override
   String get tooltipTheme => 'החלף ערכת נושא';
 
   @override
@@ -1222,9 +1222,6 @@ class L10nHe extends L10n {
   String get replacementsDisableAction => 'כבה';
 
   @override
-  String get replacementsAddShortcut => 'הוסף החלפה';
-
-  @override
   String get replacementsEditShortcut => 'ערוך החלפה';
 
   @override
@@ -1280,13 +1277,14 @@ class L10nHe extends L10n {
   String get snippetsNoMatchesHint => 'נסה מונח חיפוש אחר.';
 
   @override
-  String get snippetsAddSnippet => 'הוסף קטע';
-
-  @override
   String get snippetsEditSnippet => 'ערוך קטע';
 
   @override
   String get snippetsNewSnippet => 'קטע חדש';
+
+  @override
+  String get snippetsDialogHint =>
+      'פתח את בורר הקטעים בזמן הכתבה כדי להוסיף את הטקסט הזה.';
 
   @override
   String get snippetsTitleLabel => 'כותרת';
@@ -2054,6 +2052,17 @@ class L10nHe extends L10n {
   }
 
   @override
+  String tagOverflowMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'עוד $count תגיות',
+      one: 'תגית נוספת אחת',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get tagDeleteConfirmTitle => 'למחוק תגית?';
 
   @override
@@ -2378,11 +2387,6 @@ class L10nHe extends L10n {
       'בהיר, כהה או לפי המערכת — והאם WhisPaste יופעל עם ההתחברות.';
 
   @override
-  String onboardingMaxRecordDurationHint(int seconds, String section) {
-    return 'הקלטות נעצרות אוטומטית אחרי $seconds שניות — ניתן לשנות זאת בכל עת בהגדרות ← $section.';
-  }
-
-  @override
   String get onboardingBeat1Title => 'לחץ על הקיצור, דבר, סיימת';
 
   @override
@@ -2498,6 +2502,14 @@ class L10nHe extends L10n {
       'Just a test, the text stays in this field.';
 
   @override
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  ) {
+    return 'רק בדיקה, הטקסט נשאר בשדה הזה — הקלטות נעצרות אוטומטית אחרי $seconds שניות, ניתן לשנות זאת בהגדרות ← $section.';
+  }
+
+  @override
   String get onboardingReadyTitle => 'הכל מוכן!';
 
   @override
@@ -2559,6 +2571,25 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingStartUsing => 'בוא נתחיל';
+
+  @override
+  String get onboardingReviewExit => 'סגירת המבוא';
+
+  @override
+  String get onboardingReviewDone => 'סיום';
+
+  @override
+  String get onboardingReviewEntry => 'מבוא';
+
+  @override
+  String get onboardingReviewSubtitle =>
+      'אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.';
+
+  @override
+  String get onboardingReviewLabel => 'צפייה חוזרת במבוא';
+
+  @override
+  String get onboardingReviewAction => 'פתיחה';
 
   @override
   String get overlayRecording => 'מקליט';
@@ -3179,9 +3210,6 @@ class L10nHe extends L10n {
   String notesNoResultsHint(String query) {
     return 'אין פתקים שמתאימים ל \"$query\".\nנסה מונח חיפוש אחר.';
   }
-
-  @override
-  String get notesClearSearch => 'נקה חיפוש';
 
   @override
   String notesResultCount(int count) {

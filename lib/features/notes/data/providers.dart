@@ -53,11 +53,15 @@ final filteredNotesProvider = Provider<AsyncValue<List<Note>>>((ref) {
   final query = ref.watch(notesSearchProvider).trim().toLowerCase();
   if (query.isEmpty) return notesAsync;
 
+  // Precompiled outside the loop — avoids allocating a lowercased copy of
+  // every note's content on every keystroke.
+  final queryRegex = RegExp(RegExp.escape(query), caseSensitive: false);
+
   final tagsByNoteId =
       ref.watch(allNoteTagsProvider).value ?? const <String, List<Tag>>{};
   return notesAsync.whenData(
     (notes) => notes.where((note) {
-      if (note.content.toLowerCase().contains(query)) return true;
+      if (queryRegex.hasMatch(note.content)) return true;
       final tags = tagsByNoteId[note.id] ?? const [];
       return tags.any((t) => t.name.contains(query));
     }).toList(),

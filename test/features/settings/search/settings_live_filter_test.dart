@@ -11,12 +11,16 @@
 /// query directly via the provider to bypass the debounce in [SettingsSearchField].
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -185,6 +189,71 @@ void main() {
         expect(find.text(l10n.settingsKeyboardShortcut), findsOneWidget);
       },
     );
+  });
+
+  // ── No-results empty state offers its main action ─────────────────────────
+
+  group('No-results empty state: clear search', () {
+    Finder editableText() => find.descendant(
+      of: find.byType(SettingsSearchField),
+      matching: find.byType(EditableText),
+    );
+
+    // Types into the real field instead of driving the provider: the reset has
+    // to travel back into the field's private controller, and a provider-driven
+    // test would start with an empty controller and never see that.
+    Future<void> typeNoMatch(WidgetTester tester) async {
+      await tester.enterText(editableText(), 'zzznomatch_unlikely_query_99');
+      await tester.pumpAndSettle(); // absorbs the 250 ms debounce
+      expect(find.text(l10n.settingsSearchNoResults), findsOneWidget);
+    }
+
+    testWidgets('tapping it restores the sections and empties the field', (
+      tester,
+    ) async {
+      await _pumpSettings(tester);
+      await typeNoMatch(tester);
+
+      await tester.tap(find.text(l10n.actionClearSearch));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsSearchNoResults), findsNothing);
+      expect(find.text(l10n.settingsInterface), findsOneWidget);
+      expect(
+        tester.widget<EditableText>(editableText()).controller.text,
+        isEmpty,
+        reason: 'the field must not keep a query that no longer filters',
+      );
+    });
+
+    testWidgets('Ctrl/Cmd+F still reaches the field after the reset', (
+      tester,
+    ) async {
+      await _pumpSettings(tester);
+      await typeNoMatch(tester);
+
+      await tester.tap(find.text(l10n.actionClearSearch));
+      await tester.pumpAndSettle();
+
+      if (Platform.isMacOS) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      } else {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      }
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<EditableText>(editableText()).focusNode.hasFocus,
+        isTrue,
+        reason: 'dismissing the empty state must not orphan the shortcut',
+      );
+    });
   });
 
   // ── settingsSectionMatchSetProvider unit-level checks ─────────────────────

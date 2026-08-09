@@ -13,6 +13,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -147,5 +148,39 @@ void main() {
       // The swatches are the whole widget.
       expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
     });
+  });
+
+  group('AppearanceStep \u2014 keyboard access', () {
+    testWidgets(
+      'a focused swatch is activated by Enter \u2014 the focus ring shares its '
+      'node with the InkWell, so wiring the ring must not swallow the key',
+      (tester) async {
+        final notifier = await _pumpStep(
+          tester,
+          settings: const AppSettings(
+            interface_: InterfaceSettings(themeMode: ThemeMode.dark),
+          ),
+        );
+
+        final ink = tester.widget<InkWell>(
+          find.descendant(
+            of: find.byKey(appearanceThemeSwatchKey(ThemeMode.light)),
+            matching: find.byType(InkWell),
+          ),
+        );
+        expect(
+          ink.focusNode?.canRequestFocus,
+          isTrue,
+          reason:
+              'the swatch must own a focusable node to be keyboard-reachable',
+        );
+        ink.focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(notifier.state.value!.interface_.themeMode, ThemeMode.light);
+      },
+    );
   });
 }

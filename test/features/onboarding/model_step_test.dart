@@ -12,7 +12,8 @@ library;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:flutter/services.dart'
+    show FontLoader, LogicalKeyboardKey, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -35,11 +36,17 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 
   AppSettings _settings;
 
+  /// How often the step asked for a write at all. Ticket 05's "an untouched
+  /// visit writes nothing" is about the *absence* of a write, which equal
+  /// before/after values alone would not prove.
+  int updateCalls = 0;
+
   @override
   Future<AppSettings> build() async => _settings;
 
   @override
   Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    updateCalls++;
     _settings = updater(state.value ?? _settings);
     state = AsyncData(_settings);
   }
@@ -109,6 +116,15 @@ Future<_Recorders> _pumpStep(
   ParakeetDownloadState parakeetInitial = const ParakeetDownloadState(),
   Locale displayLocale = const Locale('en'),
 
+  /// Pre-existing speech-recognition settings. Defaults to the factory
+  /// values, which is what a first run has.
+  SttSettings stt = const SttSettings(),
+
+  /// Whether the user already finished the first-run setup — the signal
+  /// [ModelStep] treats as "everything in settings is this user's own
+  /// choice" (Ticket 05).
+  bool onboardingCompleted = false,
+
   /// Width the step is laid out at. `null` lets it take the whole test
   /// surface (1280 px), which is what most assertions here want. The
   /// truncation regression below needs the *real* onboarding page frame
@@ -119,7 +135,11 @@ Future<_Recorders> _pumpStep(
   late _RecordingWhisperDownloadNotifier whisper;
   late _RecordingParakeetDownloadNotifier parakeet;
   final settings = _FakeSettingsNotifier(
-    AppSettings(interface_: InterfaceSettings(locale: dictationLocale)),
+    AppSettings(
+      interface_: InterfaceSettings(locale: dictationLocale),
+      stt: stt,
+      onboarding: OnboardingSettings(onboardingCompleted: onboardingCompleted),
+    ),
   );
 
   await tester.pumpWidget(
@@ -490,6 +510,227 @@ void main() {
         );
         expect(rec.whisper.downloadModelCalls, isEmpty);
         expect(rec.parakeet.downloadBundleCalls, 0);
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Ticket 05 — a configured choice survives an untouched visit.
+  //
+  // Every case here runs with `onboardingCompleted: true`, i.e. the page as a
+  // returning user sees it (the manually reopened flow). The groups above
+  // cover the same page during the first run, where nothing is configured yet
+  // and the recommendation is what preselects — they must stay untouched.
+  // -------------------------------------------------------------------------
+  group('ModelStep — a configured choice is not overwritten', () {
+    testWidgets(
+      'a deliberately chosen Whisper model survives a visit that changes '
+      'nothing, even where the hardware tier would resolve higher',
+      (tester) async {
+        // Premium hardware, so the tier alone resolves to Large v3 Turbo —
+        // and both models are on disk, which is what used to make the
+        // untouched visit persist the tier model over the chosen one.
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'he',
+          onboardingCompleted: true,
+          stt: const SttSettings(engine: 'whisper', model: 'whisper-medium'),
+          whisperInitial: const ModelDownloadState(
+            downloadedModels: {'whisper-medium', 'whisper-large-v3-turbo'},
+          ),
+        );
+
+        expect(rec.settings.state.value!.stt.engine, 'whisper');
+        expect(
+          rec.settings.state.value!.stt.model,
+          'whisper-medium',
+          reason:
+              'The configured model must survive — the tier is a '
+              'recommendation, not an override.',
+        );
+        expect(
+          rec.settings.updateCalls,
+          0,
+          reason: 'An untouched visit must not write at all.',
+        );
+        expect(
+          find.text(l10n.modelReady),
+          findsOneWidget,
+          reason:
+              'The configured model is already on disk — the step shows it '
+              'as present instead of offering to download it again.',
+        );
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+      },
+    );
+
+    testWidgets('a configured Parakeet engine stays selected even where the '
+        'recommendation would pick Whisper', (tester) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        dictationLocale: 'he',
+        onboardingCompleted: true,
+        stt: const SttSettings(engine: 'parakeet'),
+        parakeetInitial: const ParakeetDownloadState(installed: true),
+        // On disk, so the old "recommendation wins" path would have had
+        // everything it needed to persist Whisper over the user's choice.
+        whisperInitial: const ModelDownloadState(
+          downloadedModels: {'whisper-large-v3-turbo'},
+        ),
+      );
+
+      expect(rec.settings.state.value!.stt.engine, 'parakeet');
+      expect(rec.settings.updateCalls, 0);
+    });
+
+    testWidgets(
+      'the recommendation stays visible next to a diverging configured '
+      'choice and is one tap away',
+      (tester) async {
+        final rec = await _pumpStep(
+          tester,
+          // German on a CPU-only machine recommends Parakeet, while this
+          // user has Whisper configured — exactly the divergence the user
+          // should get to see and be able to adopt.
+          gpu: _cpuOnly,
+          dictationLocale: 'de',
+          onboardingCompleted: true,
+          stt: const SttSettings(engine: 'whisper', model: 'whisper-medium'),
+          whisperInitial: const ModelDownloadState(
+            downloadedModels: {'whisper-medium'},
+          ),
+        );
+
+        expect(
+          find.text(l10n.onboardingModelRecommended),
+          findsOneWidget,
+          reason: 'The recommendation badge must still be on offer.',
+        );
+
+        await tester.tap(find.byKey(kModelStepEngineParakeetCardKey));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          rec.parakeet.downloadBundleCalls,
+          1,
+          reason: 'One tap adopts the recommendation.',
+        );
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Keyboard access
+  // -------------------------------------------------------------------------
+
+  group('ModelStep — keyboard access', () {
+    testWidgets(
+      'both engine cards take keyboard focus — they used to be a bare '
+      'MouseRegion + GestureDetector, so the one page whose whole purpose is '
+      'a binary choice could not be reached with Tab at all',
+      (tester) async {
+        await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'de');
+
+        for (final entry in {
+          'Parakeet': kModelStepEngineParakeetCardKey,
+          'Whisper': kModelStepEngineWhisperCardKey,
+        }.entries) {
+          final inkWell = tester.widget<InkWell>(
+            find.descendant(
+              of: find.byKey(entry.value),
+              matching: find.byType(InkWell),
+            ),
+          );
+          expect(
+            inkWell.focusNode?.canRequestFocus,
+            isTrue,
+            reason:
+                'the ${entry.key} card must own a focusable node — without '
+                'one there is no keyboard path to the engine choice',
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'activating the focused Whisper card with Enter selects it, exactly '
+      'like a tap does',
+      (tester) async {
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'de',
+        );
+
+        final whisperInk = tester.widget<InkWell>(
+          find.descendant(
+            of: find.byKey(kModelStepEngineWhisperCardKey),
+            matching: find.byType(InkWell),
+          ),
+        );
+        whisperInk.focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          rec.parakeet.downloadBundleCalls,
+          0,
+          reason:
+              'Enter on the Whisper card must move the selection off '
+              'the recommended Parakeet card',
+        );
+        expect(rec.whisper.downloadModelCalls, [
+          bestModelForTier(QualityTier.premium).id,
+        ]);
+      },
+    );
+  });
+
+  group('ModelStep — disabled engine card', () {
+    testWidgets(
+      'the reason a card cannot be picked keeps its full colour — it used to '
+      'sit under a 50% Opacity veil together with the rest of the card, '
+      'which dimmed the one line that explains the block to roughly 1.8:1',
+      (tester) async {
+        // Hebrew is not a Parakeet language, so the Parakeet card renders
+        // disabled and carries its reason line.
+        await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'he',
+          displayLocale: const Locale('he'),
+        );
+        final localized = await L10n.delegate.load(const Locale('he'));
+
+        final reason = find.text(
+          localized.onboardingModelEngineUnsupportedLanguage,
+        );
+        expect(
+          reason,
+          findsOneWidget,
+          reason: 'the disabled branch must actually be rendered',
+        );
+        expect(
+          find.ancestor(of: reason, matching: find.byType(Opacity)),
+          findsNothing,
+          reason:
+              'no Opacity may sit over the disabled card: DESIGN.md forbids '
+              'signalling disabled with a veil over live colours, and the '
+              'veil is what made this line unreadable',
+        );
       },
     );
   });

@@ -23,6 +23,25 @@
 ///
 /// Hidden entirely on Linux: there is no Settings deep-link there, and the
 /// chip must not promise an action the platform cannot deliver.
+///
+/// **Deliberate exception to the 48-px hit-target floor** (`DESIGN.md`,
+/// "All interactive elements meet the 48px minimum touch target"): the pill
+/// comes to ~34 px (`WpSpacing.xs` top and bottom around a body-size label).
+/// The same reasoning that sanctions the status-bar theme toggle (36×32,
+/// `lib/app.dart`) and the trigger-list remove button (28×28,
+/// `replacements_page.dart`) applies here — this is a one-off control in a
+/// one-off flow, not a row action a user hits repeatedly, and the 48-px rule
+/// exists for the latter. `WpButton`'s `dense` size (32 px, hit target equal
+/// to its visual box) is the established precedent for exactly this shape.
+/// Growth is not free either: the chip shares its `Wrap` row with the hotkey
+/// caps on Try & Go, the tallest page of the flow (519 of the fixed window's
+/// 551 px in German), so 14 px of pill would come straight out of a budget
+/// measured page by page in `onboarding_overlay_test.dart`. This does not
+/// trip
+/// `test/widgets/wp_row_action_squeezed_icon_button_guard_test.dart` — the
+/// chip is an `InkWell`, never an `IconButton` with hand-set constraints, so
+/// it is out of that guard's scope by construction and needs no allowlist
+/// entry.
 library;
 
 import 'dart:async' show unawaited;
@@ -107,63 +126,67 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
       ),
     };
 
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          // Always request() — the notifier alone decides between the real
-          // one-time OS dialog and the Settings deep-link + poll recovery.
-          onTap: () => unawaited(
-            ref.read(micPermissionNotifierProvider.notifier).request(),
-          ),
-          borderRadius: WpRadius.borderFull,
-          onHover: (hovering) => setState(() => _hovered = hovering),
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
+    // `MergeSemantics` + a label-less `Semantics`, the same idiom the theme
+    // swatches and the welcome beats use: the `Text` below already carries
+    // the chip's label, so spelling it out here as well announced it twice.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            // Always request() — the notifier alone decides between the real
+            // one-time OS dialog and the Settings deep-link + poll recovery.
+            onTap: () => unawaited(
+              ref.read(micPermissionNotifierProvider.notifier).request(),
             ),
-            decoration: BoxDecoration(
-              color: _hovered ? hover : surface,
-              borderRadius: WpRadius.borderFull,
-              border: Border.all(color: border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedSwitcher(
-                  duration: WpMotion.durationFor(context, WpMotion.fast),
-                  child: icon == null
-                      ? SizedBox(
-                          key: const ValueKey('micChipSpinner'),
-                          width: WpIconSize.sm,
-                          height: WpIconSize.sm,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
+            borderRadius: WpRadius.borderFull,
+            onHover: (hovering) => setState(() => _hovered = hovering),
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              curve: WpMotion.defaultCurve,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: _hovered ? hover : surface,
+                borderRadius: WpRadius.borderFull,
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: WpMotion.durationFor(context, WpMotion.fast),
+                    child: icon == null
+                        ? SizedBox(
+                            key: const ValueKey('micChipSpinner'),
+                            width: WpIconSize.sm,
+                            height: WpIconSize.sm,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: statusColor,
+                            ),
+                          )
+                        : Icon(
+                            icon,
+                            key: ValueKey(icon),
+                            size: WpIconSize.sm,
                             color: statusColor,
                           ),
-                        )
-                      : Icon(
-                          icon,
-                          key: ValueKey(icon),
-                          size: WpIconSize.sm,
-                          color: statusColor,
-                        ),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
                   ),
-                ),
-              ],
+                  const SizedBox(width: WpSpacing.xs),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

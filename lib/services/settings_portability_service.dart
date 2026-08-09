@@ -63,6 +63,13 @@ const Set<String> settingsPortabilityDenyList = {
   // same category as `onboarding_current_step` above — progress/migration
   // state, not a preference.
   'onboarding_flow_version',
+  // Added for the onboarding revision registry (`.scratch/
+  // onboarding-revisions/issues/01`): last content revision this
+  // installation was shown/grandfathered to. Progress/migration state
+  // exactly like the two keys above, not a preference — and doubly wrong
+  // to import, since a foreign install's revision history has nothing to
+  // do with what this one has already seen.
+  'onboarding_content_version',
   'auto_paste_off_hint_dismissed',
   // AudioInputSettings — gerätegebundener Mikrofonname.
   'microphone',

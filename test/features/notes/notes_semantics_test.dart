@@ -4,6 +4,7 @@ library;
 
 import 'dart:ui' show Tristate;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -74,6 +75,18 @@ Widget _buildPanel({bool trashed = false}) {
     onExport: () {},
     onVoiceTranscript: (_) {},
   );
+}
+
+/// Parks a synthetic mouse pointer on [finder]. Row actions reveal on hover
+/// or focus app-wide (see WpRowAction's library comment), so a trash row's
+/// restore/delete-forever buttons only exist once the row is pointed at.
+Future<void> _hoverRow(WidgetTester tester, Finder finder) async {
+  final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await gesture.addPointer(location: Offset.zero);
+  addTearDown(() => gesture.removePointer());
+  await tester.pump();
+  await gesture.moveTo(tester.getCenter(finder));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -151,6 +164,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(makeTestable(_buildTile(trashView: true)));
         await tester.pumpAndSettle();
+        await _hoverRow(tester, find.byType(NotesListTile));
 
         expect(find.bySemanticsLabel(l10n.notesRestore), findsOneWidget);
         expect(find.bySemanticsLabel(l10n.notesDeleteForever), findsOneWidget);
@@ -207,7 +221,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(l10n.notesClearSearch), findsOneWidget);
+      expect(find.bySemanticsLabel(l10n.actionClearSearch), findsOneWidget);
     });
   });
 }

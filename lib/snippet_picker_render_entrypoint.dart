@@ -41,6 +41,7 @@ import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
 import 'services/snippet_picker/snippet_picker_render_channel.dart';
 import 'shared_render_engine_helpers.dart' show RenderEngineState;
+import 'widgets/wp_search_field.dart';
 
 /// Private channel between the native picker shell and this render engine.
 ///
@@ -241,12 +242,12 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   /// Live filter across BOTH title and body (ticket AC).
   List<SnippetPickerRenderItem> get _filtered {
     if (_query.isEmpty) return widget.items;
-    final q = _query.toLowerCase();
+    // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
+    // new lowercased strings for title and body on every item in the tight loop.
+    final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
     return widget.items
         .where(
-          (i) =>
-              i.title.toLowerCase().contains(q) ||
-              i.body.toLowerCase().contains(q),
+          (i) => searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
         )
         .toList();
   }
@@ -438,7 +439,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                           WpSpacing.sm,
                           WpSpacing.xs,
                         ),
-                        child: _buildSearchField(isDark, l10n),
+                        child: _buildSearchField(l10n),
                       ),
                       Expanded(
                         child: _buildListArea(
@@ -461,12 +462,23 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                         ),
                         child: Row(
                           children: [
-                            _KeyHint(
-                              isDark: isDark,
-                              keyLabel: '↩',
-                              label: l10n.snippetsPickerInsertAction,
-                            ),
-                            const SizedBox(width: WpSpacing.md),
+                            // The insert hint is a promise about the Enter
+                            // key. With no row to insert — no snippets
+                            // relayed at all, or a query without matches —
+                            // `_submit` deliberately does nothing but
+                            // re-focus the field, so the hint would keep
+                            // advertising an action that has no effect,
+                            // right next to the empty state that just said
+                            // there is nothing here. Escape is
+                            // unconditional because it always works.
+                            if (highlight >= 0) ...[
+                              _KeyHint(
+                                isDark: isDark,
+                                keyLabel: '↩',
+                                label: l10n.snippetsPickerInsertAction,
+                              ),
+                              const SizedBox(width: WpSpacing.md),
+                            ],
                             _KeyHint(
                               isDark: isDark,
                               keyLabel: 'esc',
@@ -489,63 +501,18 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   /// Capsule search field — a soft inset glass pill (overlay silhouette DNA)
   /// instead of the main window's rectangular input. The border eases to the
   /// accent tint while focused (continuous, no hard swap).
-  Widget _buildSearchField(bool isDark, L10n l10n) {
-    return ListenableBuilder(
-      listenable: _searchFocus,
-      builder: (context, child) {
-        final focused = _searchFocus.hasFocus;
-        return AnimatedContainer(
-          duration: WpMotion.durationFor(context, WpMotion.normal),
-          curve: WpMotion.defaultCurve,
-          decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.surfaceMutedFill
-                : WpColorsLight.surfaceMutedFill,
-            borderRadius: WpRadius.borderFull,
-            border: Border.all(
-              color: focused
-                  ? (isDark
-                        ? WpColorsDark.accentBorder30
-                        : WpColorsLight.accentBorder30)
-                  : (isDark
-                        ? WpColorsDark.borderSubtle
-                        : WpColorsLight.borderSubtle),
-            ),
-          ),
-          child: child,
-        );
-      },
-      child: TextField(
-        controller: widget.searchController,
-        focusNode: _searchFocus,
-        // Sole autofocus in the panel (see the build-method comment) —
-        // reused-engine re-shows are covered by `_resetForShow` instead,
-        // since autofocus only fires on the first mount.
-        autofocus: true,
-        onChanged: _onQueryChanged,
-        onSubmitted: (_) => _submit(),
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: l10n.snippetsSearch,
-          prefixIcon: Icon(
-            LucideIcons.search,
-            size: WpIconSize.sm,
-            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-          ),
-          isDense: true,
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.xs + 2,
-          ),
-        ),
-      ),
+  Widget _buildSearchField(L10n l10n) {
+    return WpSearchField(
+      controller: widget.searchController,
+      focusNode: _searchFocus,
+      hintText: l10n.snippetsSearch,
+      variant: WpSearchFieldVariant.capsule,
+      // Sole autofocus in the panel (see the build-method comment) —
+      // reused-engine re-shows are covered by `_resetForShow` instead,
+      // since autofocus only fires on the first mount.
+      autofocus: true,
+      onChanged: _onQueryChanged,
+      onSubmitted: (_) => _submit(),
     );
   }
 
@@ -623,11 +590,11 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
             itemBuilder: (context, index) {
               final item = filtered[index];
               // False positive at the call site: _PickerTile's own build
-              // wraps everything in Semantics(button: true, label:
-              // item.title), so the row has an accessible name/role (WCAG
-              // 4.1.2 satisfied inside the widget, invisible to the
-              // call-site heuristic).
-              // loam-ignore: a11y-interactive-semantics – Semantics(label) lives inside _PickerTile
+              // wraps everything in MergeSemantics + Semantics(button:
+              // true), so the row has an accessible name (merged from its
+              // own title/preview text) and role — WCAG 4.1.2 satisfied
+              // inside the widget, invisible to the call-site heuristic.
+              // loam-ignore: a11y-interactive-semantics – Semantics lives inside _PickerTile
               return _PickerTile(
                 item: item,
                 isDark: isDark,
@@ -684,89 +651,105 @@ class _PickerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    return Semantics(
-      button: true,
-      label: item.title,
-      child: MouseRegion(
-        onEnter: (_) => onHover(),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          // The tile is visually transparent (the gliding capsule paints the
-          // selection), so opaque hit-testing keeps the full row tappable.
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Padding(
-            // xs aligns with the highlight capsule's inset, sm is the
-            // content inset inside it.
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs + WpSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? WpColorsDark.accentChipFill
-                        : WpColorsLight.accentChipFill,
-                    borderRadius: WpRadius.borderSm,
+    // House idiom for a composed control (`section.dart`,
+    // `mic_permission_chip.dart`): MergeSemantics + a *label-less*
+    // Semantics. An explicit `label: item.title` here does not replace the
+    // subtree's own text, it is prepended to it — the rendered title `Text`
+    // still contributes a node, so a screen reader announced the title
+    // twice on every row of the picker.
+    //
+    // `selected: highlighted` is what makes the panel usable without sight:
+    // the gliding capsule is the *only* selection cue, and it is not focus
+    // (the search field is the sole focus holder by design), so without
+    // this flag arrow keys moved a highlight the semantics tree never
+    // reported.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: highlighted,
+        child: MouseRegion(
+          onEnter: (_) => onHover(),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            // The tile is visually transparent (the gliding capsule paints the
+            // selection), so opaque hit-testing keeps the full row tappable.
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Padding(
+              // xs aligns with the highlight capsule's inset, sm is the
+              // content inset inside it.
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.xs + WpSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? WpColorsDark.accentChipFill
+                          : WpColorsLight.accentChipFill,
+                      borderRadius: WpRadius.borderSm,
+                    ),
+                    child: Icon(
+                      LucideIcons.notebookText,
+                      size: WpIconSize.sm,
+                      color: isDark
+                          ? WpColorsDark.accent
+                          : WpColorsLight.accent,
+                    ),
                   ),
-                  child: Icon(
-                    LucideIcons.notebookText,
-                    size: WpIconSize.sm,
-                    color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: TextStyle(
-                          color: isDark
-                              ? WpColorsDark.textPrimary
-                              : WpColorsLight.textPrimary,
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w500,
-                          height: _lineHeight,
+                  const SizedBox(width: WpSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: TextStyle(
+                            color: isDark
+                                ? WpColorsDark.textPrimary
+                                : WpColorsLight.textPrimary,
+                            fontSize: WpTypography.body,
+                            fontWeight: FontWeight.w500,
+                            height: _lineHeight,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _bodyPreview,
-                        style: TextStyle(
-                          color: textMuted,
-                          fontSize: WpTypography.small,
-                          height: _lineHeight,
+                        const SizedBox(height: 3),
+                        Text(
+                          _bodyPreview,
+                          style: TextStyle(
+                            color: textMuted,
+                            fontSize: WpTypography.small,
+                            height: _lineHeight,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                // Reserved (not conditional) so the text column never
-                // reflows when the highlight arrives; the affordance fades
-                // in continuously instead of popping.
-                AnimatedOpacity(
-                  opacity: highlighted ? 1 : 0,
-                  duration: WpMotion.durationFor(context, WpMotion.fast),
-                  curve: WpMotion.defaultCurve,
-                  child: Icon(
-                    LucideIcons.cornerDownLeft,
-                    size: WpIconSize.xs,
-                    color: textMuted,
+                  const SizedBox(width: WpSpacing.xs),
+                  // Reserved (not conditional) so the text column never
+                  // reflows when the highlight arrives; the affordance fades
+                  // in continuously instead of popping.
+                  AnimatedOpacity(
+                    opacity: highlighted ? 1 : 0,
+                    duration: WpMotion.durationFor(context, WpMotion.fast),
+                    curve: WpMotion.defaultCurve,
+                    child: Icon(
+                      LucideIcons.cornerDownLeft,
+                      size: WpIconSize.xs,
+                      color: textMuted,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

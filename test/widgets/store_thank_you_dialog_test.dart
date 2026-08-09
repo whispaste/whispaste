@@ -27,6 +27,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations_de.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations_en.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations_he.dart';
+import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/services/store_thank_you_service.dart';
 import 'package:whispaste/widgets/store_thank_you_dialog.dart';
 
@@ -49,6 +50,12 @@ class _FakeStoreThankYouNotifier extends StoreThankYouNotifier {
   @override
   Future<void> markShown() async =>
       state = const StoreThankYouState(shouldShow: false);
+}
+
+/// Stands in for a user with an onboarding revision run in progress.
+class _RunningRevisionNotifier extends OnboardingRevisionRunNotifier {
+  @override
+  bool build() => true;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,5 +232,57 @@ void main() {
 
       expect(capturedUrl, kGitHubRepoUrl);
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Show-time re-check — widget test
+  // ---------------------------------------------------------------------------
+
+  group('show-time re-check', () {
+    setUp(() {
+      storeThankYouPlatformIsWindowsOverride = null;
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() {
+      storeThankYouPlatformIsWindowsOverride = null;
+    });
+
+    testWidgets(
+      'suppressed if an onboarding revision run starts between check time '
+      'and the two-second show delay',
+      (tester) async {
+        storeThankYouPlatformIsWindowsOverride = false;
+        final notifier = _FakeStoreThankYouNotifier();
+
+        await tester.pumpWidget(
+          makeTestable(
+            const StoreThankYouWatcher(child: SizedBox()),
+            locale: const Locale('en'),
+            overrides: [
+              storeThankYouProvider.overrideWith(() => notifier),
+              onboardingRevisionRunProvider.overrideWith(
+                () => _RunningRevisionNotifier(),
+              ),
+            ],
+          ),
+        );
+        await tester.pump(); // initial build, ref.listen registered
+
+        notifier.triggerShow();
+        await tester.pump(); // state change propagated, delay timer started
+        await tester.pump(const Duration(seconds: 2)); // delay elapses
+        await tester.pumpAndSettle();
+
+        final l10n = await L10n.delegate.load(const Locale('en'));
+        expect(
+          find.text(l10n.storeThankYouCtaGitHub),
+          findsNothing,
+          reason:
+              'The re-check in _maybeShow must catch a revision run that '
+              'started after the notifier already decided to show.',
+        );
+      },
+    );
   });
 }

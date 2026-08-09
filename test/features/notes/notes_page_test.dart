@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
+import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -72,6 +74,18 @@ Note _sampleNote({
     createdAt: t,
     updatedAt: t,
   );
+}
+
+/// Parks a synthetic mouse pointer on [finder]. Row actions reveal on hover
+/// or focus app-wide (see WpRowAction's library comment), so a trash row's
+/// restore/delete-forever buttons only exist once the row is pointed at.
+Future<void> _hoverRow(WidgetTester tester, Finder finder) async {
+  final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await gesture.addPointer(location: Offset.zero);
+  addTearDown(() => gesture.removePointer());
+  await tester.pump();
+  await gesture.moveTo(tester.getCenter(finder));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -194,6 +208,7 @@ void main() {
 
         await tester.tap(find.text(l10n.notesTrash));
         await tester.pumpAndSettle();
+        await _hoverRow(tester, find.byType(NotesListTile).first);
 
         expect(find.byTooltip(l10n.notesRestore), findsOneWidget);
         expect(find.byTooltip(l10n.notesDeleteForever), findsOneWidget);
@@ -222,6 +237,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.notesTrash));
       await tester.pumpAndSettle();
+      await _hoverRow(tester, find.byType(NotesListTile).first);
 
       await tester.tap(find.byTooltip(l10n.notesDeleteForever));
       await tester.pumpAndSettle();
@@ -475,7 +491,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(l10n.notesNoResults), findsOneWidget);
 
-      await tester.tap(find.text(l10n.notesClearSearch));
+      await tester.tap(find.text(l10n.actionClearSearch));
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.notesNoResults), findsNothing);

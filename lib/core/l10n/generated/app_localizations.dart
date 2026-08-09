@@ -417,12 +417,6 @@ abstract class L10n {
   /// **'No transcriptions match \"{query}\".\nTry a different search term.'**
   String historyNoResultsHint(String query);
 
-  /// No description provided for @historyClearSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear search'**
-  String get historyClearSearch;
-
   /// No description provided for @historyTrashEmpty.
   ///
   /// In en, this message translates to:
@@ -1899,6 +1893,12 @@ abstract class L10n {
   /// **'Try again'**
   String get actionRetry;
 
+  /// Tooltip and screen-reader label of WpSearchField's clear button. Used by every search field that has no feature-specific wording of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get actionClearSearch;
+
   /// No description provided for @tooltipTheme.
   ///
   /// In en, this message translates to:
@@ -2271,12 +2271,6 @@ abstract class L10n {
   /// **'Disable'**
   String get replacementsDisableAction;
 
-  /// No description provided for @replacementsAddShortcut.
-  ///
-  /// In en, this message translates to:
-  /// **'Add Replacement'**
-  String get replacementsAddShortcut;
-
   /// No description provided for @replacementsEditShortcut.
   ///
   /// In en, this message translates to:
@@ -2379,12 +2373,6 @@ abstract class L10n {
   /// **'Try a different search term.'**
   String get snippetsNoMatchesHint;
 
-  /// No description provided for @snippetsAddSnippet.
-  ///
-  /// In en, this message translates to:
-  /// **'Add Snippet'**
-  String get snippetsAddSnippet;
-
   /// No description provided for @snippetsEditSnippet.
   ///
   /// In en, this message translates to:
@@ -2396,6 +2384,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'New Snippet'**
   String get snippetsNewSnippet;
+
+  /// No description provided for @snippetsDialogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the snippet picker while dictating to insert this text.'**
+  String get snippetsDialogHint;
 
   /// No description provided for @snippetsTitleLabel.
   ///
@@ -3795,6 +3789,12 @@ abstract class L10n {
   /// **'{count, plural, =0{unused} =1{1 entry} other{{count} entries}}'**
   String tagUsageCount(int count);
 
+  /// No description provided for @tagOverflowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 more tag} other{{count} more tags}}'**
+  String tagOverflowMore(int count);
+
   /// No description provided for @tagDeleteConfirmTitle.
   ///
   /// In en, this message translates to:
@@ -4341,12 +4341,6 @@ abstract class L10n {
   /// **'Light, dark, or match your system — and whether WhisPaste starts when you log in.'**
   String get onboardingAppearancePageSubtitle;
 
-  /// No description provided for @onboardingMaxRecordDurationHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Recordings stop automatically after {seconds} seconds — adjust this anytime under Settings → {section}.'**
-  String onboardingMaxRecordDurationHint(int seconds, String section);
-
   /// No description provided for @onboardingBeat1Title.
   ///
   /// In en, this message translates to:
@@ -4545,6 +4539,15 @@ abstract class L10n {
   /// **'Just a test, the text stays in this field.'**
   String get onboardingTestRecordingReassurance;
 
+  /// No description provided for @onboardingTestRecordingReassuranceWithDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a test, the text stays in this field — recordings stop automatically after {seconds} seconds, adjustable under Settings → {section}.'**
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  );
+
   /// No description provided for @onboardingReadyTitle.
   ///
   /// In en, this message translates to:
@@ -4652,6 +4655,42 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Let\'s go'**
   String get onboardingStartUsing;
+
+  /// No description provided for @onboardingReviewExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Close introduction'**
+  String get onboardingReviewExit;
+
+  /// No description provided for @onboardingReviewDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get onboardingReviewDone;
+
+  /// No description provided for @onboardingReviewEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Introduction'**
+  String get onboardingReviewEntry;
+
+  /// No description provided for @onboardingReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Go through the five setup steps again whenever you like — nothing changes unless you change it.'**
+  String get onboardingReviewSubtitle;
+
+  /// No description provided for @onboardingReviewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the introduction'**
+  String get onboardingReviewLabel;
+
+  /// No description provided for @onboardingReviewAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get onboardingReviewAction;
 
   /// No description provided for @overlayRecording.
   ///
@@ -5762,12 +5801,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'No notes match \"{query}\".\nTry a different search term.'**
   String notesNoResultsHint(String query);
-
-  /// No description provided for @notesClearSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear search'**
-  String get notesClearSearch;
 
   /// No description provided for @notesResultCount.
   ///

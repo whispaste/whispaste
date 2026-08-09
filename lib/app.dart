@@ -11,6 +11,7 @@ import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/navigation/page_state.dart';
+import 'core/onboarding/onboarding_surface.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
 import 'core/theme/theme.dart';
@@ -64,8 +65,8 @@ import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/update_actions.dart';
 import 'services/deploy_channel_service.dart';
+import 'widgets/dialog.dart';
 import 'widgets/toast.dart';
-import 'widgets/wp_button.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/store_thank_you_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
@@ -187,12 +188,21 @@ const wpPageWidgets = <String, Widget>{
 /// extracted from [_AppShellState._runStartupPermissionGate] so it is
 /// unit-testable without the surrounding widget tree.
 ///
-/// First-run onboarding owns both permissions with its own richer UI — the
-/// gate only takes over from the second start on, once onboarding completed.
-/// `settings == null` (not loaded yet) is treated like "not completed",
-/// matching the `?? false` fallback this replaces at the call site.
-bool shouldRunStartupPermissionGate(AppSettings? settings) =>
-    settings?.onboardingCompleted ?? false;
+/// The onboarding flow owns both permissions with its own richer UI — the
+/// gate only takes over once that surface is not on top, i.e. from the second
+/// start on for a first run, and again the moment a review reopened from
+/// Settings ends. `settings == null` (not loaded yet) is treated like "not
+/// completed", matching the `?? false` fallback this replaces at the call
+/// site.
+bool shouldRunStartupPermissionGate(
+  AppSettings? settings, {
+  bool onboardingManuallyOpen = false,
+  bool onboardingRevisionRunning = false,
+}) => !onboardingSurfaceActive(
+  onboardingCompleted: settings?.onboarding.onboardingCompleted ?? false,
+  manuallyOpen: onboardingManuallyOpen,
+  revisionRunning: onboardingRevisionRunning,
+);
 
 /// Pure decision for whether closing the window should hide to tray (`true`)
 /// or quit the app (`false`), extracted from
@@ -367,15 +377,16 @@ class _AppShellState extends ConsumerState<_AppShell>
         return;
       }
       if (_restartModalActive) return;
-      final onboardingCompleted =
-          ref.read(settingsProvider).value?.onboardingCompleted ?? false;
+      final onboarding = ref.read(settingsProvider).value?.onboarding;
       // Single shared guard set (see shouldShowAutoPasteRestartSurface):
       // clipboard-only users must never see any Auto-Paste modal — the
       // permission is meaningless for them, no matter what stale state
       // (restart marker, capability probes) is lying around.
       if (!shouldShowAutoPasteRestartSurface(
         needsRestart: needsRestart,
-        onboardingCompleted: onboardingCompleted,
+        onboardingCompleted: onboarding?.onboardingCompleted ?? false,
+        onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
+        onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
         userPastes: _userPastesAfterTranscription(),
       )) {
         return;
@@ -448,11 +459,12 @@ class _AppShellState extends ConsumerState<_AppShell>
     // show it to users whose after-transcription action doesn't paste.
     if (!_userPastesAfterTranscription()) return;
     final capability = ref.read(pasteCapabilityNotifierProvider).capability;
-    final onboardingCompleted =
-        ref.read(settingsProvider).value?.onboardingCompleted ?? false;
+    final onboarding = ref.read(settingsProvider).value?.onboarding;
     final shouldShow = await maybeMarkTccResetNoticeVersion(
       currentVersion: appVersion,
-      onboardingCompleted: onboardingCompleted,
+      onboardingCompleted: onboarding?.onboardingCompleted ?? false,
+      onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
+      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
       isMacOS: true,
       capabilityStatus: capability?.status,
     );
@@ -491,7 +503,11 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// the first recording/paste. See `startup_permission_gate.dart` for the
   /// full decision tree and the platform truths it encodes.
   Future<void> _runStartupPermissionGate() async {
-    if (!shouldRunStartupPermissionGate(ref.read(settingsProvider).value)) {
+    if (!shouldRunStartupPermissionGate(
+      ref.read(settingsProvider).value,
+      onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
+      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
+    )) {
       return;
     }
 
@@ -567,26 +583,13 @@ class _AppShellState extends ConsumerState<_AppShell>
     await windowManager.show();
     await windowManager.focus();
     if (!mounted) return false;
-    final confirmed = await showDialog<bool>(
+    return showWpConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.micGateAlertTitle),
-        content: Text(l10n.micGateAlertBodyGeneric),
-        actions: [
-          WpButton(
-            label: l10n.permissionAlertLaterButton,
-            variant: WpButtonVariant.ghost,
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-          ),
-          WpButton(
-            label: l10n.micGateAlertConfirm,
-            variant: WpButtonVariant.ghost,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
-      ),
+      title: l10n.micGateAlertTitle,
+      message: l10n.micGateAlertBodyGeneric,
+      confirmLabel: l10n.micGateAlertConfirm,
+      cancelLabel: l10n.permissionAlertLaterButton,
     );
-    return confirmed ?? false;
   }
 
   Future<void> _openMicPrivacySettings() =>
@@ -1093,9 +1096,18 @@ class _AppShellState extends ConsumerState<_AppShell>
                           ),
                         ],
                       ),
-                      // Onboarding overlay — shown on first launch
-                      if (!settings.onboardingCompleted)
-                        const Positioned.fill(child: OnboardingOverlay()),
+                      // Onboarding overlay — the first launch, or a review the
+                      // user reopened from Settings. Which of the two decides
+                      // how the flow behaves, and `onboardingCompleted` is
+                      // exactly that distinction: a run that starts with setup
+                      // already done can only be a review.
+                      if (ref.watch(onboardingSurfaceActiveProvider))
+                        Positioned.fill(
+                          child: OnboardingOverlay(
+                            manualReview:
+                                settings.onboarding.onboardingCompleted,
+                          ),
+                        ),
                     ],
                   ),
                 ), // Scaffold
@@ -1143,17 +1155,21 @@ class _ThemeToggle extends ConsumerWidget {
     final mutedColor = isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
-    return IconButton(
-      icon: Icon(
-        isDark ? LucideIcons.moon : LucideIcons.sun,
-        color: mutedColor,
-        size: 16,
+    return Semantics(
+      label: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
+      button: true,
+      child: IconButton(
+        icon: Icon(
+          isDark ? LucideIcons.moon : LucideIcons.sun,
+          color: mutedColor,
+          size: 16,
+        ),
+        tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
+        onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
+        splashRadius: 16,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+        padding: EdgeInsets.zero,
       ),
-      tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
-      onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
-      splashRadius: 16,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
-      padding: EdgeInsets.zero,
     );
   }
 }

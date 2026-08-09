@@ -25,6 +25,7 @@ import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
 import '../logging/app_logger.dart';
+import '../onboarding/onboarding_revision.dart';
 import '../../services/path_service.dart';
 import '../../services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelId;
@@ -766,6 +767,56 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         );
         await db.writeAppSettings(settings.toStorageMap());
         dev.log('Sound mute migration: soundVolume set to 0', name: 'Settings');
+      }
+
+      // One-time migration (onboarding-revisions ticket 01): grandfathering.
+      // A user who already finished onboarding before the content-revision
+      // registry existed carries onboardingContentVersion == 0 — the exact
+      // same value a genuinely fresh install has before its first revision.
+      // Stamp them to the target that applies right now and persist
+      // immediately, so the first update after this feature ships does not
+      // send the entire existing user base back into onboarding. This must
+      // be a write, not a value computed on every read: only a persisted
+      // stamp survives the registry later growing a new, higher entry
+      // without silently re-grandfathering past it. An interrupted first
+      // run (onboardingCompleted == false) is not a revision candidate and
+      // is left at 0 until it completes normally.
+      final onboardingSection = settings.onboarding;
+      if (onboardingSection.onboardingCompleted &&
+          onboardingSection.onboardingContentVersion == 0) {
+        final registry = ref.read(onboardingRevisionRegistryProvider);
+        final target = targetOnboardingContentVersion(
+          registry,
+          currentOnboardingPlatform(),
+        );
+        // target == 0 (registry empty or nothing applicable yet) means
+        // "grandfathered to 0", indistinguishable from "never stamped" —
+        // skip the write so a completed install does not re-run this same
+        // no-op migration on every single launch while the registry is
+        // still empty (today's shipped state).
+        if (target > 0) {
+          final stamped = settings.copyWithSections(
+            onboarding: onboardingSection.copyWith(
+              onboardingContentVersion: target,
+            ),
+          );
+          try {
+            await db.writeAppSettings(stamped.toStorageMap());
+            settings = stamped;
+            dev.log(
+              'Onboarding content version grandfathered to $target',
+              name: 'Settings',
+            );
+          } catch (e) {
+            // Persist failed — stay at 0 in memory too, so this session and
+            // disk agree. The condition above only matches while the stamp
+            // is 0, so the next start retries against whatever target
+            // applies then: idempotent, no crash, no loop.
+            _log.warning(
+              'Onboarding content version grandfathering failed: $e',
+            );
+          }
+        }
       }
     } else {
       // One-time migration: read the legacy Go config.json if it exists.

@@ -9,6 +9,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/language_selector.dart';
+import '../../../widgets/wp_focus_ring.dart';
 import 'onboarding_page_fill.dart';
 
 /// Test key for the tappable beat list tile at [index] (0-based).
@@ -365,7 +366,14 @@ class _BeatShowcaseState extends State<_BeatShowcase> {
 /// border on top of it is what turned three quiet text blocks into three
 /// competing boxes. Inactive tiles keep muted text colors but remain fully
 /// rendered and tappable — they are never removed from the semantics tree.
-class _BeatListTile extends StatelessWidget {
+///
+/// Keyboard focus is marked by [WpFocusRing] in external-node mode (one node
+/// shared with the [InkWell], so Enter/Space keeps working), the same
+/// affordance the engine cards and the theme swatches carry. The tile's own
+/// active state is a fill of the very surface colour InkWell's default focus
+/// highlight would paint, so without an explicit ring a keyboard user could
+/// not tell focus from selection here.
+class _BeatListTile extends StatefulWidget {
   const _BeatListTile({
     super.key,
     required this.title,
@@ -378,6 +386,19 @@ class _BeatListTile extends StatelessWidget {
   final String caption;
   final bool active;
   final VoidCallback onTap;
+
+  @override
+  State<_BeatListTile> createState() => _BeatListTileState();
+}
+
+class _BeatListTileState extends State<_BeatListTile> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -401,45 +422,57 @@ class _BeatListTile extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         button: true,
-        selected: active,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: WpRadius.borderLg,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: kOnboardingContentInset,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: active ? surface : Colors.transparent,
-              borderRadius: WpRadius.borderLg,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  textAlign: TextAlign.start,
-                  style: TextStyle(
-                    fontSize: WpTypography.subheading,
-                    fontWeight: FontWeight.w600,
-                    color: active ? textPrimary : textSecondary,
-                    height: 1.3,
+        selected: widget.active,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.lg,
+          child: InkWell(
+            focusNode: _focusNode,
+            onTap: widget.onTap,
+            borderRadius: WpRadius.borderLg,
+            // WpFocusRing owns the focus visual, and here it must be the
+            // *only* one: InkWell's default focus fill is the same surface
+            // colour this tile uses for `active`, so leaving it on would
+            // still make a focused inactive tile read as selected — the very
+            // confusion the ring was added to end. Only focusColor: this
+            // tile draws no hover of its own, so hoverColor has to stay.
+            focusColor: Colors.transparent,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              curve: WpMotion.defaultCurve,
+              padding: const EdgeInsets.symmetric(
+                horizontal: kOnboardingContentInset,
+                vertical: WpSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: widget.active ? surface : Colors.transparent,
+                borderRadius: WpRadius.borderLg,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      fontSize: WpTypography.subheading,
+                      fontWeight: FontWeight.w600,
+                      color: widget.active ? textPrimary : textSecondary,
+                      height: 1.3,
+                    ),
                   ),
-                ),
-                const SizedBox(height: WpSpacing.xxs),
-                Text(
-                  caption,
-                  textAlign: TextAlign.start,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    color: active ? textSecondary : textMuted,
-                    height: 1.4,
+                  const SizedBox(height: WpSpacing.xxs),
+                  Text(
+                    widget.caption,
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: widget.active ? textSecondary : textMuted,
+                      height: 1.4,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

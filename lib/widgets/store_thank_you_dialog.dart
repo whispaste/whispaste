@@ -7,7 +7,8 @@
 /// Gating conditions (enforced by [StoreThankYouNotifier]):
 ///   - Deploy channel is [DeployChannel.store].
 ///   - The SharedPreferences flag is not yet set.
-///   - Onboarding has been completed.
+///   - The onboarding surface is not on top — onboarding has been completed
+///     and the five-step flow is not currently reopened from Settings.
 ///
 /// CTA URLs: single-source constants [kWindowsStoreReviewUrl] (Windows only)
 /// and [kGitHubRepoUrl] — no hardcoded literals. On macOS/Linux no reliable
@@ -25,6 +26,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/app_urls.dart';
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/onboarding/onboarding_surface.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/store_thank_you_service.dart';
@@ -93,6 +95,19 @@ class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
 
   void _maybeShow(StoreThankYouState state, BuildContext context) {
     if (!state.shouldShow || _dialogShowing) return;
+    // The notifier already gated on "is the onboarding surface on top", but
+    // it decided that at *check* time and this runs at *show* time, two
+    // seconds later. Re-asking the two halves that can flip in between — the
+    // user opening a review from Settings, or a revision run starting —
+    // closes that window. The completed half stays the notifier's: it is
+    // answered against the caller's own settings snapshot, which is what
+    // makes the first-run hand-off work at the exact moment the flag flips.
+    // Nothing is latched here, so the next check re-offers the hint once the
+    // review or run ends.
+    if (ref.read(onboardingManuallyOpenProvider) ||
+        ref.read(onboardingRevisionRunProvider)) {
+      return;
+    }
     _dialogShowing = true;
     // A short delay after onboarding exit so the overlay animation has
     // settled before the hint appears.

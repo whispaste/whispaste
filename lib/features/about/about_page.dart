@@ -25,6 +25,7 @@ import '../../services/update_actions.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
+import '../../widgets/section.dart';
 import 'diagnostics_report.dart';
 
 /// About page — app info, version, open-source links, support, credits,
@@ -124,9 +125,8 @@ class AboutPage extends ConsumerWidget {
           // ── Support this project ──
           _AboutCard(
             isDark: isDark,
+            title: l10n.aboutSupportTitle,
             children: [
-              _SectionHeader(title: l10n.aboutSupportTitle, isDark: isDark),
-              const SizedBox(height: WpSpacing.xs),
               Text(
                 l10n.aboutSupportDescription,
                 style: TextStyle(
@@ -177,9 +177,8 @@ class AboutPage extends ConsumerWidget {
           if (kSponsors.isNotEmpty) ...[
             _AboutCard(
               isDark: isDark,
+              title: l10n.aboutSponsorsTitle,
               children: [
-                _SectionHeader(title: l10n.aboutSponsorsTitle, isDark: isDark),
-                const SizedBox(height: WpSpacing.sm),
                 Wrap(
                   spacing: WpSpacing.sm,
                   runSpacing: WpSpacing.sm,
@@ -196,9 +195,8 @@ class AboutPage extends ConsumerWidget {
           // ── Built with ──
           _AboutCard(
             isDark: isDark,
+            title: l10n.aboutBuiltWith,
             children: [
-              _SectionHeader(title: l10n.aboutBuiltWith, isDark: isDark),
-              const SizedBox(height: WpSpacing.sm),
               _BuiltWithRow(
                 icon: LucideIcons.codeXml,
                 title: l10n.aboutFlutterGo,
@@ -230,9 +228,8 @@ class AboutPage extends ConsumerWidget {
           // ── Privacy & Data ──
           _AboutCard(
             isDark: isDark,
+            title: l10n.aboutPrivacy,
             children: [
-              _SectionHeader(title: l10n.aboutPrivacy, isDark: isDark),
-              const SizedBox(height: WpSpacing.sm),
               _PrivacyPoint(text: l10n.aboutPrivacyLocal, isDark: isDark),
               _PrivacyPoint(text: l10n.aboutPrivacyCloud, isDark: isDark),
               _PrivacyPoint(text: l10n.aboutPrivacyNoTracking, isDark: isDark),
@@ -243,12 +240,8 @@ class AboutPage extends ConsumerWidget {
           // ── Keyboard shortcuts ──
           _AboutCard(
             isDark: isDark,
+            title: l10n.aboutKeyboardShortcuts,
             children: [
-              _SectionHeader(
-                title: l10n.aboutKeyboardShortcuts,
-                isDark: isDark,
-              ),
-              const SizedBox(height: WpSpacing.sm),
               _ShortcutRow(
                 label: l10n.aboutShortcutRecord,
                 shortcut: hotkeyLabel,
@@ -261,9 +254,8 @@ class AboutPage extends ConsumerWidget {
           // ── Links ──
           _AboutCard(
             isDark: isDark,
+            title: l10n.aboutLinks,
             children: [
-              _SectionHeader(title: l10n.aboutLinks, isDark: isDark),
-              const SizedBox(height: WpSpacing.sm),
               _LinkRow(
                 icon: LucideIcons.globe,
                 label: l10n.aboutWebsite,
@@ -301,9 +293,8 @@ class AboutPage extends ConsumerWidget {
           // ── System diagnostics ──
           _AboutCard(
             isDark: isDark,
+            title: l10n.aboutSystemInfo,
             children: [
-              _SectionHeader(title: l10n.aboutSystemInfo, isDark: isDark),
-              const SizedBox(height: WpSpacing.xs),
               Text(
                 l10n.aboutSystemInfoDesc,
                 style: TextStyle(
@@ -357,10 +348,18 @@ class AboutPage extends ConsumerWidget {
 /// Surface card that groups one About section (header + its content) so the
 /// page reads as structured panels rather than a flat document. Tokens only:
 /// elevated surface, subtle border, [WpRadius.borderLg], [WpSpacing.lg] pad.
+///
+/// The header is a plain [WpSection] — the same one Settings and Analytics
+/// use — so About no longer carries a section head of its own.
 class _AboutCard extends StatelessWidget {
-  const _AboutCard({required this.isDark, required this.children});
+  const _AboutCard({
+    required this.isDark,
+    required this.title,
+    required this.children,
+  });
 
   final bool isDark;
+  final String title;
   final List<Widget> children;
 
   @override
@@ -379,37 +378,15 @@ class _AboutCard extends StatelessWidget {
               : WpColorsLight.borderSubtle,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-}
-
-// ─── Section header ──────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.isDark});
-  final String title;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: WpSpacing.xxs),
-        Container(
-          height: 2,
-          width: 32,
-          decoration: BoxDecoration(
-            color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-            borderRadius: BorderRadius.circular(1),
-          ),
+      // The card already pads itself — the section only supplies the header.
+      child: WpSection(
+        title: title,
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
         ),
-      ],
+      ),
     );
   }
 }
@@ -626,6 +603,12 @@ class _SupportButtonState extends State<_SupportButton> {
     final accentColor = widget.isDark
         ? WpColorsDark.accent
         : WpColorsLight.accent;
+    final accentBadgeFill = widget.isDark
+        ? WpColorsDark.accentBadgeFill
+        : WpColorsLight.accentBadgeFill;
+    final accentButtonFill = widget.isDark
+        ? WpColorsDark.accentButtonFill
+        : WpColorsLight.accentButtonFill;
 
     return Semantics(
       button: true,
@@ -651,9 +634,7 @@ class _SupportButtonState extends State<_SupportButton> {
               vertical: WpSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: _hovered
-                  ? accentColor.withValues(alpha: 0.15)
-                  : accentColor.withValues(alpha: 0.08),
+              color: _hovered ? accentBadgeFill : accentButtonFill,
               borderRadius: WpRadius.borderSm,
             ),
             child: Row(

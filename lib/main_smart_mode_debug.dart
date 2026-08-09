@@ -45,6 +45,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'services/smart_mode/smart_mode_ffi_engine.dart';
+import 'widgets/wp_button.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -202,9 +203,11 @@ class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
                       : (p) => setState(() => _preset = p!),
                 ),
                 const SizedBox(width: 16),
-                ElevatedButton(
+                WpButton(
+                  label: _running ? 'Läuft …' : 'Verarbeiten',
+                  variant: WpButtonVariant.primary,
                   onPressed: _running ? null : _run,
-                  child: Text(_running ? 'Läuft …' : 'Verarbeiten'),
+                  isLoading: _running,
                 ),
               ],
             ),

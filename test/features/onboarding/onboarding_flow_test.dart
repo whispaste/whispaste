@@ -57,6 +57,7 @@ import 'package:whispaste/services/hotkey_service.dart'
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -195,10 +196,8 @@ Future<void> _tapNext(WidgetTester tester) async {
 /// Navigationsaktionen (Zurück + Weiter), kein Überspringen.
 void _expectExactlyTwoNavActions(WidgetTester tester, {required int page}) {
   final navRow = find.byKey(kOnboardingNavRowKey);
-  final textButtons = tester
-      .widgetList(
-        find.descendant(of: navRow, matching: find.byType(TextButton)),
-      )
+  final backButtons = tester
+      .widgetList(find.descendant(of: navRow, matching: find.byType(WpButton)))
       .length;
   final accentButtons = tester
       .widgetList(
@@ -206,7 +205,7 @@ void _expectExactlyTwoNavActions(WidgetTester tester, {required int page}) {
       )
       .length;
   expect(
-    textButtons + accentButtons,
+    backButtons + accentButtons,
     2,
     reason:
         'Seite $page: die Navigations-Zeile muss genau zwei Aktionen tragen',

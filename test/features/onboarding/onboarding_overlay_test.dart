@@ -51,9 +51,12 @@ import 'package:whispaste/widgets/brand_wordmark.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -102,6 +105,52 @@ class _RecordingPasteCapabilityNotifier extends PasteCapabilityNotifier {
   void stopPolling() {
     stopPollingCalls++;
   }
+}
+
+/// Seeds the Auto-Paste troubleshoot branch (needsRestart == true — missing
+/// + sent-to-OS-grant-flow + poll timed out) and answers `repair()` with the
+/// "nothing to clear" result. That combination renders the tallest
+/// Auto-Paste state: Skip + Repair + the result banner's own extra Restart
+/// button, all stacked at once — see [_RepairResultBanner]'s `nothingCleared`
+/// branch.
+///
+/// `check()` re-asserts the seeded state (mirroring
+/// `_FakePasteCapabilityNotifier` in auto_paste_step_test.dart): a
+/// successful repair chains into `requestGrant()`, which calls
+/// `check(prompt: true)` and would otherwise leave `pollingPhase` at
+/// `awaitingGrant` — flipping the phase to `waiting` and hiding the very
+/// banner this fake exists to keep on screen. `startPolling`/`stopPolling`
+/// are no-ops so the chain never touches the real platform bridge.
+class _TroubleshootPasteCapabilityNotifier extends PasteCapabilityNotifier {
+  static const _troubleshootState = PasteCapabilityState(
+    capability: PasteCapability(
+      status: PasteCapabilityStatus.permissionMissing,
+      canPrompt: true,
+    ),
+    sentToOsGrantFlow: true,
+    pollingPhase: PollingPhase.timedOut,
+  );
+
+  @override
+  PasteCapabilityState build() => _troubleshootState;
+
+  @override
+  Future<void> check({bool prompt = false}) async {
+    state = _troubleshootState;
+  }
+
+  @override
+  void startPolling({
+    Duration interval = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 30),
+  }) {}
+
+  @override
+  void stopPolling() {}
+
+  @override
+  Future<TccRepairResult> repair() async =>
+      const TccRepairResult(accessibilityCleared: 0, appleEventsCleared: 0);
 }
 
 /// Same shape for the microphone permission poller — additionally pins the
@@ -211,7 +260,7 @@ Future<void> _tapNext(WidgetTester tester) async {
 
 Future<void> _pumpOverlay(
   WidgetTester tester, {
-  _RecordingPasteCapabilityNotifier? paste,
+  PasteCapabilityNotifier? paste,
   _RecordingMicPermissionNotifier? mic,
   _FakeSettingsNotifier? settings,
   Size size = const Size(1280, 980),
@@ -479,23 +528,23 @@ void main() {
         expect(navRow, findsOneWidget);
 
         // Exactly two tappable navigation actions inside the row.
-        final textButtons = find.descendant(
+        final backButtons = find.descendant(
           of: navRow,
-          matching: find.byType(TextButton),
+          matching: find.byType(WpButton),
         );
         final accentButtons = find.descendant(
           of: navRow,
           matching: find.byType(WpHeroButton),
         );
         expect(
-          tester.widgetList(textButtons).length +
+          tester.widgetList(backButtons).length +
               tester.widgetList(accentButtons).length,
           2,
           reason: 'The nav row must carry exactly two navigation actions.',
         );
 
         // Back exists but is disabled on the first page.
-        final back = tester.widget<TextButton>(
+        final back = tester.widget<WpButton>(
           find.byKey(kOnboardingBackButtonKey),
         );
         expect(back.onPressed, isNull);
@@ -524,24 +573,26 @@ void main() {
             ),
           );
           final style = text.style;
-          // The colour now rides on the ButtonStyle, so read the resolved
-          // style the button actually paints with.
+          // WpButton resolves disabled as a token swap inside build(), not
+          // as a WidgetState-driven overlay — the ghost variant's inner
+          // TextButton already carries the right foregroundColor regardless
+          // of state, so resolve({}) here is a no-op that still reads back
+          // the value the button actually paints with.
           final button = tester.widget<TextButton>(
-            find.byKey(kOnboardingBackButtonKey),
+            find.descendant(
+              of: find.byKey(kOnboardingBackButtonKey),
+              matching: find.byType(TextButton),
+            ),
           );
           return style?.color ??
-              button.style!.foregroundColor!.resolve(
-                button.onPressed == null
-                    ? <WidgetState>{WidgetState.disabled}
-                    : <WidgetState>{},
-              )!;
+              button.style!.foregroundColor!.resolve(<WidgetState>{})!;
         }
 
         final disabledColour = labelColour();
         await _tapNext(tester);
         expect(
           tester
-              .widget<TextButton>(find.byKey(kOnboardingBackButtonKey))
+              .widget<WpButton>(find.byKey(kOnboardingBackButtonKey))
               .onPressed,
           isNotNull,
           reason: 'page 2 Back must be enabled — otherwise this proves nothing',
@@ -566,16 +617,16 @@ void main() {
         for (var page = 0; page < 3; page++) {
           await _tapNext(tester);
           final navRow = find.byKey(kOnboardingNavRowKey);
-          final textButtons = find.descendant(
+          final backButtons = find.descendant(
             of: navRow,
-            matching: find.byType(TextButton),
+            matching: find.byType(WpButton),
           );
           final accentButtons = find.descendant(
             of: navRow,
             matching: find.byType(WpHeroButton),
           );
           expect(
-            tester.widgetList(textButtons).length +
+            tester.widgetList(backButtons).length +
                 tester.widgetList(accentButtons).length,
             2,
             reason: 'page ${page + 2} nav row must carry exactly two actions',
@@ -871,20 +922,39 @@ void main() {
   //   page 4  Hotkey        222 / 222 / 222   (the sparsest page in the flow)
   //   page 5  Appearance    380 / 401 / 380   (theme tiles + autostart row)
   //   page 6  Auto-Paste    190 / 190 / 190   (macOS/Windows only)
-  //   page 7  Try & Go      529 / 492 / 492   (22 px slack — and see the
-  //                                            full-transcript case in
+  //   page 7  Try & Go      519 / 498 / 498   (32 px slack — the mic-bypass
+  //                                            escape hatch moved from a raw
+  //                                            TextButton to WpButton
+  //                                            standard, +16 px; it kept
+  //                                            `standard` because its label
+  //                                            was always body-weight text,
+  //                                            unlike the dense settings-row
+  //                                            case in trigger_step.dart.
+  //                                            This is still the binding
+  //                                            constraint in the flow — see
+  //                                            the full-transcript case in
   //                                            onboarding_flow_test)
   //
-  // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
-  // 483 / 446 / 446 there.
+  // Try & Go was 545 / 508 / 508 (6 px slack, German) until the page's two
+  // stacked ambient muted lines — reassurance and recording-duration note —
+  // became the single sentence they always were about the same button (see
+  // test_recording_step.dart). Merging them returned 26 px to German and
+  // 10 px to English/Hebrew. The delta differs per locale because the saving
+  // is a rewrap, not a fixed subtraction: two separately wrapped blocks plus
+  // the `xs` gap between them become one wrapped sentence, and German's
+  // duration hint wrapped one line further than English's did. The page
+  // keeps its rank as the flow's tallest.
   //
-  // The two branch cases, which are what the split was for (German / Hebrew,
-  // the two the tests cover):
-  //   page 4 with a confirmed hotkey conflict   538 / 538
+  // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
+  // 473 / 452 / 452 there (was 499 / 462 / 462, same merge).
+  //
+  // The three branch cases, which are what the split was for (German / Hebrew,
+  // the two locales the tests cover):
+  //   page 4 with a confirmed hotkey conflict   534 / 534
   //     Warn box + full inline recorder. On the old merged Model & Hotkey
   //     page this came to 914 / 921 px, i.e. ~370 px of forced scrolling that
   //     was documented as unreachable without a flow change. This is that
-  //     flow change. Both keep 13 px of slack and pay for it three ways — the
+  //     flow change. Both keep 17 px of slack and pay for it three ways — the
   //     page heading drops its subtitle while a conflict is up, the gap
   //     under that heading is `sm` instead of [kOnboardingHeaderGap] (the
   //     flow's one deliberate deviation: the canonical 32 px would cost this
@@ -893,9 +963,25 @@ void main() {
   //     brings it level with Hebrew: its conflict body is worded to stay on
   //     one line. It used to wrap to two, and those 17 px are what put this
   //     branch 4 px over once WpButton gave the recorder's action row 48 px
-  //     instead of 32. Re-measure both before adding anything to this branch;
-  //     it is the binding constraint in the flow.
-  //   page 3 with a failed model download      431 / 418
+  //     instead of 32 — that was 13 px of slack; the trailing "Ändern" button
+  //     in the same row later moved to `WpButtonSize.dense` (32 px, down from
+  //     its old 36), which is what brought the branch back to 17 px. Both
+  //     numbers were binding constraints in their moment; re-measure before
+  //     adding anything to this branch.
+  //   page 3 with a failed model download      447 / 434
+  //     Was 431 / 418 before the Retry button (`OutlinedButton.icon` in a
+  //     `SizedBox(width: infinity)`) moved to `WpButton(secondary/neutral,
+  //     expanded: true)` — the same +16 px a standard-size button costs
+  //     everywhere else in this migration.
+  //   page 6 with the troubleshoot branch        492 / 492
+  //     (missing + sent-to-OS-grant-flow + poll timed out, Repair tapped and
+  //     resolved to "nothing cleared") — Skip + Repair + the result banner's
+  //     own extra Restart button, all stacked at once. This is the tallest
+  //     Auto-Paste state and was entirely uncovered before this migration;
+  //     the nominal (intro-phase) row above stayed at 190 px because Skip is
+  //     the only button that phase renders, and re-measuring confirmed it did
+  //     not move. 59 px of headroom against the 551 px viewport — re-measure
+  //     before adding anything to this branch.
   //
   // Hebrew is the tightest on the model page for a reason worth keeping in
   // mind when re-measuring: the loop seeds the *dictation* language, and
@@ -1148,6 +1234,66 @@ void main() {
               measure(tester),
               what:
                   'model page, download-error branch (${locale.languageCode})',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+
+      testWidgets(
+        'the Auto-Paste page fits the fixed window in the troubleshoot '
+        'branch (skip + repair + result banner + its own restart button) '
+        'in ${locale.languageCode}',
+        (tester) async {
+          useFixedWindow(tester);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: kOnboardingWindowSize,
+              locale: locale,
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+              paste: _TroubleshootPasteCapabilityNotifier(),
+            );
+            for (var page = 2; page <= 5; page++) {
+              await _tapNext(tester);
+            }
+            await _tapNext(tester); // → 6: Auto-Paste
+
+            final localized = await L10n.delegate.load(locale);
+            expect(
+              find.text(localized.pasteCapabilityRestartTitle),
+              findsOneWidget,
+              reason: 'the troubleshoot branch must actually be rendered',
+            );
+
+            await tester.tap(find.text(localized.pasteCapabilityRepairButton));
+            // Sequential pump() — the success path chains into the grant
+            // flow, same as auto_paste_step_test.dart's nothingCleared case;
+            // pumpAndSettle would deadlock on the polling spinner.
+            await tester.pump();
+            await tester.pump();
+            await tester.pump();
+
+            expect(
+              find.text(localized.pasteCapabilityRepairNothingToClear),
+              findsOneWidget,
+              reason:
+                  'the result banner (and its own Restart button) must '
+                  'actually be rendered — otherwise this measures the '
+                  'nominal troubleshoot state and passes for the wrong '
+                  'reason',
+            );
+
+            expectFits(
+              tester,
+              measure(tester),
+              what:
+                  'Auto-Paste page, troubleshoot branch '
+                  '(${locale.languageCode})',
             );
           } finally {
             debugDefaultTargetPlatformOverride = null;

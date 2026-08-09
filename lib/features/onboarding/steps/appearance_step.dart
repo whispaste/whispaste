@@ -6,6 +6,8 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_focus_ring.dart';
+import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Widget keys exposed for testing.
 @visibleForTesting
@@ -57,36 +59,45 @@ class AppearanceStep extends ConsumerWidget {
 
     return Align(
       alignment: AlignmentDirectional.centerStart,
-      child: Wrap(
-        key: kAppearanceThemeSelectorKey,
-        spacing: WpSpacing.lg,
-        runSpacing: WpSpacing.lg,
-        children: [
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-          _ThemeSwatch(
-            key: appearanceThemeSwatchKey(ThemeMode.light),
-            mode: ThemeMode.light,
-            label: l10n.onboardingThemeLight,
-            active: themeMode == ThemeMode.light,
-            onTap: () => selectThemeMode(ThemeMode.light),
-          ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-          _ThemeSwatch(
-            key: appearanceThemeSwatchKey(ThemeMode.dark),
-            mode: ThemeMode.dark,
-            label: l10n.onboardingThemeDark,
-            active: themeMode == ThemeMode.dark,
-            onTap: () => selectThemeMode(ThemeMode.dark),
-          ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-          _ThemeSwatch(
-            key: appearanceThemeSwatchKey(ThemeMode.system),
-            mode: ThemeMode.system,
-            label: l10n.onboardingThemeSystem,
-            active: themeMode == ThemeMode.system,
-            onTap: () => selectThemeMode(ThemeMode.system),
-          ),
-        ],
+      // The page heading above and the autostart row below both sit on the
+      // shared reading edge (`kSettingRowInset`); without this the tiles were
+      // the only block on the page starting 12 px further left, which broke
+      // the vertical line the eye follows down the page. Three 200-px tiles
+      // plus two `lg` gaps come to 640 of the 720-px frame, so the inset is
+      // paid for out of the 80 px that were spare.
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+        child: Wrap(
+          key: kAppearanceThemeSelectorKey,
+          spacing: WpSpacing.lg,
+          runSpacing: WpSpacing.lg,
+          children: [
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+            _ThemeSwatch(
+              key: appearanceThemeSwatchKey(ThemeMode.light),
+              mode: ThemeMode.light,
+              label: l10n.onboardingThemeLight,
+              active: themeMode == ThemeMode.light,
+              onTap: () => selectThemeMode(ThemeMode.light),
+            ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+            _ThemeSwatch(
+              key: appearanceThemeSwatchKey(ThemeMode.dark),
+              mode: ThemeMode.dark,
+              label: l10n.onboardingThemeDark,
+              active: themeMode == ThemeMode.dark,
+              onTap: () => selectThemeMode(ThemeMode.dark),
+            ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+            _ThemeSwatch(
+              key: appearanceThemeSwatchKey(ThemeMode.system),
+              mode: ThemeMode.system,
+              label: l10n.onboardingThemeSystem,
+              active: themeMode == ThemeMode.system,
+              onTap: () => selectThemeMode(ThemeMode.system),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -114,7 +125,13 @@ const double _kSwatchHeight = 132;
 /// Wrapping the lot in `Semantics(excludeSemantics: true)` instead would
 /// announce a button that a screen reader cannot actually activate — the
 /// tap action lives on the InkWell it would discard.
-class _ThemeSwatch extends StatelessWidget {
+///
+/// Keyboard focus is marked by [WpFocusRing] in external-node mode — the same
+/// node goes to the ring and to the [InkWell], so Enter/Space still activates
+/// the tile. Without it this was the only selectable tile family in the
+/// onboarding relying on InkWell's default highlight, which on a tile that
+/// already carries an accent selection border is nearly invisible.
+class _ThemeSwatch extends StatefulWidget {
   const _ThemeSwatch({
     super.key,
     required this.mode,
@@ -127,6 +144,19 @@ class _ThemeSwatch extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
+
+  @override
+  State<_ThemeSwatch> createState() => _ThemeSwatchState();
+}
+
+class _ThemeSwatchState extends State<_ThemeSwatch> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,46 +175,58 @@ class _ThemeSwatch extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         button: true,
-        selected: active,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: WpRadius.borderMd,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ExcludeSemantics(
-                  child: AnimatedContainer(
-                    duration: WpMotion.durationFor(context, WpMotion.fast),
-                    curve: WpMotion.defaultCurve,
-                    width: _kSwatchWidth,
-                    height: _kSwatchHeight,
-                    decoration: BoxDecoration(
-                      borderRadius: WpRadius.borderMd,
-                      border: Border.all(
-                        color: active ? accent : border,
-                        width: active ? 2 : 1,
+        selected: widget.active,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.md,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              focusNode: _focusNode,
+              onTap: widget.onTap,
+              borderRadius: WpRadius.borderMd,
+              // WpFocusRing owns the focus visual — suppress InkWell's own
+              // fill, or focus paints twice. Only focusColor: unlike the
+              // history rows this tile draws no hover of its own, so
+              // hoverColor is its only pointer feedback and has to stay.
+              focusColor: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExcludeSemantics(
+                    child: AnimatedContainer(
+                      duration: WpMotion.durationFor(context, WpMotion.fast),
+                      curve: WpMotion.defaultCurve,
+                      width: _kSwatchWidth,
+                      height: _kSwatchHeight,
+                      decoration: BoxDecoration(
+                        borderRadius: WpRadius.borderMd,
+                        border: Border.all(
+                          color: widget.active ? accent : border,
+                          width: widget.active ? 2 : 1,
+                        ),
+                      ),
+                      // Inset so the ring never paints over the preview's edge.
+                      padding: const EdgeInsets.all(2),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(WpRadius.md - 3),
+                        child: _ThemeMiniature(mode: widget.mode),
                       ),
                     ),
-                    // Inset so the ring never paints over the preview's edge.
-                    padding: const EdgeInsets.all(2),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(WpRadius.md - 3),
-                      child: _ThemeMiniature(mode: mode),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      fontWeight: widget.active
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: widget.active ? textPrimary : textSecondary,
                     ),
                   ),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: active ? textPrimary : textSecondary,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

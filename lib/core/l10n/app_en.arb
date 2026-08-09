@@ -77,7 +77,6 @@
       "query": { "type": "String" }
     }
   },
-  "historyClearSearch": "Clear search",
   "historyTrashEmpty": "Trash is empty",
   "historyTrashEmptyHint": "Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.",
   "historyEmptyTrash": "Empty Trash",
@@ -378,6 +377,10 @@
   "actionConfirm": "Confirm",
   "actionSave": "Save",
   "actionRetry": "Try again",
+  "actionClearSearch": "Clear search",
+  "@actionClearSearch": {
+    "description": "Tooltip and screen-reader label of WpSearchField's clear button. Used by every search field that has no feature-specific wording of its own."
+  },
   "tooltipTheme": "Toggle theme",
   "tooltipLanguage": "Language",
   "aboutVersion": "Version {version}",
@@ -475,7 +478,6 @@
   "replacementsEnableBannerHint": "Enable them so trigger phrases are replaced automatically while recording.",
   "replacementsEnableAction": "Enable",
   "replacementsDisableAction": "Disable",
-  "replacementsAddShortcut": "Add Replacement",
   "replacementsEditShortcut": "Edit Replacement",
   "replacementsNewShortcut": "New Replacement",
   "replacementsDialogHint": "Any of the trigger phrases will be replaced automatically while recording.",
@@ -499,9 +501,9 @@
   "snippetsEmptyHint": "Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.",
   "snippetsNoMatches": "No matches",
   "snippetsNoMatchesHint": "Try a different search term.",
-  "snippetsAddSnippet": "Add Snippet",
   "snippetsEditSnippet": "Edit Snippet",
   "snippetsNewSnippet": "New Snippet",
+  "snippetsDialogHint": "Open the snippet picker while dictating to insert this text.",
   "snippetsTitleLabel": "Title",
   "snippetsTitleHint": "e.g. Email signature",
   "snippetsBodyLabel": "Body",
@@ -781,6 +783,8 @@
   "tagManageEmpty": "No tags created yet.",
   "tagUsageCount": "{count, plural, =0{unused} =1{1 entry} other{{count} entries}}",
   "@tagUsageCount": { "placeholders": { "count": { "type": "int" } } },
+  "tagOverflowMore": "{count, plural, =1{1 more tag} other{{count} more tags}}",
+  "@tagOverflowMore": { "placeholders": { "count": { "type": "int" } } },
   "tagDeleteConfirmTitle": "Delete tag?",
   "tagDeleteConfirmMessage": "The tag \"{name}\" is used in {count, plural, =1{1 entry} other{{count} entries}}. It will be removed from all of them.",
   "@tagDeleteConfirmMessage": { "placeholders": { "name": { "type": "String" }, "count": { "type": "int" } } },
@@ -900,8 +904,6 @@
   "onboardingThemeSystem": "System",
   "onboardingAppearancePageTitle": "Look & launch",
   "onboardingAppearancePageSubtitle": "Light, dark, or match your system — and whether WhisPaste starts when you log in.",
-  "onboardingMaxRecordDurationHint": "Recordings stop automatically after {seconds} seconds — adjust this anytime under Settings → {section}.",
-  "@onboardingMaxRecordDurationHint": { "placeholders": { "seconds": { "type": "int" }, "section": { "type": "String" } } },
   "onboardingBeat1Title": "Press the hotkey, speak, done",
   "onboardingBeat1Caption": "Recording starts instantly — your words land as text right at your cursor.",
   "onboardingBeat2Title": "Runs locally, on your hardware",
@@ -935,6 +937,8 @@
   "onboardingTestRecordingInProgress": "Recording: just start talking. Press again to stop.",
   "onboardingTestRecordingDoneMessage": "That's it! This is exactly how it works in every app.",
   "onboardingTestRecordingReassurance": "Just a test, the text stays in this field.",
+  "onboardingTestRecordingReassuranceWithDuration": "Just a test, the text stays in this field — recordings stop automatically after {seconds} seconds, adjustable under Settings → {section}.",
+  "@onboardingTestRecordingReassuranceWithDuration": { "placeholders": { "seconds": { "type": "int" }, "section": { "type": "String" } } },
   "onboardingReadyTitle": "You're All Set!",
   "onboardingReadySubtitle": "Here's how to use WhisPaste",
   "onboardingReadyStep1": "Press the hotkey to start recording",
@@ -953,6 +957,13 @@
   "onboardingTriggerModeHoldHint": "Hold the hotkey and speak, release to finish",
   "onboardingTriggerModeToggleHint": "Press once to start, press again to finish",
   "onboardingStartUsing": "Let's go",
+
+  "onboardingReviewExit": "Close introduction",
+  "onboardingReviewDone": "Done",
+  "onboardingReviewEntry": "Introduction",
+  "onboardingReviewSubtitle": "Go through the five setup steps again whenever you like — nothing changes unless you change it.",
+  "onboardingReviewLabel": "Review the introduction",
+  "onboardingReviewAction": "Open",
 
   "overlayRecording": "Recording",
   "overlayTranscribing": "Transcribing…",
@@ -1220,7 +1231,6 @@
       "query": { "type": "String" }
     }
   },
-  "notesClearSearch": "Clear search",
   "notesResultCount": "{count, plural, =1{1 result} other{{count} results}}",
   "@notesResultCount": {
     "placeholders": {

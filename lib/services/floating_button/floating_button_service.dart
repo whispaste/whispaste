@@ -8,7 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/navigation/page_state.dart' show activePageProvider;
 import '../../core/config/settings_provider.dart';
-import '../../core/data/database.dart';
+import '../../core/data/database.dart' show HistoryEntry;
 import '../../core/theme/overlay_design_spec.dart' show FloatingButtonSpec;
 import '../../core/data/history_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
@@ -19,9 +19,9 @@ import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../floating_platform_service_base.dart';
 import '../floating_theme_brightness.dart';
+import '../graceful_shutdown.dart';
 import '../recording_orchestrator.dart';
 import '../telemetry_service.dart';
-import '../stt/stt_bundle.dart';
 import 'floating_button_context_menu.dart';
 import 'floating_button_controller.dart';
 import 'floating_button_events.dart';
@@ -303,36 +303,18 @@ class FloatingButtonService
   }
 
   Future<void> _quit() async {
-    try {
-      ref.read(localSttBundleProvider.notifier).stop();
-    } catch (e) {
-      _log.debug('STT subprocess stop failed during quit (non-fatal): $e');
-    }
-
-    // Explicitly close the Drift database before engine teardown.
-    // Without this, open SQLite prepared statements (Drift stream watchers)
-    // survive into the Dart isolate shutdown phase, causing
-    // sqlite3LeaveMutexAndCloseZombie to assert and send SIGABRT.
-    try {
-      await ref
-          .read(historyDatabaseProvider)
-          .close()
-          .timeout(const Duration(seconds: 2));
-    } catch (e) {
-      _log.debug('DB close failed during quit (non-fatal): $e');
-    }
-
-    try {
-      final telemetry = ref.read(telemetryProvider);
-      // Drain session-aggregated hot-path counters before flushing so the
-      // session's usage leaves as one batch, not one hit per recording.
-      await ref
-          .read(telemetrySessionAggregatorProvider)
-          .drainAndFlush(telemetry)
-          .timeout(const Duration(seconds: 2), onTimeout: () {});
-    } catch (e) {
-      _log.debug('telemetry flush failed during quit (non-fatal): $e');
-    }
+    // Stop the on-device STT engine and WAIT for native teardown (plus DB
+    // close + telemetry flush) before destroying the window — same shared
+    // helper as app.dart's onWindowClose, the macOS native-terminate path,
+    // and tray_service.dart's _quit() (see graceful_shutdown.dart).
+    // Previously this fired STT stop() without awaiting it and proceeded
+    // straight to DB close/window destroy, racing native engine teardown
+    // against process exit — same bug class as FLUTTER_WHISPASTE-BC (fixed
+    // for onWindowClose/Cmd+Q, but not here): if the process starts tearing
+    // down native GPU/ORT resources before the engine actually freed them,
+    // ggml's Metal-residency-set teardown assert (or an analogous native
+    // check) aborts the whole app.
+    await runGracefulEngineShutdown(ref.container);
 
     await windowManager.destroy();
   }

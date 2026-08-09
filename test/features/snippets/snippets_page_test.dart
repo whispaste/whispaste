@@ -53,8 +53,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
+      expect(
+        find.text(l10n.snippetsDialogHint),
+        findsOneWidget,
+        reason:
+            'the explanatory subtitle comes from WpFormDialogShell — without '
+            'it this dialog reads barer than its Replacements twin',
+      );
       expect(find.text(l10n.snippetsTitleLabel), findsOneWidget);
       expect(find.text(l10n.snippetsBodyLabel), findsOneWidget);
+    });
+
+    testWidgets('the dialog stays whole at a 2x system text size', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'the dialog body scrolls instead of overflowing',
+      );
     });
 
     testWidgets('save button is disabled while both fields are empty', (

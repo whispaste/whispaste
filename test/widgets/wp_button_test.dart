@@ -174,10 +174,7 @@ void main() {
             .widget<FilledButton>(find.byType(FilledButton))
             .style!;
 
-        expect(
-          style.side!.resolve(const {})!.color,
-          WpColorsDark.borderSubtle,
-        );
+        expect(style.side!.resolve(const {})!.color, WpColorsDark.borderSubtle);
       },
     );
 
@@ -234,10 +231,7 @@ void main() {
           .widget<FilledButton>(find.byType(FilledButton))
           .style!;
 
-      expect(
-        style.side!.resolve(const {})!.color,
-        WpColorsLight.borderSubtle,
-      );
+      expect(style.side!.resolve(const {})!.color, WpColorsLight.borderSubtle);
     });
   });
 

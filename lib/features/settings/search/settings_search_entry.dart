@@ -274,6 +274,22 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     ],
   ),
   SettingsSearchEntry(
+    id: 'onboardingReview',
+    sectionKey: 'onboardingReview',
+    titleDe: 'Einführung',
+    titleEn: 'Introduction',
+    subtitleDe: 'Die fünf Einrichtungsschritte erneut durchgehen',
+    subtitleEn: 'Go through the five setup steps again',
+    keywords: [
+      // DE
+      'Einführung', 'Onboarding', 'Ersteinrichtung', 'Einrichtung',
+      'Rundgang', 'Tour', 'erneut', 'nochmal', 'erste Schritte',
+      // EN
+      'introduction', 'onboarding', 'setup', 'first run', 'tour',
+      'walkthrough', 'getting started', 'again', 'replay',
+    ],
+  ),
+  SettingsSearchEntry(
     id: 'reviewSupport',
     sectionKey: 'reviewSupport',
     titleDe: 'WhisPaste bewerten & unterstützen',

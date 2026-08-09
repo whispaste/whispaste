@@ -8,6 +8,8 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/widgets/toast.dart';
 import 'package:whispaste/widgets/wp_button.dart';
@@ -175,5 +177,83 @@ void main() {
 
       await tester.pumpAndSettle(const Duration(seconds: 4));
     });
+  });
+
+  group('WpToast — message line budget', () {
+    // The longest string the app ever puts in a toast: the German
+    // `pasteCapabilityRepairFailed`. It fills the card's four lines exactly at
+    // 1.0×, which makes it the canary for the line cap. Hardcoded rather than
+    // loaded from the ARB so a copy edit cannot silently defuse the test — if
+    // the real string grows past this one, that is a deliberate decision worth
+    // re-measuring here.
+    const longMessage =
+        'macOS-Berechtigungs-Reset konnte nicht ausgeführt werden. Bitte '
+        'WhisPaste manuell aus Systemeinstellungen → Bedienungshilfen '
+        'entfernen.';
+
+    // Line-wrapping is a font-metrics question, and `flutter test` ships a
+    // fallback font whose glyphs are all one width — under it this message
+    // wraps to roughly twice as many lines as it does on a real build, and the
+    // assertion below would measure the test harness rather than the toast.
+    setUpAll(() async {
+      final inter = FontLoader('Inter')
+        ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'));
+      await inter.load();
+    });
+
+    // Before this family moved off `SnackBar`, the message was rendered
+    // full-width and unbounded. The toast card is capped at 400 px and its
+    // line budget used to be a fixed 4, so raising the system text size cut
+    // the message off — and the tail is the actionable half ("Bitte … aus
+    // Systemeinstellungen → Bedienungshilfen entfernen"). Users who need large
+    // text were the only ones who lost the instruction.
+    //
+    // 1.0× is deliberately not asserted: this string fills the four-line
+    // budget exactly at the default size, so a test there would flip on any
+    // Inter metric change and report a font update as a toast regression. The
+    // raised sizes carry a line of slack each, which is what makes them a
+    // stable signal.
+    for (final scale in [1.3, 1.6]) {
+      testWidgets('long message is not ellipsized at textScaler $scale', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: makeTestable(
+              _ToastHarness(
+                onShow: (ctx) => WpToast.show(
+                  ctx,
+                  message: longMessage,
+                  type: WpToastType.error,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await _showAndSettle(tester);
+
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(longMessage),
+        );
+        expect(
+          paragraph.didExceedMaxLines,
+          isFalse,
+          reason:
+              'The toast truncated its message at textScaler $scale. The line '
+              'budget in _ToastCard must grow with the text scaler, otherwise '
+              'large-text users lose the end of the message — which is where '
+              'the actionable instruction lives.',
+        );
+
+        await tester.pumpAndSettle(const Duration(seconds: 4));
+      });
+    }
   });
 }

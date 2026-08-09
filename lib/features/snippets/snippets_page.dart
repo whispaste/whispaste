@@ -10,9 +10,11 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -172,7 +174,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       emptyIcon: LucideIcons.notebookText,
       emptyTitle: l10n.snippetsEmpty,
       emptyHint: l10n.snippetsEmptyHint,
-      emptyActionLabel: l10n.snippetsAddSnippet,
+      emptyActionLabel: l10n.snippetsAdd,
       noMatchesTitle: l10n.snippetsNoMatches,
       noMatchesHint: l10n.snippetsNoMatchesHint,
       itemBuilder: (context, s, isDark) {
@@ -198,7 +200,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   Future<void> _showAddEditDialog({SnippetItem? existing}) async {
     final result = await showWpFormDialog<(String, String)>(
       context: context,
-      builder: (_, a) => _SnippetDialog(existing: existing),
+      builder: (_, a) => _SnippetDialog(animation: a, existing: existing),
     );
     if (result == null) return;
     final (title, body) = result;
@@ -385,8 +387,9 @@ class _SnippetPickerTriggerFieldState
 // ---------------------------------------------------------------------------
 
 class _SnippetDialog extends StatefulWidget {
-  const _SnippetDialog({this.existing});
+  const _SnippetDialog({required this.animation, this.existing});
 
+  final Animation<double> animation;
   final SnippetItem? existing;
 
   @override
@@ -423,128 +426,55 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final border = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    final theme = Theme.of(context);
     final l10n = L10n.of(context);
 
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 400,
-          padding: const EdgeInsets.all(WpSpacing.xl),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: border),
-            boxShadow: WpShadows.elevated,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.heading,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.lg),
-
-              // Title
-              Text(
-                l10n.snippetsTitleLabel,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              TextField(
-                controller: _titleCtrl,
-                autofocus: true,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.body,
-                ),
-                decoration: InputDecoration(
-                  hintText: l10n.snippetsTitleHint,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.md,
-                    vertical: WpSpacing.sm,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: WpSpacing.md),
-
-              // Body (multi-line)
-              Text(
-                l10n.snippetsBodyLabel,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              TextField(
-                controller: _bodyCtrl,
-                minLines: 3,
-                maxLines: 6,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.body,
-                ),
-                decoration: InputDecoration(
-                  hintText: l10n.snippetsBodyHint,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.md,
-                    vertical: WpSpacing.sm,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: WpSpacing.xl),
-
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.actionCancel,
-                    variant: WpButtonVariant.ghost,
-                    tone: WpButtonTone.neutral,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
-                    variant: WpButtonVariant.primary,
-                    onPressed: _isValid ? _submit : null,
-                  ),
-                ],
-              ),
-            ],
-          ),
+    return WpFormDialogShell(
+      animation: widget.animation,
+      title: _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
+      subtitle: l10n.snippetsDialogHint,
+      fields: [
+        // Title
+        Text(l10n.snippetsTitleLabel, style: theme.textTheme.titleSmall),
+        const SizedBox(height: WpSpacing.xxs),
+        WpTextField(
+          controller: _titleCtrl,
+          variant: WpTextFieldVariant.form,
+          autofocus: true,
+          hintText: l10n.snippetsTitleHint,
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(),
         ),
-      ),
+        const SizedBox(height: WpSpacing.md),
+
+        // Body (multi-line)
+        Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
+        const SizedBox(height: WpSpacing.xxs),
+        WpTextField(
+          controller: _bodyCtrl,
+          variant: WpTextFieldVariant.form,
+          hintText: l10n.snippetsBodyHint,
+          minLines: 3,
+          maxLines: 6,
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
+      actions: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: l10n.actionCancel,
+          variant: WpButtonVariant.ghost,
+          tone: WpButtonTone.neutral,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
+          variant: WpButtonVariant.primary,
+          onPressed: _isValid ? _submit : null,
+        ),
+      ],
     );
   }
 }
@@ -572,6 +502,12 @@ class _SnippetTile extends StatefulWidget {
 
 class _SnippetTileState extends State<_SnippetTile> {
   bool _isHovered = false;
+  bool _isFocused = false;
+
+  /// The row is "active" for pointer and for keyboard alike — the
+  /// delete action is revealed by either, so a keyboard user can reach
+  /// it at all (an unmounted button cannot be focused).
+  bool get _isActive => _isHovered || _isFocused;
 
   /// Single-line preview of the body — newlines and runs of whitespace
   /// collapse to single spaces so the ellipsis works on one visual line.
@@ -583,98 +519,108 @@ class _SnippetTileState extends State<_SnippetTile> {
     return Semantics(
       button: true,
       label: '${L10n.of(context).snippetsEditSnippet}: ${widget.snippet.title}',
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (widget.isDark
-                        ? WpColorsDark.surfaceElevated
-                        : WpColorsLight.surfaceElevated),
-              borderRadius: WpRadius.borderMd,
-              border: Border.all(
-                color: _isHovered
-                    ? (widget.isDark
-                          ? WpColorsDark.glassBorder
-                          : WpColorsLight.borderDefault)
-                    : (widget.isDark
-                          ? WpColorsDark.borderSubtle
-                          : WpColorsLight.borderSubtle),
+      child: FocusableActionDetector(
+        onShowFocusHighlight: (value) {
+          if (_isFocused == value) return;
+          setState(() => _isFocused = value);
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
+          ),
+        },
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(
+                context,
+                _isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.notebookText,
-                  size: WpIconSize.sm,
-                  color: widget.isDark
-                      ? WpColorsDark.accent
-                      : WpColorsLight.accent,
+              curve: WpMotion.defaultCurve,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: _isActive
+                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                    : (widget.isDark
+                          ? WpColorsDark.surfaceElevated
+                          : WpColorsLight.surfaceElevated),
+                borderRadius: WpRadius.borderMd,
+                border: Border.all(
+                  color: _isActive
+                      ? (widget.isDark
+                            ? WpColorsDark.glassBorder
+                            : WpColorsLight.borderDefault)
+                      : (widget.isDark
+                            ? WpColorsDark.borderSubtle
+                            : WpColorsLight.borderSubtle),
                 ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.notebookText,
+                    size: WpIconSize.sm,
+                    color: widget.isDark
+                        ? WpColorsDark.accent
+                        : WpColorsLight.accent,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.snippet.title,
+                          style: TextStyle(
+                            color: widget.isDark
+                                ? WpColorsDark.textPrimary
+                                : WpColorsLight.textPrimary,
+                            fontSize: WpTypography.body,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: WpSpacing.xxs),
+                        Text(
+                          _bodyPreview,
+                          style: TextStyle(
+                            color: widget.isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
+                            fontSize: WpTypography.small,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  WpRowActions(
+                    visible: _isActive,
                     children: [
-                      Text(
-                        widget.snippet.title,
-                        style: TextStyle(
-                          color: widget.isDark
-                              ? WpColorsDark.textPrimary
-                              : WpColorsLight.textPrimary,
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: WpSpacing.xxs),
-                      Text(
-                        _bodyPreview,
-                        style: TextStyle(
-                          color: widget.isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
-                          fontSize: WpTypography.small,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        icon: LucideIcons.trash2,
+                        tooltip: L10n.of(context).actionDelete,
+                        isDark: widget.isDark,
+                        onTap: widget.onDelete,
+                        isDestructive: true,
                       ),
                     ],
                   ),
-                ),
-                if (_isHovered)
-                  IconButton(
-                    tooltip: L10n.of(context).actionDelete,
-                    icon: Icon(
-                      LucideIcons.trash2,
-                      size: WpIconSize.sm,
-                      color: widget.isDark
-                          ? WpColorsDark.error
-                          : WpColorsLight.error,
-                    ),
-                    onPressed: widget.onDelete,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 28,
-                      minHeight: 28,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

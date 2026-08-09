@@ -1,7 +1,8 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:flutter/services.dart'
+    show FontLoader, LogicalKeyboardKey, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -327,6 +328,45 @@ void main() {
 
       handle.dispose();
     });
+
+    testWidgets(
+      'a focused beat tile is activated by Enter — the focus ring shares its '
+      'node with the InkWell, so wiring the ring must not swallow the key',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: WelcomeStep()),
+            size: const Size(1280, 980),
+            locale: const Locale('en'),
+            overrides: [
+              settingsProvider.overrideWith(FakeSettingsNotifier.new),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(onboardingBeatMediaKey(0)), findsOneWidget);
+
+        final ink = tester.widget<InkWell>(
+          find.descendant(
+            of: find.byKey(onboardingBeatTileKey(2)),
+            matching: find.byType(InkWell),
+          ),
+        );
+        expect(
+          ink.focusNode?.canRequestFocus,
+          isTrue,
+          reason: 'the tile must own a focusable node to be keyboard-reachable',
+        );
+        ink.focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(onboardingBeatMediaKey(2)), findsOneWidget);
+        expect(find.byKey(onboardingBeatMediaKey(0)), findsNothing);
+      },
+    );
   });
 
   // ── Page-1 geometry and the demo-clip seam (round 3) ────────────────────

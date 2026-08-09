@@ -26,6 +26,65 @@ void main() {
       expect(find.byType(SingleChildScrollView), findsNothing);
       expect(find.text('Fixed'), findsOneWidget);
     });
+
+    testWidgets('header stays outside the scroll view', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SizedBox(
+            width: 600,
+            height: 400,
+            child: WpPageShell(header: Text('Sticky'), child: Text('Body')),
+          ),
+        ),
+      );
+
+      expect(find.text('Sticky'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.text('Sticky'),
+        ),
+        findsNothing,
+        reason:
+            'a scrolled header would not be sticky, and content deep-links '
+            'rely on the shell owning the single scrollable',
+      );
+    });
+
+    testWidgets('header shares the padding but drops its bottom inset', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SizedBox(
+            width: 600,
+            height: 400,
+            child: WpPageShell(header: Text('Sticky'), child: Text('Body')),
+          ),
+        ),
+      );
+
+      final headerPadding = tester.widget<Padding>(
+        find
+            .ancestor(of: find.text('Sticky'), matching: find.byType(Padding))
+            .first,
+      );
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView),
+      );
+      final contentPadding = scrollView.padding! as EdgeInsets;
+
+      expect(
+        headerPadding.padding,
+        EdgeInsets.fromLTRB(
+          contentPadding.left,
+          contentPadding.top,
+          contentPadding.right,
+          0,
+        ),
+        reason: 'the content below carries its own top inset',
+      );
+    });
   });
 
   group('WpTwoPanel', () {

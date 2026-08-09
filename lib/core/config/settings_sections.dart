@@ -1149,6 +1149,7 @@ class OnboardingSettings {
     this.autoPasteOffHintDismissed = false,
     this.onboardingCurrentStep = 0,
     this.onboardingFlowVersion = 0,
+    this.onboardingContentVersion = 0,
   });
 
   final bool onboardingCompleted;
@@ -1174,6 +1175,17 @@ class OnboardingSettings {
   /// current version here so the translation can never run twice.
   final int onboardingFlowVersion;
 
+  /// Last onboarding *content* revision this user was shown, distinct from
+  /// [onboardingFlowVersion] (which tracks the step-sequence shape a saved
+  /// resume position indexes into, not what content was seen). `0` means
+  /// "never stamped" — either a fresh install (no revision has run yet) or
+  /// a pre-existing installation that predates this field; both are
+  /// grandfathered to the current target revision once onboarding is
+  /// found complete, so no one is retroactively shown revisions that
+  /// predate their install. The revision registry itself starts counting
+  /// real entries at `1`; see `lib/core/onboarding/onboarding_revision.dart`.
+  final int onboardingContentVersion;
+
   static const OnboardingSettings defaults = OnboardingSettings();
 
   factory OnboardingSettings.fromMap(Map<String, String> v) =>
@@ -1198,6 +1210,11 @@ class OnboardingSettings {
           'onboarding_flow_version',
           defaults.onboardingFlowVersion,
         ),
+        onboardingContentVersion: _readInt(
+          v,
+          'onboarding_content_version',
+          defaults.onboardingContentVersion,
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -1205,6 +1222,7 @@ class OnboardingSettings {
     'auto_paste_off_hint_dismissed': '$autoPasteOffHintDismissed',
     'onboarding_current_step': '$onboardingCurrentStep',
     'onboarding_flow_version': '$onboardingFlowVersion',
+    'onboarding_content_version': '$onboardingContentVersion',
   };
 
   OnboardingSettings copyWith({
@@ -1212,12 +1230,15 @@ class OnboardingSettings {
     bool? autoPasteOffHintDismissed,
     int? onboardingCurrentStep,
     int? onboardingFlowVersion,
+    int? onboardingContentVersion,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
         autoPasteOffHintDismissed ?? this.autoPasteOffHintDismissed,
     onboardingCurrentStep: onboardingCurrentStep ?? this.onboardingCurrentStep,
     onboardingFlowVersion: onboardingFlowVersion ?? this.onboardingFlowVersion,
+    onboardingContentVersion:
+        onboardingContentVersion ?? this.onboardingContentVersion,
   );
 
   @override
@@ -1227,7 +1248,8 @@ class OnboardingSettings {
           onboardingCompleted == other.onboardingCompleted &&
           autoPasteOffHintDismissed == other.autoPasteOffHintDismissed &&
           onboardingCurrentStep == other.onboardingCurrentStep &&
-          onboardingFlowVersion == other.onboardingFlowVersion;
+          onboardingFlowVersion == other.onboardingFlowVersion &&
+          onboardingContentVersion == other.onboardingContentVersion;
 
   @override
   int get hashCode => Object.hash(
@@ -1235,6 +1257,7 @@ class OnboardingSettings {
     autoPasteOffHintDismissed,
     onboardingCurrentStep,
     onboardingFlowVersion,
+    onboardingContentVersion,
   );
 }
 

@@ -72,7 +72,6 @@
       "query": { "type": "String" }
     }
   },
-  "historyClearSearch": "נקה חיפוש",
   "historyTrashEmpty": "האשפה ריקה",
   "historyTrashEmptyHint": "תמלולים שנמחקו יופיעו כאן.\nפריטים נמחקים לצמיתות אחרי 30 יום.",
   "historyEmptyTrash": "רוקן אשפה",
@@ -330,6 +329,7 @@
   "actionConfirm": "אישור",
   "actionSave": "שמור",
   "actionRetry": "נסה שנית",
+  "actionClearSearch": "נקה חיפוש",
   "tooltipTheme": "החלף ערכת נושא",
   "tooltipLanguage": "שפה",
   "aboutVersion": "גרסה {version}",
@@ -422,7 +422,6 @@
   "replacementsEnableBannerHint": "הפעל אותם כדי שהביטויים יוחלפו אוטומטית.",
   "replacementsEnableAction": "הפעל",
   "replacementsDisableAction": "כבה",
-  "replacementsAddShortcut": "הוסף החלפה",
   "replacementsEditShortcut": "ערוך החלפה",
   "replacementsNewShortcut": "החלפה חדשה",
   "replacementsDialogHint": "כל אחד מהביטויים המפעילים יוחלף אוטומטית בזמן הקלטה.",
@@ -446,9 +445,9 @@
   "snippetsEmptyHint": "הוסף קטע כדי לעשות שימוש חוזר מהיר בבלוק טקסט — כמו חתימה או תשובה סטנדרטית.",
   "snippetsNoMatches": "אין התאמות",
   "snippetsNoMatchesHint": "נסה מונח חיפוש אחר.",
-  "snippetsAddSnippet": "הוסף קטע",
   "snippetsEditSnippet": "ערוך קטע",
   "snippetsNewSnippet": "קטע חדש",
+  "snippetsDialogHint": "פתח את בורר הקטעים בזמן הכתבה כדי להוסיף את הטקסט הזה.",
   "snippetsTitleLabel": "כותרת",
   "snippetsTitleHint": "לדוגמה: חתימת אימייל",
   "snippetsBodyLabel": "תוכן",
@@ -709,6 +708,8 @@
   "tagManageEmpty": "עדיין לא נוצרו תגיות.",
   "tagUsageCount": "{count, plural, =0{לא בשימוש} =1{רשומה אחת} other{{count} רשומות}}",
   "@tagUsageCount": { "placeholders": { "count": { "type": "int" } } },
+  "tagOverflowMore": "{count, plural, =1{תגית נוספת אחת} other{עוד {count} תגיות}}",
+  "@tagOverflowMore": { "placeholders": { "count": { "type": "int" } } },
   "tagDeleteConfirmTitle": "למחוק תגית?",
   "tagDeleteConfirmMessage": "התגית \"{name}\" משמשת ב-{count, plural, =1{רשומה אחת} other{{count} רשומות}}. היא תוסר מכולן.",
   "@tagDeleteConfirmMessage": { "placeholders": { "name": { "type": "String" }, "count": { "type": "int" } } },
@@ -827,8 +828,6 @@
   "onboardingThemeSystem": "מערכת",
   "onboardingAppearancePageTitle": "מראה והפעלה",
   "onboardingAppearancePageSubtitle": "בהיר, כהה או לפי המערכת — והאם WhisPaste יופעל עם ההתחברות.",
-  "onboardingMaxRecordDurationHint": "הקלטות נעצרות אוטומטית אחרי {seconds} שניות — ניתן לשנות זאת בכל עת בהגדרות ← {section}.",
-  "@onboardingMaxRecordDurationHint": { "placeholders": { "seconds": { "type": "int" }, "section": { "type": "String" } } },
   "onboardingBeat1Title": "לחץ על הקיצור, דבר, סיימת",
   "onboardingBeat1Caption": "ההקלטה מתחילה מיד – המילים שלך הופכות לטקסט ישירות במיקום הסמן.",
   "onboardingBeat2Title": "פועל מקומית, על החומרה שלך",
@@ -856,6 +855,8 @@
   "onboardingTestRecordingCompletionHint": "נסה קודם הקלטה אחת כדי להמשיך.",
   "onboardingTestRecordingMicBypassCta": "המשך ללא מיקרופון",
   "onboardingTestRecordingMicBypassHint": "ללא מיקרופון פועל, WhisPaste עדיין לא יכול להתחיל הקלטה. אפשר להשלים זאת בכל עת דרך סטטוס המיקרופון בעמוד הזה או בהגדרות.",
+  "onboardingTestRecordingReassuranceWithDuration": "רק בדיקה, הטקסט נשאר בשדה הזה — הקלטות נעצרות אוטומטית אחרי {seconds} שניות, ניתן לשנות זאת בהגדרות ← {section}.",
+  "@onboardingTestRecordingReassuranceWithDuration": { "placeholders": { "seconds": { "type": "int" }, "section": { "type": "String" } } },
   "onboardingReadyTitle": "הכל מוכן!",
   "onboardingReadySubtitle": "ככה משתמשים ב-WhisPaste",
   "onboardingReadyStep1": "לחץ על הקיצור כדי להתחיל להקליט",
@@ -874,6 +875,13 @@
   "onboardingTriggerModeHoldHint": "החזק את הקיצור ודבר, שחרר כדי לסיים",
   "onboardingTriggerModeToggleHint": "לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים",
   "onboardingStartUsing": "בוא נתחיל",
+
+  "onboardingReviewExit": "סגירת המבוא",
+  "onboardingReviewDone": "סיום",
+  "onboardingReviewEntry": "מבוא",
+  "onboardingReviewSubtitle": "אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.",
+  "onboardingReviewLabel": "צפייה חוזרת במבוא",
+  "onboardingReviewAction": "פתיחה",
   "overlayRecording": "מקליט",
   "overlayTranscribing": "מתמלל…",
   "overlayDone": "הועתק",
@@ -1098,7 +1106,6 @@
       "query": { "type": "String" }
     }
   },
-  "notesClearSearch": "נקה חיפוש",
   "notesResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
   "@notesResultCount": {
     "placeholders": {

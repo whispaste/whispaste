@@ -9,6 +9,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/wp_dropdown.dart';
+import '../../widgets/wp_text_field.dart';
 
 // ---------------------------------------------------------------------------
 // SettingRow — single row with icon, label, optional subtitle, and control
@@ -59,6 +60,22 @@ class _SettingRowState extends State<SettingRow> {
       color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
     );
 
+    // The label and hint stay on the wrapper, but the rendered title and
+    // subtitle are excluded from the semantics tree below (see the
+    // `ExcludeSemantics` further down). A `label:` does not replace the
+    // subtree's own text, it is prepended to it, and `hint:` is announced on
+    // top of that — so before this the row read "Label, Label, Untertitel"
+    // and then repeated the subtitle a third time as the hint.
+    //
+    // `ExcludeSemantics` rather than the `MergeSemantics` idiom the
+    // single-target controls use, because `trailing` is arbitrary here: a
+    // Switch, a dropdown, a slider, a text field, or a Row of two buttons.
+    // Merging would swallow all of those into the row node; dropping the
+    // label instead and letting the text speak for itself would leave a
+    // dropdown announced as a bare "Deutsch" with no clue which setting it
+    // belongs to. Excluding only the text keeps the row a named group *and*
+    // every trailing control independently reachable — verified across all
+    // four trailing shapes.
     return Semantics(
       label: widget.label,
       hint: widget.subtitle,
@@ -88,19 +105,24 @@ class _SettingRowState extends State<SettingRow> {
                 Icon(widget.icon, size: WpIconSize.sm, color: cs.secondary),
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(widget.label, style: tt.bodyLarge),
-                      if (widget.subtitle != null)
-                        Padding(
-                          // 2px title-subtitle gap: tighter than WpSpacing.xxs
-                          // so the pair reads as one unit.
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(widget.subtitle!, style: subtitleStyle),
-                        ),
-                    ],
+                  // Excluded because the wrapping Semantics above already
+                  // states both strings, as label and hint. Without this the
+                  // row announced each of them twice.
+                  child: ExcludeSemantics(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(widget.label, style: tt.bodyLarge),
+                        if (widget.subtitle != null)
+                          Padding(
+                            // 2px title-subtitle gap: tighter than
+                            // WpSpacing.xxs so the pair reads as one unit.
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(widget.subtitle!, style: subtitleStyle),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: WpSpacing.sm),
@@ -300,11 +322,20 @@ Widget settingsSlider({
 }
 
 /// Standard toggle switch for settings.
+///
+/// [onChanged] is nullable on purpose: `null` is Material's own "disabled"
+/// signal for [Switch], and two call sites gate the toggle on a platform
+/// capability (Push-to-Talk needs key-up events) rather than hiding it.
+///
+/// [key] is forwarded onto the [Switch] itself, not onto a wrapper — tests
+/// look the toggle up with `tester.widget<Switch>(find.byKey(...))`, which a
+/// wrapper node would break.
 Widget settingsToggle({
   required bool value,
-  required ValueChanged<bool> onChanged,
+  required ValueChanged<bool>? onChanged,
+  Key? key,
 }) {
-  return Switch(value: value, onChanged: onChanged);
+  return Switch(key: key, value: value, onChanged: onChanged);
 }
 
 /// Password / API key field with visibility toggle.
@@ -322,65 +353,37 @@ Widget settingsApiKeyField({
   String? semanticLabel,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  // The visibility toggle needs a 48px touch target (WpLayout.minTouchTarget),
-  // but the visible field stays a compact 34px line. A suffixIcon inside the
-  // TextField would be clipped to the field height, so the button is overlaid
-  // via Stack: the wrapper is 48px tall, the field centered at 34px, and the
-  // button's tap/focus area extends invisibly above and below the field edge.
+  // The reveal toggle rides the field's own trailing slot, which is 48 dp
+  // tall because the field is — so the button meets WpLayout.minTouchTarget
+  // without the field having to be pinned to a shorter fixed height and
+  // without the text ever running underneath the icon.
   return SizedBox(
     width: 280,
-    height: WpLayout.minTouchTarget,
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Semantics(
-          label: semanticLabel,
-          textField: true,
-          child: SizedBox(
-            height: 34,
-            child: TextField(
-              controller: controller,
-              obscureText: obscure,
-              onChanged: onChanged,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'sk-...',
-                isDense: true,
-                contentPadding: EdgeInsets.only(
-                  left: WpSpacing.sm,
-                  // Clears the visibility toggle overlaid via Positioned below
-                  // so text never runs underneath the icon.
-                  right: 40,
-                  top: WpSpacing.xs,
-                  bottom: WpSpacing.xs,
-                ),
-              ),
-            ),
+    child: WpTextField(
+      controller: controller,
+      variant: WpTextFieldVariant.form,
+      semanticsLabel: semanticLabel,
+      hintText: 'sk-...',
+      obscureText: obscure,
+      onChanged: onChanged,
+      suffix: Semantics(
+        label: L10n.of(context).settingsToggleApiKeyVisibility,
+        button: true,
+        child: IconButton(
+          icon: Icon(
+            obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+            size: WpIconSize.sm,
+            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+          ),
+          onPressed: onToggle,
+          tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: WpLayout.minTouchTarget,
+            minHeight: WpLayout.minTouchTarget,
           ),
         ),
-        Positioned(
-          right: 0,
-          child: IconButton(
-            icon: Icon(
-              obscure ? LucideIcons.eye : LucideIcons.eyeOff,
-              size: WpIconSize.sm,
-              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-            ),
-            onPressed: onToggle,
-            tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: WpLayout.minTouchTarget,
-              minHeight: WpLayout.minTouchTarget,
-            ),
-          ),
-        ),
-      ],
+      ),
     ),
   );
 }
@@ -397,29 +400,15 @@ Widget settingsTextField({
   ValueChanged<String>? onChanged,
   String? semanticLabel,
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
   return SizedBox(
     width: maxLines > 1 ? double.infinity : 240,
-    child: Semantics(
-      label: semanticLabel,
-      textField: true,
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        onChanged: onChanged,
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
-          ),
-        ),
-      ),
+    child: WpTextField(
+      controller: controller,
+      variant: WpTextFieldVariant.form,
+      semanticsLabel: semanticLabel,
+      hintText: hintText,
+      maxLines: maxLines,
+      onChanged: onChanged,
     ),
   );
 }

@@ -178,9 +178,6 @@ class L10nEn extends L10n {
   }
 
   @override
-  String get historyClearSearch => 'Clear search';
-
-  @override
   String get historyTrashEmpty => 'Trash is empty';
 
   @override
@@ -1031,6 +1028,9 @@ class L10nEn extends L10n {
   String get actionRetry => 'Try again';
 
   @override
+  String get actionClearSearch => 'Clear search';
+
+  @override
   String get tooltipTheme => 'Toggle theme';
 
   @override
@@ -1234,9 +1234,6 @@ class L10nEn extends L10n {
   String get replacementsDisableAction => 'Disable';
 
   @override
-  String get replacementsAddShortcut => 'Add Replacement';
-
-  @override
   String get replacementsEditShortcut => 'Edit Replacement';
 
   @override
@@ -1292,13 +1289,14 @@ class L10nEn extends L10n {
   String get snippetsNoMatchesHint => 'Try a different search term.';
 
   @override
-  String get snippetsAddSnippet => 'Add Snippet';
-
-  @override
   String get snippetsEditSnippet => 'Edit Snippet';
 
   @override
   String get snippetsNewSnippet => 'New Snippet';
+
+  @override
+  String get snippetsDialogHint =>
+      'Open the snippet picker while dictating to insert this text.';
 
   @override
   String get snippetsTitleLabel => 'Title';
@@ -2094,6 +2092,17 @@ class L10nEn extends L10n {
   }
 
   @override
+  String tagOverflowMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more tags',
+      one: '1 more tag',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get tagDeleteConfirmTitle => 'Delete tag?';
 
   @override
@@ -2419,11 +2428,6 @@ class L10nEn extends L10n {
       'Light, dark, or match your system — and whether WhisPaste starts when you log in.';
 
   @override
-  String onboardingMaxRecordDurationHint(int seconds, String section) {
-    return 'Recordings stop automatically after $seconds seconds — adjust this anytime under Settings → $section.';
-  }
-
-  @override
   String get onboardingBeat1Title => 'Press the hotkey, speak, done';
 
   @override
@@ -2540,6 +2544,14 @@ class L10nEn extends L10n {
       'Just a test, the text stays in this field.';
 
   @override
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  ) {
+    return 'Just a test, the text stays in this field — recordings stop automatically after $seconds seconds, adjustable under Settings → $section.';
+  }
+
+  @override
   String get onboardingReadyTitle => 'You\'re All Set!';
 
   @override
@@ -2601,6 +2613,25 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingStartUsing => 'Let\'s go';
+
+  @override
+  String get onboardingReviewExit => 'Close introduction';
+
+  @override
+  String get onboardingReviewDone => 'Done';
+
+  @override
+  String get onboardingReviewEntry => 'Introduction';
+
+  @override
+  String get onboardingReviewSubtitle =>
+      'Go through the five setup steps again whenever you like — nothing changes unless you change it.';
+
+  @override
+  String get onboardingReviewLabel => 'Review the introduction';
+
+  @override
+  String get onboardingReviewAction => 'Open';
 
   @override
   String get overlayRecording => 'Recording';
@@ -3227,9 +3258,6 @@ class L10nEn extends L10n {
   String notesNoResultsHint(String query) {
     return 'No notes match \"$query\".\nTry a different search term.';
   }
-
-  @override
-  String get notesClearSearch => 'Clear search';
 
   @override
   String notesResultCount(int count) {

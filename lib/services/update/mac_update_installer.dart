@@ -32,34 +32,29 @@ String? resolveMacAppBundlePath() {
   return bundle;
 }
 
-/// Single-quotes [s] for safe embedding as a POSIX shell literal.
-String _shq(String s) => "'${s.replaceAll("'", r"'\''")}'";
-
 /// Builds the detached helper shell script. Pure function so it can be unit
 /// tested and verified against a real DMG without mounting in the test.
 ///
-/// The script: waits for [parentPid] to exit → mounts [dmgPath] read-only →
+/// The script expects four positional arguments:
+/// 1: parentPid (WhisPaste's PID to wait for)
+/// 2: dmgPath (the downloaded DMG to mount)
+/// 3: targetBundlePath (the .app to overwrite)
+/// 4: logPath (where to redirect output)
+///
+/// The script: waits for parent to exit → mounts DMG read-only →
 /// guards that it contains a valid `WhisPaste.app` → stages a copy next to
-/// [targetBundlePath] and renames it into place atomically (writable target
+/// target and renames it into place atomically (writable target
 /// directly, else once via `osascript … with administrator privileges`) →
 /// detaches → relaunches. Any failure before the atomic rename leaves the
 /// existing install untouched.
-String buildMacUpdateHelperScript({
-  required int parentPid,
-  required String dmgPath,
-  required String targetBundlePath,
-  required String logPath,
-}) {
-  final dmg = _shq(dmgPath);
-  final target = _shq(targetBundlePath);
-  final log = _shq(logPath);
+String buildMacUpdateHelperScript() {
   return '''#!/bin/bash
 # WhisPaste macOS in-app update helper (generated at runtime). Do not edit.
 set -uo pipefail
-PARENT_PID=$parentPid
-DMG=$dmg
-TARGET=$target
-LOG=$log
+PARENT_PID="\$1"
+DMG="\$2"
+TARGET="\$3"
+LOG="\$4"
 exec >>"\$LOG" 2>&1
 echo "[wp-update] start pid=\$PARENT_PID target=\$TARGET"
 
@@ -159,17 +154,14 @@ class DefaultMacUpdateInstaller implements MacUpdateInstaller {
     final dir = await Directory.systemTemp.createTemp('wp-update-helper');
     final scriptPath = p.join(dir.path, 'wp-update-helper.sh');
     final logPath = p.join(dir.path, 'wp-update.log');
-    await File(scriptPath).writeAsString(
-      buildMacUpdateHelperScript(
-        parentPid: pid,
-        dmgPath: dmgPath,
-        targetBundlePath: targetBundlePath,
-        logPath: logPath,
-      ),
-    );
+    await File(scriptPath).writeAsString(buildMacUpdateHelperScript());
     await Process.run('chmod', ['+x', scriptPath]);
     await Process.start('/bin/bash', [
       scriptPath,
+      pid.toString(),
+      dmgPath,
+      targetBundlePath,
+      logPath,
     ], mode: ProcessStartMode.detached);
   }
 }

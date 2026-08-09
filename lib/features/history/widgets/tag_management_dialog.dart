@@ -291,6 +291,29 @@ class _TagRow extends StatefulWidget {
 class _TagRowState extends State<_TagRow> {
   bool _hovered = false;
 
+  /// The delete button stays focusable while it is invisible, so keyboard focus
+  /// used to land on an `opacity: 0` control: Tab through the tag list and the
+  /// caret vanished for one stop per row, on a button that deletes. Revealing
+  /// on focus as well as hover keeps the row quiet for the mouse and honest for
+  /// the keyboard, instead of buying quiet by dropping the button out of the
+  /// Tab order.
+  final FocusNode _deleteFocus = FocusNode(debugLabel: 'TagRowDelete');
+
+  @override
+  void initState() {
+    super.initState();
+    _deleteFocus.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() => setState(() {});
+
+  @override
+  void dispose() {
+    _deleteFocus.removeListener(_onFocusChange);
+    _deleteFocus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -337,9 +360,10 @@ class _TagRowState extends State<_TagRow> {
             ),
             const SizedBox(width: WpSpacing.xs),
             AnimatedOpacity(
-              opacity: _hovered ? 1.0 : 0.0,
+              opacity: (_hovered || _deleteFocus.hasFocus) ? 1.0 : 0.0,
               duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               child: IconButton(
+                focusNode: _deleteFocus,
                 icon: Icon(
                   LucideIcons.trash2,
                   size: 14,

@@ -6,16 +6,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/navigation/page_state.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/page_shell.dart';
 import 'search/settings_search_provider.dart';
 import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
+import 'sections/onboarding_review_section.dart';
 import 'sections/overlay_button_section.dart';
 import 'sections/privacy_section.dart';
 import 'sections/recording_sections.dart';
@@ -59,6 +62,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'settingsPortability': GlobalKey(),
     'advanced': GlobalKey(),
     'updates': GlobalKey(),
+    'onboardingReview': GlobalKey(),
     'reviewSupport': GlobalKey(),
     'privacy': GlobalKey(),
   };
@@ -135,6 +139,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     // null = show all; non-null Set = show only those sectionKeys.
     final matchSet = ref.watch(settingsSectionMatchSetProvider);
+
+    // Narrow watch on purpose — this page must not rebuild on every unrelated
+    // settings change just to decide one section's presence.
+    final onboardingCompleted = ref.watch(
+      settingsProvider.select(
+        (s) => s.value?.onboarding.onboardingCompleted ?? false,
+      ),
+    );
 
     Widget sectionWithHighlight(String sectionKey, Widget child) {
       final isHighlighted = highlightTarget == sectionKey;
@@ -250,6 +262,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           UpdatesSection(key: _sectionKeys['updates']),
         ),
       ),
+      // Only for users who already finished the first-run setup: an
+      // unfinished one has the flow on screen anyway. Filtered out of the
+      // list rather than rendered as an empty box, so the dividers between
+      // the surviving sections stay single.
+      if (onboardingCompleted)
+        (
+          'onboardingReview',
+          () => sectionWithHighlight(
+            'onboardingReview',
+            OnboardingReviewSection(key: _sectionKeys['onboardingReview']),
+          ),
+        ),
       (
         'reviewSupport',
         () => sectionWithHighlight(
@@ -279,6 +303,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         icon: LucideIcons.searchX,
         title: l10n.settingsSearchNoResults,
         hint: l10n.settingsSearchNoResultsHint,
+        // Per the WpEmptyState rule the search-empty state offers its main
+        // action: get out of the search. The query provider is the single
+        // source of truth here — the field mirrors an external reset back
+        // into its own controller.
+        actionLabel: l10n.actionClearSearch,
+        onAction: () => ref.read(settingsSearchQueryProvider.notifier).set(''),
       );
     } else {
       // Build sections with dividers only between visible neighbours.
@@ -317,34 +347,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // Fills the window width like every other page (The Fill-By-
             // Default Rule) — no cap-width, so Settings stays consistent
             // with History/Analytics/etc. even on very wide windows.
-            return Column(
-              children: [
-                // ── Sticky search field (stays visible while scrolling) ───
-                Padding(
-                  // Zero bottom: the scroll view below carries its own
-                  // WpSpacing.sm top padding.
-                  padding: const EdgeInsets.fromLTRB(
-                    WpSpacing.xl,
-                    WpSpacing.sm,
-                    WpSpacing.xl,
-                    0,
-                  ),
-                  child: SettingsSearchField(focusNode: _searchFocusNode),
-                ),
-
-                // ── Scrollable settings content ───────────────────────────
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.xl,
-                      WpSpacing.sm,
-                      WpSpacing.xl,
-                      WpSpacing.xl,
-                    ),
-                    child: scrollContent,
-                  ),
-                ),
-              ],
+            //
+            // The search field rides the shell's sticky header slot, so it
+            // stays visible while the sections below scroll.
+            return WpPageShell(
+              header: SettingsSearchField(focusNode: _searchFocusNode),
+              child: scrollContent,
             );
           },
         ),

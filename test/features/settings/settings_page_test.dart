@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
+import 'package:whispaste/widgets/page_shell.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -62,6 +64,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SingleChildScrollView), findsOneWidget);
     });
+
+    testWidgets(
+      'page frame comes from WpPageShell, with the search field sticky '
+      'above the scroll area',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(const SettingsPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byType(WpPageShell),
+          findsOneWidget,
+          reason:
+              'Settings used to hand-roll the shell — padding drifted apart '
+              'from every other page as soon as the default changed',
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(SettingsSearchField),
+          ),
+          findsNothing,
+          reason: 'the search field must stay put while sections scroll',
+        );
+      },
+    );
 
     testWidgets('shows new Sound & Feedback section', (tester) async {
       await tester.pumpWidget(

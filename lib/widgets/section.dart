@@ -7,6 +7,19 @@ import 'wp_focus_ring.dart';
 /// Content section with header — flat, clean, with optional collapse.
 ///
 /// Premium: subtle accent line on header, refined typography, smooth expand.
+///
+/// [padding] defaults to zero because the page owns the inset, not the
+/// section: every section in the app sits inside a [WpPageShell], whose
+/// `fromLTRB(24, 12, 24, 24)` already supplies the horizontal gutter. The
+/// default used to be `symmetric(horizontal: 24, vertical: 16)` — an inset
+/// *on top of* the shell's — which is why all 20 call sites (16 settings
+/// sections, About, 3 analytics cards) passed `EdgeInsets.zero` to cancel it.
+/// A default no caller wants is not a default, it is a trap: the 21st section
+/// that forgets the override would silently indent 24 px further than its
+/// siblings and gain 16 px of vertical air, which is exactly the kind of
+/// unexplained spacing drift this component exists to prevent. Zero is what
+/// the app actually renders today, so making it the default changes no pixel
+/// and makes the quiet path the correct one.
 class WpSection extends StatelessWidget {
   const WpSection({
     super.key,
@@ -16,10 +29,7 @@ class WpSection extends StatelessWidget {
     this.trailing,
     this.collapsible = false,
     this.initiallyExpanded = true,
-    this.padding = const EdgeInsets.symmetric(
-      horizontal: WpSpacing.xl,
-      vertical: WpSpacing.md,
-    ),
+    this.padding = EdgeInsets.zero,
   });
 
   final String title;
@@ -153,16 +163,31 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
 
-    return Semantics(
-      label: title,
-      button: onTap != null,
-      child: focusNode != null
-          ? WpFocusRing(
-              focusNode: focusNode,
-              radius: WpRadius.sm,
-              child: inkWell,
-            )
-          : inkWell,
+    // House idiom for a composed control (see `mic_permission_chip.dart`):
+    // MergeSemantics + a *label-less* Semantics. A `label:` here would not
+    // replace the subtree's own text, it would be prepended to it — the
+    // rendered `Text(title)` still contributes a node, so a screen reader
+    // read the title twice ("Title, Title, Subtitle") on all ~20 call sites
+    // of this header. Verified against the framework, not assumed.
+    //
+    // `header: true` rather than `button:` alone: this *is* the section
+    // heading, so it should show up in a screen reader's heading rotor even
+    // when it is not collapsible. `expanded` is set only for the collapsible
+    // variant, where it is the one piece of state the visual chevron carries
+    // and the semantics tree previously did not.
+    return MergeSemantics(
+      child: Semantics(
+        header: true,
+        button: onTap != null,
+        expanded: isExpanded,
+        child: focusNode != null
+            ? WpFocusRing(
+                focusNode: focusNode,
+                radius: WpRadius.sm,
+                child: inkWell,
+              )
+            : inkWell,
+      ),
     );
   }
 }

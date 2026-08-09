@@ -18,10 +18,13 @@ import '../data/history_detail_provider.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
+import '../../../widgets/dialog.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_text_field.dart';
 import 'tag_management_dialog.dart';
 import '../../../core/utils/word_count.dart';
 
@@ -259,139 +262,20 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
   void _showShortcutHelp() {
     final l10n = L10n.of(context);
-    showDialog(
+    showWpDialog<void>(
       context: context,
-      builder: (ctx) {
-        final isDarkTheme = isDark;
-        final bg = isDarkTheme
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated;
-        final textCol = isDarkTheme
-            ? WpColorsDark.textPrimary
-            : WpColorsLight.textPrimary;
-        final mutedCol = isDarkTheme
-            ? WpColorsDark.textMuted
-            : WpColorsLight.textMuted;
-        final accentCol = isDarkTheme
-            ? WpColorsDark.accent
-            : WpColorsLight.accent;
-
-        Widget shortcutRow(String key, String description) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
-            child: Row(
-              children: [
-                Container(
-                  // Off-scale on purpose: key-cap chip hugs its caption text;
-                  // xxs would double the height of this deliberately tight cap.
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.xs,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accentCol.withValues(alpha: 0.12),
-                    borderRadius: WpRadius.borderSm,
-                  ),
-                  child: Text(
-                    key,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'monospace',
-                      color: accentCol,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      color: textCol,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Dialog(
-          backgroundColor: bg,
-          shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 380),
-            child: Padding(
-              padding: const EdgeInsets.all(WpSpacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.keyboard,
-                        size: WpIconSize.sm,
-                        color: accentCol,
-                      ),
-                      const SizedBox(width: WpSpacing.sm),
-                      Text(
-                        l10n.historyShortcutHelp,
-                        style: TextStyle(
-                          fontSize: WpTypography.heading,
-                          fontWeight: FontWeight.w600,
-                          color: textCol,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: WpSpacing.md),
-                  Text(
-                    l10n.historyShortcutGeneral,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      color: mutedCol,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  shortcutRow('Esc', l10n.historyShortcutClose),
-                  const SizedBox(height: WpSpacing.sm),
-                  Text(
-                    l10n.historyShortcutEditing,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      color: mutedCol,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  shortcutRow('F2', l10n.historyShortcutEditTitle),
-                  shortcutRow('Ctrl+E', l10n.historyShortcutToggleEdit),
-                  shortcutRow('Ctrl+S', l10n.historyShortcutSave),
-                  shortcutRow('Ctrl+↵', l10n.historyShortcutSave),
-                  shortcutRow('Ctrl+B', l10n.historyShortcutBold),
-                  shortcutRow('Ctrl+I', l10n.historyShortcutItalic),
-                  shortcutRow('Ctrl+C', l10n.historyShortcutCopy),
-                  const SizedBox(height: WpSpacing.md),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                    child: WpButton(
-                      label: l10n.historyClose,
-                      variant: WpButtonVariant.ghost,
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      title: l10n.historyShortcutHelp,
+      content: const _ShortcutHelpContent(),
+      actions: [
+        Builder(
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          builder: (dialogContext) => WpButton(
+            label: l10n.historyClose,
+            variant: WpButtonVariant.ghost,
+            onPressed: () => Navigator.of(dialogContext).pop(),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -597,6 +481,101 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 }
 
 // ---------------------------------------------------------------------------
+// Shortcut help — body of the keyboard cheat sheet dialog
+// ---------------------------------------------------------------------------
+
+/// Content of the shortcut help [showWpDialog]: two labelled groups of
+/// key-cap rows. Colors come from the theme (surface, border, radius and
+/// title typography are the dialog's) — this body only owns the key caps.
+class _ShortcutHelpContent extends StatelessWidget {
+  const _ShortcutHelpContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final theme = Theme.of(context);
+    final groupStyle = theme.textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.5,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.historyShortcutGeneral, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(keyLabel: 'Esc', description: l10n.historyShortcutClose),
+        const SizedBox(height: WpSpacing.sm),
+        Text(l10n.historyShortcutEditing, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(
+          keyLabel: 'F2',
+          description: l10n.historyShortcutEditTitle,
+        ),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+E',
+          description: l10n.historyShortcutToggleEdit,
+        ),
+        _ShortcutRow(keyLabel: 'Ctrl+S', description: l10n.historyShortcutSave),
+        _ShortcutRow(keyLabel: 'Ctrl+↵', description: l10n.historyShortcutSave),
+        _ShortcutRow(keyLabel: 'Ctrl+B', description: l10n.historyShortcutBold),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+I',
+          description: l10n.historyShortcutItalic,
+        ),
+        _ShortcutRow(keyLabel: 'Ctrl+C', description: l10n.historyShortcutCopy),
+      ],
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  const _ShortcutRow({required this.keyLabel, required this.description});
+
+  final String keyLabel;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            // Off-scale on purpose: key-cap chip hugs its caption text;
+            // xxs would double the height of this deliberately tight cap.
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xs,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Text(
+              keyLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+                letterSpacing: 0,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(child: Text(description, style: theme.textTheme.bodyLarge)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Detail panel header (avatar + title/edit + timestamp + action buttons)
 // ---------------------------------------------------------------------------
 
@@ -651,7 +630,6 @@ class _DetailPanelHeader extends StatelessWidget {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final avatarCol = historyAvatarColor(entry);
 
     return Padding(
@@ -680,34 +658,11 @@ class _DetailPanelHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (isEditingTitle)
-                    TextField(
+                    WpTextField(
                       controller: titleController,
                       focusNode: titleFocusNode,
-                      style: TextStyle(
-                        fontSize: WpTypography.heading,
-                        fontWeight: FontWeight.w700,
-                        color: textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: l10n.historyTitlePlaceholder,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.xs,
-                          vertical: WpSpacing.xxs,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: WpRadius.borderSm,
-                          borderSide: BorderSide(color: accent, width: 1.5),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: WpRadius.borderSm,
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? WpColorsDark.borderSubtle
-                                : WpColorsLight.borderSubtle,
-                          ),
-                        ),
-                      ),
+                      variant: WpTextFieldVariant.heading,
+                      hintText: l10n.historyTitlePlaceholder,
                       onSubmitted: (_) => onSaveTitle(),
                       onEditingComplete: onSaveTitle,
                     )
@@ -715,29 +670,38 @@ class _DetailPanelHeader extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Tooltip(
-                            message: isTrashView ? '' : l10n.historyEditTitle,
-                            waitDuration: const Duration(milliseconds: 600),
-                            child: GestureDetector(
-                              onDoubleTap: isTrashView
-                                  ? null
-                                  : onStartTitleEdit,
-                              child: MouseRegion(
-                                cursor: isTrashView
-                                    ? SystemMouseCursors.basic
-                                    : SystemMouseCursors.click,
-                                child: HighlightedText(
-                                  text: entry.title.isNotEmpty
-                                      ? entry.title
-                                      : l10n.historyUntitled,
-                                  style: TextStyle(
-                                    fontSize: WpTypography.heading,
-                                    fontWeight: FontWeight.w700,
-                                    color: textPrimary,
+                          child: Semantics(
+                            button: !isTrashView,
+                            onTapHint: isTrashView
+                                ? null
+                                : l10n.historyEditTitle,
+                            onTap: isTrashView ? null : onStartTitleEdit,
+                            child: Tooltip(
+                              message: isTrashView ? '' : l10n.historyEditTitle,
+                              waitDuration: const Duration(milliseconds: 600),
+                              child: GestureDetector(
+                                onDoubleTap: isTrashView
+                                    ? null
+                                    : onStartTitleEdit,
+                                child: MouseRegion(
+                                  cursor: isTrashView
+                                      ? SystemMouseCursors.basic
+                                      : SystemMouseCursors.click,
+                                  child: HighlightedText(
+                                    text: entry.title.isNotEmpty
+                                        ? entry.title
+                                        : l10n.historyUntitled,
+                                    // Read view and edit view of the same
+                                    // title: one style, so opening edit mode
+                                    // never resizes the text.
+                                    style: WpTextField.styleFor(
+                                      WpTextFieldVariant.heading,
+                                      color: textPrimary,
+                                    ),
+                                    isDark: isDark,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  isDark: isDark,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -1018,7 +982,6 @@ class _DetailTranscriptZone extends StatelessWidget {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     // Cap prose measure at ~85 chars/line for the 16px body (Fill-By-Default
     // Rule: only the transcript degrades on ultrawide, so only it gets capped).
@@ -1039,58 +1002,39 @@ class _DetailTranscriptZone extends StatelessWidget {
             children: [
               Expanded(
                 child: isEditing
-                    ? Semantics(
-                        label: l10n.historyEditTranscript,
-                        textField: true,
-                        child: TextField(
-                          controller: transcriptController,
-                          focusNode: editorFocusNode,
-                          maxLines: null,
-                          autofocus: true,
-                          style: TextStyle(
-                            fontSize: WpTypography.heading,
-                            fontFamily: 'monospace',
-                            color: textPrimary,
-                            height: 1.65,
-                          ),
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: WpRadius.borderSm,
-                              borderSide: BorderSide(
-                                color: isDark
-                                    ? WpColorsDark.borderSubtle
-                                    : WpColorsLight.borderSubtle,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: WpRadius.borderSm,
-                              borderSide: BorderSide(color: accent, width: 1.5),
-                            ),
-                            contentPadding: const EdgeInsets.all(WpSpacing.sm),
-                          ),
-                          onSubmitted: (_) => onSaveTranscript(),
-                        ),
+                    ? WpTextField(
+                        controller: transcriptController,
+                        focusNode: editorFocusNode,
+                        variant: WpTextFieldVariant.passage,
+                        semanticsLabel: l10n.historyEditTranscript,
+                        autofocus: true,
+                        onSubmitted: (_) => onSaveTranscript(),
                       )
-                    : Tooltip(
-                        message: l10n.historyEditTranscript,
-                        waitDuration: const Duration(milliseconds: 600),
-                        child: GestureDetector(
-                          onTap: isTrashView ? null : onToggleEdit,
-                          behavior: HitTestBehavior.translucent,
-                          child: MouseRegion(
-                            cursor: isTrashView
-                                ? SystemMouseCursors.basic
-                                : SystemMouseCursors.click,
-                            child: HighlightedText(
-                              text: entry.content.isEmpty
-                                  ? '\u200B'
-                                  : entry.content,
-                              style: TextStyle(
-                                fontSize: WpTypography.heading,
-                                color: textPrimary,
-                                height: 1.65,
+                    : Semantics(
+                        button: !isTrashView,
+                        child: Tooltip(
+                          message: l10n.historyEditTranscript,
+                          waitDuration: const Duration(milliseconds: 600),
+                          child: GestureDetector(
+                            onTap: isTrashView ? null : onToggleEdit,
+                            behavior: HitTestBehavior.translucent,
+                            child: MouseRegion(
+                              cursor: isTrashView
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
+                              child: HighlightedText(
+                                text: entry.content.isEmpty
+                                    ? '\u200B'
+                                    : entry.content,
+                                // Same metrics as the edit view above, so
+                                // toggling edit mode doesn't reflow the
+                                // paragraph the user is looking at.
+                                style: WpTextField.styleFor(
+                                  WpTextFieldVariant.passage,
+                                  color: textPrimary,
+                                ),
+                                isDark: isDark,
                               ),
-                              isDark: isDark,
                             ),
                           ),
                         ),
@@ -1330,6 +1274,13 @@ class HistoryDetailAction extends StatefulWidget {
 
 class _HistoryDetailActionState extends State<HistoryDetailAction> {
   bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryDetailAction');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1358,30 +1309,47 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                _isHovered ? Duration.zero : WpMotion.hoverOut,
+          // InkWell + WpFocusRing instead of a bare GestureDetector: this is the
+          // house shape for an icon-only action (WpRowAction:151-200), and the
+          // detail panel's own actions were the one set of them Tab could not
+          // reach. Copy/Restore/Delete of the open entry were mouse-only, which
+          // is precisely the round trip this audience cannot make.
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: InkWell(
+              onTap: widget.onTap,
+              focusNode: _focusNode,
+              borderRadius: WpRadius.borderSm,
+              // WpFocusRing owns all focus visuals — suppress InkWell's own.
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(
+                  context,
+                  _isHovered ? Duration.zero : WpMotion.hoverOut,
+                ),
+                padding: const EdgeInsets.all(WpSpacing.sm),
+                decoration: BoxDecoration(
+                  color: _isHovered
+                      ? (widget.isDark
+                            ? WpColorsDark.hover
+                            : WpColorsLight.hover)
+                      : (widget.isDark
+                            ? WpColorsDark.hoverTransparent
+                            : WpColorsLight.hoverTransparent),
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: widget.faIcon != null
+                    ? FaIcon(
+                        widget.faIcon!,
+                        size: WpIconSize.md,
+                        color: iconColor,
+                      )
+                    : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
               ),
-              padding: const EdgeInsets.all(WpSpacing.sm),
-              decoration: BoxDecoration(
-                color: _isHovered
-                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                    : (widget.isDark
-                          ? WpColorsDark.hoverTransparent
-                          : WpColorsLight.hoverTransparent),
-                borderRadius: WpRadius.borderSm,
-              ),
-              child: widget.faIcon != null
-                  ? FaIcon(
-                      widget.faIcon!,
-                      size: WpIconSize.md,
-                      color: iconColor,
-                    )
-                  : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
             ),
           ),
         ),

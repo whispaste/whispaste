@@ -18,12 +18,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/store_thank_you_service.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Stands in for a user who has the introduction reopened from Settings.
+class _OpenReviewNotifier extends OnboardingManuallyOpenNotifier {
+  @override
+  bool build() => true;
+}
+
+/// Stands in for a user with an onboarding revision run in progress.
+class _RunningRevisionNotifier extends OnboardingRevisionRunNotifier {
+  @override
+  bool build() => true;
+}
 
 /// Recording count comfortably above the gate's threshold, used by tests
 /// that don't care about the exact boundary.
@@ -33,6 +46,15 @@ Future<({ProviderContainer container, HistoryDatabase db})> _makeContainer({
   required DeployChannel channel,
   Map<String, Object> prefs = const {},
   int activeEntries = 0,
+
+  /// Whether the user has the five-step introduction reopened from Settings
+  /// right now. Session state, so it is a container override rather than a
+  /// setting.
+  bool onboardingManuallyOpen = false,
+
+  /// Whether an onboarding revision run is in progress right now. Session
+  /// state, same reasoning as [onboardingManuallyOpen].
+  bool onboardingRevisionRunning = false,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final db = HistoryDatabase.forTesting(NativeDatabase.memory());
@@ -51,6 +73,14 @@ Future<({ProviderContainer container, HistoryDatabase db})> _makeContainer({
         ref.onDispose(db.close);
         return db;
       }),
+      if (onboardingManuallyOpen)
+        onboardingManuallyOpenProvider.overrideWith(
+          () => _OpenReviewNotifier(),
+        ),
+      if (onboardingRevisionRunning)
+        onboardingRevisionRunProvider.overrideWith(
+          () => _RunningRevisionNotifier(),
+        ),
     ],
   );
   return (container: container, db: db);
@@ -180,6 +210,56 @@ void main() {
 
       expect(harness.container.read(storeThankYouProvider).shouldShow, isFalse);
     });
+
+    test(
+      'the introduction reopened from Settings → shouldShow stays false, '
+      'even for a long-onboarded user well past the recording threshold',
+      () async {
+        final harness = await _makeContainer(
+          channel: DeployChannel.store,
+          activeEntries: _aboveThreshold,
+          onboardingManuallyOpen: true,
+        );
+        addTearDown(harness.container.dispose);
+
+        await harness.container
+            .read(storeThankYouProvider.notifier)
+            .checkAndMaybeShow(onboardingCompleted: true);
+
+        expect(
+          harness.container.read(storeThankYouProvider).shouldShow,
+          isFalse,
+          reason:
+              'A thank-you hint dropped on top of the flow is exactly the '
+              'competing dialog the surface predicate exists to prevent.',
+        );
+      },
+    );
+
+    test(
+      'an onboarding revision run in progress → shouldShow stays false, '
+      'even for a long-onboarded user well past the recording threshold',
+      () async {
+        final harness = await _makeContainer(
+          channel: DeployChannel.store,
+          activeEntries: _aboveThreshold,
+          onboardingRevisionRunning: true,
+        );
+        addTearDown(harness.container.dispose);
+
+        await harness.container
+            .read(storeThankYouProvider.notifier)
+            .checkAndMaybeShow(onboardingCompleted: true);
+
+        expect(
+          harness.container.read(storeThankYouProvider).shouldShow,
+          isFalse,
+          reason:
+              'A thank-you hint dropped on top of a revision run is the '
+              'same competing dialog as during a manually reopened review.',
+        );
+      },
+    );
 
     test('installer channel → shouldShow stays false', () async {
       final harness = await _makeContainer(

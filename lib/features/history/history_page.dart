@@ -11,12 +11,11 @@ import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
-import '../../core/theme/colors.dart';
-import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
+import '../../widgets/wp_list_skeleton.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
 import '../../services/telemetry_service.dart';
@@ -33,6 +32,13 @@ import 'widgets/widgets.dart';
 /// channels.
 typedef HistoryPageExportFn =
     Future<void> Function(BuildContext context, List<HistoryEntry> entries);
+
+/// Placeholder-bar height of the loading skeleton, matched to the real
+/// [HistoryEntryRow]. Measured at a 340 dp list column: 108 dp for an entry
+/// whose content is one short line, 127 dp with the usual two-line preview.
+/// 128 tracks the populated case — the one a skeleton has to reserve for —
+/// on the repo's 8 dp rhythm. The former 52 reserved less than half a row.
+const _historySkeletonRowHeight = 128.0;
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
@@ -143,7 +149,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   /// Handles a tap/click on a list entry, interpreting modifier keys for
   /// Ctrl+click (toggle), Shift+click (range select), and plain click.
-  void _handleEntryTap(HistoryEntry entry, List<HistoryEntry> filteredEntries) {
+  ///
+  /// [orderedEntries] must be in *display* order (sort applied), because the
+  /// Shift+click range is defined by what sits between the two clicks on
+  /// screen.
+  void _handleEntryTap(HistoryEntry entry, List<HistoryEntry> orderedEntries) {
     final isCtrl =
         HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
@@ -162,7 +172,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       });
     } else if (isShift && _lastClickedId != null) {
       // Shift+click: range select from last clicked
-      final flatIds = filteredEntries.map((e) => e.id).toList();
+      final flatIds = orderedEntries.map((e) => e.id).toList();
       final from = flatIds.indexOf(_lastClickedId!);
       final to = flatIds.indexOf(entry.id);
       if (from >= 0 && to >= 0) {
@@ -365,7 +375,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             isTrashView: isTrashView,
             isArchiveView: isArchiveView,
             exportFn: widget.exportFn,
-            onEntryTap: (entry) => _handleEntryTap(entry, filteredEntries),
+            // `flat`, not `filteredEntries`: the range Shift+click selects has
+            // to be the range the user sees between the two clicks, and only
+            // `flat` has the current sort order applied (_flatEntries →
+            // _applySortOrder, the same list the arrow keys walk).
+            // `filteredEntries` is raw provider order, so with sort = oldest
+            // or longest a Shift+click quietly selected a different set of
+            // entries than the one highlighted on screen — and the next batch
+            // Delete acted on that set.
+            onEntryTap: (entry) => _handleEntryTap(entry, flat),
             onCopy: _copyEntry,
             onPin: _togglePin,
             onDelete: _deleteEntry,
@@ -522,7 +540,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       isArchiveView,
                     );
                   },
-                  loading: () => _HistorySkeleton(isDark: isDark),
+                  loading: () => WpListSkeleton(
+                    isDark: isDark,
+                    rowHeight: _historySkeletonRowHeight,
+                  ),
                   error: (e, _) {
                     final l10n = L10n.of(context);
                     return WpEmptyState(
@@ -548,7 +569,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.searchX,
         title: l10n.historyNoResults,
         hint: l10n.historyNoResultsHint(_searchController.text),
-        actionLabel: l10n.historyClearSearch,
+        actionLabel: l10n.actionClearSearch,
         onAction: () {
           _searchController.clear();
         },
@@ -898,42 +919,5 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _multiSelectMode = false;
       _selectedEntryId = null;
     });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Loading skeleton — list-shaped placeholder rows
-// ---------------------------------------------------------------------------
-
-class _HistorySkeleton extends StatelessWidget {
-  const _HistorySkeleton({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  // loam-ignore: code-duplicates – mirrors _NotesSkeleton in
-  // features/notes/notes_page.dart by design (Notizen is a structural, not a
-  // shared, Vorbild of History per the Ticket-02 plan — no feature-to-feature
-  // dependency between lib/features/notes and lib/features/history).
-  Widget build(BuildContext context) {
-    final boxColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      itemCount: 6,
-      separatorBuilder: (_, _) => const SizedBox(height: WpSpacing.xs),
-      itemBuilder: (_, _) => Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: boxColor,
-          borderRadius: WpRadius.borderMd,
-        ),
-      ),
-    );
   }
 }

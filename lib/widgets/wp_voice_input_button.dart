@@ -1,8 +1,14 @@
-/// Voice input button — records a short voice clip in the note editor
-/// toolbar, transcribes it, and hands the raw transcript to the caller.
+/// Voice input button — records a short voice clip inline, transcribes it,
+/// and hands the raw transcript to the caller.
 ///
 /// Reuses [AudioServiceNotifier] and [SttServerStateNotifier] for the
 /// recording pipeline. The button shows recording/transcribing state inline.
+///
+/// The button owns the *pipeline* (start lock, WAV flush wait, STT timeouts,
+/// error toasts) and nothing else: what happens with the finished transcript
+/// is entirely the caller's business. History routes it through
+/// `parseVoiceAction`'s prefix dispatch, notes insert it at the cursor — two
+/// sinks, one button.
 library;
 
 import 'dart:async';
@@ -13,14 +19,14 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/logging/app_logger.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/tokens.dart';
-import '../../../services/audio_service.dart';
-import '../../../services/recording_orchestrator.dart';
-import '../../../services/stt/stt_bundle.dart';
-import '../../../widgets/toast.dart';
+import '../core/l10n/generated/app_localizations.dart';
+import '../core/logging/app_logger.dart';
+import '../core/theme/colors.dart';
+import '../core/theme/tokens.dart';
+import '../services/audio_service.dart';
+import '../services/recording_orchestrator.dart';
+import '../services/stt/stt_bundle.dart';
+import 'toast.dart';
 
 // ---------------------------------------------------------------------------
 // Voice input button state
@@ -32,12 +38,13 @@ enum _VoicePhase { idle, recording, transcribing }
 // Widget
 // ---------------------------------------------------------------------------
 
-/// Mic button that starts a mini voice-recording session in the note editor.
+/// Mic button that starts a mini voice-recording session next to a text
+/// surface.
 ///
-/// On completion the raw transcript is delivered via [onTranscript] — this
-/// widget knows nothing about the note's content or the text controller.
-class NoteVoiceInputButton extends ConsumerStatefulWidget {
-  const NoteVoiceInputButton({
+/// On completion the raw, non-empty transcript is delivered via
+/// [onTranscript]; the button returns to idle once that callback settles.
+class WpVoiceInputButton extends ConsumerStatefulWidget {
+  const WpVoiceInputButton({
     super.key,
     required this.isDark,
     required this.onTranscript,
@@ -46,10 +53,9 @@ class NoteVoiceInputButton extends ConsumerStatefulWidget {
   final bool isDark;
 
   /// Called with the raw, non-empty transcript once transcription succeeds.
-  /// The caller (NoteEditorPanel → _NotesPageState) inserts it at the
-  /// current cursor position — this widget knows nothing about the note's
-  /// content or the text controller.
-  final ValueChanged<String> onTranscript;
+  /// May be async — the button stays in its transcribing state until the
+  /// returned future completes, so a slow sink cannot be re-triggered.
+  final FutureOr<void> Function(String transcript) onTranscript;
 
   /// Stuck-guard budgets on the two STT calls in [_stopAndTranscribe]. Mutable
   /// + [visibleForTesting] so tests can shrink them (mirrors
@@ -62,12 +68,11 @@ class NoteVoiceInputButton extends ConsumerStatefulWidget {
   static Duration transcribeTimeout = const Duration(seconds: 45);
 
   @override
-  ConsumerState<NoteVoiceInputButton> createState() =>
-      _NoteVoiceInputButtonState();
+  ConsumerState<WpVoiceInputButton> createState() => _WpVoiceInputButtonState();
 }
 
-class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
-  static final _log = AppLogger('NoteVoiceInputButton');
+class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
+  static final _log = AppLogger('WpVoiceInputButton');
 
   _VoicePhase _phase = _VoicePhase.idle;
 
@@ -105,13 +110,17 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
     if (_isBusy) return;
 
     // Acquire the orchestrator's _startInFlight lock so that all entry points
-    // (tray, hotkey, floating button, voice-note button, this button) share
-    // the same concurrency gate — eliminates the TOCTOU race from a one-shot
-    // phase read.
+    // (tray, hotkey, floating button, this button) share the same concurrency
+    // gate — eliminates the TOCTOU race from a one-shot phase read.
     //
     // The lock is released in the finally block below, after audio.startRecording()
     // returns, mirroring exactly how RecordingOrchestrator.startRecording() uses it.
-    final orch = ref.read(recordingOrchestratorProvider.notifier);
+    // Same reasoning as in _stopAndTranscribe: startRecording() crosses a
+    // platform channel and can sit behind a mic-permission prompt, so the
+    // status read below is on the far side of a real gap. Reads go through the
+    // container, which outlives the button.
+    final container = ProviderScope.containerOf(context, listen: false);
+    final orch = container.read(recordingOrchestratorProvider.notifier);
     if (!orch.tryAcquireStartLock()) {
       _log.debug(
         'Voice input suppressed — orchestrator lock not acquired '
@@ -123,11 +132,11 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
     _setPhase(_VoicePhase.recording);
 
     try {
-      final audio = ref.read(audioServiceProvider.notifier);
+      final audio = container.read(audioServiceProvider.notifier);
       await audio.startRecording();
 
       // Verify recording started.
-      final status = ref.read(audioServiceProvider);
+      final status = container.read(audioServiceProvider);
       if (status.captureState == AudioCaptureState.error) {
         _fail(status.errorMessage ?? 'recording_failed');
         return;
@@ -146,15 +155,21 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
   Future<void> _stopAndTranscribe() async {
     if (_phase != _VoicePhase.recording) return;
 
-    // Capture context dependencies before async gap.
+    // Everything context- or ref-bound is captured before the first await.
+    // Transcription can run for up to transcribeTimeout, and `ref` throws once
+    // the element is deactivated — reading a provider late would blow up in
+    // the finally block below and leak the temp WAV. The container outlives
+    // the button, so reads through it stay valid after an unmount.
     final l10n = L10n.of(context);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final audio = container.read(audioServiceProvider.notifier);
+    final stt = container.read(localSttBundleProvider.notifier);
 
     _setPhase(_VoicePhase.transcribing);
 
     String? wavPath;
     try {
       // Stop recording.
-      final audio = ref.read(audioServiceProvider.notifier);
       wavPath = await audio.stopRecording();
 
       if (wavPath == null) {
@@ -182,12 +197,11 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
       }
 
       // Ensure STT is ready.
-      final stt = ref.read(localSttBundleProvider.notifier);
       await stt.ensureRunning().timeout(
-        NoteVoiceInputButton.ensureRunningTimeout,
+        WpVoiceInputButton.ensureRunningTimeout,
       );
 
-      final sttStatus = ref.read(localSttBundleProvider);
+      final sttStatus = container.read(localSttBundleProvider);
       if (!sttStatus.isReady) {
         _fail(sttStatus.errorMessage ?? 'stt_not_ready');
         return;
@@ -196,25 +210,32 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
       // Transcribe.
       final transcript = await stt
           .transcribeBytes(wavBytes)
-          .timeout(NoteVoiceInputButton.transcribeTimeout);
+          .timeout(WpVoiceInputButton.transcribeTimeout);
 
       if (transcript.trim().isEmpty) {
-        _showSnackBar(l10n.voiceNoteEmpty, isError: true);
+        _showToast(l10n.voiceNoteEmpty, isError: true);
         _reset();
         return;
       }
 
-      // Hand off — the caller inserts the transcript at the cursor position.
-      widget.onTranscript(transcript);
+      // Hand off — what the transcript becomes is the caller's business.
+      //
+      // Guarded because transcription may take up to transcribeTimeout, and
+      // the surface around the button can be gone by then (panel closed,
+      // entry deleted, another item selected). Both sinks reach for `context`
+      // and `ref` the moment they are called, so handing a transcript into a
+      // dead tree throws rather than doing anything useful.
+      if (!mounted) return;
+      await widget.onTranscript(transcript);
       _reset();
     } on TimeoutException {
       _fail('timeout');
     } on Exception catch (e) {
       _fail('$e');
     } finally {
-      // Cleanup temp WAV.
+      // Cleanup temp WAV — runs even when the button is already gone.
       if (wavPath != null) {
-        await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
+        await audio.cleanupFile(wavPath);
       }
     }
   }
@@ -222,7 +243,7 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
   void _fail(String reason) {
     _log.warning('Voice input failed: $reason');
     if (mounted) {
-      _showSnackBar(L10n.of(context).voiceNoteError, isError: true);
+      _showToast(L10n.of(context).voiceNoteError, isError: true);
     }
     _reset();
   }
@@ -233,7 +254,7 @@ class _NoteVoiceInputButtonState extends ConsumerState<NoteVoiceInputButton> {
     }
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
+  void _showToast(String message, {bool isError = false}) {
     if (!mounted) return;
     WpToast.show(
       context,

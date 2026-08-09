@@ -508,9 +508,15 @@ class _OverflowChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
+    // Keep an explicit label here and exclude the visible text instead (the
+    // `SettingRow` shape rather than the `MergeSemantics` one): "+12" is a
+    // fine glyph but a useless accessible name, so the name has to be
+    // written out. The old label was the hardcoded English "+12 more tags"
+    // in an app that ships German and Hebrew — a screen reader user on any
+    // other locale got an untranslated string.
     return Semantics(
       button: true,
-      label: '+$count more tags',
+      label: L10n.of(context).tagOverflowMore(count),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
@@ -523,12 +529,14 @@ class _OverflowChip extends StatelessWidget {
             borderRadius: WpRadius.borderFull,
             border: Border.all(color: textMuted.withValues(alpha: 0.2)),
           ),
-          child: Text(
-            '+$count',
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              fontWeight: FontWeight.w500,
+          child: ExcludeSemantics(
+            child: Text(
+              '+$count',
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -646,51 +654,72 @@ class _SuggestionTileState extends State<_SuggestionTile> {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
-    return Semantics(
-      label: widget.tag.name,
-      button: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.sm,
-            ),
-            color: (_isHovered || widget.isSelected)
-                ? hoverBg
-                : Colors.transparent,
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.hash,
-                  size: WpIconSize.sm,
-                  color: accent.withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    widget.tag.name,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      color: textPrimary,
+    // House idiom (`section.dart`): MergeSemantics + a *label-less*
+    // Semantics — a `label:` is prepended to the subtree's text, not a
+    // replacement for it, so the `Text(widget.tag.name)` below made every
+    // suggestion announce its tag twice.
+    //
+    // `selected: widget.isSelected` is the substantive half: focus stays in
+    // the inline text field (`autofocus: true`, line ~355) while the arrow
+    // keys move `_selectedIndex` through this list. The highlight was purely
+    // a background colour, so without the flag a screen reader reported
+    // nothing at all as the user arrowed down.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: widget.isSelected,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.sm,
+              ),
+              color: (_isHovered || widget.isSelected)
+                  ? hoverBg
+                  : Colors.transparent,
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.hash,
+                    size: WpIconSize.sm,
+                    color: accent.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: WpSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      widget.tag.name,
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: textPrimary,
+                      ),
                     ),
                   ),
-                ),
-                if (widget.count != null && widget.count! > 0)
-                  Text(
-                    '${widget.count}',
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textPrimary.withValues(alpha: 0.4),
+                  if (widget.count != null && widget.count! > 0)
+                    // The bare glyph "12" reads as a naked number once the
+                    // row is merged ("Arbeit, 12"). `tagUsageCount` is the
+                    // same number spelled out — it already exists in all
+                    // three locales for the tag-management list, and it is
+                    // what this column has always meant.
+                    Semantics(
+                      label: L10n.of(context).tagUsageCount(widget.count!),
+                      excludeSemantics: true,
+                      child: Text(
+                        '${widget.count}',
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          color: textPrimary.withValues(alpha: 0.4),
+                        ),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -733,40 +762,46 @@ class _CreateTagTileState extends State<_CreateTagTile> {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
-    return Semantics(
-      label: widget.label,
-      button: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.sm,
-            ),
-            color: (_isHovered || widget.isSelected)
-                ? hoverBg
-                : Colors.transparent,
-            child: Row(
-              children: [
-                Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      color: textPrimary,
-                      fontWeight: FontWeight.w500,
+    // Same construction and same reasoning as `_SuggestionRow` above: the
+    // create-row is the last stop of the very same arrow-key walk
+    // (`_selectedIndex == suggestions.length`), so it needs `selected:` for
+    // the same reason, and its `Text(widget.label)` made it announce twice.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: widget.isSelected,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.sm,
+              ),
+              color: (_isHovered || widget.isSelected)
+                  ? hoverBg
+                  : Colors.transparent,
+              child: Row(
+                children: [
+                  Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
+                  const SizedBox(width: WpSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

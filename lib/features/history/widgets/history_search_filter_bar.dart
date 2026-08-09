@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -11,10 +12,11 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
+import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_search_field.dart';
 import '../data/providers.dart';
 import '../data/recent_searches.dart';
-import 'history_filter_chip.dart';
 import 'history_helpers.dart';
 
 // ---------------------------------------------------------------------------
@@ -107,6 +109,11 @@ class _HistorySearchFilterBarState
     super.initState();
     widget.controller.addListener(_onControllerChange);
     widget.searchFocusNode?.addListener(_onFocusChange);
+    // The node belongs to _HistoryPageState and outlives this bar, so the
+    // handler is installed here and cleared again in dispose/didUpdateWidget.
+    // Same arrangement as settings_search_field.dart:62 — WpSearchField itself
+    // never assigns onKeyEvent, it documents that callers may.
+    widget.searchFocusNode?.onKeyEvent = _handleSearchKey;
   }
 
   @override
@@ -118,7 +125,9 @@ class _HistorySearchFilterBarState
     }
     if (old.searchFocusNode != widget.searchFocusNode) {
       old.searchFocusNode?.removeListener(_onFocusChange);
+      old.searchFocusNode?.onKeyEvent = null;
       widget.searchFocusNode?.addListener(_onFocusChange);
+      widget.searchFocusNode?.onKeyEvent = _handleSearchKey;
     }
   }
 
@@ -127,7 +136,77 @@ class _HistorySearchFilterBarState
     _searchDebounce?.cancel();
     widget.controller.removeListener(_onControllerChange);
     widget.searchFocusNode?.removeListener(_onFocusChange);
+    widget.searchFocusNode?.onKeyEvent = null;
     super.dispose();
+  }
+
+  /// Arrow/Enter/Escape navigation for the tag and language autocomplete.
+  ///
+  /// The dropdown painted a highlight over `_selectedIdx` but nothing ever
+  /// moved it: there was no key handler here and none in WpSearchField, so the
+  /// suggestions could only be taken with the mouse. For an audience that
+  /// dictates 5–100× a day and includes RSI sufferers — "ohne die Maus zu
+  /// berühren" is the product's own litmus test — a mouse-only autocomplete on
+  /// the most-opened screen is a dead end, not a shortcut.
+  ///
+  /// Returns [KeyEventResult.ignored] for everything it does not consume so
+  /// DefaultTextEditingShortcuts keeps handling ordinary caret movement.
+  KeyEventResult _handleSearchKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+
+    // Escape closes the dropdown first and only then gives up the field, so a
+    // stray Escape never costs the user the query they just typed.
+    if (key == LogicalKeyboardKey.escape) {
+      if (_hasSuggestions) {
+        _clearSuggestions();
+      } else {
+        node.unfocus();
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Only the simple tag/lang list is navigable. The smart panel renders three
+    // heterogeneous sections and ignores _selectedIdx entirely, so consuming
+    // arrows there would swallow the caret keys for no visible effect —
+    // deliberately left to a follow-up ticket.
+    if (_suggestionType != _SuggestionType.tag &&
+        _suggestionType != _SuggestionType.lang) {
+      return KeyEventResult.ignored;
+    }
+    if (_suggestions.isEmpty) return KeyEventResult.ignored;
+
+    if (key == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _selectedIdx = (_selectedIdx + 1) % _suggestions.length;
+      });
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _selectedIdx = _selectedIdx <= 0
+            ? _suggestions.length - 1
+            : _selectedIdx - 1;
+      });
+      return KeyEventResult.handled;
+    }
+
+    // Enter only — deliberately not Tab, even though shell-style completion is
+    // tempting here. Consuming Tab while the list is open would take away the
+    // one key that moves focus out of the search field into the filter chips,
+    // i.e. it would trade a keyboard gap for a keyboard trap. Escape closes the
+    // list and hands Tab straight back. Matches settings_search_field.dart:120,
+    // which is also Enter-only.
+    if (key == LogicalKeyboardKey.enter) {
+      if (_selectedIdx >= 0 && _selectedIdx < _suggestions.length) {
+        _selectSuggestion(_suggestions[_selectedIdx]);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _onFocusChange() {
@@ -527,37 +606,54 @@ class _HistorySearchFilterBarState
       itemBuilder: (ctx, i) {
         final selected = i == _selectedIdx;
         final s = _suggestions[i];
-        return InkWell(
-          onTap: () => _selectSuggestion(s),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            color: selected
-                ? (widget.isDark
-                      ? WpColorsDark.accentActiveFill
-                      : WpColorsLight.accentActiveFill)
-                : Colors.transparent,
-            child: Row(
-              children: [
-                Icon(
-                  _suggestionType == _SuggestionType.lang
-                      ? LucideIcons.globe
-                      : LucideIcons.tag,
-                  size: 13,
-                  color: selected ? accent : textMuted,
+        // House idiom for a single-tap-target row (snippet picker, export
+        // picker, tag input): MergeSemantics + a label-less Semantics, so the
+        // name folds in from the rendered `#tag`/`lang:xx` text instead of
+        // being announced twice. `selected: selected` is the load-bearing
+        // half — the field keeps the only focus node while the arrow keys move
+        // a background colour, so without the flag a screen reader reported
+        // nothing at all as the user arrowed down the list.
+        return MergeSemantics(
+          child: Semantics(
+            button: true,
+            selected: selected,
+            child: InkWell(
+              onTap: () => _selectSuggestion(s),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.xs,
                 ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  _suggestionType == _SuggestionType.lang ? 'lang:$s' : '#$s',
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    color: selected ? accent : textMuted,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  ),
+                color: selected
+                    ? (widget.isDark
+                          ? WpColorsDark.accentActiveFill
+                          : WpColorsLight.accentActiveFill)
+                    : Colors.transparent,
+                child: Row(
+                  children: [
+                    Icon(
+                      _suggestionType == _SuggestionType.lang
+                          ? LucideIcons.globe
+                          : LucideIcons.tag,
+                      size: 13,
+                      color: selected ? accent : textMuted,
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    Text(
+                      _suggestionType == _SuggestionType.lang
+                          ? 'lang:$s'
+                          : '#$s',
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: selected ? accent : textMuted,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -602,73 +698,28 @@ class _HistorySearchFilterBarState
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Search field ─────────────────────────────────────────────────
-          // Weiche, tiefliegende Kapsel statt umrandetes Formularfeld: der
-          // Materiallift (WpShadows.subtle) trägt die Tiefe, kein Hairline-
-          // Border im Ruhezustand — Focus behält die Accent-Border (Ein-
-          // Signal bleibt). Radius lokal auf borderMd angehoben (statt des
-          // globalen inputDecorationTheme-Werts), um andere Formulare nicht
-          // mitzuziehen.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: WpRadius.borderMd,
-              boxShadow: WpShadows.subtle,
-            ),
-            child: TextField(
-              controller: widget.controller,
-              focusNode: widget.searchFocusNode,
-              decoration: InputDecoration(
-                hintText: l10n.historySearchTranscriptions,
-                prefixIcon: Icon(
-                  LucideIcons.search,
-                  size: WpIconSize.sm,
-                  color: textMuted,
-                ),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (rawQuery.isNotEmpty)
-                      IconButton(
-                        icon: Icon(
-                          LucideIcons.x,
-                          size: WpIconSize.sm,
-                          color: textMuted,
-                        ),
-                        tooltip: l10n.historyClearSearch,
-                        onPressed: () {
-                          widget.controller.clear();
-                          _clearSuggestions();
-                        },
-                      ),
-                    _SearchHelpButton(isDark: widget.isDark),
-                  ],
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.md,
-                  vertical: WpSpacing.xs + 2,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: WpRadius.borderMd,
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: WpRadius.borderMd,
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: WpRadius.borderMd,
-                  borderSide: BorderSide(color: accent, width: 1.5),
-                ),
-              ),
-              onChanged: (_) {}, // handled by controller listener
-            ),
+          WpSearchField(
+            controller: widget.controller,
+            focusNode: widget.searchFocusNode,
+            hintText: l10n.historySearchTranscriptions,
+            variant: WpSearchFieldVariant.outlined,
+            onClear: _clearSuggestions,
+            suffix: _SearchHelpButton(isDark: widget.isDark),
           ),
 
           if (rawQuery.isEmpty)
-            WpDiscoverabilityHint(
-              hintId: 'search_operators',
-              text: l10n.historySearchOperatorsHint,
-              isDark: widget.isDark,
+            // The hint explains what to type *into the field*, so it ends
+            // where the field ends rather than running the full content width
+            // with its dismiss button stranded far to the right.
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: WpSearchField.maxWidth,
+              ),
+              child: WpDiscoverabilityHint(
+                hintId: 'search_operators',
+                text: l10n.historySearchOperatorsHint,
+                isDark: widget.isDark,
+              ),
             ),
 
           // ── Inline autocomplete suggestions ─────────────────────────────
@@ -686,7 +737,12 @@ class _HistorySearchFilterBarState
                       borderRadius: WpRadius.borderSm,
                       border: Border.all(color: borderCol),
                     ),
-                    constraints: const BoxConstraints(maxHeight: 240),
+                    // Width tied to the field above it, not to the content
+                    // column — see WpSearchField.maxWidth.
+                    constraints: const BoxConstraints(
+                      maxHeight: 240,
+                      maxWidth: WpSearchField.maxWidth,
+                    ),
                     child: _suggestionType == _SuggestionType.smartPanel
                         ? _buildSmartPanel(l10n, accent, textMuted)
                         : _buildSimpleSuggestionList(accent, textMuted),
@@ -719,13 +775,12 @@ class _HistorySearchFilterBarState
               Expanded(
                 child: SizedBox(
                   // Full-height tap/focus surface per chip (visual pill stays
-                  // compact — see HistoryFilterChip).
+                  // compact — see WpFilterChip).
                   height: WpLayout.minTouchTarget,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyAll,
                         isActive: widget.activeFilter == HistoryFilter.all,
                         onTap: () => widget.onFilterChanged(HistoryFilter.all),
@@ -733,8 +788,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.all],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyToday,
                         isActive: widget.activeFilter == HistoryFilter.today,
                         onTap: () =>
@@ -743,8 +797,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.today],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyThisWeek,
                         isActive: widget.activeFilter == HistoryFilter.week,
                         onTap: () => widget.onFilterChanged(HistoryFilter.week),
@@ -752,8 +805,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.week],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyPinned,
                         icon: LucideIcons.star,
                         isActive: widget.activeFilter == HistoryFilter.pinned,
@@ -763,8 +815,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.pinned],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyArchived,
                         icon: LucideIcons.archive,
                         isActive: widget.activeFilter == HistoryFilter.archived,
@@ -774,8 +825,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.archived],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyTrash,
                         icon: LucideIcons.trash2,
                         isActive: widget.activeFilter == HistoryFilter.trash,
@@ -889,7 +939,7 @@ class _HistorySearchFilterBarState
 /// Small focusable "x" dismiss control shared by recent-search rows and
 /// active-filter command chips — keyboard focus + hover feedback, matching
 /// the [WpFocusRing]/[InkWell] pattern every other dismiss/tag control in
-/// this feature already uses (e.g. `_EntryTagChip`, `HistoryFilterChip`).
+/// this feature already uses (e.g. `_EntryTagChip`, `WpFilterChip`).
 class _DismissIcon extends StatefulWidget {
   const _DismissIcon({
     required this.icon,
@@ -1248,42 +1298,52 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
               : WpColorsLight.textPrimary);
     final color = _hovered ? hoverColor : textSecondary;
 
-    return Semantics(
-      label: widget.label,
-      button: true,
-      child: Padding(
-        padding: const EdgeInsets.only(right: WpSpacing.xs),
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: Tooltip(
-            message: widget.shortcutHint != null
-                ? '${widget.label} (${widget.shortcutHint})'
-                : widget.label,
-            child: InkWell(
-              borderRadius: WpRadius.borderSm,
-              onTap: widget.onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.xxs + 2,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // WpIconSize.sm (not .md): matches HistoryRowAction and
-                    // HistoryPopupMenuRow's fixed 16 for the same action set —
-                    // .md would overwhelm this pill's 12px label.
-                    Icon(widget.icon, size: WpIconSize.sm, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        fontSize: WpTypography.small,
-                        color: color,
+    // House idiom (`no_double_announcement_test.dart`, `wp_hero_button.dart`):
+    // one tap target whose label is its own visible text → MergeSemantics plus
+    // a *label-less* Semantics. An explicit `label: widget.label` here is not a
+    // replacement for the subtree's text, it is prepended to it, so the
+    // `Text(widget.label)` below made every batch action announce itself twice
+    // ("Zusammenführen, Zusammenführen"). Merging folds the name in from the
+    // rendered text while the button role and the tap action survive, and the
+    // Tooltip's shortcut hint folds in with it — which is exactly what the
+    // keyboard-first audience needs to hear.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: Padding(
+          padding: const EdgeInsets.only(right: WpSpacing.xs),
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: Tooltip(
+              message: widget.shortcutHint != null
+                  ? '${widget.label} (${widget.shortcutHint})'
+                  : widget.label,
+              child: InkWell(
+                borderRadius: WpRadius.borderSm,
+                onTap: widget.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WpSpacing.sm,
+                    vertical: WpSpacing.xxs + 2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // WpIconSize.sm (not .md): matches HistoryRowAction and
+                      // HistoryPopupMenuRow's fixed 16 for the same action set —
+                      // .md would overwhelm this pill's 12px label.
+                      Icon(widget.icon, size: WpIconSize.sm, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.label,
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          color: color,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1356,7 +1416,7 @@ class HistoryViewModeToggle extends StatelessWidget {
   }
 }
 
-class _HistoryViewModeButton extends StatelessWidget {
+class _HistoryViewModeButton extends StatefulWidget {
   const _HistoryViewModeButton({
     required this.icon,
     required this.label,
@@ -1372,27 +1432,59 @@ class _HistoryViewModeButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_HistoryViewModeButton> createState() => _HistoryViewModeButtonState();
+}
+
+class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryViewModeButton');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = isActive
+    final isDark = widget.isDark;
+    final color = widget.isActive
         ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
         : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted);
-    final bg = isActive
+    final bg = widget.isActive
         ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
         : Colors.transparent;
     return Semantics(
-      label: label,
+      label: widget.label,
       button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            padding: const EdgeInsets.all(WpSpacing.xxs),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: WpRadius.borderSm,
+      // Icon-only segments: without this flag the three announce identically
+      // whichever one is on, so a screen-reader user cannot tell which view
+      // they are in — only that three view buttons exist. Same mapping as
+      // WpFilterChip, the app's other selectable control.
+      selected: widget.isActive,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        // InkWell rather than the previous GestureDetector: this was the only
+        // control in the filter bar Tab could not reach, so switching the view
+        // meant reaching for the mouse — the one thing this audience must never
+        // have to do. Focus visuals come from WpFocusRing, as everywhere else.
+        child: InkWell(
+          onTap: widget.onTap,
+          focusNode: _focusNode,
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: Container(
+              padding: const EdgeInsets.all(WpSpacing.xxs),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: WpRadius.borderSm,
+              ),
+              child: Icon(widget.icon, size: WpIconSize.sm, color: color),
             ),
-            child: Icon(icon, size: WpIconSize.sm, color: color),
           ),
         ),
       ),

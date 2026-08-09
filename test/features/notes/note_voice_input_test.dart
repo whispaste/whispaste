@@ -1,4 +1,4 @@
-/// Tests for [NoteVoiceInputButton] (Ticket 08).
+/// Tests for [WpVoiceInputButton] as the note editor uses it (Ticket 08).
 ///
 /// Vorbild `voice_actions_test.dart`'s `VoiceNoteButton — via FFI engine
 /// seam` group: fake [AudioServiceNotifier]/[SttServerStateNotifier]/
@@ -20,7 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/features/notes/widgets/note_voice_input_button.dart';
+import 'package:whispaste/widgets/wp_voice_input_button.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
@@ -82,15 +82,20 @@ class _FakeSttServerStateNotifier extends SttServerStateNotifier {
     this.notReady = false,
     this.ensureRunningHangs = false,
     this.transcribeHangs = false,
+    this.transcribeGate,
   });
 
   final String transcript;
   final bool notReady;
 
-  /// Never completes — lets [NoteVoiceInputButton.ensureRunningTimeout] fire.
+  /// Held open by the caller to park transcription at a chosen point — lets a
+  /// test unmount the button while the transcript is still in flight.
+  final Completer<void>? transcribeGate;
+
+  /// Never completes — lets [WpVoiceInputButton.ensureRunningTimeout] fire.
   final bool ensureRunningHangs;
 
-  /// Never completes — lets [NoteVoiceInputButton.transcribeTimeout] fire.
+  /// Never completes — lets [WpVoiceInputButton.transcribeTimeout] fire.
   final bool transcribeHangs;
 
   bool ensureRunningCalled = false;
@@ -111,6 +116,7 @@ class _FakeSttServerStateNotifier extends SttServerStateNotifier {
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     transcribeCalled = true;
     if (transcribeHangs) await Completer<void>().future;
+    if (transcribeGate != null) await transcribeGate!.future;
     return transcript;
   }
 }
@@ -123,7 +129,7 @@ Widget _makeTestableButton({
   required ValueChanged<String> onTranscript,
 }) {
   return makeTestable(
-    NoteVoiceInputButton(isDark: true, onTranscript: onTranscript),
+    WpVoiceInputButton(isDark: true, onTranscript: onTranscript),
     overrides: [
       audioServiceProvider.overrideWith(() => fakeAudio),
       localSttBundleProvider.overrideWith(() => fakeStt),
@@ -301,15 +307,66 @@ void main() {
   });
 
   testWidgets(
+    'a transcript that lands after the button is gone is dropped, not handed '
+    'into a dead tree',
+    (tester) async {
+      // Transcription may run for up to transcribeTimeout (45 s in
+      // production), and the surface around the button can vanish meanwhile:
+      // the detail panel closes, the entry is deleted, another item is
+      // selected. Both sinks grab `context`/`ref` the moment they are called,
+      // so the hand-off has to be skipped rather than attempted.
+      final audio = _FakeAudioServiceNotifier()..wavPathToReturn = wavPath;
+      final gate = Completer<void>();
+      final stt = _FakeSttServerStateNotifier(transcribeGate: gate);
+      var handOffs = 0;
+
+      await tester.pumpWidget(
+        _makeTestableButton(
+          fakeAudio: audio,
+          fakeStt: stt,
+          onTranscript: (_) => handOffs++,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.mic));
+      await tester.pump();
+
+      // Stop + transcribe, parked on the gate. `pumpWidget` is not allowed
+      // inside `runAsync`, hence the two separate real-async windows.
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(LucideIcons.square));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      expect(stt.transcribeCalled, isTrue);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      await tester.runAsync(() async {
+        gate.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pump();
+
+      expect(handOffs, 0);
+      // The pipeline still finishes its own housekeeping — an unmount must not
+      // leave the temp WAV behind.
+      expect(audio.cleanedUpPath, wavPath);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'ensureRunning() stuck beyond its timeout ends in a clean idle error '
     'state, not a hang',
     (tester) async {
-      final originalTimeout = NoteVoiceInputButton.ensureRunningTimeout;
-      NoteVoiceInputButton.ensureRunningTimeout = const Duration(
+      final originalTimeout = WpVoiceInputButton.ensureRunningTimeout;
+      WpVoiceInputButton.ensureRunningTimeout = const Duration(
         milliseconds: 100,
       );
       addTearDown(
-        () => NoteVoiceInputButton.ensureRunningTimeout = originalTimeout,
+        () => WpVoiceInputButton.ensureRunningTimeout = originalTimeout,
       );
 
       final audio = _FakeAudioServiceNotifier()..wavPathToReturn = wavPath;
@@ -342,13 +399,9 @@ void main() {
     'transcribeBytes() stuck beyond its timeout ends in a clean idle error '
     'state, not a hang',
     (tester) async {
-      final originalTimeout = NoteVoiceInputButton.transcribeTimeout;
-      NoteVoiceInputButton.transcribeTimeout = const Duration(
-        milliseconds: 100,
-      );
-      addTearDown(
-        () => NoteVoiceInputButton.transcribeTimeout = originalTimeout,
-      );
+      final originalTimeout = WpVoiceInputButton.transcribeTimeout;
+      WpVoiceInputButton.transcribeTimeout = const Duration(milliseconds: 100);
+      addTearDown(() => WpVoiceInputButton.transcribeTimeout = originalTimeout);
 
       final audio = _FakeAudioServiceNotifier()..wavPathToReturn = wavPath;
       final stt = _FakeSttServerStateNotifier(transcribeHangs: true);

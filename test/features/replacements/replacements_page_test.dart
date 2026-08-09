@@ -89,8 +89,30 @@ void main() {
       // Field labels
       expect(find.text(l10n.replacementsTriggerLabel), findsOneWidget);
       expect(find.text(l10n.replacementsReplacementLabel), findsOneWidget);
-      // Hint text in dialog body
+      // Hint text in dialog body — now supplied by WpFormDialogShell
       expect(find.text(l10n.replacementsDialogHint), findsOneWidget);
+    });
+
+    testWidgets('the dialog stays whole at a 2x system text size', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'the dialog body scrolls instead of overflowing',
+      );
     });
 
     testWidgets('save button is disabled while both fields are empty', (
@@ -232,6 +254,35 @@ void main() {
 
       expect(find.text(l10n.replacementsNoMatches), findsOneWidget);
     });
+
+    for (final brightness in Brightness.values) {
+      testWidgets('the no-results empty state clears the search on '
+          '${brightness.name}', (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            locale: const Locale('en'),
+            brightness: brightness,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).first, 'zzzznonexistent');
+        await tester.pumpAndSettle();
+
+        // The shared no-matches state offers the same action as Verlauf and
+        // Notizen, worded through the generic l10n key.
+        expect(find.text(l10n.actionClearSearch), findsOneWidget);
+
+        await tester.tap(find.text(l10n.actionClearSearch));
+        await tester.pumpAndSettle();
+
+        // Both the query and the field's text are back to empty.
+        expect(find.text(l10n.replacementsNoMatches), findsNothing);
+        expect(find.text('zzzznonexistent'), findsNothing);
+        expect(find.text('mfg'), findsOneWidget);
+      });
+    }
 
     // -------------------------------------------------------------------------
     // 5. Enable / disable toggle
