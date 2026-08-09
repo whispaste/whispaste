@@ -16,6 +16,7 @@ import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_filter_chip.dart';
 import '../../core/data/analytics_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -469,7 +470,6 @@ class _HeroPillState extends State<_HeroPill>
     with SingleTickerProviderStateMixin {
   late final AnimationController _counter;
   late final CurvedAnimation _curve;
-  bool _hovered = false;
   bool _started = false;
 
   @override
@@ -515,22 +515,20 @@ class _HeroPillState extends State<_HeroPill>
         ? WpColorsDark.borderSubtle
         : WpColorsLight.borderSubtle;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: WpMotion.durationFor(
-          context,
-          _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-        ),
+    // One stat, one node. The number and its caption were two unrelated
+    // fragments in the semantics tree, so the value arrived without ever
+    // saying what it counted ("1.234" … "Wörter").
+    //
+    // The hover highlight is gone: everywhere else in this app a surface that
+    // lights up under the pointer is a surface you can click, and this pill
+    // has never been tappable. It promised an interaction that does not exist.
+    return MergeSemantics(
+      child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.md,
           vertical: WpSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: _hovered
-              ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
-              : Colors.transparent,
           borderRadius: WpRadius.borderMd,
           border: Border.all(color: borderColor),
         ),
@@ -557,18 +555,25 @@ class _HeroPillState extends State<_HeroPill>
               ],
             ),
             const SizedBox(height: WpSpacing.sm),
-            // Animated number
-            AnimatedBuilder(
-              animation: _curve,
-              builder: (context, _) {
-                final current = (widget.rawValue * _curve.value).round();
-                return Text(
-                  widget.formatter(current),
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                );
-              },
+            // Animated number — counts up, but only for the eye. The node
+            // states the final value from the first frame; announcing every
+            // intermediate step would have a screen reader read the same
+            // statistic dozens of times on its way to the real one.
+            Semantics(
+              label: widget.formatter(widget.rawValue),
+              excludeSemantics: true,
+              child: AnimatedBuilder(
+                animation: _curve,
+                builder: (context, _) {
+                  final current = (widget.rawValue * _curve.value).round();
+                  return Text(
+                    widget.formatter(current),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 2),
             // Label
@@ -957,12 +962,20 @@ class _DurationBar extends StatelessWidget {
         : WpColorsLight.textPrimary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
+    // The two text columns are fixed-width on purpose — that is what keeps
+    // the bars starting and ending on one line down the whole panel. But a
+    // width in raw pixels stops being enough the moment the system font grows:
+    // at an accessibility text size "1-3 Min" wrapped inside its 52 px box
+    // while the bar next to it stayed put. Scaling the box with the text keeps
+    // the column *and* the legibility.
+    final textScaler = MediaQuery.textScalerOf(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: WpSpacing.xs),
       child: Row(
         children: [
           SizedBox(
-            width: 52,
+            width: textScaler.scale(52),
             child: Text(
               bucket.label,
               style: TextStyle(
@@ -996,7 +1009,7 @@ class _DurationBar extends StatelessWidget {
           ),
           const SizedBox(width: WpSpacing.xs),
           SizedBox(
-            width: 32,
+            width: textScaler.scale(32),
             child: Text(
               '${bucket.count}',
               style: TextStyle(
@@ -1135,13 +1148,6 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final borderDefault = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
     final periods = [
       l10n.analyticsPeriod7d,
       l10n.analyticsPeriod30d,
@@ -1154,41 +1160,32 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
 
     return Row(
       children: [
-        // Period chips
+        // Period chips — WpFilterChip, the app's one selectable chip.
+        //
+        // These were a fourth independent reimplementation of it, and the
+        // worst-off: bare GestureDetectors with no Semantics at all, so the
+        // control that decides what the whole page shows was invisible to a
+        // screen reader, unreachable by keyboard, and never announced which
+        // period was selected. WpFilterChip brings the focus ring, `selected:`
+        // and a 44 dp tap target with it, and History/Notes already read this
+        // way, so the same widget now answers the same question everywhere.
+        //
+        // Visible change, accepted: resting chips gain WpFilterChip's
+        // surfaceVariant fill instead of an outline, and the row grows to the
+        // minimum touch target. Keeping the old outline would have meant
+        // parameterising the shared chip for this one caller.
         Expanded(
           child: Wrap(
             spacing: WpSpacing.xs,
             runSpacing: WpSpacing.xs,
             children: List.generate(periods.length, (i) {
-              final selected = i == selectedIndex;
-              return GestureDetector(
+              return WpFilterChip(
+                label: periods[i],
+                isActive: i == selectedIndex,
+                isDark: isDark,
                 onTap: () => ref
                     .read(analyticsPeriodProvider.notifier)
                     .setPeriod(AnalyticsPeriod.values[i]),
-                child: AnimatedContainer(
-                  duration: WpMotion.durationFor(context, WpMotion.normal),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.sm,
-                    vertical: WpSpacing.xxs + 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected ? accent.withAlpha(25) : Colors.transparent,
-                    borderRadius: WpRadius.borderFull,
-                    border: Border.all(
-                      color: selected ? accent : borderDefault,
-                    ),
-                  ),
-                  child: Text(
-                    periods[i],
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      fontWeight: selected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                      color: selected ? accent : textSecondary,
-                    ),
-                  ),
-                ),
               );
             }),
           ),

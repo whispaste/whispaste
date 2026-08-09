@@ -10,9 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
+import 'package:whispaste/widgets/empty_state.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
+import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
@@ -43,12 +45,42 @@ final _pages = <MapEntry<String, Widget>>[
   const MapEntry('Feedback', FeedbackPage()),
 ];
 
+/// Analytics with something to draw: long model names and five-digit counts,
+/// so the page's fixed-width text boxes are actually under pressure. The
+/// empty-state path exercises none of them.
+const _populatedAnalytics = AnalyticsData(
+  totalRecordings: 12345,
+  totalDurationMinutes: 9876,
+  totalWords: 1234567,
+  timeSavedMinutes: 4321,
+  weeklyActivity: [3, 12, 7, 19, 4, 0, 9],
+  modelUsage: [
+    AnalyticsModelUsage(
+      model: 'whisper-large-v3-turbo',
+      count: 8888,
+      fraction: 0.72,
+    ),
+    AnalyticsModelUsage(
+      model: 'parakeet-tdt-0.6b-v2',
+      count: 3457,
+      fraction: 0.28,
+    ),
+  ],
+  durationBuckets: [1234, 5678, 910, 1112, 1314],
+  localSavingsUsd: 123.45,
+  cloudCostUsd: 67.89,
+  averageHotkeyLatencyMs: 1234,
+);
+
 /// Wraps page in the real theme + ProviderScope at a given size.
 Widget _testShell(
   Widget page,
   Size size, {
   Brightness brightness = Brightness.dark,
   double textScale = 1.0,
+  // Untyped for the same reason `test_helpers.dart` does it: this Riverpod
+  // version does not export the `Override` type name.
+  List extraOverrides = const [],
 }) {
   final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
   return ProviderScope(
@@ -66,6 +98,7 @@ Widget _testShell(
         (ref) async =>
             const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
       ),
+      ...extraOverrides,
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -136,13 +169,21 @@ void main() {
     });
   }
 
-  // Extra: the two pages whose frame this ticket unified (About moved to
+  // Extra: the pages whose frame ticket 07 unified (About moved to
   // WpSection's 16px headline, Settings to WpPageShell) — checked in both
   // themes at an accessibility text size, where a grown section head is
   // most likely to push a row over the edge.
+  //
+  // Analytics joins them: it is the page with the most hard-coded text boxes
+  // in the app (the duration bars pin their label and count to fixed widths),
+  // which is exactly the shape that survives every window size and still
+  // clips the moment the system font grows. It needs seeded data to say
+  // anything at all — with an empty database it renders the empty state and
+  // none of those boxes exist, so the size sweep above never sees them.
   for (final page in const <MapEntry<String, Widget>>[
     MapEntry('About', AboutPage()),
     MapEntry('Settings', SettingsPage()),
+    MapEntry('Analytics', AnalyticsPage()),
   ]) {
     for (final brightness in Brightness.values) {
       testWidgets('${page.key} at textScaler 1.5, ${brightness.name}', (
@@ -166,9 +207,30 @@ void main() {
         addTearDown(() => FlutterError.onError = originalHandler);
 
         await tester.pumpWidget(
-          _testShell(page.value, size, brightness: brightness, textScale: 1.5),
+          _testShell(
+            page.value,
+            size,
+            brightness: brightness,
+            textScale: 1.5,
+            extraOverrides: [
+              analyticsProvider.overrideWith(
+                (ref) async => _populatedAnalytics,
+              ),
+            ],
+          ),
         );
         await tester.pumpAndSettle();
+
+        // Guard against a hollow pass: if the override ever stops taking, the
+        // page falls back to its empty state and this case silently stops
+        // testing the fixed-width boxes it exists for.
+        if (page.key == 'Analytics') {
+          expect(
+            find.byType(WpEmptyState),
+            findsNothing,
+            reason: 'Analytics must render seeded data, not the empty state',
+          );
+        }
 
         expect(
           overflows,
