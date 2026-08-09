@@ -227,12 +227,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // A substring match, not exact equality: [WpSearchField] merges this
-      // label onto the same node as its own hint-derived text (see its
-      // library docs), so the accessible name carries both — the identifying
-      // label plus the hint — rather than the label alone.
+      // `settingsSearchFieldLabel` ("Search settings") is `settingsSearchHint`
+      // ("Search settings…") minus its trailing ellipsis — [WpSearchField]
+      // recognizes that as the same wording and skips stacking a second,
+      // redundant `Semantics(label:)` on top of the field's own hint-derived
+      // one (see its library docs), so the accessible name announced is the
+      // hint itself, exactly once.
       expect(
-        find.bySemanticsLabel(RegExp(RegExp.escape(l10n.settingsSearchFieldLabel))),
+        find.bySemanticsLabel(l10n.settingsSearchHint),
         findsWidgets,
         reason: 'Search field must expose its accessible label',
       );

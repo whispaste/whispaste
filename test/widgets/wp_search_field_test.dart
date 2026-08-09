@@ -410,8 +410,9 @@ void main() {
   // -------------------------------------------------------------------------
   group('AC9 — semanticsLabel', () {
     testWidgets(
-      'lands on the same node as the field\'s own actions and state — not '
-      'on a separate, unfocusable ancestor node',
+      'a label that genuinely differs from the hint lands on the same node '
+      'as the field\'s own actions and state — not on a separate, '
+      'unfocusable ancestor node',
       (tester) async {
         final controller = TextEditingController();
         addTearDown(controller.dispose);
@@ -427,11 +428,50 @@ void main() {
         // above the field's own — that node carries no actions/isFocusable,
         // so a reader would land on it first and never reach an announced,
         // operable field. Asserting label and interaction flags together on
-        // the *same* node is what pins that regression shut.
+        // the *same* node is what pins that regression shut. 'Suche Notizen'
+        // says something the hint ('Suchen…') doesn't, so it's kept
+        // alongside it rather than deduplicated away.
         expect(
           tester.getSemantics(find.byType(EditableText)),
           matchesSemantics(
             label: 'Suche Notizen\nSuchen…',
+            isTextField: true,
+            isFocusable: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'a label that only restates the hint (its own wording minus the '
+      'trailing ellipsis — every real call site\'s shape) does not '
+      'announce itself twice',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          makeTestable(
+            _field(controller: controller, semanticsLabel: 'Suchen'),
+          ),
+        );
+
+        // The field's own `hintText` ('Suchen…') already carries the label
+        // on this merged node. Stacking 'Suchen' on top of it would repeat
+        // the same word twice — the exact bug class this whole a11y sweep
+        // exists to prevent — so this axis suppresses the redundant half
+        // while still applying `MergeSemantics`'s boundary.
+        expect(
+          tester.getSemantics(find.byType(EditableText)),
+          matchesSemantics(
+            label: 'Suchen…',
             isTextField: true,
             isFocusable: true,
             hasEnabledState: true,

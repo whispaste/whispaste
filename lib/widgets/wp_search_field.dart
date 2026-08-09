@@ -393,8 +393,23 @@ class _WpSearchFieldState extends State<WpSearchField> {
       // label plus the field's own actions and state — and, per
       // `toStringDeep()`'s "merge boundary", also blocks the upward merge
       // this fix started from.
+      //
+      // The field's own `hintText` already lands on that merged node as its
+      // label — `InputDecoration.hintText` does that on its own once there's
+      // no separate `labelText`. Every current caller passes `semanticsLabel`
+      // as the hint's own wording minus its trailing ellipsis, so stacking a
+      // second `Semantics(label:)` here would announce the same sentence
+      // twice ("Search notes, Search notes…"). Only add an explicit label
+      // when it actually says something the hint doesn't — `MergeSemantics`
+      // alone still gets applied either way, since the boundary is what
+      // stops the upward merge, independent of whether the text differs.
+      final restatesHint =
+          widget.semanticsLabel!.trim() ==
+          widget.hintText.trim().replaceAll(RegExp('…+\$'), '').trim();
       field = MergeSemantics(
-        child: Semantics(label: widget.semanticsLabel!, child: field),
+        child: restatesHint
+            ? field
+            : Semantics(label: widget.semanticsLabel!, child: field),
       );
     }
 
