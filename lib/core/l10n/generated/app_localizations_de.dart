@@ -169,6 +169,9 @@ class L10nDe extends L10n {
   String get historySearchFieldLabel => 'Transkriptionen suchen';
 
   @override
+  String get historyNewRecording => 'Neue Aufnahme';
+
+  @override
   String get historySearchOperatorsHint =>
       'Tipp: Tippe #tag oder lang:xx zum Filtern.';
 

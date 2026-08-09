@@ -54,16 +54,16 @@
 /// text insets — while width is asserted per area against *the room that area
 /// actually has*:
 ///
-/// * No toolbar neighbour (History, Settings): the box spans from its left
-///   inset to the mirror-image right inset, i.e. the whole content column.
-///   Asserted against the measured surface rather than against a padding
-///   token, so it holds for `WpPageShell`'s header slot and a hand-rolled
-///   `Padding` bar alike.
-/// * A toolbar neighbour (Notes, Replacements/Snippets): the box runs up to
-///   exactly `WpSpacing.sm` short of that button. Not "narrower than X" —
-///   how much the button takes is a function of its label, which any wording
-///   change moves. What must hold is that nothing *but* the button stops the
-///   field.
+/// * No toolbar neighbour (Settings): the box spans from its left inset to
+///   the mirror-image right inset, i.e. the whole content column. Asserted
+///   against the measured surface rather than against a padding token, so it
+///   holds for `WpPageShell`'s header slot and a hand-rolled `Padding` bar
+///   alike.
+/// * A toolbar neighbour (Notes' "new note", Replacements/Snippets' "Add",
+///   History's "new recording"): the box runs up to exactly `WpSpacing.sm`
+///   short of that button. Not "narrower than X" — how much the button takes
+///   is a function of its label, which any wording change moves. What must
+///   hold is that nothing *but* the button stops the field.
 ///
 /// Both hold at every window size, which is the point: three sizes are probed
 /// (the 800 dp minimum, the 1100 dp default, and a roomy 1800 dp) and a
@@ -73,11 +73,20 @@
 /// ## And what hangs under the field
 ///
 /// History's operator hint and suggestion panel and Settings' suggestion
-/// dropdown belong to the field, not to the content column, so they have to
-/// end exactly where the field ends. That rule survived the cap that used to
-/// express it (`maxWidth`), so it is asserted here directly — right edge
-/// against right edge, at the same three window widths — rather than through
-/// whatever constant the call sites happen to share.
+/// dropdown used to repeat the field's `maxWidth` so they'd end where it ends.
+/// With the cap gone they answer to their row instead, which is asserted here
+/// directly — measured edge against measured edge, at the same three window
+/// widths — rather than through a shared constant:
+///
+/// * Settings has no button in its row, so field and row end together and the
+///   dropdown ends there too.
+/// * History has one, and its two siblings span the whole bar: they start at
+///   the field's left edge and end flush with the button's right edge. The
+///   alternative — nesting them in the field's own `Expanded` — aligns them
+///   with the field but puts the suggestion panel's `AnimatedSize` inside a
+///   flex child, where it is laid out twice in a frame and restarts its
+///   animation from inside its own `performLayout`. That is a hard Flutter
+///   assert, and the store screenshot goldens catch it.
 library;
 
 import 'package:flutter/material.dart';
@@ -329,10 +338,11 @@ double _contentWidth(double windowWidth) => windowWidth - WpLayout.sidebarWidth;
 const _windows = [800.0, 1100.0, 1800.0];
 
 /// Nothing shares their toolbar row, so the whole content column is theirs.
-const _neighbourless = ['settings', 'history'];
+const _neighbourless = ['settings'];
 
-/// An Add / "new note" button sits at the end of their row.
-const _withNeighbour = ['notes', 'replacements/snippets'];
+/// A primary button sits at the end of their row — "new note" on Notes, "Add"
+/// on Replacements/Snippets, "new recording" on History.
+const _withNeighbour = ['notes', 'replacements/snippets', 'history'];
 
 void main() {
   for (final scale in const [1.0, 1.5]) {
@@ -558,13 +568,22 @@ void main() {
       await tester.pumpAndSettle();
 
       var box = _rect(tester, _fieldBox());
+      // History is the one area whose search row has a button in it, so its
+      // two siblings answer to the *row*: they start at the field's left edge
+      // and end flush with the button's right edge, spanning the whole bar.
+      // (Nesting them inside the field's `Expanded` to align them with the
+      // field alone is what the production comment there rules out: it puts
+      // the panel's AnimatedSize inside a flex child, where it re-lays out
+      // itself mid-layout.) Asserted against the button's measured edge, so a
+      // sibling that stops short *or* overflows the bar both turn this red.
+      final historyRowEnd = _rect(tester, find.byType(WpButton).first).right;
       final hint = _rect(tester, find.byType(WpDiscoverabilityHint));
       expect(
         hint.right,
-        closeTo(box.right, 0.01),
+        closeTo(historyRowEnd, 0.01),
         reason:
-            "History's operator hint must end where the field ends, not "
-            'where the content column does, in a $w dp window',
+            "History's operator hint must span the search bar and end flush "
+            'with the button beside the field, in a $w dp window',
       );
       expect(hint.left, closeTo(box.left, 0.01));
 
@@ -590,11 +609,11 @@ void main() {
       );
       expect(
         historyPanel.right,
-        closeTo(box.right, 0.01),
+        closeTo(historyRowEnd, 0.01),
         reason:
-            "History's suggestion panel must end where the field ends in a "
-            '$w dp window — its `minWidth: double.infinity` has to reach the '
-            'same edge the field reaches',
+            "History's suggestion panel must reach the end of the search bar "
+            'in a $w dp window — its `minWidth: double.infinity` has to be '
+            "clamped to the bar's width, not to something narrower",
       );
       expect(historyPanel.left, closeTo(box.left, 0.01));
 

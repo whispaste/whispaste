@@ -169,6 +169,9 @@ class L10nEn extends L10n {
   String get historySearchFieldLabel => 'Search transcriptions';
 
   @override
+  String get historyNewRecording => 'New recording';
+
+  @override
   String get historySearchOperatorsHint =>
       'Tip: type #tag or lang:xx to filter as you search.';
 

@@ -405,6 +405,12 @@ abstract class L10n {
   /// **'Search transcriptions'**
   String get historySearchFieldLabel;
 
+  /// Label of the primary button beside the History search field. Starts the same recording the systemwide hotkey starts; worded like the items the page calls recordings, not like the transcription the search field mentions.
+  ///
+  /// In en, this message translates to:
+  /// **'New recording'**
+  String get historyNewRecording;
+
   /// One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery.
   ///
   /// In en, this message translates to:

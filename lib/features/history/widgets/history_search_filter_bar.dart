@@ -9,7 +9,9 @@ import '../../../core/config/settings_labels.dart';
 import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/recording/recording_state.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
 import '../../../widgets/wp_filter_chip.dart';
@@ -697,21 +699,43 @@ class _HistorySearchFilterBarState
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Search field ─────────────────────────────────────────────────
-          WpSearchField(
-            controller: widget.controller,
-            focusNode: widget.searchFocusNode,
-            hintText: l10n.historySearchTranscriptions,
-            variant: WpSearchFieldVariant.outlined,
-            onClear: _clearSuggestions,
-            suffix: _SearchHelpButton(isDark: widget.isDark),
-            semanticsLabel: l10n.historySearchFieldLabel,
+          // ── Search field + "new recording" button ────────────────────────
+          //
+          // Same row shape as Notes and Replacements/Snippets: the field takes
+          // everything the row has and stops one `WpSpacing.sm` short of the
+          // primary button. Both boxes are 48 dp — the field's icon-slot
+          // floor, the button's Material tap target — so the row's default
+          // centring lands them on exactly the same two edges.
+          Row(
+            children: [
+              Expanded(
+                child: WpSearchField(
+                  controller: widget.controller,
+                  focusNode: widget.searchFocusNode,
+                  hintText: l10n.historySearchTranscriptions,
+                  variant: WpSearchFieldVariant.outlined,
+                  onClear: _clearSuggestions,
+                  suffix: _SearchHelpButton(isDark: widget.isDark),
+                  semanticsLabel: l10n.historySearchFieldLabel,
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              const _NewRecordingButton(),
+            ],
           ),
 
+          // What follows spans the whole bar rather than stopping at the
+          // field's right edge, and that is a decision rather than an
+          // oversight. Nesting them inside the `Expanded` above would align
+          // them with the field, but it also puts the suggestion panel's
+          // [AnimatedSize] inside a flex child, where it gets laid out twice
+          // in one frame and restarts its animation from inside its own
+          // `performLayout` — a hard Flutter assert, caught by the store
+          // screenshot goldens. Full-bar width is the honest alternative: the
+          // hint and the panel belong to the search *area*, they end flush
+          // with the button, and nothing about them has to know how wide that
+          // button's label made it.
           if (rawQuery.isEmpty)
-            // The hint explains what to type *into the field*, so it ends
-            // where the field ends — which is now the end of the content
-            // column, since the field takes the full width it is offered.
             SizedBox(
               width: double.infinity,
               child: WpDiscoverabilityHint(
@@ -736,10 +760,9 @@ class _HistorySearchFilterBarState
                       borderRadius: WpRadius.borderSm,
                       border: Border.all(color: borderCol),
                     ),
-                    // Width tied to the field above it, which now takes the
-                    // full column — `minWidth` rather than a wrapper, so the
-                    // 240 dp height cap survives (`enforce()` clamps the
-                    // infinite minimum down to the parent's own maximum).
+                    // `minWidth` rather than a wrapper, so the 240 dp height
+                    // cap survives (`enforce()` clamps the infinite minimum
+                    // down to the parent's own maximum).
                     constraints: const BoxConstraints(
                       maxHeight: 240,
                       minWidth: double.infinity,
@@ -1514,6 +1537,58 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "New recording" — the page's primary action
+// ---------------------------------------------------------------------------
+
+/// The button beside the search field, mirroring Notes' "New note" and the
+/// Replacements/Snippets "Add": every list screen offers the one thing that
+/// puts an item *into* that list, in the same place.
+///
+/// It is deliberately a second trigger for the existing pipeline rather than a
+/// recording path of its own — [RecordingOrchestrator.toggleRecording] is the
+/// exact method the systemwide hotkey handler calls (the onboarding test
+/// recording routes through it for the same reason). Everything downstream
+/// therefore behaves identically to a hotkey start, including the case where
+/// WhisPaste itself holds the focus and there is nothing to paste into: the
+/// orchestrator leaves the text in the clipboard and says so. The History
+/// entry is written either way.
+///
+/// Because `toggleRecording` *toggles*, an enabled button during a running
+/// recording would let a click here stop a recording someone started from a
+/// completely different window. So the button only acts while the pipeline is
+/// idle: it spins while the transcription finishes and is otherwise disabled
+/// with the running phase as its explanation.
+class _NewRecordingButton extends ConsumerWidget {
+  const _NewRecordingButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final phase = ref.watch(recordingPhaseProvider);
+    final isRecording = phase == RecordingPhase.recording;
+    final isTranscribing = phase == RecordingPhase.transcribing;
+    final isIdle = phase == RecordingPhase.idle;
+
+    return WpButton(
+      label: l10n.historyNewRecording,
+      variant: WpButtonVariant.primary,
+      icon: LucideIcons.mic,
+      isLoading: isTranscribing,
+      disabledTooltip: isRecording
+          ? l10n.statusRecording
+          : isTranscribing
+          ? l10n.statusTranscribing
+          : null,
+      onPressed: isIdle
+          ? () => ref
+                .read(recordingOrchestratorProvider.notifier)
+                .toggleRecording()
+          : null,
     );
   }
 }
