@@ -2643,6 +2643,23 @@ class L10nEn extends L10n {
   String get onboardingReviewAction => 'Open';
 
   @override
+  String get onboardingRevisionNoticeTitle =>
+      'WhisPaste was updated — your settings are unchanged.';
+
+  @override
+  String get onboardingRevisionExit => 'Leave introduction';
+
+  @override
+  String get onboardingRevisionExitConfirmTitle => 'Leave the introduction?';
+
+  @override
+  String get onboardingRevisionExitConfirmBody =>
+      'This update walkthrough is shown only once, so the steps you skip now won\'t be set up for you. You can reopen the same steps any time under Settings → Introduction, and every setting they cover also has its own place in Settings. What you already configured stays untouched.';
+
+  @override
+  String get onboardingRevisionExitConfirmAction => 'Leave';
+
+  @override
   String get overlayRecording => 'Recording';
 
   @override

@@ -885,6 +885,12 @@
   "onboardingReviewSubtitle": "אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.",
   "onboardingReviewLabel": "צפייה חוזרת במבוא",
   "onboardingReviewAction": "פתיחה",
+
+  "onboardingRevisionNoticeTitle": "יש עדכון ל-WhisPaste — ההגדרות שלכם נשארות כפי שהן.",
+  "onboardingRevisionExit": "יציאה מהמבוא",
+  "onboardingRevisionExitConfirmTitle": "לצאת מהמבוא?",
+  "onboardingRevisionExitConfirmBody": "מסלול העדכון מוצג פעם אחת בלבד, ולכן מה שתדלגו עליו עכשיו לא יוגדר עבורכם. אפשר לפתוח את אותם שלבים בכל עת דרך ״הגדרות״ ואז ״מבוא״, וכל הגדרה שמופיעה בהם קיימת גם בעמוד ההגדרות עצמו. מה שכבר הגדרתם נשאר כפי שהוא.",
+  "onboardingRevisionExitConfirmAction": "יציאה",
   "overlayRecording": "מקליט",
   "overlayTranscribing": "מתמלל…",
   "overlayDone": "הועתק",

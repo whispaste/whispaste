@@ -99,6 +99,43 @@ int targetOnboardingContentVersion(
   return target;
 }
 
+/// The reasons a user on [seenContentVersion] has not been shown yet —
+/// every registry entry that applies to [platform] and is newer than what
+/// this user was last stamped with, localized through [l10n].
+///
+/// Newest first, on purpose: a user who skipped several versions gets the
+/// most recent change first, so the one line the notice strip can afford
+/// (`welcome_step.dart`) always carries the freshest reason rather than the
+/// oldest one. Duplicates are collapsed — two entries may well name the same
+/// change once a revision is re-issued for a second platform.
+///
+/// Pure, and deliberately not a provider: the caller already holds the
+/// registry, the platform and the settings it needs, and a provider would
+/// have to reach for [L10n] (a widget-tree value) to build its result.
+List<String> pendingOnboardingRevisionReasons({
+  required OnboardingRevisionRegistry registry,
+  required OnboardingPlatform platform,
+  required int seenContentVersion,
+  required L10n l10n,
+}) {
+  final pending =
+      registry
+          .where(
+            (entry) =>
+                entry.appliesTo(platform) && entry.version > seenContentVersion,
+          )
+          .toList()
+        ..sort((a, b) => b.version.compareTo(a.version));
+
+  final reasons = <String>[];
+  for (final entry in pending) {
+    final reason = entry.reason(l10n).trim();
+    if (reason.isEmpty || reasons.contains(reason)) continue;
+    reasons.add(reason);
+  }
+  return reasons;
+}
+
 /// Whether a revision run should trigger: onboarding must already be
 /// complete (a first run is never a "revision" — it is the first run), and
 /// the version this user was last stamped with must be strictly below the

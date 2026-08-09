@@ -2667,6 +2667,23 @@ class L10nDe extends L10n {
   String get onboardingReviewAction => 'Öffnen';
 
   @override
+  String get onboardingRevisionNoticeTitle =>
+      'WhisPaste wurde aktualisiert — deine Einstellungen bleiben unverändert.';
+
+  @override
+  String get onboardingRevisionExit => 'Einführung verlassen';
+
+  @override
+  String get onboardingRevisionExitConfirmTitle => 'Einführung verlassen?';
+
+  @override
+  String get onboardingRevisionExitConfirmBody =>
+      'Diesen Update-Durchgang gibt es nur einmal — was du jetzt überspringst, wird nicht für dich eingerichtet. Du kannst dieselben Schritte jederzeit unter Einstellungen → Einführung erneut öffnen, und jede Einstellung daraus hat außerdem ihren eigenen Platz in den Einstellungen. Was du bereits eingerichtet hast, bleibt unverändert.';
+
+  @override
+  String get onboardingRevisionExitConfirmAction => 'Verlassen';
+
+  @override
   String get overlayRecording => 'Aufnahme';
 
   @override

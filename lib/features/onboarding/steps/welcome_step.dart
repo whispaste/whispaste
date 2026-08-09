@@ -5,12 +5,18 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/onboarding/onboarding_revision.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import 'onboarding_page_fill.dart';
+
+/// Test key for the update notice strip, shown on page 1 of a revision run
+/// only (`.scratch/onboarding-revisions/issues/04`).
+@visibleForTesting
+const kOnboardingRevisionNoticeKey = Key('onboardingRevisionNotice');
 
 /// Test key for the tappable beat list tile at [index] (0-based).
 @visibleForTesting
@@ -138,13 +144,37 @@ const double kOnboardingBeatMediaHeight = 288;
 /// the user leaves this page). Content only — navigation (Back/Next) is
 /// owned by the onboarding shell, so this widget renders no CTA of its own.
 class WelcomeStep extends ConsumerWidget {
-  const WelcomeStep({super.key});
+  const WelcomeStep({super.key, this.revisionRun = false});
+
+  /// Whether this page is being shown as part of a revision run — an existing
+  /// user pulled back into the flow because the onboarding content changed
+  /// (`.scratch/onboarding-revisions/issues/04`).
+  ///
+  /// Passed in by the shell rather than read from
+  /// `onboardingRevisionRunProvider`: that provider tracks whether *this
+  /// process* started a run, while `OnboardingOverlay.revisionRun` is what
+  /// actually decides which mode is on screen (a review, the first run, a
+  /// revision). Deriving the notice from the shell's own answer is what keeps
+  /// the two from ever disagreeing.
+  final bool revisionRun;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
+
+    // Only a revision run reads the registry at all — in a first run this
+    // stays empty and nothing below it renders, so page 1 is byte-for-byte
+    // the page it has always been.
+    final revisionReasons = revisionRun
+        ? pendingOnboardingRevisionReasons(
+            registry: ref.watch(onboardingRevisionRegistryProvider),
+            platform: currentOnboardingPlatform(),
+            seenContentVersion: settings.onboarding.onboardingContentVersion,
+            l10n: l10n,
+          )
+        : const <String>[];
 
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
@@ -171,6 +201,15 @@ class WelcomeStep extends ConsumerWidget {
       // used to float — the whole page was centred as one unit — which made
       // the logo's height depend on how tall the showcase happened to be and
       // put it visibly below page 2's title.
+      //
+      // In a revision run the claim line is replaced by the update notice
+      // rather than joined by it: the returning user does not need the
+      // product promise a second time, and page 1 has exactly 22 px of slack
+      // at the fixed window (see [kOnboardingBeatMediaHeight]) — the claim's
+      // own height is what pays for the strip. Swapping instead of stacking
+      // also keeps the wordmark on the same line it sits on in every other
+      // mode.
+      headerGap: revisionRun ? WpSpacing.sm : kOnboardingHeaderGap,
       header: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -184,17 +223,25 @@ class WelcomeStep extends ConsumerWidget {
             // picks on a Retina display and visibly soften the logo — that
             // needs a larger source export, not a larger `height`.
             const WpBrandWordmark(height: 64),
-            const SizedBox(height: WpSpacing.sm),
-            Text(
-              l10n.onboardingWelcome,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: WpTypography.heading,
-                fontWeight: FontWeight.w500,
-                color: textSecondary,
-                height: 1.3,
+            // 4 px tighter under the notice strip than under the claim line:
+            // a bordered surface reads further away from the lockup than a
+            // line of text does at the same number, and those 4 px are what
+            // put the revision variant back on the first run's exact slack
+            // at the fixed window (23 px at normal size, 8 px at 1.15).
+            SizedBox(height: revisionRun ? WpSpacing.xs : WpSpacing.sm),
+            if (revisionRun)
+              _RevisionNotice(reasons: revisionReasons)
+            else
+              Text(
+                l10n.onboardingWelcome,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: WpTypography.heading,
+                  fontWeight: FontWeight.w500,
+                  color: textSecondary,
+                  height: 1.3,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -211,7 +258,12 @@ class WelcomeStep extends ConsumerWidget {
           // beat on the other. Captions are rendered by Flutter (l10n,
           // incl. RTL) — never baked into the artwork.
           const _BeatShowcase(),
-          const SizedBox(height: WpSpacing.xl),
+          // Tightened by 8 px in a revision run — the notice strip above is
+          // paid for from three places at once (the dropped claim, the
+          // tighter header gap, this one), because none of them alone covers
+          // it at an enlarged text scale. Measured, see the revision group in
+          // `onboarding_overlay_test.dart`.
+          SizedBox(height: revisionRun ? WpSpacing.md : WpSpacing.xl),
 
           // Language selector — items derived from L10n.supportedLocales
           // so adding a new language is an ARB-only change. Rendered as a
@@ -225,6 +277,131 @@ class WelcomeStep extends ConsumerWidget {
               child: WpLanguageSelector(
                 currentLocale: settings.locale,
                 onChanged: selectLocale,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Update notice — revision run only.
+// =============================================================================
+
+/// Separator between the reasons of several skipped versions.
+///
+/// Punctuation, not prose, and therefore not localized: a middle dot carries
+/// the same "these are separate items" meaning in every script this app
+/// ships, and it reads correctly under RTL because the bidi algorithm treats
+/// it as neutral between two runs of the same direction.
+const String _kRevisionReasonSeparator = '  ·  ';
+
+/// The strip that tells a returning user why the flow reopened.
+///
+/// Accent palette and badge shape are lifted from
+/// `WpPasteCapabilityRestartBanner` on purpose: nothing here went wrong —
+/// an update landed and the app is telling the user about it. Error/warning
+/// colours would turn a piece of good news into an alarm.
+///
+/// Two deliberate deviations from that banner, both bought by page 1's 22 px
+/// of slack at the fixed 1100×720 window:
+///
+///  * **One paragraph instead of title + body.** The reassurance ("your
+///    settings are unchanged") is the bold lead-in, the registry reasons run
+///    on in secondary colour. That keeps the strip two lines tall *whatever*
+///    the registry contains — the acceptance criterion "names the reasons of
+///    every skipped version without becoming cluttered" is met by a bounded
+///    box, not by hoping the reasons stay short.
+///  * **[WpSpacing.xs] padding instead of [WpSpacing.md].** The 32-px badge
+///    already sets the strip's height floor; the extra 16 px would have been
+///    pure air the page cannot afford.
+///
+/// Truncation, when it happens, drops the *oldest* reason first
+/// ([pendingOnboardingRevisionReasons] sorts newest first) — and the full
+/// string still reaches assistive technology, because [Text]'s semantics
+/// label is the complete text regardless of [TextOverflow.ellipsis].
+class _RevisionNotice extends StatelessWidget {
+  const _RevisionNotice({required this.reasons});
+
+  /// Newest first; empty is legal (a registry override with no entry for this
+  /// platform), and then the strip is the reassurance alone.
+  final List<String> reasons;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final fill = isDark
+        ? WpColorsDark.accentButtonFill
+        : WpColorsLight.accentButtonFill;
+    final border = isDark
+        ? WpColorsDark.accentBorder20
+        : WpColorsLight.accentBorder20;
+    final badgeFill = isDark
+        ? WpColorsDark.accentChipFill
+        : WpColorsLight.accentChipFill;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+
+    return Container(
+      key: kOnboardingRevisionNoticeKey,
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.xs),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: WpIconSize.xl,
+            height: WpIconSize.xl,
+            decoration: BoxDecoration(
+              color: badgeFill,
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Center(
+              child: Icon(
+                LucideIcons.sparkles,
+                size: WpIconSize.sm,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: l10n.onboardingRevisionNoticeTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                  if (reasons.isNotEmpty)
+                    TextSpan(
+                      text: ' ${reasons.join(_kRevisionReasonSeparator)}',
+                    ),
+                ],
+              ),
+              textAlign: TextAlign.start,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textSecondary,
+                height: 1.4,
               ),
             ),
           ),

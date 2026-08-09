@@ -2601,6 +2601,23 @@ class L10nHe extends L10n {
   String get onboardingReviewAction => 'פתיחה';
 
   @override
+  String get onboardingRevisionNoticeTitle =>
+      'יש עדכון ל-WhisPaste — ההגדרות שלכם נשארות כפי שהן.';
+
+  @override
+  String get onboardingRevisionExit => 'יציאה מהמבוא';
+
+  @override
+  String get onboardingRevisionExitConfirmTitle => 'לצאת מהמבוא?';
+
+  @override
+  String get onboardingRevisionExitConfirmBody =>
+      'מסלול העדכון מוצג פעם אחת בלבד, ולכן מה שתדלגו עליו עכשיו לא יוגדר עבורכם. אפשר לפתוח את אותם שלבים בכל עת דרך ״הגדרות״ ואז ״מבוא״, וכל הגדרה שמופיעה בהם קיימת גם בעמוד ההגדרות עצמו. מה שכבר הגדרתם נשאר כפי שהוא.';
+
+  @override
+  String get onboardingRevisionExitConfirmAction => 'יציאה';
+
+  @override
   String get overlayRecording => 'מקליט';
 
   @override

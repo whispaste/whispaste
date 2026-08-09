@@ -18,6 +18,7 @@ import '../../services/hotkey_service.dart';
 import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
+import '../../widgets/dialog.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_hero_button.dart';
 import 'onboarding_completion_gate.dart';
@@ -47,6 +48,15 @@ const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
 /// by key rather than by icon.
 @visibleForTesting
 const kOnboardingReviewExitButtonKey = Key('onboardingTopBarCloseButton');
+
+/// The revision run's named exit. Deliberately **not** in the navigation row:
+/// it is not a third navigation action and not a per-step "skip" — it leaves
+/// the whole flow, exactly like reaching the last step does
+/// (`.scratch/onboarding-revisions/issues/04`). Living in the top bar is what
+/// makes "every page has exactly two navigation actions" stay true by
+/// construction rather than by a conditional.
+@visibleForTesting
+const kOnboardingRevisionExitButtonKey = Key('onboardingRevisionExitButton');
 
 /// Height of the onboarding top bar's control row, and the hit target of the
 /// close button that sits in it on the platforms that render one.
@@ -516,6 +526,34 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     ref.read(onboardingManuallyOpenProvider.notifier).close();
   }
 
+  /// Leaves a revision run early — the visible counterpart to reading it to
+  /// the end.
+  ///
+  /// Both endings are the *same* ending: [OnboardingRevisionRunNotifier.complete]
+  /// stamps the target version either way, because a revision run is offered
+  /// at most once per version (parent PRD, "Abbruch stempelt ebenfalls").
+  /// That is precisely why this route is confirmed and the confirmation says
+  /// out loud what stays unconfigured: it is a one-way door, and a one-way
+  /// door the user walks through by accident is the failure mode here — not
+  /// one extra tap.
+  ///
+  /// Dismissing the dialog (Esc, barrier tap, "Cancel") returns `false` and
+  /// leaves the user exactly where they were, on the step they were reading.
+  Future<void> _exitRevisionRun() async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.onboardingRevisionExitConfirmTitle,
+      message: l10n.onboardingRevisionExitConfirmBody,
+      confirmLabel: l10n.onboardingRevisionExitConfirmAction,
+    );
+    if (!confirmed || !mounted) return;
+    // Its own action name, not 'revision_complete': the funnel's whole point
+    // here is telling "read to the end" apart from "left on step 2".
+    _trackStep('revision_exit', _onboardingSteps()[_safeStep()]);
+    await ref.read(onboardingRevisionRunProvider.notifier).complete();
+  }
+
   int _safeStep() => _currentStep.clamp(0, _onboardingSteps().length - 1);
 
   Future<void> _complete() async {
@@ -526,10 +564,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       return;
     }
     if (widget.revisionRun) {
-      // Same shared ending a visible early exit will call
-      // (`.scratch/onboarding-revisions/issues/04`) — reaching the last step
+      // Same shared ending [_exitRevisionRun] calls — reaching the last step
       // and leaving early are not different outcomes, per the parent PRD
-      // ("Abbruch stempelt ebenfalls").
+      // ("Abbruch stempelt ebenfalls"). Only the tracked action differs, so
+      // the funnel can still tell the two apart.
       _trackStep('revision_complete', OnboardingStepId.tryAndGo);
       await ref.read(onboardingRevisionRunProvider.notifier).complete();
       return;
@@ -601,7 +639,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   Widget _buildStepContent(OnboardingStepId id) {
     final l10n = L10n.of(context);
     return switch (id) {
-      OnboardingStepId.welcome => const WelcomeStep(),
+      OnboardingStepId.welcome => WelcomeStep(revisionRun: widget.revisionRun),
       OnboardingStepId.privacy => const PrivacyStep(),
       // Every settings-shaped page from here on is one [OnboardingPage]: a
       // fixed [OnboardingPageHeading], [kOnboardingHeaderGap] under it, and a
@@ -671,6 +709,118 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         ],
       ),
     };
+  }
+
+  /// The top bar: the close (X), and a drag handle wherever it is empty.
+  ///
+  /// The window runs with `TitleBarStyle.hidden`, which means two
+  /// different things per platform: macOS keeps the native traffic
+  /// lights in exactly this corner (only the bar's chrome is gone),
+  /// while Windows/Linux get a fully frameless window with no
+  /// native close control at all. So the custom X is the *only*
+  /// close affordance there and would be a second, overlapping one
+  /// on macOS. The bar itself is unconditional and keeps its fixed
+  /// height either way — it is still the drag handle, and nothing
+  /// below it may shift.
+  ///
+  /// A review breaks that platform split, and renders the X on
+  /// macOS too: there it does not close the *window* but leaves
+  /// the review, which is a different action than the traffic
+  /// lights offer and therefore not a duplicate of them. It is
+  /// also the mode's required visible exit — the first run has
+  /// none on purpose, because there closing means quitting.
+  ///
+  /// Extracted from [build] rather than inlined: with three modes deciding
+  /// what the strip holds, it was the block that pushed the build method
+  /// past loam's complexity gate.
+  Widget _buildTopBar(L10n l10n, Color textMuted) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onPanStart: (_) => windowManager.startDragging(),
+      child: Padding(
+        // Horizontal only. The strip's own vertical padding used to
+        // add 16 px to a band that is empty on macOS and carries a
+        // single 32-px icon button elsewhere, which is what pushed
+        // every page's header 68 px down the window — see
+        // [_kOnboardingBottomGap].
+        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+        child: SizedBox(
+          // Tight, not a floor: the X is an [IconButton], whose
+          // Material tap-target padding reports 48 px unless a
+          // tight height clamps it — relaxing this to a minHeight
+          // pushes every page's header 16 px down the window, which
+          // the welcome screenshot golden catches immediately. The
+          // revision run's exit button is `dense` (32 px) for
+          // exactly this reason: it is the one labelled control
+          // that fits the strip as it stands.
+          height: _kOnboardingTopBarHeight,
+          child: Row(
+            // A review's exit sits at the physical right on every
+            // platform and in every locale. The physical left is
+            // where macOS draws the native traffic lights under
+            // TitleBarStyle.hidden — they do not move for Hebrew —
+            // and a review is the one mode that carries an X on
+            // macOS too, so a *logical* placement would land on top
+            // of them in RTL. The revision run's exit rides along
+            // for exactly the same reason: it, too, is drawn on
+            // macOS. Only the first run keeps the ambient
+            // direction, its X being drawn only where the whole
+            // title bar is gone and that corner is free.
+            textDirection: widget.manualReview || widget.revisionRun
+                ? TextDirection.ltr
+                : null,
+            children: [
+              if (widget.manualReview || widget.revisionRun) const Spacer(),
+              // The revision run's named exit, on every step of the
+              // flow. A ghost button in the neutral tone: visible
+              // and reachable, but never competing with the accent
+              // "Next" — leaving is the rarer intent, and the
+              // gradient hero button below stays the one obvious
+              // way forward.
+              if (widget.revisionRun) ...[
+                WpButton(
+                  key: kOnboardingRevisionExitButtonKey,
+                  label: l10n.onboardingRevisionExit,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
+                  size: WpButtonSize.dense,
+                  icon: LucideIcons.logOut,
+                  onPressed: _exitRevisionRun,
+                ),
+                const SizedBox(width: WpSpacing.xxs),
+              ],
+              if (widget.manualReview ||
+                  defaultTargetPlatform != TargetPlatform.macOS)
+                IconButton(
+                  key: kOnboardingReviewExitButtonKey,
+                  onPressed: widget.manualReview
+                      ? _exitManualReview
+                      : () => windowManager.close(),
+                  icon: Icon(
+                    LucideIcons.x,
+                    // `md`, the floor DESIGN.md sets for an
+                    // interactive icon; 18 was off the scale in
+                    // both directions. The 32-px top bar sets the
+                    // button's own box, so this costs no height.
+                    size: WpIconSize.md,
+                    color: textMuted,
+                  ),
+                  tooltip: widget.manualReview
+                      ? l10n.onboardingReviewExit
+                      : MaterialLocalizations.of(context).closeButtonTooltip,
+                  splashRadius: 16,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: _kOnboardingTopBarHeight,
+                    minHeight: _kOnboardingTopBarHeight,
+                  ),
+                ),
+              if (!widget.manualReview && !widget.revisionRun) const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -746,86 +896,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           color: background,
           child: Column(
             children: [
-              // -- Top bar: close (X); doubles as an explicit drag handle. --
-              //
-              // The window runs with `TitleBarStyle.hidden`, which means two
-              // different things per platform: macOS keeps the native traffic
-              // lights in exactly this corner (only the bar's chrome is gone),
-              // while Windows/Linux get a fully frameless window with no
-              // native close control at all. So the custom X is the *only*
-              // close affordance there and would be a second, overlapping one
-              // on macOS. The bar itself is unconditional and keeps its fixed
-              // height either way — it is still the drag handle, and nothing
-              // below it may shift.
-              //
-              // A review breaks that platform split, and renders the X on
-              // macOS too: there it does not close the *window* but leaves
-              // the review, which is a different action than the traffic
-              // lights offer and therefore not a duplicate of them. It is
-              // also the mode's required visible exit — the first run has
-              // none on purpose, because there closing means quitting.
-              GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onPanStart: (_) => windowManager.startDragging(),
-                child: Padding(
-                  // Horizontal only. The strip's own vertical padding used to
-                  // add 16 px to a band that is empty on macOS and carries a
-                  // single 32-px icon button elsewhere, which is what pushed
-                  // every page's header 68 px down the window — see
-                  // [_kOnboardingBottomGap].
-                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-                  child: SizedBox(
-                    height: _kOnboardingTopBarHeight,
-                    child: Row(
-                      // A review's exit sits at the physical right on every
-                      // platform and in every locale. The physical left is
-                      // where macOS draws the native traffic lights under
-                      // TitleBarStyle.hidden — they do not move for Hebrew —
-                      // and a review is the one mode that carries an X on
-                      // macOS too, so a *logical* placement would land on top
-                      // of them in RTL. Hence the pinned direction here, and
-                      // only here: the first run keeps the ambient one, its X
-                      // being drawn only where the whole title bar is gone
-                      // and that corner is free.
-                      textDirection: widget.manualReview
-                          ? TextDirection.ltr
-                          : null,
-                      children: [
-                        if (widget.manualReview) const Spacer(),
-                        if (widget.manualReview ||
-                            defaultTargetPlatform != TargetPlatform.macOS)
-                          IconButton(
-                            key: kOnboardingReviewExitButtonKey,
-                            onPressed: widget.manualReview
-                                ? _exitManualReview
-                                : () => windowManager.close(),
-                            icon: Icon(
-                              LucideIcons.x,
-                              // `md`, the floor DESIGN.md sets for an
-                              // interactive icon; 18 was off the scale in
-                              // both directions. The 32-px top bar sets the
-                              // button's own box, so this costs no height.
-                              size: WpIconSize.md,
-                              color: textMuted,
-                            ),
-                            tooltip: widget.manualReview
-                                ? l10n.onboardingReviewExit
-                                : MaterialLocalizations.of(
-                                    context,
-                                  ).closeButtonTooltip,
-                            splashRadius: 16,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: _kOnboardingTopBarHeight,
-                              minHeight: _kOnboardingTopBarHeight,
-                            ),
-                          ),
-                        if (!widget.manualReview) const Spacer(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              _buildTopBar(l10n, textMuted),
 
               // -- Page content — scrolls when the window shrinks. ----------
               //

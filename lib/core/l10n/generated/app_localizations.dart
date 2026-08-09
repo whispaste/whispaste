@@ -4710,6 +4710,36 @@ abstract class L10n {
   /// **'Open'**
   String get onboardingReviewAction;
 
+  /// No description provided for @onboardingRevisionNoticeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste was updated — your settings are unchanged.'**
+  String get onboardingRevisionNoticeTitle;
+
+  /// No description provided for @onboardingRevisionExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave introduction'**
+  String get onboardingRevisionExit;
+
+  /// No description provided for @onboardingRevisionExitConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave the introduction?'**
+  String get onboardingRevisionExitConfirmTitle;
+
+  /// No description provided for @onboardingRevisionExitConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This update walkthrough is shown only once, so the steps you skip now won\'t be set up for you. You can reopen the same steps any time under Settings → Introduction, and every setting they cover also has its own place in Settings. What you already configured stays untouched.'**
+  String get onboardingRevisionExitConfirmBody;
+
+  /// No description provided for @onboardingRevisionExitConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get onboardingRevisionExitConfirmAction;
+
   /// No description provided for @overlayRecording.
   ///
   /// In en, this message translates to:

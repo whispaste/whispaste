@@ -968,6 +968,12 @@
   "onboardingReviewLabel": "Review the introduction",
   "onboardingReviewAction": "Open",
 
+  "onboardingRevisionNoticeTitle": "WhisPaste was updated — your settings are unchanged.",
+  "onboardingRevisionExit": "Leave introduction",
+  "onboardingRevisionExitConfirmTitle": "Leave the introduction?",
+  "onboardingRevisionExitConfirmBody": "This update walkthrough is shown only once, so the steps you skip now won't be set up for you. You can reopen the same steps any time under Settings → Introduction, and every setting they cover also has its own place in Settings. What you already configured stays untouched.",
+  "onboardingRevisionExitConfirmAction": "Leave",
+
   "overlayRecording": "Recording",
   "overlayTranscribing": "Transcribing…",
   "overlayDone": "Copied",
