@@ -4,7 +4,15 @@ on:
   push:
     branches: [dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
+
+# Ohne diese Group liefe ein Push nach dev und ein zeitgleicher PR auf denselben
+# Commit doppelt (push- und pull_request-Event feuern beide) — doppelte
+# Runner-Zeit, doppelte Fail-Mails. Gruppiert pro Ref, storniert den älteren
+# Lauf statt ihn auslaufen zu lassen.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
