@@ -142,15 +142,27 @@ class _SpeechRecognitionSectionState
                 },
               ),
             ),
+            // Deliberately outside the row's `subtitle:` slot, unlike every
+            // other explanatory line in Settings. This one is a two-clause
+            // comparison of both engines (languages, GPU backends, CPU speed);
+            // in the label column it would wrap to four or five lines beside
+            // the dropdown and turn the row into a paragraph with a control
+            // stuck to its side. Full width is the readable shape here, and
+            // the choice it explains is the most consequential one on the
+            // page. It starts on kSettingRowInset, so it still shares the
+            // reading edge with the section title and the row icons above it.
+            //
+            // Style matches SettingRow's own subtitle (bodySmall in textMuted)
+            // rather than a hand-mixed pair, so it reads as the same kind of
+            // text it would have been in the slot.
             Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
+                horizontal: kSettingRowInset,
                 vertical: WpSpacing.xs,
               ),
               child: Text(
                 l10n.settingsSttEngineSubtitle,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? WpColorsDark.textMuted
                       : WpColorsLight.textMuted,
