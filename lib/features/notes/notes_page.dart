@@ -535,14 +535,22 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   ) {
     return <ShortcutActivator, VoidCallback>{
       // Ctrl+N / Cmd+N: create a new note.
+      //
+      // No isTextFieldFocused() guard, unlike Ctrl/Cmd+C below. The guard was
+      // here and it made the shortcut dead exactly when it is needed most:
+      // this page's editor is an always-focused text field that takes focus
+      // automatically after every create, so from the second note onwards
+      // Ctrl+N did nothing at all. It also bought nothing — Ctrl/Cmd+N is not
+      // a text-editing binding on any of the three platforms (Flutter binds
+      // Ctrl+N to "line down" only in its macOS Emacs set, and on macOS we
+      // send Cmd+N). Copy still needs its guard, because Ctrl/Cmd+C inside a
+      // text field must copy the selection. Snippets and Ersetzungen bind the
+      // same key through WpSearchableListPage, equally unguarded.
       SingleActivator(
         LogicalKeyboardKey.keyN,
         control: !Platform.isMacOS,
         meta: Platform.isMacOS,
-      ): () {
-        if (isTextFieldFocused()) return;
-        _createNote();
-      },
+      ): _createNote,
       // Ctrl+C / Cmd+C: copy the open/focused note's content.
       SingleActivator(
         LogicalKeyboardKey.keyC,

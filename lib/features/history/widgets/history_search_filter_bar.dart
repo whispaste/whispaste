@@ -853,37 +853,44 @@ class _HistorySearchFilterBarState
               const SizedBox(width: WpSpacing.xs),
               // Empty Trash button (only in trash view, when items exist)
               if (widget.onEmptyTrash != null)
-                Tooltip(
-                  message: l10n.historyEmptyTrash,
-                  child: InkWell(
-                    borderRadius: WpRadius.borderSm,
-                    onTap: widget.onEmptyTrash,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.sm,
-                        vertical: WpSpacing.xxs,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.trash2,
-                            size: WpIconSize.sm,
-                            color: widget.isDark
-                                ? WpColorsDark.error
-                                : WpColorsLight.error,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            l10n.historyEmptyTrash,
-                            style: TextStyle(
-                              fontSize: WpTypography.small,
+                // Tooltip dropped, MergeSemantics added — house rule 1 for a
+                // single tap target whose label is already on screen. The
+                // tooltip repeated the visible caption word for word: a hover
+                // card that teaches nothing, and a screen reader saying "Empty
+                // trash" twice (label plus tooltip field).
+                MergeSemantics(
+                  child: Semantics(
+                    button: true,
+                    child: InkWell(
+                      borderRadius: WpRadius.borderSm,
+                      onTap: widget.onEmptyTrash,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.sm,
+                          vertical: WpSpacing.xxs,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.trash2,
+                              size: WpIconSize.sm,
                               color: widget.isDark
                                   ? WpColorsDark.error
                                   : WpColorsLight.error,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.historyEmptyTrash,
+                              style: TextStyle(
+                                fontSize: WpTypography.small,
+                                color: widget.isDark
+                                    ? WpColorsDark.error
+                                    : WpColorsLight.error,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -1477,6 +1484,16 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
           child: WpFocusRing(
             focusNode: _focusNode,
             radius: WpRadius.sm,
+            // 4 + 16 + 4 = a 24px target, where WpFilterChip two widgets to the
+            // left stretches to WpLayout.minTouchTarget (48). Left as is on
+            // purpose: 24px still clears WCAG 2.2 AA (2.5.8), and the whole
+            // right-hand toolbar cluster is deliberately dense — see the
+            // multi-select button above, whose 6px padding is commented as
+            // "matches HistoryRowAction so toolbar icons stay uniform".
+            // Growing only this segment would trade a uniform cluster for a
+            // lone tall one; growing the cluster is a design decision across
+            // history + WpRowAction and needs the HITL gate. Bewusst nicht
+            // umgesetzt, künftiges Ticket.
             child: Container(
               padding: const EdgeInsets.all(WpSpacing.xxs),
               decoration: BoxDecoration(

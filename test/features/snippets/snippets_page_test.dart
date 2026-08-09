@@ -8,6 +8,7 @@ import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -27,6 +28,18 @@ late L10n l10n;
 /// shifts every subsequent `find.byType(TextField).at(N)` index by one on
 /// macOS relative to Windows/Linux.
 final _fieldOffset = Platform.isMacOS ? 1 : 0;
+
+/// Sends the platform's "new item" chord — Cmd on macOS, Ctrl elsewhere,
+/// exactly as `WpSearchableListPage` binds it.
+Future<void> _pressNewItemChord(WidgetTester tester) async {
+  final modifier = Platform.isMacOS
+      ? LogicalKeyboardKey.meta
+      : LogicalKeyboardKey.control;
+  await tester.sendKeyDownEvent(modifier);
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+  await tester.sendKeyUpEvent(modifier);
+}
 
 void main() {
   setUpAll(() async {
@@ -323,6 +336,86 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
+    });
+
+    // Notizen bound Ctrl/Cmd+N from the start; its two sibling list screens
+    // did not, so "create the next one without leaving the keyboard" was a
+    // skill that only paid off on one of the three. The shared shell binds
+    // it for both.
+    testWidgets('Ctrl/Cmd+N opens the add dialog', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.snippetsNewSnippet), findsNothing);
+
+      await _pressNewItemChord(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
+    });
+
+    testWidgets('Ctrl/Cmd+N also fires while the search field has focus', (
+      tester,
+    ) async {
+      // Deliberately unguarded: Ctrl/Cmd+N is not a text-editing binding on
+      // any of the three platforms, so the chord means "new snippet"
+      // wherever the caret happens to sit — the same contract Notizen has.
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(TextField).at(_fieldOffset));
+      await tester.pumpAndSettle();
+
+      await _pressNewItemChord(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
+    });
+
+    testWidgets('Delete on the focused row opens the delete confirmation', (
+      tester,
+    ) async {
+      // Notizen deletes the focused row from the keyboard; its two siblings
+      // could only do it by mouse. Same keys now, different consequence by
+      // necessity: no trash exists here, so the confirmation is the undo.
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.snippetsAdd).last);
+      await tester.pumpAndSettle();
+
+      // Walk the traversal order until the row reveals its delete action.
+      for (var i = 0; i < 6; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (find.byIcon(LucideIcons.trash2).evaluate().isNotEmpty) break;
+      }
+      expect(
+        find.byIcon(LucideIcons.trash2),
+        findsOneWidget,
+        reason: 'the row reveals its delete action on focus, not just hover',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
     });
   });
 }

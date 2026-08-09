@@ -153,7 +153,21 @@ class _NotesListTileState extends State<NotesListTile> {
     final title = _title ?? l10n.notesUntitled;
 
     return Semantics(
-      label: title,
+      // Deliberately no `label:`. It used to be `title` — the very string
+      // this tile also renders as Text below — and a Semantics label is
+      // *prepended* to its subtree's text rather than substituted for it, so
+      // every row announced its title twice ("Mein Titel, Mein Titel, 14:20,
+      // …"). The house alternative (MergeSemantics around a label-less
+      // Semantics) is ruled out here: the favourite star is a permanently
+      // mounted second tap target inside this subtree, and merging would
+      // swallow it. Dropping the redundant label lets the rendered title
+      // name the row and leaves the star its own operable node.
+      //
+      // No `hint:` either, unlike the Snippets/Replacements rows, which use
+      // one to announce that activating them opens an edit dialog: a note
+      // row opens nothing, it selects — and `selected:` below already says
+      // so. That is the one justified difference between the three lists'
+      // row announcements.
       button: true,
       selected: widget.isSelected,
       // The list owns keyboard focus as a single node and tracks the

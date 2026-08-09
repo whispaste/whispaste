@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/config/settings_provider.dart';
@@ -13,7 +14,7 @@ import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
-import '../settings/settings_widgets.dart' show settingsToggle;
+import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -168,6 +169,30 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final enabled = settings?.textReplacementsEnabled ?? true;
 
     return WpSearchableListPage<Replacement>(
+      // The master switch lives in a header card, not in the toolbar.
+      //
+      // In the toolbar it was a bare `Text` next to an unlabelled `Switch`:
+      // measured on the semantics tree, the switch node carried an empty
+      // label while its caption merged into the page-level focus node far
+      // away from it — a screen reader announced "switch, on" with no clue
+      // what it switches. It also broke the house tooltip rule by putting a
+      // Tooltip on a control that already had a visible caption.
+      //
+      // `SettingRow` is the shape the app already uses for "labelled control
+      // with an explanatory subtitle", it names the switch correctly by
+      // construction (see no_double_announcement_test), and it puts this
+      // screen's own setting exactly where the sibling Snippets screen puts
+      // its picker-trigger field. That leaves all three screens with the
+      // same toolbar: search plus the add button, nothing else.
+      //
+      // Unlike the Snippets header this one is not platform-gated —
+      // replacements run on all three platforms.
+      header: _ReplacementsToggleCard(
+        enabled: enabled,
+        onChanged: (v) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
+      ),
       asyncAll: ref.watch(replacementsProvider),
       searchMatches: (r, q) =>
           r.triggers.any((t) => t.toLowerCase().contains(q)) ||
@@ -182,28 +207,6 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       emptyActionLabel: l10n.replacementsAdd,
       noMatchesTitle: l10n.replacementsNoMatches,
       noMatchesHint: l10n.replacementsNoMatchesHint,
-      // Enable/disable toggle — label is context-sensitive
-      toolbarTrailing: [
-        Text(
-          enabled
-              ? l10n.replacementsDisableAction
-              : l10n.replacementsEnableAction,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(width: WpSpacing.xs),
-        Tooltip(
-          message: enabled
-              ? l10n.replacementsToggleEnabled
-              : l10n.replacementsToggleDisabled,
-          child: settingsToggle(
-            value: enabled,
-            onChanged: (v) => ref
-                .read(settingsProvider.notifier)
-                .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
-          ),
-        ),
-        const SizedBox(width: WpSpacing.xs),
-      ],
       // Content — dimmed when disabled so users can still see their shortcuts
       contentWrapper: (context, child) => AnimatedOpacity(
         duration: WpMotion.durationFor(context, WpMotion.normal),
@@ -255,6 +258,70 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       title: l10n.replacementsDeleteTitle,
       message: l10n.replacementsDeleteMessage(r.triggers.join(', ')),
       onConfirm: () => ref.read(replacementsProvider.notifier).remove(r.id),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Master switch
+// ---------------------------------------------------------------------------
+
+/// Header card above the replacement list: the single switch that turns
+/// automatic text replacement on or off during dictation.
+///
+/// Lives on this page rather than in Settings because it only matters in the
+/// context of the list it governs — the same placement rule that keeps the
+/// Snippets picker-trigger field on the Snippets page. Card geometry is
+/// deliberately identical to `_SnippetPickerTriggerField`'s so switching
+/// between the two sibling screens never nudges the toolbar below it.
+class _ReplacementsToggleCard extends StatelessWidget {
+  const _ReplacementsToggleCard({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.sm,
+        WpSpacing.xl,
+        0,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(WpSpacing.xxs),
+        decoration: BoxDecoration(
+          color: isDark
+              ? WpColorsDark.surfaceElevated
+              : WpColorsLight.surfaceElevated,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(
+            color: isDark
+                ? WpColorsDark.borderSubtle
+                : WpColorsLight.borderSubtle,
+          ),
+        ),
+        child: SettingRow(
+          icon: LucideIcons.replace,
+          label: l10n.replacementsToggleLabel,
+          // The subtitle states the current state in words, which is what
+          // the toolbar's caption used to do — except a screen reader now
+          // gets it too, and `semanticToggledValue` adds the on/off state to
+          // the row's own announcement. No Tooltip: the row is labelled on
+          // screen, so one would only repeat what is already there.
+          subtitle: enabled
+              ? l10n.replacementsToggleEnabled
+              : l10n.replacementsToggleDisabled,
+          semanticToggledValue: enabled,
+          trailing: settingsToggle(value: enabled, onChanged: onChanged),
+        ),
+      ),
     );
   }
 }
@@ -501,10 +568,28 @@ class _ReplacementTileState extends State<_ReplacementTile> {
 
   @override
   Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      // Delete/Backspace on the focused row — same binding, same reasoning
+      // and same row-scoping as _SnippetTile, which see.
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.delete): widget.onDelete,
+        const SingleActivator(LogicalKeyboardKey.backspace): widget.onDelete,
+      },
+      child: _buildRow(context),
+    );
+  }
+
+  Widget _buildRow(BuildContext context) {
     return Semantics(
       button: true,
-      label:
-          '${L10n.of(context).replacementsEditShortcut}: ${widget.replacement.triggers.join(', ')}',
+      // Affordance as `hint:`, identity from the rendered trigger chips —
+      // same reasoning and same shape as _SnippetTile, which see. The label
+      // used to repeat the trigger phrases the chips already render, and a
+      // Semantics label is prepended to its subtree's text rather than
+      // substituted for it, so each row announced "Ersetzung bearbeiten:
+      // mfg, mfg, …". MergeSemantics is not an option: the delete action
+      // mounts as a second interactive node once the row is active.
+      hint: L10n.of(context).replacementsEditShortcut,
       child: FocusableActionDetector(
         onShowFocusHighlight: (value) {
           if (_isFocused == value) return;
@@ -592,6 +677,20 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                             : WpColorsLight.textSecondary,
                         fontSize: WpTypography.body,
                       ),
+                      // `maxLines: 1` is load-bearing, not cosmetic: without
+                      // it `overflow: ellipsis` still lets the text wrap to
+                      // as many lines as it likes (the Row leaves its cross
+                      // axis unbounded), so a long replacement grew the row
+                      // without limit while the sibling snippet row truncated
+                      // its body preview after one line — the same content
+                      // shape behaving differently on two neighbouring
+                      // screens. It also restores the premise
+                      // `WpSearchableListPage`'s skeleton row height rests on
+                      // ("a Snippets tile and a Replacements tile both render
+                      // at exactly 70 dp"). The trigger-chip `Wrap` above can
+                      // still add lines; that growth is deliberate and
+                      // documented, so 70 dp stays a base height, not a cap.
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

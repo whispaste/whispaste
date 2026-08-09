@@ -5,15 +5,19 @@
 /// hover → delete confirmation.
 library;
 
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart'
+    show SettingRow;
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -305,10 +309,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Starts enabled — switch is ON and label says "disable"
+      // Starts enabled — switch is ON and the header card says so in words.
       final switchOn = tester.widget<Switch>(find.byType(Switch));
       expect(switchOn.value, isTrue);
-      expect(find.text(l10n.replacementsDisableAction), findsOneWidget);
+      expect(find.text(l10n.replacementsToggleLabel), findsOneWidget);
+      expect(find.text(l10n.replacementsToggleEnabled), findsOneWidget);
 
       // Tap toggle to disable
       await tester.tap(find.byType(Switch));
@@ -319,6 +324,44 @@ void main() {
         isFalse,
         reason: 'Provider should reflect the new disabled state',
       );
+    });
+
+    testWidgets('the master switch is announced with a name and its state', (
+      tester,
+    ) async {
+      // In the toolbar this switch was an unnamed node: measured on the
+      // semantics tree it carried an empty label while its visible caption
+      // merged into the page-level focus node, so a screen reader read
+      // "switch, on" with nothing to say what it switches.
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            overrides: [
+              settingsProvider.overrideWith(
+                () => _FakeSettingsNotifier(
+                  AppSettings.defaults.copyWith(textReplacementsEnabled: true),
+                ),
+              ),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(find.byType(SettingRow)),
+          isSemantics(
+            label: l10n.replacementsToggleLabel,
+            hint: l10n.replacementsToggleEnabled,
+            hasToggledState: true,
+            isToggled: true,
+          ),
+        );
+      } finally {
+        handle.dispose();
+      }
     });
 
     // -------------------------------------------------------------------------
@@ -350,6 +393,84 @@ void main() {
 
       // Confirm dialog should appear with the correct title
       expect(find.text(l10n.replacementsDeleteTitle), findsOneWidget);
+    });
+
+    // -------------------------------------------------------------------------
+    // 7. Keyboard
+    // -------------------------------------------------------------------------
+
+    testWidgets('Ctrl/Cmd+N opens the add dialog', (tester) async {
+      // Notizen bound this from the start, its two sibling list screens did
+      // not — so "create the next one without leaving the keyboard" only
+      // paid off on one of the three. Now bound once on the shared shell.
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.replacementsNewShortcut), findsNothing);
+
+      final modifier = Platform.isMacOS
+          ? LogicalKeyboardKey.meta
+          : LogicalKeyboardKey.control;
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
+    });
+
+    testWidgets('Delete on the focused row opens the delete confirmation', (
+      tester,
+    ) async {
+      // Notizen deletes the focused row from the keyboard; its two siblings
+      // could only do it by mouse. Same keys now, different consequence by
+      // necessity: no trash exists here, so the confirmation is the undo.
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      // Tab lands on the first row (the search field and Add button come
+      // first in traversal order, so walk past them).
+      for (var i = 0; i < 4; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (find.byIcon(LucideIcons.trash2).evaluate().isNotEmpty) break;
+      }
+      expect(
+        find.byIcon(LucideIcons.trash2),
+        findsOneWidget,
+        reason: 'the row reveals its delete action on focus, not just hover',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsDeleteTitle), findsOneWidget);
+    });
+
+    testWidgets('Backspace in the search field edits text, deletes nothing', (
+      tester,
+    ) async {
+      // The row bindings are scoped to the row; the search field is a
+      // sibling of it, not a descendant, so typing stays typing.
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'mfgx');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsDeleteTitle), findsNothing);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'mfg',
+      );
     });
   });
 }

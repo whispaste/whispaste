@@ -141,33 +141,45 @@ class _WpFilterChipState extends State<WpFilterChip> {
       ),
     );
 
-    return Semantics(
-      label: widget.label,
-      button: true,
-      selected: widget.isActive,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: InkWell(
-          onTap: widget.onTap,
-          focusNode: _focusNode,
-          // WpFocusRing owns all focus visuals — suppress InkWell's own.
-          focusColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: WpLayout.minTouchTarget,
-            ),
-            child: Center(
-              // External-node mode: the ring hugs the compact pill while the
-              // shared FocusNode lives on the taller InkWell surface.
-              child: WpFocusRing(
-                focusNode: _focusNode,
-                radius: WpRadius.lg,
-                child: pill,
+    // House idiom (`section.dart`): MergeSemantics + a *label-less*
+    // Semantics. A `label:` is prepended to the subtree's own text rather
+    // than replacing it, so every filter chip announced as "Alle, Alle, 42".
+    // One tap target in the subtree, so merging is the right shape here and
+    // costs nothing: the tap action and the button role survive it.
+    //
+    // The trailing count keeps folding into the name ("Alle, 42"), as it
+    // already did before this change. It is left as a bare number on
+    // purpose: what the number counts is the caller's business, and this
+    // widget is generic — inventing a label parameter for the one caller
+    // that passes a count would be an abstraction ahead of a second need.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: widget.isActive,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: InkWell(
+            onTap: widget.onTap,
+            focusNode: _focusNode,
+            // WpFocusRing owns all focus visuals — suppress InkWell's own.
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: WpLayout.minTouchTarget,
+              ),
+              child: Center(
+                // External-node mode: the ring hugs the compact pill while the
+                // shared FocusNode lives on the taller InkWell surface.
+                child: WpFocusRing(
+                  focusNode: _focusNode,
+                  radius: WpRadius.lg,
+                  child: pill,
+                ),
               ),
             ),
           ),

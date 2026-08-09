@@ -36,6 +36,23 @@ import '../../../core/utils/word_count.dart';
 typedef HistoryDetailPanelExportFn =
     Future<void> Function(BuildContext context, List<HistoryEntry> entries);
 
+/// Wraps [child] in the panel's standard [Tooltip] — but only when [message]
+/// is non-null.
+///
+/// A tooltip that names an action is a promise. In the trash view neither the
+/// title nor the transcript can be edited, so the promise has to disappear
+/// rather than be blanked: `Tooltip(message: '')` still builds a tooltip, pops
+/// an empty card on hover and leaves an empty `tooltip` on the semantics node.
+/// One helper for both call sites so the two read-only affordances behave
+/// identically.
+Widget _tooltipIf(String? message, {required Widget child}) => message == null
+    ? child
+    : Tooltip(
+        message: message,
+        waitDuration: const Duration(milliseconds: 600),
+        child: child,
+      );
+
 // ---------------------------------------------------------------------------
 // Detail panel — opens on entry selection (ChatGPT/Notion detail view)
 // ---------------------------------------------------------------------------
@@ -676,9 +693,8 @@ class _DetailPanelHeader extends StatelessWidget {
                                 ? null
                                 : l10n.historyEditTitle,
                             onTap: isTrashView ? null : onStartTitleEdit,
-                            child: Tooltip(
-                              message: isTrashView ? '' : l10n.historyEditTitle,
-                              waitDuration: const Duration(milliseconds: 600),
+                            child: _tooltipIf(
+                              isTrashView ? null : l10n.historyEditTitle,
                               child: GestureDetector(
                                 onDoubleTap: isTrashView
                                     ? null
@@ -1012,9 +1028,12 @@ class _DetailTranscriptZone extends StatelessWidget {
                       )
                     : Semantics(
                         button: !isTrashView,
-                        child: Tooltip(
-                          message: l10n.historyEditTranscript,
-                          waitDuration: const Duration(milliseconds: 600),
+                        // Same trash-view rule as the title above: the
+                        // transcript is read-only here, so it must not offer
+                        // "Edit transcript" on hover next to a tap that does
+                        // nothing.
+                        child: _tooltipIf(
+                          isTrashView ? null : l10n.historyEditTranscript,
                           child: GestureDetector(
                             onTap: isTrashView ? null : onToggleEdit,
                             behavior: HitTestBehavior.translucent,
@@ -1104,10 +1123,19 @@ class _TranscriptEditBar extends StatelessWidget {
                           : textMuted.withValues(alpha: 0.1),
                       borderRadius: WpRadius.borderFull,
                     ),
+                    // Resting state is a *status*, not an offer: the badge
+                    // marks a transcript that was hand-corrected. It used to
+                    // read "Edit transcript" — an action verb, word for word
+                    // the same as the button 8 px to its right, so the row
+                    // showed the same command twice and said nothing about the
+                    // entry. `historyNoteEdited` is the generic past
+                    // participle ("edited"/"bearbeitet"); its key name is the
+                    // only thing note-specific about it. A dedicated
+                    // transcript key would mean touching the ARB files, which
+                    // are outside this change — bewusst nicht umgesetzt,
+                    // künftiges Ticket.
                     child: Text(
-                      isEditing
-                          ? l10n.historyEditing
-                          : l10n.historyEditTranscript,
+                      isEditing ? l10n.historyEditing : l10n.historyNoteEdited,
                       style: TextStyle(
                         fontSize: WpTypography.micro,
                         fontWeight: isEditing
