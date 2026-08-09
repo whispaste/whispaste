@@ -12,6 +12,7 @@ import '../../../services/autostart_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/wp_dropdown.dart';
 import '../settings_widgets.dart';
 
 class InterfaceSection extends ConsumerWidget {
@@ -67,21 +68,28 @@ class InterfaceSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.globe,
             label: l10n.settingsAppLanguage,
-            trailing: SizedBox(
-              width: 180,
-              child: WpLanguageSelector(
-                currentLocale: settings.locale,
-                onChanged: (code) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(locale: code));
-                  try {
-                    ref.read(telemetryProvider).trackSettingChange('language');
-                  } catch (e) {
-                    _log.debug('telemetry failed: $e');
-                  }
-                },
-              ),
+            // Dense + content-width, exactly like the settingsDropdown() rows
+            // above and below it: this is a trailing settings slot, not a
+            // standalone form field. The default standard trigger made this
+            // one row 48px tall next to its 32px siblings, and the fixed 180px
+            // box made it wider than all of them for no gain — a dropdown has
+            // an intrinsic width (Material sizes the closed control to its
+            // widest item, so it does not resize when the language changes),
+            // unlike the Slider that constant was borrowed from.
+            trailing: WpLanguageSelector(
+              size: WpDropdownSize.dense,
+              expanded: false,
+              currentLocale: settings.locale,
+              onChanged: (code) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(locale: code));
+                try {
+                  ref.read(telemetryProvider).trackSettingChange('language');
+                } catch (e) {
+                  _log.debug('telemetry failed: $e');
+                }
+              },
             ),
           ),
           SettingRow(

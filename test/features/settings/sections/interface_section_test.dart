@@ -1,5 +1,6 @@
 /// Tests confirming:
-/// - The language picker inside [InterfaceSection] uses [WpLanguageSelector].
+/// - The language picker inside [InterfaceSection] uses [WpLanguageSelector]
+///   and renders at the same row height as its dropdown siblings.
 /// - The autostart 3-way dropdown maps bool combinations correctly and writes
 ///   both fields on selection.
 library;
@@ -11,6 +12,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/sections/interface_section.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/widgets/language_selector.dart';
 
 import '../../../fixtures/test_helpers.dart';
@@ -103,6 +105,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.locale, 'de');
+    });
+
+    // Regression: WpLanguageSelector defaults to the 48px standard trigger,
+    // and SettingRow only sets a *minimum* height — so the language row grew
+    // taller than the theme and autostart rows next to it, which build their
+    // dropdowns through settingsDropdown() at the dense 32px size.
+    testWidgets('renders at the same row height as its dropdown siblings', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _pump(
+          tester,
+          FakeSettingsNotifier(
+            const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Row order in InterfaceSection: theme, language, autostart.
+      final rows = find.byType(SettingRow);
+      final themeHeight = tester.getSize(rows.at(0)).height;
+      final languageHeight = tester.getSize(rows.at(1)).height;
+      final autostartHeight = tester.getSize(rows.at(2)).height;
+
+      expect(languageHeight, themeHeight);
+      expect(languageHeight, autostartHeight);
+      // Parity alone would still hold if all three rows grew together, so
+      // pin the trigger itself at the dense WpDropdown height.
+      expect(tester.getSize(find.byType(WpLanguageSelector)).height, 32.0);
     });
   });
 

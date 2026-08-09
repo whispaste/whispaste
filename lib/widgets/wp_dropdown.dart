@@ -47,7 +47,7 @@ import 'wp_focus_ring.dart';
 /// Trigger size. Only the *closed* control changes — the opened menu is
 /// identical in both, because a menu row is a click target, not a table cell.
 enum WpDropdownSize {
-  /// 48px standalone control (onboarding, form fields, Settings → Interface).
+  /// 48px standalone control (onboarding, form fields).
   standard,
 
   /// 32px control for the trailing slot of a dense settings row.

@@ -17,11 +17,19 @@ import 'wp_dropdown.dart';
 /// share one list rendering and one selection treatment.  Used in three
 /// places, which is why the endonym mapping and the defensive fallback stay
 /// behind this name instead of being repeated at each call site.
+///
+/// The *trigger* deliberately varies by context ([size], [expanded]): a
+/// standalone form field on onboarding and in the feedback form, a dense,
+/// content-width control in the trailing slot of a settings row.  Only the
+/// closed control changes — list rendering and selection treatment stay
+/// identical, which is the point of routing all three through here.
 class WpLanguageSelector extends StatelessWidget {
   const WpLanguageSelector({
     super.key,
     required this.currentLocale,
     required this.onChanged,
+    this.size = WpDropdownSize.standard,
+    this.expanded = true,
   });
 
   /// Active language code (e.g. `'de'`).  When the value is not part of
@@ -34,6 +42,16 @@ class WpLanguageSelector extends StatelessWidget {
   /// selection.  Callers are responsible for persisting the change.
   final ValueChanged<String> onChanged;
 
+  /// Trigger height.  Defaults to the 48px standalone control (onboarding,
+  /// feedback form); pass [WpDropdownSize.dense] inside a settings row so the
+  /// row keeps the same height as its dropdown siblings.
+  final WpDropdownSize size;
+
+  /// Fills the parent's width — right for a form field and for the fixed-width
+  /// box on onboarding.  Pass `false` in a trailing settings slot, where the
+  /// control sizes itself to the widest endonym instead.
+  final bool expanded;
+
   @override
   Widget build(BuildContext context) {
     const locales = L10n.supportedLocales;
@@ -45,7 +63,8 @@ class WpLanguageSelector extends StatelessWidget {
 
     return WpDropdown<String>(
       value: resolvedLocale.languageCode,
-      expanded: true,
+      size: size,
+      expanded: expanded,
       items: [
         for (final locale in locales)
           WpDropdownItem<String>(
