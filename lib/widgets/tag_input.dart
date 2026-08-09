@@ -646,51 +646,63 @@ class _SuggestionTileState extends State<_SuggestionTile> {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
-    return Semantics(
-      label: widget.tag.name,
-      button: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.sm,
-            ),
-            color: (_isHovered || widget.isSelected)
-                ? hoverBg
-                : Colors.transparent,
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.hash,
-                  size: WpIconSize.sm,
-                  color: accent.withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    widget.tag.name,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      color: textPrimary,
+    // House idiom (`section.dart`): MergeSemantics + a *label-less*
+    // Semantics — a `label:` is prepended to the subtree's text, not a
+    // replacement for it, so the `Text(widget.tag.name)` below made every
+    // suggestion announce its tag twice.
+    //
+    // `selected: widget.isSelected` is the substantive half: focus stays in
+    // the inline text field (`autofocus: true`, line ~355) while the arrow
+    // keys move `_selectedIndex` through this list. The highlight was purely
+    // a background colour, so without the flag a screen reader reported
+    // nothing at all as the user arrowed down.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: widget.isSelected,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.sm,
+              ),
+              color: (_isHovered || widget.isSelected)
+                  ? hoverBg
+                  : Colors.transparent,
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.hash,
+                    size: WpIconSize.sm,
+                    color: accent.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: WpSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      widget.tag.name,
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: textPrimary,
+                      ),
                     ),
                   ),
-                ),
-                if (widget.count != null && widget.count! > 0)
-                  Text(
-                    '${widget.count}',
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textPrimary.withValues(alpha: 0.4),
+                  if (widget.count != null && widget.count! > 0)
+                    Text(
+                      '${widget.count}',
+                      style: TextStyle(
+                        fontSize: WpTypography.small,
+                        color: textPrimary.withValues(alpha: 0.4),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -733,40 +745,46 @@ class _CreateTagTileState extends State<_CreateTagTile> {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
-    return Semantics(
-      label: widget.label,
-      button: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.sm,
-            ),
-            color: (_isHovered || widget.isSelected)
-                ? hoverBg
-                : Colors.transparent,
-            child: Row(
-              children: [
-                Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      color: textPrimary,
-                      fontWeight: FontWeight.w500,
+    // Same construction and same reasoning as `_SuggestionRow` above: the
+    // create-row is the last stop of the very same arrow-key walk
+    // (`_selectedIndex == suggestions.length`), so it needs `selected:` for
+    // the same reason, and its `Text(widget.label)` made it announce twice.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: widget.isSelected,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.sm,
+              ),
+              color: (_isHovered || widget.isSelected)
+                  ? hoverBg
+                  : Colors.transparent,
+              child: Row(
+                children: [
+                  Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
+                  const SizedBox(width: WpSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

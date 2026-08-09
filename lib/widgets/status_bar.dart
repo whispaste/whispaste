@@ -428,11 +428,23 @@ class _SttChipState extends State<_SttChip> {
           )
         : inkWell;
 
-    return Semantics(
-      label:
-          '${widget.l10n.statusBarSttTooltip}: ${widget.modeLabel} — $stateLabel',
-      button: true,
-      child: Tooltip(message: widget.l10n.statusBarSttTooltip, child: body),
+    // House idiom (`section.dart`): MergeSemantics + a *label-less*
+    // Semantics. The old label repeated two things the merged subtree
+    // already supplies — `Text('${modeLabel} — $stateLabel')` renders the
+    // state, and `Tooltip` contributes `statusBarSttTooltip` as the node's
+    // tooltip field — so the chip announced as "Spracherkennung: Whisper —
+    // Bereit, Whisper — Bereit". Dropping the label leaves name and tooltip
+    // cleanly separated, which is what the two fields are for.
+    //
+    // `button:` is now conditional: the chip is only tappable when `onTap`
+    // is wired, and claiming a button role on the inert variant promised an
+    // action that does not exist. The live state changes are announced
+    // separately in `didUpdateWidget`, so this node stays a plain name.
+    return MergeSemantics(
+      child: Semantics(
+        button: widget.onTap != null,
+        child: Tooltip(message: widget.l10n.statusBarSttTooltip, child: body),
+      ),
     );
   }
 

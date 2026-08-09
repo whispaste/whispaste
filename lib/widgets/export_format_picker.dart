@@ -312,45 +312,59 @@ class _FormatOption extends StatelessWidget {
 
     final mutedText = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
-    return Semantics(
-      label: label,
-      button: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs / 2),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => onHover(),
-          child: InkWell(
-            borderRadius: WpRadius.borderMd,
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.md,
-                vertical: WpSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: highlighted ? highlightColor : Colors.transparent,
-                borderRadius: WpRadius.borderMd,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: WpIconSize.lg,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: WpSpacing.md),
-                  Expanded(
-                    child: Text(label, style: theme.textTheme.bodyLarge),
-                  ),
-                  Text(
-                    extension,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: mutedText,
+    // Same construction as the snippet picker, and for the same two reasons.
+    // House idiom (`section.dart`): MergeSemantics + a *label-less*
+    // Semantics, because a `label:` is prepended to the subtree's text
+    // instead of replacing it — the `Text(label)` below made every row
+    // announce its format twice. The merged name now reads "PDF-Dokument,
+    // .pdf", which is strictly more than the old label carried.
+    //
+    // `selected: highlighted` is the load-bearing half: this dialog keeps a
+    // single `Focus` node (autofocus, line ~233) and moves a purely visual
+    // highlight with the arrow keys. Without the flag the rows a screen
+    // reader reports never change while the user arrows through them, so
+    // there is no way to know what Enter would export.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: highlighted,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs / 2),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) => onHover(),
+            child: InkWell(
+              borderRadius: WpRadius.borderMd,
+              onTap: onTap,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(context, WpMotion.hoverOut),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: highlighted ? highlightColor : Colors.transparent,
+                  borderRadius: WpRadius.borderMd,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      icon,
+                      size: WpIconSize.lg,
+                      color: theme.colorScheme.primary,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: WpSpacing.md),
+                    Expanded(
+                      child: Text(label, style: theme.textTheme.bodyLarge),
+                    ),
+                    Text(
+                      extension,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: mutedText,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

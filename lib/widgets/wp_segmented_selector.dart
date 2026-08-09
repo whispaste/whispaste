@@ -121,62 +121,74 @@ class _SegmentButtonState extends State<_SegmentButton> {
   Widget build(BuildContext context) {
     final isActive = widget.item.isActive;
 
-    return Semantics(
-      button: true,
-      selected: isActive,
-      label: widget.item.label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.item.onTap,
-          borderRadius: WpRadius.borderFull,
-          focusColor: widget.textSecondary.withValues(alpha: 0.15),
-          onHover: (hovering) => setState(() => _hovered = hovering),
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: WpMotion.defaultCurve,
-            color: !isActive && _hovered
-                ? widget.textSecondary.withValues(alpha: 0.08)
-                : Colors.transparent,
-            alignment: Alignment.center,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (widget.item.icon != null) ...[
-                        IconTheme(
-                          data: IconThemeData(
-                            color: isActive
-                                ? Colors.white
-                                : widget.textSecondary,
-                            size: 18,
-                          ),
-                          child: DefaultTextStyle(
-                            style: TextStyle(
+    // House idiom (`section.dart`): MergeSemantics + a *label-less*
+    // Semantics. A `label:` is prepended to the subtree's own text rather
+    // than replacing it, so the rendered `Text(widget.item.label)` below made
+    // every segment announce as "Verlauf, Verlauf". `selected:` stays on the
+    // wrapper — it is the segment's whole state and the pill is its only
+    // visual carrier.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: isActive,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.item.onTap,
+            borderRadius: WpRadius.borderFull,
+            focusColor: widget.textSecondary.withValues(alpha: 0.15),
+            onHover: (hovering) => setState(() => _hovered = hovering),
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              curve: WpMotion.defaultCurve,
+              color: !isActive && _hovered
+                  ? widget.textSecondary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              alignment: Alignment.center,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (widget.item.icon != null) ...[
+                          IconTheme(
+                            data: IconThemeData(
                               color: isActive
                                   ? Colors.white
                                   : widget.textSecondary,
+                              size: 18,
                             ),
-                            child: widget.item.icon!,
+                            child: DefaultTextStyle(
+                              style: TextStyle(
+                                color: isActive
+                                    ? Colors.white
+                                    : widget.textSecondary,
+                              ),
+                              child: widget.item.icon!,
+                            ),
                           ),
+                          const SizedBox(width: WpSpacing.xs),
+                        ],
+                        AnimatedDefaultTextStyle(
+                          duration: WpMotion.durationFor(
+                            context,
+                            WpMotion.fast,
+                          ),
+                          style: TextStyle(
+                            fontSize: WpTypography.subheading,
+                            fontWeight: FontWeight.w700,
+                            color: isActive
+                                ? Colors.white
+                                : widget.textSecondary,
+                          ),
+                          child: Text(widget.item.label),
                         ),
-                        const SizedBox(width: WpSpacing.xs),
                       ],
-                      AnimatedDefaultTextStyle(
-                        duration: WpMotion.durationFor(context, WpMotion.fast),
-                        style: TextStyle(
-                          fontSize: WpTypography.subheading,
-                          fontWeight: FontWeight.w700,
-                          color: isActive ? Colors.white : widget.textSecondary,
-                        ),
-                        child: Text(widget.item.label),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

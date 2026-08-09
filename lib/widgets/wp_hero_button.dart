@@ -45,46 +45,53 @@ class _WpHeroButtonState extends State<WpHeroButton> {
   Widget build(BuildContext context) {
     final isDisabled = widget.onPressed == null;
 
-    return Semantics(
-      button: true,
-      enabled: !isDisabled,
-      label: widget.label,
-      child: AnimatedScale(
-        scale: !isDisabled && _hovered ? 1.02 : 1.0,
-        duration: WpMotion.durationFor(context, WpMotion.fast),
-        curve: WpMotion.defaultCurve,
-        child: AnimatedOpacity(
+    // House idiom for a composed control (`section.dart`): MergeSemantics +
+    // a *label-less* Semantics. A `label:` here does not replace the
+    // subtree's text, it is prepended to it — the rendered `Text(widget.label)`
+    // below still contributes a node, so a screen reader announced the caption
+    // twice ("Weiter, Weiter"). Verified against the framework: the merged
+    // node keeps `actions: focus, tap`, so the button stays operable.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        enabled: !isDisabled,
+        child: AnimatedScale(
+          scale: !isDisabled && _hovered ? 1.02 : 1.0,
           duration: WpMotion.durationFor(context, WpMotion.fast),
-          opacity: isDisabled ? 0.5 : 1.0,
-          child: WpFocusRing(
-            focusNode: _focusNode,
-            radius: WpRadius.md,
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: WpRadius.borderMd,
-              clipBehavior: Clip.antiAlias,
-              child: Ink(
-                decoration: BoxDecoration(gradient: widget.gradient),
-                child: InkWell(
-                  onTap: widget.onPressed,
-                  focusNode: _focusNode,
-                  borderRadius: WpRadius.borderMd,
-                  // WpFocusRing owns focus visuals — suppress InkWell's own.
-                  focusColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  onHover: (hovering) => setState(() => _hovered = hovering),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      vertical: widget.verticalPadding,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      widget.label,
-                      // labelLarge = Type/button role (16 / 700 / ls -0.3).
-                      // Always white: button sits on an accent-gradient background.
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: Colors.white),
+          curve: WpMotion.defaultCurve,
+          child: AnimatedOpacity(
+            duration: WpMotion.durationFor(context, WpMotion.fast),
+            opacity: isDisabled ? 0.5 : 1.0,
+            child: WpFocusRing(
+              focusNode: _focusNode,
+              radius: WpRadius.md,
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: WpRadius.borderMd,
+                clipBehavior: Clip.antiAlias,
+                child: Ink(
+                  decoration: BoxDecoration(gradient: widget.gradient),
+                  child: InkWell(
+                    onTap: widget.onPressed,
+                    focusNode: _focusNode,
+                    borderRadius: WpRadius.borderMd,
+                    // WpFocusRing owns focus visuals — suppress InkWell's own.
+                    focusColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    onHover: (hovering) => setState(() => _hovered = hovering),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: widget.verticalPadding,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        widget.label,
+                        // labelLarge = Type/button role (16 / 700 / ls -0.3).
+                        // Always white: button sits on an accent-gradient background.
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelLarge?.copyWith(color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
