@@ -11,6 +11,7 @@ import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/navigation/page_state.dart';
+import 'core/onboarding/onboarding_revision.dart';
 import 'core/onboarding/onboarding_surface.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
@@ -216,9 +217,20 @@ bool shouldRunStartupPermissionGate(
 /// not "minimize". `settings == null` (not loaded yet) is treated like
 /// "onboarding not completed", so an early close before settings resolve
 /// quits rather than risks a stranded background process.
-bool shouldHideToTrayOnClose(AppSettings? settings) =>
+///
+/// An onboarding revision run (`.scratch/onboarding-revisions/issues/03`)
+/// gets the identical treatment even though `onboardingCompleted` is already
+/// true for that user: the parent PRD is explicit that closing the window
+/// during a run "beendet weiterhin die App und ist kein Ausgang — es
+/// stempelt nichts" (still quits the app, is not an exit, stamps nothing) —
+/// the visible exit is a separate, dedicated action, not the window chrome.
+bool shouldHideToTrayOnClose(
+  AppSettings? settings, {
+  bool onboardingRevisionRunning = false,
+}) =>
     (settings?.closeToTray ?? true) &&
-    (settings?.onboarding.onboardingCompleted ?? false);
+    (settings?.onboarding.onboardingCompleted ?? false) &&
+    !onboardingRevisionRunning;
 
 /// Root layout: title bar + sidebar + content + status bar.
 class _AppShell extends ConsumerStatefulWidget {
@@ -348,14 +360,43 @@ class _AppShellState extends ConsumerState<_AppShell>
   }
 
   /// Strictly ordered startup sequence for everything permission-shaped:
-  /// the TCC-reset notice hydrates the restart marker and runs the first
-  /// capability probe, the restart watch must be armed before any grant
-  /// flow can trigger a restart, and the proactive gate runs last so it
-  /// reads a settled capability state.
+  /// an onboarding revision run starts first — before any of the checks
+  /// below read `onboardingRevisionRunning`, so none of them can race a
+  /// native dialog onto the onboarding surface — then the TCC-reset notice
+  /// hydrates the restart marker and runs the first capability probe, the
+  /// restart watch must be armed before any grant flow can trigger a
+  /// restart, and the proactive gate runs last so it reads a settled
+  /// capability state.
   Future<void> _runStartupPermissionFlows() async {
+    await _maybeStartOnboardingRevisionRun();
     await _maybeShowTccResetNotice();
     _setupAutoPasteRestartWatch();
     await _runStartupPermissionGate();
+  }
+
+  /// Starts an onboarding revision run (`.scratch/onboarding-revisions/
+  /// issues/03`) the moment settings confirm one is due for this user and
+  /// platform. `onboardingRevisionDue` is the same pure trigger function the
+  /// grandfathering migration checks at settings-load time
+  /// (`onboarding_revision.dart`); this is the other half — turning "due"
+  /// into an actual run, once per process, right before anything else that
+  /// must stay out of the onboarding surface's way gets a chance to check.
+  Future<void> _maybeStartOnboardingRevisionRun() async {
+    final onboarding = ref.read(settingsProvider).value?.onboarding;
+    if (onboarding == null) return;
+    final registry = ref.read(onboardingRevisionRegistryProvider);
+    final target = targetOnboardingContentVersion(
+      registry,
+      currentOnboardingPlatform(),
+    );
+    if (!onboardingRevisionDue(
+      onboardingCompleted: onboarding.onboardingCompleted,
+      seenContentVersion: onboarding.onboardingContentVersion,
+      targetContentVersion: target,
+    )) {
+      return;
+    }
+    await ref.read(onboardingRevisionRunProvider.notifier).start();
   }
 
   /// Subscribes to the capability notifier and drives the native forced-restart
@@ -771,7 +812,10 @@ class _AppShellState extends ConsumerState<_AppShell>
 
   @override
   void onWindowClose() async {
-    if (shouldHideToTrayOnClose(ref.read(settingsProvider).value)) {
+    if (shouldHideToTrayOnClose(
+      ref.read(settingsProvider).value,
+      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
+    )) {
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
       await windowManager.hide();
@@ -827,6 +871,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final onboardingRevisionRunning = ref.watch(onboardingRevisionRunProvider);
     final resolvedAfterAction = resolveAfterTranscriptionAction(
       settings.afterTranscriptionAction,
     );
@@ -1096,16 +1141,21 @@ class _AppShellState extends ConsumerState<_AppShell>
                           ),
                         ],
                       ),
-                      // Onboarding overlay — the first launch, or a review the
-                      // user reopened from Settings. Which of the two decides
-                      // how the flow behaves, and `onboardingCompleted` is
-                      // exactly that distinction: a run that starts with setup
-                      // already done can only be a review.
+                      // Onboarding overlay — the first launch, a review the
+                      // user reopened from Settings, or an onboarding
+                      // revision run (`.scratch/onboarding-revisions/
+                      // issues/03`). `onboardingCompleted` alone no longer
+                      // decides which of the latter two it is — both start
+                      // with setup already done — so the ephemeral revision
+                      // flag breaks the tie; the two are mutually exclusive
+                      // by construction (see `OnboardingOverlay.revisionRun`).
                       if (ref.watch(onboardingSurfaceActiveProvider))
                         Positioned.fill(
                           child: OnboardingOverlay(
                             manualReview:
-                                settings.onboarding.onboardingCompleted,
+                                settings.onboarding.onboardingCompleted &&
+                                !onboardingRevisionRunning,
+                            revisionRun: onboardingRevisionRunning,
                           ),
                         ),
                     ],

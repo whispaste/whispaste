@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/config/build_config.dart';
 import '../../core/config/settings_provider.dart';
+import '../../core/onboarding/onboarding_revision.dart';
 import '../../core/onboarding/onboarding_surface.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -179,7 +180,11 @@ List<OnboardingStepId> buildOnboardingStepIds({
 /// title bar is hidden during onboarding). On completion persists
 /// [AppSettings.onboarding]`.onboardingCompleted` = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
-  const OnboardingOverlay({super.key, this.manualReview = false});
+  const OnboardingOverlay({
+    super.key,
+    this.manualReview = false,
+    this.revisionRun = false,
+  });
 
   /// Whether this is a review the user reopened from Settings rather than the
   /// first run.
@@ -193,6 +198,21 @@ class OnboardingOverlay extends ConsumerStatefulWidget {
   /// visible way out — the first run deliberately has none, because there
   /// closing the window means quitting the app.
   final bool manualReview;
+
+  /// Whether this is an onboarding revision run
+  /// (`.scratch/onboarding-revisions/issues/03`) rather than the first run
+  /// or a manually reopened review.
+  ///
+  /// Shares most of a review's shape — same five steps prefilled from live
+  /// settings, always starts at step 1, never re-writes `onboardingCompleted`
+  /// — but differs in what its ending does: completion and the visible exit
+  /// (`.scratch/onboarding-revisions/issues/04`, not built by this flag) both
+  /// stamp `onboardingContentVersion` via [OnboardingRevisionRunNotifier.
+  /// complete], because a revision run is offered at most once per version,
+  /// while a review — already caught up by definition — never touches that
+  /// field. Mutually exclusive with [manualReview] by construction: the two
+  /// session flags that drive them are only ever set one at a time.
+  final bool revisionRun;
 
   @override
   ConsumerState<OnboardingOverlay> createState() => _OnboardingOverlayState();
@@ -268,6 +288,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // position for good.
       _stepHydrated = true;
       _trackStep('review_step', _onboardingSteps().first);
+      return;
+    }
+    if (widget.revisionRun) {
+      // Same reasoning as a review's early return above — a revision run
+      // always begins at step one — plus one more: by the time this mounts,
+      // OnboardingRevisionRunNotifier.start() has already reset the shared
+      // position field to 0, so reading it here would be redundant even if
+      // it weren't skipped.
+      _stepHydrated = true;
+      _trackStep('revision_step', _onboardingSteps().first);
       return;
     }
     // Resume where the user left off — most relevantly after a required app
@@ -350,11 +380,13 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// Persists [step] as the current onboarding position so a mid-flow app
   /// restart resumes here instead of restarting the whole flow.
   ///
-  /// No-op in a review: the resume position is first-run state, and paging
-  /// through a review must not overwrite where an interrupted first run got
-  /// to — nor leave any trace of the review at all.
+  /// No-op in a review or a revision run: the resume position is first-run
+  /// state, and paging through either must not overwrite where an
+  /// interrupted first run got to — nor leave any trace of the run itself.
+  /// A revision run's own position starts at 0 (`start()`) and ends at 0
+  /// (`complete()`); nothing in between needs to survive a restart.
   void _persistCurrentStep(int step) {
-    if (widget.manualReview) return;
+    if (widget.manualReview || widget.revisionRun) return;
     ref
         .read(settingsProvider.notifier)
         .updateSettings(
@@ -420,12 +452,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final steps = _onboardingSteps();
     if (_currentStep < steps.length - 1) {
       if (_currentStep == 0 &&
-          // Not in a review: an OS permission dialog is the loudest thing
-          // this app can do, and merely paging through the introduction is
-          // not the "clearly needs it" moment that justifies one. The
-          // microphone status and its own request affordance are on the Try
-          // & Go step, where the microphone is actually used.
+          // Not in a review or a revision run: an OS permission dialog is the
+          // loudest thing this app can do, and merely paging through the
+          // introduction is not the "clearly needs it" moment that justifies
+          // one. The microphone status and its own request affordance are on
+          // the Try & Go step, where the microphone is actually used. A
+          // revision run additionally must never re-request on a returning
+          // user's behalf — it shows status, it does not ask again (parent
+          // PRD, "Out of Scope").
           !widget.manualReview &&
+          !widget.revisionRun &&
           ref.read(micPermissionNotifierProvider).status ==
               MicPermissionStatus.unknown) {
         // The user never triggered the mic request themselves — fire it now,
@@ -444,10 +480,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       _persistCurrentStep(_currentStep);
       // A returning user re-reading a page is not a first-run step. Mixing
       // the two would quietly inflate the per-step funnel these events exist
-      // to measure — and read as a first run that never ends, because a
-      // review emits no 'complete'.
+      // to measure — and read as a first run that never ends, because
+      // neither a review nor a revision run emits a plain 'complete'.
       _trackStep(
-        widget.manualReview ? 'review_step' : 'step',
+        widget.manualReview
+            ? 'review_step'
+            : widget.revisionRun
+            ? 'revision_step'
+            : 'step',
         steps[_currentStep],
       );
     }
@@ -485,7 +525,25 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       _exitManualReview();
       return;
     }
+    if (widget.revisionRun) {
+      // Same shared ending a visible early exit will call
+      // (`.scratch/onboarding-revisions/issues/04`) — reaching the last step
+      // and leaving early are not different outcomes, per the parent PRD
+      // ("Abbruch stempelt ebenfalls").
+      _trackStep('revision_complete', OnboardingStepId.tryAndGo);
+      await ref.read(onboardingRevisionRunProvider.notifier).complete();
+      return;
+    }
     _trackStep('complete', OnboardingStepId.tryAndGo);
+    // US17: a freshly set-up user is, by construction, caught up on the
+    // onboarding content they were just shown — stamping the target version
+    // here, in the same write as `onboardingCompleted`, is what keeps them
+    // from walking straight into a revision run on their very next start.
+    final registry = ref.read(onboardingRevisionRegistryProvider);
+    final targetVersion = targetOnboardingContentVersion(
+      registry,
+      currentOnboardingPlatform(),
+    );
     await ref
         .read(settingsProvider.notifier)
         .updateSettings(
@@ -493,6 +551,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             onboarding: s.onboarding.copyWith(
               onboardingCompleted: true,
               onboardingCurrentStep: 0,
+              onboardingContentVersion: targetVersion,
             ),
           ),
         );
@@ -859,18 +918,23 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                         child: WpHeroButton(
                           key: kOnboardingNextButtonKey,
                           label: isLastStep
-                              ? (widget.manualReview
+                              ? ((widget.manualReview || widget.revisionRun)
                                     ? l10n.onboardingReviewDone
                                     : l10n.onboardingStartUsing)
                               : l10n.onboardingNext,
                           gradient: accentGradient,
                           // The two completion gates guard the *first* run
-                          // from ending in a half-configured app. A review
-                          // opens on an app that already works, so gating its
-                          // way out on a fresh test recording would only trap
-                          // someone who came to look at a page.
+                          // from ending in a half-configured app. A review or
+                          // a revision run opens on an app that already
+                          // works, so gating its way out on a fresh test
+                          // recording would only trap a returning user who
+                          // came to look at a page — and would make the
+                          // no-data-loss promise (a full run with zero user
+                          // input must be completable) impossible to keep.
                           onPressed: isLastStep
-                              ? ((completionEnabled || widget.manualReview)
+                              ? ((completionEnabled ||
+                                        widget.manualReview ||
+                                        widget.revisionRun)
                                     ? _complete
                                     : null)
                               : _goNext,

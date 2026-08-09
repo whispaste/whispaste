@@ -5,10 +5,12 @@
 ///    gate must never run while first-run onboarding — which owns both
 ///    permissions with its own richer UI — is still in progress, nor before
 ///    settings have loaded at all.
-///  - [shouldHideToTrayOnClose] (onboarding-redesign ticket 05): closing the
-///    window during first-run onboarding must always quit, regardless of the
-///    `closeToTray` setting — a half-onboarded background process has no
-///    configured hotkey and no discoverable UI.
+///  - [shouldHideToTrayOnClose] (onboarding-redesign ticket 05, extended by
+///    onboarding-revisions ticket 03): closing the window during first-run
+///    onboarding — or during a revision run — must always quit, regardless
+///    of the `closeToTray` setting; a half-onboarded background process has
+///    no configured hotkey and no discoverable UI, and a revision run's
+///    visible exit is a separate, dedicated action from the window chrome.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -96,5 +98,24 @@ void main() {
       );
       expect(shouldHideToTrayOnClose(settings), isFalse);
     });
+
+    test(
+      'quits during an onboarding revision run even when closeToTray is on '
+      'and onboarding is long completed (onboarding-revisions ticket 03)',
+      () {
+        final settings = AppSettings.defaults.copyWith(
+          closeToTray: true,
+          onboardingCompleted: true,
+        );
+        expect(
+          shouldHideToTrayOnClose(settings, onboardingRevisionRunning: true),
+          isFalse,
+          reason:
+              'The parent PRD is explicit: closing the window during a '
+              'revision run still quits and is not the visible exit — the '
+              'run gets exactly the same treatment as first-run onboarding.',
+        );
+      },
+    );
   });
 }

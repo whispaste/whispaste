@@ -14,6 +14,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/settings_provider.dart';
+import 'onboarding_revision.dart';
 
 /// Whether the five-step onboarding flow is currently in front of the app —
 /// for any of the three reasons it can be: first-run onboarding is still in
@@ -57,30 +58,67 @@ final onboardingManuallyOpenProvider =
     );
 
 /// Whether an onboarding revision run (`.scratch/onboarding-revisions/
-/// issues/02`) is currently in progress — session state, **never
-/// persisted**, for the exact same reason [OnboardingManuallyOpenNotifier]
-/// isn't (see its doc comment): a crash, force-quit or closed window
-/// mid-run must never be able to leave `onboardingCompleted` in a wrong
-/// state, and the only way to guarantee that is to never let "a run is
-/// happening" survive past the session that started it. A completed or
-/// aborted run stamps `onboardingContentVersion` and clears this flag in the
-/// same breath — there is no persisted "run in progress" state to resume.
-///
-/// Nothing in this repository sets this to `true` yet.
-/// `.scratch/onboarding-revisions/issues/03` owns starting a run (once
-/// `onboardingRevisionDue` — see `onboarding_revision.dart` — fires) and
-/// ending one; this provider is the seam it plugs into. The surface-active
-/// predicate below already reads it, so nothing here needs to change once a
-/// run can actually start.
+/// issues/02`, started by `.scratch/onboarding-revisions/issues/03`) is
+/// currently in progress — session state, **never persisted**, for the
+/// exact same reason [OnboardingManuallyOpenNotifier] isn't (see its doc
+/// comment): a crash, force-quit or closed window mid-run must never be
+/// able to leave `onboardingCompleted` in a wrong state, and the only way to
+/// guarantee that is to never let "a run is happening" survive past the
+/// session that started it. [complete] stamps `onboardingContentVersion` and
+/// clears this flag in the same breath — there is no persisted "run in
+/// progress" state to resume; a run that never reaches [complete] (crash,
+/// force-quit, window close — which quits during a revision run exactly as
+/// it does during a first run, see `shouldHideToTrayOnClose`) is simply
+/// offered again on the next start.
 class OnboardingRevisionRunNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 
-  // loam-ignore: unused-public-exports – the seam for issue 03; no caller exists until that ticket lands.
-  void start() => state = true;
+  /// Starts a run. Forces the shared step-position field
+  /// (`onboardingCurrentStep`) back to zero first — belt-and-suspenders
+  /// against a value left over from an interrupted first run, or from a
+  /// revision run that didn't end cleanly (crash, force-quit): a revision
+  /// run always begins at step one, regardless of what happens to be
+  /// stored. That field otherwise belongs entirely to the first-run resume
+  /// mechanism (`.scratch/onboarding-redesign/issues/05`); the overlay
+  /// neither reads nor writes it again for the rest of a revision run.
+  Future<void> start() async {
+    state = true;
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(onboardingCurrentStep: 0),
+          ),
+        );
+  }
 
-  // loam-ignore: unused-public-exports – see start() above.
-  void end() => state = false;
+  /// Ends a run — reaching the last step's completion action and the
+  /// visible exit (`.scratch/onboarding-revisions/issues/04`) both call this
+  /// and nothing else: the PRD treats the two identically ("Abbruch
+  /// stempelt ebenfalls"). Stamps the registry's current target version so
+  /// this run is never offered again, resets the shared step-position field
+  /// back to zero, and clears the flag — in that order, so a failure
+  /// between the settings write and the flag clear leaves the run still
+  /// "in progress" rather than silently losing the stamp.
+  Future<void> complete() async {
+    final registry = ref.read(onboardingRevisionRegistryProvider);
+    final target = targetOnboardingContentVersion(
+      registry,
+      currentOnboardingPlatform(),
+    );
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(
+              onboardingContentVersion: target,
+              onboardingCurrentStep: 0,
+            ),
+          ),
+        );
+    state = false;
+  }
 }
 
 final onboardingRevisionRunProvider =
