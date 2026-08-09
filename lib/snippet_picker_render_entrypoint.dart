@@ -771,7 +771,7 @@ class _PickerTile extends StatelessWidget {
 }
 
 /// Paints the recording overlay's glass light onto the picker's rounded-rect
-/// silhouette — the panel-shaped sibling of `OverlayPainter._drawGlassSheen`.
+/// silhouette — the panel-shaped sibling of `WpOverlayPainter._drawGlassSheen`.
 ///
 /// Every alpha, stop, width and drift bound comes from [OverlayDesignSpec];
 /// this class adds no design constants of its own. Differences from the
