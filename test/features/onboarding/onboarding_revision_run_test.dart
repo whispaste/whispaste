@@ -542,6 +542,54 @@ void main() {
     });
 
     testWidgets(
+      'ends flush against the strip on macOS, where no X follows it — on the '
+      'same line the review\'s X sits on',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpRevisionRun(tester, registry: [_wordyEntry(2)]);
+          final exit = find.byKey(kOnboardingRevisionExitButtonKey);
+          // The nearest Row ancestor is the top bar itself — [WpButton]'s own
+          // Rows are descendants of the keyed widget, not above it.
+          final strip = find
+              .ancestor(of: exit, matching: find.byType(Row))
+              .first;
+          expect(
+            find.byKey(kOnboardingReviewExitButtonKey),
+            findsNothing,
+            reason:
+                'macOS draws no X here, so the exit button is the strip\'s '
+                'last child — the premise of the alignment below.',
+          );
+          final revisionEdge = tester.getTopRight(exit).dx;
+          expect(
+            revisionEdge,
+            tester.getTopRight(strip).dx,
+            reason:
+                'The separator before the X must not outlive the X: as an '
+                'unconditional trailing child it left the exit button 4 px '
+                'short of the edge it is supposed to end on.',
+          );
+
+          // Same strip, other mode: the review's X is the reference edge, and
+          // the two modes must not disagree about where the strip ends.
+          await _pumpRevisionRun(
+            tester,
+            registry: [_wordyEntry(2)],
+            revisionRun: false,
+            manualReview: true,
+          );
+          expect(
+            tester.getTopRight(find.byKey(kOnboardingReviewExitButtonKey)).dx,
+            revisionEdge,
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
       'states what stays unconfigured and where to catch it up before it '
       'closes the one-way door',
       (tester) async {

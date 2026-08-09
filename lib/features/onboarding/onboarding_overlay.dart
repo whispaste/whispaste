@@ -734,6 +734,13 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// what the strip holds, it was the block that pushed the build method
   /// past loam's complexity gate.
   Widget _buildTopBar(L10n l10n, Color textMuted) {
+    // One condition, read twice: the X and the gap that precedes it. Held
+    // apart they drifted — the gap hung off `revisionRun` alone and stayed
+    // behind as the row's last child on macOS, where the X is not drawn,
+    // leaving the revision run's exit button 4 px short of the right edge
+    // the review's X sits flush against.
+    final showExitIcon =
+        widget.manualReview || defaultTargetPlatform != TargetPlatform.macOS;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onPanStart: (_) => windowManager.startDragging(),
@@ -787,10 +794,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   icon: LucideIcons.logOut,
                   onPressed: _exitRevisionRun,
                 ),
-                const SizedBox(width: WpSpacing.xxs),
+                // Only a separator, never a trailing margin: it exists to
+                // keep the labelled exit off the X, so it is drawn under
+                // exactly the condition the X is.
+                if (showExitIcon) const SizedBox(width: WpSpacing.xxs),
               ],
-              if (widget.manualReview ||
-                  defaultTargetPlatform != TargetPlatform.macOS)
+              if (showExitIcon)
                 IconButton(
                   key: kOnboardingReviewExitButtonKey,
                   onPressed: widget.manualReview
