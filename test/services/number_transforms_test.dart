@@ -132,9 +132,111 @@ void main() {
     });
   });
 
-  group('toNumericOnly — §8.3 (DE-Auswahl)', () {
+  group('toNumericOnly — EN §8.2 (24 Fälle)', () {
+    test('zero → 0', () {
+      expect(toNumericOnly('zero'), '0');
+    });
+
+    test('one → 1', () {
+      expect(toNumericOnly('one'), '1');
+    });
+
+    test('nine → 9', () {
+      expect(toNumericOnly('nine'), '9');
+    });
+
+    test('ten → 10', () {
+      expect(toNumericOnly('ten'), '10');
+    });
+
+    test('eleven → 11', () {
+      expect(toNumericOnly('eleven'), '11');
+    });
+
+    test('fifteen → 15', () {
+      expect(toNumericOnly('fifteen'), '15');
+    });
+
+    test('nineteen → 19', () {
+      expect(toNumericOnly('nineteen'), '19');
+    });
+
+    test('twenty → 20', () {
+      expect(toNumericOnly('twenty'), '20');
+    });
+
+    test('twenty one → 21', () {
+      expect(toNumericOnly('twenty one'), '21');
+    });
+
+    test('twenty-one → 21', () {
+      expect(toNumericOnly('twenty-one'), '21');
+    });
+
+    test('forty two → 42', () {
+      expect(toNumericOnly('forty two'), '42');
+    });
+
+    test('ninety nine → 99', () {
+      expect(toNumericOnly('ninety nine'), '99');
+    });
+
+    test('hundred → 100', () {
+      expect(toNumericOnly('hundred'), '100');
+    });
+
+    test('one hundred → 100', () {
+      expect(toNumericOnly('one hundred'), '100');
+    });
+
+    test('one hundred twenty five → 125', () {
+      expect(toNumericOnly('one hundred twenty five'), '125');
+    });
+
+    test('one hundred and twenty five → 125', () {
+      expect(toNumericOnly('one hundred and twenty five'), '125');
+    });
+
+    test('two hundred three → 203', () {
+      expect(toNumericOnly('two hundred three'), '203');
+    });
+
+    test('one thousand → 1000', () {
+      expect(toNumericOnly('one thousand'), '1000');
+    });
+
+    test('two thousand five hundred twenty three → 2523', () {
+      expect(toNumericOnly('two thousand five hundred twenty three'), '2523');
+    });
+
+    test('five point two → 5.2', () {
+      expect(toNumericOnly('five point two'), '5.2');
+    });
+
+    test('five comma two → 5,2', () {
+      expect(toNumericOnly('five comma two'), '5,2');
+    });
+
+    test('twenty three point five → 23.5', () {
+      expect(toNumericOnly('twenty three point five'), '23.5');
+    });
+
+    test('oh five → 05', () {
+      expect(toNumericOnly('oh five'), '05');
+    });
+
+    test('five dot two → 5.2', () {
+      expect(toNumericOnly('five dot two'), '5.2');
+    });
+  });
+
+  group('toNumericOnly — §8.3 (DE- und EN-Varianten)', () {
     test('Fall 1: minus drei → -3', () {
       expect(toNumericOnly('minus drei'), '-3');
+    });
+
+    test('Fall 2: negative three → -3 (EN-Variante)', () {
+      expect(toNumericOnly('negative three'), '-3');
     });
 
     test('Fall 3: fünf komma zwei minus drei → 5,2-3 (Nutzer-Mail)', () {
@@ -151,6 +253,10 @@ void main() {
       expect(toNumericOnly('Fünf Komma zwei, minus drei.'), '5,2-3');
     });
 
+    test('Fall 6: five point two minus three → 5.2-3 (EN-Gegenstück)', () {
+      expect(toNumericOnly('five point two minus three'), '5.2-3');
+    });
+
     test('Fall 7: 5,2 minus 3 → 5,2-3 (Ziffern + Wort-Vorzeichen)', () {
       expect(toNumericOnly('5,2 minus 3'), '5,2-3');
     });
@@ -161,6 +267,10 @@ void main() {
 
     test('Fall 10: fünf komma zwei Millimeter → null (Alles-oder-Nichts)', () {
       expect(toNumericOnly('fünf komma zwei Millimeter'), isNull);
+    });
+
+    test('Fall 11: five point two millimeters → null (dito EN)', () {
+      expect(toNumericOnly('five point two millimeters'), isNull);
     });
 
     test('Fall 12: fünf plus zwei → null (+ nicht im Alphabet)', () {
@@ -181,8 +291,9 @@ void main() {
   });
 
   group('toNumericOnly — §8.3 Fall 9: Idempotenz-Property', () {
-    // Alle 30 Fälle aus §8.1 als Liste für die Idempotenz-Prüfung.
+    // Alle 30 DE-Fälle aus §8.1 + alle 24 EN-Fälle aus §8.2 = 54 Fälle.
     final idempotentCases = <String, String>{
+      // DE §8.1
       'null': '0',
       'eins': '1',
       'sieben': '7',
@@ -213,9 +324,34 @@ void main() {
       'fünf komma zwei': '5,2',
       'fünf punkt zwei': '5.2',
       'zwölf komma fünfundzwanzig': '12,25',
+      // EN §8.2
+      'zero': '0',
+      'one': '1',
+      'nine': '9',
+      'ten': '10',
+      'eleven': '11',
+      'fifteen': '15',
+      'nineteen': '19',
+      'twenty': '20',
+      'twenty one': '21',
+      'twenty-one': '21',
+      'forty two': '42',
+      'ninety nine': '99',
+      'hundred': '100',
+      'one hundred': '100',
+      'one hundred twenty five': '125',
+      'one hundred and twenty five': '125',
+      'two hundred three': '203',
+      'one thousand': '1000',
+      'two thousand five hundred twenty three': '2523',
+      'five point two': '5.2',
+      'five comma two': '5,2',
+      'twenty three point five': '23.5',
+      'oh five': '05',
+      'five dot two': '5.2',
     };
 
-    test('toNumericOnly(toNumericOnly(x)) == toNumericOnly(x) für alle DE-Fälle',
+    test('toNumericOnly(toNumericOnly(x)) == toNumericOnly(x) für alle Fälle',
         () {
       for (final entry in idempotentCases.entries) {
         final once = toNumericOnly(entry.key);
@@ -229,6 +365,7 @@ void main() {
   group('toNumericOnly — §8.3 Fall 16/17: Alphabet-Property', () {
     test('Alle nicht-null Ausgaben passen auf ^[0-9.,-]+', () {
       final testCases = [
+        // DE §8.1
         'null',
         'eins',
         'sieben',
@@ -265,6 +402,33 @@ void main() {
         'Fünf Komma zwei, minus drei.',
         '5,2 minus 3',
         '5,2-3',
+        // EN §8.2
+        'zero',
+        'one',
+        'nine',
+        'ten',
+        'eleven',
+        'fifteen',
+        'nineteen',
+        'twenty',
+        'twenty one',
+        'twenty-one',
+        'forty two',
+        'ninety nine',
+        'hundred',
+        'one hundred',
+        'one hundred twenty five',
+        'one hundred and twenty five',
+        'two hundred three',
+        'one thousand',
+        'two thousand five hundred twenty three',
+        'five point two',
+        'five comma two',
+        'twenty three point five',
+        'oh five',
+        'five dot two',
+        'negative three',
+        'five point two minus three',
       ];
 
       final alphabetRegex = RegExp(r'^[0-9.,-]+$');
@@ -285,11 +449,16 @@ void main() {
       final random = Random(42); // Fester Seed für Determinismus.
       final alphabetRegex = RegExp(r'^[0-9.,-]+$');
 
-      // Generiere zufällige Token-Folgen aus dem deutschen Lexikon.
+      // Generiere zufällige Token-Folgen aus dem deutschen UND englischen Lexikon.
       final numberWords = [
+        // DE
         'eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht',
         'neun', 'zehn', 'elf', 'zwölf', 'zwanzig', 'dreißig', 'hundert',
         'tausend', 'komma', 'punkt', 'minus',
+        // EN
+        'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+        'nine', 'ten', 'eleven', 'fifteen', 'twenty', 'thirty', 'hundred',
+        'thousand', 'point', 'dot', 'comma', 'negative', 'oh',
       ];
 
       var hasNonNullOutput = false;

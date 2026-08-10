@@ -82,6 +82,77 @@ final _simpleNumberWords = <String>{
 };
 
 // ---------------------------------------------------------------------------
+// Lexika (EN)
+// ---------------------------------------------------------------------------
+
+/// Einer (0–9), inkl. `oh` als Ziffern-Platzhalter (wie bei Telefonnummern).
+const _enOnes = {
+  'zero': 0,
+  'oh': 0,
+  'one': 1,
+  'two': 2,
+  'three': 3,
+  'four': 4,
+  'five': 5,
+  'six': 6,
+  'seven': 7,
+  'eight': 8,
+  'nine': 9,
+};
+
+/// Teens 10–19.
+const _enTeens = {
+  'ten': 10,
+  'eleven': 11,
+  'twelve': 12,
+  'thirteen': 13,
+  'fourteen': 14,
+  'fifteen': 15,
+  'sixteen': 16,
+  'seventeen': 17,
+  'eighteen': 18,
+  'nineteen': 19,
+};
+
+/// Zehner 20–90.
+const _enTens = {
+  'twenty': 20,
+  'thirty': 30,
+  'forty': 40,
+  'fifty': 50,
+  'sixty': 60,
+  'seventy': 70,
+  'eighty': 80,
+  'ninety': 90,
+};
+
+/// Skalenwörter EN (V1: nur hundred und thousand).
+const _enScales = {
+  'hundred': 100,
+  'thousand': 1000,
+};
+
+/// Dezimal-/Trennzeichen (EN).
+const _enSeparators = {
+  'point': '.',
+  'dot': '.',
+  'comma': ',',
+};
+
+/// Alle einfachen (nicht-kompositen) englischen Zahlwörter — Menge für
+/// schnelle Mitgliedschaftsprüfung.
+final _enSimpleNumberWords = <String>{
+  ..._enOnes.keys,
+  ..._enTeens.keys,
+  ..._enTens.keys,
+  ..._enScales.keys,
+};
+
+/// Englische `and`-Filler: wird zwischen Kardinalzahlen ignoriert
+/// („one hundred and twenty five" → 125).
+const _andFiller = 'and';
+
+// ---------------------------------------------------------------------------
 // Regexes (Top-Level `final`, nicht pro Aufruf kompilieren)
 // ---------------------------------------------------------------------------
 
@@ -108,6 +179,13 @@ enum _TokenKind {
 
   /// Zahlwort, das in einen ganzzahligen Wert aufgelöst wird.
   cardinal,
+
+  /// Skalenwort EN (`hundred`, `thousand`) — multipliziert den Akkumulator.
+  scale,
+
+  /// Einzelziffer-Wort (`oh`, `zero`) — wird als String emittiert, ohne
+  /// Gruppierung mit nachfolgenden Kardinalen (für `oh five` → `05`).
+  digitWord,
 }
 
 /// Ein klassifiziertes Token.
@@ -219,13 +297,56 @@ List<String> _mergeSeparatedComposites(List<String> tokens) {
   return result;
 }
 
+/// Splitzt englische Bindestrich-Komposita wie `twenty-one` in separate
+/// Token (`["twenty", "one"]`). Ziffern-Token (`5,2-3`) behalten ihren
+/// Bindestrich als Symbol.
+///
+/// Wird **vor** der Klassifikation aufgerufen, damit die Mehrwort-Komposition
+/// im Emitter die Einzelteile addieren kann.
+List<String> _splitHyphenatedComposites(List<String> tokens) {
+  final result = <String>[];
+  for (final token in tokens) {
+    if (token.contains('-') && !_digitsRegex.hasMatch(token)) {
+      // Bindestrich-Trennung nur bei Token, die Buchstaben enthalten.
+      result.addAll(token.split('-').where((t) => t.isNotEmpty));
+    } else {
+      result.add(token);
+    }
+  }
+  return result;
+}
+
+/// Filtert `and`-Filler heraus, die zwischen Kardinalzahlen stehen
+/// (`one hundred and twenty five` → `one hundred twenty five`).
+///
+/// Wird **vor** der Klassifikation aufgerufen.
+List<String> _filterAndFiller(List<String> tokens) {
+  final result = <String>[];
+  for (var i = 0; i < tokens.length; i++) {
+    if (tokens[i] == _andFiller && i > 0 && i + 1 < tokens.length) {
+      final prev = tokens[i - 1];
+      final next = tokens[i + 1];
+      final prevIsNumber =
+          _simpleNumberWords.contains(prev) || _enSimpleNumberWords.contains(prev);
+      final nextIsNumber =
+          _simpleNumberWords.contains(next) || _enSimpleNumberWords.contains(next);
+      if (prevIsNumber && nextIsNumber) {
+        continue; // `and` zwischen Kardinalzahlen überspringen.
+      }
+    }
+    result.add(tokens[i]);
+  }
+  return result;
+}
+
 /// Klassifiziert einen einzelnen, bereits bereinigten Token.
 ///
 /// Alle Token, die weder DIGITS, SIGN noch SEPARATOR sind, werden als
-/// CARDINAL klassifiziert. Die Zerlegung (einfacher Wert vs. Kompositum)
-/// erfolgt erst bei der Emission über [_resolveCardinalValue]. Falls die
-/// Zerlegung fehlschlägt, wird der Token nachträglich als UNKNOWN gewertet
-/// und löst die Alles-oder-Nichts-Logik aus.
+/// CARDINAL, SCALE oder DIGIT_WORD klassifiziert. Die Zerlegung (einfacher
+/// Wert vs. Kompositum) erfolgt erst bei der Emission über
+/// [_resolveCardinalValue]. Falls die Zerlegung fehlschlägt, wird der Token
+/// nachträglich als UNKNOWN gewertet und löst die Alles-oder-Nichts-Logik
+/// aus.
 _Token _classify(String token) {
   if (_digitsRegex.hasMatch(token)) {
     return _Token(_TokenKind.digits, word: token, output: token);
@@ -235,6 +356,18 @@ _Token _classify(String token) {
   }
   if (_separators.containsKey(token)) {
     return _Token(_TokenKind.separator, word: token, output: _separators[token]);
+  }
+  if (_enSeparators.containsKey(token)) {
+    return _Token(_TokenKind.separator, word: token, output: _enSeparators[token]);
+  }
+  // EN-Skalenwörter: `hundred`, `thousand`.
+  if (_enScales.containsKey(token)) {
+    return _Token(_TokenKind.scale, word: token, output: _enScales[token].toString());
+  }
+  // EN-Einzeldigit-Wörter: `oh`, `zero` → als String emittiert, keine
+  // Gruppierung mit nachfolgenden Kardinalen (`oh five` → `05`).
+  if (token == 'oh' || token == 'zero') {
+    return _Token(_TokenKind.digitWord, word: token, output: '0');
   }
   // Alles andere ist potenziell ein CARDINAL — Zerlegung erfolgt bei Emission.
   return _Token(_TokenKind.cardinal, word: token);
@@ -258,36 +391,60 @@ int _resolveCardinalValue(_Token token) {
   if (_teens.containsKey(token.word)) return _teens[token.word]!;
   if (_tens.containsKey(token.word)) return _tens[token.word]!;
   if (_scales.containsKey(token.word)) return _scales[token.word]!;
-  // Kompositum.
+  if (_enOnes.containsKey(token.word)) return _enOnes[token.word]!;
+  if (_enTeens.containsKey(token.word)) return _enTeens[token.word]!;
+  if (_enTens.containsKey(token.word)) return _enTens[token.word]!;
+  // Kompositum (DE).
   return _decomposeGermanComposite(token.word);
 }
 
-/// Gruppiert aufeinanderfolgende CARDINAL-Token zu einer Zahl und emittiert
-/// alle Token als Ausgabetoken in Sprech-Reihenfolge.
+/// Gruppiert aufeinanderfolgende CARDINAL- und SCALE-Token zu einer Zahl und
+/// emittiert alle Token als Ausgabetoken in Sprech-Reihenfolge.
 ///
-/// Ein CARDINAL-Token wird über [_resolveCardinalValue] in einen ganzzahligen
-/// Wert aufgelöst und als Ziffern-String emittiert. Gibt `null` zurück, wenn
-/// ein Token nicht zerlegt werden kann (Alles-oder-Nichts).
+/// Englische Komposition (§5.1): Skalenwörter (`hundred`, `thousand`)
+/// multiplizieren den laufenden Akkumulator und addieren zum Total.
+/// Beispiel: `one hundred twenty five` → (1×100) + 25 = 125.
+///
+/// Einzelziffer-Wörter (`oh`, `zero`) werden als String emittiert, ohne
+/// Gruppierung mit nachfolgenden Kardinalen (`oh five` → `05`).
+///
+/// Gibt `null` zurück, wenn ein Token nicht zerlegt werden kann
+/// (Alles-oder-Nichts).
 List<String>? _emit(List<_Token> tokens) {
   final result = <String>[];
   var i = 0;
   try {
     while (i < tokens.length) {
       final token = tokens[i];
-      if (token.kind == _TokenKind.cardinal) {
-        // Aufeinanderfolgende CARDINAL-Token sammeln.
-        final cardinals = <int>[];
-        while (i < tokens.length && tokens[i].kind == _TokenKind.cardinal) {
-          cardinals.add(_resolveCardinalValue(tokens[i]));
+      if (token.kind == _TokenKind.cardinal || token.kind == _TokenKind.scale) {
+        // Gruppe aus aufeinanderfolgenden CARDINAL- und SCALE-Token sammeln.
+        final group = <_Token>[];
+        while (i < tokens.length &&
+            (tokens[i].kind == _TokenKind.cardinal ||
+                tokens[i].kind == _TokenKind.scale)) {
+          group.add(tokens[i]);
           i++;
         }
-        // Kompositum berechnen: aufeinanderfolgende Kardinalzahlen werden
-        // additiv verknüpft (z. B. `20 + 3 = 23` für `zwanzig drei`).
-        var value = 0;
-        for (final v in cardinals) {
-          value += v;
+        // Englische Komposition: Akkumulator + Total.
+        var accumulator = 0;
+        var total = 0;
+        for (final t in group) {
+          if (t.kind == _TokenKind.cardinal) {
+            accumulator += _resolveCardinalValue(t);
+          } else if (t.kind == _TokenKind.scale) {
+            final scale = int.parse(t.output!);
+            if (accumulator == 0) accumulator = 1; // `hundred` allein → 100.
+            total += accumulator * scale;
+            accumulator = 0;
+          }
         }
-        result.add(value.toString());
+        total += accumulator;
+        result.add(total.toString());
+      } else if (token.kind == _TokenKind.digitWord) {
+        // Einzelziffer-Wort (`oh`, `zero`) → als String emittiert, ohne
+        // Gruppierung mit nachfolgenden Kardinalen.
+        result.add(token.output!);
+        i++;
       } else if (token.kind == _TokenKind.digits) {
         result.add(token.output!);
         i++;
@@ -304,6 +461,9 @@ List<String>? _emit(List<_Token> tokens) {
     }
   } on ArgumentError {
     // Zerlegung fehlgeschlagen — Alles-oder-Nichts.
+    return null;
+  } on FormatException {
+    // Parsing-Fehler bei Skalenwort — Alles-oder-Nichts.
     return null;
   }
   return result;
@@ -347,8 +507,15 @@ String? toNumericOnly(String text) {
   });
   if (!hasNonPunctuation) return null;
 
-  // Stufe 1.5: Getrennt geschriebene Komposita zusammenführen.
-  final merged = _mergeSeparatedComposites(tokens);
+  // Stufe 1.1: Englische Bindestrich-Komposita auftrennen
+  // (z. B. `twenty-one` → `["twenty", "one"]`).
+  final hyphenSplit = _splitHyphenatedComposites(tokens);
+
+  // Stufe 1.2: Englischen `and`-Filler herausfiltern (zwischen Kardinalen).
+  final andFiltered = _filterAndFiller(hyphenSplit);
+
+  // Stufe 1.5: Getrennt geschriebene Komposita zusammenführen (DE: `und`).
+  final merged = _mergeSeparatedComposites(andFiltered);
 
   // Stufe 2: Klassifizieren.
   final classified = _classifyAll(merged);
