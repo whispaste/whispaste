@@ -76,11 +76,11 @@ List<SettingsSearchEntry> matchSettingsEntries(
 ) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return const [];
-  final needle = _fold(trimmed.toLowerCase());
+  final regex = RegExp(RegExp.escape(_fold(trimmed)), caseSensitive: false);
   return table.where((e) {
-    if (_fold(e.title(locale).toLowerCase()).contains(needle)) return true;
-    if (_fold(e.subtitle(locale).toLowerCase()).contains(needle)) return true;
-    return e.keywords.any((kw) => _fold(kw.toLowerCase()).contains(needle));
+    if (regex.hasMatch(_fold(e.title(locale)))) return true;
+    if (regex.hasMatch(_fold(e.subtitle(locale)))) return true;
+    return e.keywords.any((kw) => regex.hasMatch(_fold(kw)));
   }).toList();
 }
 
