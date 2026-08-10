@@ -662,6 +662,13 @@ class AppSettings {
         benchmarkTimestamp: benchmarkTimestamp,
       ),
       privacy: privacy.copyWith(shareUsageStats: shareUsageStats),
+      // The deprecated `copyWith` shim rebuilds a fresh `AppSettings(...)`;
+      // any section omitted here silently resets to its constructor
+      // default. `portabilityPaths` was omitted, so the one production call
+      // site left on this API — `app.dart`'s `copyWith(windowMaximized:
+      // true)`, fired on every window maximize — silently cleared the
+      // remembered export/import location on every maximize.
+      portabilityPaths: portabilityPaths,
     );
   }
 

@@ -315,6 +315,31 @@ void main() {
     );
   });
 
+  group('deprecated copyWith shim (portabilityPaths pass-through)', () {
+    test(
+      'a copyWith call that only touches an unrelated field keeps portabilityPaths',
+      () {
+        // Regression: the shim used to omit `portabilityPaths` from the
+        // AppSettings(...) it rebuilds, so any call through this API —
+        // app.dart's `copyWith(windowMaximized: true)` on every window
+        // maximize is the one production call site — silently reset the
+        // remembered export/import location back to empty.
+        const settings = AppSettings(
+          portabilityPaths: SettingsPortabilityPathSettings(
+            exportPath: '/Users/x/backup.json',
+            exportBookmark: 'bookmark-bytes',
+          ),
+        );
+
+        final result = settings.copyWith(windowMaximized: true);
+
+        expect(result.portabilityPaths.exportPath, '/Users/x/backup.json');
+        expect(result.portabilityPaths.exportBookmark, 'bookmark-bytes');
+        expect(result.windowMaximized, true);
+      },
+    );
+  });
+
   group('sound mute migration (issue 12)', () {
     /// Helper: build a fresh container seeded with the given storage map.
     Future<(ProviderContainer, HistoryDatabase)> buildSeeded(
