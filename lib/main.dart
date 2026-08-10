@@ -105,8 +105,16 @@ Future<void> main(List<String> args) async {
   // Dart/Flutter MCP server's flutter_driver_command tool
   // (screenshot/tap/diagnostics tree) drive the real running app — see
   // docs/agents/ui-investigation.md.
+  // enableTextEntryEmulation defaults to true, which intercepts the
+  // TextInput platform channel app-wide and swallows all real keyboard
+  // input (focus/caret stay visually active but no character ever lands,
+  // AppKit falls through to its own beep) — every debug build was
+  // unusable for actual typing until this was set to false. The MCP
+  // tool's enter_text command can still be enabled ad hoc per-session via
+  // the set_text_entry_emulation driver command when a test actually
+  // needs synthetic text entry.
   if (kDebugMode) {
-    enableFlutterDriverExtension();
+    enableFlutterDriverExtension(enableTextEntryEmulation: false);
   }
 
   // Linux-only fast-path: the GTK embedder has no named-entrypoint API
