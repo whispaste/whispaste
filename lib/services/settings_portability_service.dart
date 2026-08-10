@@ -90,6 +90,21 @@ const Set<String> settingsPortabilityDenyList = {
   'settings_import_path',
   'settings_export_bookmark',
   'settings_import_bookmark',
+  // SettingsAutosaveSettings (Ticket 26) — same category as the four keys
+  // above, one machine's backup *plumbing* rather than any part of the
+  // configuration being backed up: a rotation folder that does not exist on
+  // the target machine, a bookmark bound to this machine and code
+  // signature, and two timestamps describing runs that happened here.
+  //
+  // Deny-listing also carries the feature's loop guard: the autosave
+  // trigger compares this same filtered map, so writing the timestamps back
+  // after a run is invisible to it and cannot schedule the next run. Moving
+  // any of these five keys off this list re-arms that loop.
+  'settings_autosave_enabled',
+  'settings_autosave_folder',
+  'settings_autosave_bookmark',
+  'settings_autosave_last_success',
+  'settings_autosave_last_error',
 };
 
 /// Every storage key that is neither deny-listed nor a genuinely new
@@ -185,6 +200,38 @@ class SettingsExportBundle {
   final List<Replacement> replacements;
   final List<SnippetItem>? snippets;
 }
+
+/// Builds the bundle every export writes, from live app state.
+///
+/// Shared by the manual export (`SettingsPortabilityController.gather`, wired
+/// in `settings_portability_section.dart`) and the automatic one
+/// (`SettingsAutosaveRunner.gather`, wired in `app.dart`) so the two can
+/// never come to differ in *what* they consider portable — a file the user
+/// exported by hand and one the automation wrote a second later must be the
+/// same file.
+///
+/// The settings map is filtered against [settingsPortabilityDenyList] here
+/// *and* again in [SettingsPortabilityService.encode], the file-writing
+/// boundary, which cannot assume its caller filtered — deliberate, not
+/// accidental duplication. It matters for the machine-bound keys (window
+/// geometry, onboarding progress, microphone, autosave configuration) that
+/// carry real values at this point; the two API-key entries are moot either
+/// way, since `CloudProviderSettings.toMap()` always writes them as ''
+/// regardless of filtering (secure storage is the real API-key guard — see
+/// [mergeImportedSettings]).
+SettingsExportBundle buildSettingsExportBundle({
+  required AppSettings settings,
+  required List<Replacement> replacements,
+  required List<SnippetItem> snippets,
+}) => SettingsExportBundle(
+  settings: <String, String>{
+    for (final entry in settings.toStorageMap().entries)
+      if (!settingsPortabilityDenyList.contains(entry.key))
+        entry.key: entry.value,
+  },
+  replacements: replacements,
+  snippets: snippets,
+);
 
 // ---------------------------------------------------------------------------
 // Merge seam

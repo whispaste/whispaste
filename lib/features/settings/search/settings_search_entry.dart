@@ -239,9 +239,14 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       'Export', 'Import', 'exportieren', 'importieren', 'Umzug', 'übertragen',
       'sichern', 'Sicherung', 'wiederherstellen', 'Gerätewechsel', 'mitnehmen',
       'Datensicherung', 'neuer Rechner',
+      // DE — Autosicherung (Ticket 26) lives in this section, so it has to
+      // be findable under its own name and not only under "Sicherung".
+      'Autosicherung', 'automatisch sichern', 'automatische Sicherung',
       // EN
       'export', 'import', 'migrate', 'transfer', 'move', 'backup', 'restore',
       'device change', 'portability', 'new computer',
+      // EN — Autosicherung
+      'automatic backup', 'auto backup', 'autosave',
     ],
   ),
   SettingsSearchEntry(

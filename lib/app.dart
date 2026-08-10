@@ -55,6 +55,9 @@ import 'services/permissions/mic_permission_notifier.dart';
 import 'services/permissions/startup_permission_gate.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
 import 'services/microphone_selection_service.dart';
+import 'services/settings_autosave_service.dart';
+import 'services/settings_portability_service.dart'
+    show buildSettingsExportBundle;
 import 'services/single_instance_service.dart';
 import 'services/graceful_shutdown.dart';
 import 'services/stt/stt_bundle.dart';
@@ -268,6 +271,20 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// mounted in the background. Closed in [dispose].
   ProviderSubscription<PasteCapabilityState>? _restartWatchSub;
 
+  /// Autosicherung (Ticket 26). Lives here rather than in the settings
+  /// section that switches it on, because two of its three triggers — a
+  /// replacement, a snippet — happen on pages of their own, and because a
+  /// backup must still run with the settings page closed and the window
+  /// hidden in the tray. Closed in [dispose].
+  SettingsAutosaveScheduler? _autosaveScheduler;
+  final List<ProviderSubscription<Object?>> _autosaveSubs = [];
+
+  /// Last exported-content fingerprint (see [autosaveTriggerSignature]).
+  /// Compared instead of the raw settings object so the settings that change
+  /// constantly on their own — window geometry, and the autosave feature's
+  /// own timestamps — cannot schedule a backup.
+  String? _autosaveSignature;
+
   /// One-shot latch per restart episode: keeps a re-derived `needsRestart`
   /// (probes re-run on focus / poll) from re-invoking the modal while one is
   /// already up. Reset when the state leaves the restart-needed condition.
@@ -372,6 +389,100 @@ class _AppShellState extends ConsumerState<_AppShell>
 
       unawaited(_runStartupPermissionFlows());
     });
+
+    _setupSettingsAutosave();
+  }
+
+  /// Arms the Autosicherung triggers (Ticket 26, decisions E11a–E11d).
+  ///
+  /// Purely event-driven: three listeners, one debounce, no periodic timer
+  /// and nothing that runs at startup. The settings listener compares
+  /// [autosaveTriggerSignature] rather than the settings object, so only a
+  /// change that would alter the backup file counts — which is also what
+  /// stops the scheduler's own success timestamp from triggering the next
+  /// run.
+  void _setupSettingsAutosave() {
+    final scheduler = SettingsAutosaveScheduler(
+      runner: SettingsAutosaveRunner(
+        gather: () async => buildSettingsExportBundle(
+          settings: ref.read(settingsProvider).value ?? AppSettings.defaults,
+          replacements: ref.read(replacementsProvider).value ?? const [],
+          snippets: ref.read(snippetsProvider).value ?? const [],
+        ),
+      ),
+      readConfig: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).autosave,
+      writeConfig: (update) => ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(autosave: update(s.autosave)),
+          ),
+      reportFailure: _reportAutosaveFailure,
+    );
+    _autosaveScheduler = scheduler;
+    _autosaveSignature = switch (ref.read(settingsProvider).value) {
+      final settings? => autosaveTriggerSignature(settings),
+      null => null,
+    };
+
+    final settingsSub = ref.listenManual(settingsProvider, (previous, next) {
+      final after = next.value;
+      if (after == null) return;
+      if (autosaveNeedsImmediateRun(
+        previous?.value?.autosave,
+        after.autosave,
+      )) {
+        _autosaveSignature = autosaveTriggerSignature(after);
+        scheduler.runNow();
+        return;
+      }
+      final signature = autosaveTriggerSignature(after);
+      final baseline = _autosaveSignature;
+      _autosaveSignature = signature;
+      // The first settled value only establishes the baseline. It is the
+      // provider hydrating, not something the user did, and must not produce
+      // a backup on launch.
+      if (previous?.value == null || baseline == null) return;
+      if (signature == baseline) return;
+      scheduler.scheduleRun();
+    });
+
+    // Replacements and snippets carry no comparable fingerprint — their
+    // notifiers emit when the list actually changed — so any settled value
+    // after a settled value counts. The `AsyncLoading → AsyncData` hydration
+    // is filtered out by requiring both sides to hold data.
+    final replacementsSub = ref.listenManual(replacementsProvider, (
+      previous,
+      next,
+    ) {
+      if (previous?.value == null || next.value == null) return;
+      scheduler.scheduleRun();
+    });
+    final snippetsSub = ref.listenManual(snippetsProvider, (previous, next) {
+      if (previous?.value == null || next.value == null) return;
+      scheduler.scheduleRun();
+    });
+
+    _autosaveSubs.addAll([settingsSub, replacementsSub, snippetsSub]);
+  }
+
+  /// Decision E11d: every failed run toasts, not just a repeated one. A
+  /// successful run says nothing at all — the passive status line in the
+  /// settings section is where success lives.
+  void _reportAutosaveFailure(SettingsAutosaveFailure failure, String? detail) {
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    WpToast.show(
+      context,
+      message: switch (failure) {
+        SettingsAutosaveFailure.locationUnavailable =>
+          l10n.settingsAutosaveErrorLocation,
+        SettingsAutosaveFailure.writeFailed => l10n.settingsAutosaveErrorWrite(
+          detail ?? '',
+        ),
+      },
+      type: WpToastType.error,
+    );
   }
 
   /// Strictly ordered startup sequence for everything permission-shaped:
@@ -729,6 +840,11 @@ class _AppShellState extends ConsumerState<_AppShell>
     WidgetsBinding.instance.removeObserver(this);
     _windowSaveTimer?.cancel();
     _restartWatchSub?.close();
+    _autosaveScheduler?.dispose();
+    for (final subscription in _autosaveSubs) {
+      subscription.close();
+    }
+    _autosaveSubs.clear();
     super.dispose();
   }
 

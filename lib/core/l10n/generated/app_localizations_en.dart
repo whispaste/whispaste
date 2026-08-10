@@ -936,6 +936,42 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get settingsAutosaveLabel => 'Automatic backup';
+
+  @override
+  String get settingsAutosaveHint =>
+      'Saves your setup to the chosen folder a few seconds after every change';
+
+  @override
+  String get settingsAutosaveChooseFolder =>
+      'Choose a different folder for automatic backups (nothing is backed up yet)';
+
+  @override
+  String settingsAutosaveLastRun(String time) {
+    return 'Last backup: $time';
+  }
+
+  @override
+  String get settingsAutosaveNeverRun => 'No backup yet';
+
+  @override
+  String get settingsAutosaveLastRunFailed => 'Backup failed';
+
+  @override
+  String settingsAutosaveLastRunFailedSince(String time) {
+    return 'Last attempt failed — last backup: $time';
+  }
+
+  @override
+  String get settingsAutosaveErrorLocation =>
+      'Automatic backup failed: the chosen folder is unavailable.';
+
+  @override
+  String settingsAutosaveErrorWrite(String reason) {
+    return 'Automatic backup failed: $reason';
+  }
+
+  @override
   String get groqRemovedToast =>
       'Groq STT was removed. Provider reset to On-Device.';
 

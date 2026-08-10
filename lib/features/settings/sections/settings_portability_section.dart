@@ -30,10 +30,26 @@
 /// this ticket removes. `settingsPortabilityExportLocationLabel` /
 /// `…ImportLocationLabel` live on as the rows' [Semantics] names, so the
 /// direction is spoken even though it is not printed.
+///
+/// Autosicherung (Ticket 26) sits between the two direction rows: below the
+/// export it automates, above the import it has nothing to do with. It keeps
+/// the same frameless row box the direction rows use rather than a
+/// [SettingRow] — the hover surface a [SettingRow] draws says "this whole row
+/// is one target", which is as untrue here (a switch *and* a folder chooser)
+/// as it is there. Off, the feature costs the section exactly one line: a
+/// glyph, the word, a switch. On, its destination and its last run appear,
+/// because that is when they mean something.
+///
+/// The row writes nothing but settings. The runs themselves are driven from
+/// the app shell (`app.dart` → `services/settings_autosave_service.dart`),
+/// so a snippet edited on another page still triggers a backup with the
+/// settings page closed — and so that nothing on this page can reach the
+/// background write path.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 
@@ -44,6 +60,7 @@ import '../../../core/theme/tokens.dart' show WpIconSize, WpLayout, WpSpacing;
 import '../../../features/replacements/replacements_page.dart'
     show replacementsProvider;
 import '../../../features/snippets/snippets_page.dart' show snippetsProvider;
+import '../../../services/settings_autosave_folder_chooser.dart';
 import '../../../services/settings_portability_controller.dart';
 import '../../../services/settings_portability_service.dart';
 import '../../../widgets/dialog.dart';
@@ -55,6 +72,16 @@ import '../settings_widgets.dart';
 /// the structural assertion and the widget cannot drift apart via a typo.
 const String kPortabilityExportRowKey = 'portabilityExportRow';
 const String kPortabilityImportRowKey = 'portabilityImportRow';
+
+/// Identity of the Autosicherung row and of its passive status line
+/// (Ticket 26) — same purpose as the two above.
+const String kPortabilityAutosaveRowKey = 'portabilityAutosaveRow';
+const String kPortabilityAutosaveStatusKey = 'portabilityAutosaveStatus';
+
+/// Start inset that lines the status line up with the row's text column
+/// instead of with its glyph: row inset, glyph, and the gap after it.
+const double _autosaveStatusIndent =
+    kSettingRowInset + WpIconSize.sm + WpSpacing.sm;
 
 /// Width the location column keeps before the action cluster starts giving
 /// way — roughly a truncated directory plus a short file name, i.e. the least
@@ -75,6 +102,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
   const SettingsPortabilitySection({
     super.key,
     @visibleForTesting this.controllerOverride,
+    @visibleForTesting this.autosaveFolderChooserOverride,
   });
 
   /// Test seam: replaces the production-wired
@@ -84,34 +112,24 @@ class SettingsPortabilitySection extends ConsumerWidget {
   /// this.
   final SettingsPortabilityController? controllerOverride;
 
+  /// Test seam for the Autosicherung folder dialog — same purpose as
+  /// [controllerOverride]. Production code never sets this.
+  final SettingsAutosaveFolderChooser? autosaveFolderChooserOverride;
+
+  SettingsAutosaveFolderChooser get _folderChooser =>
+      autosaveFolderChooserOverride ?? const SettingsAutosaveFolderChooser();
+
   SettingsPortabilityController _controller(WidgetRef ref) {
     if (controllerOverride case final override?) return override;
     return SettingsPortabilityController(
-      gather: () async {
-        final settings =
-            ref.read(settingsProvider).value ?? AppSettings.defaults;
-        final replacements = ref.read(replacementsProvider).value ?? const [];
-        final snippets = ref.read(snippetsProvider).value ?? const [];
-        // Filtered here at the source *and* again in
-        // `SettingsPortabilityService.encode` (the file-writing boundary,
-        // which cannot assume its caller filtered) — deliberate, not
-        // accidental duplication. This matters for the machine-bound keys
-        // (window geometry, onboarding progress, microphone) that carry
-        // real values here; the two API-key entries are moot either way,
-        // since `CloudProviderSettings.toMap()` always writes them as ''
-        // regardless of filtering (secure storage is the real API-key
-        // guard — see `mergeImportedSettings`).
-        final filteredSettings = <String, String>{
-          for (final entry in settings.toStorageMap().entries)
-            if (!settingsPortabilityDenyList.contains(entry.key))
-              entry.key: entry.value,
-        };
-        return SettingsExportBundle(
-          settings: filteredSettings,
-          replacements: replacements,
-          snippets: snippets,
-        );
-      },
+      // Same builder the autosave runner uses (see
+      // `buildSettingsExportBundle`), so a hand-made export and an automatic
+      // one cannot come to disagree about what is portable.
+      gather: () async => buildSettingsExportBundle(
+        settings: ref.read(settingsProvider).value ?? AppSettings.defaults,
+        replacements: ref.read(replacementsProvider).value ?? const [],
+        snippets: ref.read(snippetsProvider).value ?? const [],
+      ),
       apply: (bundle) async {
         await ref
             .read(settingsProvider.notifier)
@@ -200,6 +218,73 @@ class SettingsPortabilitySection extends ConsumerWidget {
     await controller.import(context);
   }
 
+  /// Flipping the Autosicherung switch on is the one moment in this
+  /// feature's life where a dialog may appear — the user just asked for it,
+  /// and a rotation folder has to come from somewhere.
+  ///
+  /// Nothing is persisted until that dialog succeeds, so cancelling leaves
+  /// the switch exactly where it was: a control that visibly turns on, opens
+  /// a panel and then snaps back is a worse cancel than one that never
+  /// moved. Turning it *off* never asks anything, and deliberately keeps the
+  /// remembered folder — switching the feature off and on again should not
+  /// cost the user a second trip through a file panel.
+  Future<void> _setAutosaveEnabled(WidgetRef ref, bool enabled) async {
+    final notifier = ref.read(settingsProvider.notifier);
+    if (!enabled) {
+      await notifier.updateSettings(
+        (s) =>
+            s.copyWithSections(autosave: s.autosave.copyWith(enabled: false)),
+      );
+      return;
+    }
+
+    final current =
+        (ref.read(settingsProvider).value ?? AppSettings.defaults).autosave;
+    var folder = current.folder;
+    var bookmark = current.bookmark;
+    if (folder.isEmpty) {
+      final chosen = await _folderChooser.choose();
+      if (chosen == null) return;
+      folder = chosen.folder;
+      bookmark = chosen.bookmark;
+    }
+    await notifier.updateSettings(
+      (s) => s.copyWithSections(
+        autosave: s.autosave.copyWith(
+          enabled: true,
+          folder: folder,
+          bookmark: bookmark,
+          // A stale failure from a previous configuration must not greet the
+          // user on the status line of a feature they just re-armed; the run
+          // this enabling kicks off writes the real state within seconds.
+          lastError: '',
+        ),
+      ),
+    );
+  }
+
+  /// Points the automation at a different folder. Cancelling changes
+  /// nothing — same contract as the direction rows' chooser.
+  Future<void> _chooseAutosaveFolder(WidgetRef ref) async {
+    final current =
+        (ref.read(settingsProvider).value ?? AppSettings.defaults).autosave;
+    final chosen = await _folderChooser.choose(
+      initialDirectory: current.folder.isEmpty ? null : current.folder,
+    );
+    if (chosen == null) return;
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            autosave: s.autosave.copyWith(
+              folder: chosen.folder,
+              bookmark: chosen.bookmark,
+              lastError: '',
+            ),
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
@@ -216,6 +301,8 @@ class SettingsPortabilitySection extends ConsumerWidget {
           // below the export row it belongs to, above the import row it does
           // not — as further children of this Column, with neither row
           // itself having to change.
+          _autosaveRow(context, ref),
+          ?_autosaveStatusLine(context, ref),
           _directionRow(context, ref, forExport: false),
         ],
       ),
@@ -368,6 +455,186 @@ class SettingsPortabilitySection extends ConsumerWidget {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Autosicherung on one line: glyph, name, the switch, and — once it is on
+  /// — where it writes and how to move that.
+  ///
+  /// Off is the default and the quiet state: no path, no chooser, nothing to
+  /// read. A destination the automation is not using would be furniture, and
+  /// this section's whole point (Ticket 25) was to stop saying things twice.
+  /// The glyph is the recurrence glyph rather than a third arrow: direction
+  /// is already settled by the row sitting under the export it automates,
+  /// and what this row adds to it is "by itself, again and again".
+  Widget _autosaveRow(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    final autosave =
+        ref.watch(settingsProvider).value?.autosave ??
+        AppSettings.defaults.autosave;
+    final enabled = autosave.enabled;
+
+    return Semantics(
+      key: const ValueKey(kPortabilityAutosaveRowKey),
+      // Unlike the direction rows, this row's name *is* printed — so it is
+      // stated once here and excluded from the rendered text below, the
+      // arrangement [SettingRow] settled on. Announcing the switch's state
+      // is what `toggled` is for; the folder path stays in the tree and is
+      // read after the name.
+      label: l10n.settingsAutosaveLabel,
+      hint: l10n.settingsAutosaveHint,
+      toggled: enabled,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: WpLayout.minTouchTarget),
+        child: Padding(
+          // Bottom inset tightens when the status line follows, so the line
+          // reads as this row's caption rather than as a fourth entry in the
+          // section's list.
+          padding: EdgeInsets.fromLTRB(
+            kSettingRowInset,
+            WpSpacing.sm,
+            kSettingRowInset,
+            enabled ? WpSpacing.xxs : WpSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                LucideIcons.refreshCw,
+                size: WpIconSize.sm,
+                color: cs.secondary,
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ExcludeSemantics(
+                      child: Text(
+                        l10n.settingsAutosaveLabel,
+                        style: tt.bodyLarge,
+                      ),
+                    ),
+                    if (enabled && autosave.folder.isNotEmpty)
+                      Padding(
+                        // Same 2-px title/subtitle gap [SettingRow] uses, so
+                        // the pair reads as one unit.
+                        padding: const EdgeInsets.only(top: 2),
+                        // Both halves muted: this is a caption under a name,
+                        // not the row's leading content the way a path is on
+                        // the direction rows. What [_pathDisplay] still buys
+                        // here is the truncation side — the folder's own name
+                        // survives, the directory above it gives way.
+                        child: _pathDisplay(
+                          autosave.folder,
+                          dirStyle: tt.bodySmall?.copyWith(color: muted),
+                          baseStyle: tt.bodySmall?.copyWith(color: muted),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  settingsToggle(
+                    value: enabled,
+                    onChanged: (value) => _setAutosaveEnabled(ref, value),
+                  ),
+                  if (enabled) ...[
+                    const SizedBox(width: WpSpacing.xxs),
+                    IconButton(
+                      icon: Icon(
+                        LucideIcons.folderPen,
+                        size: WpIconSize.sm,
+                        color: muted,
+                      ),
+                      tooltip: l10n.settingsAutosaveChooseFolder,
+                      onPressed: () => _chooseAutosaveFolder(ref),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: WpLayout.minTouchTarget,
+                        minHeight: WpLayout.minTouchTarget,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The passive "Letzte Sicherung: …" line (decision E11d) — the only place
+  /// in the app that reports on autosave runs at rest. Never the status bar:
+  /// the maintainer ruled that out explicitly, and a permanent readout of a
+  /// thing that succeeded is exactly the interruption a silent backup is
+  /// supposed to avoid.
+  ///
+  /// `null` while the feature is off, so an unused feature costs the section
+  /// no line at all. A failure never renders as a success: with an earlier
+  /// good backup it says so *and* keeps the timestamp, without one it only
+  /// reports the failure. The toast carries the failure at the moment it
+  /// happens; this line is what is still there tomorrow.
+  Widget? _autosaveStatusLine(BuildContext context, WidgetRef ref) {
+    final autosave =
+        ref.watch(settingsProvider).value?.autosave ??
+        AppSettings.defaults.autosave;
+    if (!autosave.enabled) return null;
+
+    final l10n = L10n.of(context);
+    final tt = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final failed = autosave.lastError.isNotEmpty;
+    final lastSuccess = DateTime.tryParse(autosave.lastSuccess)?.toLocal();
+    final stamp = lastSuccess == null
+        ? null
+        : DateFormat.yMd(
+            Localizations.localeOf(context).toString(),
+          ).add_Hm().format(lastSuccess);
+
+    final message = switch ((failed, stamp)) {
+      (true, final at?) => l10n.settingsAutosaveLastRunFailedSince(at),
+      (true, null) => l10n.settingsAutosaveLastRunFailed,
+      (false, final at?) => l10n.settingsAutosaveLastRun(at),
+      (false, null) => l10n.settingsAutosaveNeverRun,
+    };
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        _autosaveStatusIndent,
+        0,
+        kSettingRowInset,
+        WpSpacing.sm,
+      ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          message,
+          key: const ValueKey(kPortabilityAutosaveStatusKey),
+          style: tt.bodySmall?.copyWith(
+            color: failed
+                ? (isDark ? WpColorsDark.warning : WpColorsLight.warning)
+                : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
+          ),
+          // Two lines, unlike every other text in this section: the
+          // timestamp sits at the *end* of the sentence ("Letzter Versuch
+          // fehlgeschlagen – letzte Sicherung: …"), so a one-line ellipsis
+          // would cut away the one thing this line exists to show. A path
+          // can lose its middle and stay useful; this cannot.
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );

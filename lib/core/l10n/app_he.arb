@@ -299,6 +299,15 @@
   "settingsPortabilityImportSuccess": "ההגדרות יובאו מ-{path}",
   "settingsPortabilityImportNotFound": "לא נמצא קובץ ייצוא ב-{path}. ייצא הגדרות תחילה, או העתק לשם קובץ ייצוא.",
   "settingsPortabilityImportError": "הייבוא נכשל: {reason}",
+  "settingsAutosaveLabel": "גיבוי אוטומטי",
+  "settingsAutosaveHint": "שומר את ההגדרות שלך בתיקייה שנבחרה כמה שניות אחרי כל שינוי",
+  "settingsAutosaveChooseFolder": "בחירת תיקייה אחרת לגיבוי האוטומטי (עדיין לא מתבצע גיבוי)",
+  "settingsAutosaveLastRun": "הגיבוי האחרון: {time}",
+  "settingsAutosaveNeverRun": "עדיין אין גיבוי",
+  "settingsAutosaveLastRunFailed": "הגיבוי נכשל",
+  "settingsAutosaveLastRunFailedSince": "הניסיון האחרון נכשל — הגיבוי האחרון: {time}",
+  "settingsAutosaveErrorLocation": "הגיבוי האוטומטי נכשל: התיקייה שנבחרה אינה זמינה.",
+  "settingsAutosaveErrorWrite": "הגיבוי האוטומטי נכשל: {reason}",
   "migrationComplete": "{count, plural, one{תמלול אחד הועבר מ-WhisPaste 1.x} other{{count} תמלולים הועברו מ-WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {

@@ -347,6 +347,30 @@
       "reason": { "type": "String" }
     }
   },
+  "settingsAutosaveLabel": "Automatic backup",
+  "settingsAutosaveHint": "Saves your setup to the chosen folder a few seconds after every change",
+  "settingsAutosaveChooseFolder": "Choose a different folder for automatic backups (nothing is backed up yet)",
+  "settingsAutosaveLastRun": "Last backup: {time}",
+  "@settingsAutosaveLastRun": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsAutosaveNeverRun": "No backup yet",
+  "settingsAutosaveLastRunFailed": "Backup failed",
+  "settingsAutosaveLastRunFailedSince": "Last attempt failed — last backup: {time}",
+  "@settingsAutosaveLastRunFailedSince": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsAutosaveErrorLocation": "Automatic backup failed: the chosen folder is unavailable.",
+  "settingsAutosaveErrorWrite": "Automatic backup failed: {reason}",
+  "@settingsAutosaveErrorWrite": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
   "groqRemovedToast": "Groq STT was removed. Provider reset to On-Device.",
   "tccResetAfterUpdateToast": "macOS reset your Auto-Paste permission during the update.",
   "migrationComplete": "{count, plural, one{1 recording migrated from WhisPaste 1.x} other{{count} recordings migrated from WhisPaste 1.x}}",

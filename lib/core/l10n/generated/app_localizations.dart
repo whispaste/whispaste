@@ -1719,6 +1719,60 @@ abstract class L10n {
   /// **'Import failed: {reason}'**
   String settingsPortabilityImportError(String reason);
 
+  /// No description provided for @settingsAutosaveLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic backup'**
+  String get settingsAutosaveLabel;
+
+  /// No description provided for @settingsAutosaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves your setup to the chosen folder a few seconds after every change'**
+  String get settingsAutosaveHint;
+
+  /// No description provided for @settingsAutosaveChooseFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a different folder for automatic backups (nothing is backed up yet)'**
+  String get settingsAutosaveChooseFolder;
+
+  /// No description provided for @settingsAutosaveLastRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Last backup: {time}'**
+  String settingsAutosaveLastRun(String time);
+
+  /// No description provided for @settingsAutosaveNeverRun.
+  ///
+  /// In en, this message translates to:
+  /// **'No backup yet'**
+  String get settingsAutosaveNeverRun;
+
+  /// No description provided for @settingsAutosaveLastRunFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup failed'**
+  String get settingsAutosaveLastRunFailed;
+
+  /// No description provided for @settingsAutosaveLastRunFailedSince.
+  ///
+  /// In en, this message translates to:
+  /// **'Last attempt failed — last backup: {time}'**
+  String settingsAutosaveLastRunFailedSince(String time);
+
+  /// No description provided for @settingsAutosaveErrorLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic backup failed: the chosen folder is unavailable.'**
+  String get settingsAutosaveErrorLocation;
+
+  /// No description provided for @settingsAutosaveErrorWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic backup failed: {reason}'**
+  String settingsAutosaveErrorWrite(String reason);
+
   /// No description provided for @groqRemovedToast.
   ///
   /// In en, this message translates to:

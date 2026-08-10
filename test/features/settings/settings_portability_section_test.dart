@@ -21,6 +21,14 @@
 /// service) — same approach as
 /// `test/services/settings_portability_controller_test.dart` — so no real
 /// `path_provider`/`file_selector` platform channel is ever touched.
+///
+/// The Ticket 26 group (Autosicherung) covers the same surface for the
+/// automatic backup: what the section shows in each state, and that arming
+/// the feature goes through the directory chooser and never through the
+/// export file picker. The runs themselves live in
+/// `test/services/settings_autosave_service_test.dart`, and the structural
+/// no-dialog guarantee in
+/// `test/services/settings_autosave_no_dialog_guard_test.dart`.
 library;
 
 import 'dart:io' show Platform;
@@ -30,6 +38,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:path/path.dart' as p;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -39,6 +48,7 @@ import 'package:whispaste/features/settings/sections/settings_portability_sectio
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/services/secure_bookmark_service.dart';
+import 'package:whispaste/services/settings_autosave_folder_chooser.dart';
 import 'package:whispaste/services/settings_portability_controller.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 
@@ -636,6 +646,294 @@ void main() {
               width: width,
               textScale: 1.3,
             );
+
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Ticket 26 — Autosicherung
+  // -------------------------------------------------------------------------
+  //
+  // The runs themselves belong to `test/services/settings_autosave_*`; what
+  // is asserted here is the surface: what the section shows in each state,
+  // and that arming the feature goes through the *directory* chooser and
+  // never through the export file picker (H1, seen from the outside).
+  group('Autosicherung (Ticket 26)', () {
+    const chooseFolderTooltip =
+        'Choose a different folder for automatic backups (nothing is backed '
+        'up yet)';
+    final backupFolder = p.join(_basePath, 'WhisPaste-Backups');
+
+    _FakeSettingsNotifier seededAutosave({
+      bool enabled = false,
+      String folder = '',
+      String lastSuccess = '',
+      String lastError = '',
+    }) => _FakeSettingsNotifier(
+      AppSettings.defaults.copyWithSections(
+        autosave: SettingsAutosaveSettings(
+          enabled: enabled,
+          folder: folder,
+          lastSuccess: lastSuccess,
+          lastError: lastError,
+        ),
+      ),
+    );
+
+    /// Pumps the section with a real [SettingsAutosaveFolderChooser] whose
+    /// only fake part is the native panel, and a real export controller whose
+    /// file picker fails the test if it is ever reached.
+    Future<({_FakePicker exportPicker, List<String?> folderPrompts})> pump(
+      WidgetTester tester,
+      _FakeSettingsNotifier notifier, {
+      List<String?> folderResponses = const [],
+      Locale locale = const Locale('en'),
+    }) async {
+      final exportPicker = _FakePicker([]);
+      final prompts = <String?>[];
+      var call = 0;
+      final chooser = SettingsAutosaveFolderChooser(
+        pickFolder: ({String? initialDirectory}) async {
+          prompts.add(initialDirectory);
+          final response = call < folderResponses.length
+              ? folderResponses[call]
+              : null;
+          call++;
+          return response;
+        },
+        bookmarks: const _NoBookmarks(),
+      );
+
+      await tester.pumpWidget(
+        makeTestable(
+          SingleChildScrollView(
+            child: SettingsPortabilitySection(
+              controllerOverride: _testController(
+                notifier: notifier,
+                picker: exportPicker,
+                fs: MemoryFileSystem.test(
+                  style: Platform.isWindows
+                      ? FileSystemStyle.windows
+                      : FileSystemStyle.posix,
+                ),
+                log: [],
+              ),
+              autosaveFolderChooserOverride: chooser,
+            ),
+          ),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+          locale: locale,
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (exportPicker: exportPicker, folderPrompts: prompts);
+    }
+
+    Finder switchIn(Finder row) =>
+        find.descendant(of: row, matching: find.byType(Switch));
+
+    final autosaveRow = find.byKey(const ValueKey(kPortabilityAutosaveRowKey));
+    final statusLine = find.byKey(
+      const ValueKey(kPortabilityAutosaveStatusKey),
+    );
+
+    testWidgets('off by default, and off costs the section one quiet line — '
+        'no destination, no chooser, no status', (tester) async {
+      await pump(tester, seededAutosave());
+
+      expect(autosaveRow, findsOne);
+      expect(find.text('Automatic backup'), findsOne);
+      expect(tester.widget<Switch>(switchIn(autosaveRow)).value, isFalse);
+      expect(find.byTooltip(chooseFolderTooltip), findsNothing);
+      expect(statusLine, findsNothing);
+    });
+
+    testWidgets('it sits between the two directions — under the export it '
+        'automates, above the import it does not', (tester) async {
+      await pump(tester, seededAutosave());
+
+      double top(Finder f) => tester.getTopLeft(f).dy;
+      expect(
+        top(find.byKey(const ValueKey(kPortabilityExportRowKey))),
+        lessThan(top(autosaveRow)),
+      );
+      expect(
+        top(autosaveRow),
+        lessThan(top(find.byKey(const ValueKey(kPortabilityImportRowKey)))),
+      );
+    });
+
+    testWidgets('turning it on asks for a folder — the directory chooser, '
+        'never the export file picker (H1)', (tester) async {
+      final notifier = seededAutosave();
+      final fakes = await pump(
+        tester,
+        notifier,
+        folderResponses: [backupFolder],
+      );
+
+      await tester.tap(switchIn(autosaveRow));
+      await tester.pumpAndSettle();
+
+      expect(fakes.folderPrompts, hasLength(1));
+      expect(
+        fakes.exportPicker.callCount,
+        0,
+        reason:
+            'the autosave surface must never route into the export file '
+            'dialog — that flow falls back to a dialog on every bookmark '
+            'failure, which is exactly what H1 forbids',
+      );
+      expect(notifier.current.autosave.enabled, isTrue);
+      expect(notifier.current.autosave.folder, backupFolder);
+      // The manual export destination is a separate setting and must not
+      // have moved (decision E11c).
+      expect(notifier.current.portabilityPaths.exportPath, isEmpty);
+      expect(find.text('WhisPaste-Backups'), findsOne);
+      expect(find.byTooltip(chooseFolderTooltip), findsOne);
+    });
+
+    testWidgets('cancelling the folder dialog leaves the switch off and '
+        'nothing persisted', (tester) async {
+      final notifier = seededAutosave();
+      final fakes = await pump(tester, notifier, folderResponses: [null]);
+
+      await tester.tap(switchIn(autosaveRow));
+      await tester.pumpAndSettle();
+
+      expect(fakes.folderPrompts, hasLength(1));
+      expect(notifier.current.autosave.enabled, isFalse);
+      expect(notifier.current.autosave.folder, isEmpty);
+      expect(tester.widget<Switch>(switchIn(autosaveRow)).value, isFalse);
+    });
+
+    testWidgets('turning it off keeps the folder, so switching it back on '
+        'does not cost a second trip through the panel', (tester) async {
+      final notifier = seededAutosave(enabled: true, folder: backupFolder);
+      final fakes = await pump(tester, notifier);
+
+      await tester.tap(switchIn(autosaveRow));
+      await tester.pumpAndSettle();
+      expect(notifier.current.autosave.enabled, isFalse);
+      expect(notifier.current.autosave.folder, backupFolder);
+
+      await tester.tap(switchIn(autosaveRow));
+      await tester.pumpAndSettle();
+      expect(notifier.current.autosave.enabled, isTrue);
+      expect(fakes.folderPrompts, isEmpty);
+    });
+
+    testWidgets('the chooser repoints the folder without touching the '
+        'export destination', (tester) async {
+      final moved = p.join(_basePath, 'Elsewhere');
+      final notifier = seededAutosave(enabled: true, folder: backupFolder);
+      final fakes = await pump(tester, notifier, folderResponses: [moved]);
+
+      await tester.tap(find.byTooltip(chooseFolderTooltip));
+      await tester.pumpAndSettle();
+
+      expect(fakes.folderPrompts.single, backupFolder);
+      expect(notifier.current.autosave.folder, moved);
+      expect(notifier.current.portabilityPaths.exportPath, isEmpty);
+    });
+
+    testWidgets('enabled but never run says so, rather than implying a '
+        'backup exists', (tester) async {
+      await pump(tester, seededAutosave(enabled: true, folder: backupFolder));
+
+      expect(tester.widget<Text>(statusLine).data, 'No backup yet');
+    });
+
+    testWidgets('a successful run is visible as a timestamp and nothing '
+        'else (E11d)', (tester) async {
+      const iso = '2026-08-11T12:30:00.000Z';
+      await pump(
+        tester,
+        seededAutosave(enabled: true, folder: backupFolder, lastSuccess: iso),
+      );
+
+      final expected = DateFormat.yMd(
+        'en',
+      ).add_Hm().format(DateTime.parse(iso).toLocal());
+      expect(tester.widget<Text>(statusLine).data, 'Last backup: $expected');
+    });
+
+    testWidgets('a failure never renders as a success, and does not throw '
+        'away the last backup that worked', (tester) async {
+      const iso = '2026-08-11T12:30:00.000Z';
+      await pump(
+        tester,
+        seededAutosave(
+          enabled: true,
+          folder: backupFolder,
+          lastSuccess: iso,
+          lastError: '2026-08-11T13:00:00.000Z',
+        ),
+      );
+
+      final expected = DateFormat.yMd(
+        'en',
+      ).add_Hm().format(DateTime.parse(iso).toLocal());
+      expect(
+        tester.widget<Text>(statusLine).data,
+        'Last attempt failed — last backup: $expected',
+      );
+    });
+
+    testWidgets('a failure with no successful run behind it reports only '
+        'the failure', (tester) async {
+      await pump(
+        tester,
+        seededAutosave(
+          enabled: true,
+          folder: backupFolder,
+          lastError: '2026-08-11T13:00:00.000Z',
+        ),
+      );
+
+      expect(tester.widget<Text>(statusLine).data, 'Backup failed');
+    });
+
+    // Same overflow sweep the direction rows get: the enabled state is the
+    // tall one (name, destination, status line) and German is the widest.
+    for (final locale in ['de', 'en', 'he']) {
+      for (final width in [280.0, 480.0]) {
+        testWidgets(
+          'the enabled autosave row does not overflow at ${width}dp / 1.3x '
+          '($locale)',
+          (tester) async {
+            final notifier = seededAutosave(
+              enabled: true,
+              folder: backupFolder,
+              lastSuccess: '2026-08-11T12:30:00.000Z',
+            );
+            await tester.pumpWidget(
+              makeTestable(
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    child: Builder(
+                      builder: (context) => MediaQuery(
+                        data: MediaQuery.of(
+                          context,
+                        ).copyWith(textScaler: const TextScaler.linear(1.3)),
+                        child: const SingleChildScrollView(
+                          child: SettingsPortabilitySection(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                overrides: [settingsProvider.overrideWith(() => notifier)],
+                locale: Locale(locale),
+              ),
+            );
+            await tester.pumpAndSettle();
 
             expect(tester.takeException(), isNull);
           },

@@ -946,6 +946,42 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get settingsAutosaveLabel => 'Autosicherung';
+
+  @override
+  String get settingsAutosaveHint =>
+      'Sichert deine Einrichtung wenige Sekunden nach jeder Änderung in den gewählten Ordner';
+
+  @override
+  String get settingsAutosaveChooseFolder =>
+      'Anderen Ordner für die Autosicherung wählen (es wird noch nichts gesichert)';
+
+  @override
+  String settingsAutosaveLastRun(String time) {
+    return 'Letzte Sicherung: $time';
+  }
+
+  @override
+  String get settingsAutosaveNeverRun => 'Noch keine Sicherung';
+
+  @override
+  String get settingsAutosaveLastRunFailed => 'Sicherung fehlgeschlagen';
+
+  @override
+  String settingsAutosaveLastRunFailedSince(String time) {
+    return 'Letzter Versuch fehlgeschlagen – letzte Sicherung: $time';
+  }
+
+  @override
+  String get settingsAutosaveErrorLocation =>
+      'Autosicherung fehlgeschlagen: Der gewählte Ordner ist nicht erreichbar.';
+
+  @override
+  String settingsAutosaveErrorWrite(String reason) {
+    return 'Autosicherung fehlgeschlagen: $reason';
+  }
+
+  @override
   String get groqRemovedToast =>
       'Groq STT wurde entfernt. Provider auf On-Device zurückgesetzt.';
 

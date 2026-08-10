@@ -1434,6 +1434,114 @@ class SettingsPortabilityPathSettings {
 }
 
 // ===========================================================================
+// Section 19 — Settings Autosave
+// ===========================================================================
+
+/// Automatic, event-driven backup of the portable settings bundle (PRD
+/// `ui-overhaul`, Ticket 26 — decisions E11a–E11d).
+///
+/// Every key here is machine-bound or local run state, so all five are on
+/// [settingsPortabilityDenyList]: the folder path and its bookmark describe
+/// *where this installation writes*, and the two timestamps describe *what
+/// happened on this machine*. Deny-listing them is also what keeps the
+/// feature from feeding itself — the autosave trigger compares the
+/// deny-list-filtered settings map, so writing [lastSuccess] back after a
+/// run cannot look like a change worth backing up (see
+/// `services/settings_autosave_service.dart`).
+///
+/// [folder] is deliberately a *directory* and deliberately not
+/// `SettingsPortabilityPathSettings.exportPath`: the manual export writes one
+/// file the user named, the automation rotates dated files of its own
+/// (decision E11c=b). Sharing the one path would let a background run
+/// overwrite a good hand-made backup with a broken one, or the reverse.
+///
+/// [enabled] defaults to `false` and stays false until the user both flips
+/// the switch and confirms a folder — nobody inherits a background write job
+/// on their disk from an app update.
+class SettingsAutosaveSettings {
+  const SettingsAutosaveSettings({
+    this.enabled = false,
+    this.folder = '',
+    this.bookmark = '',
+    this.lastSuccess = '',
+    this.lastError = '',
+  });
+
+  /// Master switch. `false` unless the user turned it on *and* a folder was
+  /// confirmed — the two are written in one update, never separately.
+  final bool enabled;
+
+  /// Absolute path of the rotation directory. `''` means "never chosen".
+  final String folder;
+
+  /// Base64 macOS security-scoped bookmark for [folder]
+  /// (`SecureBookmarkService`). Always empty on Windows/Linux and on the
+  /// macOS direct-download build. Without it the sandbox forgets the
+  /// directory grant on restart — and unlike the manual flow, the autosave
+  /// path may never re-ask with a dialog (H1), so an unresolvable bookmark
+  /// simply ends the run.
+  final String bookmark;
+
+  /// ISO-8601 UTC timestamp of the last *successful* run, `''` if none.
+  final String lastSuccess;
+
+  /// ISO-8601 UTC timestamp of the last *failed* run, cleared back to `''`
+  /// by the next success. Kept alongside [lastSuccess] rather than replacing
+  /// it so the passive status line can stay honest across a restart: a
+  /// failure after a success must not be able to render as "last backup
+  /// 14:03" with nothing said about the failure (decision E11d).
+  final String lastError;
+
+  static const SettingsAutosaveSettings defaults = SettingsAutosaveSettings();
+
+  factory SettingsAutosaveSettings.fromMap(Map<String, String> v) =>
+      SettingsAutosaveSettings(
+        enabled: _readBool(v, 'settings_autosave_enabled', defaults.enabled),
+        folder: v['settings_autosave_folder'] ?? defaults.folder,
+        bookmark: v['settings_autosave_bookmark'] ?? defaults.bookmark,
+        lastSuccess:
+            v['settings_autosave_last_success'] ?? defaults.lastSuccess,
+        lastError: v['settings_autosave_last_error'] ?? defaults.lastError,
+      );
+
+  Map<String, String> toMap() => {
+    'settings_autosave_enabled': '$enabled',
+    'settings_autosave_folder': folder,
+    'settings_autosave_bookmark': bookmark,
+    'settings_autosave_last_success': lastSuccess,
+    'settings_autosave_last_error': lastError,
+  };
+
+  SettingsAutosaveSettings copyWith({
+    bool? enabled,
+    String? folder,
+    String? bookmark,
+    String? lastSuccess,
+    String? lastError,
+  }) => SettingsAutosaveSettings(
+    enabled: enabled ?? this.enabled,
+    folder: folder ?? this.folder,
+    bookmark: bookmark ?? this.bookmark,
+    lastSuccess: lastSuccess ?? this.lastSuccess,
+    lastError: lastError ?? this.lastError,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettingsAutosaveSettings &&
+          enabled == other.enabled &&
+          folder == other.folder &&
+          bookmark == other.bookmark &&
+          lastSuccess == other.lastSuccess &&
+          lastError == other.lastError;
+
+  @override
+  int get hashCode =>
+      Object.hash(enabled, folder, bookmark, lastSuccess, lastError);
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 

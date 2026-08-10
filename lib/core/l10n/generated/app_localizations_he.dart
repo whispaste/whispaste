@@ -925,6 +925,42 @@ class L10nHe extends L10n {
   }
 
   @override
+  String get settingsAutosaveLabel => 'גיבוי אוטומטי';
+
+  @override
+  String get settingsAutosaveHint =>
+      'שומר את ההגדרות שלך בתיקייה שנבחרה כמה שניות אחרי כל שינוי';
+
+  @override
+  String get settingsAutosaveChooseFolder =>
+      'בחירת תיקייה אחרת לגיבוי האוטומטי (עדיין לא מתבצע גיבוי)';
+
+  @override
+  String settingsAutosaveLastRun(String time) {
+    return 'הגיבוי האחרון: $time';
+  }
+
+  @override
+  String get settingsAutosaveNeverRun => 'עדיין אין גיבוי';
+
+  @override
+  String get settingsAutosaveLastRunFailed => 'הגיבוי נכשל';
+
+  @override
+  String settingsAutosaveLastRunFailedSince(String time) {
+    return 'הניסיון האחרון נכשל — הגיבוי האחרון: $time';
+  }
+
+  @override
+  String get settingsAutosaveErrorLocation =>
+      'הגיבוי האוטומטי נכשל: התיקייה שנבחרה אינה זמינה.';
+
+  @override
+  String settingsAutosaveErrorWrite(String reason) {
+    return 'הגיבוי האוטומטי נכשל: $reason';
+  }
+
+  @override
   String get groqRemovedToast => 'Groq STT הוסר. ספק אופס למקומי.';
 
   @override

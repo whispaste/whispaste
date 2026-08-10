@@ -60,6 +60,7 @@ class AppSettings {
     this.benchmark = const BenchmarkSettings(),
     this.privacy = const PrivacySettings(),
     this.portabilityPaths = const SettingsPortabilityPathSettings(),
+    this.autosave = const SettingsAutosaveSettings(),
   });
 
   // ---------------------------------------------------------------------------
@@ -120,6 +121,10 @@ class AppSettings {
   /// Remembered file-dialog target for settings export/import (Ticket 03 of
   /// `settings-portability-vollumfang`).
   final SettingsPortabilityPathSettings portabilityPaths;
+
+  /// Autosicherung — event-driven automatic backup of the portable bundle
+  /// (Ticket 26 of `ui-overhaul`). Off by default.
+  final SettingsAutosaveSettings autosave;
 
   // ---------------------------------------------------------------------------
   // @Deprecated shims — delegate to sections.
@@ -385,6 +390,7 @@ class AppSettings {
       benchmark: BenchmarkSettings.fromMap(values),
       privacy: PrivacySettings.fromMap(values),
       portabilityPaths: SettingsPortabilityPathSettings.fromMap(values),
+      autosave: SettingsAutosaveSettings.fromMap(values),
     );
   }
 
@@ -445,6 +451,7 @@ class AppSettings {
     ...benchmark.toMap(),
     ...privacy.toMap(),
     ...portabilityPaths.toMap(),
+    ...autosave.toMap(),
   };
 
   // ---------------------------------------------------------------------------
@@ -478,6 +485,7 @@ class AppSettings {
     BenchmarkSettings? benchmark,
     PrivacySettings? privacy,
     SettingsPortabilityPathSettings? portabilityPaths,
+    SettingsAutosaveSettings? autosave,
   }) {
     return AppSettings(
       interface_: interface_ ?? this.interface_,
@@ -499,6 +507,7 @@ class AppSettings {
       benchmark: benchmark ?? this.benchmark,
       privacy: privacy ?? this.privacy,
       portabilityPaths: portabilityPaths ?? this.portabilityPaths,
+      autosave: autosave ?? this.autosave,
     );
   }
 
@@ -662,13 +671,16 @@ class AppSettings {
         benchmarkTimestamp: benchmarkTimestamp,
       ),
       privacy: privacy.copyWith(shareUsageStats: shareUsageStats),
-      // The deprecated `copyWith` shim rebuilds a fresh `AppSettings(...)`;
-      // any section omitted here silently resets to its constructor
-      // default. `portabilityPaths` was omitted, so the one production call
-      // site left on this API — `app.dart`'s `copyWith(windowMaximized:
-      // true)`, fired on every window maximize — silently cleared the
-      // remembered export/import location on every maximize.
+      // Neither section has a legacy top-level parameter in this API, so
+      // both are pure pass-throughs — but they have to be *written*: this
+      // return builds a fresh `AppSettings(...)`, and an omitted section
+      // silently falls back to its constructor default. Without these two
+      // lines the one production call site left on the deprecated API
+      // (`app.dart`'s `copyWith(windowMaximized: true)`, fired on every
+      // maximize) resets the remembered export/import location and would
+      // reset the autosave configuration with it.
       portabilityPaths: portabilityPaths,
+      autosave: autosave,
     );
   }
 
@@ -694,7 +706,8 @@ class AppSettings {
           onboarding == other.onboarding &&
           benchmark == other.benchmark &&
           privacy == other.privacy &&
-          portabilityPaths == other.portabilityPaths;
+          portabilityPaths == other.portabilityPaths &&
+          autosave == other.autosave;
 
   @override
   int get hashCode => Object.hash(
@@ -716,6 +729,7 @@ class AppSettings {
     benchmark,
     privacy,
     portabilityPaths,
+    autosave,
   );
 }
 
