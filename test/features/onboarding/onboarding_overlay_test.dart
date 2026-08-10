@@ -939,129 +939,137 @@ void main() {
 
   // ── Fixed onboarding window size — no page may scroll ───────────────────
   //
-  // The onboarding window is pinned to 1100×720 (kOnboardingWindowSize), which
-  // leaves a 551-px scroll viewport and a 511-px content area for the page
-  // itself (the viewport minus the scroll view's padding). Every page has to
-  // fit inside it: there is no way for the user to make the window bigger, so
-  // a page that scrolls is a page whose bottom half is easy to miss entirely.
+  // The onboarding window is pinned to 1100×720 (kOnboardingWindowSize). At
+  // the system text scale that leaves a 579-px scroll viewport and a 539-px
+  // content area for the page itself (the viewport minus the scroll view's
+  // 2 × `lg` vertical padding). Neither number is constant across text
+  // scales, because the footer grows with the text:
+  //
+  //   viewport   579 px @ 1.0    573 px @ 1.15    567 px @ 1.3
+  //
+  // and the page's own area is 40 px less in each case. Every page has to fit
+  // inside it: there is no way for the user to make the window bigger, so a
+  // page that scrolls is a page whose bottom half is easy to miss entirely.
+  //
+  // It was a flat 551 px until the footer stack put the dots and the "step X
+  // of Y" counter on one line and `_kOnboardingBottomGap` went `xxl` → `lg`.
+  // That is where the +28 px came from, and it is why every number below is
+  // larger than the set this table used to carry while the pages themselves
+  // grew *less* crowded, not more — the viewport moved under them.
   //
   // Measured with real Inter metrics (see setUpAll — with the square-glyph
-  // test font the numbers are meaningless), macOS unless noted, GPU-fallback
-  // notice visible, i.e. the worst case. Natural content height against the
-  // 551-px viewport, German / English / Hebrew.
+  // test font the numbers are meaningless), macOS unless noted, the dictation
+  // language seeded to the UI locale, and the GPU-fallback notice asserted
+  // present on the model page, i.e. the worst case. Natural content height
+  // against the viewport, German / English / Hebrew.
   //
   // These are *natural* heights: what the page's blocks come to with every
-  // gap at its minimum. Every page except Try & Go hands its leftover height
-  // to the centring of its body block ([OnboardingPageFill] plus the page's
-  // [OnboardingPageBody]) and therefore occupies the full 551 px whatever
-  // these numbers say — the numbers are still the ones that decide whether a
-  // page fits at all, and the ones to re-measure before adding to a page.
+  // gap at its minimum. The leftover height trails below the body rather than
+  // being split around it ([OnboardingPageBody] is unconditionally top-
+  // aligned now; it used to be centred, with sparse pages opting out per call
+  // site), so a page shorter than the viewport still occupies the full
+  // viewport whatever these numbers say — they are still the ones that decide
+  // whether a page fits at all, and the ones to re-measure before adding to a
+  // page.
   //
-  // Re-measured after the header-top/body-centred unification: every number
-  // came out identical to the flex-gap layout it replaced, page 1 included.
-  // That is the point — the change moved where the spare height goes, not how
-  // much of it there is.
+  // ── Re-measured wholesale on 2026-08-10 (ticket 20, phase 6) ────────────
   //
-  // Re-measured again after [OnboardingPage] gave the whole flow ONE header
-  // gap ([kOnboardingHeaderGap] = `xxl`) in place of the per-page `lg`/`xl`/
-  // `xxl` mix. Pages 1, 2 and 7 were already on `xxl` and did not move; the
-  // pages that were tighter grew by exactly the token step (+12 from `lg`,
-  // +8 from `xl`), which comes out of centring slack and is invisible.
+  // One harness run, one day, the whole set — the rule the 2026-08-09
+  // re-measurement wrote down, and the reason the density pass left this
+  // table standing with a stale marker rather than patching the rows it
+  // happened to touch. Everything moved: the footer lost a line (above), the
+  // body is top-aligned, the reading measure dropped to 640 px, and pages 1,
+  // 2, 4, 5 and 6 rebuilt their rows or their content. Treat the numbers as a
+  // set; when you re-measure, re-measure all of them.
   //
-  // The 551 px itself is unchanged by the same-day chrome rebalance (top-bar
-  // strip 48 → 32 px, bottom gap 16 → 32 px): the two moves are equal and
-  // opposite by construction, see `_kOnboardingBottomGap`.
+  // Scale 1.0, macOS, against the 579-px viewport:
   //
-  // Re-measured wholesale on 2026-08-09 rather than patching only the rows
-  // that moved, because three rows had drifted from the code without anyone
-  // noticing (page 3 read 390/390/377 but measures 410/410/397, page 6 read
-  // 190 but measures 189) and a half-stale table is worse than none — nobody
-  // downstream can tell which rows still mean anything. Every number below
-  // comes from one run of the same harness on the same day; treat them as a
-  // set, and when you re-measure, re-measure all of them.
+  //   page 1  Welcome       517 / 517 / 517
+  //   page 2  Privacy       307 / 307 / 307
+  //   page 3  Model         434 / 413 / 438
+  //   page 4  Hotkey        278 / 278 / 278   (still the sparsest page in the
+  //                                            flow: two setting rows, and
+  //                                            the ~60 % of trailing empty
+  //                                            space under them is the
+  //                                            documented correct outcome,
+  //                                            see OnboardingPageBody)
+  //   page 5  Appearance    390 / 390 / 390   (theme tiles + autostart row)
+  //   page 6  Auto-Paste    301 / 301 / 301   (macOS/Windows only; one status
+  //                                            card + why + skip, the shape
+  //                                            every phase of the page now
+  //                                            shares)
+  //   page 7  Try & Go      483 / 467 / 467   (the flow's tallest nominal
+  //                                            page, and the one the mic-
+  //                                            bypass guard below watches)
   //
-  // ⚠ STALE as of the density pass (ticket 20, phases 0–4). Every page below
-  // moved: the footer lost a line, so the viewport is 551/545/539 px by text
-  // scale rather than a flat 551; the body is top-aligned; the reading measure
-  // dropped to 640; pages 2, 4 and 5 rebuilt their rows. The numbers are left
-  // standing rather than half-patched for exactly the reason the note above
-  // gives — a table where some rows are current and some are not cannot be
-  // used at all. Ticket 20 phase 6 re-measures the set in one run, after
-  // phase 5; until then read this block as history, not as a baseline. The
-  // live constraint is the fixed-window guard further down, which asserts the
-  // fold at 1.0/1.15/1.3 and needs no table to do it.
+  // Linux runs the same pages 1–5 — identical page for page to the numbers
+  // above — and ends on Try & Go as page 6, measured 443 / 427 / 427 there.
   //
-  //   page 1  Welcome       529 / 529 / 529   (22 px slack)
-  //   page 2  Privacy       303 / 303 / 303   (248 px distributed)
-  //   page 3  Model         410 / 410 / 397
-  //   page 4  Hotkey        226 / 226 / 226   (the sparsest page in the flow;
-  //                                            was 218 until the gap between
-  //                                            its two setting rows went
-  //                                            `sm` → `lg` on the nominal
-  //                                            branch — the conflict branch
-  //                                            keeps `sm`, see trigger_step)
-  //   page 5  Appearance    380 / 401 / 380   (theme tiles + autostart row)
-  //   page 6  Auto-Paste    189 / 189 / 189   (macOS/Windows only)
-  //   page 7  Try & Go      519 / 498 / 498   (32 px slack — the mic-bypass
-  //                                            escape hatch moved from a raw
-  //                                            TextButton to WpButton
-  //                                            standard, +16 px; it kept
-  //                                            `standard` because its label
-  //                                            was always body-weight text,
-  //                                            unlike the dense settings-row
-  //                                            case in trigger_step.dart.
-  //                                            This is still the binding
-  //                                            constraint in the flow — see
-  //                                            the full-transcript case in
-  //                                            onboarding_flow_test)
+  // ── The binding cases (scale 1.3, 567-px viewport) ─────────────────────
   //
-  // Try & Go was 545 / 508 / 508 (6 px slack, German) until the page's two
-  // stacked ambient muted lines — reassurance and recording-duration note —
-  // became the single sentence they always were about the same button (see
-  // test_recording_step.dart). Merging them returned 26 px to German and
-  // 10 px to English/Hebrew. The delta differs per locale because the saving
-  // is a rewrap, not a fixed subtraction: two separately wrapped blocks plus
-  // the `xs` gap between them become one wrapped sentence, and German's
-  // duration hint wrapped one line further than English's did. The page
-  // keeps its rank as the flow's tallest.
+  // 1.0 is not where this flow is decided any more. These are the rows a
+  // change breaks first, and the only 1.3 numbers worth carrying here:
   //
-  // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
-  // 473 / 452 / 452 there (was 499 / 462 / 462, same merge).
+  //   page 1  Welcome,  de        567 of 567    0 px — an exact fit
+  //   page 7  Try & Go, de        563 of 567    4 px
+  //   page 3  Model,    he        550 of 567   17 px
+  //   page 1  Welcome,  en / he   543 of 567   24 px
+  //   page 7  Try & Go, en / he   536 of 567   31 px
   //
-  // The three branch cases, which are what the split was for (German / Hebrew,
-  // the two locales the tests cover):
-  //   page 4 with a confirmed hotkey conflict   534 / 534
-  //     Warn box + full inline recorder. On the old merged Model & Hotkey
-  //     page this came to 914 / 921 px, i.e. ~370 px of forced scrolling that
-  //     was documented as unreachable without a flow change. This is that
-  //     flow change. Both keep 17 px of slack and pay for it three ways — the
-  //     page heading drops its subtitle while a conflict is up, the gap
-  //     under that heading is `sm` instead of [kOnboardingHeaderGap] (the
-  //     flow's one deliberate deviation: the canonical 32 px would cost this
-  //     branch 20 px it does not have), and the warn box is vertically
-  //     tighter than it is wide. German pays a fourth way, which is what
-  //     brings it level with Hebrew: its conflict body is worded to stay on
-  //     one line. It used to wrap to two, and those 17 px are what put this
-  //     branch 4 px over once WpButton gave the recorder's action row 48 px
-  //     instead of 32 — that was 13 px of slack; the trailing "Ändern" button
-  //     in the same row later moved to `WpButtonSize.dense` (32 px, down from
-  //     its old 36), which is what brought the branch back to 17 px. Both
-  //     numbers were binding constraints in their moment; re-measure before
-  //     adding anything to this branch.
-  //   page 3 with a failed model download      447 / 434
-  //     Was 431 / 418 before the Retry button (`OutlinedButton.icon` in a
-  //     `SizedBox(width: infinity)`) moved to `WpButton(secondary/neutral,
-  //     expanded: true)` — the same +16 px a standard-size button costs
-  //     everywhere else in this migration.
-  //   page 6 with the troubleshoot branch        492 / 492
-  //     (missing + sent-to-OS-grant-flow + poll timed out, Repair tapped and
-  //     resolved to "nothing cleared") — Skip + Repair + the result banner's
-  //     own extra Restart button, all stacked at once. This is the tallest
-  //     Auto-Paste state and was entirely uncovered before this migration;
-  //     the nominal (intro-phase) row above stayed at 190 px because Skip is
-  //     the only button that phase renders, and re-measuring confirmed it did
-  //     not move. 59 px of headroom against the 551 px viewport — re-measure
-  //     before adding anything to this branch.
+  // Everything else keeps ≥ 46 px at 1.3. Page 1 in German is the tightest
+  // case in the flow and it is a deliberate landing, not an accident: the one
+  // post that separates German from the other two is beat 1's caption
+  // wrapping to a third line. Anyone who needs slack there has 24 px in the
+  // other locales to spend first.
+  //
+  // ── The three branch cases ─────────────────────────────────────────────
+  //
+  // German / Hebrew, the two locales the tests cover. This is the one part of
+  // the table where the higher scales are not derivable from the 1.0 row,
+  // because two of the three branches stop fitting:
+  //
+  //   page 4, confirmed hotkey conflict (warn box + full inline recorder).
+  //   The branch the page split was for — on the merged Model & Hotkey page
+  //   it came to 914 px against a 551-px viewport. It pays for the fit three
+  //   ways: the heading drops its subtitle while a conflict is up, the gap
+  //   under that heading is `sm` rather than [kOnboardingHeaderGap] (the
+  //   flow's one deliberate deviation, declared at the call site), and the
+  //   warn box is vertically tighter than it is wide.
+  //     1.0    579 / 562     fits (German on exactly 0 px of slack)
+  //     1.15   585 / 585     12 px past the fold, RenderFlex overflow in both
+  //     1.3    636 / 615     69 / 48 px past it, overflow in Hebrew (German
+  //                          scrolls instead of throwing at that scale)
+  //   page 3, failed model download (error banner + retry button)
+  //     1.0    491 / 495     fits
+  //     1.15   542 / 527     fits
+  //     1.3    576 / 605     9 / 38 px past the fold
+  //   page 6, Auto-Paste troubleshoot (missing + sent-to-OS-grant-flow + poll
+  //   timed out, Repair tapped and resolved to "nothing cleared" — skip +
+  //   repair + the result banner's own restart button, the tallest state the
+  //   page has)
+  //     1.0    504 / 504     fits
+  //     1.15   521 / 521     fits
+  //     1.3    563 / 541     fits
+  //
+  // ⚠ OPEN FINDING — reported, not fixed (ticket 20, phase 6). The conflict
+  // and download branches run past the fold above scale 1.0. No test is red:
+  // both are covered at 1.0 only, because the fold matrix walks the nominal
+  // flow and never enters either branch, and the troubleshoot branch is the
+  // one that was extended to all three scales (and fixed there). What can be
+  // said precisely, and what cannot:
+  //
+  //   * At 1.0 the conflict branch went from 17 px of slack (534 px against
+  //     the old 551-px viewport) to 0 px in German. That tightening is this
+  //     ticket's doing — the setting rows on that page grew, and the density
+  //     pass records paying 3 px back in Hebrew for exactly that reason.
+  //   * At 1.15 and 1.3 the origin is UNDETERMINED. No commit ever measured
+  //     either branch above 1.0, so there is no baseline to have regressed
+  //     from. These numbers are neither "newly broken" nor "pre-existing";
+  //     they are newly *known*.
+  //
+  // Fixing it is layout work on two branch states and belongs in its own
+  // ticket with its own visual sign-off. Adding a `foldRatchet` row instead
+  // would be precisely the misuse that table forbids.
   //
   // Hebrew is the tightest on the model page for a reason worth keeping in
   // mind when re-measuring: the loop seeds the *dictation* language, and
@@ -1080,9 +1088,9 @@ void main() {
     /// [natural] is what the table above lists, and on a page that fills the
     /// viewport ([OnboardingPageFill]) it is the only informative number:
     /// [content] is then the viewport height by construction. Subtracting the
-    /// height the [OnboardingPageBody]'s centring gave away recovers it —
-    /// that gap is the only height on the page that comes from leftover space
-    /// rather than from content.
+    /// height the [OnboardingPageBody] left trailing under itself recovers it
+    /// — that trailing space is the only height on the page that comes from
+    /// leftover room rather than from content.
     ///
     /// NOTE: on a fill page these numbers alone cannot see an overflow —
     /// [IntrinsicHeight] pins the column to the offered height and the
@@ -1102,8 +1110,8 @@ void main() {
       final content =
           scrollable.position.viewportDimension +
           scrollable.position.maxScrollExtent;
-      // The leftover height the body's centring gave away — the only height
-      // on the page that comes from spare space rather than from content.
+      // The leftover height trailing under the body — the only height on the
+      // page that comes from spare room rather than from content.
       final distributed = tester
           .renderObjectList<RenderBox>(find.byType(OnboardingPageBody))
           .whereType<RenderShiftedBox>()
