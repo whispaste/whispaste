@@ -800,166 +800,197 @@ class _HistorySearchFilterBarState
           const SizedBox(height: WpSpacing.xs),
 
           // ── Filter chips + controls ──────────────────────────────────────
-          Row(
+          //
+          // `OverflowBar`, not a `Row`, and two `Wrap`s inside it — this row
+          // used to squash and then overflow (ticket 03, point 7). Three
+          // separate causes, all of them fixed here:
+          //
+          //   1. The trailing controls (result count, "Empty trash", three
+          //      icon controls) were plain `Row` children, so they were laid
+          //      out at their *unbounded* intrinsic width and whatever was
+          //      left over went to the chips' `Expanded`. Once the controls
+          //      alone were wider than the panel that leftover went negative
+          //      and the row overflowed — measured at a 340 px panel it
+          //      already overflowed by 7.7 px at 1.0x with the trash button
+          //      showing, and by 266 px at 2.6x.
+          //   2. The chips sat in a `SizedBox(height: minTouchTarget)`, a
+          //      hard 48 dp cap. At 2.6x a chip's own text is taller than
+          //      that, so the pills were clipped rather than merely tight.
+          //      They no longer need it: `WpFilterChip` carries its own
+          //      `minHeight: WpLayout.minTouchTarget` tap surface.
+          //   3. The chips scrolled horizontally, which meant the answer to
+          //      "the filters do not fit" was "hide some of them behind a
+          //      gesture with no affordance". Wrapping shows all six.
+          //
+          // `OverflowBar` keeps the wide-panel look exactly as it was —
+          // chips left, controls flush right on one line — and stacks the
+          // two groups onto separate lines the moment their intrinsic
+          // widths stop fitting, which is the "wrap, don't squash" the
+          // ticket asks for. No width threshold to guess or maintain.
+          OverflowBar(
+            alignment: MainAxisAlignment.spaceBetween,
+            overflowAlignment: OverflowBarAlignment.start,
+            overflowSpacing: WpSpacing.xs,
             children: [
-              Expanded(
-                child: SizedBox(
-                  // Full-height tap/focus surface per chip (visual pill stays
-                  // compact — see WpFilterChip).
-                  height: WpLayout.minTouchTarget,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      WpFilterChip(
-                        label: l10n.historyAll,
-                        isActive: widget.activeFilter == HistoryFilter.all,
-                        onTap: () => widget.onFilterChanged(HistoryFilter.all),
-                        isDark: widget.isDark,
-                        count: searchCounts?[HistoryFilter.all],
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
-                      WpFilterChip(
-                        label: l10n.historyToday,
-                        isActive: widget.activeFilter == HistoryFilter.today,
-                        onTap: () =>
-                            widget.onFilterChanged(HistoryFilter.today),
-                        isDark: widget.isDark,
-                        count: searchCounts?[HistoryFilter.today],
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
-                      WpFilterChip(
-                        label: l10n.historyThisWeek,
-                        isActive: widget.activeFilter == HistoryFilter.week,
-                        onTap: () => widget.onFilterChanged(HistoryFilter.week),
-                        isDark: widget.isDark,
-                        count: searchCounts?[HistoryFilter.week],
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
-                      WpFilterChip(
-                        label: l10n.historyPinned,
-                        icon: LucideIcons.star,
-                        isActive: widget.activeFilter == HistoryFilter.pinned,
-                        onTap: () =>
-                            widget.onFilterChanged(HistoryFilter.pinned),
-                        isDark: widget.isDark,
-                        count: searchCounts?[HistoryFilter.pinned],
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
-                      WpFilterChip(
-                        label: l10n.historyArchived,
-                        icon: LucideIcons.archive,
-                        isActive: widget.activeFilter == HistoryFilter.archived,
-                        onTap: () =>
-                            widget.onFilterChanged(HistoryFilter.archived),
-                        isDark: widget.isDark,
-                        count: searchCounts?[HistoryFilter.archived],
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
-                      WpFilterChip(
-                        label: l10n.historyTrash,
-                        icon: LucideIcons.trash2,
-                        isActive: widget.activeFilter == HistoryFilter.trash,
-                        onTap: () =>
-                            widget.onFilterChanged(HistoryFilter.trash),
-                        isDark: widget.isDark,
-                        count: searchCounts?[HistoryFilter.trash],
-                      ),
-                    ],
+              Wrap(
+                spacing: WpSpacing.xs,
+                runSpacing: WpSpacing.xxs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  WpFilterChip(
+                    label: l10n.historyAll,
+                    isActive: widget.activeFilter == HistoryFilter.all,
+                    onTap: () => widget.onFilterChanged(HistoryFilter.all),
+                    isDark: widget.isDark,
+                    count: searchCounts?[HistoryFilter.all],
                   ),
-                ),
+                  WpFilterChip(
+                    label: l10n.historyToday,
+                    isActive: widget.activeFilter == HistoryFilter.today,
+                    onTap: () => widget.onFilterChanged(HistoryFilter.today),
+                    isDark: widget.isDark,
+                    count: searchCounts?[HistoryFilter.today],
+                  ),
+                  WpFilterChip(
+                    label: l10n.historyThisWeek,
+                    isActive: widget.activeFilter == HistoryFilter.week,
+                    onTap: () => widget.onFilterChanged(HistoryFilter.week),
+                    isDark: widget.isDark,
+                    count: searchCounts?[HistoryFilter.week],
+                  ),
+                  WpFilterChip(
+                    label: l10n.historyPinned,
+                    icon: LucideIcons.star,
+                    isActive: widget.activeFilter == HistoryFilter.pinned,
+                    onTap: () => widget.onFilterChanged(HistoryFilter.pinned),
+                    isDark: widget.isDark,
+                    count: searchCounts?[HistoryFilter.pinned],
+                  ),
+                  WpFilterChip(
+                    label: l10n.historyArchived,
+                    icon: LucideIcons.archive,
+                    isActive: widget.activeFilter == HistoryFilter.archived,
+                    onTap: () => widget.onFilterChanged(HistoryFilter.archived),
+                    isDark: widget.isDark,
+                    count: searchCounts?[HistoryFilter.archived],
+                  ),
+                  WpFilterChip(
+                    label: l10n.historyTrash,
+                    icon: LucideIcons.trash2,
+                    isActive: widget.activeFilter == HistoryFilter.trash,
+                    onTap: () => widget.onFilterChanged(HistoryFilter.trash),
+                    isDark: widget.isDark,
+                    count: searchCounts?[HistoryFilter.trash],
+                  ),
+                ],
               ),
-              // Result count
-              if (rawQuery.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: WpSpacing.sm),
-                  child: Text(
-                    l10n.historyResultCount(widget.resultCount),
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textMuted,
+              // Trailing controls. Also a Wrap, for the same reason: at large
+              // text scales the group's own intrinsic width can exceed the
+              // panel even on its own line, and stacking two groups only helps
+              // if each of them can then break internally.
+              Wrap(
+                spacing: WpSpacing.xs,
+                runSpacing: WpSpacing.xxs,
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  // Result count
+                  if (rawQuery.isNotEmpty)
+                    Text(
+                      l10n.historyResultCount(widget.resultCount),
+                      style: TextStyle(
+                        fontSize: WpTypography.small,
+                        color: textMuted,
+                      ),
                     ),
-                  ),
-                ),
-              const SizedBox(width: WpSpacing.xs),
-              // Empty Trash button (only in trash view, when items exist)
-              if (widget.onEmptyTrash != null)
-                // Tooltip dropped, MergeSemantics added — house rule 1 for a
-                // single tap target whose label is already on screen. The
-                // tooltip repeated the visible caption word for word: a hover
-                // card that teaches nothing, and a screen reader saying "Empty
-                // trash" twice (label plus tooltip field).
-                MergeSemantics(
-                  child: Semantics(
-                    button: true,
+                  // Empty Trash button (only in trash view, when items exist)
+                  if (widget.onEmptyTrash != null)
+                    // Tooltip dropped, MergeSemantics added — house rule 1 for a
+                    // single tap target whose label is already on screen. The
+                    // tooltip repeated the visible caption word for word: a hover
+                    // card that teaches nothing, and a screen reader saying "Empty
+                    // trash" twice (label plus tooltip field).
+                    MergeSemantics(
+                      child: Semantics(
+                        button: true,
+                        child: InkWell(
+                          borderRadius: WpRadius.borderSm,
+                          onTap: widget.onEmptyTrash,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.sm,
+                              vertical: WpSpacing.xxs,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LucideIcons.trash2,
+                                  size: WpIconSize.sm,
+                                  color: widget.isDark
+                                      ? WpColorsDark.error
+                                      : WpColorsLight.error,
+                                ),
+                                const SizedBox(width: 4),
+                                // Flexible for the same reason as
+                                // WpFilterChip's label: inside the trailing
+                                // `Wrap` this button is measured against a
+                                // finite run width, and its caption is the
+                                // longest string in the group.
+                                Flexible(
+                                  child: Text(
+                                    l10n.historyEmptyTrash,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: WpTypography.small,
+                                      color: widget.isDark
+                                          ? WpColorsDark.error
+                                          : WpColorsLight.error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Multi-select toggle
+                  Tooltip(
+                    message: widget.multiSelectMode
+                        ? l10n.historyExitSelection
+                        : l10n.historySelectMultiple,
                     child: InkWell(
                       borderRadius: WpRadius.borderSm,
-                      onTap: widget.onEmptyTrash,
+                      onTap: widget.onToggleMultiSelect,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.sm,
-                          vertical: WpSpacing.xxs,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              LucideIcons.trash2,
-                              size: WpIconSize.sm,
-                              color: widget.isDark
-                                  ? WpColorsDark.error
-                                  : WpColorsLight.error,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              l10n.historyEmptyTrash,
-                              style: TextStyle(
-                                fontSize: WpTypography.small,
-                                color: widget.isDark
-                                    ? WpColorsDark.error
-                                    : WpColorsLight.error,
-                              ),
-                            ),
-                          ],
+                        // Off-scale on purpose: matches the dense icon-button
+                        // padding in HistoryRowAction so toolbar icons stay uniform.
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          widget.multiSelectMode
+                              ? LucideIcons.checkCheck
+                              : LucideIcons.listChecks,
+                          size: WpIconSize.sm,
+                          color: widget.multiSelectMode ? accent : textMuted,
                         ),
                       ),
                     ),
                   ),
-                ),
-              // Multi-select toggle
-              Tooltip(
-                message: widget.multiSelectMode
-                    ? l10n.historyExitSelection
-                    : l10n.historySelectMultiple,
-                child: InkWell(
-                  borderRadius: WpRadius.borderSm,
-                  onTap: widget.onToggleMultiSelect,
-                  child: Padding(
-                    // Off-scale on purpose: matches the dense icon-button
-                    // padding in HistoryRowAction so toolbar icons stay uniform.
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      widget.multiSelectMode
-                          ? LucideIcons.checkCheck
-                          : LucideIcons.listChecks,
-                      size: WpIconSize.sm,
-                      color: widget.multiSelectMode ? accent : textMuted,
-                    ),
+                  // Sort order dropdown
+                  _SortDropdown(
+                    sortOrder: widget.sortOrder,
+                    isDark: widget.isDark,
+                    onChanged: widget.onSortOrderChanged,
                   ),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.xxs),
-              // Sort order dropdown
-              _SortDropdown(
-                sortOrder: widget.sortOrder,
-                isDark: widget.isDark,
-                onChanged: widget.onSortOrderChanged,
-              ),
-              const SizedBox(width: WpSpacing.xxs),
-              // View mode toggle
-              HistoryViewModeToggle(
-                viewMode: widget.viewMode,
-                isDark: widget.isDark,
-                onChanged: widget.onViewModeChanged,
+                  // View mode toggle
+                  HistoryViewModeToggle(
+                    viewMode: widget.viewMode,
+                    isDark: widget.isDark,
+                    onChanged: widget.onViewModeChanged,
+                  ),
+                ],
               ),
             ],
           ),
@@ -1487,8 +1518,14 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
     final color = widget.isActive
         ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
         : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted);
+    // Same rung as WpFilterChip's active fill (ticket 03, point 6): the two
+    // are the app's selectable controls and sit side by side in this very
+    // bar, so "selected" has to mean the same amount of accent in both. The
+    // former `accentSubtle` was off-ladder and theme-asymmetric.
     final bg = widget.isActive
-        ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
+        ? (isDark
+              ? WpColorsDark.accentActiveFill
+              : WpColorsLight.accentActiveFill)
         : Colors.transparent;
     return Semantics(
       label: widget.label,

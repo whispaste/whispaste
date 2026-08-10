@@ -51,7 +51,11 @@ class HistoryCardView extends StatelessWidget {
       builder: (context, constraints) {
         const minCardWidth = 280.0;
         const gap = WpSpacing.md;
-        const sidePad = WpSpacing.md;
+        // Page inset, owned by the list below so that cards *and* date
+        // headers start on the filter bar's `xl` vertical — the card view was
+        // the third of history's three modes sitting inside it (ticket 03,
+        // point 5). Also the divisor for the column maths, hence the const.
+        const sidePad = WpSpacing.xl;
         final availableWidth = constraints.maxWidth - sidePad * 2;
         final columns = (availableWidth / minCardWidth).floor().clamp(1, 4);
         final cardWidth = (availableWidth - gap * (columns - 1)) / columns;
@@ -64,9 +68,11 @@ class HistoryCardView extends StatelessWidget {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.only(
-            top: WpSpacing.xs,
-            bottom: WpSpacing.xxl,
+          padding: const EdgeInsets.fromLTRB(
+            sidePad,
+            WpSpacing.xs,
+            sidePad,
+            WpSpacing.xxl,
           ),
           itemCount: flatItems.length,
           itemBuilder: (_, i) {
@@ -77,46 +83,43 @@ class HistoryCardView extends StatelessWidget {
                 isDark: isDark,
               );
             }
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: sidePad),
-              child: Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final entry in item.entries!)
-                    SizedBox(
-                      key: ValueKey(entry.id),
-                      width: cardWidth,
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryCardState.build
-                      child: HistoryEntryCard(
-                        entry: entry,
-                        isDark: isDark,
-                        // Same overload as the list and compact views
-                        // (history_list_view.dart:69): outside multi-select
-                        // `isSelected` means "open in the detail panel", inside
-                        // it means "checked". The card used to ignore the
-                        // multi-select state entirely, so Ctrl+A filled the
-                        // action bar with "n selected" while every card kept
-                        // its resting look and the following Delete hit a set
-                        // the user could not see.
-                        isSelected: multiSelectMode
-                            ? selectedIds.contains(entry.id)
-                            : entry.id == selectedId,
-                        // The arrow cursor is suppressed in multi-select for
-                        // the same reason as in the other two views: there the
-                        // checkbox column, not the cursor ring, is the state
-                        // the user is manipulating.
-                        isFocused: !multiSelectMode && entry.id == focusedId,
-                        onTap: () => onEntryTap(entry),
-                        onCopy: () => onCopy(entry),
-                        onPin: () => onPin(entry),
-                        onDelete: () => onDelete(entry),
-                        multiSelectMode: multiSelectMode,
-                        isChecked: selectedIds.contains(entry.id),
-                      ),
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final entry in item.entries!)
+                  SizedBox(
+                    key: ValueKey(entry.id),
+                    width: cardWidth,
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryCardState.build
+                    child: HistoryEntryCard(
+                      entry: entry,
+                      isDark: isDark,
+                      // Same overload as the list and compact views
+                      // (history_list_view.dart:69): outside multi-select
+                      // `isSelected` means "open in the detail panel", inside
+                      // it means "checked". The card used to ignore the
+                      // multi-select state entirely, so Ctrl+A filled the
+                      // action bar with "n selected" while every card kept
+                      // its resting look and the following Delete hit a set
+                      // the user could not see.
+                      isSelected: multiSelectMode
+                          ? selectedIds.contains(entry.id)
+                          : entry.id == selectedId,
+                      // The arrow cursor is suppressed in multi-select for
+                      // the same reason as in the other two views: there the
+                      // checkbox column, not the cursor ring, is the state
+                      // the user is manipulating.
+                      isFocused: !multiSelectMode && entry.id == focusedId,
+                      onTap: () => onEntryTap(entry),
+                      onCopy: () => onCopy(entry),
+                      onPin: () => onPin(entry),
+                      onDelete: () => onDelete(entry),
+                      multiSelectMode: multiSelectMode,
+                      isChecked: selectedIds.contains(entry.id),
                     ),
-                ],
-              ),
+                  ),
+              ],
             );
           },
         );

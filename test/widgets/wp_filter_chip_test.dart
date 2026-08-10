@@ -80,22 +80,29 @@ void main() {
       );
     });
 
-    testWidgets('hover lifts the fill to the hover surface and the label to '
-        'primary text', (tester) async {
+    testWidgets('hover lifts the fill to the ladder\'s 6% rung and the label '
+        'to primary text', (tester) async {
       await tester.pumpWidget(makeTestable(_chip()));
       await tester.pumpAndSettle();
       await _hover(tester);
 
-      expect(_pillDecoration(tester).color, WpColorsDark.hover);
+      // Accent at 6 %, not the neutral `hover` grey this used to pin
+      // (ticket 03, point 6): resting → hover → active is one hue getting
+      // stronger, so the hover previews the state the click leads to.
+      expect(_pillDecoration(tester).color, WpColorsDark.accentRowHover);
       expect(_labelColor(tester, 'All'), WpColorsDark.textPrimary);
     });
 
-    testWidgets('selected uses the accent tint, the 30% accent outline and a '
-        'heavier label', (tester) async {
+    testWidgets('selected uses the ladder\'s 12% rung, the 30% accent outline '
+        'and a heavier label', (tester) async {
       await tester.pumpWidget(makeTestable(_chip(isActive: true)));
       await tester.pumpAndSettle();
 
-      expect(_pillDecoration(tester).color, WpColorsDark.accentSubtle);
+      // `accentActiveFill` (12 %), not the former `accentSubtle` — that token
+      // never joined the 6/12/30 ladder and was the only one asymmetric
+      // between themes (16.5 % dark against 11 % light), so a selected filter
+      // read half again as strong on dark as on light.
+      expect(_pillDecoration(tester).color, WpColorsDark.accentActiveFill);
       expect(
         (_pillDecoration(tester).border! as Border).top.color,
         WpColorsDark.accentBorder30,
@@ -117,7 +124,7 @@ void main() {
       expect(_labelColor(tester, 'All'), WpColorsLight.textSecondary);
 
       await _hover(tester);
-      expect(_pillDecoration(tester).color, WpColorsLight.hover);
+      expect(_pillDecoration(tester).color, WpColorsLight.accentRowHover);
       expect(_labelColor(tester, 'All'), WpColorsLight.textPrimary);
 
       await tester.pumpWidget(
@@ -127,7 +134,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(_pillDecoration(tester).color, WpColorsLight.accentSubtle);
+      expect(_pillDecoration(tester).color, WpColorsLight.accentActiveFill);
       expect(_labelColor(tester, 'All'), WpColorsLight.accent);
     });
   });

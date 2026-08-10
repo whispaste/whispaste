@@ -59,13 +59,29 @@ class _WpFilterChipState extends State<WpFilterChip> {
     final Color bg;
     final Color fg;
 
+    // The chip's three accent steps are the 6/12/30 % ladder the count badge
+    // below already refers to, and they now actually are those rungs
+    // (ticket 03, point 6). Two of them used to sit off it:
+    //
+    //   * Active fill was `accentSubtle` — the one accent token that never
+    //     joined the ladder, and the only one that is *asymmetric* between
+    //     themes (16.5 % dark vs 11 % light). A selected filter therefore
+    //     read half again as strong on dark as on light, for no reason
+    //     anybody had recorded. `accentActiveFill` is 12 % in both.
+    //   * Hover was the neutral `hover` grey, so hovering an inactive chip
+    //     hinted at nothing in particular. `accentRowHover` (6 %) makes the
+    //     resting → hover → active progression one hue getting stronger,
+    //     which is what a chip's hover is *for*: previewing the state the
+    //     click leads to.
     if (widget.isActive) {
       bg = widget.isDark
-          ? WpColorsDark.accentSubtle
-          : WpColorsLight.accentSubtle;
+          ? WpColorsDark.accentActiveFill
+          : WpColorsLight.accentActiveFill;
       fg = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     } else if (_isHovered) {
-      bg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+      bg = widget.isDark
+          ? WpColorsDark.accentRowHover
+          : WpColorsLight.accentRowHover;
       fg = widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
     } else {
       bg = widget.isDark
@@ -108,13 +124,25 @@ class _WpFilterChipState extends State<WpFilterChip> {
             Icon(widget.icon, size: WpIconSize.sm, color: fg),
             const SizedBox(width: WpSpacing.xxs),
           ],
-          Text(
-            widget.label,
-            style: TextStyle(
-              color: fg,
-              fontSize: WpTypography.body,
-              height: 1.15,
-              fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w500,
+          // Flexible + ellipsis so a chip can be *narrower* than its label
+          // wants. In a `Row` call site the chip is handed unbounded width and
+          // this never engages; in a `Wrap` (the history filter bar since
+          // ticket 03, the feedback form before it) a run is finite, and a
+          // long label at a large text scale then overflowed this inner Row by
+          // up to 30 px. Truncating a filter's name is the lesser evil against
+          // painting outside the chip — and only happens when the label alone
+          // is wider than the whole panel.
+          Flexible(
+            child: Text(
+              widget.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: fg,
+                fontSize: WpTypography.body,
+                height: 1.15,
+                fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w500,
+              ),
             ),
           ),
           if (widget.count != null) ...[

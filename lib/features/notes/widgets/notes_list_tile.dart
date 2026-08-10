@@ -7,6 +7,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_list_tile_surface.dart';
 import '../../../widgets/wp_row_action.dart';
 import '../data/note_title.dart';
 
@@ -121,27 +122,11 @@ class _NotesListTileState extends State<NotesListTile> {
         : DateFormat.yMMMd(locale).format(t);
   }
 
-  /// Tile background — mirrors HistoryEntryRow's hover/selection states.
-  Color _backgroundColor(bool isDark) {
-    if (widget.isSelected) {
-      return isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
-    }
-    if (widget.isFocused || _isHovered) {
-      return isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    }
-    return isDark
-        ? WpColorsDark.hoverTransparent
-        : WpColorsLight.hoverTransparent;
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
 
-    final bg = _backgroundColor(isDark);
-
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
@@ -181,42 +166,14 @@ class _NotesListTileState extends State<NotesListTile> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            curve: WpMotion.defaultCurve,
-            // Off-scale on purpose: hairline gap between tiles so adjacent
-            // selection borders never touch (same as HistoryEntryRow). No
-            // horizontal margin — NotesListView owns the page inset so the
-            // tile edge lines up with the search bar above.
-            margin: const EdgeInsets.symmetric(vertical: 1),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: WpRadius.borderLg,
-              // Always-present border/shadow (alpha-faded, never null) — see
-              // HistoryEntryRow's doc comments for the lerp-flash mechanism
-              // and the reduced light-theme selection ink.
-              border: widget.isSelected
-                  ? (isDark
-                        ? Border.all(
-                            color: accent.withValues(alpha: 0.7),
-                            width: 2,
-                          )
-                        : Border.all(
-                            color: accent.withValues(alpha: 0.6),
-                            width: 1.5,
-                          ))
-                  : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
-              boxShadow: (widget.isSelected || _isHovered)
-                  ? WpShadows.subtleFor(isDark)
-                  : WpShadows.subtleTransparent,
-            ),
+          child: WpListTileSurface(
+            isDark: isDark,
+            variant: WpListTileVariant.panel,
+            isHovered: _isHovered,
+            isFocused: widget.isFocused,
+            isSelected: widget.isSelected,
+            // Actions stay inside the content: the trash pair belongs to the
+            // title line next to the relative date, not to the envelope.
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

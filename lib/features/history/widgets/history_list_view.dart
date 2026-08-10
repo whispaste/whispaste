@@ -49,7 +49,17 @@ class HistoryEntryList extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return ListView.builder(
-      padding: const EdgeInsets.only(top: WpSpacing.xs, bottom: WpSpacing.xxl),
+      // The list owns the horizontal page inset (rows and date headers carry
+      // none), so its left/right edge lands exactly on the search/filter
+      // bar's `xl` inset above it — same arrangement as NotesListView and
+      // WpSearchableListPage. History used to be the one area that broke it:
+      // the bar sat at 24 while its rows sat at 8 (ticket 03, point 5).
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.xs,
+        WpSpacing.xl,
+        WpSpacing.xxl,
+      ),
       itemCount: _flatItems.length,
       itemBuilder: (_, i) {
         final item = _flatItems[i];

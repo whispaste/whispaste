@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'dialog.dart';
 import 'empty_state.dart';
@@ -40,6 +41,8 @@ class WpSearchableListPage<T> extends StatefulWidget {
     required this.itemBuilder,
     this.contentWrapper,
     this.header,
+    this.subtitle,
+    this.skeletonRowHeight,
   });
 
   /// The feature's full item list, as exposed by its Riverpod provider.
@@ -89,17 +92,47 @@ class WpSearchableListPage<T> extends StatefulWidget {
   /// Snippets page's picker-trigger field). Include your own outer padding.
   final Widget? header;
 
+  /// Height of one loading-skeleton placeholder bar, when this page's rows
+  /// are taller than the single-line default. See
+  /// [_searchableListSkeletonRowHeight].
+  final double? skeletonRowHeight;
+
+  /// One-line explanation of what this page is for, rendered directly under
+  /// the page H1 and above everything else (ticket 03, point 4).
+  ///
+  /// Persistent on purpose. The same sentence already existed as the empty
+  /// state's `hint`, which meant the page explained itself only to users who
+  /// had nothing in it yet — the moment a first entry appeared, the answer to
+  /// "what does this screen actually do" disappeared for good. Callers pass
+  /// their existing `emptyHint` string, so this costs no new translation and
+  /// the two states cannot drift apart.
+  ///
+  /// Deliberately outside the `AsyncValue.when` below: an explanation that
+  /// vanishes while the list is loading or errored is exactly the sort of
+  /// chrome flicker `WpListSkeleton` was introduced to stop.
+  final String? subtitle;
+
   @override
   State<WpSearchableListPage<T>> createState() =>
       _WpSearchableListPageState<T>();
 }
 
-/// Placeholder-bar height of the loading skeleton, matched to the real rows.
-/// Measured at full list width: a Snippets tile and a Replacements tile both
-/// render at exactly 70 dp (identical anatomy — `md`/`sm` padding around a
-/// title line plus a one-line preview), so the two features share one value
-/// instead of each guessing its own.
-const _searchableListSkeletonRowHeight = 70.0;
+/// Default placeholder-bar height of the loading skeleton — the height of a
+/// [WpSearchableListPage] row whose content is a single line.
+///
+/// The two features used to share one value because they measured the same:
+/// 70 dp each, "identical anatomy — `md`/`sm` padding around a title line plus
+/// a one-line preview". Ticket 03 ended that. Re-measured at full list width
+/// afterwards, a Replacements row is 71 dp (the 1 dp is the shared envelope's
+/// border going from 1.0 to 1.5) and a Snippets row is 87, because its body
+/// preview now takes two lines so a row is identifiable without opening it.
+///
+/// Rather than average the two into a placeholder that reflows on both pages,
+/// the value stayed the caller's to state: this is the default, and Snippets
+/// passes [WpSearchableListPage.skeletonRowHeight] instead. Both numbers are
+/// measurements, so they move when the rows do — `wp_list_skeleton_test.dart`
+/// is where that gets caught.
+const _searchableListSkeletonRowHeight = 71.0;
 
 class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
   final _searchController = TextEditingController();
@@ -132,6 +165,54 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
+    // Sits between the page H1 (drawn by `_PageHeader` in app.dart, outside
+    // this widget) and the toolbar, continuing the H1's `xl` gutter. Capped
+    // at one line: this is a subtitle, not body copy — a sentence that needs
+    // two lines belongs in the empty state, which has room for it.
+    final subtitleLine = widget.subtitle == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl,
+              0,
+              WpSpacing.xl,
+              WpSpacing.xs,
+            ),
+            // The `Align` is load-bearing, not decoration: this Padding is a
+            // child of a `Column` whose cross-axis alignment is the default
+            // `center`, so a bare Text shrink-wraps its own string and the
+            // sentence lands centred under a left-aligned H1. `Align` expands
+            // to the bounded width it is offered (RenderPositionedBox) and
+            // then places the text at the start edge — directional, so RTL
+            // locales get the mirror.
+            // `container: true` so this sentence is a node of its own instead
+            // of being absorbed by whatever sits next to it. Without it the
+            // line folded into the page-level focus node that the following
+            // widget's own announcement is read from — on Replacements that
+            // meant the master switch was announced as "Add replacements to
+            // auto-replace words while recording. … Enable replacements",
+            // i.e. a page-level explanation became part of a control's name.
+            // Exactly the defect `replacements_page_test.dart` already guards
+            // the switch against.
+            child: Semantics(
+              container: true,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  widget.subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: isDark
+                        ? WpColorsDark.textMuted
+                        : WpColorsLight.textMuted,
+                  ),
+                ),
+              ),
+            ),
+          );
+
     final body = widget.asyncAll.when(
       // Same list-shaped placeholder History and Notes use. A centred spinner
       // used to sit here, which made these two the only list surfaces in the
@@ -139,7 +220,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
       // its siblings — the list visibly re-flowed the moment data arrived.
       loading: () => WpListSkeleton(
         isDark: isDark,
-        rowHeight: _searchableListSkeletonRowHeight,
+        rowHeight: widget.skeletonRowHeight ?? _searchableListSkeletonRowHeight,
         // The real rows below sit on the `xl` gutter, not the skeleton's
         // history/notes default — pass it so the bars land on their edge.
         padding: const EdgeInsets.symmetric(
@@ -264,11 +345,12 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
         child: WpPageShell(
           scrollable: false,
           padding: EdgeInsets.zero,
-          child: widget.header == null
+          child: (widget.header == null && subtitleLine == null)
               ? body
               : Column(
                   children: [
-                    widget.header!,
+                    ?subtitleLine,
+                    ?widget.header,
                     Expanded(child: body),
                   ],
                 ),

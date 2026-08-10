@@ -8,6 +8,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_list_tile_surface.dart';
 import '../../../widgets/wp_row_action.dart';
 import '../../../widgets/wp_row_checkbox.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -109,20 +110,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
 
-    // Row background
-    final Color bg;
-    if (widget.isSelected) {
-      bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
-    } else if (widget.isFocused || _isHovered) {
-      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    } else {
-      bg = isDark
-          ? WpColorsDark.hoverTransparent
-          : WpColorsLight.hoverTransparent;
-    }
-
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-
     final showActions =
         (_isHovered || widget.isFocused) && !widget.multiSelectMode;
 
@@ -161,66 +148,14 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            curve: WpMotion.defaultCurve,
-            // Off-scale on purpose: hairline gap between tiles so adjacent
-            // selection/focus borders never touch; xxs would read as a list gap.
-            margin: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs,
-              vertical: 1,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: WpRadius.borderLg,
-              // Always present (never null) so AnimatedContainer fades the
-              // border's *alpha*, not its width — Border.lerp(a, null, t)
-              // scales width toward zero at fixed color/alpha, which reads
-              // as a flash rather than a fade for one frame (same class of
-              // bug as the boxShadow fix below).
-              //
-              // Light-theme ink is deliberately reduced (history polish pass,
-              // 2026-07-28): the light accent #06678A is itself dark
-              // (rel. luminance ≈ 0.11), so the former 2 px @ 0.7 stroke was
-              // the darkest ink in the whole list (≈ 3.4:1 vs the 0.92-lum
-              // surface) and read as "much too dark". 1.5 px @ 0.6 keeps the
-              // selection stroke at ≈ 2.9:1 (≈ 3:1, still clearly visible on
-              // top of the tinted fill + lifted shadow) with ~45 % less ink.
-              // Dark theme keeps the approved full-strength values.
-              border: widget.isSelected
-                  ? (isDark
-                        ? Border.all(
-                            color: accent.withValues(alpha: 0.7),
-                            width: 2,
-                          )
-                        : Border.all(
-                            color: accent.withValues(alpha: 0.6),
-                            width: 1.5,
-                          ))
-                  : widget.isFocused
-                  ? Border.all(
-                      color: accent.withValues(alpha: isDark ? 0.5 : 0.45),
-                      width: 1.5,
-                    )
-                  : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
-              // Weiche Ambient-Elevation nur bei Interaktion — die ruhende
-              // Zeile bleibt flach (Dichte/Perf), Hover/Select/Focus bekommen
-              // einen glow-freien Materiallift zusätzlich zum Border.
-              // subtleTransparent (not null) for the same reason as border
-              // above — see its doc comment for the exact flash mechanism.
-              // Theme-resolved strength: halved black alpha on light so the
-              // lift never reads as a dark halo (see WpShadows.subtleLight).
-              boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
-                  ? WpShadows.subtleFor(isDark)
-                  : WpShadows.subtleTransparent,
-            ),
+          child: WpListTileSurface(
+            isDark: isDark,
+            variant: WpListTileVariant.panel,
+            isHovered: _isHovered,
+            isFocused: widget.isFocused,
+            isSelected: widget.isSelected,
+            // Actions stay inside the content: the three of them share the
+            // metadata line with the timestamp, not the envelope.
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

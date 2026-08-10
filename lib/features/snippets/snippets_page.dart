@@ -11,6 +11,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_list_tile_surface.dart';
 import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
@@ -176,6 +177,12 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       emptyIcon: LucideIcons.notebookText,
       emptyTitle: l10n.snippetsEmpty,
       emptyHint: l10n.snippetsEmptyHint,
+      // Same string as the empty state's hint — the page keeps explaining
+      // itself once the first snippet exists (ticket 03, point 4).
+      subtitle: l10n.snippetsEmptyHint,
+      // A snippet row is 87 dp, not the single-line default (its body
+      // preview takes two lines) — measured, see the constant's docs.
+      skeletonRowHeight: 87,
       emptyActionLabel: l10n.snippetsAdd,
       noMatchesTitle: l10n.snippetsNoMatches,
       noMatchesHint: l10n.snippetsNoMatchesHint,
@@ -511,8 +518,11 @@ class _SnippetTileState extends State<_SnippetTile> {
   /// it at all (an unmounted button cannot be focused).
   bool get _isActive => _isHovered || _isFocused;
 
-  /// Single-line preview of the body — newlines and runs of whitespace
-  /// collapse to single spaces so the ellipsis works on one visual line.
+  /// Preview of the body — newlines and runs of whitespace collapse to
+  /// single spaces so the two rendered lines are filled by content rather
+  /// than by the author's line breaks: a snippet whose body starts with a
+  /// short salutation would otherwise spend its whole preview on it.
+  /// The Text renders `maxLines: 2` (same as the replacements row).
   String get _bodyPreview =>
       widget.snippet.body.trim().replaceAll(RegExp(r'\s+'), ' ');
 
@@ -576,32 +586,23 @@ class _SnippetTileState extends State<_SnippetTile> {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                _isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
-              ),
-              curve: WpMotion.defaultCurve,
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.md,
-                vertical: WpSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: _isActive
-                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                    : (widget.isDark
-                          ? WpColorsDark.surfaceElevated
-                          : WpColorsLight.surfaceElevated),
-                borderRadius: WpRadius.borderMd,
-                border: Border.all(
-                  color: _isActive
-                      ? (widget.isDark
-                            ? WpColorsDark.glassBorder
-                            : WpColorsLight.borderDefault)
-                      : (widget.isDark
-                            ? WpColorsDark.borderSubtle
-                            : WpColorsLight.borderSubtle),
-                ),
+            child: WpListTileSurface(
+              isDark: widget.isDark,
+              variant: WpListTileVariant.card,
+              isHovered: _isHovered,
+              isFocused: _isFocused,
+              actions: WpRowActions(
+                visible: _isActive,
+                children: [
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.trash2,
+                    tooltip: L10n.of(context).actionDelete,
+                    isDark: widget.isDark,
+                    onTap: widget.onDelete,
+                    isDestructive: true,
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -638,24 +639,11 @@ class _SnippetTileState extends State<_SnippetTile> {
                                 : WpColorsLight.textMuted,
                             fontSize: WpTypography.small,
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
-                  ),
-                  WpRowActions(
-                    visible: _isActive,
-                    children: [
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                      WpRowAction(
-                        icon: LucideIcons.trash2,
-                        tooltip: L10n.of(context).actionDelete,
-                        isDark: widget.isDark,
-                        onTap: widget.onDelete,
-                        isDestructive: true,
-                      ),
-                    ],
                   ),
                 ],
               ),

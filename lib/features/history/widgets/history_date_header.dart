@@ -25,12 +25,10 @@ class HistoryDateHeader extends StatelessWidget {
     // Text-Label, wie HistoryCompactDateHeader es bereits macht — weniger
     // dekorativ, moderner.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.md,
-        WpSpacing.xl,
-        WpSpacing.xs,
-      ),
+      // Vertical only. The enclosing list owns the horizontal page inset
+      // (ticket 03, point 5) — carrying `xl` here too would double-pad the
+      // headers against the rows they group.
+      padding: const EdgeInsets.only(top: WpSpacing.md, bottom: WpSpacing.xs),
       // The date label is what turns a flat list into groups, but visually —
       // weight, letter-spacing, position. A screen reader gets none of that and
       // reads "Yesterday" as one more line of body text between two entries.
@@ -69,12 +67,8 @@ class HistoryCompactDateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.sm,
-        WpSpacing.xl,
-        WpSpacing.xxs,
-      ),
+      // Vertical only — see HistoryDateHeader above.
+      padding: const EdgeInsets.only(top: WpSpacing.sm, bottom: WpSpacing.xxs),
       // Same reasoning as HistoryDateHeader above — the compact list groups by
       // the same dates and must be navigable the same way.
       child: Semantics(

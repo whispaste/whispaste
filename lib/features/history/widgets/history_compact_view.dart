@@ -50,7 +50,14 @@ class HistoryCompactView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return ListView.builder(
-      padding: const EdgeInsets.only(top: WpSpacing.xs, bottom: WpSpacing.xxl),
+      // The list owns the horizontal page inset — see HistoryEntryList
+      // (ticket 03, point 5): all three view modes line up with the bar.
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.xs,
+        WpSpacing.xl,
+        WpSpacing.xxl,
+      ),
       itemCount: _flatItems.length,
       itemBuilder: (_, i) {
         final item = _flatItems[i];
@@ -167,7 +174,8 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
               _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
             ),
             curve: WpMotion.defaultCurve,
-            margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
+            // No horizontal margin — the list owns the page inset (ticket 03,
+            // point 5) so the row edge lands on the filter bar's `xl`.
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
               vertical: WpSpacing.xxs,

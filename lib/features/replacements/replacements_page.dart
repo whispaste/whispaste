@@ -8,6 +8,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_list_tile_surface.dart';
 import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
@@ -205,6 +206,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       emptyIcon: LucideIcons.replace,
       emptyTitle: l10n.replacementsEmpty,
       emptyHint: l10n.replacementsEmptyHint,
+      // Same string as the empty state's hint — see the Snippets call site.
+      subtitle: l10n.replacementsEmptyHint,
       emptyActionLabel: l10n.replacementsAdd,
       noMatchesTitle: l10n.replacementsNoMatches,
       noMatchesHint: l10n.replacementsNoMatchesHint,
@@ -610,32 +613,23 @@ class _ReplacementTileState extends State<_ReplacementTile> {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                _isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
-              ),
-              curve: WpMotion.defaultCurve,
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.md,
-                vertical: WpSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: _isActive
-                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                    : (widget.isDark
-                          ? WpColorsDark.surfaceElevated
-                          : WpColorsLight.surfaceElevated),
-                borderRadius: WpRadius.borderMd,
-                border: Border.all(
-                  color: _isActive
-                      ? (widget.isDark
-                            ? WpColorsDark.glassBorder
-                            : WpColorsLight.borderDefault)
-                      : (widget.isDark
-                            ? WpColorsDark.borderSubtle
-                            : WpColorsLight.borderSubtle),
-                ),
+            child: WpListTileSurface(
+              isDark: widget.isDark,
+              variant: WpListTileVariant.card,
+              isHovered: _isHovered,
+              isFocused: _isFocused,
+              actions: WpRowActions(
+                visible: _isActive,
+                children: [
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.trash2,
+                    tooltip: L10n.of(context).actionDelete,
+                    isDark: widget.isDark,
+                    onTap: widget.onDelete,
+                    isDestructive: true,
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -678,36 +672,25 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                             : WpColorsLight.textSecondary,
                         fontSize: WpTypography.body,
                       ),
-                      // `maxLines: 1` is load-bearing, not cosmetic: without
-                      // it `overflow: ellipsis` still lets the text wrap to
+                      // `maxLines` is load-bearing, not cosmetic: without a
+                      // cap `overflow: ellipsis` still lets the text wrap to
                       // as many lines as it likes (the Row leaves its cross
                       // axis unbounded), so a long replacement grew the row
-                      // without limit while the sibling snippet row truncated
-                      // its body preview after one line — the same content
-                      // shape behaving differently on two neighbouring
-                      // screens. It also restores the premise
-                      // `WpSearchableListPage`'s skeleton row height rests on
-                      // ("a Snippets tile and a Replacements tile both render
-                      // at exactly 70 dp"). The trigger-chip `Wrap` above can
-                      // still add lines; that growth is deliberate and
-                      // documented, so 70 dp stays a base height, not a cap.
+                      // without limit.
+                      //
+                      // Why 1 here while the snippet row's preview now takes 2
+                      // (ticket 03): the two are not the same slot. A snippet
+                      // tile stacks a *title* over a secondary body preview,
+                      // and the second preview line is what makes an otherwise
+                      // anonymous "Signature", "Address" row identifiable. A
+                      // replacement row has no title — the trigger chips to
+                      // the left are the identity, and this text is the
+                      // primary content sharing their line. Giving it a second
+                      // line would push the chips off-centre against their own
+                      // arrow glyph for no gain in recognisability.
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  // Delete on hover
-                  WpRowActions(
-                    visible: _isActive,
-                    children: [
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                      WpRowAction(
-                        icon: LucideIcons.trash2,
-                        tooltip: L10n.of(context).actionDelete,
-                        isDark: widget.isDark,
-                        onTap: widget.onDelete,
-                        isDestructive: true,
-                      ),
-                    ],
                   ),
                 ],
               ),
