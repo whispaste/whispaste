@@ -173,6 +173,20 @@ class _WpFilterChipState extends State<WpFilterChip> {
                 minHeight: WpLayout.minTouchTarget,
               ),
               child: Center(
+                // `widthFactor: 1.0`, or the chip claims the whole line it is
+                // offered. A bare Center shrink-wraps only when the incoming
+                // width is *unbounded*; given a finite maxWidth it expands to
+                // it (RenderPositionedBox). Every call site was a Row — which
+                // hands non-flexible children unbounded width — until the
+                // feedback page put these chips in a Wrap, and a Wrap measures
+                // its children against a finite width. Each chip then reported
+                // the full form width around a compact pill, so no two of them
+                // could ever share a run.
+                //
+                // Height deliberately keeps the expanding behaviour: that is
+                // what stretches the tap surface to the ConstrainedBox's
+                // minTouchTarget above.
+                widthFactor: 1.0,
                 // External-node mode: the ring hugs the compact pill while the
                 // shared FocusNode lives on the taller InkWell surface.
                 child: WpFocusRing(

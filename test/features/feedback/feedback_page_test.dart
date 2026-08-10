@@ -12,6 +12,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_filter_chip.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -646,6 +647,105 @@ void main() {
       );
 
       handle.dispose();
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // The category chips are the one control on this form whose tap surface is
+  // taller than the thing the eye sees: `WpFilterChip` centres a ~28px pill
+  // in a 48px target, so ~10px above and below each pill is empty. The page
+  // states the gaps around that row an `xs` step short to cancel it. Both
+  // halves of that arrangement — the compensation and the slack it assumes —
+  // live in different files, so pin the result rather than either input.
+  // ───────────────────────────────────────────────────────────────────────
+  group('Feedback category chips — vertical rhythm', () {
+    setUpAll(() async {
+      l10n = await L10n.delegate.load(const Locale('en'));
+    });
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    /// Distance from the bottom of [label] to the top of the nearest visible
+    /// edge below it — the gap a reader actually sees, not the box gap.
+    double opticalGap(WidgetTester tester, Finder label, Finder control) =>
+        tester.getRect(control).top - tester.getRect(label).bottom;
+
+    testWidgets('sit the same distance under their label as every other '
+        'control on the form', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final firstPill = find
+          .descendant(
+            of: find.byType(WpFilterChip).first,
+            matching: find.byType(AnimatedContainer),
+          )
+          .first;
+      final firstEmojiTile = find
+          .ancestor(
+            of: find.text(l10n.feedbackRatingFrustrated),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first;
+
+      final chipGap = opticalGap(
+        tester,
+        find.text(l10n.feedbackCategoryLabel),
+        firstPill,
+      );
+      final ratingGap = opticalGap(
+        tester,
+        find.text(l10n.feedbackRatingLabel),
+        firstEmojiTile,
+      );
+
+      expect(
+        chipGap,
+        closeTo(ratingGap, 3),
+        reason:
+            'the chips sat 26px under their label against the rating row\'s '
+            '16px, because the gap was stated as WpSpacing.md on a row that '
+            'brings 10px of its own. Off by more than a rounding step means '
+            'the chip\'s pill or touch target moved and the compensation on '
+            'the page no longer matches it.',
+      );
+    });
+
+    testWidgets('share their runs instead of taking one row each', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final chips = find.byType(WpFilterChip);
+      expect(chips, findsNWidgets(4));
+      final tops = {
+        for (var i = 0; i < 4; i++) tester.getTopLeft(chips.at(i)).dy,
+      };
+      // Deliberately not "exactly one run": how many fit depends on the label
+      // widths, and those depend on the locale and on which font the test
+      // environment resolves. What the bug did was categorical — every chip
+      // reported the full 560px column around a compact pill, so all four
+      // landed on rows of their own no matter how short the labels were.
+      expect(
+        tops.length,
+        lessThan(4),
+        reason:
+            'each chip claimed the full width of the form column and dropped '
+            'onto a run of its own — the Wrap on this page is what first '
+            'exposed that in WpFilterChip',
+      );
     });
   });
 }

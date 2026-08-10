@@ -43,6 +43,9 @@ Future<void> _hover(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// `const`-able no-op, so the chips below can be built in const contexts.
+void _noop() {}
+
 Widget _chip({
   bool isActive = false,
   bool isDark = true,
@@ -219,6 +222,117 @@ void main() {
       expect(node.label, contains('All'));
       expect(node.flagsCollection.isButton, isTrue);
       expect(node.flagsCollection.isSelected, Tristate.isTrue);
+    });
+  });
+
+  group('WpFilterChip — hugs its pill horizontally', () {
+    /// The tap/focus surface of the nth chip on screen.
+    Size tapSurface(WidgetTester tester, int index) => tester.getSize(
+      find
+          .descendant(
+            of: find.byType(WpFilterChip),
+            matching: find.byType(InkWell),
+          )
+          .at(index),
+    );
+
+    testWidgets('offered a loosely bounded width, the tap surface stays '
+        'pill-wide instead of claiming the whole line', (tester) async {
+      // `_chip()` centres the chip, so it is offered `loose(screen width)` —
+      // bounded but not tight, which is exactly the shape a Wrap hands its
+      // children. A tight parent (SizedBox(width:)) legitimately stretches the
+      // chip and is not what this pins.
+      await tester.pumpWidget(makeTestable(_chip()));
+      await tester.pumpAndSettle();
+
+      final pill = tester.getSize(
+        find.descendant(
+          of: find.byType(WpFilterChip),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      expect(
+        tapSurface(tester, 0).width,
+        pill.width,
+        reason:
+            'a bare Center expands to the incoming maxWidth whenever that is '
+            'finite, so the chip silently occupied all 560px around a compact '
+            'pill. Rows hand their children unbounded width and never showed '
+            'it; a Wrap does not.',
+      );
+      expect(
+        tapSurface(tester, 0).height,
+        greaterThanOrEqualTo(WpLayout.minTouchTarget),
+        reason: 'only the width hugs the pill — the 48px target stays',
+      );
+    });
+
+    testWidgets('four chips share one run in a 560px Wrap', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          SizedBox(
+            width: 560,
+            child: Wrap(
+              spacing: WpSpacing.sm,
+              runSpacing: WpSpacing.sm,
+              children: [
+                for (final label in ['Bug', 'Idee', 'Allgemein', 'KI'])
+                  WpFilterChip(
+                    label: label,
+                    isActive: false,
+                    isDark: true,
+                    onTap: _noop,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final firstTop = tester.getTopLeft(find.byType(WpFilterChip).at(0)).dy;
+      for (var i = 1; i < 4; i++) {
+        expect(
+          tester.getTopLeft(find.byType(WpFilterChip).at(i)).dy,
+          firstTop,
+          reason:
+              'chip $i dropped onto a run of its own — the four category chips '
+              'on the feedback page did exactly that',
+        );
+      }
+    });
+
+    testWidgets('unbounded width (the Row call sites) is unaffected', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              WpFilterChip(
+                label: 'All',
+                isActive: false,
+                isDark: true,
+                onTap: _noop,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final pill = tester.getSize(
+        find.descendant(
+          of: find.byType(WpFilterChip),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      expect(tapSurface(tester, 0).width, pill.width);
+      expect(
+        tapSurface(tester, 0).height,
+        greaterThanOrEqualTo(WpLayout.minTouchTarget),
+      );
     });
   });
 

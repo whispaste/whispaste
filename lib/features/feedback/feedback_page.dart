@@ -55,6 +55,26 @@ String computeFeedbackDeviceIdHash(String hostname) {
   return md5.convert(bytes).toString().substring(0, 12);
 }
 
+/// Invisible slack a [WpFilterChip] carries above and below its pill.
+///
+/// The chip centres a ~28px pill inside a [WpLayout.minTouchTarget]-tall tap
+/// surface, so ~10px of each chip's box is empty on either side of the only
+/// part the eye can see. In History's and Notes' filter bars that never shows —
+/// nothing is aligned across those rows. On this form it does: measured from
+/// the pill, the category label sat 26px above its chips while every other
+/// label on the page sits 16px above its control, and the gap down to the next
+/// section came out 10px wider than every other section gap.
+///
+/// So the two gaps bracketing the chip row are stated one `xs` step short, and
+/// the chip's own slack fills that step back in. One rung of the spacing scale
+/// rather than a hand-measured number: measured from the pill it lands at 18px
+/// against the form's 16px at the default text size, and hits it exactly at
+/// around 1.35× — beyond that the pill keeps growing into its tap surface, the
+/// slack keeps shrinking, and the gap runs slightly tighter than the rest of
+/// the form rather than looser. Tight is the harmless direction here: the
+/// label stays bound to the control it names.
+const _chipRowSlack = WpSpacing.xs;
+
 const _kLastFeedbackKey = 'feedback_last_submitted_ms';
 const _kClientRateLimitHours = 24;
 
@@ -198,7 +218,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
                   // Category selection
                   Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
-                  const SizedBox(height: WpSpacing.md),
+                  // `- _chipRowSlack` on both sides of the row: the chips'
+                  // tap surfaces are taller than their pills, and the eye
+                  // measures from the pill. See [_chipRowSlack].
+                  const SizedBox(height: WpSpacing.md - _chipRowSlack),
                   // `WpFilterChip`, not a local chip class: this row picks one
                   // of a set, which is exactly the job History, Notes and the
                   // analytics period selector already use it for. The private
@@ -212,7 +235,16 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   // spelled out longhand.
                   Wrap(
                     spacing: WpSpacing.sm,
-                    runSpacing: WpSpacing.sm,
+                    // Not `sm` again: horizontally the gap is measured pill to
+                    // pill, vertically it would be measured box to box, and
+                    // the two boxes bring ~20px of slack between them on their
+                    // own. Spelling both tokens the same would have put 32px
+                    // between two runs against 12px inside one — and the four
+                    // German labels do wrap onto a second run once the OS text
+                    // size is turned up. Zero leaves 12px within a run and
+                    // ~20px between them: a step up, which is what separates
+                    // runs from each other, but a far smaller one than 32.
+                    runSpacing: 0,
                     children: [
                       for (final (value, icon, label)
                           in <(String, IconData, String)>[
@@ -243,7 +275,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     ],
                   ),
 
-                  const SizedBox(height: WpSpacing.xxxl),
+                  const SizedBox(height: WpSpacing.xxxl - _chipRowSlack),
 
                   // Emoji rating
                   Text(l10n.feedbackRatingLabel, style: ts.titleSmall),
