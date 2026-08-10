@@ -53,10 +53,6 @@ class TriggerStep extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-
     final hotkeyKey = settings.hotkeyKey;
     final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
     final hotkeyModifiers = settings.hotkeyModifiers;
@@ -115,7 +111,11 @@ class TriggerStep extends ConsumerWidget {
                   );
             },
           ),
-          const SizedBox(height: WpSpacing.sm),
+          // `xxs`, not `sm`: the row underneath is a real `SettingRow` now
+          // (see below) and brings 12 px of its own top padding, so the
+          // explicit gap only has to make up the difference. Without this the
+          // Hebrew conflict branch overflows by 3 px.
+          const SizedBox(height: WpSpacing.xxs),
         ],
 
         // Hotkey row — settings-style (Conductor pattern): label on the
@@ -126,31 +126,31 @@ class TriggerStep extends ConsumerWidget {
         // was one of four competing boxes on this page, and dropping it also
         // returns 10 px (2 px border + 2x4 px padding) to the page's very
         // tight height budget.
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-          child: Row(
+        // A `SettingRow` like the mode row under it, and for the same reason
+        // the mode row became one (H5): the two lines on this page are the
+        // same kind of line and had drifted into two different builds of it —
+        // this one at `small`/w600 (12 px), the other at `bodyLarge` (13 px),
+        // so the *more* important of the two was rendered in the smaller type.
+        // `trailingHugsLabel` keeps the key caps next to the label they name;
+        // pinned to the row's end they sat 425 px away from it.
+        SettingRow(
+          icon: LucideIcons.keyboard,
+          iconSize: WpIconSize.md,
+          label: l10n.onboardingTriggerCurrentHotkey,
+          trailingHugsLabel: true,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  l10n.onboardingTriggerCurrentHotkey,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    fontWeight: FontWeight.w600,
-                    color: textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.md),
               HotkeyDisplay(
                 hotkeyKey: hotkeyKey,
                 hotkeyModifiers: hotkeyModifiers,
                 hotkeyKeyDisplay: hotkeyDisplay,
               ),
-              const SizedBox(width: WpSpacing.md),
-              // dense: this row's label already runs at WpTypography.small —
-              // a standard (48px) button would out-shout the row it answers
-              // to. See wp_button.dart's dense doc: "trailing slot of a
-              // dense settings row", exactly this slot.
+              const SizedBox(width: WpSpacing.sm),
+              // dense: a standard (48px) button would out-shout the row it
+              // answers to. See wp_button.dart's dense doc: "trailing slot of
+              // a dense settings row", exactly this slot — and it now shares
+              // its height with the key caps beside it (H3).
               WpButton(
                 key: kTriggerStepChangeHotkeyKey,
                 label: l10n.settingsChangeHotkey,
@@ -182,22 +182,17 @@ class TriggerStep extends ConsumerWidget {
         // Gap between two sibling setting rows, so `lg` — the same token the
         // Privacy page puts between its two rows, which is the flow's rhythm
         // for exactly this role. It used to be a flat `sm` on both branches,
-        // which read as two rows jammed together under an orphaned heading:
-        // this page is sparse (218 px of content in a 551-px viewport), so the
-        // fill scope centres the whole block and the leftover height lands as
-        // two ~180-px voids above and below rather than as breathing room
-        // between the rows that need it.
+        // which read as two rows jammed together under an orphaned heading.
         //
-        // Conditional, not raised outright, because the conflict branch is the
-        // binding one: it measures 534 px against 551 and cannot pay 8 px. The
-        // comment on that branch above already describes its gaps as "one step
-        // tighter than the page's usual rhythm" — that was true of the header
-        // gap (see the overlay's `_buildHotkeyPage`, same conditional pattern)
-        // but not yet of this one, which simply stayed tight everywhere. Now it
-        // is what it claimed to be.
+        // Both neighbours are `SettingRow`s now and each contributes 12 px of
+        // its own vertical padding, so this token buys a 44-px visual gap
+        // rather than the 20 it names — which is why the conflict branch,
+        // still the binding one, drops all the way to zero here instead of
+        // one step: 24 px of separation is what the rows already have, and it
+        // is enough to keep them apart on a page that has nothing to spare.
         SizedBox(
           height: status == HotkeyRegistrationStatus.conflict
-              ? WpSpacing.sm
+              ? 0
               : WpSpacing.lg,
         ),
 
@@ -205,13 +200,10 @@ class TriggerStep extends ConsumerWidget {
         // the row's subtitle re-words itself to describe the currently
         // selected behavior, so flipping the switch gives immediate,
         // plain-language feedback on what the hotkey will now do.
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-          child: _PushToTalkRow(
-            settings: settings,
-            supportsKeyUp: supportsKeyUp,
-            l10n: l10n,
-          ),
+        _PushToTalkRow(
+          settings: settings,
+          supportsKeyUp: supportsKeyUp,
+          l10n: l10n,
         ),
       ],
     );
@@ -262,54 +254,21 @@ class _PushToTalkRow extends ConsumerWidget {
         ? l10n.onboardingTriggerModeHoldHint
         : l10n.onboardingTriggerModeToggleHint;
 
-    // Same content and semantics as the SettingRow this used to be, in a
-    // denser custom row (no min-touch-target box, no extra vertical padding)
-    // so the merged page fits the fixed onboarding window without scrolling.
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-
-    return Semantics(
+    // A real `SettingRow` again. This was a hand-copy of one, justified by a
+    // comment ("so the merged page fits without scrolling") that stopped being
+    // true when the page was split: it has room to spare now, and the copy was
+    // paying for its 24 px with a second, subtly different definition of what
+    // a settings row looks like — the very drift the copy set out to prevent.
+    return SettingRow(
+      icon: LucideIcons.hand,
+      iconSize: WpIconSize.md,
       label: l10n.settingsHoldToRecord,
-      hint: modeHint,
-      toggled: supportsKeyUp ? settings.pushToTalk : null,
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.hand,
-            size: WpIconSize.sm,
-            color: Theme.of(context).colorScheme.secondary,
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  l10n.settingsHoldToRecord,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                Padding(
-                  // 2px title-subtitle gap: tighter than WpSpacing.xxs so
-                  // the pair reads as one unit (mirrors SettingRow).
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    modeHint,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: textMuted),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          if (supportsKeyUp)
-            toggle
-          else
-            Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
-        ],
-      ),
+      subtitle: modeHint,
+      semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
+      trailingHugsLabel: true,
+      trailing: supportsKeyUp
+          ? toggle
+          : Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
     );
   }
 }

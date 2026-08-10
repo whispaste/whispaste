@@ -1,5 +1,5 @@
-/// Vertical rhythm of the onboarding pages: header top, body centred, footer
-/// bottom.
+/// Vertical rhythm of the onboarding pages: header top, body directly under
+/// it, leftover height trailing at the bottom.
 ///
 /// The onboarding window is fixed at 1100×720, which leaves a 551-px content
 /// viewport — more than most pages need. Anchoring a 247-px page to the top of
@@ -21,9 +21,11 @@
 ///
 /// [OnboardingPageFill] stretches the page to the height the viewport actually
 /// offers, and [OnboardingPageBody] — which [OnboardingPage] wraps the body in
-/// for you — takes the leftover height and centres the body inside it. The
-/// header stays at the top, the shell's navigation row stays at the bottom,
-/// and only the space around the body breathes.
+/// for you — puts the body at the top of the leftover height and lets the rest
+/// trail underneath. The header stays at the top, the shell's navigation row
+/// stays at the bottom, and the gap between header and body is
+/// [kOnboardingHeaderGap] on every page rather than whatever a page's own
+/// height left there.
 library;
 
 import 'package:flutter/material.dart';
@@ -45,8 +47,13 @@ import '../../../core/theme/tokens.dart';
 /// stated reason — see its one caller in `onboarding_overlay.dart`.
 const double kOnboardingHeaderGap = WpSpacing.xxl;
 
+/// Marks the header slot of an [OnboardingPage], so a test can measure the gap
+/// beneath it without knowing which widget the page put there.
+@visibleForTesting
+const kOnboardingPageHeaderKey = Key('onboardingPageHeader');
+
 /// One onboarding page: a fixed header, [kOnboardingHeaderGap] under it, and
-/// everything else centred in the height that is left.
+/// everything else starting right there, with the leftover height trailing.
 ///
 /// Six of the seven pages are this and nothing else, so they say so rather
 /// than each re-writing the same `Column`. The page owns the header and the
@@ -62,16 +69,15 @@ class OnboardingPage extends StatelessWidget {
     required this.header,
     required this.body,
     this.headerGap = kOnboardingHeaderGap,
-    this.bodyAlignment = Alignment.center,
   });
 
   /// The page's fixed reading start — an `OnboardingPageHeading` on every page
   /// but Welcome, whose brand lockup plays that role.
   final Widget header;
 
-  /// Everything under the header, centred as ONE block in the leftover height
-  /// (see [OnboardingPageBody]) rather than distributed over hand-weighted
-  /// gaps.
+  /// Everything under the header, as ONE block starting exactly [headerGap]
+  /// below it (see [OnboardingPageBody]) rather than distributed over
+  /// hand-weighted gaps.
   final Widget body;
 
   /// Deviation from [kOnboardingHeaderGap]. Document the reason at the call
@@ -80,35 +86,20 @@ class OnboardingPage extends StatelessWidget {
   /// the canonical gap).
   final double headerGap;
 
-  /// Where [body] sits in the leftover height. Centred by default.
-  ///
-  /// [Alignment.topCenter] is for the *sparse* pages, and it exists because
-  /// centring cannot be tuned out of them: the body is `Expanded(Center(...))`,
-  /// so the leftover height is split into equal voids above and below it, and
-  /// growing the body only ever reclaims half of what it adds from each side.
-  /// On a page whose content comes to 226 px in a 551 px viewport that leaves
-  /// ~160 px between the heading and the first thing it introduces — the
-  /// heading reads as orphaned, and no amount of internal spacing reaches it.
-  ///
-  /// Top-aligning is not "the same fix applied harder": it moves the whole
-  /// slack to the bottom, where trailing space under a short settings page is
-  /// ordinary, instead of splitting it around the one gap that has to stay
-  /// small. Opt-in per page rather than flipped globally, because the pages
-  /// that fill or nearly fill the viewport (Welcome, Model, Appearance,
-  /// Try & Go) have little slack to place and are unaffected either way — and
-  /// leaving them on the default keeps their layout, and the measured heights
-  /// in `onboarding_overlay_test.dart`, identical by construction.
-  final AlignmentGeometry bodyAlignment;
-
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        header,
+        // Keyed so the gap under the header is measurable without a test
+        // having to know what kind of widget a given page put in the header
+        // slot — page 1's is a brand lockup, every other page's is an
+        // [OnboardingPageHeading]. See the header-gap guard in
+        // `onboarding_overlay_test.dart`.
+        KeyedSubtree(key: kOnboardingPageHeaderKey, child: header),
         SizedBox(height: headerGap),
-        OnboardingPageBody(alignment: bodyAlignment, child: body),
+        OnboardingPageBody(child: body),
       ],
     );
   }
@@ -151,38 +142,50 @@ class OnboardingPageFill extends StatelessWidget {
   }
 }
 
-/// Everything on a page that is not its header, centred in whatever height is
-/// left between the header and the shell's navigation row.
+/// Everything on a page that is not its header, starting directly under it and
+/// letting whatever height is left over trail below.
 ///
 /// One block per page, deliberately: dividing the leftover space between
 /// several hand-weighted gaps let each page invent its own vertical rhythm,
-/// and on page 1 it moved the header itself. Centring the body as a single
+/// and on page 1 it moved the header itself. Placing the body as a single
 /// unit is the same mechanism — a flex child of the page column — with one
 /// decision instead of four.
+///
+/// **Top, always — and it used to be a per-page choice.** The body was
+/// `Expanded(Center(...))` by default, with sparse pages opting into
+/// `topCenter`. That gave the flow exactly two ways to spend leftover height,
+/// both of them decided per page, and the distance from the header's bottom
+/// edge to the first thing under it came out anywhere between 20 px (Try & Go)
+/// and 117.5 px (Appearance) — a factor of six, off a single shared header
+/// constant. Centring is what did it: it splits the slack into equal voids
+/// above and below the body, so the emptier the page, the further its heading
+/// drifted from the content it introduces, and growing the body only ever
+/// reclaimed half of what it added.
+///
+/// One rule replaces the choice: the gap under the header is
+/// [kOnboardingHeaderGap] on every page, and everything left over trails at
+/// the bottom. That is not "the sparse-page fix applied globally" — it is the
+/// asymmetry the two kinds of space actually have. Trailing space under a
+/// short settings page is ordinary and reads as the page being short; space
+/// wedged between a heading and its own content reads as the heading having
+/// lost track of what it was introducing. The hotkey page keeps ~60 % trailing
+/// emptiness under two setting rows after this, and that is the correct
+/// outcome rather than a missed target.
 ///
 /// Outside an [OnboardingPageFill] — the page widgets are also mounted
 /// standalone in their own tests, where the height is unbounded and a flex
 /// child would assert — this collapses to the child itself, so a page with no
 /// space to give keeps exactly the spacing it had.
 class OnboardingPageBody extends StatelessWidget {
-  const OnboardingPageBody({
-    super.key,
-    required this.child,
-    this.alignment = Alignment.center,
-  });
+  const OnboardingPageBody({super.key, required this.child});
 
   final Widget child;
-
-  /// See [OnboardingPage.bodyAlignment]. The default is the identity case:
-  /// `Align(alignment: Alignment.center)` is what [Center] is, so every page
-  /// that does not pass this renders exactly as before.
-  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
     return _OnboardingFillScope.isFilling(context)
         ? Expanded(
-            child: Align(alignment: alignment, child: child),
+            child: Align(alignment: Alignment.topCenter, child: child),
           )
         : child;
   }

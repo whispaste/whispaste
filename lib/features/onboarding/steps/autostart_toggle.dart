@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/tokens.dart';
 import '../../settings/settings_widgets.dart';
 
 /// Widget key exposed for testing.
@@ -35,9 +36,15 @@ class OnboardingAutostartToggle extends ConsumerWidget {
     return SettingRow(
       key: kOnboardingAutostartToggleKey,
       icon: LucideIcons.power,
+      // Same build as the rows on pages 2 and 4: 20-px icon, control adjacent
+      // to the label instead of pinned to the far edge. The onboarding frame is
+      // ~640 px wide, so a right-pinned toggle leaves a dead run the eye has to
+      // cross; the row's hover surface still spans the full body width.
+      iconSize: WpIconSize.md,
       label: l10n.onboardingReadyAutostartToggle,
       subtitle: l10n.onboardingReadyAutostartToggleHint,
       semanticToggledValue: settings.launchAtStartup,
+      trailingHugsLabel: true,
       trailing: settingsToggle(
         value: settings.launchAtStartup,
         onChanged: (v) => ref

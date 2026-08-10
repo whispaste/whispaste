@@ -62,39 +62,52 @@ class AppearanceStep extends ConsumerWidget {
       // The page heading above and the autostart row below both sit on the
       // shared reading edge (`kSettingRowInset`); without this the tiles were
       // the only block on the page starting 12 px further left, which broke
-      // the vertical line the eye follows down the page. Three 200-px tiles
-      // plus two `lg` gaps come to 640 of the 720-px frame, so the inset is
-      // paid for out of the 80 px that were spare.
+      // the vertical line the eye follows down the page.
       child: Padding(
         padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-        child: Wrap(
+        // Three equal shares of whatever the frame offers, not three fixed
+        // 200-px tiles. The fixed width came to 640 against a 720-px frame and
+        // left an 80-px tail, so the tile row ended 68 px short of the
+        // autostart row directly beneath it — two stacked blocks with two
+        // different right edges, which is the one thing this page could not
+        // afford given the tiles ARE the page. Sharing the row out makes the
+        // edge flush by construction rather than by arithmetic that has to be
+        // redone every time the frame moves (it moved: see `_readingMeasure`).
+        child: Row(
           key: kAppearanceThemeSelectorKey,
-          spacing: WpSpacing.lg,
-          runSpacing: WpSpacing.lg,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-            _ThemeSwatch(
-              key: appearanceThemeSwatchKey(ThemeMode.light),
-              mode: ThemeMode.light,
-              label: l10n.onboardingThemeLight,
-              active: themeMode == ThemeMode.light,
-              onTap: () => selectThemeMode(ThemeMode.light),
+            Expanded(
+              child: _ThemeSwatch(
+                key: appearanceThemeSwatchKey(ThemeMode.light),
+                mode: ThemeMode.light,
+                label: l10n.onboardingThemeLight,
+                active: themeMode == ThemeMode.light,
+                onTap: () => selectThemeMode(ThemeMode.light),
+              ),
             ),
+            const SizedBox(width: WpSpacing.lg),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-            _ThemeSwatch(
-              key: appearanceThemeSwatchKey(ThemeMode.dark),
-              mode: ThemeMode.dark,
-              label: l10n.onboardingThemeDark,
-              active: themeMode == ThemeMode.dark,
-              onTap: () => selectThemeMode(ThemeMode.dark),
+            Expanded(
+              child: _ThemeSwatch(
+                key: appearanceThemeSwatchKey(ThemeMode.dark),
+                mode: ThemeMode.dark,
+                label: l10n.onboardingThemeDark,
+                active: themeMode == ThemeMode.dark,
+                onTap: () => selectThemeMode(ThemeMode.dark),
+              ),
             ),
+            const SizedBox(width: WpSpacing.lg),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-            _ThemeSwatch(
-              key: appearanceThemeSwatchKey(ThemeMode.system),
-              mode: ThemeMode.system,
-              label: l10n.onboardingThemeSystem,
-              active: themeMode == ThemeMode.system,
-              onTap: () => selectThemeMode(ThemeMode.system),
+            Expanded(
+              child: _ThemeSwatch(
+                key: appearanceThemeSwatchKey(ThemeMode.system),
+                mode: ThemeMode.system,
+                label: l10n.onboardingThemeSystem,
+                active: themeMode == ThemeMode.system,
+                onTap: () => selectThemeMode(ThemeMode.system),
+              ),
             ),
           ],
         ),
@@ -107,11 +120,12 @@ class AppearanceStep extends ConsumerWidget {
 // Theme swatch — a miniature of the app in the offered theme, plus its label.
 // ---------------------------------------------------------------------------
 
-/// Outer dimensions of one preview tile. Three of these plus two `lg` gaps
-/// come to 640 of the 720-px page frame — large enough that the miniature
-/// reads as a picture rather than as a swatch chip, which is the reason this
+/// Height of one preview tile. The *width* is whatever third of the row the
+/// tile is given (see the [Row] above) — it used to be a fixed 200 px, which
+/// is what left the tile row and the autostart row under it on two different
+/// right edges. The height stays fixed because it is what makes the miniature
+/// read as a picture rather than as a swatch chip, which is the reason this
 /// choice got a page of its own.
-const double _kSwatchWidth = 200;
 const double _kSwatchHeight = 132;
 
 /// One selectable theme: the preview tile with a selection ring, the label
@@ -197,7 +211,6 @@ class _ThemeSwatchState extends State<_ThemeSwatch> {
                     child: AnimatedContainer(
                       duration: WpMotion.durationFor(context, WpMotion.fast),
                       curve: WpMotion.defaultCurve,
-                      width: _kSwatchWidth,
                       height: _kSwatchHeight,
                       decoration: BoxDecoration(
                         borderRadius: WpRadius.borderMd,
@@ -214,11 +227,22 @@ class _ThemeSwatchState extends State<_ThemeSwatch> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: WpSpacing.xs),
+                  // `sm` (12), not `xs` (8). Under a 132-px tile, 8 px reads
+                  // as the label clinging to the tile's edge rather than
+                  // belonging to it, and it is half the gap that separates
+                  // this whole block from the autostart row below (`xl`, 24).
+                  // At 12 the ratio to that block gap is a clean 2:1, which is
+                  // what makes the tile-plus-label read as one item.
+                  const SizedBox(height: WpSpacing.sm),
                   Text(
                     widget.label,
                     style: TextStyle(
-                      fontSize: WpTypography.small,
+                      // `body` (13), matching the label of the autostart row
+                      // directly beneath it. These two are the same thing —
+                      // the name of a choice — and the tile's was a grade
+                      // smaller for no reason other than sitting under a
+                      // picture.
+                      fontSize: WpTypography.body,
                       fontWeight: widget.active
                           ? FontWeight.w700
                           : FontWeight.w500,

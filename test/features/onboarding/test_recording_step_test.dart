@@ -24,7 +24,7 @@ import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
-import 'package:whispaste/widgets/wp_hero_button.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -224,7 +224,7 @@ void main() {
       expect(find.text(l10n.onboardingTestRecordingStopCta), findsOneWidget);
       expect(
         tester
-            .widget<WpHeroButton>(find.byKey(kTestRecordingStepRecordButtonKey))
+            .widget<WpButton>(find.byKey(kTestRecordingStepRecordButtonKey))
             .onPressed,
         isNotNull,
       );
@@ -233,7 +233,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<WpHeroButton>(find.byKey(kTestRecordingStepRecordButtonKey))
+            .widget<WpButton>(find.byKey(kTestRecordingStepRecordButtonKey))
             .onPressed,
         isNull,
         reason: 'While transcribing the button must be disabled.',

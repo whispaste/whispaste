@@ -93,7 +93,7 @@ class ReadyStep extends ConsumerWidget {
               color: isDark ? WpColorsDark.error : WpColorsLight.error,
             ),
           ),
-          const SizedBox(height: WpSpacing.xxs),
+          const SizedBox(height: WpSpacing.xs),
           Text(
             l10n.onboardingReadyHotkeyConflictBody,
             textAlign: TextAlign.start,
@@ -103,7 +103,7 @@ class ReadyStep extends ConsumerWidget {
               height: 1.35,
             ),
           ),
-          const SizedBox(height: WpSpacing.md),
+          const SizedBox(height: WpSpacing.lg),
         ],
 
         // Quick start instructions
@@ -114,7 +114,7 @@ class ReadyStep extends ConsumerWidget {
           accent: accent,
           textColor: textPrimary,
         ),
-        const SizedBox(height: WpSpacing.md),
+        const SizedBox(height: WpSpacing.lg),
         _InstructionRow(
           number: '2.',
           text: l10n.onboardingReadyStep2,
@@ -122,7 +122,7 @@ class ReadyStep extends ConsumerWidget {
           accent: accent,
           textColor: textPrimary,
         ),
-        const SizedBox(height: WpSpacing.md),
+        const SizedBox(height: WpSpacing.lg),
         _InstructionRow(
           number: '3.',
           text: step3Text,
@@ -179,9 +179,12 @@ class _InstructionRow extends StatelessWidget {
       label: '$number $text',
       child: Row(
         children: [
+          // `sm` (16), not `md` (20). The glyph stands beside 14 px text, and
+          // at 20 px it was taller than the line it belonged to — the icon
+          // read as the row's subject and the numbered step as its caption.
           Padding(
             padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: Icon(icon, size: WpIconSize.md, color: accent),
+            child: Icon(icon, size: WpIconSize.sm, color: accent),
           ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
@@ -190,6 +193,13 @@ class _InstructionRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: WpTypography.subheading,
                 color: textColor,
+                // Explicit, and deliberately tighter than the gap between two
+                // rows (`lg`, 20): a wrapped step used to set its own two
+                // lines further apart than it sat from the next step, so the
+                // three numbered steps read as one paragraph instead of as
+                // three. Line spacing inside an item has to stay below the
+                // spacing between items for grouping to be visible at all.
+                height: 1.3,
               ),
             ),
           ),

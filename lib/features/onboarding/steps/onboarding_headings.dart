@@ -31,7 +31,7 @@ class OnboardingPageHeading extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
-    this.subtitleMaxWidth = 560,
+    this.subtitleMaxWidth = 640,
   });
 
   final String title;
@@ -39,6 +39,14 @@ class OnboardingPageHeading extends StatelessWidget {
 
   /// Bounded measure for the explanatory line so it keeps a readable line
   /// length instead of running the full (deliberately wide) page frame.
+  ///
+  /// 640, matching `_readingMeasure` in `onboarding_overlay.dart`: this was
+  /// 560 against a 720-px body, which is how every settings-shaped page came
+  /// to end its heading 148 px short of where its own content ended. The head
+  /// and the body under it are one column and now say so. 640 is still a
+  /// bounded measure — the point of the cap was never the exact number but
+  /// that a subtitle must not run the full width of a wide page — and no
+  /// subtitle in any of the three locales gains a line at it.
   final double subtitleMaxWidth;
 
   @override
@@ -67,7 +75,13 @@ class OnboardingPageHeading extends StatelessWidget {
             ),
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: WpSpacing.xs),
+            // `sm` (12), not `xs` (8): the smallest gaps in the flow were
+            // picked as ratios and then used at their absolute size, and 8 px
+            // under a 22-px title is not "tight, belongs together" — it is the
+            // subtitle sitting on the title's descenders. The relationship the
+            // 8 encoded (clearly below the 32-px header gap, so the lockup
+            // stays one unit) survives at 12 with room to spare.
+            const SizedBox(height: WpSpacing.sm),
             _MeasuredMaxWidth(
               maxWidth: subtitleMaxWidth,
               child: Text(
@@ -199,17 +213,27 @@ class OnboardingSectionLabel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // `heading` (16), not `subheading` (14). This label heads a whole
+          // column — on Try & Go it introduces the entire quick-start — and at
+          // 14 px it was the same size as the body text underneath it, so the
+          // column read as a footnote to the page rather than as its second
+          // half. 16 gives it a rank of its own without making it a second
+          // page title: the page heading is 22 px, so the ladder now steps
+          // 22 → 16 → 14 instead of jumping 22 → 14 → 14.
           Text(
             title,
             textAlign: TextAlign.start,
             style: TextStyle(
-              fontSize: WpTypography.subheading,
+              fontSize: WpTypography.heading,
               fontWeight: FontWeight.w700,
               color: textPrimary,
             ),
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 2),
+            // `xxs`, not the hardcoded 2 px this used to be: the only raw
+            // pixel value in the file, and the one gap in the flow that could
+            // not be reasoned about in token steps.
+            const SizedBox(height: WpSpacing.xxs),
             Text(
               subtitle!,
               textAlign: TextAlign.start,

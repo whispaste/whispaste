@@ -30,12 +30,40 @@ class SettingRow extends StatefulWidget {
     // When the row hosts a toggle, pass the current on/off state here so
     // screen-readers announce "on" / "off" alongside the label.
     this.semanticToggledValue,
+    this.trailingHugsLabel = false,
+    this.iconSize = WpIconSize.sm,
   });
 
   final IconData icon;
   final String label;
   final Widget trailing;
   final String? subtitle;
+
+  /// Lets [trailing] follow the label instead of being pinned to the row's far
+  /// end.
+  ///
+  /// The settings page is a narrow column where a full-width label and a
+  /// right-pinned control are the same thing; onboarding puts the identical row
+  /// into a much wider frame, where the two drift apart — measured 153–349 px
+  /// of empty run on the privacy page and 425 px on the hotkey page, i.e. a
+  /// label and the switch that belongs to it separated by more than the label
+  /// itself is wide. The row then reads as two unrelated columns.
+  ///
+  /// `false` (the default, and what the settings page keeps) gives the label
+  /// column an [Expanded]; `true` gives it a loose [Flexible], so it takes its
+  /// intrinsic width and no more. A label long enough to wrap still fills the
+  /// row and the control lands exactly where it does today — the flag only
+  /// removes space that had nothing in it.
+  final bool trailingHugsLabel;
+
+  /// Size of the leading [icon].
+  ///
+  /// `sm` (16) is right in the settings column, where a row is one of a dozen
+  /// and the icons are a quiet index down the left edge. On an onboarding page
+  /// the same row is one of two, standing alone under a 22-px heading, and 16
+  /// px next to a 13-px label and a 32-px control reads as three unrelated
+  /// scales rather than one line — see the ticket's P5.
+  final double iconSize;
 
   /// When non-null, the Semantics node carries `toggled: semanticToggledValue`.
   /// Pass this for every row whose [trailing] is a toggle switch.
@@ -102,9 +130,10 @@ class _SettingRowState extends State<SettingRow> {
             ),
             child: Row(
               children: [
-                Icon(widget.icon, size: WpIconSize.sm, color: cs.secondary),
+                Icon(widget.icon, size: widget.iconSize, color: cs.secondary),
                 const SizedBox(width: WpSpacing.sm),
-                Expanded(
+                Flexible(
+                  fit: widget.trailingHugsLabel ? FlexFit.loose : FlexFit.tight,
                   // Excluded because the wrapping Semantics above already
                   // states both strings, as label and hint. Without this the
                   // row announced each of them twice.
@@ -182,6 +211,13 @@ class HotkeyDisplay extends StatelessWidget {
               ),
             ),
           Container(
+            // A key cap stands beside a dense "Change" button in every place
+            // it is used, so it takes that height rather than whatever its
+            // padding and border happen to add up to (30 px, i.e. two pixels
+            // short and one pixel off the button's centre line).
+            constraints: const BoxConstraints(
+              minHeight: WpLayout.denseControlHeight,
+            ),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.xs,
               vertical: WpSpacing.xxs,
@@ -197,15 +233,20 @@ class HotkeyDisplay extends StatelessWidget {
                     : WpColorsLight.borderSubtle,
               ),
             ),
-            child: Text(
-              parts[i],
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                fontWeight: FontWeight.w600,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
+            // `widthFactor: 1` so the cap centres its glyph in the taller box
+            // without also claiming the width the row has left over.
+            child: Center(
+              widthFactor: 1,
+              child: Text(
+                parts[i],
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: isDark
+                      ? WpColorsDark.textPrimary
+                      : WpColorsLight.textPrimary,
+                ),
               ),
             ),
           ),

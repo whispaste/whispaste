@@ -98,16 +98,29 @@ const double _kOnboardingTopBarHeight = 32;
 /// (48 → 32, the strip is now exactly the close button's hit target) and this
 /// gap grew from `md` to `xxl` — which lands on 52 px above and 32 px below.
 ///
-/// The two moves are deliberately equal and opposite (−16 / +16), so the
-/// scroll viewport stays at exactly 551 px and every page height measured in
-/// `onboarding_overlay_test.dart` keeps its meaning. Changing one without the
-/// other is what would silently make a page scroll.
+/// The two moves were deliberately equal and opposite (−16 / +16), which is
+/// what kept the scroll viewport at exactly 551 px through that rebalance.
 ///
-/// Not 1 : 1: the top gap is empty, while these 32 px sit under a three-row
-/// footer stack (nav row, dots, counter) that already carries visual weight —
-/// a reading start wants more air above it than trailing meta-text wants
-/// below it.
-const double _kOnboardingBottomGap = WpSpacing.xxl;
+/// That 551 px no longer holds, and deliberately so. The footer stack was the
+/// binding constraint behind the flow's one P0 finding: on Try & Go at text
+/// scale 1.3 the microphone-bypass button — the only way past the page without
+/// a working microphone — sat below the fold, and the footer is what pushed it
+/// there. It cost ~85 px at scale 1.0 and *grew* with the text scale it was
+/// squeezing the page at, taking the viewport from 551 to 539 px exactly when
+/// the page needed it most. Two changes answer that: the step counter moved
+/// onto the dots' own line (it restates them, so it never needed a line of its
+/// own), and this gap came down `xxl` → `lg`. Together they return ~35 px of
+/// viewport at scale 1.0 and ~39 px at 1.3, to every page.
+///
+/// So the number to re-measure against is no longer 551: the height table in
+/// `onboarding_overlay_test.dart` is stale by construction until it is
+/// re-measured wholesale (that table's own instruction, and the reason it is
+/// flagged rather than patched row by row).
+///
+/// Still not 1 : 1 with the top gap: the top gap is empty, while these 20 px
+/// sit under a footer stack that already carries visual weight — a reading
+/// start wants more air above it than trailing meta-text wants below it.
+const double _kOnboardingBottomGap = WpSpacing.lg;
 
 /// Identifier for each page of the first-run onboarding flow.
 ///
@@ -236,15 +249,40 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// for readable line lengths on large windows.
   static const double _contentMaxWidth = 720;
 
+  /// The reading measure of every settings-shaped page — one width for the
+  /// heading *and* the body underneath it.
+  ///
+  /// These pages ran two widths at once: the page heading capped its subtitle
+  /// at 560 px while the body ran the full 720, so the right edge jumped
+  /// 148 px between a page's own head and its own content. Appearance showed
+  /// the same break inside its body — three 200-px tiles with `lg` between
+  /// them come to exactly 640, sitting under a 720-px autostart row.
+  ///
+  /// 640 is the width both of those already wanted: it is the tile row's own
+  /// measure, so Appearance stops breaking against itself, and it is close
+  /// enough to the 560 the headings were tuned for that no subtitle gains a
+  /// line. Head and body now end on the same x-edge, and there is one number
+  /// to reason about instead of two.
+  ///
+  /// Deliberately applied here rather than to [_contentMaxWidth]: Try & Go
+  /// derives its two column widths from the 720-px frame ((720 − 32) × 6/9 and
+  /// × 3/9), and narrowing the frame would re-wrap the left column and undo
+  /// the height relief that got its escape hatch back above the fold. Try & Go
+  /// is not a reading-measure page — it is two columns — so the cap does not
+  /// apply to it by construction rather than by exception.
+  static const double _readingMeasure = 640;
+
   /// Page 1 runs a wider frame than the settings-shaped pages behind it — its
   /// composition is a text column *beside* a large media panel, and at 720
   /// the two halves squeeze each other. The width itself is owned by
   /// [kOnboardingWelcomeFrameWidth], because the recorded clip dimensions are
-  /// derived from it. Every page behind it deliberately keeps 720: their
-  /// density was measured against that width and must not silently change.
-  double _frameWidthFor(OnboardingStepId id) => id == OnboardingStepId.welcome
-      ? kOnboardingWelcomeFrameWidth
-      : _contentMaxWidth;
+  /// derived from it.
+  double _frameWidthFor(OnboardingStepId id) => switch (id) {
+    OnboardingStepId.welcome => kOnboardingWelcomeFrameWidth,
+    // Two columns, not a reading measure — see [_readingMeasure].
+    OnboardingStepId.tryAndGo => _contentMaxWidth,
+    _ => _readingMeasure,
+  };
 
   /// Whether the page hands its leftover height to its body block
   /// ([OnboardingPageFill] plus the page's own [OnboardingPageBody]).
@@ -632,11 +670,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // subtitle above it is what makes the tighter gap read as intentional
       // rather than cramped. Re-measure German before touching either.
       headerGap: hasConflict ? WpSpacing.sm : kOnboardingHeaderGap,
-      // Sparsest page in the flow (226 px of 551), so its two setting rows
-      // follow the heading instead of floating in the middle of the page with
-      // ~160 px of nothing above them. The conflict branch is unaffected in
-      // practice — at 534 px it has almost no slack left to place.
-      bodyAlignment: Alignment.topCenter,
       body: const TriggerStep(),
     );
   }
@@ -691,11 +724,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           title: l10n.onboardingPasteTitle,
           subtitle: l10n.onboardingPasteSubtitle,
         ),
-        // Same reason as the Hotkey page: at 189 px this is the sparsest page
-        // in the flow, and centring left its single toggle stranded in the
-        // middle. The troubleshoot branch (492 px) has little slack to place
-        // and looks the same either way.
-        bodyAlignment: Alignment.topCenter,
         body: const AutoPasteStep(),
       ),
       // Two columns, not a stack: as one column the page measured 739 px of
@@ -710,12 +738,28 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // The one page that is not a header over a centred body: its heading is
       // the first block of the left column, which puts it on the same line as
       // every other page's heading already. See [_fillsViewport].
+      // 6 : 3, not the 5 : 4 this started on. The split is a height decision
+      // wearing a width parameter: the two columns are wildly unequal in what
+      // they carry (the left one runs status line → record button → sandbox
+      // field → caption → completion gate; the right one is three short
+      // instruction rows) but 5 : 4 gave them near-equal width, so the left
+      // column wrapped everything and ran 262 px past the bottom of the right
+      // one. Widening it to 6 : 3 lets those lines unwrap: measured on the
+      // fixed window at text scale 1.3 the page comes to 589 px in German
+      // instead of 658, and 562 instead of 610 in English/Hebrew — the single
+      // largest contribution to getting the microphone-bypass button back
+      // above the fold, and the reason this page needed no text cut to do it.
+      //
+      // 7 : 2 was measured too and is *worse* (595 px in German): past 6 : 3
+      // the right column starts wrapping faster than the left one unwraps,
+      // and since the row's height is the taller of the two, the win flips.
+      // 6 : 3 is the floor of that curve, not a round number.
       OnboardingStepId.tryAndGo => const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 5, child: TestRecordingStep()),
+          Expanded(flex: 6, child: TestRecordingStep()),
           SizedBox(width: WpSpacing.xxl),
-          Expanded(flex: 4, child: ReadyStep()),
+          Expanded(flex: 3, child: ReadyStep()),
         ],
       ),
     };
@@ -1035,16 +1079,34 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                 ),
               ),
 
-              // -- Stepper dots + step counter. -----------------------------
+              // -- Stepper dots + step counter, on ONE line. ----------------
+              //
+              // These two say the same thing: N dots with the current one
+              // filled, and then "Step N of M" spelled out directly beneath.
+              // Both earn their place — the dots are the glanceable shape of
+              // the flow, the counter is the part a screen reader and a
+              // text-scaled UI can actually read — but stacked they cost two
+              // lines to say it once, and the second line came out of the
+              // page above. Side by side they read as one caption and cost
+              // one line. See `_kOnboardingBottomGap` for why this stack was
+              // the binding constraint on Try & Go rather than a cosmetic.
               const SizedBox(height: WpSpacing.md),
-              _StepperDots(currentStep: safeCurrent, totalSteps: totalSteps),
-              const SizedBox(height: WpSpacing.xs),
-              Text(
-                l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: textMuted,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _StepperDots(
+                    currentStep: safeCurrent,
+                    totalSteps: totalSteps,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  Text(
+                    l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: _kOnboardingBottomGap),
             ],

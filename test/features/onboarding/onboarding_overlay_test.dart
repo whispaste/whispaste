@@ -46,7 +46,11 @@ import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/features/onboarding/steps/onboarding_headings.dart';
 import 'package:whispaste/features/onboarding/steps/onboarding_page_fill.dart';
+import 'package:whispaste/features/onboarding/steps/test_recording_step.dart'
+    show kTestRecordingStepMicBypassButtonKey;
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart'
+    show SettingRow;
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/widgets/brand_wordmark.dart';
 import 'package:whispaste/services/hotkey_service.dart';
@@ -931,6 +935,17 @@ void main() {
   // comes from one run of the same harness on the same day; treat them as a
   // set, and when you re-measure, re-measure all of them.
   //
+  // ⚠ STALE as of the density pass (ticket 20, phases 0–4). Every page below
+  // moved: the footer lost a line, so the viewport is 551/545/539 px by text
+  // scale rather than a flat 551; the body is top-aligned; the reading measure
+  // dropped to 640; pages 2, 4 and 5 rebuilt their rows. The numbers are left
+  // standing rather than half-patched for exactly the reason the note above
+  // gives — a table where some rows are current and some are not cannot be
+  // used at all. Ticket 20 phase 6 re-measures the set in one run, after
+  // phase 5; until then read this block as history, not as a baseline. The
+  // live constraint is the fixed-window guard further down, which asserts the
+  // fold at 1.0/1.15/1.3 and needs no table to do it.
+  //
   //   page 1  Welcome       529 / 529 / 529   (22 px slack)
   //   page 2  Privacy       303 / 303 / 303   (248 px distributed)
   //   page 3  Model         410 / 410 / 397
@@ -1069,6 +1084,7 @@ void main() {
       WidgetTester tester,
       ({double available, double content, double natural}) m, {
       required String what,
+      double allowed = 0,
     }) {
       expect(
         tester.takeException(),
@@ -1078,58 +1094,389 @@ void main() {
             'minimum) come to ${m.natural} px against the ${m.available} px '
             'the fixed 1100x720 window offers.',
       );
+      final over = m.content - m.available;
       expect(
-        m.content,
-        lessThanOrEqualTo(m.available),
-        reason:
-            '$what needs ${m.content} px of the ${m.available} px the fixed '
-            '1100x720 window offers — it would scroll. Its blocks alone come '
-            'to ${m.natural} px.',
+        over,
+        lessThanOrEqualTo(allowed),
+        reason: allowed == 0
+            ? '$what needs ${m.content} px of the ${m.available} px the fixed '
+                  '1100x720 window offers — it would scroll. Its blocks alone '
+                  'come to ${m.natural} px.'
+            : '$what is a known-open case (see _foldRatchet) allowed to run '
+                  '$allowed px past the fold, and it runs $over px past it. '
+                  'If $over is the smaller number, lower the entry — that is '
+                  'what the ratchet is for. If it is the larger one, this is '
+                  'a regression.',
       );
     }
+
+    // ── Text scale: 1.0 is not the interesting case ──────────────────────
+    //
+    // This guard ran at 1.0 only, and that is the gap the flow's one P0
+    // finding fell through: on Try & Go the microphone-bypass button — the
+    // only way past that page without a working microphone — was clipped at
+    // scale 1.15 and entirely below the fold at 1.3, while every test here
+    // stayed green. The page did not overflow, it *scrolled*, and a page
+    // whose bottom is reachable only by scrolling a window the user cannot
+    // resize is exactly the failure this group exists to catch.
+    //
+    // 1.3 is the top of the band, not an arbitrary maximum: it is where the
+    // footer stack's own growth had squeezed the viewport from 551 to 539 px,
+    // i.e. where the chrome was taking height from the page precisely when
+    // the page needed it most.
+    const foldTextScales = [1.0, 1.15, 1.3];
+
+    // Cases that still run past the fold, keyed by (platform, page, locale,
+    // scale) and carrying the deficit measured the day the entry was written.
+    //
+    // This is a ratchet, not a tolerance. Everything NOT listed must fit
+    // outright, at every scale in [foldTextScales]. An entry may only ever be
+    // lowered, and it is deleted the moment its case fits. Adding an entry is
+    // a finding to be reported, never a way to make a red test green — the
+    // whole point of the table is that each row has to name the open decision
+    // that owns it.
+    //
+    // Brightness is deliberately not part of the key: measured across both
+    // themes, page heights are identical, so keying on it would double the
+    // table without distinguishing anything.
+    final foldRatchet = <(TargetPlatform, int, String, double), double>{
+      // Page 1 (Welcome), German, scale 1.3.
+      //
+      // Owned by ticket 20 Phase 5 / question a, which is a maintainer
+      // decision and not a layout one: the height in question is the page's
+      // 460×288 media panel, which has assets for exactly one of six
+      // theme×beat combinations and renders an empty tinted rectangle for the
+      // other five. Whether it shrinks, disappears when it has nothing to
+      // show, or gets a designed placeholder is the question — so this page
+      // is deliberately left alone here rather than quietly re-cut to fit.
+      //
+      // It was 50 px until the footer stack lost a line and 12 px of bottom
+      // gap (see `_kOnboardingBottomGap`); English and Hebrew were 28 px over
+      // and now fit outright, which is why only German is listed.
+      (TargetPlatform.macOS, 1, 'de', 1.3): 22,
+      (TargetPlatform.linux, 1, 'de', 1.3): 22,
+    };
 
     for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
       for (final locale in L10n.supportedLocales) {
         for (final brightness in [Brightness.dark, Brightness.light]) {
-          testWidgets('every page fits the fixed window on $platform in '
-              '${locale.languageCode}, ${brightness.name}', (tester) async {
-            useFixedWindow(tester);
-            debugDefaultTargetPlatformOverride = platform;
-            try {
-              await _pumpOverlay(
-                tester,
-                size: kOnboardingWindowSize,
-                locale: locale,
-                brightness: brightness,
-                // Seed the *dictation* language too, not just the UI one.
-                // The model page reads it (`recommendEngine`) and disables
-                // the Parakeet card for a language it cannot do, which adds
-                // a reason line that IntrinsicHeight applies to BOTH engine
-                // cards. Leaving it at the default measured the cheap
-                // branch for every locale and missed exactly the case where
-                // the page is at its tallest.
-                settings: _FakeSettingsNotifier(
-                  AppSettings.defaults.copyWith(locale: locale.languageCode),
+          for (final scale in foldTextScales) {
+            testWidgets('every page fits the fixed window on $platform in '
+                '${locale.languageCode}, ${brightness.name}, at text scale '
+                '$scale', (tester) async {
+              useFixedWindow(tester);
+              debugDefaultTargetPlatformOverride = platform;
+              try {
+                await _pumpOverlay(
+                  tester,
+                  size: kOnboardingWindowSize,
+                  locale: locale,
+                  brightness: brightness,
+                  textScaler: TextScaler.linear(scale),
+                  // Seed the *dictation* language too, not just the UI one.
+                  // The model page reads it (`recommendEngine`) and disables
+                  // the Parakeet card for a language it cannot do, which adds
+                  // a reason line that IntrinsicHeight applies to BOTH engine
+                  // cards. Leaving it at the default measured the cheap
+                  // branch for every locale and missed exactly the case where
+                  // the page is at its tallest.
+                  settings: _FakeSettingsNotifier(
+                    AppSettings.defaults.copyWith(locale: locale.languageCode),
+                  ),
+                );
+
+                final total = _totalSteps(platform);
+                for (var page = 1; page <= total; page++) {
+                  if (page > 1) await _tapNext(tester);
+                  expectFits(
+                    tester,
+                    measure(tester),
+                    what:
+                        'page $page ($platform, ${locale.languageCode}, '
+                        '${brightness.name}, scale $scale)',
+                    allowed:
+                        foldRatchet[(
+                          platform,
+                          page,
+                          locale.languageCode,
+                          scale,
+                        )] ??
+                        0,
+                  );
+                }
+              } finally {
+                debugDefaultTargetPlatformOverride = null;
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // ── The escape hatch specifically ────────────────────────────────────
+    //
+    // The measurements above prove the *page* fits. This proves the one
+    // control that must never be unreachable actually sits above the fold,
+    // which is the P0 finding stated in its own terms rather than inferred
+    // from a page height: "Ohne Mikrofon fortfahren" is the only way past
+    // Try & Go for a user whose microphone does not work, and Try & Go is
+    // the last page of the flow.
+    //
+    // Worth asserting separately because the two can come apart: a page can
+    // fit while a *later* change re-orders its column and pushes this button
+    // under the fold anyway, and nothing in the height arithmetic would say
+    // so.
+
+    for (final scale in foldTextScales) {
+      testWidgets('the microphone-bypass escape hatch stays above the fold at '
+          'text scale $scale (de, the tallest locale)', (tester) async {
+        useFixedWindow(tester);
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(
+            tester,
+            size: kOnboardingWindowSize,
+            locale: const Locale('de'),
+            textScaler: TextScaler.linear(scale),
+            settings: _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(locale: 'de'),
+            ),
+          );
+
+          final total = _totalSteps(TargetPlatform.macOS);
+          for (var page = 2; page <= total; page++) {
+            await _tapNext(tester);
+          }
+
+          final button = find.byKey(kTestRecordingStepMicBypassButtonKey);
+          expect(
+            button,
+            findsOneWidget,
+            reason:
+                'Without a granted microphone the bypass button is the page '
+                'and the flow — if it is not rendered, this test is measuring '
+                'the wrong state.',
+          );
+
+          final fold = tester
+              .getRect(find.byType(SingleChildScrollView).first)
+              .bottom;
+          expect(
+            tester.getRect(button).bottom,
+            lessThanOrEqualTo(fold),
+            reason:
+                'The microphone-bypass button ends '
+                '${tester.getRect(button).bottom - fold} px below the fold at '
+                'text scale $scale. The onboarding window cannot be resized, '
+                'so a user without a working microphone has no way to reach '
+                'it. Relieve the page (see the 6:3 column split and the '
+                'footer stack) — do not add a scroll affordance.',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+
+    // ── One header gap for the whole flow ────────────────────────────────
+    //
+    // The companion to the reading-start guard below: that one pins where a
+    // page's header *starts*, this one pins where its body starts relative to
+    // it. Both were true only by accident before.
+    //
+    // The distance from the header's bottom edge to the first thing under it
+    // used to run from 20 px on Try & Go to 117.5 px on Appearance — a factor
+    // of six off a single shared constant. The spread did not come from the
+    // constant but from what sat underneath it: the body was centred in the
+    // leftover height, so half of every page's slack was inserted into
+    // precisely this gap, and the emptier the page the further its heading
+    // drifted from the content it introduces. The body is top-aligned now
+    // (see [OnboardingPageBody]) and the gap is the constant again.
+    //
+    // Asserted through [kOnboardingPageHeaderKey] rather than by widget type
+    // because page 1's header is a brand lockup and every other page's is an
+    // [OnboardingPageHeading] — the guard is about the composition, not about
+    // what a page chose to put in the slot.
+
+    for (final locale in L10n.supportedLocales) {
+      testWidgets('every fill page puts exactly kOnboardingHeaderGap between '
+          'its header and its body, in ${locale.languageCode}', (tester) async {
+        useFixedWindow(tester);
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(
+            tester,
+            size: kOnboardingWindowSize,
+            locale: locale,
+            settings: _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(locale: locale.languageCode),
+            ),
+          );
+
+          final total = _totalSteps(TargetPlatform.macOS);
+          for (var page = 1; page <= total; page++) {
+            if (page > 1) await _tapNext(tester);
+
+            final header = find.byKey(kOnboardingPageHeaderKey);
+            if (header.evaluate().isEmpty) {
+              // Try & Go is two side-by-side columns rather than a header over
+              // a body, so it has no header slot to measure. It is the one
+              // page `_fillsViewport` excludes, and skipping it here is that
+              // same exclusion rather than a gap in coverage.
+              expect(
+                page,
+                total,
+                reason:
+                    'Only the last page (Try & Go) may render without an '
+                    'OnboardingPage header slot.',
+              );
+              continue;
+            }
+
+            expect(
+              tester.getRect(find.byType(OnboardingPageBody).first).top -
+                  tester.getRect(header).bottom,
+              kOnboardingHeaderGap,
+              reason:
+                  'page $page (${locale.languageCode}) puts a different gap '
+                  'under its header than every other page does. If a page '
+                  'genuinely cannot afford the canonical gap, it says so '
+                  'through OnboardingPage.headerGap at its call site — there '
+                  'is exactly one such page (the hotkey page in its '
+                  'confirmed-conflict branch) and it is covered separately.',
+            );
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+
+    // ── A control stays with the label it belongs to ─────────────────────
+    //
+    // `SettingRow` pins its trailing control to the far end of the row. In the
+    // settings column, where the row is barely wider than its own text, that
+    // is the same thing as putting the control next to the label. On an
+    // onboarding page the identical row is handed a 640-px frame, and the two
+    // came apart: 153–349 px of empty run between text and switch on the
+    // privacy page, 425 px on the hotkey page — a label separated from its own
+    // control by more than the label is wide, which reads as two unrelated
+    // columns rather than one row.
+    //
+    // The rows that opt into `trailingHugsLabel` are asserted here rather than
+    // eyeballed, because the failure mode is a single word (`Expanded`) that
+    // reintroduces itself easily and looks perfectly reasonable in a diff.
+    // Directional arithmetic, so Hebrew is covered by the same assertion
+    // rather than by a second one that could drift from it.
+    //
+    // The second expectation is the other half of the same criterion: hugging
+    // the label must not shorten the row's own painted surface, which is what
+    // carries the flush trailing edge the page's blocks share.
+
+    const maxLabelToControl = 48.0;
+
+    for (final locale in L10n.supportedLocales) {
+      testWidgets('every onboarding setting row keeps its control within '
+          '$maxLabelToControl px of its label, in ${locale.languageCode}', (
+        tester,
+      ) async {
+        useFixedWindow(tester);
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(
+            tester,
+            size: kOnboardingWindowSize,
+            locale: locale,
+            settings: _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(locale: locale.languageCode),
+            ),
+          );
+
+          final rtl = Bidi.isRtlLanguage(locale.languageCode);
+          final total = _totalSteps(TargetPlatform.macOS);
+          var checked = 0;
+
+          for (var page = 1; page <= total; page++) {
+            if (page > 1) await _tapNext(tester);
+
+            for (final element in find.byType(SettingRow).evaluate().toList()) {
+              final row = element.widget as SettingRow;
+              if (!row.trailingHugsLabel) continue;
+
+              final rowFinder = find.byWidget(row);
+              // The rendered strings, not the column that holds them: `Icon`
+              // brings its own `ExcludeSemantics` and a structural finder
+              // silently measures that instead. This is also the criterion in
+              // its own terms — where the *text* ends, not where its box does.
+              final textRects = [
+                tester.getRect(
+                  find.descendant(
+                    of: rowFinder,
+                    matching: find.text(row.label),
+                  ),
+                ),
+                if (row.subtitle != null)
+                  tester.getRect(
+                    find.descendant(
+                      of: rowFinder,
+                      matching: find.text(row.subtitle!),
+                    ),
+                  ),
+              ];
+              final labelRect = textRects.reduce(
+                (a, b) => a.expandToInclude(b),
+              );
+              final trailingRect = tester.getRect(
+                find.descendant(
+                  of: rowFinder,
+                  matching: find.byWidget(row.trailing),
                 ),
               );
 
-              final total = _totalSteps(platform);
-              for (var page = 1; page <= total; page++) {
-                if (page > 1) await _tapNext(tester);
-                expectFits(
-                  tester,
-                  measure(tester),
-                  what:
-                      'page $page ($platform, ${locale.languageCode}, '
-                      '${brightness.name})',
-                );
-              }
-            } finally {
-              debugDefaultTargetPlatformOverride = null;
+              final gap = rtl
+                  ? labelRect.left - trailingRect.right
+                  : trailingRect.left - labelRect.right;
+
+              expect(
+                gap,
+                lessThanOrEqualTo(maxLabelToControl),
+                reason:
+                    'page $page (${locale.languageCode}): "${row.label}" and '
+                    'the control that operates it are $gap px apart. A row '
+                    'whose label column claims the full frame puts them at '
+                    'opposite ends of the page; pass trailingHugsLabel on the '
+                    'row rather than widening the gap allowed here.',
+              );
+
+              expect(
+                tester.getRect(rowFinder).width,
+                tester.getRect(find.byType(OnboardingPageBody).first).width,
+                reason:
+                    'page $page (${locale.languageCode}): the row\'s own '
+                    'surface no longer spans the body. Pulling the control '
+                    'towards the label must not shorten the row itself — the '
+                    'surface is what carries the trailing edge this page\'s '
+                    'blocks line up on, in LTR and RTL alike.',
+              );
+              checked++;
             }
-          });
+          }
+
+          expect(
+            checked,
+            greaterThanOrEqualTo(5),
+            reason:
+                'The flow is expected to carry at least five hugging setting '
+                'rows (two on the privacy page, two on the hotkey page, the '
+                'autostart row on the ready page) — the three pages the '
+                'criterion names. '
+                'Finding fewer means the opt-in was dropped somewhere and the '
+                'assertion above silently stopped covering it.',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
         }
-      }
+      });
     }
 
     // ── One reading start for the whole flow ─────────────────────────────

@@ -26,7 +26,14 @@
 ///
 /// **Deliberate exception to the 48-px hit-target floor** (`DESIGN.md`,
 /// "All interactive elements meet the 48px minimum touch target"): the pill
-/// comes to ~34 px (`WpSpacing.xs` top and bottom around a body-size label).
+/// comes to ~30 px (`WpSpacing.xxs` top and bottom around a body-size label).
+/// That 30 px is not a free choice: the chip sits in one `Wrap` row beside
+/// [HotkeyDisplay] on Try & Go, and [HotkeyDisplay]'s key caps are built from
+/// exactly the same two values (`WpTypography.body` over `WpSpacing.xxs`).
+/// The row used to stack three different heights — an 18 px caption, 30 px
+/// caps and a 38 px pill — which is why it read as three things that happened
+/// to be adjacent rather than as one status line. Matching the caps is the
+/// whole point; changing either padding value in isolation re-opens the gap.
 /// The same reasoning that sanctions the status-bar theme toggle (36×32,
 /// `lib/app.dart`) and the trigger-list remove button (28×28,
 /// `replacements_page.dart`) applies here — this is a one-off control in a
@@ -145,9 +152,13 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
             child: AnimatedContainer(
               duration: WpMotion.durationFor(context, WpMotion.fast),
               curve: WpMotion.defaultCurve,
+              // Same trailing-slot height as the key caps it stands next to.
+              constraints: const BoxConstraints(
+                minHeight: WpLayout.denseControlHeight,
+              ),
               padding: const EdgeInsets.symmetric(
                 horizontal: WpSpacing.md,
-                vertical: WpSpacing.xs,
+                vertical: WpSpacing.xxs,
               ),
               decoration: BoxDecoration(
                 color: _hovered ? hover : surface,

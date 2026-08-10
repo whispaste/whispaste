@@ -631,7 +631,9 @@ class _WpButtonSpec {
   );
 
   static final _dense = _WpButtonSpec(
-    height: 32,
+    // The shared height of everything that stands in a row's trailing slot —
+    // key caps and the mic-permission chip carry the same token.
+    height: WpLayout.denseControlHeight,
     radius: WpRadius.borderSm,
     ringRadius: WpRadius.sm,
     fontSize: WpTypography.small,

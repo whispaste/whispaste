@@ -194,6 +194,21 @@ abstract final class WpLayout {
   /// Material 3 minimum touch target — all interactive elements must meet this.
   static const double minTouchTarget = 48;
 
+  /// Height of a *dense* control — the trailing slot of a settings-style row.
+  ///
+  /// Three things share that slot and each had picked its own height: the
+  /// dense [WpButton] (32), the key caps of `HotkeyDisplay` (30, from padding
+  /// plus border) and the microphone-permission chip (30, likewise). Standing
+  /// next to each other in one visual line, a 2-px difference does not read as
+  /// two sizes — it reads as one size, misaligned. Naming the value is what
+  /// keeps the three from drifting apart again the next time one of them
+  /// changes its padding.
+  ///
+  /// Below [minTouchTarget] by design: these sit *inside* a row that already
+  /// meets the touch target, and a 48-px control in a trailing slot out-shouts
+  /// the row it answers to (see `WpButtonSize.dense`).
+  static const double denseControlHeight = 32;
+
   /// Chrome stacked above and below the nav rail in the app shell: the title
   /// bar and the status bar, both fixed-height in every state.
   static const double frameChromeHeight = appBarHeight + statusBarHeight;

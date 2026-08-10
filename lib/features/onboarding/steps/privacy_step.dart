@@ -55,18 +55,14 @@ class PrivacyStep extends ConsumerWidget {
       // separate decisions but the same kind of decision, and a gap as wide
       // as the one under the heading would stop them reading as a pair.
       //
-      // That spare height used to be split above and below the pair, which
-      // put ~124 px between the heading and the consents it introduces. It
-      // all goes below them now — trailing space under a short settings page
-      // is unremarkable, a heading floating away from its own content is
-      // not. See [OnboardingPage.bodyAlignment].
-      bodyAlignment: Alignment.topCenter,
       body: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SettingRow(
             icon: LucideIcons.barChart3,
+            iconSize: WpIconSize.md,
+            trailingHugsLabel: true,
             label: l10n.onboardingPrivacyToggle,
             subtitle: l10n.onboardingPrivacyToggleHint,
             semanticToggledValue: settings.privacy.shareUsageStats,
@@ -79,6 +75,8 @@ class PrivacyStep extends ConsumerWidget {
           SettingRow(
             key: kPrivacyStepCrashToggleKey,
             icon: LucideIcons.shieldCheck,
+            iconSize: WpIconSize.md,
+            trailingHugsLabel: true,
             label: l10n.onboardingPrivacyCrashToggle,
             subtitle: l10n.onboardingPrivacyCrashToggleHint,
             semanticToggledValue: settings.errorReporting,

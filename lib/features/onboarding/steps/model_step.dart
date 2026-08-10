@@ -339,15 +339,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         // both engines and the cloud option below; the message just sets the
         // expectation that CPU inference will be slower on the Whisper path
         // (Parakeet is always CPU-only, so it is unaffected).
-        if (_gpu?.vendor == hw.GpuVendor.none) ...[
-          _GpuCpuFallbackNotice(
-            key: kModelStepGpuCpuFallbackKey,
-            message: l10n.onboardingModelGpuCpuFallback,
-            isDark: isDark,
-          ),
-          const SizedBox(height: WpSpacing.sm),
-        ],
-
         if (!_hwDetected)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: WpSpacing.xl),
@@ -405,7 +396,36 @@ class _ModelStepState extends ConsumerState<ModelStep> {
               ],
             ),
           ),
-          const SizedBox(height: WpSpacing.sm),
+
+          // The CPU-fallback verdict, directly under the card it is about.
+          // It used to stand in front of *both* cards while applying to one
+          // (Parakeet is CPU-only either way, so the notice never concerned
+          // it) — read in reading order it announced a limitation and then
+          // offered two choices, neither visibly the one it meant. Sitting on
+          // the Whisper card's own width and start edge, it needs no wording
+          // to say which engine it belongs to.
+          if (_gpu?.vendor == hw.GpuVendor.none) ...[
+            const SizedBox(height: WpSpacing.xs),
+            Row(
+              children: [
+                const Expanded(child: SizedBox.shrink()),
+                const SizedBox(width: WpSpacing.md),
+                Expanded(
+                  child: _GpuCpuFallbackNotice(
+                    key: kModelStepGpuCpuFallbackKey,
+                    message: l10n.onboardingModelGpuCpuFallback,
+                    isDark: isDark,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // `xs`, not the flat `sm` this page used between all four of its
+          // blocks: picking an engine and fetching that engine's model are one
+          // subject, so they bind. The rank step comes after the download
+          // block, not between it and the choice it belongs to (M2).
+          const SizedBox(height: WpSpacing.xs),
 
           _ModelStepDownloadStatus(
             phase: selectedPhase,
@@ -423,7 +443,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           ),
         ],
 
-        const SizedBox(height: WpSpacing.sm),
+        // `lg` against the `xs` above: this is the page's one gap that
+        // separates two subjects rather than spacing items inside one — the
+        // choice-and-download block ends here and a standing footnote begins.
+        // Four blocks of four different ranks used to be stacked on one flat
+        // `sm`, which is what made the page read as an undifferentiated
+        // column (M2).
+        const SizedBox(height: WpSpacing.lg),
         // "You can change this later in Settings" also covers the cloud
         // path: the former "use cloud instead" escape link was a pure
         // navigation affordance and is gone with the shell-owned Next —
@@ -528,18 +554,30 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         ],
       );
     }
-    return SizedBox(
-      width: double.infinity,
-      // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-      child: WpHeroButton(
-        label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
-        gradient: accentGradient,
-        onPressed: onStartDownload,
-        // Full-height CTA again: the shortened padding here was paid for by
-        // the merged Model & Hotkey page, which no longer exists — the model
-        // page has ~150 px of spare height now, so the primary action of the
-        // page has no reason to sit below the 48-px touch-target floor.
-      ),
+    // Half the row, not all of it (M6). At `double.infinity` this was 720 px
+    // wide — twice the width of the card whose model it downloads, and the
+    // widest button anywhere in the flow, including the shell's own Next.
+    // A CTA that out-measures the thing it acts on stops reading as that
+    // thing's action. One card's width is the honest size, and it lines the
+    // button up with the leading card's edge rather than with nothing.
+    return Row(
+      children: [
+        Expanded(
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+          child: WpHeroButton(
+            label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
+            gradient: accentGradient,
+            onPressed: onStartDownload,
+            // Full-height CTA again: the shortened padding here was paid for
+            // by the merged Model & Hotkey page, which no longer exists — the
+            // model page has ~150 px of spare height now, so the primary
+            // action of the page has no reason to sit below the 48-px
+            // touch-target floor.
+          ),
+        ),
+        const SizedBox(width: WpSpacing.md),
+        const Expanded(child: SizedBox.shrink()),
+      ],
     );
   }
 }
@@ -797,7 +835,16 @@ class _EngineCardState extends State<_EngineCard> {
                           ),
                         ),
                       Padding(
-                        padding: const EdgeInsets.all(WpSpacing.sm),
+                        // Compensates the border, which is 1.5 on the selected
+                        // card and 1 on the others: padding is measured from
+                        // the *content* box, so a flat `sm` put the selected
+                        // card's text half a pixel further in than its
+                        // neighbour's and the two cards' first lines no longer
+                        // sat on one baseline. Selecting a card must not move
+                        // anything inside it.
+                        padding: EdgeInsets.all(
+                          WpSpacing.sm + (widget.isSelected ? 0 : 0.5),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1119,32 +1166,33 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
     // warning, and it was the fourth box competing on this page. Dropping the
     // frame also returns 10 px (2 px border + 2x4 px padding) to the tightest
     // height budget in the flow.
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Icon(
-              LucideIcons.info,
-              size: WpIconSize.xs,
+    // No leading inset: this no longer stands on the page's reading edge but
+    // directly under the Whisper card, whose edge it takes instead.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(LucideIcons.info, size: WpIconSize.sm, color: infoColor),
+        ),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            message,
+            // `body` (13) and a `sm` (16) icon, not the flow's smallest grade:
+            // this is the page's only statement about whether the user's
+            // machine can actually run what they are about to download, and it
+            // was set one step below the card descriptions it qualifies — the
+            // hardware verdict rendered as the least important thing on a page
+            // about hardware.
+            style: TextStyle(
+              fontSize: WpTypography.body,
               color: infoColor,
+              height: 1.35,
             ),
           ),
-          const SizedBox(width: WpSpacing.xs),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: WpTypography.small,
-                color: infoColor,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

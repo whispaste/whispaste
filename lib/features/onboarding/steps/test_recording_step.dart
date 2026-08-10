@@ -12,7 +12,6 @@ import 'mic_permission_chip.dart';
 import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_button.dart';
-import '../../../widgets/wp_hero_button.dart';
 import '../onboarding_completion_gate.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -124,9 +123,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     return Column(
@@ -145,7 +141,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // tryAndGo is the one page that does not fill the viewport, with
         // ~32 px of slack left to spend in German (was ~6 px until the two
         // stacked ambient muted lines below merged into one).
-        const SizedBox(height: WpSpacing.lg),
+        const SizedBox(height: WpSpacing.md),
 
         // Current hotkey and microphone status — the two preconditions of the
         // recording this page asks for, on one line. Label and key caps are
@@ -167,12 +163,17 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             spacing: WpSpacing.sm,
             runSpacing: WpSpacing.xs,
             children: [
+              // `body` (13), not `small` (12): this caption, the key caps and
+              // the microphone chip are one status line, and they carried
+              // three different type sizes and three different heights
+              // between them. The caps and the chip are both `body` over
+              // `WpSpacing.xxs` (see [MicPermissionChip]'s library comment),
+              // so the caption joins them rather than the other way round —
+              // it stays muted, which is what makes it read as the label of
+              // the line instead of a fourth item in it.
               Text(
                 l10n.onboardingTestRecordingHotkeyLabel,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: textMuted,
-                ),
+                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
               ),
               HotkeyDisplay(
                 hotkeyKey: settings.hotkeyKey,
@@ -186,24 +187,36 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         ),
         const SizedBox(height: WpSpacing.md),
 
-        // Start/Stop button — the primary trigger for the test recording.
+        // Start/Stop button — the trigger for the test recording.
         // Deliberately a button and not the hotkey (which could still be in
         // conflict with other software); the hotkey keeps working in
         // parallel through the same orchestrator path. Disabled while a
         // finished recording is being transcribed — the sandbox field's
         // in-progress line explains the wait.
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-        WpHeroButton(
-          key: kTestRecordingStepRecordButtonKey,
-          label: phase == RecordingPhase.recording
-              ? l10n.onboardingTestRecordingStopCta
-              : l10n.onboardingTestRecordingStartCta,
-          gradient: accentGradient,
-          onPressed: phase == RecordingPhase.transcribing
-              ? null
-              : _onRecordPressed,
+        //
+        // A standard [WpButton], not the gradient [WpHeroButton] it used to
+        // be. It was 382×55 px of accent gradient — three times the area of
+        // the shell's actual primary CTA ("Los geht's", 140×49) and wearing
+        // the identical gradient, so the page's *secondary* action outshouted
+        // the one that ends the flow. Rank now reads off the components
+        // themselves: gradient hero for the flow CTA, filled accent button
+        // for the page's own action, ghost for the escape hatch below.
+        // Left-aligned rather than stretched, because a button that spans the
+        // full column reads as a banner and inherits none of that ladder.
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: WpButton(
+            key: kTestRecordingStepRecordButtonKey,
+            label: phase == RecordingPhase.recording
+                ? l10n.onboardingTestRecordingStopCta
+                : l10n.onboardingTestRecordingStartCta,
+            variant: WpButtonVariant.primary,
+            onPressed: phase == RecordingPhase.transcribing
+                ? null
+                : _onRecordPressed,
+          ),
         ),
-        const SizedBox(height: WpSpacing.md),
+        const SizedBox(height: WpSpacing.xs),
 
         // Sandbox field
         _SandboxField(
@@ -217,7 +230,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         ),
 
         if (isDone) ...[
-          const SizedBox(height: WpSpacing.sm),
+          const SizedBox(height: WpSpacing.xs),
           Row(
             children: [
               Icon(
@@ -346,7 +359,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                 ),
               ),
             ),
-            const SizedBox(height: WpSpacing.xxs),
+            const SizedBox(height: WpSpacing.xs),
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: WpButton(
