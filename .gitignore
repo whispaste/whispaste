@@ -21,6 +21,9 @@ whispaste-signing/
 build/
 .build/
 
+# DevTools extension state (machine-local, created by Dart/Flutter MCP + DevTools connections)
+devtools_options.yaml
+
 # Binaries
 *.exe
 *.exe~
