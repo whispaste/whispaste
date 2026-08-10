@@ -21,14 +21,49 @@
 /// 1.0x can therefore still diverge at 1.5x, which is the size the maintainer's
 /// own UI checks run at.
 ///
-/// ## Height stays a strict equality
+/// ## Height stays a strict equality — in two states, on a desktop platform
 ///
 /// Height never left [_shape] and this rewrite doesn't loosen it. History is
 /// the one area whose field carries a `suffix` (the search-syntax help button)
-/// that no other area has, so it is also the one area where a stray touch
-/// target could push the box past the 48 dp icon-slot floor while every
-/// sibling stays at it. The equality below is what keeps that from happening
-/// silently — measured, at three window widths and both text scales.
+/// that no other area has, so it is also the one area whose box can be a
+/// different height from every sibling's. The equality below is what keeps
+/// that from happening silently — measured, at three window widths and both
+/// text scales.
+///
+/// Two things had to change before it could actually catch that, both learned
+/// from a bug this file was already supposed to own. History rendered 48 dp
+/// against Notes' and Settings' 40 dp in the running app while every
+/// assertion here stayed green:
+///
+/// * **The platform is named.** `flutter_test` forces
+///   `defaultTargetPlatform` to Android whenever `FLUTTER_TEST` is set
+///   (`foundation/_platform_io.dart`), whatever host the suite runs on. The
+///   icon-slot floor `WpSearchField` used to inherit was
+///   `visualDensity.effectiveConstraints(…)` — 48 dp under Android's
+///   `adaptivePlatformDensity`, 40 dp under the `VisualDensity.compact` every
+///   desktop resolves to. So the harness was measuring a platform this app
+///   does not ship on, and reading the drift as absent. Every assertion that
+///   measures the *field's own* height now carries [_desktop], which is also
+///   the only way this file can go red on the bug it exists to prevent.
+///   Deliberately not among them is the History-vs-Notes *bar* comparison
+///   further down: both bars put a 48 dp button in the search row, so the row
+///   is `max(field, 48)` and a 40 dp field never reaches the bar's height —
+///   measured, that one stays green on all three desktops even with the
+///   component's icon-slot constraints taken back out. It answers for the
+///   bar's padding and row count, not for the field.
+/// * **Both states are measured.** Every assertion here used to run on an
+///   empty, unfocused field — the one state in which the clear button does not
+///   exist. The suffix slot is exactly where the drift lived: the clear
+///   `IconButton` carries a 48 dp `minimumSize` that the ambient density does
+///   not shrink, so it grew the slot past the density-shrunk minimum and the
+///   box jumped 8 dp on the first keystroke and back on clear — on every area
+///   *except* History, whose `suffix` is always populated and which was
+///   therefore just permanently 8 dp taller. [_measureAllAreas] now probes
+///   each area twice, empty and with text, and the equality spans both.
+///
+/// The fix is `prefixIconConstraints`/`suffixIconConstraints` on the
+/// component; these assertions are what keep an inherited default from
+/// creeping back in.
 ///
 /// The constraints each area hands *in* are pinned beside it, because the
 /// component answers for its width and leaves height to its intrinsic 48 dp.
@@ -172,15 +207,21 @@ Finder _fieldBox() => find
 Finder _buttonBox(Finder button) =>
     find.descendant(of: button, matching: find.byType(Material)).first;
 
+Finder _editable() => find.descendant(
+  of: find.byType(WpSearchField),
+  matching: find.byType(EditableText),
+);
+
+/// The clear button's glyph — present only while the field has text, which is
+/// what makes the "with text" half of the probe non-vacuous.
+Finder _clearButton() => find.descendant(
+  of: find.byType(WpSearchField),
+  matching: find.byIcon(LucideIcons.x),
+);
+
 _FieldGeometry _measure(WidgetTester tester) {
   final box = _rect(tester, _fieldBox());
-  final text = _rect(
-    tester,
-    find.descendant(
-      of: find.byType(WpSearchField),
-      matching: find.byType(EditableText),
-    ),
-  );
+  final text = _rect(tester, _editable());
   final glyph = _rect(
     tester,
     find.descendant(
@@ -199,6 +240,23 @@ _FieldGeometry _measure(WidgetTester tester) {
     textBottomInset: box.bottom - text.bottom,
   );
 }
+
+/// The platforms WhisPaste actually ships on — and the reason the tests that
+/// measure the field's *own* height carry it. See the library docs for the one
+/// height assertion that deliberately doesn't.
+///
+/// `flutter_test` reports `TargetPlatform.android`, where
+/// `ThemeData.visualDensity`'s `adaptivePlatformDensity` default resolves to
+/// `VisualDensity.standard`. Every desktop resolves to `VisualDensity.compact`
+/// instead, which shrinks Material's own 48 dp icon-slot minimum to 40 — so a
+/// field sized off that minimum measures 8 dp differently here than in the app
+/// the maintainer is looking at. That is precisely how a `WpSearchField`
+/// height drift lived through this file once; see its library docs.
+///
+/// All three are run rather than macOS alone: `CLAUDE.md` holds the three
+/// desktops equal, and this is the cheapest place to prove the field agrees
+/// with that.
+final _desktop = TargetPlatformVariant.desktop();
 
 /// Applies [scale] on top of whatever [makeTestable] already provides.
 Widget _scaled(Widget child, double scale) => Builder(
@@ -280,6 +338,7 @@ Widget _history(TextEditingController controller) => HistorySearchFilterBar(
 Future<
   ({
     Map<String, _FieldGeometry> geometry,
+    Map<String, _FieldGeometry> geometryWithText,
     Map<String, double> neighbourGap,
     Map<String, double> neighbourHeight,
     Map<String, BoxConstraints> incoming,
@@ -288,6 +347,7 @@ Future<
 >
 _measureAllAreas(WidgetTester tester, double scale) async {
   final measured = <String, _FieldGeometry>{};
+  final withText = <String, _FieldGeometry>{};
   final gaps = <String, double>{};
   final neighbourHeights = <String, double>{};
   final incoming = <String, BoxConstraints>{};
@@ -307,6 +367,26 @@ _measureAllAreas(WidgetTester tester, double scale) async {
           _rect(tester, button.first).left - _rect(tester, _fieldBox()).right;
       neighbourHeights[area] = _rect(tester, _buttonBox(button.first)).height;
     }
+
+    // The same field once the user has typed into it. Everything above is the
+    // *empty* field, which is the one state where the clear button — the
+    // `IconButton` whose intrinsic size this component has to stop from
+    // deciding the box's height — does not exist. See the library docs.
+    //
+    // The query is deliberately something no area treats specially: History
+    // opens its suggestion panel on an operator like `lang:`, and a panel
+    // below the field is not what is being measured here.
+    await tester.enterText(_editable(), 'wp');
+    await tester.pumpAndSettle();
+    expect(
+      _clearButton(),
+      findsOneWidget,
+      reason:
+          'the "$area" probe typed into the field but no clear button '
+          'appeared, so the state this half of the measurement exists for was '
+          'never actually reached',
+    );
+    withText[area] = _measure(tester);
   }
 
   await probe('settings', _settings);
@@ -336,6 +416,7 @@ _measureAllAreas(WidgetTester tester, double scale) async {
 
   return (
     geometry: measured,
+    geometryWithText: withText,
     neighbourGap: gaps,
     neighbourHeight: neighbourHeights,
     incoming: incoming,
@@ -361,51 +442,81 @@ void main() {
   for (final scale in const [1.0, 1.5]) {
     final at = scale == 1.0 ? 'normal text size' : 'accessibility text size';
 
-    testWidgets('search field renders identically in all four areas at $at', (
-      tester,
-    ) async {
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'search field renders identically in all four areas at $at',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      for (final window in _windows) {
-        await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
+        for (final window in _windows) {
+          await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
 
-        final probed = await _measureAllAreas(tester, scale);
-        final measured = probed.geometry;
-        final reference = _shape(measured['settings']!);
+          final probed = await _measureAllAreas(tester, scale);
+          final measured = probed.geometry;
+          final reference = _shape(measured['settings']!);
 
-        for (final entry in probed.incoming.entries) {
-          // The component sizes itself horizontally and leaves height to its
-          // intrinsic 48 dp — which only holds while no call site hands it a
-          // bounded height. If one ever does, the box stretches into that
-          // slot and the equality below is the symptom; this is the cause,
-          // named. (`WpSearchField` re-derives nothing from this — see the
-          // build-method comment.)
-          expect(
-            entry.value.hasBoundedHeight,
-            isFalse,
-            reason:
-                '"${entry.key}" hands the search field a bounded height '
-                '(${entry.value}) at $at in a ${window.toInt()} dp window. '
-                'The field has no heightFactor, so it will stretch to fill it '
-                'instead of keeping the height every other area has',
-          );
+          for (final entry in probed.incoming.entries) {
+            // The component sizes itself horizontally and leaves height to its
+            // intrinsic 48 dp — which only holds while no call site hands it a
+            // bounded height. If one ever does, the box stretches into that
+            // slot and the equality below is the symptom; this is the cause,
+            // named. (`WpSearchField` re-derives nothing from this — see the
+            // build-method comment.)
+            expect(
+              entry.value.hasBoundedHeight,
+              isFalse,
+              reason:
+                  '"${entry.key}" hands the search field a bounded height '
+                  '(${entry.value}) at $at in a ${window.toInt()} dp window. '
+                  'The field has no heightFactor, so it will stretch to fill it '
+                  'instead of keeping the height every other area has',
+            );
+          }
+
+          for (final entry in measured.entries) {
+            expect(
+              _shape(entry.value),
+              reference,
+              reason:
+                  'The search field must look the same in every area — the '
+                  'sidebar entry the user clicked may change what sits *beside* '
+                  'the field, never the field itself. "${entry.key}" drifted '
+                  'from "settings" at $at in a ${window.toInt()} dp window.\n'
+                  '  settings:      $reference\n'
+                  '  ${entry.key}: ${_shape(entry.value)}',
+            );
+          }
+
+          // …and again with text in it, against the very same reference.
+          // Typing must not move the field: the clear button appears *inside*
+          // the box, and a box that grows with it shoves the filter-chip row
+          // below it down on every first keystroke and back up on every clear.
+          //
+          // [_shape] is compared whole rather than some frame-only subset of
+          // it. A narrower invariant looks defensible — the text region does
+          // share its row with a clear button now — but it was measured, and
+          // nothing in [_shape] moves: the text's *left* inset is set by the
+          // prefix slot and `contentPadding`, which the suffix never touches,
+          // and its vertical insets can only move if the height does, which is
+          // the very thing being pinned. Only `boxWidth` legitimately differs
+          // between areas, and that was never in [_shape] to begin with.
+          for (final entry in probed.geometryWithText.entries) {
+            expect(
+              _shape(entry.value),
+              reference,
+              reason:
+                  'The "${entry.key}" search field changed shape between empty '
+                  'and typed-into, at $at in a ${window.toInt()} dp window. The '
+                  'clear button is a taller intrinsic than the search glyph '
+                  'beside it, so the icon slots have to state their own size — '
+                  'otherwise the whole bar jumps the moment anyone types.\n'
+                  '  empty (settings): $reference\n'
+                  '  with text:        ${_shape(entry.value)}',
+            );
+          }
         }
-
-        for (final entry in measured.entries) {
-          expect(
-            _shape(entry.value),
-            reference,
-            reason:
-                'The search field must look the same in every area — the '
-                'sidebar entry the user clicked may change what sits *beside* '
-                'the field, never the field itself. "${entry.key}" drifted '
-                'from "settings" at $at in a ${window.toInt()} dp window.\n'
-                '  settings:      $reference\n'
-                '  ${entry.key}: ${_shape(entry.value)}',
-          );
-        }
-      }
-    });
+      },
+      variant: _desktop,
+    );
 
     testWidgets('every field takes exactly the room its own row has, at $at', (
       tester,
@@ -447,45 +558,47 @@ void main() {
       }
     });
 
-    testWidgets('the button beside the field is as tall as the field, at $at', (
-      tester,
-    ) async {
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'the button beside the field is as tall as the field, at $at',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      for (final window in _windows) {
-        await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
+        for (final window in _windows) {
+          await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
 
-        final probed = await _measureAllAreas(tester, scale);
-        final w = window.toInt();
+          final probed = await _measureAllAreas(tester, scale);
+          final w = window.toInt();
 
-        for (final area in _withNeighbour) {
-          final field = probed.geometry[area]!.boxHeight;
-          final button = probed.neighbourHeight[area]!;
+          for (final area in _withNeighbour) {
+            final field = probed.geometry[area]!.boxHeight;
+            final button = probed.neighbourHeight[area]!;
 
-          // One dp of tolerance, and only above 1.0x: the field's height
-          // comes from its text plus its own vertical padding and lands on 49
-          // at 1.5x, while the button's comes from the 48 dp floor its
-          // padding has not yet outgrown. Half a dp of type metrics is not
-          // what this test is about; eight dp of "the button is a different
-          // size" is.
-          expect(
-            button,
-            closeTo(field, scale == 1.0 ? 0.01 : 1.0),
-            reason:
-                'On "$area" the search field and the button beside it are one '
-                'row, so they must read as one control strip: a shorter '
-                'button centres itself in the leftover height and looks '
-                'undersized rather than deliberate. The field paints '
-                '${field.toStringAsFixed(1)} dp, the button '
-                '${button.toStringAsFixed(1)} dp, at $at in a $w dp window. '
-                'These rows are only the cheapest place to catch it — what '
-                'holds them equal is app-wide: WpSearchField, '
-                'WpTextFieldVariant.form, WpDropdown and '
-                'WpButtonSize.standard are all WpLayout.minTouchTarget',
-          );
+            // One dp of tolerance, and only above 1.0x: the field's height
+            // comes from its text plus its own vertical padding and lands on 49
+            // at 1.5x, while the button's comes from the 48 dp floor its
+            // padding has not yet outgrown. Half a dp of type metrics is not
+            // what this test is about; eight dp of "the button is a different
+            // size" is.
+            expect(
+              button,
+              closeTo(field, scale == 1.0 ? 0.01 : 1.0),
+              reason:
+                  'On "$area" the search field and the button beside it are one '
+                  'row, so they must read as one control strip: a shorter '
+                  'button centres itself in the leftover height and looks '
+                  'undersized rather than deliberate. The field paints '
+                  '${field.toStringAsFixed(1)} dp, the button '
+                  '${button.toStringAsFixed(1)} dp, at $at in a $w dp window. '
+                  'These rows are only the cheapest place to catch it — what '
+                  'holds them equal is app-wide: WpSearchField, '
+                  'WpTextFieldVariant.form, WpDropdown and '
+                  'WpButtonSize.standard are all WpLayout.minTouchTarget',
+            );
+          }
         }
-      }
-    });
+      },
+      variant: _desktop,
+    );
   }
 
   testWidgets('every dp the window gains reaches the field, in every area', (
@@ -681,40 +794,83 @@ void main() {
     }
   });
 
-  testWidgets('the field grows into its vertical padding above 1.0x, rather '
-      'than staying pinned to the 48 dp icon-slot floor', (tester) async {
+  testWidgets('the field rests on the touch target and grows out of it rather '
+      'than clipping, as the text size rises', (tester) async {
+    // The icon slots put a floor under the box and `contentPadding` is the
+    // breathing room above that floor: while the line fits, the floor decides
+    // the height; once it doesn't, the padding does and the box grows.
+    //
+    // This used to compare 1.0x against 1.5x and read the difference as proof
+    // of the second half. That comparison was measuring the *drift*, not the
+    // rule — the floor it started from was the density-shrunk 40 dp, so 1.5x
+    // cleared it easily. With the floor honest at 48 the line only outgrows it
+    // near 2.0x, so the scan below asserts the rule at every step instead of
+    // pinning the one scale where the old bug happened to show.
     Future<_FieldGeometry> at(double scale) async {
       await tester.pumpWidget(makeTestable(_scaled(_settings(), scale)));
       await tester.pump();
       return _measure(tester);
     }
 
-    final normal = await at(1.0);
-    final large = await at(1.5);
+    const scales = [1.0, 1.3, 1.5, 1.8, 2.0];
+    final measured = {for (final s in scales) s: await at(s)};
 
     expect(
-      normal.boxHeight,
-      48.0,
+      measured[1.0]!.boxHeight,
+      WpLayout.minTouchTarget,
       reason:
-          'at 1.0x the 48 dp prefix/suffix icon slot is the tallest thing in '
-          'the box, so it — not contentPadding — sets the height',
+          'at 1.0x the icon slots are the tallest thing in the box, so they — '
+          'not contentPadding — set the height, and the field rests on exactly '
+          'the touch target every other control in a toolbar row rests on',
     );
+
+    for (final scale in scales) {
+      final g = measured[scale]!;
+      expect(
+        g.boxHeight,
+        greaterThanOrEqualTo(WpLayout.minTouchTarget),
+        reason:
+            'the field dropped below the touch target at ${scale}x — the icon '
+            'slots are a floor and nothing may pull the box under it',
+      );
+      // The line must live *inside* the box at every size. Clipping is the
+      // failure this whole scan is really about; growth is only how the box
+      // avoids it.
+      expect(
+        g.textTopInset,
+        greaterThanOrEqualTo(0),
+        reason: 'the text line is clipped at the top at ${scale}x',
+      );
+      expect(
+        g.textBottomInset,
+        greaterThanOrEqualTo(0),
+        reason: 'the text line is clipped at the bottom at ${scale}x',
+      );
+    }
+
+    // The slack above the line shrinks monotonically as the line grows: the
+    // text eats the room the icon slot was leaving it, rather than being
+    // pushed out of the box.
+    for (var i = 1; i < scales.length; i++) {
+      expect(
+        measured[scales[i]]!.textTopInset,
+        lessThanOrEqualTo(measured[scales[i - 1]]!.textTopInset),
+        reason:
+            'the slack above the line grew between ${scales[i - 1]}x and '
+            '${scales[i]}x instead of being eaten by the taller line',
+      );
+    }
+
     expect(
-      large.boxHeight,
-      greaterThan(normal.boxHeight),
+      measured[2.0]!.boxHeight,
+      greaterThan(WpLayout.minTouchTarget),
       reason:
-          'once the text line outgrows the icon slot the vertical '
-          'contentPadding starts deciding, and the box has to grow with it '
-          'instead of clipping the line',
+          'by 2.0x the line has outgrown the icon slot, so contentPadding '
+          'starts deciding and the box has to grow with it instead of '
+          'clipping. A field still pinned to the floor here is one that will '
+          'clip at the next size up',
     );
-    expect(
-      large.textTopInset,
-      lessThan(normal.textTopInset),
-      reason:
-          'the taller line eats into the slack the icon slot used to leave '
-          'above it — the text must not be pushed out of the box instead',
-    );
-  });
+  }, variant: _desktop);
 
   testWidgets(
     'every in-window search field carries an explicit semanticsLabel',

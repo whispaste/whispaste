@@ -122,10 +122,48 @@
 /// ## The clear button
 ///
 /// Present in every variant as soon as the field has text, and always named —
-/// see above. Two fields gain one they never had (the Replacements/Snippets
-/// toolbar and the snippet picker); neither changes height, because a
-/// `prefixIcon` already holds both fields at Material's 48 dp icon-slot floor,
-/// which the suffix then shares.
+/// see above. Appearing and disappearing must not resize the field, which is
+/// what `prefixIconConstraints`/`suffixIconConstraints` in `build` are for.
+///
+/// They used to be absent, on the theory that "a `prefixIcon` already holds
+/// both fields at Material's 48 dp icon-slot floor, which the suffix then
+/// shares". Measured in the running app, that was wrong twice over, and the
+/// widget tests couldn't see either half. Flutter's default for an unset slot
+/// constraint is not the 48 dp floor but
+/// `visualDensity.effectiveConstraints(…48…)`, and `ThemeData.visualDensity`
+/// is unset here, so it resolves to `adaptivePlatformDensity` — which on this
+/// app's *only* platforms (macOS, Windows, Linux) is `VisualDensity.compact`
+/// and shrinks that floor to **40 dp**. So:
+///
+/// * A bare `Icon` in the prefix slot has no size of its own beyond the glyph,
+///   so a field with no suffix rested at 40 dp, not 48.
+/// * An `IconButton` in the suffix slot does have one, and it is 48: this
+///   app's `iconButtonTheme` sets `minimumSize` to [WpLayout.minTouchTarget],
+///   and `IconButton` resolves its *own* `visualDensity` to
+///   `VisualDensity.standard` on every platform under Material 3 (see
+///   `icon_button.dart`'s class docs), so the ambient `compact` never shrinks
+///   that 48 the way it shrank the slot's inherited minimum. The slot
+///   constraint being only a *minimum*, the button pushed the whole box to
+///   48 dp. History, whose `suffix` is always populated, was permanently 8 dp
+///   taller than its siblings; everywhere else the box jumped 8 dp on the
+///   first keystroke and back on clear, carrying the filter-chip row with it.
+///
+/// It is specifically *not* `MaterialTapTargetSize.padded` inflating a 40 dp
+/// button into a 48 dp tap target — the mechanism the `_buttonBox()` comment
+/// in the geometry test documents for [WpButton]. `ThemeData` defaults
+/// `materialTapTargetSize` to `shrinkWrap` on the three desktops and this app
+/// never overrides it, so on the only platforms WhisPaste ships on that
+/// padding does not exist. Measured, not reasoned: the clear button's layout
+/// box and its painted `Material` are both 48×48 there, with no gap between
+/// them for a tap target to live in.
+///
+/// Both are gone now that the slots state their own size instead of inheriting
+/// a platform-dependent one. Note that a widget test cannot see any of this on
+/// its own: `flutter test` forces `defaultTargetPlatform` to Android, where
+/// `adaptivePlatformDensity` *is* standard, so the whole drift disappears in
+/// the harness. `search_field_geometry_consistency_test.dart` therefore runs
+/// its height assertions under an explicit `TargetPlatformVariant.desktop()`
+/// — without that they pass just as happily on the broken component.
 ///
 /// ## Secondary engines
 ///
@@ -339,8 +377,9 @@ class _WpSearchFieldState extends State<WpSearchField> {
       controller: widget.controller,
       focusNode: _focusNode,
       autofocus: widget.autofocus,
-      // The icon slots hold the box at 48 dp (see the library docs), which is
-      // taller than the text row's own padded height — so without this the
+      // The icon slots hold the box at 48 dp — see the constraints below,
+      // which is what makes that true rather than platform-dependent. 48 is
+      // taller than the text row's own padded height, so without this the
       // input keeps its top-aligned box and the text rides 4 dp above the
       // search glyph and the clear button, both of which *are* centred.
       textAlignVertical: TextAlignVertical.center,
@@ -355,6 +394,38 @@ class _WpSearchFieldState extends State<WpSearchField> {
           color: palette.textMuted,
         ),
         suffixIcon: suffixIcon,
+        // Both icon slots are pinned to the touch target rather than left to
+        // Flutter's default, which is `visualDensity.effectiveConstraints` of
+        // a 48 dp floor — and on desktop that default is *not* 48. See "The
+        // clear button" in the library docs for the two bugs this closes.
+        //
+        // The prefix is a single 16 dp glyph, so its width is knowable and
+        // tight: that is what puts the same 16 dp in front of the glyph that
+        // `contentPadding` puts in front of the text below.
+        prefixIconConstraints: const BoxConstraints.tightFor(
+          width: WpLayout.minTouchTarget,
+          height: WpLayout.minTouchTarget,
+        ),
+        // The suffix holds a *Row* — the clear button, plus whatever the
+        // caller passed in `suffix` (History stacks its help button there).
+        // Its width therefore has to stay free to grow, or that Row overflows
+        // the slot it was given.
+        //
+        // Its height is belt-and-braces rather than the working mechanism:
+        // every suffix that exists today is 48 dp on its own, and the prefix
+        // above already pins the box, so taking this line back out changes
+        // nothing measurable — the geometry test stays green without it. What
+        // it buys is the *next* suffix: a taller child would otherwise push
+        // the box past 48 and reintroduce the same drift from the other slot.
+        // The trade is deliberate — a suffix that outgrows the touch target
+        // gets clamped here rather than silently resizing every search bar in
+        // the app — so anything taller than [WpLayout.minTouchTarget] belongs
+        // beside the field, not inside it.
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: WpLayout.minTouchTarget,
+          minHeight: WpLayout.minTouchTarget,
+          maxHeight: WpLayout.minTouchTarget,
+        ),
         isDense: true,
         // Horizontal: matches the 16 dp the 48 dp prefix slot already puts in
         // front of its 16 dp glyph, so a field without a trailing button ends
