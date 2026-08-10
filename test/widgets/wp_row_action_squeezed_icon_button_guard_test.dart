@@ -35,8 +35,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Three shapes of "hand-set a smaller tap target" are checked, because a
 /// single-shape guard would let the next offender through in whichever shape
 /// it didn't cover: a literal `BoxConstraints(minWidth: …, minHeight: …)`
-/// (either axis, either order — this was the shape of both known offenders
-/// below), `BoxConstraints.tightFor(width: …, height: …)`, and
+/// (either axis, either order — the shape both historical offenders, the
+/// title-bar theme toggle and the trigger-list remove button, were written
+/// in), `BoxConstraints.tightFor(width: …, height: …)`, and
 /// `IconButton.styleFrom(minimumSize: const Size(…, …))` (the modern
 /// `ButtonStyle`-based idiom). The match window after each `IconButton(` is
 /// bounded (600 characters) and heuristic, not a parser — it is sized to
@@ -44,6 +45,20 @@ import 'package:flutter_test/flutter_test.dart';
 /// against every current `IconButton` call site in `lib/`, but a
 /// sufficiently unusual layout could in principle span past it or reach into
 /// an unrelated neighbouring construct.
+///
+/// That "in principle" was observed in practice while Ticket 06 fixed the
+/// trigger-list button: a six-line explanatory comment placed *between*
+/// `IconButton(` and its `constraints:` pushed the constraints past the
+/// 600-character mark, and the guard went green on a call site it was no
+/// longer reading — a false pass, not a false alarm, which is the expensive
+/// direction for a guard to fail in. Prose is cheap and grows; argument
+/// lists do not. So the guarantee this window offers is weaker than its
+/// size suggests: it holds for the call sites as currently *written*, and
+/// any comment added inside an `IconButton(...)` argument list can quietly
+/// void it. When a call site needs commentary, put it above the
+/// `IconButton(` line, not inside the call. If this keeps biting, the fix
+/// is to match to the closing paren instead of a fixed character count —
+/// not a bigger magic number.
 void main() {
   test('no IconButton outside WpRowAction hand-sets a tap target below '
       'WpLayout.minTouchTarget', () {
@@ -62,17 +77,19 @@ void main() {
     // unnecessary but impossible: the toggle now spells its size as
     // `WpLayout.minTouchTarget`, which the stale-entry test's digit-matching
     // regex cannot see, so the entry would be reported stale and fail.
-    const allowedFiles = <String, String>{
-      // Trigger-phrase remove button (28x28) inside the add/edit dialog's
-      // dynamic trigger list — not one of the four list views (history
-      // list/card/compact, notes, replacements, snippets rows) that
-      // Ticket 02 migrated to WpRowAction. Known open per Ticket 09;
-      // migrating it is a layout decision, out of scope for a guard-only
-      // ticket.
-      'lib/features/replacements/replacements_page.dart':
-          'trigger-list remove button in the add/edit dialog — known open, '
-          'not part of the WpRowAction family Ticket 02 closed',
-    };
+    // The trigger-phrase remove button in `replacements_page.dart`'s
+    // add/edit dialog used to sit here at 28x28, carried as "known open, a
+    // layout decision out of scope for a guard-only ticket". Ticket 06 made
+    // that decision the same way the title-bar toggle's was made: the button
+    // is 48x48 and the entry is gone rather than grandfathered. It also
+    // spells its size as `WpLayout.minTouchTarget`, so — as with
+    // `lib/app.dart` — re-adding it would fail the stale-entry test below
+    // rather than quietly suppress anything.
+    //
+    // The allowlist is empty on purpose and stays declared: an empty map
+    // says "no exemptions today", which is a different and stronger
+    // statement than having no mechanism for them.
+    const allowedFiles = <String, String>{};
 
     const minTouchTarget = 48; // WpLayout.minTouchTarget
     const windowSize = 600;
@@ -145,9 +162,7 @@ void main() {
   });
 
   test('the allowlist has no stale entries', () {
-    const allowedFiles = <String>{
-      'lib/features/replacements/replacements_page.dart',
-    };
+    const allowedFiles = <String>{};
 
     const minTouchTarget = 48;
     const windowSize = 600;

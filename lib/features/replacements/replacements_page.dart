@@ -473,6 +473,11 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                         // least one phrase.
                         if (_triggerCtrls.length > 1) ...[
                           const SizedBox(width: WpSpacing.xxs),
+                          // Full 48 dp tap target, spelled as the token so it
+                          // moves with it. Costs no height: the row is already
+                          // 48 dp tall because the neighbouring
+                          // `WpTextField.form` is, and `_triggerListMaxHeight`
+                          // above already counts 48 dp per row.
                           IconButton(
                             tooltip: l10n.replacementsRemoveTrigger,
                             icon: Icon(
@@ -483,8 +488,8 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                             onPressed: () => _removeTrigger(i),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
+                              minWidth: WpLayout.minTouchTarget,
+                              minHeight: WpLayout.minTouchTarget,
                             ),
                           ),
                         ],
