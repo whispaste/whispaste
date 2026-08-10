@@ -2,8 +2,9 @@
 ///
 /// AC1 — every variant renders a field, its placeholder and its own metrics
 /// AC2 — the boxed variants carry the DESIGN.md chrome, `bare` carries none
-/// AC3 — focus moves the boxed stroke to the accent and nothing else moves;
-///        `bare` gains no second focus marking
+///        at rest
+/// AC3 — focus moves the stroke to the accent and nothing else moves — on the
+///        boxed variants and on `bare`, which grows the same stroke from none
 /// AC4 — light theme resolves light tokens (no dark token leaks across)
 /// AC5 — [WpTextField.styleFor] is what the field actually renders with, so a
 ///        read view can match its edit view exactly
@@ -155,7 +156,7 @@ void main() {
       }
     });
 
-    testWidgets('bare: no stroke, square, same writing-surface fill', (
+    testWidgets('bare at rest: no stroke, square, same writing-surface fill', (
       tester,
     ) async {
       final controller = TextEditingController();
@@ -232,7 +233,7 @@ void main() {
     });
 
     testWidgets(
-      'bare: focus adds no second marking — the caret is the signal',
+      'bare: the same accent stroke at 1.5 dp, grown from none, size unchanged',
       (tester) async {
         final controller = TextEditingController();
         addTearDown(controller.dispose);
@@ -249,9 +250,26 @@ void main() {
           ),
         );
 
+        // The variant that owns its surface still shows nothing while idle —
+        // the resting half of this is pinned in AC2.
+        expect(_strokeDecoration(tester), isNull);
+        final sizeBefore = tester.getSize(find.byType(WpTextField));
+
         focusNode.requestFocus();
         await tester.pumpAndSettle();
 
+        // Same colour, same width, same square corners as at rest: one spec
+        // predicate feeds one paint site, so `bare` cannot drift into a focus
+        // treatment of its own.
+        final stroke = _strokeDecoration(tester)!;
+        expect((stroke.border! as Border).top.color, WpColorsDark.accent);
+        expect((stroke.border! as Border).top.width, 1.5);
+        expect(stroke.borderRadius, BorderRadius.zero);
+        // Painted over the child, so a paragraph mid-edit does not reflow.
+        expect(tester.getSize(find.byType(WpTextField)), sizeBefore);
+
+        focusNode.unfocus();
+        await tester.pumpAndSettle();
         expect(_strokeDecoration(tester), isNull);
       },
     );

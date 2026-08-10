@@ -54,10 +54,12 @@
 ///    them); the field keeps the inset, so the text sits at the same 12/14
 ///    the row's read view puts it at and does not jump when edit mode opens.
 ///  * [WpTextFieldVariant.bare] *is* the surface. Nothing else shares the
-///    region below the Notes divider, so a border would only draw a box
-///    inside a box, and the writing area would end up smaller than the space
-///    it owns. It keeps the fill — the writing surface is the same colour
-///    everywhere — and drops only the stroke.
+///    region below the Notes divider, so a resting border would only draw a
+///    box inside a box, and the writing area would end up smaller than the
+///    space it owns. It keeps the fill — the writing surface is the same
+///    colour everywhere — and drops the stroke while idle. Only while idle:
+///    on focus it takes the same accent stroke as everyone else, see "one
+///    highlight per state" below.
 ///
 /// The axis carries typography and inset with it rather than exposing them,
 /// because free `fontSize`/`contentPadding` parameters would reproduce exactly
@@ -102,12 +104,25 @@
 /// focus signal**. No [WpFocusRing] around the control, no glow — a text field
 /// already draws a contour, and a ring outside it would be two markings for
 /// one state. Boxed variants therefore move their hairline to the accent at
-/// 1.5 dp, and [WpTextFieldVariant.bare], having no contour to move, shows
-/// focus by the caret alone. That is the same rule applied honestly, not a
-/// second treatment: adding a stroke to `bare` on focus would frame the whole
-/// lower half of the Notes panel in accent for as long as the user types.
+/// 1.5 dp, and [WpTextFieldVariant.bare], having no hairline to move, grows
+/// the same accent stroke from nothing for as long as it holds focus. Both
+/// come out of one predicate on the spec ([_WpTextFieldSpec.strokeAt]) and one
+/// paint site, so there is no second focus treatment to keep in step with the
+/// first.
 ///
-/// [WpTextFieldVariant.embedded] follows the same rule from the other side:
+/// `bare` used to show focus by the caret alone, on the argument that a stroke
+/// there would frame the whole lower half of the Notes panel for as long as
+/// the user types. The maintainer decided against that reading: a writing
+/// surface the size of a panel is exactly where "is my typing going here" must
+/// not be a question, and the rule was never "the contour, where the variant
+/// happens to have one". The stroke snaps in and out instead of cross-fading
+/// like the boxed variants: [AnimatedContainer] builds the tween fresh on the
+/// frame a decoration first appears, so its begin and its target are the same
+/// value and the controller never starts. On a focus indicator that reads as
+/// immediate rather than as a jump, so it is left alone.
+///
+/// [WpTextFieldVariant.embedded] is the one variant that still shows nothing
+/// of its own, and it follows the same rule from the other side:
 /// the one contour on that row belongs to the host, so the host is what turns
 /// accent while the note is being authored. Two accents — one on the row, one
 /// inside it — would again be two markings for one state.
@@ -153,8 +168,9 @@ enum WpTextFieldVariant {
   /// the inset that keeps its text on the row's own text line.
   embedded,
 
-  /// The surface *is* the field (the Notes editor). No stroke, generous
-  /// inset, and it expands to fill the box it is given — so it must be given
+  /// The surface *is* the field (the Notes editor). No stroke at rest — it
+  /// takes one only while focused — generous inset, and it expands to fill
+  /// the box it is given, so it must be given
   /// a bounded one (an `Expanded`, a `SizedBox`), which is the definition of
   /// owning the surface rather than sitting on it.
   bare,
@@ -375,7 +391,7 @@ class _WpTextFieldState extends State<WpTextField> {
       ),
       // Painted over the child, so the stroke can thicken on focus without
       // moving a single pixel of text. See the library docs.
-      foregroundDecoration: spec.bordered
+      foregroundDecoration: spec.strokeAt(focused: _hasFocus)
           ? BoxDecoration(
               borderRadius: spec.radius,
               border: Border.all(
@@ -453,7 +469,8 @@ class _WpTextFieldPalette {
   final Color textPrimary;
   final Color textMuted;
 
-  /// The focused stroke of the boxed variants — the single focus signal.
+  /// The focused stroke of every variant that draws one — the single focus
+  /// signal.
   final Color accent;
 
   static const _dark = _WpTextFieldPalette(
@@ -487,6 +504,7 @@ class _WpTextFieldSpec {
     required this.bordered,
     required this.multiline,
     required this.fillsItsBox,
+    this.focusStrokeOnly = false,
     this.filled = true,
     this.linesFromCallSite = false,
   });
@@ -500,8 +518,17 @@ class _WpTextFieldSpec {
 
   final EdgeInsets padding;
 
-  /// Draws a hairline at rest and moves it to the accent on focus.
+  /// Draws its own box: the resting hairline, and with it the radius. Whether
+  /// the *focused* stroke appears is a separate question — see [strokeAt].
   final bool bordered;
+
+  /// Takes the focus stroke without taking a resting one: no contour while
+  /// idle, the same accent stroke as the boxed variants while focused. True
+  /// only on [WpTextFieldVariant.bare], which owns its surface outright and
+  /// would look like a box inside a box if it carried a hairline at rest —
+  /// but which is still a field, and a field that cannot be seen to have
+  /// focus is the one exception "one highlight per state" never licensed.
+  final bool focusStrokeOnly;
 
   /// Takes Enter as a newline rather than as submit. Ignored where
   /// [linesFromCallSite] holds — there the line count decides it.
@@ -522,6 +549,13 @@ class _WpTextFieldSpec {
   /// Square when the field *is* the surface — a rounded corner would imply a
   /// card floating on something else.
   BorderRadius get radius => bordered ? WpRadius.borderSm : BorderRadius.zero;
+
+  /// Whether a stroke is painted at all in this state — the single source the
+  /// one paint site in `build` asks, so the focused look of every variant that
+  /// has one is literally the same three lines of code and cannot drift into a
+  /// second, parallel focus treatment.
+  bool strokeAt({required bool focused}) =>
+      bordered || (focusStrokeOnly && focused);
 
   TextStyle textStyle(Color color) => TextStyle(
     fontSize: fontSize,
@@ -559,8 +593,9 @@ class _WpTextFieldSpec {
   );
 
   /// The same prose metrics as [_passage] — one writing surface, one text
-  /// size — with the stroke dropped and the inset opened up to 24 dp, because
-  /// here the padding is the only thing holding the text off the panel edge.
+  /// size — with the *resting* stroke dropped and the inset opened up to
+  /// 24 dp, because here the padding is the only thing holding the text off
+  /// the panel edge. The focused stroke it keeps: see [focusStrokeOnly].
   static const _bare = _WpTextFieldSpec(
     fontSize: WpTypography.heading,
     fontWeight: FontWeight.w400,
@@ -569,6 +604,7 @@ class _WpTextFieldSpec {
     bordered: false,
     multiline: true,
     fillsItsBox: true,
+    focusStrokeOnly: true,
   );
 
   /// 13 dp, and the inset that *is* the field's height: 14 dp above and below

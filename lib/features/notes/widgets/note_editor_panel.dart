@@ -307,8 +307,9 @@ class NoteEditorPanel extends StatelessWidget {
           ),
           // ── Editor ──
           // Nothing else shares the region below the divider, so the field
-          // *is* the surface: no stroke, prose metrics identical to History's
-          // transcript. See WpTextField's library docs.
+          // *is* the surface: no stroke at rest (it takes the accent one on
+          // focus, like every other variant), prose metrics identical to
+          // History's transcript. See WpTextField's library docs.
           Expanded(
             child: WpTextField(
               controller: controller,
