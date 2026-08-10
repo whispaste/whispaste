@@ -14,6 +14,7 @@
 /// - HSL model: https://en.wikipedia.org/wiki/HSL_and_HSV
 library;
 
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -560,28 +561,26 @@ void main() {
   // overlaps the upper-left region too and the top stop is the harder ground.
   //
   // ---------------------------------------------------------------------
-  // CLASSIFICATION — open maintainer decision ① (NOT yet confirmed)
+  // CLASSIFICATION — maintainer decision ① — RATIFIED (E1 = (a))
   //
-  // The consolidated color plan proposes a usage-dependent contrast threshold
-  // for the whole color system: 3:1 for surfaces/borders (WCAG 1.4.11,
-  // non-text contrast) and 4.5:1 for text/glyphs (WCAG 1.4.3, text contrast).
+  // The color system uses a **usage-dependent** contrast threshold: 3:1 for
+  // surfaces, borders, bars and other graphical objects (WCAG 1.4.11) and
+  // 4.5:1 only for text and text-like glyphs (WCAG 1.4.3). The maintainer
+  // ratified exactly this — status quo confirmed, commit `0c52983e` ratified
+  // along with it — so the classification below is now settled, not a proposal
+  // awaiting an answer.
   //
-  // This phase deliberately classifies the avatar glyph as a **graphical
-  // object, not text**, and therefore gates it at 3:1 rather than 4.5:1. The
-  // reasoning: the icon is a pictogram identifying an entry's category — it
+  // Under it, the avatar glyph is a **graphical object, not text**, and is
+  // gated at 3:1: the icon is a pictogram identifying an entry's category — it
   // carries no reading content, is never a sentence, and is redundant with the
-  // entry title next to it. WCAG 1.4.11 is the applicable success criterion
-  // for such an object; 1.4.3 governs runs of text a user reads.
+  // entry title next to it.
   //
   // The disc itself is gated at 1.5:1, not 3:1, on the same 1.4.11 logic but
   // one level down: it is decorative-adjacent identity material rather than an
   // object whose *shape* must be perceived to operate the UI.
   //
-  // This classification has NOT been confirmed by the maintainer. It is
-  // written out here so that an eventual answer to ① either ratifies it or
-  // visibly contradicts it — instead of silently invalidating an already
-  // merged phase. If ① lands on "glyph = text", raise the floor below to 4.5
-  // and recalibrate [WpAvatarTint] rather than reinterpreting this comment.
+  // Both floors are therefore maintainer-confirmed values. Raising or lowering
+  // one is a new decision, not a re-reading of this comment.
   // -------------------------------------------------------------------------
 
   const discFloor = 1.5;
@@ -776,4 +775,322 @@ void main() {
       });
     });
   }
+
+  // -------------------------------------------------------------------------
+  // Category slots — the nominal color layer ([WpCategorySlot])
+  //
+  // THRESHOLD, per the ratified usage-dependent rule above (① = E1 (a)): a
+  // category slot is a **graphical object** — a dot, a chip fill, a chart
+  // segment, an avatar disc — never a run of text. It therefore owes 3:1 under
+  // WCAG 1.4.11, not 4.5:1 under 1.4.3. The palette is built with headroom on
+  // that floor anyway (≈5.8:1 dark / ≈4.0:1 light against `surface`), so the
+  // floor is a guard against future edits, not a value the palette hugs.
+  //
+  // GLYPH LEGIBILITY (group (c) of the ticket) is deliberately NOT tested here,
+  // and the omission is the finding rather than a gap. At this ticket's scope
+  // nothing paints a glyph *on* a slot: the slots have no call site at all, and
+  // the contract states them as foreground/graphical marks. The one incumbent
+  // glyph-on-hue recipe, [WpAvatarTint], exists precisely because
+  // [WpSharedColors.avatarPalette] is theme-*independent* — "the whole
+  // light/dark adaptation has to live in how a palette hue is prepared". A
+  // theme-*paired* palette dissolves that premise, so Ticket 13 decides whether
+  // the recipe survives at all; inventing a glyph pairing here would gate a
+  // composition no code performs.
+  //
+  // Measured hand-off for that decision — today's slots pushed through today's
+  // [WpAvatarTint] against `surface`, against its own floors (disc ≥ 1.5:1,
+  // glyph ≥ 3:1): light clears both (disc 1.53–1.94, glyph 4.99–7.37); dark
+  // does *not*. Dark `iris` reaches only 1.47:1 as a disc, and dark `neutral`
+  // 1.27:1 with a 2.71:1 glyph — the low-chroma fallback is the one that breaks
+  // hardest, because a 20 %-saturation hue at 20–28 % alpha barely departs from
+  // navy. Recalibrating the tint (or replacing it) is Ticket 13's job, and
+  // these are the numbers it starts from.
+  // -------------------------------------------------------------------------
+
+  const categorySlotFloor = 3.0;
+
+  group('Category slot palette – structure', () {
+    test('both themes carry a color for every slot, neutral last', () {
+      expect(WpCategoryColorsDark.slots.length, WpCategorySlot.values.length);
+      expect(WpCategoryColorsLight.slots.length, WpCategorySlot.values.length);
+      expect(
+        WpCategorySlot.values.last,
+        WpCategorySlot.neutral,
+        reason: 'the neutral fallback is indexed last in both slot lists',
+      );
+      expect(
+        WpCategoryColorsDark.slots.last,
+        WpCategoryColorsDark.neutral,
+        reason: 'dark slot list is out of sync with the enum order',
+      );
+      expect(
+        WpCategoryColorsLight.slots.last,
+        WpCategoryColorsLight.neutral,
+        reason: 'light slot list is out of sync with the enum order',
+      );
+    });
+
+    test('the neutral fallback is not a ninth category', () {
+      expect(WpCategorySlot.categories.length, 8);
+      expect(
+        WpCategorySlot.categories,
+        isNot(contains(WpCategorySlot.neutral)),
+        reason:
+            'untitled/uncategorised is the normal case in a dictation app — it '
+            'must not be reachable from a hash and must not share a hue with a '
+            'real category (Ticket 11, ③ = a)',
+      );
+    });
+
+    test('no two slots share a color', () {
+      for (final (themeName, isDark) in [('dark', true), ('light', false)]) {
+        final colors = WpCategorySlot.values
+            .map((s) => s.color(isDark).toARGB32())
+            .toSet();
+        expect(
+          colors.length,
+          WpCategorySlot.values.length,
+          reason:
+              '$themeName: two slots resolve to the same color — a nominal '
+              'scale whose members collide cannot separate its categories',
+        );
+      }
+    });
+
+    test('every slot resolves to the constant of the same name', () {
+      // Length, order-of-last and uniqueness alone cannot catch a *reordered*
+      // slot list: swap two entries in one theme only and `iris` silently
+      // resolves to ember's hue there. Pinning the pairing by name turns that
+      // into a failure instead of a mislabel — same reasoning as the
+      // `slot names cover the palette` guard for the avatar palette above.
+      const dark = <WpCategorySlot, Color>{
+        WpCategorySlot.iris: WpCategoryColorsDark.iris,
+        WpCategorySlot.ember: WpCategoryColorsDark.ember,
+        WpCategorySlot.fern: WpCategoryColorsDark.fern,
+        WpCategorySlot.orchid: WpCategoryColorsDark.orchid,
+        WpCategorySlot.brass: WpCategoryColorsDark.brass,
+        WpCategorySlot.azure: WpCategoryColorsDark.azure,
+        WpCategorySlot.plum: WpCategoryColorsDark.plum,
+        WpCategorySlot.moss: WpCategoryColorsDark.moss,
+        WpCategorySlot.neutral: WpCategoryColorsDark.neutral,
+      };
+      const light = <WpCategorySlot, Color>{
+        WpCategorySlot.iris: WpCategoryColorsLight.iris,
+        WpCategorySlot.ember: WpCategoryColorsLight.ember,
+        WpCategorySlot.fern: WpCategoryColorsLight.fern,
+        WpCategorySlot.orchid: WpCategoryColorsLight.orchid,
+        WpCategorySlot.brass: WpCategoryColorsLight.brass,
+        WpCategorySlot.azure: WpCategoryColorsLight.azure,
+        WpCategorySlot.plum: WpCategoryColorsLight.plum,
+        WpCategorySlot.moss: WpCategoryColorsLight.moss,
+        WpCategorySlot.neutral: WpCategoryColorsLight.neutral,
+      };
+      for (final (themeName, isDark, expected) in [
+        ('dark', true, dark),
+        ('light', false, light),
+      ]) {
+        expect(
+          expected.keys.toSet(),
+          WpCategorySlot.values.toSet(),
+          reason: '$themeName: a slot was added without a color of its name',
+        );
+        expected.forEach((slot, color) {
+          expect(
+            slot.color(isDark),
+            color,
+            reason:
+                '$themeName: ${slot.name} resolves to a color that is not '
+                '${slot.name} — the slot list order no longer matches the enum',
+          );
+        });
+      }
+    });
+
+    test('the mappers only ever return category slots, never neutral', () {
+      final identities = <String>[
+        'whisper-small',
+        'whisper-medium',
+        'whisper-large-v3-turbo',
+        'meeting',
+        'email',
+        'blog',
+        'personal',
+        'feedback',
+        'project',
+        'idea',
+        'reminder',
+        '',
+        'a',
+        'zzzzzzzz',
+      ];
+      for (final id in identities) {
+        for (final slot in [
+          categorySlotForModel(id),
+          categorySlotForTag(id),
+          categorySlotForAvatarRule(id),
+        ]) {
+          expect(
+            slot,
+            isNot(WpCategorySlot.neutral),
+            reason:
+                '"$id" hashed onto the neutral fallback — neutral is reached '
+                'by an explicit call site, never by a hash',
+          );
+        }
+      }
+    });
+
+    test('the mappers are deterministic and normalise tag names', () {
+      expect(
+        categorySlotForModel('whisper-medium'),
+        categorySlotForModel('whisper-medium'),
+      );
+      expect(categorySlotForTag('Meeting '), categorySlotForTag('meeting'));
+      expect(
+        categorySlotForAvatarRule('email'),
+        categorySlotForAvatarRule('email'),
+      );
+    });
+  });
+
+  for (final (themeName, isDark, accent, grounds) in [
+    (
+      'dark',
+      true,
+      WpColorsDark.accent,
+      <String, Color>{
+        'surface': WpColorsDark.surface,
+        'surfaceElevated': WpColorsDark.surfaceElevated,
+        'surfaceVariant': WpColorsDark.surfaceVariant,
+      },
+    ),
+    (
+      'light',
+      false,
+      WpColorsLight.accent,
+      <String, Color>{
+        'surface': WpColorsLight.surface,
+        'surfaceElevated': WpColorsLight.surfaceElevated,
+        'surfaceVariant': WpColorsLight.surfaceVariant,
+      },
+    ),
+  ]) {
+    group(
+      'Category slot vs. surfaces – $themeName theme (≥ $categorySlotFloor:1)',
+      () {
+        for (final slot in WpCategorySlot.values) {
+          test(slot.name, () {
+            final color = slot.color(isDark);
+            grounds.forEach((groundName, ground) {
+              final ratio = contrastRatio(color, ground);
+              expect(
+                ratio,
+                greaterThanOrEqualTo(categorySlotFloor),
+                reason:
+                    '$themeName ${slot.name}: only ${ratio.toStringAsFixed(2)}'
+                    ':1 against $groundName — a category mark is a graphical '
+                    'object and owes 3:1 (WCAG 1.4.11) '
+                    '(color: #${color.toARGB32().toRadixString(16).padLeft(8, '0')})',
+              );
+            });
+          });
+        }
+      },
+    );
+
+    // The recognition value of the accent, made executable: the nominal layer
+    // may speak, but never louder than the brand voice it sits next to.
+    group('Category quieter than the accent – $themeName theme', () {
+      final surface = grounds['surface']!;
+      final accentRatio = contrastRatio(accent, surface);
+
+      for (final slot in WpCategorySlot.values) {
+        test(slot.name, () {
+          final ratio = contrastRatio(slot.color(isDark), surface);
+          expect(
+            ratio,
+            lessThan(accentRatio),
+            reason:
+                '$themeName ${slot.name}: ${ratio.toStringAsFixed(2)}:1 against '
+                'surface vs. the accent\'s ${accentRatio.toStringAsFixed(2)}:1 '
+                '— a category must not out-shout the one accent',
+          );
+        });
+      }
+    });
+  }
+
+  // Saturation ceiling: the palette is a *quiet* nominal layer. The accent is
+  // allowed to be the most saturated thing on screen (dark 76 %, light 92 %);
+  // eight categories at that pitch would turn a list into a fruit salad.
+  group('Category slot saturation – ≤ 80%', () {
+    for (final (themeName, isDark) in [('dark', true), ('light', false)]) {
+      for (final slot in WpCategorySlot.values) {
+        test('$themeName: ${slot.name}', () {
+          final color = slot.color(isDark);
+          final sat = hslSaturation(color);
+          expect(
+            sat,
+            lessThanOrEqualTo(0.80),
+            reason:
+                '$themeName ${slot.name}: saturation '
+                '${(sat * 100).toStringAsFixed(1)}% > 80% — the category layer '
+                'stays under the accent, not next to it '
+                '(color: #${color.toARGB32().toRadixString(16).padLeft(8, '0')})',
+          );
+        });
+      }
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Migration marker for Ticket 13 — NOT a failing acceptance criterion today.
+  //
+  // Ticket 13 replaces [WpSharedColors.avatarPalette] with the category slots
+  // and requires it to end up with zero call sites. That migration has not
+  // happened yet, so the palette still has exactly one: `history_helpers.dart`.
+  // This test pins that fact. When Ticket 13 lands, it fails — and the fix is
+  // to change the expectation to an empty set (and delete the palette), not to
+  // delete the test. It exists so the migration cannot be declared done while a
+  // second multi-hue system quietly survives somewhere in `lib/`.
+  // -------------------------------------------------------------------------
+  group('avatarPalette call sites (Ticket 13 migration marker)', () {
+    test('exactly one, in history_helpers.dart', () {
+      final lib = Directory('lib');
+      expect(
+        lib.existsSync(),
+        isTrue,
+        reason: 'sweep needs the package root as cwd — `lib/` not found',
+      );
+
+      final dartFiles = lib
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList();
+      expect(
+        dartFiles.length,
+        greaterThan(100),
+        reason:
+            'the sweep found only ${dartFiles.length} Dart files under lib/ — '
+            'it is not looking where it thinks it is, so an empty result below '
+            'would pass vacuously',
+      );
+
+      final referencing = dartFiles
+          .where((f) => f.readAsStringSync().contains('avatarPalette'))
+          .map((f) => f.path.replaceAll(r'\', '/'))
+          // The declaration itself and its doc comments don't count.
+          .where((p) => p != 'lib/core/theme/colors.dart')
+          .toSet();
+
+      expect(
+        referencing,
+        {'lib/features/history/widgets/history_helpers.dart'},
+        reason:
+            'avatarPalette is expected to have exactly one call site until '
+            'Ticket 13 migrates it to WpCategorySlot. Found: $referencing',
+      );
+    });
+  });
 }

@@ -160,12 +160,18 @@ abstract final class WpColorsDark {
     colors: [Color(0xFF1C2640), Color(0xFF141A29)],
   );
 
-  /// Dual-tone temperature wash — cool navy top-left, neutral anchor,
-  /// rose-coral-tinted warm navy bottom-right. Opaque tonal steps (no alpha
-  /// glow): luminance stays flat across the gradient, only the hue drifts,
-  /// so the content panel reads as chromatic *temperature*, not as light.
-  /// The warm pole is a split-complement to `accent` (~190°), deliberately
-  /// distinct from every avatar hue so it never reads as a second signal.
+  /// Dual-tone temperature wash — a cool navy top-left, the neutral `surface`
+  /// anchor in the middle, and a bottom-right that turns ~34° toward violet
+  /// while shedding saturation. Opaque tonal steps (no alpha glow): the three
+  /// stops sit 1.08:1 apart in relative luminance, so the content panel reads
+  /// as chromatic *temperature* under flat light, never as a lit edge.
+  ///
+  /// Measured, because the earlier note here was not: the stops are 225° /
+  /// 223° / 257°, so the "warm" pole is violet rather than the rose-coral it
+  /// was described as, it is no split-complement of `accent` (~190°), and it
+  /// lands within a degree of the avatar palette's violet rather than clear of
+  /// every avatar hue. What keeps it from reading as a second signal is its
+  /// saturation floor — 21%, under half the accent's — not any hue distance.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -409,6 +415,182 @@ abstract final class WpSharedColors {
   /// Pinned/favorited-item accent (star icon, toggle). Amber reads as
   /// "favorite" cross-platform regardless of theme, like a star rating.
   static const Color pinnedAccent = Color(0xFFFFB300); // Colors.amber.shade600
+}
+
+// ---------------------------------------------------------------------------
+// Category slots — the nominal color layer
+// ---------------------------------------------------------------------------
+
+/// The nine category slots, in palette order — eight interchangeable *category*
+/// hues plus one dedicated [neutral] fallback.
+///
+/// **The contract.** A category color is never picked at a call site. A widget
+/// asks [categorySlotForModel], [categorySlotForTag] or
+/// [categorySlotForAvatarRule] for a slot, or reaches for [neutral] when the
+/// thing it paints has no category at all — and only then resolves the slot to
+/// a [Color] through [color]. The indirection *is* the feature: it makes a hue
+/// a statement about the data rather than decoration, and it is the thing a
+/// later reader can grep to find out what a color means. Painting one of the
+/// constants below directly is the same defect as hand-rolling an alpha.
+///
+/// **Why a slot and not a [Color].** The slot is theme-independent, the color
+/// is not. Anything that caches an identity's color must cache the *slot* and
+/// resolve it inside `build()`; caching the resolved color leaves the old
+/// theme's hue on screen after a runtime theme switch.
+///
+/// **[neutral] is not a ninth category.** Untitled/uncategorised is the *normal*
+/// case in a dictation app, not an edge case, and it must not disguise itself
+/// as a category — so it gets its own near-achromatic slot and is deliberately
+/// excluded from [categories], i.e. from every hash. Nothing ever lands on
+/// neutral by accident; a call site asks for it explicitly.
+enum WpCategorySlot {
+  iris,
+  ember,
+  fern,
+  orchid,
+  brass,
+  azure,
+  plum,
+  moss,
+  neutral;
+
+  /// The eight hashable category slots — [neutral] excluded on purpose.
+  static const List<WpCategorySlot> categories = [
+    iris,
+    ember,
+    fern,
+    orchid,
+    brass,
+    azure,
+    plum,
+    moss,
+  ];
+
+  /// Resolves this slot against the active theme. The only sanctioned way from
+  /// a slot to a paintable color.
+  Color color(bool isDark) => (isDark
+      ? WpCategoryColorsDark.slots
+      : WpCategoryColorsLight.slots)[index];
+}
+
+/// Dark-theme category slots — one recipe, nine outcomes.
+///
+/// Every slot is a **solid tone**, not a translucent fill: hue spaced around
+/// the wheel, HSL saturation held at ≈52 %, and lightness solved *per hue* so
+/// all nine land on the same relative luminance (Y ≈ 0.30). Equal luminance is
+/// what makes the set read as one categorical scale — no slot volunteers
+/// itself as "the important one", which is exactly what a nominal scale must
+/// not do. It also puts every slot at ≈5.8:1 against `surface`, comfortably
+/// over the 3:1 floor for a graphical object and comfortably *under* the
+/// accent's 9.0:1 — the palette is quieter than the brand voice by
+/// construction, not by luck. Gated in `test/core/theme/wcag_contrast_test.dart`.
+///
+/// Because these are opaque tones, *The Increment–Decrement Rule* does not
+/// apply — there is no alpha to tune down. The theme pair still mirrors its
+/// direction for the same optical reason: on navy a slot resolves *lighter*
+/// than its ground, on pearl its light twin resolves *toward ink*, same hue,
+/// same saturation, luminance re-solved against the other ground.
+///
+/// **Excluded hue bands, on purpose.** Cyan/teal 165–215° belongs to the brand
+/// accent alone (*The Single Accent Rule*); ~30–55° is Pin Amber and `warning`;
+/// ~350–15° is `error`; ~145–165° is `success`. A category may not borrow a hue
+/// that already means something else in this app.
+abstract final class WpCategoryColorsDark {
+  static const Color iris = Color(0xFFA486D9); // 262° violet
+  static const Color ember = Color(0xFFCB855B); // 22° terracotta
+  static const Color fern = Color(0xFF36AA53); // 135° leaf green
+  static const Color orchid = Color(0xFFCD74D3); // 296° purple-magenta
+  static const Color brass = Color(0xFF979B31); // 62° olive-gold
+  static const Color azure = Color(0xFF8092D7); // 228° blue
+  static const Color plum = Color(0xFFD477A3); // 332° rose-plum
+  static const Color moss = Color(0xFF5EA735); // 98° yellow-green
+
+  /// The dedicated fallback for "no category" — same luminance as the eight,
+  /// chroma dropped to ≈20 % so it reads as *absence of a category* rather than
+  /// as a ninth one. Never returned by a hash.
+  static const Color neutral = Color(0xFF8A95B1);
+
+  /// Indexed by [WpCategorySlot.index] — same order as the enum, neutral last.
+  static const List<Color> slots = [
+    iris,
+    ember,
+    fern,
+    orchid,
+    brass,
+    azure,
+    plum,
+    moss,
+    neutral,
+  ];
+}
+
+/// Light-theme category slots — the pearl-ground twins of
+/// [WpCategoryColorsDark], same hues and saturation (≈58 %), lightness
+/// re-solved against the light stack so all nine sit at Y ≈ 0.19: ≈4.0:1
+/// against `surface`, over the 3:1 floor and under the light accent's 5.8:1.
+abstract final class WpCategoryColorsLight {
+  static const Color iris = Color(0xFF8C62D5); // 262° violet
+  static const Color ember = Color(0xFFB76231); // 22° terracotta
+  static const Color fern = Color(0xFF258A3E); // 135° leaf green
+  static const Color orchid = Color(0xFFC23CCB); // 296° purple-magenta
+  static const Color brass = Color(0xFF7A7D21); // 62° olive-gold
+  static const Color azure = Color(0xFF5A72D3); // 228° blue
+  static const Color plum = Color(0xFFCE4585); // 332° rose-plum
+  static const Color moss = Color(0xFF488824); // 98° yellow-green
+
+  /// See [WpCategoryColorsDark.neutral].
+  static const Color neutral = Color(0xFF68789F);
+
+  /// Indexed by [WpCategorySlot.index] — same order as the enum, neutral last.
+  static const List<Color> slots = [
+    iris,
+    ember,
+    fern,
+    orchid,
+    brass,
+    azure,
+    plum,
+    moss,
+    neutral,
+  ];
+}
+
+/// Deterministic slot for an STT model, keyed by its `SttModelInfo.id`.
+///
+/// Stable across restarts and across model-list edits: the id hashes, the
+/// list position does not, so adding a fourth model never re-colors the other
+/// three.
+WpCategorySlot categorySlotForModel(String modelId) =>
+    _categorySlotForIdentity(modelId);
+
+/// Deterministic slot for a tag, keyed by its name.
+///
+/// The name is case- and whitespace-normalised first — tags are user-typed, and
+/// "Meeting" and "meeting " must not land on two different hues.
+WpCategorySlot categorySlotForTag(String tagName) =>
+    _categorySlotForIdentity(tagName.trim().toLowerCase());
+
+/// Deterministic slot for an avatar rule, keyed by the rule's own identifier
+/// (the keyword family that matched, e.g. `'meeting'` or `'email'`).
+///
+/// The *rule* is the identity, not the entry: two meeting entries get the same
+/// hue because they are the same kind of thing, which is precisely what the
+/// incumbent title hash could not express. An entry that matches no rule has no
+/// category and takes [WpCategorySlot.neutral] — it does not hash.
+WpCategorySlot categorySlotForAvatarRule(String ruleKey) =>
+    _categorySlotForIdentity(ruleKey);
+
+/// The one hash behind all three mappers — same shape as the incumbent
+/// `historyAvatarColor` (sum of code units, modulo the slot count) so the
+/// repo keeps a single, recognisable "identity → slot" idiom.
+///
+/// Distributes over [WpCategorySlot.categories] only; [WpCategorySlot.neutral]
+/// is unreachable from here by design. An empty identity is a caller bug, not a
+/// fallback: it hashes to 0 like any other string. Callers that mean "no
+/// category" say so with [WpCategorySlot.neutral].
+WpCategorySlot _categorySlotForIdentity(String identity) {
+  final hash = identity.codeUnits.fold<int>(0, (a, b) => a + b);
+  return WpCategorySlot.categories[hash % WpCategorySlot.categories.length];
 }
 
 /// Theme-paired rendering recipe for the history-entry avatar disc.

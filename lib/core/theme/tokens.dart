@@ -3,7 +3,10 @@
 /// Premium design: clean depth via layered surfaces, crisp shadows, tonal
 /// gradients, and warm materiality. Restraint means no glow and a single
 /// brand accent (cyan/teal) — not bare/flat; warm, soft-shadowed depth is
-/// equally premium.
+/// equally premium. "Single accent" is about the *brand voice*: the pin marker
+/// and the category slots (`WpCategorySlot`) carry hues of their own, but they
+/// state what something *is*, never that it is important. See *The Single
+/// Accent Rule* and *The Categorical vs. Sequential Rule* in `lib/DESIGN.md`.
 library;
 
 import 'package:flutter/material.dart';
