@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter_driver/driver_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
@@ -84,6 +86,28 @@ Future<ProviderContainer> bootstrapAppContainer({
 }
 
 Future<void> main(List<String> args) async {
+  // kDebugMode-gated: compiled out of profile/release entirely (kDebugMode is
+  // a compile-time constant, always false there), so this never reaches the
+  // Mac App Store or Microsoft Store build. Must run before ANY binding gets
+  // created — enableFlutterDriverExtension() creates the WidgetsBinding
+  // singleton itself (as a _DriverBinding that also overrides debugCheckZone
+  // to accept whatever zone runApp() ends up in). sentry_flutter's
+  // WidgetsFlutterBindingIntegration creates its own SentryWidgetsFlutterBinding
+  // the moment SentryFlutter.init() runs inside AppMonitoring.bootstrap below
+  // — calling this any later collides with that (binding-already-initialized
+  // assert). Whichever binding claims the singleton first wins; Sentry's own
+  // ensureInitialized() finds the existing one and reuses it rather than
+  // erroring, so ordering it first here is what makes both coexist. Trade-off:
+  // Sentry's frame-timing tracking (SentryWidgetsBindingMixin) is then not
+  // mixed in, so slow-frame reporting is inactive while this is on — debug
+  // builds only, so that's not a production monitoring gap. Lets the
+  // Dart/Flutter MCP server's flutter_driver_command tool
+  // (screenshot/tap/diagnostics tree) drive the real running app — see
+  // docs/agents/ui-investigation.md.
+  if (kDebugMode) {
+    enableFlutterDriverExtension();
+  }
+
   // Linux-only fast-path: the GTK embedder has no named-entrypoint API
   // (unlike macOS FlutterEngine.run(withEntrypoint:) / Windows
   // FlutterDesktopEngineCreate). Instead the native FloatingOverlayWindow

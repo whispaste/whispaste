@@ -66,6 +66,15 @@ dependencies:
   # Cross-platform audio engine (replaces Win32 PlaySoundW)
   flutter_soloud: ^4.0.7
 
+  # Flutter Driver VM service extension — enabled in lib/main.dart gated on
+  # kDebugMode alone, so it is compiled out of profile/release entirely and
+  # never reaches the Mac App Store / Microsoft Store build. Lets the
+  # Dart/Flutter MCP server's flutter_driver_command tool (screenshot, tap,
+  # diagnostics tree) drive the real running app for UI debugging — see
+  # docs/agents/ui-investigation.md.
+  flutter_driver:
+    sdk: flutter
+
   # Utilities
   intl: ^0.20.2
   # CLDR-localised language display names (STT recognition-language dropdown).
