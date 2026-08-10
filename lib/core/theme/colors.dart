@@ -86,6 +86,15 @@ abstract final class WpColorsDark {
   static const Color mutedRowHover = Color(0x0F8A99B2); // textMuted @ 6%
   static const Color mutedActiveFill = Color(0x1F8A99B2); // textMuted @ 12%
 
+  /// The 12 % rung for the two remaining status hues, so the Quiet Status
+  /// Rule's "tinted 32 px icon badge (status color at 12 % fill)" can be
+  /// written as a token everywhere instead of a `withValues(alpha: 0.12)` at
+  /// each call site. [error] already had its rung above; these complete the
+  /// set. No 6 %/30 % rungs: success and warning never carry a hover state or
+  /// an outline of their own — they only ever appear as a badge.
+  static const Color successActiveFill = Color(0x1F36D98B); // success @ 12%
+  static const Color warningActiveFill = Color(0x1FF5C842); // warning @ 12%
+
   /// Orange-600 — used for RAM/hardware preflight warnings.
   static const Color warningOrange = Color(0xFFEA580C);
 
@@ -234,6 +243,10 @@ abstract final class WpColorsLight {
   static const Color success = Color(0xFF05875C);
   static const Color warning = Color(0xFFC97A06);
   static const Color error = Color(0xFFCC1C1C);
+
+  /// 12 % status badge rungs — see [WpColorsDark.successActiveFill].
+  static const Color successActiveFill = Color(0x1F05875C); // success @ 12%
+  static const Color warningActiveFill = Color(0x1FC97A06); // warning @ 12%
 
   /// Premium pearl-blue card gradient — subtle diagonal wash
   static const LinearGradient surfaceGradient = LinearGradient(

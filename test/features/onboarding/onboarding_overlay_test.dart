@@ -158,6 +158,51 @@ class _TroubleshootPasteCapabilityNotifier extends PasteCapabilityNotifier {
       const TccRepairResult(accessibilityCleared: 0, appleEventsCleared: 0);
 }
 
+/// Seeds one Auto-Paste phase and holds it against the step's on-mount
+/// `check()`. Exists because the fold matrix below pumps the overlay with no
+/// capability seeded at all, which resolves to `checking` — so the two phases
+/// that actually carry content (`intro`, the first-run state with the Grant
+/// CTA, and `waiting`, which carries the multi-line "tick the box" hint) were
+/// measured at no text scale whatsoever while the page's blocks were being
+/// re-cut. That is the gap this fake closes; [PollingPhase.awaitingGrant]
+/// keeps `needsRestart` false, so `waiting` cannot silently degrade into the
+/// troubleshoot branch and measure the wrong thing.
+class _PhasePasteCapabilityNotifier extends PasteCapabilityNotifier {
+  _PhasePasteCapabilityNotifier({
+    required this.pollingPhase,
+    this.status = PasteCapabilityStatus.permissionMissing,
+  });
+
+  final PollingPhase pollingPhase;
+
+  /// `_WindowsBody` keys only on this, so the same fake seeds both Windows
+  /// branches: `permissionMissing` is the UIPI edge, `ready` the 99 % case.
+  final PasteCapabilityStatus status;
+
+  PasteCapabilityState get _seeded => PasteCapabilityState(
+    capability: PasteCapability(status: status, canPrompt: true),
+    sentToOsGrantFlow: pollingPhase == PollingPhase.awaitingGrant,
+    pollingPhase: pollingPhase,
+  );
+
+  @override
+  PasteCapabilityState build() => _seeded;
+
+  @override
+  Future<void> check({bool prompt = false}) async {
+    state = _seeded;
+  }
+
+  @override
+  void startPolling({
+    Duration interval = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 30),
+  }) {}
+
+  @override
+  void stopPolling() {}
+}
+
 /// Same shape for the microphone permission poller — additionally pins the
 /// status and records [request] calls so the leave-page-1 hook is provable
 /// without any platform involvement.
@@ -1139,23 +1184,19 @@ void main() {
     // Brightness is deliberately not part of the key: measured across both
     // themes, page heights are identical, so keying on it would double the
     // table without distinguishing anything.
-    final foldRatchet = <(TargetPlatform, int, String, double), double>{
-      // Page 1 (Welcome), German, scale 1.3.
-      //
-      // Owned by ticket 20 Phase 5 / question a, which is a maintainer
-      // decision and not a layout one: the height in question is the page's
-      // 460×288 media panel, which has assets for exactly one of six
-      // theme×beat combinations and renders an empty tinted rectangle for the
-      // other five. Whether it shrinks, disappears when it has nothing to
-      // show, or gets a designed placeholder is the question — so this page
-      // is deliberately left alone here rather than quietly re-cut to fit.
-      //
-      // It was 50 px until the footer stack lost a line and 12 px of bottom
-      // gap (see `_kOnboardingBottomGap`); English and Hebrew were 28 px over
-      // and now fit outright, which is why only German is listed.
-      (TargetPlatform.macOS, 1, 'de', 1.3): 22,
-      (TargetPlatform.linux, 1, 'de', 1.3): 22,
-    };
+    // Empty, and that is the point: every page in every locale at every scale
+    // in [foldTextScales] now fits the fixed window outright.
+    //
+    // The table's last two rows were page 1 (Welcome) in German at scale 1.3,
+    // 22 px over, owned by ticket 20 Phase 5 / question a. They are gone
+    // because that page was re-cut on purpose rather than left to the media
+    // panel: the beat tiles' vertical padding dropped from 12 to 8 (which is
+    // also W3's staggering fix), the showcase→language gap from 24 to 16, and
+    // the brand lockup's inner gap from 12 to 8. German at 1.3 now lands on
+    // 567 px of the 567 px offered — the tightest case in the flow, and a fit.
+    // The panel itself is unchanged at 460×288; question a was answered with a
+    // designed placeholder, not with a smaller surface.
+    final foldRatchet = <(TargetPlatform, int, String, double), double>{};
 
     for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
       for (final locale in L10n.supportedLocales) {
@@ -1608,65 +1649,197 @@ void main() {
         },
       );
 
-      testWidgets(
-        'the Auto-Paste page fits the fixed window in the troubleshoot '
-        'branch (skip + repair + result banner + its own restart button) '
-        'in ${locale.languageCode}',
-        (tester) async {
-          useFixedWindow(tester);
-          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-          try {
-            await _pumpOverlay(
-              tester,
-              size: kOnboardingWindowSize,
-              locale: locale,
-              settings: _FakeSettingsNotifier(
-                AppSettings.defaults.copyWith(locale: locale.languageCode),
-              ),
-              paste: _TroubleshootPasteCapabilityNotifier(),
-            );
-            for (var page = 2; page <= 5; page++) {
-              await _tapNext(tester);
+      // The Auto-Paste phases the default matrix cannot reach: it seeds no
+      // capability, so it only ever measures `checking`. `intro` is the
+      // first-run state every macOS user meets (status card + full-width
+      // Grant CTA + why + skip) and `waiting` is the tallest non-troubleshoot
+      // one — its card carries a four-line hint with a blank line in it.
+      for (final (name, phase) in [
+        ('intro', PollingPhase.idle),
+        ('waiting', PollingPhase.awaitingGrant),
+      ]) {
+        for (final scale in foldTextScales) {
+          testWidgets(
+            'the Auto-Paste page fits the fixed window in the $name branch '
+            'in ${locale.languageCode} at text scale $scale',
+            (tester) async {
+              useFixedWindow(tester);
+              debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+              try {
+                await _pumpOverlay(
+                  tester,
+                  size: kOnboardingWindowSize,
+                  locale: locale,
+                  textScaler: TextScaler.linear(scale),
+                  settings: _FakeSettingsNotifier(
+                    AppSettings.defaults.copyWith(locale: locale.languageCode),
+                  ),
+                  paste: _PhasePasteCapabilityNotifier(pollingPhase: phase),
+                );
+                for (var page = 2; page <= 6; page++) {
+                  await _tapNext(tester);
+                }
+
+                final localized = await L10n.delegate.load(locale);
+                expect(
+                  find.text(
+                    phase == PollingPhase.awaitingGrant
+                        ? localized.onboardingPasteWaitingForGrantTitle
+                        : localized.onboardingPasteGrantCta,
+                  ),
+                  findsOneWidget,
+                  reason: 'the $name branch must actually be rendered',
+                );
+
+                expectFits(
+                  tester,
+                  measure(tester),
+                  what:
+                      'Auto-Paste page, $name branch '
+                      '(${locale.languageCode}, scale $scale)',
+                );
+              } finally {
+                debugDefaultTargetPlatformOverride = null;
+              }
+            },
+          );
+        }
+      }
+
+      // Troubleshoot used to be measured at scale 1.0 only, which is the one
+      // scale where its slack is comfortable. It carries the Skip button —
+      // the escape control — so it is measured across the same scales as
+      // everything else.
+      for (final scale in foldTextScales) {
+        testWidgets(
+          'the Auto-Paste page fits the fixed window in the troubleshoot '
+          'branch (skip + repair + result banner + its own restart button) '
+          'in ${locale.languageCode} at text scale $scale',
+          (tester) async {
+            useFixedWindow(tester);
+            debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+            try {
+              await _pumpOverlay(
+                tester,
+                size: kOnboardingWindowSize,
+                locale: locale,
+                textScaler: TextScaler.linear(scale),
+                settings: _FakeSettingsNotifier(
+                  AppSettings.defaults.copyWith(locale: locale.languageCode),
+                ),
+                paste: _TroubleshootPasteCapabilityNotifier(),
+              );
+              for (var page = 2; page <= 6; page++) {
+                await _tapNext(tester);
+              }
+
+              final localized = await L10n.delegate.load(locale);
+              expect(
+                find.text(localized.pasteCapabilityRestartTitle),
+                findsOneWidget,
+                reason: 'the troubleshoot branch must actually be rendered',
+              );
+
+              await tester.tap(
+                find.text(localized.pasteCapabilityRepairButton),
+              );
+              // Sequential pump() — the success path chains into the grant
+              // flow, same as auto_paste_step_test.dart's nothingCleared
+              // case; pumpAndSettle would deadlock on the polling spinner.
+              await tester.pump();
+              await tester.pump();
+              await tester.pump();
+
+              expect(
+                find.text(localized.pasteCapabilityRepairNothingToClear),
+                findsOneWidget,
+                reason:
+                    'the result banner (and its own Restart button) must '
+                    'actually be rendered — otherwise this measures the '
+                    'nominal troubleshoot state and passes for the wrong '
+                    'reason',
+              );
+
+              expectFits(
+                tester,
+                measure(tester),
+                what:
+                    'Auto-Paste page, troubleshoot branch '
+                    '(${locale.languageCode}, scale $scale)',
+              );
+            } finally {
+              debugDefaultTargetPlatformOverride = null;
             }
-            await _tapNext(tester); // → 6: Auto-Paste
+          },
+        );
+      }
+    }
 
-            final localized = await L10n.delegate.load(locale);
-            expect(
-              find.text(localized.pasteCapabilityRestartTitle),
-              findsOneWidget,
-              reason: 'the troubleshoot branch must actually be rendered',
-            );
+    // ── Windows: the two branches of _WindowsBody ────────────────────────
+    //
+    // Deliberately narrow rather than a second 36-case matrix: Windows shares
+    // the whole flow with macOS except this one page body, and it is the one
+    // platform with neither a golden nor a row in the matrix above — so a
+    // wrap on its cards would surface nowhere. `de` and `he` only, being the
+    // long and the RTL case; `en` is strictly shorter than both here.
+    for (final locale in [const Locale('de'), const Locale('he')]) {
+      for (final (name, status) in [
+        ('UIPI edge', PasteCapabilityStatus.permissionMissing),
+        ('ready', PasteCapabilityStatus.ready),
+      ]) {
+        for (final scale in foldTextScales) {
+          testWidgets(
+            'the Auto-Paste page fits the fixed window on Windows in the '
+            '$name branch in ${locale.languageCode} at text scale $scale',
+            (tester) async {
+              useFixedWindow(tester);
+              debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+              try {
+                await _pumpOverlay(
+                  tester,
+                  size: kOnboardingWindowSize,
+                  locale: locale,
+                  textScaler: TextScaler.linear(scale),
+                  settings: _FakeSettingsNotifier(
+                    AppSettings.defaults.copyWith(locale: locale.languageCode),
+                  ),
+                  paste: _PhasePasteCapabilityNotifier(
+                    pollingPhase: PollingPhase.idle,
+                    status: status,
+                  ),
+                );
+                for (var page = 2; page <= 6; page++) {
+                  await _tapNext(tester);
+                }
 
-            await tester.tap(find.text(localized.pasteCapabilityRepairButton));
-            // Sequential pump() — the success path chains into the grant
-            // flow, same as auto_paste_step_test.dart's nothingCleared case;
-            // pumpAndSettle would deadlock on the polling spinner.
-            await tester.pump();
-            await tester.pump();
-            await tester.pump();
+                final localized = await L10n.delegate.load(locale);
+                expect(
+                  find.text(
+                    status == PasteCapabilityStatus.ready
+                        ? localized.onboardingPasteWhyWin
+                        : localized.onboardingPasteWhyWinUipi,
+                  ),
+                  findsOneWidget,
+                  reason:
+                      'the Windows $name branch must actually be rendered — '
+                      'otherwise this measures the wrong card and passes for '
+                      'the wrong reason',
+                );
 
-            expect(
-              find.text(localized.pasteCapabilityRepairNothingToClear),
-              findsOneWidget,
-              reason:
-                  'the result banner (and its own Restart button) must '
-                  'actually be rendered — otherwise this measures the '
-                  'nominal troubleshoot state and passes for the wrong '
-                  'reason',
-            );
-
-            expectFits(
-              tester,
-              measure(tester),
-              what:
-                  'Auto-Paste page, troubleshoot branch '
-                  '(${locale.languageCode})',
-            );
-          } finally {
-            debugDefaultTargetPlatformOverride = null;
-          }
-        },
-      );
+                expectFits(
+                  tester,
+                  measure(tester),
+                  what:
+                      'Auto-Paste page on Windows, $name branch '
+                      '(${locale.languageCode}, scale $scale)',
+                );
+              } finally {
+                debugDefaultTargetPlatformOverride = null;
+              }
+            },
+          );
+        }
+      }
     }
   });
 

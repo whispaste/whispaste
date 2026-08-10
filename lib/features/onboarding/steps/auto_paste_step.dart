@@ -50,6 +50,11 @@ import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
+/// Edge of the square status badge, from DESIGN.md's Quiet Status Rule
+/// ("a tinted 32px icon badge plus copy"). Not a [WpIconSize] value — the
+/// 32 there is an *icon* grade, and this is the badge the 16-px icon sits in.
+const double _kStatusBadgeSize = 32;
+
 class AutoPasteStep extends ConsumerStatefulWidget {
   const AutoPasteStep({super.key});
 
@@ -321,6 +326,7 @@ class _MacOsBody extends StatelessWidget {
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
+    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
 
     final phase = _phase;
@@ -343,6 +349,7 @@ class _MacOsBody extends StatelessWidget {
           textMuted: textMuted,
           accentGradient: accentGradient,
           successColor: successColor,
+          warningColor: warningColor,
           errorColor: errorColor,
         ),
       ],
@@ -358,132 +365,209 @@ class _MacOsBody extends StatelessWidget {
     required Color textMuted,
     required LinearGradient accentGradient,
     required Color successColor,
+    required Color warningColor,
     required Color errorColor,
   }) {
-    switch (phase) {
-      case _AutoPastePhase.checking:
-        return [
-          _PermissionStatusCard(
-            status: null,
-            isPolling: false,
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            successColor: successColor,
+    // -- One page, five states of it -------------------------------------
+    //
+    // The five branches used to be five *pages*: `checking` was a lone status
+    // line with no explanation and no control (the state a first run lands in
+    // first, and the one it is most likely to be photographed in), `intro`
+    // opened with a full-width CTA and no statement of where the permission
+    // actually stood, `waiting` swapped the status card out for a different
+    // card entirely, and `troubleshoot` stacked 492 px against `checking`'s
+    // 189. Nothing was wrong with any one of them; there was simply no state
+    // the page had been designed *to*, so every branch had invented its own
+    // shape and the user re-read the page on each transition.
+    //
+    // There is one shape now, and only its contents change:
+    //
+    //   status card   — where the permission stands, always, with the same
+    //                   badge geometry the Settings surface uses
+    //   action        — the phase's single primary control, if it has one
+    //   why           — what happens if the answer is no; constant while the
+    //                   permission is missing, because that is exactly the
+    //                   question the user is weighing in every one of those
+    //                   states
+    //   skip          — the way out, in every state that has one
+    //
+    // `granted` is the one deliberate exception and reads as a terminal: no
+    // why (the caveat no longer applies) and no skip (there is nothing left
+    // to skip). Everything else differs only in what the card says, which is
+    // what makes the transitions read as one page updating rather than as
+    // four pages taking turns.
+    final skip = Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: WpButton(
+        label: l10n.onboardingPasteSkip,
+        variant: WpButtonVariant.ghost,
+        tone: WpButtonTone.neutral,
+        onPressed: onSkip,
+      ),
+    );
+
+    final why = Padding(
+      padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+      child: Text(
+        l10n.onboardingPasteWhyMac,
+        textAlign: TextAlign.start,
+        style: TextStyle(
+          fontSize: WpTypography.small,
+          color: textMuted,
+          height: 1.4,
+        ),
+      ),
+    );
+
+    // Card contents per phase. `permissionMissing` is amber, not red: the
+    // Quiet Status Rule reserves red for actual failures, and a permission
+    // the user has simply not been asked for yet is not one — it is the
+    // normal opening state of this page.
+    final (
+      IconData icon,
+      Color color,
+      Color tint,
+      String title,
+    ) = switch (phase) {
+      _AutoPastePhase.checking => (
+        LucideIcons.loaderCircle,
+        textSecondary,
+        isDark ? WpColorsDark.mutedActiveFill : WpColorsLight.mutedActiveFill,
+        l10n.onboardingPasteChipPending,
+      ),
+      _AutoPastePhase.granted => (
+        LucideIcons.circleCheck,
+        successColor,
+        isDark
+            ? WpColorsDark.successActiveFill
+            : WpColorsLight.successActiveFill,
+        l10n.onboardingPasteChipReady,
+      ),
+      _AutoPastePhase.waiting => (
+        LucideIcons.squareCheckBig,
+        warningColor,
+        isDark
+            ? WpColorsDark.warningActiveFill
+            : WpColorsLight.warningActiveFill,
+        l10n.onboardingPasteWaitingForGrantTitle,
+      ),
+      _AutoPastePhase.intro || _AutoPastePhase.troubleshoot => (
+        LucideIcons.shieldAlert,
+        warningColor,
+        isDark
+            ? WpColorsDark.warningActiveFill
+            : WpColorsLight.warningActiveFill,
+        l10n.onboardingPasteChipAction,
+      ),
+    };
+
+    // The detail line is what turned a 640-px card holding three words into a
+    // card holding its own explanation — the `waiting` phase's step-by-step
+    // hint used to need a second card of its own for this (`_PollingHintCard`,
+    // now gone), which is precisely how the page ended up with two different
+    // card shapes for one job.
+    // `null` on the phases whose title already says the whole thing —
+    // `granted` in particular: the page header above this card already runs
+    // [AppLocalizations.onboardingPasteSubtitle], so repeating it here would
+    // print the same sentence twice on one screen, in the future tense, for a
+    // permission the user has just granted.
+    final String? detail = switch (phase) {
+      _AutoPastePhase.waiting => l10n.onboardingPasteWaitingForGrantHint,
+      _ => null,
+    };
+
+    final card = _PermissionStatusCard(
+      icon: icon,
+      color: color,
+      tint: tint,
+      title: title,
+      detail: detail,
+      isDark: isDark,
+      textPrimary: textPrimary,
+      textSecondary: textSecondary,
+    );
+
+    final actions = switch (phase) {
+      _AutoPastePhase.intro => <Widget>[
+        SizedBox(
+          width: double.infinity,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+          child: WpHeroButton(
+            label: l10n.onboardingPasteGrantCta,
+            gradient: accentGradient,
+            onPressed: grantInFlight ? null : onGrant,
+          ),
+        ),
+      ],
+      _AutoPastePhase.troubleshoot => <Widget>[
+        WpPasteCapabilityRestartBanner(
+          onRestart: () => notifier.restartForGrant(),
+        ),
+        // `sm`, not the page's `md`: these three are one recovery stack —
+        // the problem, the fix, and the fallback with its outcome — so they
+        // group tighter than the blocks the page separates with `md`. It is
+        // also the only branch where that matters, because it is the only
+        // one that stacks four things at once.
+        const SizedBox(height: WpSpacing.sm),
+        // Secondary fallback: reset the entry instead of restarting.
+        // Surfaces the existing repair flow without giving it equal weight.
+        WpButton(
+          label: l10n.pasteCapabilityRepairButton,
+          variant: WpButtonVariant.secondary,
+          tone: WpButtonTone.neutral,
+          icon: LucideIcons.wrench,
+          isLoading: repairInFlight,
+          onPressed: onRepair,
+        ),
+        if (lastRepairResult != null) ...[
+          const SizedBox(height: WpSpacing.sm),
+          _RepairResultBanner(
+            result: lastRepairResult!,
             errorColor: errorColor,
-            l10n: l10n,
-          ),
-        ];
-
-      case _AutoPastePhase.granted:
-        return [
-          _PermissionStatusCard(
-            status: PasteCapabilityStatus.ready,
-            isPolling: false,
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
             successColor: successColor,
-            errorColor: errorColor,
-            l10n: l10n,
-          ),
-        ];
-
-      case _AutoPastePhase.intro:
-        return [
-          SizedBox(
-            width: double.infinity,
-            // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-            child: WpHeroButton(
-              label: l10n.onboardingPasteGrantCta,
-              gradient: accentGradient,
-              onPressed: grantInFlight ? null : onGrant,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: Text(
-              l10n.onboardingPasteWhyMac,
-              textAlign: TextAlign.start,
-              style: TextStyle(
-                fontSize: WpTypography.small,
-                color: textMuted,
-                height: 1.4,
-              ),
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: WpButton(
-              label: l10n.onboardingPasteSkip,
-              variant: WpButtonVariant.ghost,
-              tone: WpButtonTone.neutral,
-              onPressed: onSkip,
-            ),
-          ),
-        ];
-
-      case _AutoPastePhase.waiting:
-        return [
-          _PollingHintCard(
-            isDark: isDark,
-            textPrimary: textPrimary,
             textSecondary: textSecondary,
             l10n: l10n,
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: WpButton(
-              label: l10n.onboardingPasteSkip,
-              variant: WpButtonVariant.ghost,
-              tone: WpButtonTone.neutral,
-              onPressed: onSkip,
-            ),
-          ),
-        ];
-
-      case _AutoPastePhase.troubleshoot:
-        return [
-          WpPasteCapabilityRestartBanner(
             onRestart: () => notifier.restartForGrant(),
           ),
-          const SizedBox(height: WpSpacing.sm),
-          // Secondary fallback: reset the entry instead of restarting.
-          // Surfaces the existing repair flow without giving it equal weight.
-          WpButton(
-            label: l10n.pasteCapabilityRepairButton,
-            variant: WpButtonVariant.secondary,
-            tone: WpButtonTone.neutral,
-            icon: LucideIcons.wrench,
-            isLoading: repairInFlight,
-            onPressed: onRepair,
-          ),
-          if (lastRepairResult != null) ...[
-            const SizedBox(height: WpSpacing.xs),
-            _RepairResultBanner(
-              result: lastRepairResult!,
-              errorColor: errorColor,
-              successColor: successColor,
-              textSecondary: textSecondary,
-              l10n: l10n,
-              onRestart: () => notifier.restartForGrant(),
-            ),
-          ],
-          const SizedBox(height: WpSpacing.sm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: WpButton(
-              label: l10n.onboardingPasteSkip,
-              variant: WpButtonVariant.ghost,
-              tone: WpButtonTone.neutral,
-              onPressed: onSkip,
-            ),
-          ),
-        ];
-    }
+        ],
+      ],
+      _ => const <Widget>[],
+    };
+
+    // One gap value between blocks (`md`) against one inside the card
+    // (`xxs`) — 4:1, which is what makes the card read as one object and the
+    // page as four. It used to run `sm` against `xs`, 1.5:1, close enough
+    // that the Skip button looked like part of the block above it.
+    if (phase == _AutoPastePhase.granted) return [card];
+    return [
+      // `troubleshoot` is the one phase whose leading block is not the card:
+      // [WpPasteCapabilityRestartBanner] is already a status object — it
+      // states what went wrong and carries the single action that fixes it —
+      // so putting "action needed" in a card directly above it says the same
+      // thing twice and costs the page 86 px it does not have (that branch
+      // stacks banner + repair + result + skip and was the tallest state on
+      // the page before any of this). The shape is unchanged: one status
+      // object, then the action, then why, then the way out.
+      if (phase != _AutoPastePhase.troubleshoot) ...[
+        card,
+        const SizedBox(height: WpSpacing.md),
+      ],
+      ...actions,
+      if (actions.isNotEmpty) const SizedBox(height: WpSpacing.md),
+      // …and the one phase that drops the why-line. Its job is to help a user
+      // decide *whether* to grant; in `troubleshoot` that decision is behind
+      // them — they granted, macOS did not take it, and the page's whole
+      // content is now the recovery. Keeping it there also costs the tallest
+      // branch on the page 81 px it does not have: with the line in, German
+      // at text scale 1.3 ran 631 px against the 567 px the fixed window
+      // offers (measured; see the troubleshoot fold tests, which now run at
+      // every scale in `foldTextScales` rather than at 1.0 only).
+      if (phase != _AutoPastePhase.troubleshoot) ...[
+        why,
+        const SizedBox(height: WpSpacing.md),
+      ],
+      skip,
+    ];
   }
 }
 
@@ -538,28 +622,62 @@ class _WindowsBody extends StatelessWidget {
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
     final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+
+    // Same object as the macOS body renders, on purpose: this is one page in
+    // the flow, and it had two private card classes of its own here — a
+    // 20-px-icon verify card and a warn card — that said the same kind of
+    // thing in a third and fourth shape. Windows now shows the page's status
+    // card with a Windows status in it, so the two platforms differ in what
+    // they say rather than in how the page is built. The explanation moves
+    // *into* the card as its secondary line, which is where the macOS body
+    // puts the waiting hint and what stops a full-width card from carrying
+    // three words.
+    final card = isUipiEdge
+        ? _PermissionStatusCard(
+            icon: LucideIcons.triangleAlert,
+            color: warningColor,
+            tint: isDark
+                ? WpColorsDark.warningActiveFill
+                : WpColorsLight.warningActiveFill,
+            // Titleless on purpose — see [_PermissionStatusCard.title]. UIPI
+            // is a caveat about *some* target windows, not a task: Auto-Paste
+            // works in every non-elevated app, and the correct default here is
+            // to do nothing. "Action needed" would be a lie with a button-less
+            // card under it.
+            title: null,
+            detail: l10n.onboardingPasteWhyWinUipi,
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          )
+        : _PermissionStatusCard(
+            icon: LucideIcons.circleCheck,
+            color: successColor,
+            tint: isDark
+                ? WpColorsDark.successActiveFill
+                : WpColorsLight.successActiveFill,
+            title: l10n.onboardingPasteChipReady,
+            detail: l10n.onboardingPasteWhyWin,
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // No title — the page owns the heading (see the macOS body).
+        card,
+        // Skip only in the UIPI edge — it sets afterTranscription=clipboard
+        // and uses the macOS wording (`onboardingPasteSkip`) so the option is
+        // recognisable across platforms. The 99 % branch has nothing to skip:
+        // Auto-Paste already works there, and offering the opt-out would only
+        // invite a mis-tap.
         if (isUipiEdge) ...[
-          // -- UIPI warn card (non-blocking) ------------------------------
-          _WindowsWarnCard(
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            warningColor: warningColor,
-            message: l10n.onboardingPasteWhyWinUipi,
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          // Skip — sets afterTranscription=clipboard and advances. Same
-          // wording as the macOS skip (`onboardingPasteSkip`) so the option
-          // is recognisable across platforms.
+          const SizedBox(height: WpSpacing.md),
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: WpButton(
@@ -569,278 +687,61 @@ class _WindowsBody extends StatelessWidget {
               onPressed: onSkip,
             ),
           ),
-        ] else ...[
-          // -- Verify card (default, 99% case) ----------------------------
-          _WindowsVerifyCard(
-            isDark: isDark,
-            textPrimary: textPrimary,
-            successColor: successColor,
-            label: l10n.onboardingPasteChipReady,
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: Text(
-              l10n.onboardingPasteWhyWin,
-              textAlign: TextAlign.start,
-              style: TextStyle(
-                fontSize: WpTypography.small,
-                color: textMuted,
-                height: 1.4,
-              ),
-            ),
-          ),
         ],
       ],
     );
   }
 }
 
-/// Minimal Windows verify-state card: green checkmark + "Ready to paste".
-/// No actions inside the card; the surrounding column wires up Next.
-class _WindowsVerifyCard extends StatelessWidget {
-  const _WindowsVerifyCard({
-    required this.isDark,
-    required this.textPrimary,
-    required this.successColor,
-    required this.label,
-  });
-
-  final bool isDark;
-  final Color textPrimary;
-  final Color successColor;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.circleCheck,
-            size: WpIconSize.md,
-            color: successColor,
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: WpTypography.subheading,
-                fontWeight: FontWeight.w600,
-                color: textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Non-blocking Windows warn card surfacing the UIPI/UAC edge case. Uses
-/// the warning palette (not the error palette) because the situation is
-/// recoverable — Auto-Paste still works for non-elevated target apps and
-/// the clipboard path is always available as a fallback.
-class _WindowsWarnCard extends StatelessWidget {
-  const _WindowsWarnCard({
-    required this.isDark,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.warningColor,
-    required this.message,
-  });
-
-  final bool isDark;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color warningColor;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(WpSpacing.md),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            LucideIcons.triangleAlert,
-            size: WpIconSize.md,
-            color: warningColor,
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Where the Auto-Paste permission stands, in the shape DESIGN.md's Quiet
+/// Status Rule prescribes: a neutral card, a 32-px icon badge tinted to 12 %
+/// of the status hue, a 13-px title and an optional secondary line — the same
+/// object `paste_capability_indicator.dart` renders in Settings, so the
+/// permission looks the same in both places the user meets it.
+///
+/// It replaces a card that was a bare 20-px icon plus one 14/600 label on a
+/// full-width surface. That is what made the page read as empty rather than
+/// as quiet: the card was the width of the page and carried three words, and
+/// the badge — the element the rule makes responsible for *carrying* status —
+/// was not there at all. Width is not the fix (the page's head and body have
+/// to end on the same edge, so the card stays full-bleed); content is.
 class _PermissionStatusCard extends StatelessWidget {
   const _PermissionStatusCard({
-    required this.status,
-    required this.isPolling,
+    required this.icon,
+    required this.color,
+    required this.tint,
+    required this.title,
+    required this.detail,
     required this.isDark,
     required this.textPrimary,
     required this.textSecondary,
-    required this.successColor,
-    required this.errorColor,
-    required this.l10n,
   });
 
-  final PasteCapabilityStatus? status;
-  final bool isPolling;
-  final bool isDark;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color successColor;
-  final Color errorColor;
-  final L10n l10n;
+  final IconData icon;
 
-  @override
-  Widget build(BuildContext context) {
-    final (icon, color, label) = _resolve();
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+  /// Status hue for the glyph, and [tint] its 12 % rung for the badge fill.
+  /// Passed rather than derived: the phase that owns the state also owns what
+  /// the state *means*, and deriving a colour from an icon here would put
+  /// that decision in two places.
+  final Color color;
+  final Color tint;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: WpIconSize.md, color: color),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: WpTypography.subheading,
-                fontWeight: FontWeight.w600,
-                color: textPrimary,
-              ),
-            ),
-          ),
-          if (isPolling)
-            const SizedBox(
-              width: WpIconSize.sm,
-              height: WpIconSize.sm,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-        ],
-      ),
-    );
-  }
+  /// `null` turns the card into a *statement* card: no status label, just the
+  /// badge and [detail]. The Windows UIPI edge needs exactly that — the state
+  /// there is a caveat, not a task, and every status label this app owns
+  /// ("action needed", "pending", "ready") would either demand work the user
+  /// cannot do or claim a readiness that branch does not have. A titleless
+  /// card keeps that honest without a new string in three locales.
+  final String? title;
 
-  // Onboarding-only chip vocabulary — ready/pending/action-needed mirrors
-  // the mic permission chip on step 1 (`mic_permission_chip.dart`) so both
-  // capability chips speak the same three-state language. Kept separate
-  // from the shared `pasteCapability*` keys (also used by
-  // `paste_capability_indicator.dart` in Settings), which are out of scope
-  // here — `unsupported` keeps its shared wording since it's a different
-  // claim ("not available here") than "action needed".
-  (IconData, Color, String) _resolve() {
-    if (status == null) {
-      return (
-        LucideIcons.loaderCircle,
-        textSecondary,
-        l10n.onboardingPasteChipPending,
-      );
-    }
-    return switch (status!) {
-      PasteCapabilityStatus.ready => (
-        LucideIcons.circleCheck,
-        successColor,
-        l10n.onboardingPasteChipReady,
-      ),
-      PasteCapabilityStatus.permissionMissing => (
-        LucideIcons.shieldAlert,
-        errorColor,
-        l10n.onboardingPasteChipAction,
-      ),
-      PasteCapabilityStatus.unsupported => (
-        LucideIcons.info,
-        textSecondary,
-        l10n.pasteCapabilityUnsupported,
-      ),
-    };
-  }
-}
-
-/// Step-by-step guidance card surfaced only while
-/// [PasteCapabilityNotifier] is in the [PollingPhase.awaitingGrant] phase.
-///
-/// Explains *what* the app is doing (polling for the OS to flip the
-/// Accessibility toggle) and *what the user has to do* (find WhisPaste in
-/// the System Settings pane that just opened, switch it on). Without this
-/// card the polling spinner reads as "something is loading" — opaque from
-/// the user's perspective and a known onboarding drop-off point.
-///
-/// Surface/border colours mirror [_PermissionStatusCard] so the two cards
-/// read as a unit; the info icon distinguishes the role (status vs. hint).
-class _PollingHintCard extends StatelessWidget {
-  const _PollingHintCard({
-    required this.isDark,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.l10n,
-  });
+  /// Secondary line. `null` on the phases whose title already says the whole
+  /// thing — a card padded out with a restatement is the same emptiness with
+  /// more words in it.
+  final String? detail;
 
   final bool isDark;
   final Color textPrimary;
   final Color textSecondary;
-  final L10n l10n;
 
   @override
   Widget build(BuildContext context) {
@@ -865,32 +766,60 @@ class _PollingHintCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.info, size: WpIconSize.md, color: textSecondary),
+          Container(
+            width: _kStatusBadgeSize,
+            height: _kStatusBadgeSize,
+            decoration: BoxDecoration(
+              color: tint,
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Center(
+              child: Icon(icon, size: WpIconSize.sm, color: color),
+            ),
+          ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l10n.onboardingPasteWaitingForGrantTitle,
-                  style: TextStyle(
-                    fontSize: WpTypography.subheading,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
+                if (title != null)
+                  Text(
+                    title!,
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                Text(
-                  l10n.onboardingPasteWaitingForGrantHint,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    color: textSecondary,
-                    height: 1.4,
+                if (detail != null) ...[
+                  if (title != null) const SizedBox(height: WpSpacing.xxs),
+                  Text(
+                    detail!,
+                    // Metadata under a title (12 px), but body when it *is*
+                    // the message — the 13-px Baseline Rule steps down for a
+                    // second line, not for the only line on the card.
+                    style: TextStyle(
+                      fontSize: title == null
+                          ? WpTypography.body
+                          : WpTypography.small,
+                      color: textSecondary,
+                      height: 1.4,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
+          // No spinner, deliberately. The card carried an (unused) polling
+          // indicator, and wiring it up to `checking`/`waiting` is the
+          // obvious way to show "something is happening" — but a
+          // never-ending animation on an onboarding page is an animation the
+          // golden capture and every `pumpAndSettle` in the flow's tests wait
+          // on forever, and it is louder than this app's motion register
+          // allows for a state that resolves in milliseconds. Progress is
+          // carried by the badge glyph and the copy instead: `checking`
+          // shows the loader mark and says the access is pending, `waiting`
+          // shows a checkbox mark and says which box to tick.
         ],
       ),
     );

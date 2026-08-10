@@ -124,6 +124,21 @@ const double kOnboardingBeatMediaWidth =
 /// — this is the panel's height, never a cap on the page.
 const double kOnboardingBeatMediaHeight = 288;
 
+/// Size of the decorative beat glyph on the empty media stage, and how far it
+/// runs off the panel's bottom-end corner.
+///
+/// 256 is deliberately larger than anything in [WpIconSize]: those grades stop
+/// at 48 because they describe icons the user *reads*, and this is not one —
+/// it is a surface texture, the category DESIGN.md's Decorative Glyph Rule
+/// calibrates its 3–5 % band for. At 256 px inside a 460×288 panel the glyph
+/// covers a little under half the surface, and the 40-px bleed puts its corner
+/// outside the [WpRadius.borderLg] clip so the shape reads as cropped rather
+/// than as a large centred icon. Both numbers are geometry, not spacing —
+/// putting them on the 4-px `WpSpacing` rhythm would say something the rhythm
+/// does not mean.
+const double _kBeatGlyphSize = 256;
+const double _kBeatGlyphBleed = 40;
+
 /// Welcome content of onboarding page 1 — wordmark, three demo beats and the
 /// language selection.
 ///
@@ -223,12 +238,16 @@ class WelcomeStep extends ConsumerWidget {
             // picks on a Retina display and visibly soften the logo — that
             // needs a larger source export, not a larger `height`.
             const WpBrandWordmark(height: 64),
-            // 4 px tighter under the notice strip than under the claim line:
-            // a bordered surface reads further away from the lockup than a
-            // line of text does at the same number, and those 4 px are what
-            // put the revision variant back on the first run's exact slack
-            // at the fixed window (23 px at normal size, 8 px at 1.15).
-            SizedBox(height: revisionRun ? WpSpacing.xs : WpSpacing.sm),
+            // One gap for both variants, and the tighter of the two. The
+            // claim is meant to read as a quiet second line *of the lockup*,
+            // not as a separate headline under it — at 12 px it sat far
+            // enough below the wordmark to read as its own block, which is
+            // the opposite of the intent stated below. 8 px binds the two
+            // into one mark, and it is also the last 4 px German at text
+            // scale 1.3 needed to clear the fold on this page (see the
+            // ledger in ticket 20's Phase-5 protocol). The revision variant
+            // already used this value.
+            const SizedBox(height: WpSpacing.xs),
             if (revisionRun)
               _RevisionNotice(reasons: revisionReasons)
             else
@@ -258,26 +277,54 @@ class WelcomeStep extends ConsumerWidget {
           // beat on the other. Captions are rendered by Flutter (l10n,
           // incl. RTL) — never baked into the artwork.
           const _BeatShowcase(),
-          // Tightened by 8 px in a revision run — the notice strip above is
-          // paid for from three places at once (the dropped claim, the
-          // tighter header gap, this one), because none of them alone covers
-          // it at an enlarged text scale. Measured, see the revision group in
-          // `onboarding_overlay_test.dart`.
-          SizedBox(height: revisionRun ? WpSpacing.md : WpSpacing.xl),
+          // One gap, both runs. This used to be `xl` on a first run and `md`
+          // on a revision run, which gave the page three different vertical
+          // values (24 / 16 / 4) with the largest only 1.5× the middle one —
+          // a rhythm too flat to group anything. The body now runs on two
+          // values at 4:1 (`md` between blocks, `xxs` inside a tile), and the
+          // language block below carries its own label, so the separation it
+          // needs comes from being a labelled group rather than from a wider
+          // gap.
+          const SizedBox(height: WpSpacing.md),
 
           // Language selector — items derived from L10n.supportedLocales
           // so adding a new language is an ARB-only change. Rendered as a
           // compact dropdown without flag icons (see widget docs).
+          //
+          // Labelled, and labelled *beside* the control rather than above it:
+          // this dropdown is the only decision the first page asks for, and
+          // unlabelled under a 460-px media panel it read as a leftover
+          // control rather than as the page's one question. A label above
+          // would say the same thing, but it costs a full line of height on a
+          // page that has none to spare — whereas the label-then-control row
+          // is the shape every `SettingRow` in the app already uses, at zero
+          // height. `settingsAppLanguage` is reused deliberately: this is the
+          // same setting the settings page exposes, and it should be called
+          // the same thing in both places.
           Padding(
             padding: const EdgeInsetsDirectional.only(
               start: kOnboardingContentInset,
             ),
-            child: SizedBox(
-              width: _kLanguageSelectorWidth,
-              child: WpLanguageSelector(
-                currentLocale: settings.locale,
-                onChanged: selectLocale,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.settingsAppLanguage,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                SizedBox(
+                  width: _kLanguageSelectorWidth,
+                  child: WpLanguageSelector(
+                    currentLocale: settings.locale,
+                    onChanged: selectLocale,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -617,9 +664,18 @@ class _BeatListTileState extends State<_BeatListTile> {
             child: AnimatedContainer(
               duration: WpMotion.durationFor(context, WpMotion.fast),
               curve: WpMotion.defaultCurve,
+              // Vertical padding is deliberately *half* the gap between two
+              // tiles (8 against 16). At the old 12 the two numbers were 1.5:1
+              // apart, which is close enough that the three tiles read as one
+              // running block of text with faint boxes drawn over it — the
+              // separation between two entries has to beat the air inside one
+              // entry, or the grouping is invisible. Horizontal padding stays
+              // at [kOnboardingContentInset]: it is the value the controls
+              // below add back as a start inset, and shrinking it would move
+              // the beat text off the page's one shared start edge.
               padding: const EdgeInsets.symmetric(
                 horizontal: kOnboardingContentInset,
-                vertical: WpSpacing.sm,
+                vertical: WpSpacing.xs,
               ),
               decoration: BoxDecoration(
                 color: widget.active ? surface : Colors.transparent,
@@ -639,11 +695,23 @@ class _BeatListTileState extends State<_BeatListTile> {
                     ),
                   ),
                   const SizedBox(height: WpSpacing.xxs),
+                  // Body, not caption. `WpTypography.small` (12) is the grade
+                  // DESIGN.md reserves for captions and metadata, and this is
+                  // neither: these three lines are the only place on the first
+                  // page that says what the product actually does. Rendering
+                  // the page's message-carrying text one grade *below* its
+                  // body baseline — in the narrower of the two columns, at
+                  // that — is what made the showcase read as a caption strip
+                  // beside a picture. 13 is the 13px Baseline Rule's body
+                  // size; the 1.4 leading is kept from the caption grade
+                  // rather than taking body's 1.5, because at three wrapped
+                  // German lines the extra leading costs more height than the
+                  // page has.
                   Text(
                     widget.caption,
                     textAlign: TextAlign.start,
                     style: TextStyle(
-                      fontSize: WpTypography.small,
+                      fontSize: WpTypography.body,
                       color: widget.active ? textSecondary : textMuted,
                       height: 1.4,
                     ),
@@ -689,14 +757,49 @@ class _BeatMediaPlaceholder extends StatelessWidget {
     final surface =
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
             .withValues(alpha: 0.5);
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final glyphWash = isDark
+        ? WpColorsDark.decorativeGlyphWash
+        : WpColorsLight.decorativeGlyphWash;
 
-    final placeholder = Center(
-      child: Icon(
-        icon,
-        size: WpIconSize.xxl,
-        color: accent.withValues(alpha: 0.55),
-      ),
+    // The empty stage, designed as one.
+    //
+    // This used to be a 48-px accent icon at 55 % alpha in the dead centre of
+    // a 460×288 surface, which is — line for line — the composition every
+    // browser draws for an image that failed to load: one small high-contrast
+    // mark centred in a large void. Five of the six theme×beat variants
+    // render it, so for most users that broken-image reading *is* page 1.
+    //
+    // The fix inverts the two properties that produce the reading rather than
+    // adding anything: the mark stops being small and stops being
+    // high-contrast. At [_kBeatGlyphSize] the beat's own icon is no longer an
+    // icon sitting *on* the surface, it is the surface's texture, and
+    // [WpColors*.decorativeGlyphWash] is the one alpha band DESIGN.md defines
+    // for exactly that — a glyph washed into a panel, dark 5 % / light 3 %,
+    // flat, no glow. It also retires a hand-rolled `withValues(alpha: 0.55)`,
+    // which the ladder's Don't-list forbids at a call site.
+    //
+    // Cropped at the bottom-end corner, not centred: a centred mark re-invites
+    // the "missing content" reading no matter how quiet it is, while a shape
+    // running off the edge can only be read as composition. The bleed is
+    // direction-aware — [PositionedDirectional] puts it bottom-left in Hebrew,
+    // so the panel does not point off the wrong edge in RTL.
+    //
+    // Deliberately nothing else. No copy: a line of text here would either
+    // advertise the missing clip or repeat the caption sitting 32 px to its
+    // side, and it would cost new strings in three ARB files for a surface
+    // that exists to be replaced. And no ornament: `beat_1_*_dark.webp` is
+    // already produced, so in dark mode the very same [AnimatedSwitcher] slot
+    // cross-fades between this stage and a real screen recording. Whatever
+    // stands here has to survive that swap without looking like it lost an
+    // argument.
+    final placeholder = Stack(
+      children: [
+        PositionedDirectional(
+          bottom: -_kBeatGlyphBleed,
+          end: -_kBeatGlyphBleed,
+          child: Icon(icon, size: _kBeatGlyphSize, color: glyphWash),
+        ),
+      ],
     );
 
     return DecoratedBox(
