@@ -156,7 +156,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           context,
           const Duration(milliseconds: 200),
         ),
-        decoration: isHighlighted
+        // `foregroundDecoration`, never `decoration`: a `Border` in the
+        // background decoration is laid out, not just painted — the container
+        // insets its child by the border width. The ring is transient (it
+        // arrives with a search hit and clears itself 1.5 s later), so a
+        // background border made the whole section jump 2 px inward on
+        // arrival and 2 px back on expiry, twice per search. Painted in the
+        // foreground the ring costs zero layout and the section holds still.
+        foregroundDecoration: isHighlighted
             ? BoxDecoration(
                 borderRadius: WpRadius.borderMd,
                 border: Border.all(

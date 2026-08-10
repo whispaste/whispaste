@@ -47,16 +47,13 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('no IconButton outside WpRowAction hand-sets a tap target below '
       'WpLayout.minTouchTarget', () {
+    // The title-bar theme toggle used to sit here at 36x32, flagged as
+    // "documented debt, not a permanent exemption" because a guard-only
+    // ticket could not make the layout decision. The layout ticket has since
+    // made it: the toggle is 48x48 and the entry is gone rather than
+    // grandfathered — which is what "not a permanent exemption" has to mean
+    // if the word is to carry weight.
     const allowedFiles = <String, String>{
-      // Status bar dark/light toggle (36x32) — documented debt, not a
-      // permanent exemption. It predates this guard, sits outside the
-      // WpRowAction family (not one of the four list views Ticket 02
-      // migrated), and resizing a shipped status-bar control is a layout
-      // decision this guard-only ticket may not make.
-      'lib/app.dart':
-          'status bar theme toggle at 36x32 — below the 48px '
-          'rule, known debt, not a list row',
-
       // Trigger-phrase remove button (28x28) inside the add/edit dialog's
       // dynamic trigger list — not one of the four list views (history
       // list/card/compact, notes, replacements, snippets rows) that
@@ -140,7 +137,6 @@ void main() {
 
   test('the allowlist has no stale entries', () {
     const allowedFiles = <String>{
-      'lib/app.dart',
       'lib/features/replacements/replacements_page.dart',
     };
 

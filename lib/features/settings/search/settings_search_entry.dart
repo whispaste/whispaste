@@ -120,10 +120,12 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     keywords: [
       // DE
       'Zwischenablage', 'Einfügen', 'Autopaste', 'Kopieren', 'Aktion',
-      'Output', 'nichts tun',
+      'Output', 'nichts tun', 'Textbaustein', 'Textbausteine', 'Auslöser',
+      'Auslösewort', 'Schlüsselwort',
       // EN
       'clipboard', 'paste', 'auto-paste', 'copy', 'action', 'output',
-      'do nothing',
+      'do nothing', 'snippet', 'snippets', 'snippet picker', 'trigger',
+      'trigger word', 'keyword',
     ],
   ),
   SettingsSearchEntry(

@@ -285,7 +285,9 @@ void main() {
 
         // The sectionWithHighlight wrapper (settings_page.dart) renders the
         // highlight as a bordered BoxDecoration on an AnimatedContainer
-        // directly around the section widget.
+        // directly around the section widget — in the *foreground* decoration,
+        // so the ring is painted over the section instead of insetting it by
+        // its own 2 px (see settings_highlight_layout_shift_test.dart).
         final wrapperFinder = find
             .ancestor(
               of: find.byType(SettingsPortabilitySection),
@@ -293,9 +295,8 @@ void main() {
             )
             .first;
         final highlighted = tester.widget<AnimatedContainer>(wrapperFinder);
-        final decoration = highlighted.decoration;
         expect(
-          decoration,
+          highlighted.foregroundDecoration,
           isA<BoxDecoration>().having((d) => d.border, 'border', isNotNull),
           reason: 'Jump target must carry the highlight border',
         );
@@ -307,7 +308,7 @@ void main() {
         expect(container.read(settingsHighlightTargetProvider), isNull);
         final cleared = tester.widget<AnimatedContainer>(wrapperFinder);
         expect(
-          (cleared.decoration as BoxDecoration?)?.border,
+          (cleared.foregroundDecoration as BoxDecoration?)?.border,
           isNull,
           reason: 'Highlight border must be gone after the clear timer',
         );

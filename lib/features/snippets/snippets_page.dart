@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../../core/config/settings_provider.dart';
 import '../../core/data/reloadable_list_notifier.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/telemetry_service.dart';
@@ -16,7 +14,6 @@ import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
-import '../settings/settings_widgets.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -146,25 +143,12 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   // unextracted duplication.
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final trigger =
-        ref.watch(settingsProvider).value?.behavior.snippetPickerTrigger ?? '';
-    // `?? true` while the list is still loading — the "trigger does nothing
-    // yet" warning must not flash before the first read lands.
-    final hasSnippets = ref.watch(snippetsProvider).value?.isNotEmpty ?? true;
 
+    // No `header:` — the Snippet-Picker trigger word used to ride this slot
+    // and pushed the first snippet a full card down the page. It now lives in
+    // Settings → After Transcription, where the settings-placement rule puts
+    // a rarely-changed global value (see `_SnippetPickerTriggerField` there).
     return WpSearchableListPage<SnippetItem>(
-      // macOS-only for now (ticket 06) — Windows/Linux land in tickets 07/08.
-      // Without this guard the field would still render there, but setting
-      // it would silently type the trigger word into the user's document as
-      // literal text (createSnippetPickerController() is null, so dispatch
-      // falls through to the normal pipeline) instead of opening a picker.
-      header: Platform.isMacOS
-          ? _SnippetPickerTriggerField(
-              trigger: trigger,
-              ref: ref,
-              showEmptyListHint: trigger.trim().isNotEmpty && !hasSnippets,
-            )
-          : null,
       asyncAll: ref.watch(snippetsProvider),
       searchMatches: (s, q) =>
           s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
@@ -226,160 +210,6 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       title: l10n.snippetsDeleteTitle,
       message: l10n.snippetsDeleteMessage(s.title),
       onConfirm: () => ref.read(snippetsProvider.notifier).remove(s.id),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Picker trigger word (dictation-automations ticket 06)
-// ---------------------------------------------------------------------------
-
-/// Header card above the snippet list: the single global trigger word that
-/// opens the Snippet-Picker when a transcript matches it exactly.
-///
-/// Lives on this page (not in Settings) because the trigger only matters in
-/// the context of Snippets. Empty string means the picker is off — the
-/// subtitle copy spells that out so the off-state is legible at a glance.
-/// Debounced-commit shape copied from `_AutoPasteBlocklistField`.
-class _SnippetPickerTriggerField extends StatefulWidget {
-  const _SnippetPickerTriggerField({
-    required this.trigger,
-    required this.ref,
-    required this.showEmptyListHint,
-  });
-
-  final String trigger;
-  final WidgetRef ref;
-
-  /// True when a trigger word is set but the snippet list is empty — the
-  /// trigger currently does nothing (dictating it falls through to a normal
-  /// paste), which this card must say out loud instead of letting the user
-  /// discover it mid-dictation.
-  final bool showEmptyListHint;
-
-  @override
-  State<_SnippetPickerTriggerField> createState() =>
-      _SnippetPickerTriggerFieldState();
-}
-
-class _SnippetPickerTriggerFieldState
-    extends State<_SnippetPickerTriggerField> {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.trigger);
-  }
-
-  @override
-  void didUpdateWidget(_SnippetPickerTriggerField old) {
-    super.didUpdateWidget(old);
-    // External change (e.g. settings import) — not an echo of our own commit.
-    if (old.trigger != widget.trigger && widget.trigger != _controller.text) {
-      _controller.text = widget.trigger;
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      // Raw value on purpose: the dispatcher normalizes both sides via
-      // `normalizeForExactMatch` (see `snippet_picker_dispatch.dart`).
-      widget.ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWithSections(
-              behavior: s.behavior.copyWith(snippetPickerTrigger: value),
-            ),
-          );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = L10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.sm,
-        WpSpacing.xl,
-        0,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        decoration: BoxDecoration(
-          color: isDark
-              ? WpColorsDark.surfaceElevated
-              : WpColorsLight.surfaceElevated,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(
-            color: isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SettingRow(
-              icon: LucideIcons.audioLines,
-              label: l10n.snippetsPickerTriggerLabel,
-              subtitle: l10n.snippetsPickerTriggerSubtitle,
-              trailing: settingsTextField(
-                context: context,
-                controller: _controller,
-                hintText: l10n.snippetsPickerTriggerHint,
-                onChanged: _onChanged,
-                semanticLabel: l10n.snippetsPickerTriggerLabel,
-              ),
-            ),
-            if (widget.showEmptyListHint)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  WpSpacing.md,
-                  WpSpacing.xxs,
-                  WpSpacing.md,
-                  WpSpacing.sm,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      LucideIcons.triangleAlert,
-                      size: WpIconSize.xs,
-                      color: isDark
-                          ? WpColorsDark.warning
-                          : WpColorsLight.warning,
-                    ),
-                    const SizedBox(width: WpSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        l10n.snippetsPickerTriggerEmptyListHint,
-                        style: TextStyle(
-                          color: isDark
-                              ? WpColorsDark.warning
-                              : WpColorsLight.warning,
-                          fontSize: WpTypography.small,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }

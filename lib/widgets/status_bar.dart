@@ -182,10 +182,24 @@ class WpStatusBar extends StatelessWidget {
           // Sidebar-width spacer — chips start in the content area
           const SizedBox(width: WpLayout.sidebarWidth),
           // Content-area span.
+          //
+          // Start-aligned, not centred: the chip row's membership changes at
+          // runtime (microphone, after-action, update, Auto-Paste hint all
+          // come and go), and a centred row re-flows every chip sideways each
+          // time one appears — the STT chip, the one that is always there,
+          // never sits still. Anchored to the start, an arriving chip only
+          // grows the row to the right and every chip before it stays put.
+          //
+          // The `start: xl` inset puts the first chip on the same gutter
+          // `WpPageShell`'s default `fromLTRB(xl, …)` padding gives page
+          // content, so the status line reads as the same column as the page
+          // above it rather than as a second, narrower one.
           Expanded(
-            child: Center(
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
+                padding: const EdgeInsetsDirectional.only(start: WpSpacing.xl),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

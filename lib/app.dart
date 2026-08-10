@@ -1237,12 +1237,24 @@ class _ThemeToggle extends ConsumerWidget {
         icon: Icon(
           isDark ? LucideIcons.moon : LucideIcons.sun,
           color: mutedColor,
-          size: 16,
+          size: WpIconSize.sm,
         ),
         tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
         onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
-        splashRadius: 16,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+        // Ink radius half the target, so the hover circle marks the whole
+        // 48 dp instead of a 32 dp island inside it.
+        splashRadius: WpLayout.minTouchTarget / 2,
+        // 48 × 48, not the 36 × 32 this used to be: an app control that a
+        // pointer has to hit, sharing a bar with the OS window buttons, is
+        // still an app control and owes the same minimum as every other one.
+        // Only the *target* grows — the glyph stays at [WpIconSize.sm], one
+        // step above the 15 px window-control icons, because the button draws
+        // no fill of its own: a larger glyph would make the theme toggle the
+        // loudest mark in the title bar to buy touch area it already has.
+        constraints: const BoxConstraints(
+          minWidth: WpLayout.minTouchTarget,
+          minHeight: WpLayout.minTouchTarget,
+        ),
         padding: EdgeInsets.zero,
       ),
     );
