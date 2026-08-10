@@ -53,6 +53,15 @@ void main() {
     // made it: the toggle is 48x48 and the entry is gone rather than
     // grandfathered — which is what "not a permanent exemption" has to mean
     // if the word is to carry weight.
+    //
+    // Re-examined and confirmed after the toggle's glyph grew to
+    // `WpIconSize.md`: that change is irrelevant here either way, because
+    // what this guard measures is the hand-set *tap target*, never the
+    // glyph-to-target ratio — "squeezed" names a squeezed target, not a
+    // small mark in a large one. And re-adding `lib/app.dart` is not merely
+    // unnecessary but impossible: the toggle now spells its size as
+    // `WpLayout.minTouchTarget`, which the stale-entry test's digit-matching
+    // regex cannot see, so the entry would be reported stale and fail.
     const allowedFiles = <String, String>{
       // Trigger-phrase remove button (28x28) inside the add/edit dialog's
       // dynamic trigger list — not one of the four list views (history

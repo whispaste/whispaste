@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/telemetry_service.dart';
@@ -20,6 +22,12 @@ import 'package:whispaste/widgets/wp_button.dart';
 import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
+
+/// The page header renders a macOS-only picker-trigger [TextField] ahead of
+/// the search field (see `Platform.isMacOS` in `SnippetsPage`'s header) —
+/// shifts every subsequent `find.byType(TextField).at(N)` index by one on
+/// macOS relative to Windows/Linux.
+final _fieldOffset = Platform.isMacOS ? 1 : 0;
 
 /// Sends the platform's "new item" chord — Cmd on macOS, Ctrl elsewhere,
 /// exactly as `WpSearchableListPage` binds it.
@@ -120,11 +128,16 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
 
-      // TextFields in tree order: [0] page search, [1] title, [2] body.
-      // There is no platform-dependent offset any more — the picker-trigger
-      // field that used to lead this list on macOS moved to Settings.
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best,\nSilvio');
+      // TextFields in tree order: [0] picker trigger (macOS only), [_fieldOffset]
+      // page search, [_fieldOffset + 1] title, [_fieldOffset + 2] body
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best,\nSilvio',
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(l10n.snippetsAdd).last);
@@ -152,8 +165,14 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Greeting');
-      await tester.enterText(find.byType(TextField).at(2), 'Hi there');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Greeting',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Hi there',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -177,8 +196,14 @@ void main() {
       ]) {
         await tester.tap(find.byIcon(LucideIcons.plus));
         await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).at(1), title);
-        await tester.enterText(find.byType(TextField).at(2), body);
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 1),
+          title,
+        );
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 2),
+          body,
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text(l10n.snippetsAdd).last);
         await tester.pumpAndSettle();
@@ -187,7 +212,7 @@ void main() {
       expect(find.text('Signature'), findsOneWidget);
       expect(find.text('Greeting'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).at(0), 'Sign');
+      await tester.enterText(find.byType(TextField).at(_fieldOffset), 'Sign');
       await tester.pumpAndSettle();
 
       expect(find.text('Signature'), findsOneWidget);
@@ -204,13 +229,22 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(0), 'zzzznonexistent');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset),
+        'zzzznonexistent',
+      );
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsNoMatches), findsOneWidget);
@@ -226,8 +260,14 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -245,6 +285,57 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
+    });
+
+    // The picker-trigger header (and thus its empty-list hint) only renders
+    // on macOS — see the `Platform.isMacOS` guard in `SnippetsPage`.
+    testWidgets('a set trigger word with an empty snippet list shows the '
+        '"trigger does nothing yet" hint until the first snippet exists', (
+      tester,
+    ) async {
+      if (!Platform.isMacOS) return;
+      await tester.pumpWidget(
+        makeTestable(
+          const SnippetsPage(),
+          locale: const Locale('en'),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                const AppSettings(
+                  behavior: BehaviorSettings(snippetPickerTrigger: 'snippet'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l10n.snippetsPickerTriggerEmptyListHint),
+        findsOneWidget,
+      );
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      );
+      await container
+          .read(snippetsProvider.notifier)
+          .add('Signature', 'Best,\nSilvio');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
+    });
+
+    testWidgets('an empty trigger word shows no empty-list hint even while '
+        'the snippet list is empty', (tester) async {
+      if (!Platform.isMacOS) return;
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
     });
 
     // Notizen bound Ctrl/Cmd+N from the start; its two sibling list screens
@@ -275,7 +366,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(TextField).at(0));
+      await tester.tap(find.byType(TextField).at(_fieldOffset));
       await tester.pumpAndSettle();
 
       await _pressNewItemChord(tester);
@@ -297,8 +388,14 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -321,4 +418,19 @@ void main() {
       expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
     });
   });
+}
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
 }

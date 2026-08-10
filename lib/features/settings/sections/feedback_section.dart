@@ -14,7 +14,6 @@ import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
@@ -26,7 +25,6 @@ import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/paste_capability_indicator.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
-import '../../snippets/snippets_page.dart' show snippetsProvider;
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -257,20 +255,6 @@ class AfterTranscriptionSection extends ConsumerWidget {
     // resolver the recording pipeline uses, so a stale/synced "paste"
     // preference displays (and behaves) as "clipboard" instead of pointing
     // at an option that no longer exists in the list.
-    // Snippet-Picker trigger — macOS-only for now (Windows/Linux land with
-    // the platform controllers). Without the guard the field would render on
-    // every platform but setting it would silently type the trigger word into
-    // the user's document as literal text.
-    final trigger = settings.behavior.snippetPickerTrigger;
-    final triggerIsSet = trigger.trim().isNotEmpty;
-    // Conditional watch on purpose: the snippet list lives in the database,
-    // and there is nothing to warn about until a trigger word exists. With no
-    // trigger set — the default — opening Settings must not pull the snippet
-    // table in just to decide not to show a hint.
-    final showEmptyListHint =
-        triggerIsSet &&
-        !(ref.watch(snippetsProvider).value?.isNotEmpty ?? true);
-
     final visibleActions = autoPasteSupported
         ? AfterTranscriptionAction.values
         : AfterTranscriptionAction.values
@@ -351,151 +335,8 @@ class AfterTranscriptionSection extends ConsumerWidget {
               ),
               child: WpPasteCapabilityIndicator(),
             ),
-          if (Platform.isMacOS)
-            _SnippetPickerTriggerField(
-              trigger: trigger,
-              ref: ref,
-              showEmptyListHint: showEmptyListHint,
-            ),
         ],
       ),
-    );
-  }
-}
-
-/// The single global trigger word that opens the Snippet-Picker when a
-/// transcript matches it exactly.
-///
-/// Lives here rather than on the Snippets page, where it used to ride the
-/// list's header slot: it is one global string, set once and then left alone,
-/// and it belongs to the after-transcription pipeline — the orchestrator
-/// checks it *before* the after-transcription action runs and takes over the
-/// transcript on a match, so it is a branch of this section's subject, not a
-/// property of any one snippet. Per the project's settings-placement rule,
-/// rarely changed and centrally relevant goes to Settings; only per-object
-/// state stays inline at the object. Off the list's header it also stopped
-/// pushing the snippets themselves half a card down the page.
-///
-/// Empty string means the picker is off — the subtitle copy spells that out
-/// so the off-state is legible at a glance. Debounced-commit shape shared
-/// with `_AutoPasteBlocklistField`.
-class _SnippetPickerTriggerField extends StatefulWidget {
-  const _SnippetPickerTriggerField({
-    required this.trigger,
-    required this.ref,
-    required this.showEmptyListHint,
-  });
-
-  final String trigger;
-  final WidgetRef ref;
-
-  /// True when a trigger word is set but the snippet list is empty — the
-  /// trigger currently does nothing (dictating it falls through to a normal
-  /// paste), which this row must say out loud instead of letting the user
-  /// discover it mid-dictation.
-  final bool showEmptyListHint;
-
-  @override
-  State<_SnippetPickerTriggerField> createState() =>
-      _SnippetPickerTriggerFieldState();
-}
-
-class _SnippetPickerTriggerFieldState
-    extends State<_SnippetPickerTriggerField> {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.trigger);
-  }
-
-  @override
-  void didUpdateWidget(_SnippetPickerTriggerField old) {
-    super.didUpdateWidget(old);
-    // External change (e.g. settings import) — not an echo of our own commit.
-    if (old.trigger != widget.trigger && widget.trigger != _controller.text) {
-      _controller.text = widget.trigger;
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      // Raw value on purpose: the dispatcher normalizes both sides via
-      // `normalizeForExactMatch` (see `snippet_picker_dispatch.dart`).
-      widget.ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWithSections(
-              behavior: s.behavior.copyWith(snippetPickerTrigger: value),
-            ),
-          );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = L10n.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingRow(
-          icon: LucideIcons.audioLines,
-          label: l10n.snippetsPickerTriggerLabel,
-          subtitle: l10n.snippetsPickerTriggerSubtitle,
-          trailing: settingsTextField(
-            context: context,
-            controller: _controller,
-            hintText: l10n.snippetsPickerTriggerHint,
-            onChanged: _onChanged,
-            semanticLabel: l10n.snippetsPickerTriggerLabel,
-          ),
-        ),
-        if (widget.showEmptyListHint)
-          Padding(
-            // kSettingRowInset horizontally, like every other inline block in
-            // Settings — same gutter as the rows it belongs to.
-            padding: const EdgeInsets.fromLTRB(
-              kSettingRowInset,
-              WpSpacing.xxs,
-              kSettingRowInset,
-              WpSpacing.sm,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  LucideIcons.triangleAlert,
-                  size: WpIconSize.xs,
-                  color: isDark ? WpColorsDark.warning : WpColorsLight.warning,
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l10n.snippetsPickerTriggerEmptyListHint,
-                    style: TextStyle(
-                      color: isDark
-                          ? WpColorsDark.warning
-                          : WpColorsLight.warning,
-                      fontSize: WpTypography.small,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }

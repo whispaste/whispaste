@@ -204,12 +204,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Keyed on the blocklist's own label rather than "this section has no
-      // TextField at all": the section legitimately grew a second text input
-      // when the Snippet-Picker trigger word moved here off the Snippets
-      // page, and a blanket TextField count would have failed on that
-      // unrelated arrival while saying nothing about the blocklist.
-      expect(find.text(l10n.settingsAutoPasteBlocklist), findsNothing);
+      expect(find.byType(TextField), findsNothing);
     });
 
     // ── Dropdown round-trips ────────────────────────────────────────────────

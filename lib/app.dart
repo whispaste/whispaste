@@ -1237,7 +1237,17 @@ class _ThemeToggle extends ConsumerWidget {
         icon: Icon(
           isDark ? LucideIcons.moon : LucideIcons.sun,
           color: mutedColor,
-          size: WpIconSize.sm,
+          // [WpIconSize.md], not the [WpIconSize.sm] this used to be:
+          // `lib/DESIGN.md` puts the icon scale's floor for *interactive*
+          // marks at 20 px and calls 14/16 decorative-only, so a 16 px glyph
+          // on a control the pointer has to hit was below the app's own line.
+          // The nav rail (`sidebar.dart`, `WpIconSize.md`) is the closest
+          // peer — a standalone, icon-only chrome control with no text row to
+          // scale against — and this matches it. The app's smaller 48 dp
+          // icon buttons (api-key eye, path folder-pen, tag trash, search
+          // help) are inline adornments sized to the row they sit in, which
+          // this is not.
+          size: WpIconSize.md,
         ),
         tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
         onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
@@ -1247,10 +1257,6 @@ class _ThemeToggle extends ConsumerWidget {
         // 48 × 48, not the 36 × 32 this used to be: an app control that a
         // pointer has to hit, sharing a bar with the OS window buttons, is
         // still an app control and owes the same minimum as every other one.
-        // Only the *target* grows — the glyph stays at [WpIconSize.sm], one
-        // step above the 15 px window-control icons, because the button draws
-        // no fill of its own: a larger glyph would make the theme toggle the
-        // loudest mark in the title bar to buy touch area it already has.
         constraints: const BoxConstraints(
           minWidth: WpLayout.minTouchTarget,
           minHeight: WpLayout.minTouchTarget,
