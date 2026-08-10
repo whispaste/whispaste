@@ -39,6 +39,8 @@ class WpSearchableListPage<T> extends StatefulWidget {
     required this.noMatchesTitle,
     required this.noMatchesHint,
     required this.itemBuilder,
+    required this.onItemActivate,
+    this.onItemDelete,
     this.contentWrapper,
     this.header,
     this.subtitle,
@@ -81,8 +83,35 @@ class WpSearchableListPage<T> extends StatefulWidget {
   final String noMatchesHint;
 
   /// Builds one list tile. [isDark] is the current theme brightness, passed
-  /// through so tiles don't each re-derive it.
-  final Widget Function(BuildContext context, T item, bool isDark) itemBuilder;
+  /// through so tiles don't each re-derive it. [isCursor] is true for the one
+  /// row the arrow keys currently point at — see the keyboard-cursor section
+  /// of this state's docs; the tile must render it through
+  /// `WpListTileSurface.isFocused` and `Semantics(selected:)`, never as a
+  /// treatment of its own.
+  final Widget Function(
+    BuildContext context,
+    T item,
+    bool isDark,
+    bool isCursor,
+  )
+  itemBuilder;
+
+  /// Opens [item] — what Enter does to the keyboard cursor's row, and what
+  /// the tile's own `onTap` should do to the same row.
+  ///
+  /// Required rather than nullable: a searchable list whose rows cannot be
+  /// opened from the keyboard is the defect this parameter exists to prevent,
+  /// and there is no way for the shell to infer the action from
+  /// [itemBuilder]'s closures.
+  final void Function(T item) onItemActivate;
+
+  /// Deletes [item] — what Delete/Backspace do to the keyboard cursor's row.
+  ///
+  /// Nullable because not every list is deletable, but nullable *with a
+  /// condition*: a tile that reveals a delete action while it is the cursor
+  /// row must pass this, or the row shows a trash icon that its own key does
+  /// not reach. Both current call sites pass it.
+  final void Function(T item)? onItemDelete;
 
   /// Optional wrapper around the list / empty-state area (e.g. dimming via
   /// `AnimatedOpacity` while the feature is disabled).
@@ -134,16 +163,95 @@ class WpSearchableListPage<T> extends StatefulWidget {
 /// is where that gets caught.
 const _searchableListSkeletonRowHeight = 71.0;
 
+// ---------------------------------------------------------------------------
+// The keyboard cursor
+//
+// Replacements and Snippets used to be reachable by Tab and nothing else: at
+// 40 entries, "open the third one" cost 40 keystrokes, on the two screens
+// whose whole point is a list you maintain. Verlauf and Notizen have had an
+// arrow cursor since they existed, so this was the one keyboard skill that
+// stopped working halfway across the app.
+//
+// The model is *rebuilt* from Verlauf/Notizen (`CONTEXT.md` §5.9), not
+// imported: one page-level index into the **filtered** list, rendered by the
+// rows and moved by the page. What differs, and why:
+//
+//   * **Entry point.** In Verlauf/Notizen every bare key is dropped while a
+//     text field has focus. Here the search field *is* the way in — it holds
+//     focus the moment the page opens — so ArrowDown is deliberately not
+//     guarded: it takes the caret out of the field and puts the cursor on the
+//     first row. Escape is the way back. Everything else (Enter, Delete,
+//     Backspace) only fires while the cursor is live, i.e. while focus sits
+//     on the list node and no text field can be typing.
+//   * **Scrolling.** The reference model does not scroll its cursor into
+//     view; a panel list is short enough to get away with it. A full-width
+//     page list is not, and a cursor that walks off the bottom edge answers
+//     the 40-entry problem with a 40-entry problem, so this one scrolls —
+//     minimally, in the direction of travel, via a single [GlobalKey] on
+//     whichever row is currently the cursor.
+//
+// One highlight at a time is structural rather than remembered: the index is
+// only rendered while [_listFocusNode] holds *primary* focus. Tab moves focus
+// into a row itself, the list node stops being primary, and the cursor stops
+// painting — so the row's own focus treatment is never in competition with
+// it. The index survives, which is what makes Enter → dialog → close return
+// to row 20 instead of to the top.
+// ---------------------------------------------------------------------------
+
 class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
   final _searchController = TextEditingController();
-  final _searchFocusNode = FocusNode();
+  final _searchFocusNode = FocusNode(debugLabel: 'WpSearchableListPage search');
+
+  /// Holds real focus while the arrow cursor is live. `skipTraversal` where
+  /// it is mounted: it is a target of [FocusNode.requestFocus], never a Tab
+  /// stop, so the row-by-row Tab order it sits in front of is unchanged.
+  final _listFocusNode = FocusNode(debugLabel: 'WpSearchableListPage list');
+
+  /// One key per row *position*, so [Scrollable.ensureVisible] has a context
+  /// to reveal.
+  ///
+  /// Every row is wrapped, not just the cursor's. Wrapping only the cursor
+  /// was tried first and is a trap: moving the wrapper off a row changes the
+  /// widget at that slot from `KeyedSubtree` to the tile itself, which no
+  /// element can update into — so the row was torn down and rebuilt on every
+  /// cursor step, taking its focus node with it. That is invisible until
+  /// something actually holds focus in there: Tab out of the cursor row moved
+  /// focus into the row, the rebuild destroyed the node it had just landed
+  /// on, and focus fell back to the list — a keyboard trap produced entirely
+  /// by a scrolling helper. Keeping the wrapper on every row keeps the
+  /// structure constant.
+  final _rowKeys = <int, GlobalKey>{};
+
+  GlobalKey _rowKey(int index) => _rowKeys.putIfAbsent(
+    index,
+    () => GlobalKey(debugLabel: 'WpSearchableListPage row $index'),
+  );
+
   String _searchQuery = '';
+
+  /// Index into the *filtered* list, or -1 for "no cursor". Rendered only
+  /// while [_listFocusNode] has primary focus — see the section comment.
+  int _cursorIndex = -1;
+  bool _listHasPrimaryFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _listFocusNode.addListener(_onListFocusChanged);
+  }
 
   @override
   void dispose() {
+    _listFocusNode.removeListener(_onListFocusChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _listFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onListFocusChanged() {
+    if (_listHasPrimaryFocus == _listFocusNode.hasPrimaryFocus) return;
+    setState(() => _listHasPrimaryFocus = _listFocusNode.hasPrimaryFocus);
   }
 
   /// Resets the search from outside the field (the no-matches empty state).
@@ -151,13 +259,120 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
   /// fires no `onChanged`, so the query has to be reset alongside the text.
   void _clearSearch() {
     _searchController.clear();
-    setState(() => _searchQuery = '');
+    setState(() {
+      _searchQuery = '';
+      _cursorIndex = -1;
+    });
   }
 
   List<T> _filtered(List<T> all) {
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
     return all.where((item) => widget.searchMatches(item, q)).toList();
+  }
+
+  /// The filtered list as the *key handler* sees it. `build` derives the same
+  /// list from the same two inputs; deriving it here too keeps the handler
+  /// correct without a copy of the list in state that could go stale between
+  /// a provider emission and the next frame.
+  List<T> get _visibleNow => _filtered(widget.asyncAll.value ?? const []);
+
+  /// The item under the cursor, or null when the cursor is not live — which
+  /// is also the guard that keeps Enter/Delete from firing while the caret is
+  /// in the search field.
+  T? _cursorItem(List<T> visible) {
+    if (!_listHasPrimaryFocus) return null;
+    if (_cursorIndex < 0 || _cursorIndex >= visible.length) return null;
+    return visible[_cursorIndex];
+  }
+
+  /// Moves the cursor by [delta], or places it when it is not live yet:
+  /// ArrowDown enters at the top, ArrowUp at the bottom. Clamps at both ends
+  /// rather than wrapping — the same choice Verlauf and Notizen made, so the
+  /// list's first and last row stay a place you can arrive at and stop.
+  KeyEventResult _moveCursor(int delta, List<T> visible) {
+    if (visible.isEmpty) return KeyEventResult.ignored;
+    final live = _listHasPrimaryFocus && _cursorIndex >= 0;
+    final next = live
+        ? (_cursorIndex + delta).clamp(0, visible.length - 1)
+        : (delta > 0 ? 0 : visible.length - 1);
+    setState(() => _cursorIndex = next);
+    // Before the frame, so the row is already the cursor when it is revealed.
+    _listFocusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revealCursor(delta));
+    return KeyEventResult.handled;
+  }
+
+  /// Scrolls just enough to bring the cursor row inside the viewport, in the
+  /// direction of travel — the policy Flutter's own focus traversal uses, and
+  /// the reason arrowing through a long list doesn't re-centre on every step.
+  ///
+  /// Null-safe on purpose: a row far outside the viewport's cache extent has
+  /// no context to reveal. The cursor only ever moves one row at a time, so
+  /// the neighbour is always built and the case is the harmless one.
+  void _revealCursor(int delta) {
+    if (!mounted) return;
+    final rowContext = _rowKeys[_cursorIndex]?.currentContext;
+    if (rowContext == null) return;
+    Scrollable.ensureVisible(
+      rowContext,
+      alignment: 0,
+      alignmentPolicy: delta > 0
+          ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+          : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      duration: WpMotion.durationFor(context, WpMotion.fast),
+      curve: WpMotion.defaultCurve,
+    );
+  }
+
+  /// Escape: hand the caret back to the search field and drop the cursor.
+  /// The one direction Tab cannot express — from the middle of a list back to
+  /// the control that filtered it.
+  void _returnToSearch() {
+    setState(() => _cursorIndex = -1);
+    _searchFocusNode.requestFocus();
+  }
+
+  /// Bare-key handler for the whole page, mounted on the page's existing
+  /// [Focus] wrapper because that node is an ancestor of both the search
+  /// field and the list — so the keys arrive wherever focus happens to sit,
+  /// including on a page that has just opened and where neither the field nor
+  /// the list is focused yet.
+  ///
+  /// Runs *below* the app-level [DefaultTextEditingShortcuts], which is why
+  /// ArrowUp/ArrowDown reach it at all while the search field has focus. The
+  /// price is that those two keys no longer jump the caret to the start/end
+  /// of the query — a single-line field, where Home/End say the same thing.
+  KeyEventResult _handlePageKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    final visible = _visibleNow;
+
+    if (key == LogicalKeyboardKey.arrowDown) return _moveCursor(1, visible);
+    if (key == LogicalKeyboardKey.arrowUp) return _moveCursor(-1, visible);
+
+    // Everything below acts on the cursor's row, so it is inert unless the
+    // cursor is live — which also means no text field can have focus.
+    final item = _cursorItem(visible);
+    if (item == null) return KeyEventResult.ignored;
+
+    if (key == LogicalKeyboardKey.enter) {
+      widget.onItemActivate(item);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.delete ||
+        key == LogicalKeyboardKey.backspace) {
+      // Same keys, same reasoning as the per-row binding these two pages
+      // already carry for Tab focus — the cursor row simply has no focused
+      // descendant for that binding to fire from.
+      widget.onItemDelete?.call(item);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      _returnToSearch();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -236,6 +451,15 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
       ),
       data: (all) {
         final visible = _filtered(all);
+        // Derived, never stored: an item can be deleted out from under the
+        // cursor between two frames, and the list can shrink under a new
+        // query before `onChanged`'s reset has been rebuilt.
+        final cursor =
+            (_listHasPrimaryFocus &&
+                _cursorIndex >= 0 &&
+                _cursorIndex < visible.length)
+            ? _cursorIndex
+            : -1;
         final content = all.isEmpty
             ? WpEmptyState(
                 icon: widget.emptyIcon,
@@ -265,8 +489,15 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                 itemCount: visible.length,
                 separatorBuilder: (_, _) =>
                     const SizedBox(height: WpSpacing.xs),
-                itemBuilder: (context, index) =>
-                    widget.itemBuilder(context, visible[index], isDark),
+                itemBuilder: (context, index) => KeyedSubtree(
+                  key: _rowKey(index),
+                  child: widget.itemBuilder(
+                    context,
+                    visible[index],
+                    isDark,
+                    index == cursor,
+                  ),
+                ),
               );
         return Column(
           children: [
@@ -287,7 +518,14 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                       focusNode: _searchFocusNode,
                       hintText: widget.searchHint,
                       variant: WpSearchFieldVariant.outlined,
-                      onChanged: (v) => setState(() => _searchQuery = v),
+                      // Every keystroke re-filters, so the index the cursor
+                      // held points at a different item than the one the user
+                      // was looking at. Dropping it is the same reset the
+                      // settings search dropdown does on every text change.
+                      onChanged: (v) => setState(() {
+                        _searchQuery = v;
+                        _cursorIndex = -1;
+                      }),
                       semanticsLabel: widget.searchFieldLabel,
                     ),
                   ),
@@ -303,7 +541,17 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
               ),
             ),
             Expanded(
-              child: widget.contentWrapper?.call(context, content) ?? content,
+              // The list's focus anchor sits *inside* the content wrapper so
+              // it stays mounted across every data state — losing the node
+              // while a dialog is open would drop the cursor the dialog was
+              // opened from. `skipTraversal` keeps it out of the Tab order:
+              // Tab from here continues into the rows themselves, exactly as
+              // it did before the cursor existed.
+              child: Focus(
+                focusNode: _listFocusNode,
+                skipTraversal: true,
+                child: widget.contentWrapper?.call(context, content) ?? content,
+              ),
             ),
           ],
         );
@@ -338,10 +586,13 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
       },
       // `skipTraversal` so this wrapper never becomes a Tab stop of its own;
       // it exists only to give the shortcut a focused descendant to bubble
-      // from, exactly as `SettingsPage` does it.
+      // from, exactly as `SettingsPage` does it — and, since it is the one
+      // node that is an ancestor of both the search field and the list, to
+      // carry the arrow-cursor's bare keys (see `_handlePageKeyEvent`).
       child: Focus(
         autofocus: true,
         skipTraversal: true,
+        onKeyEvent: _handlePageKeyEvent,
         child: WpPageShell(
           scrollable: false,
           padding: EdgeInsets.zero,

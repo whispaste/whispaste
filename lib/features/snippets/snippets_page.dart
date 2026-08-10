@@ -186,11 +186,14 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       emptyActionLabel: l10n.snippetsAdd,
       noMatchesTitle: l10n.snippetsNoMatches,
       noMatchesHint: l10n.snippetsNoMatchesHint,
-      itemBuilder: (context, s, isDark) {
+      onItemActivate: (s) => _showAddEditDialog(existing: s),
+      onItemDelete: _confirmDelete,
+      itemBuilder: (context, s, isDark, isCursor) {
         // loam-ignore: a11y-interactive-semantics – semantics provided in _SnippetTileState.build
         return _SnippetTile(
           snippet: s,
           isDark: isDark,
+          isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: s),
           onDelete: () => _confirmDelete(s),
         );
@@ -496,12 +499,21 @@ class _SnippetTile extends StatefulWidget {
   const _SnippetTile({
     required this.snippet,
     required this.isDark,
+    required this.isCursor,
     required this.onTap,
     required this.onDelete,
   });
 
   final SnippetItem snippet;
   final bool isDark;
+
+  /// This row is where the list's arrow cursor currently stands
+  /// (`WpSearchableListPage`). Deliberately funnelled into the *same* two
+  /// outlets as real focus — [WpListTileSurface.isFocused] and the row's
+  /// `Semantics(selected:)` — rather than getting a treatment of its own: the
+  /// tile envelope is where a row's states are decided, and a second one
+  /// would put two answers on screen for one question.
+  final bool isCursor;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -515,8 +527,10 @@ class _SnippetTileState extends State<_SnippetTile> {
 
   /// The row is "active" for pointer and for keyboard alike — the
   /// delete action is revealed by either, so a keyboard user can reach
-  /// it at all (an unmounted button cannot be focused).
-  bool get _isActive => _isHovered || _isFocused;
+  /// it at all (an unmounted button cannot be focused). The arrow cursor
+  /// counts as keyboard: `WpSearchableListPage` binds Delete/Backspace on the
+  /// cursor row, so the icon and the key appear together or not at all.
+  bool get _isActive => _isHovered || _isFocused || widget.isCursor;
 
   /// Preview of the body — newlines and runs of whitespace collapse to
   /// single spaces so the two rendered lines are filled by content rather
@@ -567,6 +581,13 @@ class _SnippetTileState extends State<_SnippetTile> {
       // inside this subtree the moment the row is hovered or focused, and
       // merging would swallow it. Same treatment in _ReplacementTile.
       hint: L10n.of(context).snippetsEditSnippet,
+      // The arrow cursor's row reports as selected, exactly as a history row
+      // does: the list's real focus sits on one page-level node, so without
+      // this flag a screen reader announces nothing at all while the user
+      // arrows down the list. Not `focused:` — the row genuinely does not
+      // hold focus, and `FocusableActionDetector` below publishes that flag
+      // itself for the Tab case.
+      selected: widget.isCursor,
       child: FocusableActionDetector(
         onShowFocusHighlight: (value) {
           if (_isFocused == value) return;
@@ -590,7 +611,7 @@ class _SnippetTileState extends State<_SnippetTile> {
               isDark: widget.isDark,
               variant: WpListTileVariant.card,
               isHovered: _isHovered,
-              isFocused: _isFocused,
+              isFocused: _isFocused || widget.isCursor,
               actions: WpRowActions(
                 visible: _isActive,
                 children: [

@@ -217,11 +217,14 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
         opacity: enabled ? 1.0 : 0.5,
         child: child,
       ),
-      itemBuilder: (context, r, isDark) {
+      onItemActivate: (r) => _showAddEditDialog(existing: r),
+      onItemDelete: _confirmDelete,
+      itemBuilder: (context, r, isDark, isCursor) {
         // loam-ignore: a11y-interactive-semantics – semantics provided in _ReplacementTileState.build
         return _ReplacementTile(
           replacement: r,
           isDark: isDark,
+          isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: r),
           onDelete: () => _confirmDelete(r),
         );
@@ -548,12 +551,17 @@ class _ReplacementTile extends StatefulWidget {
   const _ReplacementTile({
     required this.replacement,
     required this.isDark,
+    required this.isCursor,
     required this.onTap,
     required this.onDelete,
   });
 
   final Replacement replacement;
   final bool isDark;
+
+  /// This row is the list's arrow cursor — same contract, same two outlets
+  /// and same reasoning as `_SnippetTile.isCursor`, which see.
+  final bool isCursor;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -567,8 +575,9 @@ class _ReplacementTileState extends State<_ReplacementTile> {
 
   /// The row is "active" for pointer and for keyboard alike — the
   /// delete action is revealed by either, so a keyboard user can reach
-  /// it at all (an unmounted button cannot be focused).
-  bool get _isActive => _isHovered || _isFocused;
+  /// it at all (an unmounted button cannot be focused). Includes the arrow
+  /// cursor, for the reason spelled out on `_SnippetTile._isActive`.
+  bool get _isActive => _isHovered || _isFocused || widget.isCursor;
 
   @override
   Widget build(BuildContext context) {
@@ -594,6 +603,9 @@ class _ReplacementTileState extends State<_ReplacementTile> {
       // mfg, mfg, …". MergeSemantics is not an option: the delete action
       // mounts as a second interactive node once the row is active.
       hint: L10n.of(context).replacementsEditShortcut,
+      // The arrow cursor's row reports as selected — same flag, same reason
+      // as `_SnippetTile`, which see.
+      selected: widget.isCursor,
       child: FocusableActionDetector(
         onShowFocusHighlight: (value) {
           if (_isFocused == value) return;
@@ -617,7 +629,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               isDark: widget.isDark,
               variant: WpListTileVariant.card,
               isHovered: _isHovered,
-              isFocused: _isFocused,
+              isFocused: _isFocused || widget.isCursor,
               actions: WpRowActions(
                 visible: _isActive,
                 children: [

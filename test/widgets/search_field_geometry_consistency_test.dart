@@ -296,7 +296,8 @@ Widget _searchableList() => WpSearchableListPage<String>(
   emptyActionLabel: 'add',
   noMatchesTitle: 'none',
   noMatchesHint: 'none',
-  itemBuilder: (_, _, _) => const SizedBox(height: 40),
+  onItemActivate: (_) {},
+  itemBuilder: (_, _, _, _) => const SizedBox(height: 40),
 );
 
 Widget _notes(TextEditingController controller, FocusNode focus) =>
