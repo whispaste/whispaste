@@ -52,9 +52,15 @@ import 'wp_focus_ring.dart';
 //
 // ## Sizes and the 48 px touch target
 //
-// `lib/DESIGN.md` asks for a 48 px minimum touch target. Two areas run the
-// 44 px standard variant (replacements, snippets) and two run the 28 px
-// dense one (history, notes), so it is worth naming precisely what decides
+// `lib/DESIGN.md` asks for a 48 px minimum touch target and grants this
+// widget the single exception to it: *The Confirmed Dense-Row Exception*
+// (Layout → Named Rules), confirmed by the maintainer as decision E6 = (a)
+// on 2026-08-10 and scoped to exactly the `dense` variant below. The two
+// documents say the same thing on purpose — what follows is the measurement
+// that exception rests on, so neither side has to be believed on trust.
+//
+// Two areas run the 44 px standard variant (replacements, snippets) and two
+// run the 28 px dense one (history, notes), so it is worth naming what decides
 // which — the earlier wording here said "the row's resting height, roomy vs.
 // tight", and that is measurably the wrong quantity. Tile *envelopes* run the
 // other way: a history list tile is 127 px tall and a notes tile 106 px,
@@ -83,7 +89,8 @@ import 'wp_focus_ring.dart';
 // The compact history view is the honest shortfall: its rows are ~27 px by
 // design ("dense power-user list"), so even the dense variant only just fits
 // and 48 px targets are out of the question. Density is the whole point of
-// that view, so it keeps the dense variant.
+// that view, so it keeps the dense variant — DESIGN.md's exception names it
+// in its scope rather than treating it as a shortfall still to be repaid.
 // ---------------------------------------------------------------------------
 
 class WpRowAction extends StatefulWidget {
