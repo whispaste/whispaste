@@ -35,6 +35,9 @@ abstract final class WpColorsDark {
   static const Color hoverTransparent = Color(0x00212A40);
   static const Color active = Color(0xFF293352);
 
+  /// Hairline borders — white at 11.8 % / 18.8 %, both a step *above* their
+  /// light twins (7.8 % / 14.1 %). Not an oversight: see
+  /// [WpColorsLight.borderSubtle] for the increment/decrement reasoning.
   static const Color borderSubtle = Color(0x1EFFFFFF);
   static const Color borderDefault = Color(0x30FFFFFF);
 
@@ -46,6 +49,10 @@ abstract final class WpColorsDark {
   /// Vibrant cyan accent — highly saturated
   static const Color accent = Color(0xFF3CCBE6);
   static const Color accentHover = Color(0xFF66DBEE);
+
+  /// Flat accent surface tint, 16.5 % — deliberately *above* its light twin
+  /// (11 %). See [WpColorsLight.accentSubtle] for the increment/decrement
+  /// reasoning shared by every structural translucent in this file.
   static const Color accentSubtle = Color(0x2A3CCBE6);
 
   /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
@@ -95,10 +102,51 @@ abstract final class WpColorsDark {
   static const Color successActiveFill = Color(0x1F36D98B); // success @ 12%
   static const Color warningActiveFill = Color(0x1FF5C842); // warning @ 12%
 
+  /// Ring that marks the settings section a search hit jumped to — accent at
+  /// 55 %, 2 px, painted in the foreground and cleared again after 1.5 s.
+  ///
+  /// Deliberately *above* the tint ladder's 30 % ceiling and named as its own
+  /// category rather than as a stretched top rung, mirroring how
+  /// [decorativeGlyphWash] sits below it: 30 % is calibrated for a *resting*
+  /// outline the user is already looking at, while this ring has one job in
+  /// the opposite direction — be caught in peripheral vision, once, before it
+  /// disappears on its own. Nothing else may reach for it; a resting border
+  /// that wants to be louder than 30 % is a hierarchy problem, not an alpha
+  /// problem.
+  ///
+  /// Carries the same alpha in both themes, unlike the structural tints above
+  /// (see [WpColorsLight.accentSubtle]). Left unsplit on purpose: this value
+  /// is calibrated for the peak of something transient, so a per-theme split
+  /// would have to be judged against a moving target. If it ever reads heavy
+  /// on light, that is a maintainer call with the ring on screen, not a
+  /// derivation from the rule.
+  static const Color accentLocatorRing = Color(0x8C3CCBE6); // accent @ 55%
+
+  /// Preflight-screen palette — `WpInsufficientRamScreen` only.
+  ///
+  /// These three (plus the two badge tints below) are the sanctioned break of
+  /// the Theme-Pair Rule and exist **without light counterparts on purpose**:
+  /// the insufficient-RAM screen is shown *instead of* the app, never inside
+  /// it, renders unconditionally in the dark identity theme and never reads
+  /// `Theme` at all — so a light twin would have no code path that could ever
+  /// resolve it. Off-limits everywhere else: in the app proper a warning is
+  /// [warning] and a destructive action is [error], both theme-paired.
+  /// Documented as *The Preflight-Screen Exception* in `lib/DESIGN.md`.
+  ///
   /// Orange-600 — used for RAM/hardware preflight warnings.
   static const Color warningOrange = Color(0xFFEA580C);
 
-  /// Solid red shades for destructive action buttons (e.g. quit CTA).
+  /// Fill and border of the preflight warning badge. Named rather than mixed
+  /// at the call site, but *not* ladder rungs — the ladder is theme-paired and
+  /// these are not, so they carry their own names at their own values.
+  static const Color warningOrangeBadgeFill = Color(
+    0x26EA580C,
+  ); // warningOrange @ 15%
+  static const Color warningOrangeBadgeBorder = Color(
+    0x66EA580C,
+  ); // warningOrange @ 40%
+
+  /// Solid red shades for destructive action buttons (the preflight quit CTA).
   static const Color errorRed = Color(0xFFDC2626);
   static const Color errorRedHover = Color(0xFFB91C1C);
 
@@ -187,6 +235,12 @@ abstract final class WpColorsLight {
   static const Color hoverTransparent = Color(0x00E3EBF5);
   static const Color active = Color(0xFFD5DFEE);
 
+  /// Hairline borders — navy-ink at 7.8 % / 14.1 %, a step *under* dark's
+  /// 11.8 % / 18.8 %. Same reason as [accentSubtle] below, and the reason is
+  /// independent of size: an ink hairline on pearl is a decrement on a bright
+  /// ground and reads harder per unit alpha than a white hairline does as an
+  /// increment on navy. Matching the bytes would leave the light theme visibly
+  /// more ruled than the dark one.
   static const Color borderSubtle = Color(0x140F172A);
   static const Color borderDefault = Color(0x24131F32);
 
@@ -199,6 +253,26 @@ abstract final class WpColorsLight {
   /// light (≥5.4:1 against both `surface` and `background`; the previous
   /// #0887A8 only reached ≈3.6-3.8:1, under the 4.5:1 AA floor for normal text).
   static const Color accent = Color(0xFF06678A);
+
+  /// Flat accent surface tint, 11 % — a step under dark's 16.5 %, and the
+  /// canonical statement of why every *structural* translucent in this file
+  /// runs lighter on light (*The Increment–Decrement Rule*, `lib/DESIGN.md`).
+  ///
+  /// A tint does not buy the same presence in both themes. On light it lands
+  /// *darker* than its ground — a decrement, resolved at full contrast against
+  /// a bright surface; on dark it lands *lighter* — an increment against a
+  /// near-black surface, where the display's black floor and any reflected
+  /// room light eat most of the difference. Equal alpha bytes therefore read
+  /// visibly unequal, light heavier, so the light side is tuned down instead
+  /// of copied across. Same argument, already applied: [navPillActiveGradient]
+  /// (16 % → 11 % mean, pinned to exactly this token) and
+  /// [decorativeGlyphWash] (5 % → 3 %).
+  ///
+  /// The tint ladder is the deliberate carve-out: its rungs stay byte-identical
+  /// across themes because they are a cross-hue *semantic* scale — 6 % is
+  /// "hover" and 30 % is "outline" whatever the hue, whatever the theme — and
+  /// re-tuning them per theme would break the guarantee that a destructive
+  /// control's states carry exactly the weight of an accent one's.
   static const Color accentSubtle = Color(0x1C06678A); // accent @ 11%
 
   /// Instance-safe tint tokens — see [WpColorsDark.accentChipFill] for rationale.
@@ -213,6 +287,11 @@ abstract final class WpColorsLight {
   static const Color accentRowHover = Color(0x0F06678A); // accent @ 6%
   static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
+
+  /// Transient settings-search locator ring — see
+  /// [WpColorsDark.accentLocatorRing], including why this one alpha is *not*
+  /// tuned down for light the way the structural tints are.
+  static const Color accentLocatorRing = Color(0x8C06678A); // accent @ 55%
 
   /// Wash for a large decorative background glyph — its own category, *below*
   /// the 6/12/30% tint ladder above, because that ladder is defined for

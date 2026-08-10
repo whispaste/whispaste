@@ -966,7 +966,7 @@ class _HistorySearchFilterBarState
                       onTap: widget.onToggleMultiSelect,
                       child: Padding(
                         // Off-scale on purpose: matches the dense icon-button
-                        // padding in HistoryRowAction so toolbar icons stay uniform.
+                        // padding in WpRowAction so toolbar icons stay uniform.
                         padding: const EdgeInsets.all(6),
                         child: Icon(
                           widget.multiSelectMode
@@ -1398,7 +1398,7 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // WpIconSize.sm (not .md): matches HistoryRowAction and
+                      // WpIconSize.sm (not .md): matches WpRowAction and
                       // HistoryPopupMenuRow's fixed 16 for the same action set —
                       // .md would overwhelm this pill's 12px label.
                       Icon(widget.icon, size: WpIconSize.sm, color: color),
@@ -1556,7 +1556,7 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
             // purpose: 24px still clears WCAG 2.2 AA (2.5.8), and the whole
             // right-hand toolbar cluster is deliberately dense — see the
             // multi-select button above, whose 6px padding is commented as
-            // "matches HistoryRowAction so toolbar icons stay uniform".
+            // "matches WpRowAction so toolbar icons stay uniform".
             // Growing only this segment would trade a uniform cluster for a
             // lone tall one; growing the cluster is a design decision across
             // history + WpRowAction and needs the HITL gate. Bewusst nicht

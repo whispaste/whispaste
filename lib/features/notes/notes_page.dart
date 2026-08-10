@@ -8,8 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/utils/focus_helpers.dart';
 import '../../services/notes/notes_exporter.dart' as notes_exporter;
-import '../history/widgets/history_helpers.dart' show isTextFieldFocused;
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';

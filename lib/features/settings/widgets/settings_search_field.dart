@@ -291,8 +291,12 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                         child: InkWell(
                           onTap: () => _selectEntry(entry),
                           child: Container(
+                            // The ladder's keyboard-focus rung (12 %), not a
+                            // hand-mixed alpha of the same value.
                             color: isHighlighted
-                                ? accent.withValues(alpha: 0.12)
+                                ? (isDark
+                                      ? WpColorsDark.accentActiveFill
+                                      : WpColorsLight.accentActiveFill)
                                 : null,
                             padding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.md,

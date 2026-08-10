@@ -235,21 +235,6 @@ class HistoryStatusChip extends StatelessWidget {
   }
 }
 
-/// Returns true when the focused widget is an [EditableText] (text input).
-///
-/// `EditableText.build()` creates an internal `Focus` widget that overwrites
-/// the FocusNode context, so `context.widget` ends up being `Focus`, not
-/// `EditableText`. We check the widget directly AND walk ancestors as a
-/// fallback to cover both cases.
-bool isTextFieldFocused() {
-  final primary = FocusManager.instance.primaryFocus;
-  if (primary == null) return false;
-  final context = primary.context;
-  if (context == null) return false;
-  if (context.widget is EditableText) return true;
-  return context.findAncestorWidgetOfExactType<EditableText>() != null;
-}
-
 /// Lightweight union for flattened header/entry items used by list and compact
 /// views. Avoids pre-building widgets — the actual widget is created lazily
 /// inside [ListView.builder].

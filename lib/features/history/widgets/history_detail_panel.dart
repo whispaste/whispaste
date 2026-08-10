@@ -26,6 +26,7 @@ import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_text_field.dart';
 import 'tag_management_dialog.dart';
+import '../../../core/utils/focus_helpers.dart';
 import '../../../core/utils/word_count.dart';
 
 /// Signature of the export-entries seam used by [HistoryDetailPanel].

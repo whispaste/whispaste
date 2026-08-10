@@ -18,6 +18,15 @@ final _log = AppLogger('WpInsufficientRamScreen');
 /// Displayed instead of the main app — the user can only quit or visit
 /// the system requirements page. Never blocks when RAM detection fails
 /// (null → fail-open).
+///
+/// **Always dark, by decision.** Every color below is pinned to
+/// [WpColorsDark]; the screen never reads `Theme` and has no light rendering.
+/// It stands in *for* the app rather than inside it, so it is the sanctioned
+/// exception to the Theme-Pair Rule — documented as *The Preflight-Screen
+/// Exception* in `lib/DESIGN.md`. Its private hues
+/// ([WpColorsDark.warningOrange], [WpColorsDark.errorRed],
+/// [WpColorsDark.errorRedHover]) exist for this screen alone and have no
+/// light counterparts on purpose; do not reach for them elsewhere.
 class WpInsufficientRamScreen extends StatelessWidget {
   const WpInsufficientRamScreen({super.key, required this.detectedGb});
 
@@ -140,11 +149,9 @@ class _WarningBadge extends StatelessWidget {
         vertical: WpSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: WpColorsDark.warningOrange.withValues(alpha: 0.15),
+        color: WpColorsDark.warningOrangeBadgeFill,
         borderRadius: WpRadius.borderFull,
-        border: Border.all(
-          color: WpColorsDark.warningOrange.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: WpColorsDark.warningOrangeBadgeBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -11,6 +11,7 @@ import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
+import '../../core/utils/focus_helpers.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';

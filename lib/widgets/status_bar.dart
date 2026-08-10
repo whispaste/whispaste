@@ -989,7 +989,13 @@ class _AutoPasteOffHintChipState extends State<_AutoPasteOffHintChip> {
                 ? WpColorsDark.surfaceChipFill
                 : WpColorsLight.surfaceChipFill,
             borderRadius: WpRadius.borderFull,
-            border: Border.all(color: accent.withValues(alpha: 0.4)),
+            // The tint ladder's outline rung, not a hand-mixed 40 %: this is a
+            // resting 1 px chip border, which is exactly what 30 % is for.
+            border: Border.all(
+              color: isDark
+                  ? WpColorsDark.accentBorder30
+                  : WpColorsLight.accentBorder30,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

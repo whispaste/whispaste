@@ -150,7 +150,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     Widget sectionWithHighlight(String sectionKey, Widget child) {
       final isHighlighted = highlightTarget == sectionKey;
-      final accentColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+      // Its own token, deliberately above the tint ladder's 30 % ceiling — the
+      // ring has to be caught in peripheral vision and clears itself after
+      // 1.5 s, which is the opposite job from a resting outline. See
+      // WpColorsDark.accentLocatorRing.
+      final ringColor = isDark
+          ? WpColorsDark.accentLocatorRing
+          : WpColorsLight.accentLocatorRing;
       return AnimatedContainer(
         duration: WpMotion.durationFor(
           context,
@@ -166,10 +172,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         foregroundDecoration: isHighlighted
             ? BoxDecoration(
                 borderRadius: WpRadius.borderMd,
-                border: Border.all(
-                  color: accentColor.withValues(alpha: 0.55),
-                  width: 2,
-                ),
+                border: Border.all(color: ringColor, width: 2),
               )
             : const BoxDecoration(),
         child: child,
