@@ -564,6 +564,14 @@ class _ModelStepDownloadStatus extends StatelessWidget {
 /// already `textMuted` and landed around 1.8:1 behind it. DESIGN.md forbids
 /// the veil for exactly this reason; the reason line now keeps full strength
 /// and is the most readable thing on a card you cannot choose.
+/// The decorative-glyph wash for [isDark]. A free function rather than one
+/// more `isDark ? … : …` inside [_EngineCardColors.resolve]: that factory is
+/// already at the repo's cyclomatic ceiling, and this pick has nothing to do
+/// with the selected/hovered/disabled state the rest of it resolves.
+Color _decorativeGlyphWash(bool isDark) => isDark
+    ? WpColorsDark.decorativeGlyphWash
+    : WpColorsLight.decorativeGlyphWash;
+
 class _EngineCardColors {
   const _EngineCardColors({
     required this.accent,
@@ -594,8 +602,7 @@ class _EngineCardColors {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    // The accent ladder's lowest rung (6 %). Hoisted because two different
-    // things want it: the hover fill, and the background wash below.
+    // The accent ladder's lowest rung (6 %) — the hover fill.
     final accentSix = isDark
         ? WpColorsDark.accentRowHover
         : WpColorsLight.accentRowHover;
@@ -620,11 +627,15 @@ class _EngineCardColors {
       badgeFill: isDark
           ? WpColorsDark.accentBadgeFill
           : WpColorsLight.accentBadgeFill,
-      // A named ladder rung rather than a hand-rolled `withValues(alpha:)` at
-      // the call site. A card you cannot pick gets no wash at all: the same
-      // token swap the rest of this class does for the disabled state, rather
-      // than a brand-accent graphic behind deliberately muted text.
-      heroWash: isTappable ? accentSix : null,
+      // `decorativeGlyphWash`, not the tint ladder: the 6/12/30% rungs are
+      // defined for badges, chips and borders, and a 140px glyph bleeding out
+      // of the corner is none of those. It gets its own, lower category — and
+      // its own alpha per theme, because equal alphas do not read equally on
+      // near-black and near-white grounds (see `colors.dart`). A card you
+      // cannot pick gets no wash at all: the same token swap the rest of this
+      // class does for the disabled state, rather than a brand-accent graphic
+      // behind deliberately muted text.
+      heroWash: isTappable ? _decorativeGlyphWash(isDark) : null,
       icon: isTappable ? accent : textMuted,
       label: isTappable ? textPrimary : textSecondary,
       description: isTappable ? textSecondary : textMuted,
@@ -766,7 +777,7 @@ class _EngineCardState extends State<_EngineCard> {
                     clipBehavior: Clip.none,
                     children: [
                       // The engine's own glyph, blown up and washed back to the
-                      // accent ladder's 6 % rung: a quiet visual identity per
+                      // decorative-glyph tint: a quiet visual identity per
                       // engine (bolt = speed, globe = coverage) that gives the
                       // card depth without competing with the content in front
                       // of it. It is decoration, not a glow — a flat tinted

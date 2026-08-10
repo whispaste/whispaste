@@ -64,6 +64,11 @@ abstract final class WpColorsDark {
   static const Color surfaceChipFill = Color(0x80141A29); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
 
+  /// Wash for a large decorative background glyph — its own category, *below*
+  /// the 6/12/30% tint ladder above. See [WpColorsLight.decorativeGlyphWash]
+  /// for why the two themes carry different alphas.
+  static const Color decorativeGlyphWash = Color(0x0D3CCBE6); // accent @ 5%
+
   /// Saturated status colors — rich and warm
   static const Color success = Color(0xFF36D98B);
   static const Color warning = Color(0xFFF5C842);
@@ -199,6 +204,22 @@ abstract final class WpColorsLight {
   static const Color accentRowHover = Color(0x0F06678A); // accent @ 6%
   static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
+
+  /// Wash for a large decorative background glyph — its own category, *below*
+  /// the 6/12/30% tint ladder above, because that ladder is defined for
+  /// badges, chips and borders: small, bounded shapes the user is meant to
+  /// read. A 140px glyph bleeding out of a card corner is neither, and the
+  /// ladder's bottom rung is too loud once it covers that much area.
+  ///
+  /// The alpha is lower here than on dark, and deliberately so — the same
+  /// alpha does not buy the same presence in both themes. On light the wash
+  /// lands *darker* than its ground (a decrement, which the eye resolves at
+  /// lower contrast); on dark it lands *lighter* (an increment), against a
+  /// near-black surface where a display's black floor and any reflected room
+  /// light eat most of the difference. Equal alphas therefore read unequal —
+  /// light visibly stronger — which is exactly what the model step showed.
+  /// Both values still sit clearly under the ladder's 6% floor.
+  static const Color decorativeGlyphWash = Color(0x0806678A); // accent @ 3%
 
   /// Danger/off-brand-neutral tint ladder — see [WpColorsDark.errorRowHover]
   /// for rationale.
