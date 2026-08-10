@@ -1,3 +1,5 @@
 ## 2025-10-18 - Accessibility on interactive text widgets
 **Learning:** Interactive text widgets handled via `GestureDetector` (e.g. click-to-edit text blocks) rely on tooltips for sighted users but do not inherently announce themselves as interactive to screen readers.
-**Action:** Always wrap interactive `GestureDetector` regions with `Semantics(button: true, label: ...)` to ensure screen reader users are aware the text area can be interacted with.
+**Action:** Always wrap interactive `GestureDetector` regions with `Semantics(button: true, label: ...)` to ensure screen reader users are aware the text area can be interacted with.## 2026-08-10 - Accessible Interactive Text Elements in Flutter
+**Learning:** Interactive text/icon elements built with `GestureDetector` do not inherently announce as interactive to screen readers, lack desktop hover cues (pointer cursor), and miss tooltips.
+**Action:** When adding interactivity via `GestureDetector`, explicitly wrap it in `Semantics(button: true, label: ...)`, `Tooltip`, and `MouseRegion(cursor: SystemMouseCursors.click)` to ensure an accessible, native-feeling experience across all input modalities (mouse, touch, keyboard/screen reader).

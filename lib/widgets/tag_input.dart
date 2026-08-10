@@ -364,14 +364,24 @@ class WpTagInputState extends State<WpTagInput> {
             vertical: WpSpacing.xxs + 2,
           ),
           suffixIcon: hasText
-              ? GestureDetector(
-                  onTap: () => _submit(_controller.text),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: WpSpacing.xxs),
-                    child: Icon(
-                      LucideIcons.cornerDownLeft,
-                      size: 14,
-                      color: textMuted,
+              ? Semantics(
+                  button: true,
+                  label: 'Add tag',
+                  child: Tooltip(
+                    message: 'Add tag',
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => _submit(_controller.text),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: WpSpacing.xxs),
+                          child: Icon(
+                            LucideIcons.cornerDownLeft,
+                            size: 14,
+                            color: textMuted,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 )
