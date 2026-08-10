@@ -26,6 +26,7 @@ import 'core/platform/display_bounds.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/platform/window_position_clamp.dart';
 import 'core/theme/theme.dart';
+import 'core/theme/tokens.dart';
 import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
 import 'snippet_picker_render_entrypoint.dart';
@@ -326,7 +327,13 @@ Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
   final geometry = resolveDesktopWindowGeometry(settings);
   final windowOptions = WindowOptions(
     size: geometry.size,
-    minimumSize: const Size(800, 550),
+    // Derived, not guessed: the height is the nav rail's own budget plus
+    // title bar, status bar and what the platform window frame eats before
+    // the engine sees it (see [WpLayout.minWindowHeight]). At the old 550 the
+    // rail was 59 dp short of its rows at a size the app itself enforced;
+    // anything below the new value is handled by the rail's scroll fallback,
+    // for the window managers that ignore this request.
+    minimumSize: const Size(WpLayout.minWindowWidth, WpLayout.minWindowHeight),
     center: geometry.position == null,
     title: 'WhisPaste',
     titleBarStyle: TitleBarStyle.hidden,

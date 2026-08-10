@@ -21,8 +21,9 @@
 ///    model download error);
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
-///  - the layout survives the window minimum size (800×550, `lib/main.dart`)
-///    and an enlarged system text scale without overflow errors.
+///  - the layout survives a window *below* the size the app enforces (800×550;
+///    the real floor is `WpLayout.minWindowHeight`, 800×621) and an enlarged
+///    system text scale without overflow errors.
 library;
 
 import 'package:flutter/foundation.dart'
@@ -729,6 +730,12 @@ void main() {
     // (1280×800) stays the real layout constraint underneath it. Setting
     // `tester.view.physicalSize` is what genuinely shrinks the surface —
     // same pattern as `test/core/design/responsive_overflow_test.dart`.
+    //
+    // 800×550 is one notch *below* the window minimum the app enforces
+    // (`WpLayout.minWindowHeight`, 800×621) — kept there on purpose after the
+    // minimum was raised: a floor that is harsher than reality stays a valid
+    // floor, and the onboarding overlay covers the whole window anyway, so
+    // none of the chrome that sets that minimum is on screen here.
     void shrinkToMinimumWindow(WidgetTester tester) {
       tester.view.physicalSize = const Size(800, 550);
       tester.view.devicePixelRatio = 1.0;

@@ -194,6 +194,48 @@ abstract final class WpLayout {
   /// Material 3 minimum touch target — all interactive elements must meet this.
   static const double minTouchTarget = 48;
 
+  /// Chrome stacked above and below the nav rail in the app shell: the title
+  /// bar and the status bar, both fixed-height in every state.
+  static const double frameChromeHeight = appBarHeight + statusBarHeight;
+
+  /// What `minimumSize` costs before any of it reaches Flutter.
+  ///
+  /// `window_manager` hands the value to the platform's *window* minimum, not
+  /// to the client area: `NSWindow.minSize` on macOS, `ptMinTrackSize` in
+  /// `WM_GETMINMAXINFO` on Windows, GDK geometry hints on Linux. With
+  /// `TitleBarStyle.hidden` the difference is small but not zero — the Windows
+  /// plugin's own `WM_NCCALCSIZE` handler shrinks the client rect by 8 px at
+  /// the bottom (plus 1 px at the top on Windows 10), so a bare 609 would
+  /// arrive in the engine as ~600 dp and put the rail 8 dp into its scroll
+  /// fallback at the very size the app enforces. 12 covers that worst case
+  /// (the 9 px are physical, so they shrink at every scale above 100 %) and
+  /// leaves a few dp for fractional-scale rounding on the other two
+  /// platforms.
+  static const double windowFrameAllowance = 12;
+
+  /// Smallest window the app lets itself be resized to (`window_manager`
+  /// `minimumSize`, applied in `main.dart`).
+  ///
+  /// The height is not a taste value: it is the point at which the nav rail
+  /// stops needing its scroll fallback, plus what the window frame eats —
+  /// [WpNavRail.productionContentHeight] (497) + [frameChromeHeight] (112) +
+  /// [windowFrameAllowance] (12) = 621. Deriving it means adding a nav item
+  /// raises the minimum with it instead of silently re-introducing the
+  /// overflow this constant exists to prevent;
+  /// `sidebar_height_budget_test.dart` measures the real rail against it.
+  ///
+  /// Kept as small as that derivation allows rather than rounded to a
+  /// comfortable number: on a 1366×768 panel every dp here is one the user
+  /// does not get back, and at that panel's 125 % scaling the work area is
+  /// already ~576 dp — below what the rail needs at all, so that combination
+  /// is the scroll fallback's territory by construction. Which is precisely
+  /// why both halves of the fix exist together.
+  static const double minWindowWidth = 800;
+  static const double minWindowHeight =
+      WpNavRail.productionContentHeight +
+      frameChromeHeight +
+      windowFrameAllowance;
+
   /// Responsive breakpoints (mobile-first).
   static const double breakpointMobile = 600;
 }
@@ -215,6 +257,30 @@ abstract final class WpNavRail {
 
   /// Height of one rail row (pill plus its breathing room).
   static const double itemHeight = 42;
+
+  /// Vertical padding each rail row carries above and below itself.
+  static const double rowPadding = WpSpacing.xs;
+
+  /// Full vertical space one rail row occupies, padding included.
+  static const double rowHeight = itemHeight + 2 * rowPadding;
+
+  /// Full vertical space one group-break hairline occupies, padding included.
+  static const double dividerRowHeight = dividerThickness + 2 * rowPadding;
+
+  /// Gap the rail keeps between its last (bottom-pinned) row and the status
+  /// bar underneath it.
+  static const double bottomInset = WpSpacing.md;
+
+  /// Height the production rail needs before it has to scroll: the seven nav
+  /// rows from `wpNavItems`, the one group break from `wpNavDividerAfterIds`,
+  /// the pinned settings row from `wpSettingsNavItem`, plus [bottomInset].
+  ///
+  /// 8 × 58 + 17 + 16 = 497. The rail itself never reads this number — it
+  /// lays out from the rows above — but [WpLayout.minWindowHeight] does, and
+  /// `sidebar_height_budget_test.dart` measures the real rail against it so
+  /// the two cannot drift apart unnoticed.
+  static const double productionContentHeight =
+      8 * rowHeight + dividerRowHeight + bottomInset;
 
   /// The rounded square behind the icon; carries the active state's fill,
   /// hairline and elevation.

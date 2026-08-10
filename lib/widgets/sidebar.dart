@@ -63,36 +63,73 @@ class WpSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final column = Column(
+      children: [
+        // Weighted spacers: ~40% above, ~60% below → slightly above center
+        const Spacer(flex: 4),
+        // Nav items with generous spacing
+        for (final item in items) ...[
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
+          _NavItemWidget(
+            item: item,
+            isActive: item.id == activeId,
+            onTap: () => onItemTap(item.id),
+            isDark: isDark,
+          ),
+          if (dividerAfterIds.contains(item.id))
+            _SidebarGroupDivider(isDark: isDark),
+        ],
+        const Spacer(flex: 6),
+        // Bottom items pinned to bottom
+        for (final item in bottomItems)
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
+          _NavItemWidget(
+            item: item,
+            isActive: item.id == activeId,
+            onTap: () => onItemTap(item.id),
+            isDark: isDark,
+          ),
+        const SizedBox(height: WpNavRail.bottomInset),
+      ],
+    );
+
     return SizedBox(
       width: WpLayout.sidebarWidth,
-      child: Column(
-        children: [
-          // Weighted spacers: ~40% above, ~60% below → slightly above center
-          const Spacer(flex: 4),
-          // Nav items with generous spacing
-          for (final item in items) ...[
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
-            _NavItemWidget(
-              item: item,
-              isActive: item.id == activeId,
-              onTap: () => onItemTap(item.id),
-              isDark: isDark,
+      // Scroll fallback, second half of the height-budget fix (the first is
+      // WpLayout.minWindowHeight). The rail's rows are fixed-height and its
+      // spacers cannot go negative, so any window shorter than the rail needs
+      // used to produce a hard RenderFlex overflow. `minimumSize` is only a
+      // request — tiling window managers (sway/i3) ignore it outright, and at
+      // fractional display scales the client area can land a fraction of a dp
+      // short — so the rail has to survive being handed less room than it
+      // asked for.
+      //
+      // No scrollbar: the rail *is* chrome, 72 dp wide and icon-only; a track
+      // running down it would read as a second border on every page. It also
+      // never appears in the normal case — with the minimum window enforced,
+      // the scroll extent is zero and this whole branch is inert.
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              // Keeps the Spacer rhythm intact whenever there *is* room: the
+              // column still fills the rail's full height, and only grows past
+              // it (into scrollable overflow) once the rows no longer fit.
+              constraints: BoxConstraints(
+                minHeight: constraints.hasBoundedHeight
+                    ? constraints.maxHeight
+                    : 0,
+              ),
+              // The scroll view offers unbounded height, which a Column with
+              // Spacers cannot lay out in. IntrinsicHeight resolves the column
+              // to its natural height (flex children contribute 0), which the
+              // ConstrainedBox above then lifts back to the available height
+              // whenever that is larger.
+              child: IntrinsicHeight(child: column),
             ),
-            if (dividerAfterIds.contains(item.id))
-              _SidebarGroupDivider(isDark: isDark),
-          ],
-          const Spacer(flex: 6),
-          // Bottom items pinned to bottom
-          for (final item in bottomItems)
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
-            _NavItemWidget(
-              item: item,
-              isActive: item.id == activeId,
-              onTap: () => onItemTap(item.id),
-              isDark: isDark,
-            ),
-          const SizedBox(height: WpSpacing.md),
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -112,7 +149,7 @@ class _SidebarGroupDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+      padding: const EdgeInsets.symmetric(vertical: WpNavRail.rowPadding),
       child: Container(
         width: WpNavRail.dividerWidth,
         height: WpNavRail.dividerThickness,
@@ -237,7 +274,9 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
               splashColor: Colors.transparent,
               highlightColor: Colors.transparent,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+                padding: const EdgeInsets.symmetric(
+                  vertical: WpNavRail.rowPadding,
+                ),
                 child: SizedBox(
                   width: WpNavRail.itemWidth,
                   height: WpNavRail.itemHeight,
