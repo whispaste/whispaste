@@ -243,15 +243,19 @@ void main() {
       expect(toNumericOnly('fünf komma zwei minus drei'), '5,2-3');
     });
 
-    test('Fall 4: Fünf Komma zwei minus drei. → 5,2-3 (Großschreibung + Schlusspunkt)',
-        () {
-      expect(toNumericOnly('Fünf Komma zwei minus drei.'), '5,2-3');
-    });
+    test(
+      'Fall 4: Fünf Komma zwei minus drei. → 5,2-3 (Großschreibung + Schlusspunkt)',
+      () {
+        expect(toNumericOnly('Fünf Komma zwei minus drei.'), '5,2-3');
+      },
+    );
 
-    test('Fall 5: Fünf Komma zwei, minus drei. → 5,2-3 (Satz-Komma verworfen)',
-        () {
-      expect(toNumericOnly('Fünf Komma zwei, minus drei.'), '5,2-3');
-    });
+    test(
+      'Fall 5: Fünf Komma zwei, minus drei. → 5,2-3 (Satz-Komma verworfen)',
+      () {
+        expect(toNumericOnly('Fünf Komma zwei, minus drei.'), '5,2-3');
+      },
+    );
 
     test('Fall 6: five point two minus three → 5.2-3 (EN-Gegenstück)', () {
       expect(toNumericOnly('five point two minus three'), '5.2-3');
@@ -351,15 +355,25 @@ void main() {
       'five dot two': '5.2',
     };
 
-    test('toNumericOnly(toNumericOnly(x)) == toNumericOnly(x) für alle Fälle',
-        () {
-      for (final entry in idempotentCases.entries) {
-        final once = toNumericOnly(entry.key);
-        expect(once, isNotNull, reason: 'Erster Durchlauf sollte nicht null sein für: ${entry.key}');
-        final twice = toNumericOnly(once!);
-        expect(twice, once, reason: 'Idempotenz fehlschlägt für: ${entry.key}');
-      }
-    });
+    test(
+      'toNumericOnly(toNumericOnly(x)) == toNumericOnly(x) für alle Fälle',
+      () {
+        for (final entry in idempotentCases.entries) {
+          final once = toNumericOnly(entry.key);
+          expect(
+            once,
+            isNotNull,
+            reason: 'Erster Durchlauf sollte nicht null sein für: ${entry.key}',
+          );
+          final twice = toNumericOnly(once!);
+          expect(
+            twice,
+            once,
+            reason: 'Idempotenz fehlschlägt für: ${entry.key}',
+          );
+        }
+      },
+    );
   });
 
   group('toNumericOnly — §8.3 Fall 16/17: Alphabet-Property', () {
@@ -438,63 +452,80 @@ void main() {
           expect(
             alphabetRegex.hasMatch(result),
             true,
-            reason: 'Ausgabe "$result" für Eingabe "$input" passt nicht auf das Zielalphabet',
+            reason:
+                'Ausgabe "$result" für Eingabe "$input" passt nicht auf das Zielalphabet',
           );
         }
       }
     });
 
-    test('Keine Ausgabe enthält ein Leerzeichen (≥1000 zufällige Token-Folgen)',
-        () {
-      final random = Random(42); // Fester Seed für Determinismus.
-      final alphabetRegex = RegExp(r'^[0-9.,-]+$');
+    test(
+      'Keine Ausgabe enthält ein Leerzeichen (≥1000 zufällige Token-Folgen)',
+      () {
+        final random = Random(42); // Fester Seed für Determinismus.
+        final alphabetRegex = RegExp(r'^[0-9.,-]+$');
 
-      // Generiere zufällige Token-Folgen aus dem deutschen UND englischen Lexikon.
-      final numberWords = [
-        // DE
-        'eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht',
-        'neun', 'zehn', 'elf', 'zwölf', 'zwanzig', 'dreißig', 'hundert',
-        'tausend', 'komma', 'punkt', 'minus',
-        // EN
-        'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
-        'nine', 'ten', 'eleven', 'fifteen', 'twenty', 'thirty', 'hundred',
-        'thousand', 'point', 'dot', 'comma', 'negative', 'oh',
-      ];
+        // Generiere zufällige Token-Folgen aus dem deutschen UND englischen Lexikon.
+        final numberWords = [
+          // DE
+          'eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht',
+          'neun', 'zehn', 'elf', 'zwölf', 'zwanzig', 'dreißig', 'hundert',
+          'tausend', 'komma', 'punkt', 'minus',
+          // EN
+          'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+          'nine', 'ten', 'eleven', 'fifteen', 'twenty', 'thirty', 'hundred',
+          'thousand', 'point', 'dot', 'comma', 'negative', 'oh',
+        ];
 
-      var hasNonNullOutput = false;
-      for (var i = 0; i < 1000; i++) {
-        final length = random.nextInt(10) + 1; // 1–10 Token.
-        final tokens = List.generate(length, (_) => numberWords[random.nextInt(numberWords.length)]);
-        final input = tokens.join(' ');
-        final result = toNumericOnly(input);
-        if (result != null) {
-          hasNonNullOutput = true;
-          expect(
-            !result.contains(' '),
-            true,
-            reason: 'Ausgabe "$result" enthält ein Leerzeichen',
+        var hasNonNullOutput = false;
+        for (var i = 0; i < 1000; i++) {
+          final length = random.nextInt(10) + 1; // 1–10 Token.
+          final tokens = List.generate(
+            length,
+            (_) => numberWords[random.nextInt(numberWords.length)],
           );
-          expect(
-            alphabetRegex.hasMatch(result),
-            true,
-            reason: 'Ausgabe "$result" passt nicht auf das Zielalphabet',
-          );
+          final input = tokens.join(' ');
+          final result = toNumericOnly(input);
+          if (result != null) {
+            hasNonNullOutput = true;
+            expect(
+              !result.contains(' '),
+              true,
+              reason: 'Ausgabe "$result" enthält ein Leerzeichen',
+            );
+            expect(
+              alphabetRegex.hasMatch(result),
+              true,
+              reason: 'Ausgabe "$result" passt nicht auf das Zielalphabet',
+            );
+          }
         }
-      }
-      expect(hasNonNullOutput, true, reason: 'Mindestens eine nicht-null Ausgabe erwartet.');
-    });
+        expect(
+          hasNonNullOutput,
+          true,
+          reason: 'Mindestens eine nicht-null Ausgabe erwartet.',
+        );
+      },
+    );
   });
 
   group('toNumericOnly — §7.2/§6.4 E1: Import-Reinheit', () {
     test('Engine-Datei enthält keine package:-Imports', () {
       final file = File('lib/services/number_transforms.dart');
-      expect(file.existsSync(), isTrue, reason: 'Engine-Datei muss existieren.');
+      expect(
+        file.existsSync(),
+        isTrue,
+        reason: 'Engine-Datei muss existieren.',
+      );
       final lines = file.readAsLinesSync();
-      final packageImports = lines.where((line) => line.startsWith("import 'package:")).toList();
+      final packageImports = lines
+          .where((line) => line.startsWith("import 'package:"))
+          .toList();
       expect(
         packageImports,
         isEmpty,
-        reason: 'package:-Imports gefunden in:\n${packageImports.join('\n')}\nDie Engine darf nur dart:core importieren.',
+        reason:
+            'package:-Imports gefunden in:\n${packageImports.join('\n')}\nDie Engine darf nur dart:core importieren.',
       );
     });
   });

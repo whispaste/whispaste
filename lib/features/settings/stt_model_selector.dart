@@ -253,9 +253,8 @@ class _TierRowState extends State<_TierRow> {
   /// VRAM-based estimate — colouring the line with it would show a red "slow"
   /// verdict before anything was measured, exactly the false signal the graded
   /// colours exist to remove. Benchmarking therefore reads as `unmeasured`.
-  TierPerformance get _infoPerformance => widget.isBenchmarking
-      ? TierPerformance.unmeasured
-      : widget.performance;
+  TierPerformance get _infoPerformance =>
+      widget.isBenchmarking ? TierPerformance.unmeasured : widget.performance;
 
   @override
   Widget build(BuildContext context) {

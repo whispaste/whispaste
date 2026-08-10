@@ -55,22 +55,13 @@ const _tens = {
 };
 
 /// Skalenwörter (V1: nur hundert und tausend).
-const _scales = {
-  'hundert': 100,
-  'tausend': 1000,
-};
+const _scales = {'hundert': 100, 'tausend': 1000};
 
 /// Dezimal-/Trennzeichen (DE).
-const _separators = {
-  'komma': ',',
-  'punkt': '.',
-};
+const _separators = {'komma': ',', 'punkt': '.'};
 
 /// Vorzeichen (DE/EN).
-const _signs = {
-  'minus': '-',
-  'negative': '-',
-};
+const _signs = {'minus': '-', 'negative': '-'};
 
 /// Alle einfachen (nicht-kompositen) Zahlwörter — Menge für schnelle
 /// Mitgliedschaftsprüfung.
@@ -127,17 +118,10 @@ const _enTens = {
 };
 
 /// Skalenwörter EN (V1: nur hundred und thousand).
-const _enScales = {
-  'hundred': 100,
-  'thousand': 1000,
-};
+const _enScales = {'hundred': 100, 'thousand': 1000};
 
 /// Dezimal-/Trennzeichen (EN).
-const _enSeparators = {
-  'point': '.',
-  'dot': '.',
-  'comma': ',',
-};
+const _enSeparators = {'point': '.', 'dot': '.', 'comma': ','};
 
 /// Alle einfachen (nicht-kompositen) englischen Zahlwörter — Menge für
 /// schnelle Mitgliedschaftsprüfung.
@@ -327,9 +311,11 @@ List<String> _filterAndFiller(List<String> tokens) {
       final prev = tokens[i - 1];
       final next = tokens[i + 1];
       final prevIsNumber =
-          _simpleNumberWords.contains(prev) || _enSimpleNumberWords.contains(prev);
+          _simpleNumberWords.contains(prev) ||
+          _enSimpleNumberWords.contains(prev);
       final nextIsNumber =
-          _simpleNumberWords.contains(next) || _enSimpleNumberWords.contains(next);
+          _simpleNumberWords.contains(next) ||
+          _enSimpleNumberWords.contains(next);
       if (prevIsNumber && nextIsNumber) {
         continue; // `and` zwischen Kardinalzahlen überspringen.
       }
@@ -355,14 +341,26 @@ _Token _classify(String token) {
     return _Token(_TokenKind.sign, word: token, output: _signs[token]);
   }
   if (_separators.containsKey(token)) {
-    return _Token(_TokenKind.separator, word: token, output: _separators[token]);
+    return _Token(
+      _TokenKind.separator,
+      word: token,
+      output: _separators[token],
+    );
   }
   if (_enSeparators.containsKey(token)) {
-    return _Token(_TokenKind.separator, word: token, output: _enSeparators[token]);
+    return _Token(
+      _TokenKind.separator,
+      word: token,
+      output: _enSeparators[token],
+    );
   }
   // EN-Skalenwörter: `hundred`, `thousand`.
   if (_enScales.containsKey(token)) {
-    return _Token(_TokenKind.scale, word: token, output: _enScales[token].toString());
+    return _Token(
+      _TokenKind.scale,
+      word: token,
+      output: _enScales[token].toString(),
+    );
   }
   // EN-Einzeldigit-Wörter: `oh`, `zero` → als String emittiert, keine
   // Gruppierung mit nachfolgenden Kardinalen (`oh five` → `05`).
@@ -491,10 +489,7 @@ List<String>? _emit(List<_Token> tokens) {
 String? toNumericOnly(String text) {
   // Stufe 1: Tokenisieren.
   final rawTokens = text.split(RegExp(r'\s+'));
-  final tokens = rawTokens
-      .map(_cleanToken)
-      .where((t) => t.isNotEmpty)
-      .toList();
+  final tokens = rawTokens.map(_cleanToken).where((t) => t.isNotEmpty).toList();
 
   if (tokens.isEmpty) return null;
 
