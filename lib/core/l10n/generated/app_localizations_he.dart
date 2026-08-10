@@ -3263,4 +3263,31 @@ class L10nHe extends L10n {
 
   @override
   String get notesExport => 'ייצא';
+
+  @override
+  String markdownToolbarBold(String shortcut) {
+    return 'מודגש ($shortcut)';
+  }
+
+  @override
+  String markdownToolbarItalic(String shortcut) {
+    return 'נטוי ($shortcut)';
+  }
+
+  @override
+  String get markdownToolbarHeading => 'כותרת';
+
+  @override
+  String markdownToolbarBulletList(String shortcut) {
+    return 'רשימת תבליטים ($shortcut)';
+  }
+
+  @override
+  String get markdownToolbarNumberedList => 'רשימה ממוספרת';
+
+  @override
+  String get markdownToolbarQuote => 'ציטוט';
+
+  @override
+  String get markdownToolbarCode => 'קוד';
 }

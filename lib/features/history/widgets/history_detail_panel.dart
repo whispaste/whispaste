@@ -212,44 +212,13 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     _panelFocusNode.requestFocus();
   }
 
-  void _wrapBold() => _wrapEditorSelection('**');
-  void _wrapItalic() => _wrapEditorSelection('_');
-  void _toggleBullet() => _toggleEditorLinePrefix('- ');
-
-  void _wrapEditorSelection(String marker) {
-    final sel = _transcriptController.selection;
-    if (!sel.isValid) return;
-    final text = _transcriptController.text;
-    final selected = text.substring(sel.start, sel.end);
-    final wrapped = '$marker$selected$marker';
-    _transcriptController.value = TextEditingValue(
-      text: '${text.substring(0, sel.start)}$wrapped${text.substring(sel.end)}',
-      selection: TextSelection(
-        baseOffset: sel.start,
-        extentOffset: sel.start + wrapped.length,
-      ),
-    );
-    _editorFocusNode.requestFocus();
-  }
-
-  void _toggleEditorLinePrefix(String prefix) {
-    final sel = _transcriptController.selection;
-    if (!sel.isValid) return;
-    final text = _transcriptController.text;
-    final lineStart = text.lastIndexOf('\n', sel.start > 0 ? sel.start - 1 : 0);
-    final start = lineStart == -1 ? 0 : lineStart + 1;
-    final lineEnd = text.indexOf('\n', sel.end);
-    final end = lineEnd == -1 ? text.length : lineEnd;
-    final line = text.substring(start, end);
-    final toggled = line.startsWith(prefix)
-        ? line.substring(prefix.length)
-        : '$prefix$line';
-    _transcriptController.value = TextEditingValue(
-      text: '${text.substring(0, start)}$toggled${text.substring(end)}',
-      selection: TextSelection.collapsed(offset: start + toggled.length),
-    );
-    _editorFocusNode.requestFocus();
-  }
+  /// Bold/italic/bullet come from [WpMarkdownFormatting] — the same object the
+  /// toolbar's buttons call, so the key and the button it advertises can no
+  /// longer drift apart. This panel used to keep its own second copy.
+  WpMarkdownFormatting get _markdownFormatting => WpMarkdownFormatting(
+    controller: _transcriptController,
+    focusNode: _editorFocusNode,
+  );
 
   String _fullTimestamp(BuildContext context) {
     final locale = Localizations.localeOf(context).toString();
@@ -358,29 +327,13 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           if (_isEditingTranscript || _isEditingTitle) return;
           onCopy();
         },
-        // Markdown formatting shortcuts (active only in edit mode)
-        SingleActivator(
-          LogicalKeyboardKey.keyB,
-          control: !Platform.isMacOS,
-          meta: Platform.isMacOS,
-        ): () {
-          if (_isEditingTranscript) _wrapBold();
-        },
-        SingleActivator(
-          LogicalKeyboardKey.keyI,
-          control: !Platform.isMacOS,
-          meta: Platform.isMacOS,
-        ): () {
-          if (_isEditingTranscript) _wrapItalic();
-        },
-        SingleActivator(
-          LogicalKeyboardKey.keyL,
-          control: !Platform.isMacOS,
-          meta: Platform.isMacOS,
-          shift: true,
-        ): () {
-          if (_isEditingTranscript) _toggleBullet();
-        },
+        // Markdown formatting shortcuts (active only in edit mode). Owned by
+        // WpMarkdownFormatting, shared with the Notes editor — the activators
+        // and the operations behind them are defined once, next to the toolbar
+        // buttons whose tooltips advertise them.
+        ..._markdownFormatting.shortcutBindings(
+          when: () => _isEditingTranscript,
+        ),
         // Shortcut help overlay
         const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
           if (!isTextFieldFocused()) _showShortcutHelp();

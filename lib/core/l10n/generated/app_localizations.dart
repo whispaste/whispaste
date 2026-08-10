@@ -5873,6 +5873,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Export'**
   String get notesExport;
+
+  /// Markdown toolbar button — tooltip and screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Bold ({shortcut})'**
+  String markdownToolbarBold(String shortcut);
+
+  /// No description provided for @markdownToolbarItalic.
+  ///
+  /// In en, this message translates to:
+  /// **'Italic ({shortcut})'**
+  String markdownToolbarItalic(String shortcut);
+
+  /// No description provided for @markdownToolbarHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Heading'**
+  String get markdownToolbarHeading;
+
+  /// No description provided for @markdownToolbarBulletList.
+  ///
+  /// In en, this message translates to:
+  /// **'Bullet list ({shortcut})'**
+  String markdownToolbarBulletList(String shortcut);
+
+  /// No description provided for @markdownToolbarNumberedList.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbered list'**
+  String get markdownToolbarNumberedList;
+
+  /// No description provided for @markdownToolbarQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Quote'**
+  String get markdownToolbarQuote;
+
+  /// No description provided for @markdownToolbarCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get markdownToolbarCode;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

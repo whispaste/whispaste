@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
@@ -19,6 +20,11 @@ void main() {
   group('WpMarkdownToolbar — toolbar button semantics', () {
     late TextEditingController controller;
     late FocusNode focusNode;
+    late L10n l10n;
+
+    setUpAll(() async {
+      l10n = await L10n.delegate.load(const Locale('en'));
+    });
 
     setUp(() {
       controller = TextEditingController();
@@ -38,12 +44,15 @@ void main() {
             isDark: true,
             focusNode: focusNode,
           ),
+          locale: const Locale('en'),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(
-        find.bySemanticsLabel('Bold (Ctrl+B)'),
+        find.bySemanticsLabel(
+          l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel),
+        ),
         findsOneWidget,
         reason:
             'Bold toolbar button must expose its tooltip as a semantics label',
@@ -58,20 +67,24 @@ void main() {
             isDark: true,
             focusNode: focusNode,
           ),
+          locale: const Locale('en'),
         ),
       );
       await tester.pumpAndSettle();
 
       // The 7 buttons: Bold, Italic, Heading, Bullet list,
-      // Numbered list, Quote, Code.
+      // Numbered list, Quote, Code — labels out of the ARB files (Ticket 27),
+      // no longer hard-coded English inside the widget.
       for (final label in [
-        'Bold (Ctrl+B)',
-        'Italic (Ctrl+I)',
-        'Heading',
-        'Bullet list (Ctrl+Shift+L)',
-        'Numbered list',
-        'Quote',
-        'Code',
+        l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel),
+        l10n.markdownToolbarItalic(WpMarkdownFormatting.italicShortcutLabel),
+        l10n.markdownToolbarHeading,
+        l10n.markdownToolbarBulletList(
+          WpMarkdownFormatting.bulletListShortcutLabel,
+        ),
+        l10n.markdownToolbarNumberedList,
+        l10n.markdownToolbarQuote,
+        l10n.markdownToolbarCode,
       ]) {
         expect(
           find.bySemanticsLabel(label),

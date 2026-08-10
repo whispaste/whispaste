@@ -1112,5 +1112,28 @@
       "count": { "type": "int" }
     }
   },
-  "notesExport": "Exportieren"
+  "notesExport": "Exportieren",
+
+  "markdownToolbarBold": "Fett ({shortcut})",
+  "@markdownToolbarBold": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Strg+B" }
+    }
+  },
+  "markdownToolbarItalic": "Kursiv ({shortcut})",
+  "@markdownToolbarItalic": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Strg+I" }
+    }
+  },
+  "markdownToolbarHeading": "Überschrift",
+  "markdownToolbarBulletList": "Aufzählung ({shortcut})",
+  "@markdownToolbarBulletList": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Strg+Umschalt+L" }
+    }
+  },
+  "markdownToolbarNumberedList": "Nummerierte Liste",
+  "markdownToolbarQuote": "Zitat",
+  "markdownToolbarCode": "Code"
 }

@@ -1255,5 +1255,29 @@
       "count": { "type": "int" }
     }
   },
-  "notesExport": "Export"
+  "notesExport": "Export",
+
+  "markdownToolbarBold": "Bold ({shortcut})",
+  "@markdownToolbarBold": {
+    "description": "Markdown toolbar button — tooltip and screen-reader name.",
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+B" }
+    }
+  },
+  "markdownToolbarItalic": "Italic ({shortcut})",
+  "@markdownToolbarItalic": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+I" }
+    }
+  },
+  "markdownToolbarHeading": "Heading",
+  "markdownToolbarBulletList": "Bullet list ({shortcut})",
+  "@markdownToolbarBulletList": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+Shift+L" }
+    }
+  },
+  "markdownToolbarNumberedList": "Numbered list",
+  "markdownToolbarQuote": "Quote",
+  "markdownToolbarCode": "Code"
 }

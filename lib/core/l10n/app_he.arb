@@ -1125,5 +1125,28 @@
       "count": { "type": "int" }
     }
   },
-  "notesExport": "ייצא"
+  "notesExport": "ייצא",
+
+  "markdownToolbarBold": "מודגש ({shortcut})",
+  "@markdownToolbarBold": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+B" }
+    }
+  },
+  "markdownToolbarItalic": "נטוי ({shortcut})",
+  "@markdownToolbarItalic": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+I" }
+    }
+  },
+  "markdownToolbarHeading": "כותרת",
+  "markdownToolbarBulletList": "רשימת תבליטים ({shortcut})",
+  "@markdownToolbarBulletList": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+Shift+L" }
+    }
+  },
+  "markdownToolbarNumberedList": "רשימה ממוספרת",
+  "markdownToolbarQuote": "ציטוט",
+  "markdownToolbarCode": "קוד"
 }

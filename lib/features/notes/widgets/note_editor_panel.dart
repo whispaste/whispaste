@@ -7,6 +7,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_text_field.dart';
@@ -305,17 +306,56 @@ class NoteEditorPanel extends StatelessWidget {
                 ? WpColorsDark.borderSubtle
                 : WpColorsLight.borderSubtle,
           ),
+          // ── Formatting toolbar ──
+          // Its own row under the divider, permanently — Notes has no read
+          // mode to hide it behind (History shows the same bar only while
+          // `isEditing`), and a bar that comes and goes on a surface whose
+          // whole purpose is writing would move the text under the cursor.
+          // Deliberately *not* in the header row above: that cluster already
+          // overflowed at the 280 dp panel floor (FLUTTER_WHISPASTE-64) and
+          // is capped by a `FittedBox` for it.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl,
+              WpSpacing.xs,
+              WpSpacing.xl,
+              0,
+            ),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: WpMarkdownToolbar(
+                controller: controller,
+                isDark: isDark,
+                focusNode: focusNode,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
           // ── Editor ──
           // Nothing else shares the region below the divider, so the field
           // *is* the surface: no stroke at rest (it takes the accent one on
           // focus, like every other variant), prose metrics identical to
           // History's transcript. See WpTextField's library docs.
+          //
+          // Ctrl/Cmd+B, +I and +Shift+L — the very shortcuts the bar's
+          // tooltips advertise — are bound around the field and nowhere
+          // else. They come out of the toolbar's own owner, so the key and
+          // the button it sits under cannot drift apart, and scoping them to
+          // this subtree (instead of guarding a panel-wide binding) keeps
+          // them off the tag input above without inventing a condition:
+          // a key pressed inside the tag field never reaches this Focus.
           Expanded(
-            child: WpTextField(
-              controller: controller,
-              focusNode: focusNode,
-              variant: WpTextFieldVariant.bare,
-              hintText: l10n.notesEditorPlaceholder,
+            child: CallbackShortcuts(
+              bindings: WpMarkdownFormatting(
+                controller: controller,
+                focusNode: focusNode,
+              ).shortcutBindings(),
+              child: WpTextField(
+                controller: controller,
+                focusNode: focusNode,
+                variant: WpTextFieldVariant.bare,
+                hintText: l10n.notesEditorPlaceholder,
+              ),
             ),
           ),
         ],

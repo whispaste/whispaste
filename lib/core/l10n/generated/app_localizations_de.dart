@@ -3341,4 +3341,31 @@ class L10nDe extends L10n {
 
   @override
   String get notesExport => 'Exportieren';
+
+  @override
+  String markdownToolbarBold(String shortcut) {
+    return 'Fett ($shortcut)';
+  }
+
+  @override
+  String markdownToolbarItalic(String shortcut) {
+    return 'Kursiv ($shortcut)';
+  }
+
+  @override
+  String get markdownToolbarHeading => 'Überschrift';
+
+  @override
+  String markdownToolbarBulletList(String shortcut) {
+    return 'Aufzählung ($shortcut)';
+  }
+
+  @override
+  String get markdownToolbarNumberedList => 'Nummerierte Liste';
+
+  @override
+  String get markdownToolbarQuote => 'Zitat';
+
+  @override
+  String get markdownToolbarCode => 'Code';
 }
