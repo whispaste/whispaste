@@ -884,14 +884,6 @@ class L10nDe extends L10n {
       'Lege eine Sicherung deiner WhisPaste-Einrichtung an oder nimm sie mit auf einen anderen Rechner';
 
   @override
-  String get settingsPortabilityLabel =>
-      'Einstellungen exportieren/importieren';
-
-  @override
-  String get settingsPortabilitySubtitle =>
-      'Deine Einstellungen zwischen Geräten übertragen, ohne Konto.';
-
-  @override
   String get settingsPortabilityExportAction => 'Exportieren';
 
   @override

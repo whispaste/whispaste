@@ -1629,18 +1629,6 @@ abstract class L10n {
   /// **'Keep a backup of your WhisPaste setup or take it to another computer'**
   String get settingsPortabilitySectionSubtitle;
 
-  /// No description provided for @settingsPortabilityLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Export / Import Settings'**
-  String get settingsPortabilityLabel;
-
-  /// No description provided for @settingsPortabilitySubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Move your settings between devices, no account needed.'**
-  String get settingsPortabilitySubtitle;
-
   /// No description provided for @settingsPortabilityExportAction.
   ///
   /// In en, this message translates to:

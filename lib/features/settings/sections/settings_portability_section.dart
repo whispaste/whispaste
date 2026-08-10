@@ -12,6 +12,24 @@
 /// `AppSettings.portabilityPaths` — never via `resolvePath()`, which would
 /// pop the native file dialog just for rendering the settings page. An
 /// empty string simply means "no location remembered yet".
+///
+/// Layout (Ticket 25, decision E10=b): one row per direction, each carrying
+/// its whole story on a single line — direction glyph, the remembered path,
+/// the action, the chooser. What it replaces was a single "Export / Import
+/// Settings" row with both buttons, followed by two separate location lines:
+/// the reader had to pair the first button with the first path by position,
+/// and four text layers (section title, section subtitle, row label, row
+/// subtitle) said the same two things twice. The row label and subtitle are
+/// gone; the section header is now the only explanatory prose, which is the
+/// shape `review_support_section.dart` and `onboarding_review_section.dart`
+/// already have.
+///
+/// The direction is deliberately carried by the glyph, the action verb and
+/// the accessible name rather than by a fourth text layer — a visible
+/// "Exportziel" label beside an "Exportieren" button is the very repetition
+/// this ticket removes. `settingsPortabilityExportLocationLabel` /
+/// `…ImportLocationLabel` live on as the rows' [Semantics] names, so the
+/// direction is spoken even though it is not printed.
 library;
 
 import 'package:flutter/material.dart';
@@ -32,6 +50,26 @@ import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
+
+/// Row identities of the two direction rows, shared with the widget tests so
+/// the structural assertion and the widget cannot drift apart via a typo.
+const String kPortabilityExportRowKey = 'portabilityExportRow';
+const String kPortabilityImportRowKey = 'portabilityImportRow';
+
+/// Width the location column keeps before the action cluster starts giving
+/// way — roughly a truncated directory plus a short file name, i.e. the least
+/// that still reads as a path rather than as an ellipsis.
+const double _minLocationWidth = 96;
+
+/// Floor under the action cluster, below which the location gives way again.
+///
+/// Without it the location's reserve is absolute, and on a line short enough
+/// the button is squeezed past its own label into an empty pill — a control
+/// that has lost the word that says what it does, which is worse than either
+/// of the two texts being clipped. The floor keeps enough for the stem of
+/// the verb ("Exportie…") next to the chooser's touch target, and from there
+/// down the two halves lose room together instead of one losing all of it.
+const double _minActionsWidth = WpLayout.minTouchTarget + WpSpacing.xxs + 96;
 
 class SettingsPortabilitySection extends ConsumerWidget {
   const SettingsPortabilitySection({
@@ -172,69 +210,190 @@ class SettingsPortabilitySection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SettingRow(
-            icon: LucideIcons.arrowUpDown,
-            label: l10n.settingsPortabilityLabel,
-            subtitle: l10n.settingsPortabilitySubtitle,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                WpButton(
-                  label: l10n.settingsPortabilityExportAction,
-                  variant: WpButtonVariant.secondary,
-                  onPressed: () => _controller(ref).export(context),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                WpButton(
-                  label: l10n.settingsPortabilityImportAction,
-                  variant: WpButtonVariant.secondary,
-                  onPressed: () => _confirmImport(context, ref),
-                ),
-              ],
-            ),
-          ),
-          // Remembered-location lines (Ticket 05), indented to the
-          // SettingRow label column (row padding + icon + gap). The
-          // choose-location affordance lives here, next to the path it
-          // changes — physically apart from the Export/Import buttons
-          // above, so it cannot be mistaken for the main action.
-          Padding(
-            padding: const EdgeInsetsDirectional.only(
-              start: WpSpacing.sm + WpIconSize.sm + WpSpacing.sm,
-              end: WpSpacing.sm,
-              bottom: WpSpacing.xxs,
-            ),
-            child: Column(
-              children: [
-                _locationLine(context, ref, forExport: true),
-                _locationLine(context, ref, forExport: false),
-              ],
-            ),
-          ),
+          _directionRow(context, ref, forExport: true),
+          // Ticket 26 (Autosicherung) hangs its toggle row and the passive
+          // "letzte Sicherung" timestamp line in exactly this gap: directly
+          // below the export row it belongs to, above the import row it does
+          // not — as further children of this Column, with neither row
+          // itself having to change.
+          _directionRow(context, ref, forExport: false),
         ],
       ),
     );
   }
 
-  /// One remembered-location line: direction label, the remembered path
-  /// (or the honest "asked on first export/import" state — never an
-  /// invented suggestion the user did not confirm), and the icon-button
-  /// that picks a new location via [SettingsPortabilityController.chooseNewLocation]
-  /// — the same dialog path export/import use internally, which only sets
-  /// the location and never writes or imports anything. Cancelling it
-  /// leaves the remembered location untouched.
-  Widget _locationLine(
+  /// One direction — export or import — complete on a single line:
+  /// glyph, remembered location, action, chooser.
+  ///
+  /// Not a [SettingRow]: that row's label column takes a `String`, and the
+  /// thing this row leads with is the *path*, which has to be rendered as
+  /// two differently-weighted parts (see [_pathDisplay]) and never as one
+  /// flat string. The box around it — [kSettingRowInset] horizontally,
+  /// `WpSpacing.sm` vertically, [WpLayout.minTouchTarget] minimum height —
+  /// is taken from [SettingRow] on purpose so the two line up with every
+  /// other settings row above and below. The hover surface is left off: it
+  /// signals "this whole row is one target", which is false here — the row
+  /// holds two independent controls and a path that is not a control at all.
+  Widget _directionRow(
     BuildContext context,
     WidgetRef ref, {
     required bool forExport,
   }) {
     final l10n = L10n.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    return Semantics(
+      // Keyed so a test can assert the one structural promise of this
+      // layout — that a direction's path, action and chooser sit inside one
+      // row and never drift back into two parallel lists — which is also
+      // the promise Ticket 26 has to build on without breaking.
+      key: ValueKey(
+        forExport ? kPortabilityExportRowKey : kPortabilityImportRowKey,
+      ),
+      // The direction is not printed anywhere in this row — the glyph and
+      // the action verb carry it visually — so it is stated here, and the
+      // location text is announced after it.
+      label: forExport
+          ? l10n.settingsPortabilityExportLocationLabel
+          : l10n.settingsPortabilityImportLocationLabel,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: WpLayout.minTouchTarget),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kSettingRowInset,
+            vertical: WpSpacing.sm,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Which of the two gives way when the line runs short.
+              //
+              // The action cluster is the wide, inflexible part: a standard
+              // 48-dp button is 233 dp for "Exportieren" at text scale 1.3,
+              // and German is the widest of the three languages by roughly a
+              // factor of two ("Export" measures ~150). Leaving it unbounded
+              // is what overflows a 280-dp line, and letting the *path* take
+              // the whole squeeze instead would leave a location column with
+              // nothing but an ellipsis in it — a path that says nothing is
+              // worse than a verb that ellipsizes, because the verb is also
+              // written on the tooltip and in the section header.
+              //
+              // So the location keeps [_minLocationWidth] and the cluster is
+              // capped at whatever is left. At the real floor of the settings
+              // column — ~680 dp inside an 800-dp minimum window — the cap
+              // sits far above the cluster's natural width and changes
+              // nothing; it engages only in layouts narrower than the page
+              // can actually be, which is where the ticket's 280-dp check
+              // lives.
+              final actionsCap =
+                  constraints.maxWidth -
+                  (WpIconSize.sm + WpSpacing.sm + WpSpacing.sm) -
+                  _minLocationWidth;
+              return Row(
+                children: [
+                  // `upload`/`download`, not `fileUp`/`fileDown`. The file
+                  // pair is the better metaphor on paper — what happens here
+                  // is a file on this machine, not a transfer to a service —
+                  // but at [WpIconSize.sm] it does not survive rendering: the
+                  // arrow is a ~6-dp detail inside a document outline, so
+                  // both glyphs read as the same blank page and the row
+                  // carries no direction at all. That is only invisible in
+                  // the state where the two paths differ; set both to the
+                  // same file (export here, import from the same backup —
+                  // the ordinary round trip) and the rows become
+                  // indistinguishable except for the button verb. These
+                  // glyphs spend their whole box on the arrow, so the
+                  // direction survives at 16 dp.
+                  Icon(
+                    forExport ? LucideIcons.upload : LucideIcons.download,
+                    size: WpIconSize.sm,
+                    color: cs.secondary,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  Expanded(child: _locationDisplay(context, ref, forExport)),
+                  const SizedBox(width: WpSpacing.sm),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: actionsCap < _minActionsWidth
+                          ? _minActionsWidth
+                          : actionsCap,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: WpButton(
+                            label: forExport
+                                ? l10n.settingsPortabilityExportAction
+                                : l10n.settingsPortabilityImportAction,
+                            variant: WpButtonVariant.secondary,
+                            onPressed: forExport
+                                ? () => _controller(ref).export(context)
+                                : () => _confirmImport(context, ref),
+                          ),
+                        ),
+                        const SizedBox(width: WpSpacing.xxs),
+                        IconButton(
+                          icon: Icon(
+                            LucideIcons.folderPen,
+                            size: WpIconSize.sm,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
+                          ),
+                          // The tooltip does double duty: it names the
+                          // icon-only affordance (all three languages) and
+                          // states explicitly that choosing only sets the
+                          // location — nothing is exported/imported by it.
+                          // With the chooser now standing next to the action
+                          // instead of a line below it, that separation is
+                          // carried by rank — a muted 16-px glyph against an
+                          // outlined button — and by this sentence.
+                          tooltip: forExport
+                              ? l10n.settingsPortabilityChooseExportLocation
+                              : l10n.settingsPortabilityChooseImportLocation,
+                          onPressed: () => _controller(
+                            ref,
+                          ).chooseNewLocation(forExport: forExport),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: WpLayout.minTouchTarget,
+                            minHeight: WpLayout.minTouchTarget,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The remembered location of one direction, or the honest "asked on
+  /// first export/import" state — never an invented suggestion the user did
+  /// not confirm.
+  ///
+  /// This is the row's leading content, so it takes the size a [SettingRow]
+  /// label would have — `bodyLarge`, for the whole path — and separates its
+  /// two halves by colour alone: `textPrimary` for the basename, which is
+  /// what names the backup, `textMuted` for the directory, which is only
+  /// where it sits. Colour rather than size because a path is one string:
+  /// setting the directory a point smaller put a visible step mid-word right
+  /// where the truncation ellipsis already sits, and the two artefacts read
+  /// together as a rendering fault. The unset state stays muted throughout —
+  /// an absence should not read as loudly as a chosen file.
+  Widget _locationDisplay(BuildContext context, WidgetRef ref, bool forExport) {
+    final l10n = L10n.of(context);
     final tt = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final secondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    final primary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
 
     // Read for display only — never `resolvePath()`, which would open the
     // native file dialog while merely rendering the settings page. Watched
@@ -243,56 +402,26 @@ class SettingsPortabilitySection extends ConsumerWidget {
         ref.watch(settingsProvider).value?.portabilityPaths ??
         AppSettings.defaults.portabilityPaths;
     final path = forExport ? paths.exportPath : paths.importPath;
-    final mutedStyle = tt.bodySmall?.copyWith(color: muted);
+    final mutedStyle = tt.bodyLarge?.copyWith(color: muted);
 
-    return Row(
-      children: [
-        Text(
-          forExport
-              ? l10n.settingsPortabilityExportLocationLabel
-              : l10n.settingsPortabilityImportLocationLabel,
-          style: mutedStyle,
-        ),
-        const SizedBox(width: WpSpacing.sm),
-        Expanded(
-          child: Align(
-            // Resolved against the ambient (locale) direction, so the path
-            // hugs the reading start next to its label in LTR and RTL alike.
-            alignment: AlignmentDirectional.centerStart,
-            child: path.isEmpty
-                ? Text(
-                    forExport
-                        ? l10n.settingsPortabilityExportLocationUnset
-                        : l10n.settingsPortabilityImportLocationUnset,
-                    style: mutedStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                : _pathDisplay(
-                    path,
-                    dirStyle: mutedStyle,
-                    baseStyle: tt.bodySmall?.copyWith(color: secondary),
-                  ),
-          ),
-        ),
-        const SizedBox(width: WpSpacing.xs),
-        IconButton(
-          icon: Icon(LucideIcons.folderPen, size: WpIconSize.sm, color: muted),
-          // The tooltip does double duty: it names the icon-only affordance
-          // (all three languages) and states explicitly that choosing only
-          // sets the location — nothing is exported/imported by it.
-          tooltip: forExport
-              ? l10n.settingsPortabilityChooseExportLocation
-              : l10n.settingsPortabilityChooseImportLocation,
-          onPressed: () =>
-              _controller(ref).chooseNewLocation(forExport: forExport),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(
-            minWidth: WpLayout.minTouchTarget,
-            minHeight: WpLayout.minTouchTarget,
-          ),
-        ),
-      ],
+    return Align(
+      // Resolved against the ambient (locale) direction, so the path hugs
+      // the reading start next to its glyph in LTR and RTL alike.
+      alignment: AlignmentDirectional.centerStart,
+      child: path.isEmpty
+          ? Text(
+              forExport
+                  ? l10n.settingsPortabilityExportLocationUnset
+                  : l10n.settingsPortabilityImportLocationUnset,
+              style: mutedStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : _pathDisplay(
+              path,
+              dirStyle: mutedStyle,
+              baseStyle: tt.bodyLarge?.copyWith(color: primary),
+            ),
     );
   }
 
@@ -322,6 +451,11 @@ class SettingsPortabilitySection extends ConsumerWidget {
           // short — Flex never redistributes unused flexible space.
           builder: (context, constraints) => Row(
             mainAxisSize: MainAxisSize.min,
+            // Hung from the shared baseline rather than centred: the two
+            // halves are one path and must sit on one line even if a caller
+            // ever hands them differently-sized styles.
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
               Flexible(
                 child: Text(

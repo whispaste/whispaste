@@ -227,8 +227,13 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     sectionKey: 'settingsPortability',
     titleDe: 'Sicherung & Übertragung',
     titleEn: 'Backup & Transfer',
-    subtitleDe: 'Einstellungen exportieren, importieren und mitnehmen',
-    subtitleEn: 'Export, import, and move your settings',
+    // Mirrors the section's own header prose (Ticket 25): the row label and
+    // row subtitle this used to echo are gone, and a search hit must not
+    // advertise wording the section no longer shows.
+    subtitleDe:
+        'Sicherung anlegen oder Einrichtung auf einen anderen Rechner '
+        'mitnehmen',
+    subtitleEn: 'Back up your setup or take it to another computer',
     keywords: [
       // DE
       'Export', 'Import', 'exportieren', 'importieren', 'Umzug', 'übertragen',

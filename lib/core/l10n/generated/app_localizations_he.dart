@@ -864,13 +864,6 @@ class L10nHe extends L10n {
       'שמור גיבוי של הגדרות WhisPaste שלך או קח אותן איתך למחשב אחר';
 
   @override
-  String get settingsPortabilityLabel => 'ייצוא/ייבוא הגדרות';
-
-  @override
-  String get settingsPortabilitySubtitle =>
-      'העברת ההגדרות שלך בין מכשירים, בלי חשבון.';
-
-  @override
   String get settingsPortabilityExportAction => 'ייצוא';
 
   @override

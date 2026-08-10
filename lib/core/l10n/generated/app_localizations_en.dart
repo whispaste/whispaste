@@ -875,13 +875,6 @@ class L10nEn extends L10n {
       'Keep a backup of your WhisPaste setup or take it to another computer';
 
   @override
-  String get settingsPortabilityLabel => 'Export / Import Settings';
-
-  @override
-  String get settingsPortabilitySubtitle =>
-      'Move your settings between devices, no account needed.';
-
-  @override
   String get settingsPortabilityExportAction => 'Export';
 
   @override

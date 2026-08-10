@@ -155,8 +155,26 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('renders one row per direction, each with its own action '
+        'button', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SettingsPortabilitySection()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Backup & Transfer'), findsOneWidget);
+      expect(find.byKey(const ValueKey(kPortabilityExportRowKey)), findsOne);
+      expect(find.byKey(const ValueKey(kPortabilityImportRowKey)), findsOne);
+      expect(find.widgetWithText(OutlinedButton, 'Export'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Import'), findsOneWidget);
+    });
+
     testWidgets(
-      'renders the Export/Import Settings entry with both action buttons',
+      'each direction is complete on its own row — location, action and '
+      'chooser together, and nothing from the other direction (E10=b)',
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
@@ -166,26 +184,96 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Export / Import Settings'), findsOneWidget);
-        expect(find.widgetWithText(OutlinedButton, 'Export'), findsOneWidget);
-        expect(find.widgetWithText(OutlinedButton, 'Import'), findsOneWidget);
+        final exportRow = find.byKey(const ValueKey(kPortabilityExportRowKey));
+        final importRow = find.byKey(const ValueKey(kPortabilityImportRowKey));
+
+        // This is the structural point of the layout: reading a path and
+        // finding the button that acts on it must not require pairing two
+        // parallel lists by position.
+        for (final (row, own, foreign, action, tooltip) in [
+          (
+            exportRow,
+            "You'll be asked on first export",
+            "You'll be asked on first import",
+            'Export',
+            'Choose a different export destination (nothing is exported yet)',
+          ),
+          (
+            importRow,
+            "You'll be asked on first import",
+            "You'll be asked on first export",
+            'Import',
+            'Choose a different import source (nothing is imported yet)',
+          ),
+        ]) {
+          expect(find.descendant(of: row, matching: find.text(own)), findsOne);
+          expect(
+            find.descendant(of: row, matching: find.text(foreign)),
+            findsNothing,
+            reason: 'a direction row must not carry the other direction',
+          );
+          expect(
+            find.descendant(
+              of: row,
+              matching: find.widgetWithText(OutlinedButton, action),
+            ),
+            findsOne,
+          );
+          expect(
+            find.descendant(of: row, matching: find.byTooltip(tooltip)),
+            findsOne,
+          );
+        }
       },
     );
 
-    testWidgets('section title is distinct from the row label', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: SettingsPortabilitySection()),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    // Acceptance criterion of Ticket 25: "keine zwei Textebenen der Sektion
+    // sagen mehr dasselbe". Asserted mechanically over whatever the section
+    // actually renders rather than against two pinned literals, so it keeps
+    // holding after the next wording change — and so Ticket 26's toggle and
+    // timestamp line cannot quietly reintroduce a duplicate layer.
+    //
+    // Scoped to the unset state on purpose, and not a universal invariant of
+    // the section: with a remembered location on both directions the user may
+    // legitimately have picked the same file for both (export a backup, then
+    // import it back), and the section then renders that one path twice. What
+    // is asserted here is that the section's own *prose* never says a thing
+    // twice — not that no two strings on the surface can ever coincide.
+    for (final locale in ['de', 'en', 'he']) {
+      testWidgets('no two rendered text layers repeat each other ($locale)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SettingsPortabilitySection()),
+            locale: Locale(locale),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      // Section header and row label must not collapse into the same string —
-      // both are rendered on the same page.
-      expect(find.text('Backup & Transfer'), findsOneWidget);
-      expect(find.text('Export / Import Settings'), findsOneWidget);
-    });
+        final texts = tester
+            .widgetList<Text>(
+              find.descendant(
+                of: find.byType(SettingsPortabilitySection),
+                matching: find.byType(Text),
+              ),
+            )
+            .map((t) => t.data)
+            .whereType<String>()
+            .toList();
+
+        expect(
+          texts.length,
+          greaterThanOrEqualTo(6),
+          reason: 'section header, both locations and both actions render',
+        );
+        expect(
+          texts.toSet(),
+          hasLength(texts.length),
+          reason: 'a text layer is repeated verbatim: $texts',
+        );
+      });
+    }
   });
 
   group('Settings search — portability section is discoverable', () {
@@ -340,13 +428,26 @@ void main() {
       SettingsPortabilityController? controller,
       Locale locale = const Locale('en'),
       double? width,
+      double textScale = 1.0,
     }) async {
       Widget section = SingleChildScrollView(
         child: SettingsPortabilitySection(controllerOverride: controller),
       );
       if (width != null) {
         section = Align(
+          alignment: Alignment.topLeft,
           child: SizedBox(width: width, child: section),
+        );
+      }
+      if (textScale != 1.0) {
+        final inner = section;
+        section = Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: inner,
+          ),
         );
       }
       await tester.pumpWidget(
@@ -512,5 +613,34 @@ void main() {
         );
       },
     );
+
+    // Ticket 25 acceptance criterion: 280 dp panel width at text scale 1.3.
+    // The real settings column never gets that narrow (≈680 dp at the
+    // 800 dp minimum window), so this is a stress floor, not a layout the
+    // user rests on — but the direction row now packs a path, a button and
+    // an icon button onto one line, and only the path is allowed to give
+    // way. German is the load-bearing case: "Exportieren"/"Importieren"
+    // are roughly twice the width of "Export"/"Import", so an English-only
+    // check would pass over exactly the locale that overflows.
+    for (final locale in ['de', 'en', 'he']) {
+      for (final width in [280.0, 320.0, 480.0]) {
+        testWidgets(
+          'direction rows do not overflow at ${width}dp / 1.3x ($locale)',
+          (tester) async {
+            await pump(
+              tester,
+              seeded(
+                exportPath: p.join(_basePath, 'whispaste-settings-export.json'),
+              ),
+              locale: Locale(locale),
+              width: width,
+              textScale: 1.3,
+            );
+
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }
