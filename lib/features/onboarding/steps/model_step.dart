@@ -570,6 +570,7 @@ class _EngineCardColors {
     required this.fill,
     required this.border,
     required this.badgeFill,
+    required this.heroWash,
     required this.icon,
     required this.label,
     required this.description,
@@ -593,6 +594,11 @@ class _EngineCardColors {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    // The accent ladder's lowest rung (6 %). Hoisted because two different
+    // things want it: the hover fill, and the background wash below.
+    final accentSix = isDark
+        ? WpColorsDark.accentRowHover
+        : WpColorsLight.accentRowHover;
     final hovering = isHovered && isTappable;
 
     return _EngineCardColors(
@@ -602,9 +608,7 @@ class _EngineCardColors {
                 ? WpColorsDark.accentButtonFill
                 : WpColorsLight.accentButtonFill)
           : hovering
-          ? (isDark
-                ? WpColorsDark.accentRowHover
-                : WpColorsLight.accentRowHover)
+          ? accentSix
           : surface.withValues(alpha: 0.5),
       border: isSelected
           ? accent
@@ -616,6 +620,11 @@ class _EngineCardColors {
       badgeFill: isDark
           ? WpColorsDark.accentBadgeFill
           : WpColorsLight.accentBadgeFill,
+      // A named ladder rung rather than a hand-rolled `withValues(alpha:)` at
+      // the call site. A card you cannot pick gets no wash at all: the same
+      // token swap the rest of this class does for the disabled state, rather
+      // than a brand-accent graphic behind deliberately muted text.
+      heroWash: isTappable ? accentSix : null,
       icon: isTappable ? accent : textMuted,
       label: isTappable ? textPrimary : textSecondary,
       description: isTappable ? textSecondary : textMuted,
@@ -627,6 +636,9 @@ class _EngineCardColors {
   final Color fill;
   final Color border;
   final Color badgeFill;
+
+  /// Background wash behind the card content — `null` on a disabled card.
+  final Color? heroWash;
   final Color icon;
   final Color label;
   final Color description;
@@ -662,6 +674,12 @@ class _EngineCard extends StatefulWidget {
   @override
   State<_EngineCard> createState() => _EngineCardState();
 }
+
+/// Size of the washed-back engine glyph in the card's background. Deliberately
+/// off the [WpIconSize] scale: that scale sizes icons the user reads or presses
+/// (14/16 decorative, 20 interactive minimum, 24 standard, 32/48 hero), and
+/// this is a background graphic that has to overrun the card to work at all.
+const double _heroWashSize = 140;
 
 class _EngineCardState extends State<_EngineCard> {
   bool _hovered = false;
@@ -721,7 +739,6 @@ class _EngineCardState extends State<_EngineCard> {
               child: AnimatedContainer(
                 duration: WpMotion.durationFor(context, WpMotion.fast),
                 curve: WpMotion.defaultCurve,
-                padding: const EdgeInsets.all(WpSpacing.sm),
                 decoration: BoxDecoration(
                   color: c.fill,
                   border: Border.all(
@@ -735,144 +752,189 @@ class _EngineCardState extends State<_EngineCard> {
                   // too (reference-conductor/SCR-20260804-kayx.png, Theme).
                   borderRadius: WpRadius.borderLg,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Engine icon, name, "recommended" badge and selection
-                    // check share one line (dense-page geometry); the quiet
-                    // check fades in on the right when this card is the current
-                    // selection — the accent border alone can blur together
-                    // with the badge when both cards sit side by side.
-                    Row(
-                      children: [
-                        Icon(
-                          widget.icon,
-                          size: WpIconSize.sm,
-                          color: iconColor,
-                        ),
-                        const SizedBox(width: WpSpacing.xs),
-                        // Expanded, and the only widget on this line that takes
-                        // free space: with `Flexible` title + `Flexible` badge +
-                        // a `Spacer`, the three split the width between them and
-                        // the recommended card's title silently ellipsised
-                        // ("Schnell & e…") on a card wide enough to show it in
-                        // full. The badge is bounded to its intrinsic width
-                        // below, so what is left over is the title's.
-                        Expanded(
-                          child: Text(
-                            widget.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: WpTypography.subheading,
-                              fontWeight: FontWeight.w600,
-                              color: labelColor,
-                            ),
+                // The wash below runs off the card on two sides, so something
+                // has to crop it. Doing that here, on the card's own rounded
+                // rectangle, is what makes it read as a bleed: left to its own
+                // devices the `Stack` would crop it at the content box, a
+                // padding's width short of the border, and the straight cut
+                // with a bare margin behind it reads as a mistake. The padding
+                // therefore moves inside, and the `Stack` stops clipping — the
+                // layer count is unchanged, the shape it clips to is not.
+                child: ClipRRect(
+                  borderRadius: WpRadius.borderLg,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // The engine's own glyph, blown up and washed back to the
+                      // accent ladder's 6 % rung: a quiet visual identity per
+                      // engine (bolt = speed, globe = coverage) that gives the
+                      // card depth without competing with the content in front
+                      // of it. It is decoration, not a glow — a flat tinted
+                      // glyph, no shadow, no blur, no bloom around the accent.
+                      // `PositionedDirectional` so it sits in the trailing
+                      // corner in RTL too, away from the leading icon and
+                      // label; being positioned, it takes no part in the card's
+                      // own sizing.
+                      if (c.heroWash != null)
+                        PositionedDirectional(
+                          top: -WpSpacing.xl,
+                          end: -WpSpacing.xl,
+                          child: Icon(
+                            widget.icon,
+                            size: _heroWashSize,
+                            color: c.heroWash,
                           ),
                         ),
-                        if (widget.isRecommended && !widget.isDisabled) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          // Inflexible and capped: the pill takes its intrinsic
-                          // width, so it can never claim a share of the free
-                          // space the title needs. The cap plus scale-down is
-                          // what keeps a long localized badge (or an enlarged
-                          // text scale) shrinking rather than overflowing the
-                          // shared line — the job the old `Flexible` did, minus
-                          // the appetite.
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 128),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: WpSpacing.xs,
-                                  vertical: 2,
+                      Padding(
+                        padding: const EdgeInsets.all(WpSpacing.sm),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Engine icon, name, "recommended" badge and selection
+                            // check share one line (dense-page geometry); the quiet
+                            // check fades in on the right when this card is the current
+                            // selection — the accent border alone can blur together
+                            // with the badge when both cards sit side by side.
+                            Row(
+                              children: [
+                                Icon(
+                                  widget.icon,
+                                  size: WpIconSize.sm,
+                                  color: iconColor,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: c.badgeFill,
-                                  borderRadius: WpRadius.borderFull,
+                                const SizedBox(width: WpSpacing.xs),
+                                // Expanded, and the only widget on this line that takes
+                                // free space: with `Flexible` title + `Flexible` badge +
+                                // a `Spacer`, the three split the width between them and
+                                // the recommended card's title silently ellipsised
+                                // ("Schnell & e…") on a card wide enough to show it in
+                                // full. The badge is bounded to its intrinsic width
+                                // below, so what is left over is the title's.
+                                Expanded(
+                                  child: Text(
+                                    widget.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: WpTypography.subheading,
+                                      fontWeight: FontWeight.w600,
+                                      color: labelColor,
+                                    ),
+                                  ),
                                 ),
-                                child: Text(
-                                  L10n.of(context).onboardingModelRecommended,
-                                  // Single line always — under tight width the
-                                  // enclosing FittedBox scales the pill down
-                                  // instead of the text wrapping (wrapping
-                                  // would inflate the IntrinsicHeight-coupled
-                                  // card pair).
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  style: TextStyle(
-                                    fontSize: WpTypography.caption,
-                                    fontWeight: FontWeight.w600,
+                                if (widget.isRecommended &&
+                                    !widget.isDisabled) ...[
+                                  const SizedBox(width: WpSpacing.xs),
+                                  // Inflexible and capped: the pill takes its intrinsic
+                                  // width, so it can never claim a share of the free
+                                  // space the title needs. The cap plus scale-down is
+                                  // what keeps a long localized badge (or an enlarged
+                                  // text scale) shrinking rather than overflowing the
+                                  // shared line — the job the old `Flexible` did, minus
+                                  // the appetite.
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 128,
+                                    ),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: WpSpacing.xs,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: c.badgeFill,
+                                          borderRadius: WpRadius.borderFull,
+                                        ),
+                                        child: Text(
+                                          L10n.of(
+                                            context,
+                                          ).onboardingModelRecommended,
+                                          // Single line always — under tight width the
+                                          // enclosing FittedBox scales the pill down
+                                          // instead of the text wrapping (wrapping
+                                          // would inflate the IntrinsicHeight-coupled
+                                          // card pair).
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          style: TextStyle(
+                                            fontSize: WpTypography.caption,
+                                            fontWeight: FontWeight.w600,
+                                            color: accent,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: WpSpacing.xs),
+                                ],
+                                AnimatedOpacity(
+                                  opacity: widget.isSelected ? 1.0 : 0.0,
+                                  duration: WpMotion.durationFor(
+                                    context,
+                                    WpMotion.fast,
+                                  ),
+                                  curve: WpMotion.defaultCurve,
+                                  child: Icon(
+                                    LucideIcons.circleCheck,
+                                    size: WpIconSize.sm,
                                     color: accent,
                                   ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: WpSpacing.xs),
+                            Text(
+                              widget.description,
+                              style: TextStyle(
+                                fontSize: WpTypography.small,
+                                color: descriptionColor,
+                                height: 1.3,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                        ],
-                        AnimatedOpacity(
-                          opacity: widget.isSelected ? 1.0 : 0.0,
-                          duration: WpMotion.durationFor(
-                            context,
-                            WpMotion.fast,
-                          ),
-                          curve: WpMotion.defaultCurve,
-                          child: Icon(
-                            LucideIcons.circleCheck,
-                            size: WpIconSize.sm,
-                            color: accent,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: WpSpacing.xs),
-                    Text(
-                      widget.description,
-                      style: TextStyle(
-                        fontSize: WpTypography.small,
-                        color: descriptionColor,
-                        height: 1.3,
-                      ),
-                    ),
-                    if (widget.isDisabled && widget.disabledReason != null) ...[
-                      const SizedBox(height: WpSpacing.xs),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            LucideIcons.info,
-                            size: WpIconSize.xs,
-                            color: textMuted,
-                          ),
-                          const SizedBox(width: WpSpacing.xxs),
-                          Expanded(
-                            child: Text(
-                              widget.disabledReason!,
+                            if (widget.isDisabled &&
+                                widget.disabledReason != null) ...[
+                              const SizedBox(height: WpSpacing.xs),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    LucideIcons.info,
+                                    size: WpIconSize.xs,
+                                    color: textMuted,
+                                  ),
+                                  const SizedBox(width: WpSpacing.xxs),
+                                  Expanded(
+                                    child: Text(
+                                      widget.disabledReason!,
+                                      style: TextStyle(
+                                        fontSize: WpTypography.caption,
+                                        color: textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            // Pin the size label to the bottom edge so both cards'
+                            // download sizes align and compare at a glance, regardless
+                            // of how many lines each description wraps to.
+                            const SizedBox(height: WpSpacing.xs),
+                            const Spacer(),
+                            Text(
+                              widget.sizeLabel,
                               style: TextStyle(
-                                fontSize: WpTypography.caption,
+                                fontSize: WpTypography.small,
+                                fontWeight: FontWeight.w500,
                                 color: textMuted,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
-                    // Pin the size label to the bottom edge so both cards'
-                    // download sizes align and compare at a glance, regardless
-                    // of how many lines each description wraps to.
-                    const SizedBox(height: WpSpacing.xs),
-                    const Spacer(),
-                    Text(
-                      widget.sizeLabel,
-                      style: TextStyle(
-                        fontSize: WpTypography.small,
-                        fontWeight: FontWeight.w500,
-                        color: textMuted,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
