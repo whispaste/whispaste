@@ -263,5 +263,32 @@ void main() {
       final entries = await db.allEntries(limit: 100, offset: 0);
       expect(entries, hasLength(5));
     });
+
+    test(
+      'save() assigns a decorative color slot in the 8-category range',
+      () async {
+        await store.save(makeInput(transcript: 'colorful entry'));
+
+        final entries = await db.allEntries(limit: 100, offset: 0);
+        expect(entries.first.colorSlot, inInclusiveRange(0, 7));
+      },
+    );
+
+    test('two consecutive saves never share a color slot', () async {
+      for (var i = 0; i < 10; i++) {
+        await store.save(makeInput(transcript: 'entry $i'));
+      }
+
+      final entries = await db.allEntries(limit: 100, offset: 0);
+      // allEntries returns newest-first; walk it to compare each entry to
+      // the one created immediately before it.
+      final byCreationOrder = entries.reversed.toList();
+      for (var i = 1; i < byCreationOrder.length; i++) {
+        expect(
+          byCreationOrder[i].colorSlot,
+          isNot(byCreationOrder[i - 1].colorSlot),
+        );
+      }
+    });
   });
 }

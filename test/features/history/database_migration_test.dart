@@ -505,6 +505,75 @@ void main() {
     );
   });
 
+  group('History color-slot migration (v17 → v18)', () {
+    test('adds color_slot column to history_entries', () async {
+      final executor = NativeDatabase.memory();
+      await executor.ensureOpen(_MockQueryExecutorUser());
+      await executor.close();
+
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+      // Verify the column is present after the schema-v18 migration runs
+      // automatically for a freshly-created (i.e. already-current) DB.
+      final cols = await db
+          .customSelect("PRAGMA table_info('history_entries')")
+          .get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      expect(colNames.contains('color_slot'), true);
+
+      await db.close();
+    });
+
+    test(
+      'backfills existing rows with a slot in the 8-category range',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.customSelect('SELECT 1').get();
+
+        // Simulate a pre-v18 row: drop the column, insert without it, then
+        // re-run the migration logic directly (mirrors the other migration
+        // tests in this file, which call the private migration step rather
+        // than fabricating a whole legacy schema).
+        await db.customStatement(
+          'ALTER TABLE history_entries DROP COLUMN color_slot',
+        );
+        await db.customStatement('''
+          INSERT INTO history_entries (id, timestamp)
+          VALUES ('legacy-1', 1767225600000), ('legacy-2', 1767225700000)
+        ''');
+
+        await db.addHistoryColorSlotColumnForTesting();
+
+        final rows = await db
+            .customSelect('SELECT color_slot FROM history_entries')
+            .get();
+        expect(rows, hasLength(2));
+        for (final row in rows) {
+          final slot = row.data['color_slot'] as int;
+          expect(slot, inInclusiveRange(0, 7));
+        }
+
+        await db.close();
+      },
+    );
+
+    test('migration is idempotent — second run does not error', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
+
+      await db.addHistoryColorSlotColumnForTesting();
+      await db.addHistoryColorSlotColumnForTesting();
+
+      final cols = await db
+          .customSelect("PRAGMA table_info('history_entries')")
+          .get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      expect(colNames.contains('color_slot'), true);
+
+      await db.close();
+    });
+  });
+
   group(
     'TextReplacementTriggers migration (v13, multi-trigger replacements)',
     () {

@@ -93,6 +93,7 @@ HistoryEntry _entry({
     costUsd: costUsd,
     archived: false,
     titleEdited: false,
+    colorSlot: 0,
   );
 }
 

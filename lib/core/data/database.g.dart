@@ -210,6 +210,18 @@ class $HistoryEntriesTable extends HistoryEntries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _colorSlotMeta = const VerificationMeta(
+    'colorSlot',
+  );
+  @override
+  late final GeneratedColumn<int> colorSlot = GeneratedColumn<int>(
+    'color_slot',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -229,6 +241,7 @@ class $HistoryEntriesTable extends HistoryEntries
     archived,
     titleEdited,
     deletedAt,
+    colorSlot,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -357,6 +370,12 @@ class $HistoryEntriesTable extends HistoryEntries
         deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
       );
     }
+    if (data.containsKey('color_slot')) {
+      context.handle(
+        _colorSlotMeta,
+        colorSlot.isAcceptableOrUnknown(data['color_slot']!, _colorSlotMeta),
+      );
+    }
     return context;
   }
 
@@ -434,6 +453,10 @@ class $HistoryEntriesTable extends HistoryEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
       ),
+      colorSlot: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_slot'],
+      )!,
     );
   }
 
@@ -461,6 +484,14 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   final bool archived;
   final bool titleEdited;
   final DateTime? deletedAt;
+
+  /// Decorative color slot (v18) — an index into the 8 rotating category
+  /// hues (`WpCategorySlot.categories`, index 0–7). Assigned once at real
+  /// creation time in [DriftRecordingStore.save] and never touched again;
+  /// see `insertHistoryEntry` in `database.dart`. Purely decorative, not a
+  /// content category — the 9th slot, `WpCategorySlot.neutral`, is never a
+  /// value here because there is no "uncategorized" case for this rotation.
+  final int colorSlot;
   const HistoryEntry({
     required this.id,
     required this.content,
@@ -479,6 +510,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     required this.archived,
     required this.titleEdited,
     this.deletedAt,
+    required this.colorSlot,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -502,6 +534,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
+    map['color_slot'] = Variable<int>(colorSlot);
     return map;
   }
 
@@ -526,6 +559,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
+      colorSlot: Value(colorSlot),
     );
   }
 
@@ -554,6 +588,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       archived: serializer.fromJson<bool>(json['archived']),
       titleEdited: serializer.fromJson<bool>(json['titleEdited']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      colorSlot: serializer.fromJson<int>(json['colorSlot']),
     );
   }
   @override
@@ -577,6 +612,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       'archived': serializer.toJson<bool>(archived),
       'titleEdited': serializer.toJson<bool>(titleEdited),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'colorSlot': serializer.toJson<int>(colorSlot),
     };
   }
 
@@ -598,6 +634,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     bool? archived,
     bool? titleEdited,
     Value<DateTime?> deletedAt = const Value.absent(),
+    int? colorSlot,
   }) => HistoryEntry(
     id: id ?? this.id,
     content: content ?? this.content,
@@ -616,6 +653,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     archived: archived ?? this.archived,
     titleEdited: titleEdited ?? this.titleEdited,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    colorSlot: colorSlot ?? this.colorSlot,
   );
   HistoryEntry copyWithCompanion(HistoryEntriesCompanion data) {
     return HistoryEntry(
@@ -644,6 +682,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ? data.titleEdited.value
           : this.titleEdited,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      colorSlot: data.colorSlot.present ? data.colorSlot.value : this.colorSlot,
     );
   }
 
@@ -666,7 +705,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ..write('costUsd: $costUsd, ')
           ..write('archived: $archived, ')
           ..write('titleEdited: $titleEdited, ')
-          ..write('deletedAt: $deletedAt')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('colorSlot: $colorSlot')
           ..write(')'))
         .toString();
   }
@@ -690,6 +730,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     archived,
     titleEdited,
     deletedAt,
+    colorSlot,
   );
   @override
   bool operator ==(Object other) =>
@@ -711,7 +752,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           other.costUsd == this.costUsd &&
           other.archived == this.archived &&
           other.titleEdited == this.titleEdited &&
-          other.deletedAt == this.deletedAt);
+          other.deletedAt == this.deletedAt &&
+          other.colorSlot == this.colorSlot);
 }
 
 class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
@@ -732,6 +774,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
   final Value<bool> archived;
   final Value<bool> titleEdited;
   final Value<DateTime?> deletedAt;
+  final Value<int> colorSlot;
   final Value<int> rowid;
   const HistoryEntriesCompanion({
     this.id = const Value.absent(),
@@ -751,6 +794,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.archived = const Value.absent(),
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.colorSlot = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HistoryEntriesCompanion.insert({
@@ -771,6 +815,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.archived = const Value.absent(),
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.colorSlot = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        timestamp = Value(timestamp);
@@ -792,6 +837,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Expression<bool>? archived,
     Expression<bool>? titleEdited,
     Expression<DateTime>? deletedAt,
+    Expression<int>? colorSlot,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -813,6 +859,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       if (archived != null) 'archived': archived,
       if (titleEdited != null) 'title_edited': titleEdited,
       if (deletedAt != null) 'deleted_at': deletedAt,
+      if (colorSlot != null) 'color_slot': colorSlot,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -835,6 +882,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Value<bool>? archived,
     Value<bool>? titleEdited,
     Value<DateTime?>? deletedAt,
+    Value<int>? colorSlot,
     Value<int>? rowid,
   }) {
     return HistoryEntriesCompanion(
@@ -856,6 +904,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       archived: archived ?? this.archived,
       titleEdited: titleEdited ?? this.titleEdited,
       deletedAt: deletedAt ?? this.deletedAt,
+      colorSlot: colorSlot ?? this.colorSlot,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -916,6 +965,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
+    if (colorSlot.present) {
+      map['color_slot'] = Variable<int>(colorSlot.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -942,6 +994,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           ..write('archived: $archived, ')
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('colorSlot: $colorSlot, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4851,6 +4904,7 @@ typedef $$HistoryEntriesTableCreateCompanionBuilder =
       Value<bool> archived,
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
+      Value<int> colorSlot,
       Value<int> rowid,
     });
 typedef $$HistoryEntriesTableUpdateCompanionBuilder =
@@ -4872,6 +4926,7 @@ typedef $$HistoryEntriesTableUpdateCompanionBuilder =
       Value<bool> archived,
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
+      Value<int> colorSlot,
       Value<int> rowid,
     });
 
@@ -5033,6 +5088,11 @@ class $$HistoryEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorSlot => $composableBuilder(
+    column: $table.colorSlot,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5205,6 +5265,11 @@ class $$HistoryEntriesTableOrderingComposer
     column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get colorSlot => $composableBuilder(
+    column: $table.colorSlot,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HistoryEntriesTableAnnotationComposer
@@ -5274,6 +5339,9 @@ class $$HistoryEntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get colorSlot =>
+      $composableBuilder(column: $table.colorSlot, builder: (column) => column);
 
   Expression<T> entryNotesRefs<T extends Object>(
     Expression<T> Function($$EntryNotesTableAnnotationComposer a) f,
@@ -5402,6 +5470,7 @@ class $$HistoryEntriesTableTableManager
                 Value<bool> archived = const Value.absent(),
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> colorSlot = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion(
                 id: id,
@@ -5421,6 +5490,7 @@ class $$HistoryEntriesTableTableManager
                 archived: archived,
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
+                colorSlot: colorSlot,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5442,6 +5512,7 @@ class $$HistoryEntriesTableTableManager
                 Value<bool> archived = const Value.absent(),
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> colorSlot = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion.insert(
                 id: id,
@@ -5461,6 +5532,7 @@ class $$HistoryEntriesTableTableManager
                 archived: archived,
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
+                colorSlot: colorSlot,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

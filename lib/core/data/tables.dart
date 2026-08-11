@@ -38,6 +38,14 @@ class HistoryEntries extends Table {
   BoolColumn get titleEdited => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
+  /// Decorative color slot (v18) — an index into the 8 rotating category
+  /// hues (`WpCategorySlot.categories`, index 0–7). Assigned once at real
+  /// creation time in [DriftRecordingStore.save] and never touched again;
+  /// see `insertHistoryEntry` in `database.dart`. Purely decorative, not a
+  /// content category — the 9th slot, `WpCategorySlot.neutral`, is never a
+  /// value here because there is no "uncategorized" case for this rotation.
+  IntColumn get colorSlot => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -96,7 +96,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -150,6 +150,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (from < 17) {
         await m.createTable(notes);
         await m.createTable(noteTags);
+      }
+      if (from < 18) {
+        await _addHistoryColorSlotColumn();
       }
     },
     beforeOpen: (details) async {
@@ -397,6 +400,44 @@ class HistoryDatabase extends _$HistoryDatabase {
       debugPrint('[Migration] Could not add daily_stats columns: $e');
     }
   }
+
+  /// Adds the decorative `color_slot` column to history_entries if missing
+  /// (v18 migration), then backfills existing rows with a random slot drawn
+  /// from the 8 category hues (0–7; `neutral`'s index 8 is never a backfill
+  /// target). One `UPDATE` covers every row, so unlike the forward-going
+  /// creation path in [insertHistoryEntry], this backfill carries no
+  /// never-twice-in-a-row guarantee against a row's neighbours — the ticket
+  /// does not require one for historical data.
+  Future<void> _addHistoryColorSlotColumn() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('color_slot')) {
+        debugPrint('[Migration] Adding column "color_slot" to history_entries');
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN color_slot '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+        await customStatement(
+          'UPDATE history_entries SET color_slot = ABS(RANDOM()) % 8',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not add history_entries color_slot column: $e',
+      );
+    }
+  }
+
+  /// Exposed for testing — runs the v18 color-slot migration directly
+  /// against the already-open database.
+  @visibleForTesting
+  Future<void> addHistoryColorSlotColumnForTesting() =>
+      _addHistoryColorSlotColumn();
 
   // ---------------------------------------------------------------------------
   // v10 migration — destructive Projects removal
@@ -1242,6 +1283,54 @@ class HistoryDatabase extends _$HistoryDatabase {
     );
   }
 
+  /// Inserts a brand-new history entry, drawing its decorative color slot
+  /// atomically with the insert.
+  ///
+  /// This is the **only** sanctioned way to assign a color slot. [upsertEntry]
+  /// above is shared with edits (title/tag changes go through [updateEntry],
+  /// but tests and a few callers still reach for `upsertEntry` as a generic
+  /// fixture writer) and must never touch the slot — otherwise every save
+  /// would re-roll the entry's color. The previous-entry lookup and the
+  /// insert share one [SqliteWriteCoordinator] block so a concurrent create
+  /// can never read a stale "previous entry" slot.
+  Future<void> insertHistoryEntry(HistoryEntriesCompanion entry) {
+    return _writeCoordinator.write<void>(() async {
+      // Ordered by the implicit SQLite `rowid`, not `timestamp` — two
+      // creations in the same millisecond (a fast dictation burst, or a
+      // tight test loop) would otherwise tie on `timestamp` and leave which
+      // row counts as "previous" up to SQLite's unspecified tie-break,
+      // breaking the never-twice-in-a-row guarantee below.
+      final previousRow = await customSelect(
+        'SELECT color_slot FROM history_entries ORDER BY rowid DESC LIMIT 1',
+      ).getSingleOrNull();
+      final previousSlot = previousRow?.data['color_slot'] as int?;
+      final slot = _drawColorSlot(previousSlot: previousSlot);
+      await into(
+        historyEntries,
+      ).insertOnConflictUpdate(entry.copyWith(colorSlot: Value(slot)));
+    });
+  }
+
+  /// Draws a random category slot (index 0–7 — [WpCategorySlot.categories];
+  /// `neutral` at index 8 is never a rotation target) that differs from
+  /// [previousSlot].
+  ///
+  /// On a collision the redraw is limited to the remaining 7 slots, so this
+  /// is exactly one redraw, never a retry loop, and "never twice in a row"
+  /// is a structural guarantee rather than a probabilistic one.
+  int _drawColorSlot({required int? previousSlot}) {
+    const slotCount = 8;
+    final first = _colorSlotRandom.nextInt(slotCount);
+    if (previousSlot == null || first != previousSlot) return first;
+    final remaining = [
+      for (var i = 0; i < slotCount; i++)
+        if (i != previousSlot) i,
+    ];
+    return remaining[_colorSlotRandom.nextInt(remaining.length)];
+  }
+
+  final Random _colorSlotRandom = Random();
+
   /// Debug-only: links a retained dictation WAV to its history [entryId] as
   /// an [EntryAttachment], so a diagnosis session can later pull the exact
   /// audio Whisper received for a given transcript. Gated by
@@ -1294,6 +1383,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         costUsd: Value(original.costUsd),
         archived: const Value(false),
         titleEdited: const Value(false),
+        colorSlot: Value(original.colorSlot),
       );
       await into(historyEntries).insert(companion);
       return (select(

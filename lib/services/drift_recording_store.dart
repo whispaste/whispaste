@@ -90,8 +90,10 @@ class DriftRecordingStore implements RecordingStore {
       title = lastSpace > 20 ? '${cut.substring(0, lastSpace)}…' : '$cut…';
     }
 
-    // 3. Save history entry.
-    await _db.upsertEntry(
+    // 3. Save history entry. insertHistoryEntry (not upsertEntry) is the
+    // real creation path — it also draws this entry's decorative color slot
+    // atomically with the insert (see database.dart).
+    await _db.insertHistoryEntry(
       HistoryEntriesCompanion(
         id: Value(id),
         content: Value(processedTranscript),

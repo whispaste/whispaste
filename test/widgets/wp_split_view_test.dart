@@ -43,6 +43,7 @@ HistoryEntry _entry(String id) => HistoryEntry(
   archived: false,
   deletedAt: null,
   titleEdited: false,
+  colorSlot: 0,
 );
 
 Note _note(String id) => Note(

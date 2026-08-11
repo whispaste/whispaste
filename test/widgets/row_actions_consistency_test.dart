@@ -43,6 +43,7 @@ HistoryEntry _entry({bool pinned = false}) => HistoryEntry(
   archived: false,
   titleEdited: false,
   deletedAt: null,
+  colorSlot: 0,
 );
 
 Note _note() => Note(

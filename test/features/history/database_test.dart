@@ -136,6 +136,105 @@ void main() {
     });
   });
 
+  group('Decorative color slot (Ticket 03, visual-refresh-2026)', () {
+    test('insertHistoryEntry assigns a slot in the 8-category range', () async {
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'slot-1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
+
+      final entries = await db.allEntries();
+      expect(entries.first.colorSlot, inInclusiveRange(0, 7));
+    });
+
+    test(
+      'two consecutive insertHistoryEntry calls never share a slot',
+      () async {
+        final slots = <int>[];
+        for (var i = 0; i < 25; i++) {
+          await db.insertHistoryEntry(
+            HistoryEntriesCompanion.insert(
+              id: 'seq-$i',
+              timestamp: DateTime(2025, 1, 1).add(Duration(minutes: i)),
+            ),
+          );
+          final entry = await (db.select(
+            db.historyEntries,
+          )..where((e) => e.id.equals('seq-$i'))).getSingle();
+          slots.add(entry.colorSlot);
+        }
+
+        for (var i = 1; i < slots.length; i++) {
+          expect(
+            slots[i],
+            isNot(slots[i - 1]),
+            reason: 'entry $i shares a slot with its immediate predecessor',
+          );
+        }
+      },
+    );
+
+    test('duplicateEntry copies the source entry\'s slot', () async {
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'src',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
+      final source = (await db.allEntries()).first;
+
+      final duplicate = await db.duplicateEntry('src');
+
+      expect(duplicate != null, true);
+      expect(duplicate!.colorSlot, source.colorSlot);
+    });
+
+    test('mergeEntries keeps the base (oldest) entry\'s slot', () async {
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'base',
+          timestamp: DateTime(2025, 1, 10),
+        ),
+      );
+      final base = (await db.allEntries()).firstWhere((e) => e.id == 'base');
+
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'other',
+          timestamp: DateTime(2025, 1, 11),
+        ),
+      );
+
+      final merged = await db.mergeEntries(['base', 'other']);
+
+      expect(merged != null, true);
+      expect(merged!.colorSlot, base.colorSlot);
+    });
+
+    test('a title/tag edit via upsertEntry does not change the slot', () async {
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'edit-1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
+      final before = (await db.allEntries()).first;
+
+      // Simulate a title edit: only title is set, colorSlot is left absent —
+      // exactly how the real edit path (updateEntry) behaves.
+      await db.updateEntry(
+        'edit-1',
+        const HistoryEntriesCompanion(title: Value('Renamed')),
+      );
+
+      final after = (await db.allEntries()).first;
+      expect(after.title, 'Renamed');
+      expect(after.colorSlot, before.colorSlot);
+    });
+  });
+
   group('Notes', () {
     test('CRUD operations work', () async {
       await db.upsertEntry(

@@ -46,6 +46,7 @@ HistoryEntry _makeEntry({String title = 'Test entry'}) => HistoryEntry(
   archived: false,
   deletedAt: null,
   titleEdited: false,
+  colorSlot: 0,
 );
 
 // ---------------------------------------------------------------------------

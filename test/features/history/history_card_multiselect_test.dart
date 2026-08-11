@@ -37,6 +37,7 @@ HistoryEntry _entry({String id = '1', String title = 'Kartentitel'}) {
     archived: false,
     deletedAt: null,
     titleEdited: false,
+    colorSlot: 0,
   );
 }
 

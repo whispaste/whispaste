@@ -53,6 +53,7 @@ HistoryEntry _entry() => HistoryEntry(
   archived: false,
   deletedAt: null,
   titleEdited: false,
+  colorSlot: 0,
 );
 
 Note _note() => Note(

@@ -27,6 +27,7 @@ void main() {
         archived: false,
         deletedAt: null,
         titleEdited: false,
+        colorSlot: 0,
       );
 
       await tester.pumpWidget(
@@ -69,6 +70,7 @@ void main() {
         archived: false,
         deletedAt: null,
         titleEdited: false,
+        colorSlot: 0,
       );
 
       await tester.pumpWidget(
@@ -110,6 +112,7 @@ void main() {
         archived: false,
         deletedAt: null,
         titleEdited: false,
+        colorSlot: 0,
       );
 
       await tester.pumpWidget(

@@ -34,6 +34,7 @@ HistoryEntry _entry({String tags = '[]'}) => HistoryEntry(
   archived: false,
   deletedAt: null,
   titleEdited: false,
+  colorSlot: 0,
 );
 
 void main() {

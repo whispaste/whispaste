@@ -36,6 +36,7 @@ HistoryEntry _entry({
   archived: false,
   deletedAt: null,
   titleEdited: false,
+  colorSlot: 0,
 );
 
 /// One entry per avatar rule, plus one that matches none.

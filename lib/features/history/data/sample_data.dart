@@ -28,6 +28,7 @@ List<HistoryEntry> generateSampleEntries() {
       isLocal: true,
       tags: '["meeting","product"]',
       pinned: true,
+      colorSlot: 5,
     ),
     _entry(
       id: 'sample-2',
@@ -41,6 +42,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'large-v3-turbo',
       isLocal: true,
       tags: '["personal"]',
+      colorSlot: 6,
     ),
     _entry(
       id: 'sample-3',
@@ -56,6 +58,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'small',
       isLocal: false,
       tags: '["work","email"]',
+      colorSlot: 0,
     ),
     // Yesterday
     _entry(
@@ -77,6 +80,7 @@ List<HistoryEntry> generateSampleEntries() {
       isLocal: true,
       tags: '["blog","writing"]',
       pinned: true,
+      colorSlot: 1,
     ),
     _entry(
       id: 'sample-5',
@@ -94,6 +98,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'large-v3-turbo',
       isLocal: true,
       tags: '["feedback"]',
+      colorSlot: 3,
     ),
     // This week
     _entry(
@@ -109,6 +114,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'small',
       isLocal: true,
       tags: '["standup","work"]',
+      colorSlot: 7,
     ),
     _entry(
       id: 'sample-7',
@@ -124,6 +130,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'large-v3-turbo',
       isLocal: true,
       tags: '["team","ideas"]',
+      colorSlot: 2,
     ),
     // Older
     _entry(
@@ -141,6 +148,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'large-v3-turbo',
       isLocal: true,
       tags: '["project","design"]',
+      colorSlot: 4,
     ),
     _entry(
       id: 'sample-9',
@@ -156,6 +164,7 @@ List<HistoryEntry> generateSampleEntries() {
       model: 'small',
       isLocal: true,
       tags: '["personal","recipe"]',
+      colorSlot: 6,
     ),
     _entry(
       id: 'sample-10',
@@ -173,6 +182,7 @@ List<HistoryEntry> generateSampleEntries() {
       isLocal: true,
       tags: '["review","leadership"]',
       pinned: true,
+      colorSlot: 0,
     ),
   ];
 }
@@ -190,6 +200,7 @@ HistoryEntry _entry({
   String tags = '[]',
   bool pinned = false,
   String source = 'dictation',
+  int colorSlot = 0,
 }) {
   // Build the entry via Companion → toColumns → HistoryEntry
   // Since HistoryEntry is a DataClass, we construct it directly.
@@ -211,5 +222,6 @@ HistoryEntry _entry({
     archived: false,
     titleEdited: false,
     deletedAt: null,
+    colorSlot: colorSlot,
   );
 }
