@@ -452,6 +452,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   onBatchCopy: _selectedIds.isNotEmpty
                       ? () => _copySelectedEntries(filteredEntries)
                       : null,
+                  onBatchCopyMarkdown: _selectedIds.isNotEmpty
+                      ? () => _copySelectedEntriesAsMarkdown(filteredEntries)
+                      : null,
                   onExport: _selectedIds.isNotEmpty
                       ? () => _exportSelectedEntries(filteredEntries)
                       : null,
@@ -700,7 +703,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
-  void _copyAsMarkdown(HistoryEntry entry) {
+  String _formatEntryAsMarkdown(HistoryEntry entry) {
     final md = StringBuffer();
     md.writeln('# ${entry.title.isNotEmpty ? entry.title : "Untitled"}');
     md.writeln();
@@ -718,8 +721,27 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (entry.model.isNotEmpty) {
       md.writeln('**Model:** ${entry.model}');
     }
+    return md.toString();
+  }
 
-    Clipboard.setData(ClipboardData(text: md.toString()));
+  void _copyAsMarkdown(HistoryEntry entry) {
+    Clipboard.setData(ClipboardData(text: _formatEntryAsMarkdown(entry)));
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyCopiedAsMarkdown,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  /// Copies all selected entries as Markdown, joined by a blank line.
+  void _copySelectedEntriesAsMarkdown(List<HistoryEntry> flat) {
+    final selected = flat.where((e) => _selectedIds.contains(e.id)).toList();
+    if (selected.isEmpty) return;
+
+    final md = selected.map(_formatEntryAsMarkdown).join('\n');
+    Clipboard.setData(ClipboardData(text: md));
     if (!mounted) return;
     WpToast.show(
       context,
