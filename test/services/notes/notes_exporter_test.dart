@@ -79,6 +79,7 @@ Note _note({
     id: id,
     content: content,
     pinned: pinned,
+    isQuickNote: false,
     deletedAt: null,
     createdAt: t,
     updatedAt: t,

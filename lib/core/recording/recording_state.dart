@@ -14,6 +14,12 @@ import '../../services/model_download_service.dart';
 /// Discrete phases of a recording lifecycle.
 enum RecordingPhase { idle, recording, transcribing, done, error }
 
+/// Where a finished transcript goes. [clipboard] is today's behaviour
+/// (`AfterTranscriptionAction` — clipboard/paste). [quickNote] appends it to
+/// the exclusively-marked quick note instead, bypassing clipboard/paste
+/// entirely (see `RecordingOrchestrator._handleAfterTranscription`).
+enum RecordingTarget { clipboard, quickNote }
+
 /// State of the local STT server subprocess.
 enum SttServerState { stopped, starting, ready, error }
 
@@ -360,4 +366,23 @@ class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
 final oomRecoveryPendingProvider =
     NotifierProvider<OomRecoveryNotifier, OomRecoveryState>(
       OomRecoveryNotifier.new,
+    );
+
+/// The active recording's target, readable outside the orchestrator (e.g. by
+/// the recording overlay, ticket 25) — unlike
+/// `RecordingOrchestrator._hotkeyPressedAtForLatencyKpi`, which is
+/// deliberately internal-only. Set unconditionally at the start of every
+/// recording (never reset at stop/finish) — see `startRecording`'s doc
+/// comment on why "next start always overwrites" beats "reset at every exit
+/// path".
+class RecordingTargetNotifier extends Notifier<RecordingTarget> {
+  @override
+  RecordingTarget build() => RecordingTarget.clipboard;
+
+  void set(RecordingTarget target) => state = target;
+}
+
+final recordingTargetProvider =
+    NotifierProvider<RecordingTargetNotifier, RecordingTarget>(
+      RecordingTargetNotifier.new,
     );

@@ -887,6 +887,31 @@ void main() {
       final entries = await db.allEntries();
       expect(entries, hasLength(1));
     });
+
+    test('an exact-match trigger is skipped for a quick-note target — the '
+        'picker inserts by pasting into the focused app, which makes no '
+        'sense for a note target (ticket 19)', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+      expect((await db.getNote(note.id))?.content, 'Snippets.');
+    });
   });
 
   // =========================================================================
@@ -2021,6 +2046,294 @@ void main() {
       });
     },
   );
+
+  // =========================================================================
+  // Quick-note recording target (ticket 19) — bypasses clipboard/paste
+  // entirely and appends the finished transcript to the marked note.
+  // =========================================================================
+
+  group('Quick-note recording target', () {
+    test('appends the transcript to the marked quick note, bypassing '
+        'clipboard/paste entirely', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      clipboardText = 'Untouched clipboard';
+      fakeStt.transcriptToReturn = 'First thought';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect((await db.getNote(note.id))?.content, 'First thought');
+      expect(clipboardText, 'Untouched clipboard');
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.captureCalls, 0);
+    });
+
+    test('appends as a new paragraph onto existing note content', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'Existing content');
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'Second thought';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      await orch.stopRecording();
+
+      expect(
+        (await db.getNote(note.id))?.content,
+        'Existing content\n\nSecond thought',
+      );
+    });
+
+    test(
+      'zero-config: creates and marks a new note when none is marked',
+      () async {
+        fakeStt.transcriptToReturn = 'No note marked yet';
+
+        final orch = await startRecordingPhase();
+        container
+            .read(recordingTargetProvider.notifier)
+            .set(RecordingTarget.quickNote);
+
+        await orch.stopRecording();
+
+        final quickNote = await db.getQuickNote();
+        expect(quickNote, isNotNull);
+        expect(quickNote!.content, 'No note marked yet');
+      },
+    );
+
+    test(
+      'zero-config: creates a new note when the marked note is in the trash',
+      () async {
+        final trashed = await db.createNote();
+        await db.setQuickNote(trashed.id);
+        await db.softDeleteNote(trashed.id);
+        fakeStt.transcriptToReturn = 'Marked note was trashed';
+
+        final orch = await startRecordingPhase();
+        container
+            .read(recordingTargetProvider.notifier)
+            .set(RecordingTarget.quickNote);
+
+        await orch.stopRecording();
+
+        final quickNote = await db.getQuickNote();
+        expect(quickNote, isNotNull);
+        expect(quickNote!.id, isNot(trashed.id));
+        expect(quickNote.content, 'Marked note was trashed');
+        // The trashed note itself is left untouched, not resurrected.
+        expect((await db.getNote(trashed.id))?.content, isEmpty);
+      },
+    );
+
+    test('zero-config: creates a new note when the marked note no longer '
+        'exists', () async {
+      final deleted = await db.createNote();
+      await db.setQuickNote(deleted.id);
+      await db.permanentDeleteNote(deleted.id);
+      fakeStt.transcriptToReturn = 'Marked note was deleted';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      await orch.stopRecording();
+
+      final quickNote = await db.getQuickNote();
+      expect(quickNote, isNotNull);
+      expect(quickNote!.content, 'Marked note was deleted');
+    });
+
+    test('a quick-note run still saves a full history entry — it is a real '
+        'recording, not a special case', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'History still records this';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      await orch.stopRecording();
+
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+      expect(entries.first.content, 'History still records this');
+    });
+
+    test('without a registered live-editor override, the append writes '
+        'directly to the database', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'Direct write';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+      expect(orch.quickNoteLiveEditorOverride, isNull);
+
+      await orch.stopRecording();
+
+      expect((await db.getNote(note.id))?.content, 'Direct write');
+    });
+
+    test('a registered live-editor override receives the note id and full new '
+        'content, and is preferred over the direct database write', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'Live editor content');
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'Handled by the editor';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      String? overrideNoteId;
+      String? overrideContent;
+      orch.quickNoteLiveEditorOverride = (noteId, newContent) {
+        overrideNoteId = noteId;
+        overrideContent = newContent;
+        return true;
+      };
+
+      await orch.stopRecording();
+
+      expect(overrideNoteId, note.id);
+      expect(overrideContent, 'Live editor content\n\nHandled by the editor');
+      // The override claimed the write — the database row is untouched.
+      expect((await db.getNote(note.id))?.content, 'Live editor content');
+    });
+
+    test('an override that returns false falls through to the direct database '
+        'write', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'Not handled';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+      orch.quickNoteLiveEditorOverride = (_, _) => false;
+
+      await orch.stopRecording();
+
+      expect((await db.getNote(note.id))?.content, 'Not handled');
+    });
+
+    test(
+      'fires onQuickNoteAppended with the target note id on success',
+      () async {
+        final note = await db.createNote();
+        await db.setQuickNote(note.id);
+        fakeStt.transcriptToReturn = 'Observable completion';
+
+        final orch = await startRecordingPhase();
+        container
+            .read(recordingTargetProvider.notifier)
+            .set(RecordingTarget.quickNote);
+
+        String? appendedNoteId;
+        orch.onQuickNoteAppended = (noteId) => appendedNoteId = noteId;
+
+        await orch.stopRecording();
+
+        expect(appendedNoteId, note.id);
+      },
+    );
+
+    test('strips punctuation identically to the clipboard path — the appended '
+        'text is the same finalText both paths would receive', () async {
+      container.dispose();
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      wavFile = createFakeWav(
+        'test_audio_quicknote_strip_'
+        '${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
+      fakeStt = FakeSttService()..transcriptToReturn = 'Search term.';
+
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(
+            model: 'whisper-small',
+            language: 'English',
+            stripPunctuation: true,
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      await orch.stopRecording();
+
+      expect((await db.getNote(note.id))?.content, 'Search term');
+    });
+
+    test('the next recording without an explicit target reverts to clipboard '
+        'behaviour — no target is left stuck from the previous run', () async {
+      container.dispose();
+      ensureFakeLocalSttFilesExist();
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      clipboardText = 'Before quick note';
+
+      // Explicit clipboard action so the second run's assertion is
+      // unambiguous — the default fixture settings use 'nothing', which
+      // would never touch the clipboard regardless of target.
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      fakeStt.transcriptToReturn = 'Into the note';
+      await orch.startRecording(target: RecordingTarget.quickNote);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      await orch.stopRecording();
+
+      expect((await db.getNote(note.id))?.content, 'Into the note');
+      expect(clipboardText, 'Before quick note');
+
+      // Second recording, no target argument — must behave exactly like
+      // it always has, not silently keep targeting the note.
+      fakeStt.transcriptToReturn = 'Back to clipboard';
+      await orch.startRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      await orch.stopRecording();
+
+      expect(clipboardText, 'Back to clipboard');
+      expect((await db.getNote(note.id))?.content, 'Into the note');
+    });
+  });
 
   // =========================================================================
   // WAV file edge cases

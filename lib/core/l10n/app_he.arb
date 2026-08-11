@@ -1095,6 +1095,8 @@
   "notesCopied": "הפתק הועתק",
   "notesFavorite": "סמן כמועדף",
   "notesUnfavorite": "הסר מהמועדפים",
+  "notesQuickNoteSet": "הפוך לפתק המהיר שאליו הקיצור מוסיף טקסט",
+  "notesQuickNoteClear": "פתק מהיר — הסר את הסימון",
   "notesMoveToTrash": "העבר לאשפה",
   "notesMovedToTrash": "הועבר לאשפה",
   "notesRestore": "שחזר",

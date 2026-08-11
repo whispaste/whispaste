@@ -54,7 +54,9 @@ class _FakeRecordingOrchestrator extends RecordingOrchestrator {
   void build() {}
 
   @override
-  Future<void> toggleRecording() async {
+  Future<void> toggleRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+  }) async {
     toggleRecordingCalls++;
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {

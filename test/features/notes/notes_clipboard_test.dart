@@ -28,6 +28,7 @@ Note _sampleNote({required String id, required String content}) {
     id: id,
     content: content,
     pinned: false,
+    isQuickNote: false,
     deletedAt: null,
     createdAt: t,
     updatedAt: t,
@@ -80,6 +81,8 @@ void main() {
             // Ticket-04/05/07 toolbar actions — irrelevant for the clipboard
             // behavior under test, so plain no-ops.
             onToggleFavorite: () {},
+            onQuickNoteSet: () {},
+            onQuickNoteClear: () {},
             onMoveToTrash: () {},
             onRestore: () {},
             onDeleteForever: () {},

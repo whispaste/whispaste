@@ -105,13 +105,14 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     final lastId = _selectedNoteId;
     final lastContent = _editorController.text;
     // Empty-discard on page teardown: flush the pending autosave, then
-    // permanently delete the last selected note if it is blank, then cancel
-    // the autosave timer. Fire-and-forget — dispose is synchronous and the
-    // chain only uses values captured above.
+    // permanently delete the last selected note if it is blank (unless it is
+    // the marked quick note — discardIfBlank exempts it), then cancel the
+    // autosave timer. Fire-and-forget — dispose is synchronous and the chain
+    // only uses values captured above.
     unawaited(() async {
       await _autosave.flush();
       if (lastId != null && lastContent.trim().isEmpty) {
-        await _actions.deleteForever(lastId);
+        await _actions.discardIfBlank(lastId);
       }
       _autosave.dispose();
     }());
@@ -161,13 +162,15 @@ class _NotesPageState extends ConsumerState<NotesPage> {
 
   /// Flushes the pending autosave for the currently selected note and
   /// permanently discards it when its content is blank (empty-discard rule:
-  /// leaving an empty note deletes it outright — never to trash).
+  /// leaving an empty note deletes it outright — never to trash). The marked
+  /// quick note is exempt even while blank (`discardIfBlank`) — it must
+  /// survive until unmarked, not just until the next dictation lands.
   Future<void> _leaveCurrentNote() async {
     final previousId = _selectedNoteId;
     final previousContent = _editorController.text;
     await _autosave.flush();
     if (previousId != null && previousContent.trim().isEmpty) {
-      await _actions.deleteForever(previousId);
+      await _actions.discardIfBlank(previousId);
     }
   }
 
@@ -309,6 +312,29 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   Future<void> _toggleFavorite(Note note) async {
     await _autosave.flush();
     await _actions.togglePin(note.id, pinned: !note.pinned);
+  }
+
+  /// Makes [note] the quick note — the note the quick-note hotkey appends to.
+  /// Exclusive: the write path drops whichever note held the mark before, so
+  /// this never has to unmark anything first.
+  ///
+  /// Deliberately *not* a toggle, and deliberately not named like one: calling
+  /// it on the note that already holds the mark would re-set the same value,
+  /// which is why the UI does not offer the control there at all.
+  ///
+  /// Flushes first, same as the favourite action — the mark is a write on the
+  /// same row, and the stream re-emitting pre-flush content afterwards would
+  /// overwrite a just-typed draft.
+  Future<void> _setQuickNote(Note note) async {
+    await _autosave.flush();
+    await _actions.markAsQuickNote(note.id);
+  }
+
+  /// Drops the quick-note mark without marking another note. Same flush rule:
+  /// the marked note may well be the one open in the editor.
+  Future<void> _clearQuickNote() async {
+    await _autosave.flush();
+    await _actions.clearQuickNoteMark();
   }
 
   Future<void> _moveToTrash(Note note) async {
@@ -625,6 +651,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           onNoteTap: _selectNote,
           onCloseEditor: _closeEditor,
           onFavoriteToggle: _toggleFavorite,
+          onQuickNoteSet: _setQuickNote,
+          onQuickNoteClear: _clearQuickNote,
           onMoveToTrash: _moveToTrash,
           onRestore: _restoreNote,
           onDeleteForever: _deleteForever,

@@ -4263,6 +4263,21 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isQuickNoteMeta = const VerificationMeta(
+    'isQuickNote',
+  );
+  @override
+  late final GeneratedColumn<bool> isQuickNote = GeneratedColumn<bool>(
+    'is_quick_note',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_quick_note" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _deletedAtMeta = const VerificationMeta(
     'deletedAt',
   );
@@ -4301,6 +4316,7 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     id,
     content,
     pinned,
+    isQuickNote,
     deletedAt,
     createdAt,
     updatedAt,
@@ -4332,6 +4348,15 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
       context.handle(
         _pinnedMeta,
         pinned.isAcceptableOrUnknown(data['pinned']!, _pinnedMeta),
+      );
+    }
+    if (data.containsKey('is_quick_note')) {
+      context.handle(
+        _isQuickNoteMeta,
+        isQuickNote.isAcceptableOrUnknown(
+          data['is_quick_note']!,
+          _isQuickNoteMeta,
+        ),
       );
     }
     if (data.containsKey('deleted_at')) {
@@ -4377,6 +4402,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.bool,
         data['${effectivePrefix}pinned'],
       )!,
+      isQuickNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_quick_note'],
+      )!,
       deletedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
@@ -4402,6 +4431,7 @@ class Note extends DataClass implements Insertable<Note> {
   final String id;
   final String content;
   final bool pinned;
+  final bool isQuickNote;
   final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -4409,6 +4439,7 @@ class Note extends DataClass implements Insertable<Note> {
     required this.id,
     required this.content,
     required this.pinned,
+    required this.isQuickNote,
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -4419,6 +4450,7 @@ class Note extends DataClass implements Insertable<Note> {
     map['id'] = Variable<String>(id);
     map['content'] = Variable<String>(content);
     map['pinned'] = Variable<bool>(pinned);
+    map['is_quick_note'] = Variable<bool>(isQuickNote);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
@@ -4432,6 +4464,7 @@ class Note extends DataClass implements Insertable<Note> {
       id: Value(id),
       content: Value(content),
       pinned: Value(pinned),
+      isQuickNote: Value(isQuickNote),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
@@ -4449,6 +4482,7 @@ class Note extends DataClass implements Insertable<Note> {
       id: serializer.fromJson<String>(json['id']),
       content: serializer.fromJson<String>(json['content']),
       pinned: serializer.fromJson<bool>(json['pinned']),
+      isQuickNote: serializer.fromJson<bool>(json['isQuickNote']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -4461,6 +4495,7 @@ class Note extends DataClass implements Insertable<Note> {
       'id': serializer.toJson<String>(id),
       'content': serializer.toJson<String>(content),
       'pinned': serializer.toJson<bool>(pinned),
+      'isQuickNote': serializer.toJson<bool>(isQuickNote),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -4471,6 +4506,7 @@ class Note extends DataClass implements Insertable<Note> {
     String? id,
     String? content,
     bool? pinned,
+    bool? isQuickNote,
     Value<DateTime?> deletedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -4478,6 +4514,7 @@ class Note extends DataClass implements Insertable<Note> {
     id: id ?? this.id,
     content: content ?? this.content,
     pinned: pinned ?? this.pinned,
+    isQuickNote: isQuickNote ?? this.isQuickNote,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -4487,6 +4524,9 @@ class Note extends DataClass implements Insertable<Note> {
       id: data.id.present ? data.id.value : this.id,
       content: data.content.present ? data.content.value : this.content,
       pinned: data.pinned.present ? data.pinned.value : this.pinned,
+      isQuickNote: data.isQuickNote.present
+          ? data.isQuickNote.value
+          : this.isQuickNote,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -4499,6 +4539,7 @@ class Note extends DataClass implements Insertable<Note> {
           ..write('id: $id, ')
           ..write('content: $content, ')
           ..write('pinned: $pinned, ')
+          ..write('isQuickNote: $isQuickNote, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -4507,8 +4548,15 @@ class Note extends DataClass implements Insertable<Note> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, content, pinned, deletedAt, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    content,
+    pinned,
+    isQuickNote,
+    deletedAt,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4516,6 +4564,7 @@ class Note extends DataClass implements Insertable<Note> {
           other.id == this.id &&
           other.content == this.content &&
           other.pinned == this.pinned &&
+          other.isQuickNote == this.isQuickNote &&
           other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -4525,6 +4574,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   final Value<String> id;
   final Value<String> content;
   final Value<bool> pinned;
+  final Value<bool> isQuickNote;
   final Value<DateTime?> deletedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -4533,6 +4583,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.id = const Value.absent(),
     this.content = const Value.absent(),
     this.pinned = const Value.absent(),
+    this.isQuickNote = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -4542,6 +4593,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     required String id,
     this.content = const Value.absent(),
     this.pinned = const Value.absent(),
+    this.isQuickNote = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -4553,6 +4605,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Expression<String>? id,
     Expression<String>? content,
     Expression<bool>? pinned,
+    Expression<bool>? isQuickNote,
     Expression<DateTime>? deletedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -4562,6 +4615,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       if (id != null) 'id': id,
       if (content != null) 'content': content,
       if (pinned != null) 'pinned': pinned,
+      if (isQuickNote != null) 'is_quick_note': isQuickNote,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -4573,6 +4627,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Value<String>? id,
     Value<String>? content,
     Value<bool>? pinned,
+    Value<bool>? isQuickNote,
     Value<DateTime?>? deletedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -4582,6 +4637,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       id: id ?? this.id,
       content: content ?? this.content,
       pinned: pinned ?? this.pinned,
+      isQuickNote: isQuickNote ?? this.isQuickNote,
       deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -4600,6 +4656,9 @@ class NotesCompanion extends UpdateCompanion<Note> {
     }
     if (pinned.present) {
       map['pinned'] = Variable<bool>(pinned.value);
+    }
+    if (isQuickNote.present) {
+      map['is_quick_note'] = Variable<bool>(isQuickNote.value);
     }
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
@@ -4622,6 +4681,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
           ..write('id: $id, ')
           ..write('content: $content, ')
           ..write('pinned: $pinned, ')
+          ..write('isQuickNote: $isQuickNote, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -8365,6 +8425,7 @@ typedef $$NotesTableCreateCompanionBuilder =
       required String id,
       Value<String> content,
       Value<bool> pinned,
+      Value<bool> isQuickNote,
       Value<DateTime?> deletedAt,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -8375,6 +8436,7 @@ typedef $$NotesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> content,
       Value<bool> pinned,
+      Value<bool> isQuickNote,
       Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -8426,6 +8488,11 @@ class $$NotesTableFilterComposer
 
   ColumnFilters<bool> get pinned => $composableBuilder(
     column: $table.pinned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isQuickNote => $composableBuilder(
+    column: $table.isQuickNote,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8494,6 +8561,11 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isQuickNote => $composableBuilder(
+    column: $table.isQuickNote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
@@ -8527,6 +8599,11 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<bool> get pinned =>
       $composableBuilder(column: $table.pinned, builder: (column) => column);
+
+  GeneratedColumn<bool> get isQuickNote => $composableBuilder(
+    column: $table.isQuickNote,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
@@ -8594,6 +8671,7 @@ class $$NotesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<bool> pinned = const Value.absent(),
+                Value<bool> isQuickNote = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -8602,6 +8680,7 @@ class $$NotesTableTableManager
                 id: id,
                 content: content,
                 pinned: pinned,
+                isQuickNote: isQuickNote,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -8612,6 +8691,7 @@ class $$NotesTableTableManager
                 required String id,
                 Value<String> content = const Value.absent(),
                 Value<bool> pinned = const Value.absent(),
+                Value<bool> isQuickNote = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -8620,6 +8700,7 @@ class $$NotesTableTableManager
                 id: id,
                 content: content,
                 pinned: pinned,
+                isQuickNote: isQuickNote,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

@@ -117,6 +117,24 @@ class RecordingOrchestrator extends Notifier<void> {
   /// production behaviour outside onboarding is completely unaffected.
   void Function(String text)? sandboxTranscriptSink;
 
+  /// Registrable override for delivering an appended quick-note text to a
+  /// live note editor instead of the direct database write (Ticket 21
+  /// registers this once the target note is open in the editor — the editor
+  /// owns persistence via its own debounced autosave, and a direct write
+  /// here would be clobbered by the next autosave tick). Called with the
+  /// note id and the *full new content* (already appended). Return `true` to
+  /// mean "handled, skip the database write"; `false` (or leave `null`) to
+  /// fall through to it. `null` — the default — means every quick-note
+  /// append goes straight to the database, which is the only behaviour this
+  /// ticket (19) implements; Ticket 21 adds the registration.
+  bool Function(String noteId, String newContent)? quickNoteLiveEditorOverride;
+
+  /// Fires after a quick-note append completes, naming the target note —
+  /// the externally-observable completion hook Ticket 21 hangs its window/
+  /// editor-focus reaction on, instead of guessing from the
+  /// [RecordingPhase] transition.
+  void Function(String noteId)? onQuickNoteAppended;
+
   @override
   void build() {
     ref.onDispose(_cancelAmplitude);
@@ -189,7 +207,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Recording → stops and transcribes. Idle / done / error → starts a new
   /// recording (a lingering "done"/"error" status is preempted by
   /// [startRecording] — see there). Transcribing is in-flight → ignored.
-  Future<void> toggleRecording() async {
+  ///
+  /// [target] selects what a successful transcription does with the
+  /// finished text — see [RecordingTarget]. Defaults to today's clipboard/
+  /// paste behaviour, so every existing caller (tray, shelf button, floating
+  /// button, main hotkey) is unaffected.
+  Future<void> toggleRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+  }) async {
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {
       await stopRecording();
@@ -199,17 +224,25 @@ class RecordingOrchestrator extends Notifier<void> {
     // idle, done, or error → start. Kick off server warm-up before preflight
     // to maximise the parallel window.
     unawaited(_prewarmStt());
-    await startRecording();
+    await startRecording(target: target);
   }
 
   /// Starts the recording pipeline.
-  Future<void> startRecording() async {
+  Future<void> startRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+  }) async {
     // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
     // latency KPI. Peeked (not consumed) synchronously, before any `await`
     // below, so it reflects the key-down that triggered THIS call — the
     // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
     // reset separately) is unaffected.
     _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
+
+    // Same "next start always overwrites, never reset at exit" pattern as
+    // the latency t₀ above: unconditional, before any await, so a target
+    // left over from an aborted/ignored start is structurally impossible
+    // rather than dependent on covering every abort path.
+    ref.read(recordingTargetProvider.notifier).set(target);
 
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
@@ -286,7 +319,12 @@ class RecordingOrchestrator extends Notifier<void> {
         unawaited(engineLifecycle.ensureRunning());
       }
 
-      await ref.read(pasterProvider)?.prime();
+      // Capturing the paste target only makes sense for the clipboard/paste
+      // path — a quick-note target never pastes anywhere, so skip it for a
+      // pure latency win, not a behaviour change.
+      if (target == RecordingTarget.clipboard) {
+        await ref.read(pasterProvider)?.prime();
+      }
 
       // Start audio capture.
       final audioNotifier = ref.read(audioServiceProvider.notifier);
@@ -829,9 +867,12 @@ class RecordingOrchestrator extends Notifier<void> {
     // snippet list makes SnippetPickerService.show return false, and the
     // transcript falls through to the normal pipeline below instead of
     // vanishing — same "never silently discard the dictation" contract.
-    // Skipped in the same onboarding-sandbox case as history/paste below.
+    // Skipped in the same onboarding-sandbox case as history/paste below, and
+    // for a quick-note target — the picker inserts by pasting into the
+    // focused application, which makes no sense for a note target.
     final snippetPickerDispatched =
         sandboxTranscriptSink == null &&
+        ref.read(recordingTargetProvider) == RecordingTarget.clipboard &&
         await _tryDispatchSnippetPicker(sid, finalText, settings);
 
     if (!snippetPickerDispatched) {
@@ -1591,6 +1632,11 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
 
+    if (ref.read(recordingTargetProvider) == RecordingTarget.quickNote) {
+      await _appendToQuickNote(transcript);
+      return;
+    }
+
     // resolveAfterTranscriptionAction downgrades paste/type actions to
     // clipboard-only ONLY if kAutoPasteSupported is false — currently true
     // unconditionally, MAS included (see build_config.dart): the sandboxed
@@ -1624,6 +1670,32 @@ class RecordingOrchestrator extends Notifier<void> {
             .count(category: 'insertion', action: 'auto_paste');
         return;
     }
+  }
+
+  /// Appends [transcript] to the quick note, bypassing clipboard/paste
+  /// entirely. Zero-config: if no note is marked — or the marked note is
+  /// trashed or no longer exists (both surface as `null` from
+  /// [HistoryDatabase.getQuickNote]) — creates a fresh note and marks it
+  /// first. Prefers [quickNoteLiveEditorOverride] over the direct database
+  /// write when one is registered and handles the append (see its doc
+  /// comment); always fires [onQuickNoteAppended] on success.
+  Future<void> _appendToQuickNote(String transcript) async {
+    final db = ref.read(historyDatabaseProvider);
+    var note = await db.getQuickNote();
+    if (note == null) {
+      note = await db.createNote();
+      await db.setQuickNote(note.id);
+    }
+
+    final newContent = appendToQuickNoteContent(note.content, transcript);
+
+    final override = quickNoteLiveEditorOverride;
+    final handled = override != null && override(note.id, newContent);
+    if (!handled) {
+      await db.updateNoteContent(note.id, newContent);
+    }
+
+    onQuickNoteAppended?.call(note.id);
   }
 
   Future<bool> _pasteTranscript(String transcript, AppSettings settings) async {

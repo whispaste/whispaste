@@ -578,4 +578,25 @@ void main() {
       expect(c.read(recordingProvider).transcript, isNull);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // RecordingTargetNotifier
+  // -------------------------------------------------------------------------
+  group('recordingTargetProvider', () {
+    test('defaults to clipboard', () {
+      final c = makeContainer();
+      expect(c.read(recordingTargetProvider), RecordingTarget.clipboard);
+    });
+
+    test('set() updates the readable state', () {
+      final c = makeContainer();
+      final n = c.read(recordingTargetProvider.notifier);
+
+      n.set(RecordingTarget.quickNote);
+      expect(c.read(recordingTargetProvider), RecordingTarget.quickNote);
+
+      n.set(RecordingTarget.clipboard);
+      expect(c.read(recordingTargetProvider), RecordingTarget.clipboard);
+    });
+  });
 }

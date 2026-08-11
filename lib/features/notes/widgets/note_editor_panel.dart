@@ -21,6 +21,13 @@ import '../data/note_title.dart';
 // passed through here, so cursor/IME state survive panel rebuilds.
 // ---------------------------------------------------------------------------
 
+/// Width reserved for the leading quick-note mark button — an [IconButton]'s
+/// own default minimum, stated here because the action cluster's width cap
+/// subtracts it (see the toolbar row). Keep it equal to the button's actual
+/// extent — give that button a `visualDensity` or `padding` without changing
+/// this, and the cap drifts and the row overflows again.
+const double _quickNoteMarkExtent = kMinInteractiveDimension;
+
 class NoteEditorPanel extends StatelessWidget {
   const NoteEditorPanel({
     super.key,
@@ -30,6 +37,8 @@ class NoteEditorPanel extends StatelessWidget {
     required this.focusNode,
     required this.onClose,
     required this.onToggleFavorite,
+    required this.onQuickNoteSet,
+    required this.onQuickNoteClear,
     required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
@@ -47,6 +56,13 @@ class NoteEditorPanel extends StatelessWidget {
   final FocusNode focusNode;
   final VoidCallback onClose;
   final VoidCallback onToggleFavorite;
+
+  /// Make this note the quick note — offered only while it is not already the
+  /// quick note (see the toolbar's comment on the two separate controls).
+  final VoidCallback onQuickNoteSet;
+
+  /// Drop the quick-note mark, leaving no note marked.
+  final VoidCallback onQuickNoteClear;
   final VoidCallback onMoveToTrash;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
@@ -70,14 +86,16 @@ class NoteEditorPanel extends StatelessWidget {
     const textMuted = WpColors.textMuted;
     const errorColor = WpColors.error;
     final isTrashed = note.deletedAt != null;
+    final showQuickNoteMark = !isTrashed && note.isQuickNote;
 
     return DecoratedBox(
       decoration: const BoxDecoration(gradient: WpColors.surfaceGradient),
       child: Column(
         children: [
           // ── Toolbar row ──
-          // Derived title + copy + export + voice input + favourite/trash
-          // (or restore/delete-forever for trashed notes) + close.
+          // Quick-note mark (only when this note holds it) + derived title +
+          // copy + export + voice input + favourite/quick-note/trash (or
+          // restore/delete-forever for trashed notes) + close.
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl,
@@ -88,6 +106,43 @@ class NoteEditorPanel extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) => Row(
                 children: [
+                  if (showQuickNoteMark)
+                    // The quick-note mark, and the only control that drops it.
+                    //
+                    // Deliberately on the title side rather than in the action
+                    // cluster on the right: the cluster is where *setting* the
+                    // mark lives, and no position may carry both meanings — a
+                    // default value must not flip by being chosen twice. It
+                    // also keeps the cluster from growing in the marked state,
+                    // which is the state the 280 dp panel floor already
+                    // struggles with (FLUTTER_WHISPASTE-64).
+                    //
+                    // Bolt in the generic interaction accent (cyan, ADR 0013),
+                    // never the amber star's glyph or colour: the two mean
+                    // different things and must not be mistaken for each
+                    // other.
+                    SizedBox(
+                      // Pinned to a known extent so the cluster's cap below
+                      // can subtract it. An unmeasured child to the *left* of
+                      // the flexible title would eat into the cluster's budget
+                      // without the cap ever hearing about it — the
+                      // FLUTTER_WHISPASTE-64 failure mode again, one child
+                      // further along the row.
+                      width: _quickNoteMarkExtent,
+                      child: Semantics(
+                        label: l10n.notesQuickNoteClear,
+                        button: true,
+                        child: IconButton(
+                          onPressed: onQuickNoteClear,
+                          tooltip: l10n.notesQuickNoteClear,
+                          icon: const FaIcon(
+                            FontAwesomeIcons.bolt,
+                            size: WpIconSize.sm,
+                            color: WpColors.accent,
+                          ),
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: Text(
                       deriveNoteTitle(note.content) ?? l10n.notesUntitled,
@@ -114,13 +169,20 @@ class NoteEditorPanel extends StatelessWidget {
                   // panel rests at, the cap is above the cluster's natural
                   // size and `scaleDown` is a no-op — the toolbar is
                   // unchanged wherever a user can actually stop the drag.
+                  //
+                  // The cap has to subtract every inflexible child to its
+                  // left, not just the gap: the quick-note mark is one such
+                  // child in the marked state, and the title next to it is the
+                  // only flexible thing in the row.
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: constraints.hasBoundedWidth
-                          ? (constraints.maxWidth - WpSpacing.xs).clamp(
-                              0.0,
-                              double.infinity,
-                            )
+                          ? (constraints.maxWidth -
+                                    WpSpacing.xs -
+                                    (showQuickNoteMark
+                                        ? _quickNoteMarkExtent
+                                        : 0.0))
+                                .clamp(0.0, double.infinity)
                           : double.infinity,
                     ),
                     child: FittedBox(
@@ -230,6 +292,25 @@ class NoteEditorPanel extends StatelessWidget {
                                       ),
                               ),
                             ),
+                            if (!note.isQuickNote)
+                              // Setting the mark sits with the other per-note
+                              // actions; on the note that already holds it
+                              // this button is simply absent, so re-marking
+                              // is impossible rather than a silent no-op.
+                              // Removing the mark lives on the title side.
+                              Semantics(
+                                label: l10n.notesQuickNoteSet,
+                                button: true,
+                                child: IconButton(
+                                  onPressed: onQuickNoteSet,
+                                  tooltip: l10n.notesQuickNoteSet,
+                                  icon: const Icon(
+                                    LucideIcons.zap,
+                                    size: WpIconSize.md,
+                                    color: textMuted,
+                                  ),
+                                ),
+                              ),
                             Semantics(
                               label: l10n.notesMoveToTrash,
                               button: true,

@@ -3198,6 +3198,12 @@ class L10nHe extends L10n {
   String get notesUnfavorite => 'הסר מהמועדפים';
 
   @override
+  String get notesQuickNoteSet => 'הפוך לפתק המהיר שאליו הקיצור מוסיף טקסט';
+
+  @override
+  String get notesQuickNoteClear => 'פתק מהיר — הסר את הסימון';
+
+  @override
   String get notesMoveToTrash => 'העבר לאשפה';
 
   @override

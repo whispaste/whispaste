@@ -5748,6 +5748,18 @@ abstract class L10n {
   /// **'Remove from favorites'**
   String get notesUnfavorite;
 
+  /// No description provided for @notesQuickNoteSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this the quick note the hotkey appends to'**
+  String get notesQuickNoteSet;
+
+  /// No description provided for @notesQuickNoteClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick note — remove the mark'**
+  String get notesQuickNoteClear;
+
   /// No description provided for @notesMoveToTrash.
   ///
   /// In en, this message translates to:

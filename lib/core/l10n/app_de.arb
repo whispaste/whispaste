@@ -1082,6 +1082,8 @@
   "notesCopied": "Notiz kopiert",
   "notesFavorite": "Als Favorit markieren",
   "notesUnfavorite": "Favorit aufheben",
+  "notesQuickNoteSet": "Zur Schnellnotiz machen, an die der Hotkey anhängt",
+  "notesQuickNoteClear": "Schnellnotiz — Markierung entfernen",
   "notesMoveToTrash": "In den Papierkorb verschieben",
   "notesMovedToTrash": "In den Papierkorb verschoben",
   "notesRestore": "Wiederherstellen",

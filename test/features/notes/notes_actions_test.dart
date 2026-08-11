@@ -106,20 +106,44 @@ void main() {
 
   group('empty-discard contract', () {
     test(
-      'discarding a blank note uses deleteForever, never moveToTrash '
+      'discardIfBlank permanently deletes a blank note, never moveToTrash '
       '(the empty-discard rule: leaving an empty note deletes it outright)',
       () async {
         final note = await actions.create();
         expect(note.content.trim(), isEmpty);
 
-        // This is exactly what NotesPage._leaveCurrentNote does when the
-        // content is blank — verify the facade call it relies on.
-        await actions.deleteForever(note.id);
+        // This is exactly what NotesPage._leaveCurrentNote/dispose do when
+        // the content is blank — verify the facade call they rely on.
+        final deleted = await actions.discardIfBlank(note.id);
 
+        expect(deleted, isTrue);
         final result = await db.getNote(note.id);
         expect(result, isNull); // gone entirely, not sitting in trash
       },
     );
+
+    test(
+      'discardIfBlank exempts the marked quick note even while blank',
+      () async {
+        final note = await actions.create();
+        await actions.markAsQuickNote(note.id);
+
+        final deleted = await actions.discardIfBlank(note.id);
+
+        expect(deleted, isFalse);
+        expect(await db.getNote(note.id), isNotNull);
+      },
+    );
+
+    test('discardIfBlank leaves a non-blank note untouched', () async {
+      final note = await actions.create();
+      await actions.save(note.id, 'keep me');
+
+      final deleted = await actions.discardIfBlank(note.id);
+
+      expect(deleted, isFalse);
+      expect(await db.getNote(note.id), isNotNull);
+    });
   });
 
   group('purgeEmpty', () {

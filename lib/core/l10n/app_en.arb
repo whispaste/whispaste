@@ -1240,6 +1240,8 @@
   "notesCopied": "Note copied",
   "notesFavorite": "Mark as favorite",
   "notesUnfavorite": "Remove from favorites",
+  "notesQuickNoteSet": "Make this the quick note the hotkey appends to",
+  "notesQuickNoteClear": "Quick note — remove the mark",
   "notesMoveToTrash": "Move to Trash",
   "notesMovedToTrash": "Moved to trash",
   "notesRestore": "Restore",

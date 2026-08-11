@@ -93,4 +93,43 @@ void main() {
       },
     );
   });
+
+  group('appendToQuickNoteContent', () {
+    test('empty note gets no leading whitespace — addition is the content', () {
+      expect(appendToQuickNoteContent('', 'First thought'), 'First thought');
+    });
+
+    test('whitespace-only note is treated as empty', () {
+      expect(
+        appendToQuickNoteContent('   \n  ', 'First thought'),
+        'First thought',
+      );
+    });
+
+    test('appends as a new paragraph with exactly one blank line', () {
+      expect(
+        appendToQuickNoteContent('Existing line', 'New thought'),
+        'Existing line\n\nNew thought',
+      );
+    });
+
+    test('collapses any number of existing trailing newlines to exactly one '
+        'blank line', () {
+      expect(
+        appendToQuickNoteContent('Existing line\n\n\n\n', 'New thought'),
+        'Existing line\n\nNew thought',
+      );
+      expect(
+        appendToQuickNoteContent('Existing line\n', 'New thought'),
+        'Existing line\n\nNew thought',
+      );
+    });
+
+    test('inserts no timestamp', () {
+      expect(
+        appendToQuickNoteContent('Existing', 'New'),
+        isNot(contains(RegExp(r'\d{1,2}:\d{2}'))),
+      );
+    });
+  });
 }

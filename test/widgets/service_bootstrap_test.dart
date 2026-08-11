@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/autostart_service.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller.dart';
 import 'package:whispaste/services/floating_button/floating_button_service.dart';
@@ -57,7 +58,9 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   }
 
   @override
-  Future<void> startRecording() async {
+  Future<void> startRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+  }) async {
     startCalls++;
   }
 
@@ -67,7 +70,9 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   }
 
   @override
-  Future<void> toggleRecording() async {
+  Future<void> toggleRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+  }) async {
     toggleCalls++;
   }
 }

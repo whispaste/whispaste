@@ -45,3 +45,13 @@ String stripPunctuation(String text) {
       .replaceAll(RegExp(r' {2,}'), ' ')
       .trim();
 }
+
+/// Appends [addition] to a quick note's [existing] content as a new
+/// paragraph — exactly one blank line as separator, regardless of how many
+/// trailing newlines [existing] already has. No timestamp is inserted, and
+/// an empty (or whitespace-only) [existing] note gets no leading whitespace
+/// at all — [addition] becomes the entire content.
+String appendToQuickNoteContent(String existing, String addition) {
+  final trimmed = existing.replaceAll(RegExp(r'\s+$'), '');
+  return trimmed.isEmpty ? addition : '$trimmed\n\n$addition';
+}

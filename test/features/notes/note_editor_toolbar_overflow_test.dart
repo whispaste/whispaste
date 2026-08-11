@@ -25,6 +25,7 @@ Note _note() => Note(
   createdAt: DateTime(2026, 4, 14, 10, 30),
   updatedAt: DateTime(2026, 4, 14, 10, 30),
   pinned: false,
+  isQuickNote: false,
   deletedAt: null,
 );
 
@@ -32,15 +33,18 @@ Widget _panel({
   required bool trashed,
   required TextEditingController controller,
   required FocusNode focusNode,
+  bool quickNote = false,
 }) => NoteEditorPanel(
   note: trashed
       ? _note().copyWith(deletedAt: Value(DateTime(2026, 4, 15)))
-      : _note(),
+      : _note().copyWith(isQuickNote: quickNote),
   tags: const [],
   controller: controller,
   focusNode: focusNode,
   onClose: () {},
   onToggleFavorite: () {},
+  onQuickNoteSet: () {},
+  onQuickNoteClear: () {},
   onMoveToTrash: () {},
   onRestore: () {},
   onDeleteForever: () {},
@@ -53,10 +57,21 @@ Widget _panel({
 void main() {
   // 280 is the split view's `_minDetailRenderWidth`; 240 is below anything it
   // renders, and stands in for the animation's narrow frames.
+  // The quick-note variant is its own case, not a flag on the others: it
+  // moves the mark to the title side of the row and drops the "set" button
+  // from the cluster, so it stresses a different part of the toolbar than the
+  // normal one does (ticket 22).
+  const variants = <(String, bool, bool)>[
+    ('normal', false, false),
+    ('quick note', false, true),
+    ('trashed', true, false),
+  ];
+
   for (final width in [240.0, 280.0, 320.0, 640.0]) {
-    for (final trashed in [false, true]) {
-      testWidgets('toolbar does not overflow at ${width}dp '
-          '(${trashed ? 'trashed' : 'normal'} actions)', (tester) async {
+    for (final (name, trashed, quickNote) in variants) {
+      testWidgets('toolbar does not overflow at ${width}dp ($name actions)', (
+        tester,
+      ) async {
         final controller = TextEditingController(text: _note().content);
         addTearDown(controller.dispose);
         final focusNode = FocusNode();
@@ -71,6 +86,7 @@ void main() {
                 height: 600,
                 child: _panel(
                   trashed: trashed,
+                  quickNote: quickNote,
                   controller: controller,
                   focusNode: focusNode,
                 ),
@@ -85,38 +101,44 @@ void main() {
     }
   }
 
-  testWidgets('toolbar does not overflow at the render floor with a 1.5x text '
-      'scaler', (tester) async {
-    final controller = TextEditingController(text: _note().content);
-    addTearDown(controller.dispose);
-    final focusNode = FocusNode();
-    addTearDown(focusNode.dispose);
+  for (final (name, trashed, quickNote) in variants) {
+    testWidgets(
+      'toolbar does not overflow at the render floor with a 1.5x text '
+      'scaler ($name actions)',
+      (tester) async {
+        final controller = TextEditingController(text: _note().content);
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
 
-    await tester.pumpWidget(
-      makeTestable(
-        Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(1.5)),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 280,
-                height: 600,
-                child: _panel(
-                  trashed: false,
-                  controller: controller,
-                  focusNode: focusNode,
+        await tester.pumpWidget(
+          makeTestable(
+            Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.5)),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 280,
+                    height: 600,
+                    child: _panel(
+                      trashed: trashed,
+                      quickNote: quickNote,
+                      controller: controller,
+                      focusNode: focusNode,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
-    await tester.pump();
+        );
+        await tester.pump();
 
-    expect(tester.takeException(), isNull);
-  });
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

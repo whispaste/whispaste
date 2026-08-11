@@ -3246,6 +3246,13 @@ class L10nEn extends L10n {
   String get notesUnfavorite => 'Remove from favorites';
 
   @override
+  String get notesQuickNoteSet =>
+      'Make this the quick note the hotkey appends to';
+
+  @override
+  String get notesQuickNoteClear => 'Quick note — remove the mark';
+
+  @override
   String get notesMoveToTrash => 'Move to Trash';
 
   @override

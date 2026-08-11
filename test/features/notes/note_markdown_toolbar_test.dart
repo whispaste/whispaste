@@ -31,6 +31,7 @@ Note _note() => Note(
   createdAt: DateTime(2026, 4, 14, 10, 30),
   updatedAt: DateTime(2026, 4, 14, 10, 30),
   pinned: false,
+  isQuickNote: false,
   deletedAt: null,
 );
 
@@ -44,6 +45,8 @@ Widget _panel({
   focusNode: focusNode,
   onClose: () {},
   onToggleFavorite: () {},
+  onQuickNoteSet: () {},
+  onQuickNoteClear: () {},
   onMoveToTrash: () {},
   onRestore: () {},
   onDeleteForever: () {},

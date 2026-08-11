@@ -96,7 +96,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -153,6 +153,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 18) {
         await _addHistoryColorSlotColumn();
+      }
+      if (from < 19) {
+        await _addQuickNoteColumn();
       }
     },
     beforeOpen: (details) async {
@@ -445,6 +448,28 @@ class HistoryDatabase extends _$HistoryDatabase {
   @visibleForTesting
   Future<void> addHistoryColorSlotColumnForTesting() =>
       _addHistoryColorSlotColumn();
+
+  /// Adds the `is_quick_note` column to notes if missing (v19 migration).
+  /// No backfill needed — the column defaults to false, and at most one row
+  /// is ever expected to carry `true` (see the partial unique index in
+  /// [_ensureNotesIndexes]).
+  Future<void> _addQuickNoteColumn() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('notes')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('is_quick_note')) {
+        debugPrint('[Migration] Adding column "is_quick_note" to notes');
+        await customStatement(
+          'ALTER TABLE notes ADD COLUMN is_quick_note '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint('[Migration] Could not add notes is_quick_note column: $e');
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // v10 migration — destructive Projects removal
@@ -804,7 +829,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Creates indexes on notes/note_tags for fast active-sort and tag joins
-  /// (idempotent).
+  /// (idempotent). Also enforces "at most one quick note" via a partial
+  /// unique index rather than application-level locking — every write path
+  /// (see [setQuickNote]) must therefore clear the old mark before setting
+  /// the new one, in the same transaction.
   Future<void> _ensureNotesIndexes() async {
     try {
       await customStatement(
@@ -819,11 +847,20 @@ class HistoryDatabase extends _$HistoryDatabase {
         'CREATE INDEX IF NOT EXISTS idx_notes_active_sort '
         'ON notes(deleted_at, pinned, updated_at)',
       );
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_quick_note_unique '
+        'ON notes(is_quick_note) WHERE is_quick_note = 1',
+      );
     } catch (e, st) {
       // Table may not exist yet during initial creation — skip.
       _log.debug('_ensureNotesIndexes skipped (tables not yet ready)', e, st);
     }
   }
+
+  /// Exposed for testing — re-runs the idempotent notes/note_tags index
+  /// guard directly against the already-open database.
+  @visibleForTesting
+  Future<void> ensureNotesIndexesForTesting() => _ensureNotesIndexes();
 
   // ---------------------------------------------------------------------------
   // Query helpers
@@ -2018,6 +2055,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         id: id,
         content: '',
         pinned: false,
+        isQuickNote: false,
         deletedAt: null,
         createdAt: now,
         updatedAt: now,
@@ -2044,6 +2082,44 @@ class HistoryDatabase extends _$HistoryDatabase {
         NotesCompanion(pinned: Value(pinned), updatedAt: Value(DateTime.now())),
       ),
     );
+  }
+
+  /// Marks [noteId] as the one exclusive "quick note", unmarking whichever
+  /// note (if any) held the mark before. Deliberately does not bump
+  /// `updatedAt` — the mark is not sort-affecting (see `idx_notes_active_sort`
+  /// / `watchNotes`). Clears before setting, in one transaction, matching the
+  /// partial unique index in [_ensureNotesIndexes]. The clear step is
+  /// unscoped by `deletedAt` on purpose: a trashed note can still hold a
+  /// stale mark (soft-delete doesn't clear it), and leaving it there would
+  /// collide with the unique index the moment a different note is marked.
+  Future<void> setQuickNote(String noteId) {
+    return _writeCoordinator.write<void>(
+      () => transaction(() async {
+        await (update(notes)..where((n) => n.isQuickNote.equals(true))).write(
+          const NotesCompanion(isQuickNote: Value(false)),
+        );
+        await (update(notes)..where((n) => n.id.equals(noteId))).write(
+          const NotesCompanion(isQuickNote: Value(true)),
+        );
+      }),
+    );
+  }
+
+  /// Clears the quick-note mark, if any, without marking another note.
+  Future<void> clearQuickNote() {
+    return _writeCoordinator.write<void>(
+      () => (update(notes)..where((n) => n.isQuickNote.equals(true))).write(
+        const NotesCompanion(isQuickNote: Value(false)),
+      ),
+    );
+  }
+
+  /// The currently marked quick note, or `null` if none is marked or the
+  /// marked note is in the trash — a trashed note is not a valid target.
+  Future<Note?> getQuickNote() {
+    return (select(notes)
+          ..where((n) => n.isQuickNote.equals(true) & n.deletedAt.isNull()))
+        .getSingleOrNull();
   }
 
   /// Soft-delete a note (move to notes trash).
@@ -2081,19 +2157,40 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// (`content.trim().isEmpty`) — a self-healing sweep run once when the
   /// Notizen page mounts, covering notes abandoned by a crash/quit that
   /// skipped the explicit empty-discard triggers (selection change, page
-  /// dispose). Returns the number of notes deleted.
+  /// dispose). The quick note is exempt even while blank — it is the
+  /// pipeline's zero-config dictation target and must survive until the
+  /// user unmarks it, not just until the next dictation lands. Returns the
+  /// number of notes deleted.
   Future<int> purgeEmptyNotes() {
     return _writeCoordinator.write<int>(() async {
       final active = await (select(
         notes,
       )..where((n) => n.deletedAt.isNull())).get();
       final emptyIds = active
-          .where((n) => n.content.trim().isEmpty)
+          .where((n) => n.content.trim().isEmpty && !n.isQuickNote)
           .map((n) => n.id)
           .toList();
       if (emptyIds.isEmpty) return 0;
       await (delete(notes)..where((n) => n.id.isIn(emptyIds))).go();
       return emptyIds.length;
+    });
+  }
+
+  /// Deletes [noteId] if — and only if — it is still blank and not the
+  /// marked quick note. Backs the explicit empty-discard triggers (leaving a
+  /// note, closing the Notizen page) that would otherwise drop a quick note
+  /// the user marked before ever dictating into it. Returns whether the note
+  /// was deleted.
+  Future<bool> discardNoteIfBlank(String noteId) {
+    return _writeCoordinator.write<bool>(() async {
+      final note = await (select(
+        notes,
+      )..where((n) => n.id.equals(noteId))).getSingleOrNull();
+      if (note == null || note.content.trim().isNotEmpty || note.isQuickNote) {
+        return false;
+      }
+      await (delete(notes)..where((n) => n.id.equals(noteId))).go();
+      return true;
     });
   }
 

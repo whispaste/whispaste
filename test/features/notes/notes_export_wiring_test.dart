@@ -38,6 +38,7 @@ Note _sampleNote({required String id, required String content}) {
     id: id,
     content: content,
     pinned: false,
+    isQuickNote: false,
     deletedAt: null,
     createdAt: t,
     updatedAt: t,

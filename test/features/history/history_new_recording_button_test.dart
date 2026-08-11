@@ -52,7 +52,9 @@ class _FakeOrchestrator extends RecordingOrchestrator {
   void build() {}
 
   @override
-  Future<void> toggleRecording() async => toggles++;
+  Future<void> toggleRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+  }) async => toggles++;
 }
 
 void main() {

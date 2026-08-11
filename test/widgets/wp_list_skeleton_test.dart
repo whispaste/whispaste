@@ -62,6 +62,7 @@ Note _note() => Note(
   createdAt: DateTime(2026, 4, 14, 10, 30),
   updatedAt: DateTime(2026, 4, 14, 10, 30),
   pinned: false,
+  isQuickNote: false,
   deletedAt: null,
 );
 
@@ -146,6 +147,8 @@ void main() {
           isFocused: false,
           onTap: () {},
           onFavoriteToggle: () {},
+          onQuickNoteSet: () {},
+          onQuickNoteClear: () {},
           onRestore: () {},
           onDeleteForever: () {},
         ),

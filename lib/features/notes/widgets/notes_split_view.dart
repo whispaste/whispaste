@@ -27,6 +27,8 @@ class NotesSplitView extends StatelessWidget {
     required this.onNoteTap,
     required this.onCloseEditor,
     required this.onFavoriteToggle,
+    required this.onQuickNoteSet,
+    required this.onQuickNoteClear,
     required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
@@ -61,6 +63,14 @@ class NotesSplitView extends StatelessWidget {
   final ValueChanged<Note> onNoteTap;
   final VoidCallback onCloseEditor;
   final ValueChanged<Note> onFavoriteToggle;
+
+  /// Make the given note the quick note (the note the quick-note hotkey
+  /// appends to). Exclusive — the write path drops the previous mark.
+  final ValueChanged<Note> onQuickNoteSet;
+
+  /// Drop the quick-note mark; at most one note holds it, so no note is
+  /// needed to say which.
+  final VoidCallback onQuickNoteClear;
   final ValueChanged<Note> onMoveToTrash;
   final ValueChanged<Note> onRestore;
   final ValueChanged<Note> onDeleteForever;
@@ -86,6 +96,8 @@ class NotesSplitView extends StatelessWidget {
       focusedId: focusedNoteId,
       onNoteTap: onNoteTap,
       onFavoriteToggle: onFavoriteToggle,
+      onQuickNoteSet: onQuickNoteSet,
+      onQuickNoteClear: onQuickNoteClear,
       onRestore: onRestore,
       onDeleteForever: onDeleteForever,
     );
@@ -99,6 +111,8 @@ class NotesSplitView extends StatelessWidget {
       focusNode: editorFocusNode,
       onClose: onCloseEditor,
       onToggleFavorite: () => onFavoriteToggle(note),
+      onQuickNoteSet: () => onQuickNoteSet(note),
+      onQuickNoteClear: onQuickNoteClear,
       onMoveToTrash: () => onMoveToTrash(note),
       onRestore: () => onRestore(note),
       onDeleteForever: () => onDeleteForever(note),

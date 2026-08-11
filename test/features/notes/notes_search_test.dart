@@ -20,6 +20,7 @@ Note _sampleNote({
     id: id,
     content: content,
     pinned: false,
+    isQuickNote: false,
     deletedAt: null,
     createdAt: t,
     updatedAt: t,

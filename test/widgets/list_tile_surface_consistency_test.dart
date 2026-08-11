@@ -168,6 +168,7 @@ Note _note() => Note(
   id: 'n1',
   content: 'Note title line\nand a preview line below it',
   pinned: false,
+  isQuickNote: false,
   createdAt: DateTime(2026, 4, 14),
   updatedAt: DateTime(2026, 4, 14, 9, 41),
 );
@@ -220,6 +221,8 @@ Widget _notesList() => NotesListView(
   focusedId: null,
   onNoteTap: (_) {},
   onFavoriteToggle: (_) {},
+  onQuickNoteSet: (_) {},
+  onQuickNoteClear: () {},
   onRestore: (_) {},
   onDeleteForever: (_) {},
 );

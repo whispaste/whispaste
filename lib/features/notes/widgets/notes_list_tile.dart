@@ -13,8 +13,9 @@ import '../data/note_title.dart';
 
 // ---------------------------------------------------------------------------
 // Note list tile — simplified sibling of HistoryEntryRow: derived title,
-// content preview, relative date, plus per-note actions (favourite star in
-// the active view, restore/delete-forever in the trash view).
+// content preview, relative date, plus per-note actions (favourite star and
+// the quick-note mark in the active view, restore/delete-forever in the trash
+// view).
 // ---------------------------------------------------------------------------
 
 class NotesListTile extends StatefulWidget {
@@ -27,6 +28,8 @@ class NotesListTile extends StatefulWidget {
     required this.isFocused,
     required this.onTap,
     required this.onFavoriteToggle,
+    required this.onQuickNoteSet,
+    required this.onQuickNoteClear,
     required this.onRestore,
     required this.onDeleteForever,
   });
@@ -47,6 +50,15 @@ class NotesListTile extends StatefulWidget {
   final bool isFocused;
   final VoidCallback onTap;
   final VoidCallback onFavoriteToggle;
+
+  /// Makes this note the quick note. Offered only while it is *not* already
+  /// the quick note — re-marking a default value is a no-op, so the control
+  /// simply isn't there (see the build method's comment).
+  final VoidCallback onQuickNoteSet;
+
+  /// Drops the quick-note mark entirely, leaving no note marked. A separate,
+  /// separately named control in a separate place from [onQuickNoteSet].
+  final VoidCallback onQuickNoteClear;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
 
@@ -137,9 +149,10 @@ class _NotesListTileState extends State<NotesListTile> {
       // every row announced its title twice ("Mein Titel, Mein Titel, 14:20,
       // …"). The house alternative (MergeSemantics around a label-less
       // Semantics) is ruled out here: the favourite star is a permanently
-      // mounted second tap target inside this subtree, and merging would
-      // swallow it. Dropping the redundant label lets the rendered title
-      // name the row and leaves the star its own operable node.
+      // mounted second tap target inside this subtree (and the quick-note
+      // mark a third one on the marked note), and merging would swallow
+      // them. Dropping the redundant label lets the rendered title name the
+      // row and leaves each action its own operable node.
       //
       // No `hint:` either, unlike the Snippets/Replacements rows, which use
       // one to announce that activating them opens an edit dialog: a note
@@ -195,6 +208,39 @@ class _NotesListTileState extends State<NotesListTile> {
                         dense: true,
                       ),
                       const SizedBox(width: WpSpacing.xxs),
+                      if (widget.note.isQuickNote) ...[
+                        // The quick-note mark, and the only way to drop it.
+                        //
+                        // Colour and glyph both differ from the star on
+                        // purpose: amber solid star vs. the generic
+                        // interaction accent (cyan, ADR 0013) on a bolt — a
+                        // different glyph family, a different palette entry,
+                        // no new brand accent invented for it. The bolt is the
+                        // hotkey, which is the whole meaning of this mark.
+                        //
+                        // Permanent, like the star: it is this row's only
+                        // carrier of the state, and "which note is the quick
+                        // note" has to be readable without hovering every row
+                        // (the leading-glyph exception WpRowAction's library
+                        // comment already grants the star).
+                        //
+                        // It clears the mark rather than re-setting it. A
+                        // default value does not flip by being chosen again,
+                        // so setting lives elsewhere entirely — in the
+                        // trailing group below, and only on notes that are not
+                        // already the quick note. No screen position ever
+                        // carries both meanings, which is what keeps this from
+                        // feeling like the favourite toggle next to it.
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        WpRowAction(
+                          faIcon: FontAwesomeIcons.bolt,
+                          activeColor: WpColors.accent,
+                          tooltip: l10n.notesQuickNoteClear,
+                          onTap: widget.onQuickNoteClear,
+                          dense: true,
+                        ),
+                        const SizedBox(width: WpSpacing.xxs),
+                      ],
                     ],
                     Expanded(
                       child: Text(
@@ -216,6 +262,27 @@ class _NotesListTileState extends State<NotesListTile> {
                         color: textMuted,
                       ),
                     ),
+                    if (!widget.isTrashView && !widget.note.isQuickNote) ...[
+                      const SizedBox(width: WpSpacing.xxs),
+                      // Setting the mark is an ordinary trailing row action —
+                      // revealed on hover/focus like every other one, and
+                      // absent from the note that already holds the mark, so
+                      // "marking it again" is structurally impossible instead
+                      // of being a behavioural special case.
+                      WpRowActions(
+                        visible: _isHovered || widget.isFocused,
+                        dense: true,
+                        children: [
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            icon: LucideIcons.zap,
+                            tooltip: l10n.notesQuickNoteSet,
+                            onTap: widget.onQuickNoteSet,
+                            dense: true,
+                          ),
+                        ],
+                      ),
+                    ],
                     if (widget.isTrashView) ...[
                       const SizedBox(width: WpSpacing.xxs),
                       WpRowActions(

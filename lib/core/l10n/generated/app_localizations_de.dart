@@ -3275,6 +3275,13 @@ class L10nDe extends L10n {
   String get notesUnfavorite => 'Favorit aufheben';
 
   @override
+  String get notesQuickNoteSet =>
+      'Zur Schnellnotiz machen, an die der Hotkey anhängt';
+
+  @override
+  String get notesQuickNoteClear => 'Schnellnotiz — Markierung entfernen';
+
+  @override
   String get notesMoveToTrash => 'In den Papierkorb verschieben';
 
   @override

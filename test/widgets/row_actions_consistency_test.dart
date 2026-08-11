@@ -46,10 +46,11 @@ HistoryEntry _entry({bool pinned = false}) => HistoryEntry(
   colorSlot: 0,
 );
 
-Note _note() => Note(
+Note _note({bool isQuickNote = false}) => Note(
   id: 'n1',
   content: 'Note title line\nand a preview line below it',
   pinned: false,
+  isQuickNote: isQuickNote,
   createdAt: DateTime(2026, 4, 14),
   updatedAt: DateTime(2026, 4, 14, 9, 41),
 );
@@ -72,14 +73,16 @@ Widget _compactRow() => HistoryCompactRow(
   onDelete: () {},
 );
 
-Widget _notesRow() => NotesListTile(
-  note: _note(),
+Widget _notesRow({bool isQuickNote = false}) => NotesListTile(
+  note: _note(isQuickNote: isQuickNote),
   tags: const [],
   isTrashView: false,
   isSelected: false,
   isFocused: false,
   onTap: () {},
   onFavoriteToggle: () {},
+  onQuickNoteSet: () {},
+  onQuickNoteClear: () {},
   onRestore: () {},
   onDeleteForever: () {},
 );
@@ -203,6 +206,15 @@ void main() {
       ('history list row', HistoryEntryRow, _historyRow, _minPanelWidth),
       ('history compact row', HistoryCompactRow, _compactRow, 320.0),
       ('notes row', NotesListTile, _notesRow, _minPanelWidth),
+      // The notes row's tightest case: the quick-note mark is permanent, so
+      // this row carries star + mark + title + date with no reveal left to
+      // collapse (ticket 22).
+      (
+        'notes row (quick note)',
+        NotesListTile,
+        () => _notesRow(isQuickNote: true),
+        _minPanelWidth,
+      ),
     ];
 
     for (final (name, type, build, minWidth) in rows) {

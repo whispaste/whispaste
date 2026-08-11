@@ -135,6 +135,49 @@ void main() {
       expect(purged, 0);
       expect(await db.getNote(note.id), isNotNull);
     });
+
+    test('does not touch the marked quick note even if blank', () async {
+      final quickNote = await db.createNote();
+      await db.setQuickNote(quickNote.id);
+      final other = await db.createNote();
+
+      final purged = await db.purgeEmptyNotes();
+
+      expect(purged, 1);
+      expect(await db.getNote(quickNote.id), isNotNull);
+      expect(await db.getNote(other.id), isNull);
+    });
+  });
+
+  group('discardNoteIfBlank', () {
+    test('deletes a blank note and reports it deleted', () async {
+      final note = await db.createNote();
+
+      final deleted = await db.discardNoteIfBlank(note.id);
+
+      expect(deleted, isTrue);
+      expect(await db.getNote(note.id), isNull);
+    });
+
+    test('leaves a non-blank note untouched and reports it kept', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'keep me');
+
+      final deleted = await db.discardNoteIfBlank(note.id);
+
+      expect(deleted, isFalse);
+      expect(await db.getNote(note.id), isNotNull);
+    });
+
+    test('leaves the marked quick note untouched even while blank', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+
+      final deleted = await db.discardNoteIfBlank(note.id);
+
+      expect(deleted, isFalse);
+      expect(await db.getNote(note.id), isNotNull);
+    });
   });
 
   group('watchNotes (sort order)', () {
@@ -172,6 +215,100 @@ void main() {
 
       final result = await db.watchNotes().first;
       expect(result.map((n) => n.id).toList(), [active.id]);
+    });
+  });
+
+  group('quick note marking', () {
+    test(
+      'marking a note sets isQuickNote and clears any previous mark',
+      () async {
+        final a = await db.createNote();
+        final b = await db.createNote();
+
+        await db.setQuickNote(a.id);
+        expect((await db.getNote(a.id))?.isQuickNote, isTrue);
+        expect((await db.getNote(b.id))?.isQuickNote, isFalse);
+
+        await db.setQuickNote(b.id);
+        expect((await db.getNote(a.id))?.isQuickNote, isFalse);
+        expect((await db.getNote(b.id))?.isQuickNote, isTrue);
+      },
+    );
+
+    test('marking the same note again is idempotent', () async {
+      final note = await db.createNote();
+
+      await db.setQuickNote(note.id);
+      await db.setQuickNote(note.id);
+
+      expect((await db.getNote(note.id))?.isQuickNote, isTrue);
+    });
+
+    test('clearing removes the mark without marking another note', () async {
+      final a = await db.createNote();
+      final b = await db.createNote();
+      await db.setQuickNote(a.id);
+
+      await db.clearQuickNote();
+
+      expect((await db.getNote(a.id))?.isQuickNote, isFalse);
+      expect((await db.getNote(b.id))?.isQuickNote, isFalse);
+    });
+
+    test('marking does not bump updatedAt (sort-neutral)', () async {
+      final note = await db.createNote();
+      final before = (await db.getNote(note.id))!.updatedAt;
+
+      await db.setQuickNote(note.id);
+
+      expect((await db.getNote(note.id))?.updatedAt, before);
+    });
+
+    test('does not change the notes-list sort order', () async {
+      Future<void> insert(String id, {required bool pinned, required int m}) {
+        return db
+            .into(db.notes)
+            .insert(
+              NotesCompanion.insert(
+                id: id,
+                content: const Value('x'),
+                pinned: Value(pinned),
+                createdAt: DateTime(2025, 6, 1),
+                updatedAt: DateTime(2025, 6, 1).add(Duration(minutes: m)),
+              ),
+            );
+      }
+
+      await insert('older', pinned: false, m: 1);
+      await insert('newer', pinned: false, m: 2);
+      await insert('pinnedOld', pinned: true, m: 0);
+
+      await db.setQuickNote('older');
+
+      final result = await db.watchNotes().first;
+      expect(result.map((n) => n.id).toList(), ['pinnedOld', 'newer', 'older']);
+    });
+  });
+
+  group('getQuickNote', () {
+    test('returns null when no note is marked', () async {
+      await db.createNote();
+      expect(await db.getQuickNote(), isNull);
+    });
+
+    test('returns the marked note', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+
+      expect((await db.getQuickNote())?.id, note.id);
+    });
+
+    test('does not return a marked note that is in the trash', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      await db.softDeleteNote(note.id);
+
+      expect(await db.getQuickNote(), isNull);
     });
   });
 

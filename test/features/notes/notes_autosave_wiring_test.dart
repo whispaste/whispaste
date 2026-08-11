@@ -31,6 +31,7 @@ Note _note({required String id, required String content, DateTime? deletedAt}) {
     id: id,
     content: content,
     pinned: false,
+    isQuickNote: false,
     deletedAt: deletedAt,
     createdAt: t,
     updatedAt: t,

@@ -24,6 +24,13 @@ class NotesActions {
   Future<void> togglePin(String noteId, {required bool pinned}) =>
       _db.toggleNotePin(noteId, pinned: pinned);
 
+  /// Marks [noteId] as the exclusive quick note (the target the quick-note
+  /// hotkey appends to), unmarking whichever note held the mark before.
+  Future<void> markAsQuickNote(String noteId) => _db.setQuickNote(noteId);
+
+  /// Clears the quick-note mark without marking another note.
+  Future<void> clearQuickNoteMark() => _db.clearQuickNote();
+
   Future<void> moveToTrash(String noteId) => _db.softDeleteNote(noteId);
 
   Future<void> restore(String noteId) => _db.restoreNote(noteId);
@@ -33,6 +40,10 @@ class NotesActions {
   /// Deletes active notes whose content is blank — the empty-discard
   /// safety-net sweep run once when the Notizen page mounts.
   Future<int> purgeEmpty() => _db.purgeEmptyNotes();
+
+  /// Empty-discard for a single note (leaving it, closing the page): deletes
+  /// [noteId] only if it is still blank and not the marked quick note.
+  Future<bool> discardIfBlank(String noteId) => _db.discardNoteIfBlank(noteId);
 
   /// Add an existing or new tag to a note (find-or-create by name), mirrors
   /// `HistoryDetailNotifier.addTag`.

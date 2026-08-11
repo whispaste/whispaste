@@ -182,6 +182,11 @@ class Notes extends Table {
   TextColumn get id => text()();
   TextColumn get content => text().withDefault(const Constant(''))();
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  // Exclusive "quick note" mark (schema v19): at most one note carries it at
+  // any time, enforced by a partial unique index (see _ensureNotesIndexes).
+  // Deliberately its own column, not a reuse of [pinned] — pinned is
+  // multi-valued and sort-affecting, this is exclusive and sort-neutral.
+  BoolColumn get isQuickNote => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();

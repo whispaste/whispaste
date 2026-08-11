@@ -607,6 +607,51 @@ void main() {
     });
   });
 
+  group('Quick-note migration (v18 → v19)', () {
+    test('adds is_quick_note column to notes', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+      final cols = await db.customSelect("PRAGMA table_info('notes')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      expect(colNames.contains('is_quick_note'), true);
+
+      await db.close();
+    });
+
+    test('a partial unique index rejects two notes marked at once', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.createNote();
+      final a = await db.createNote();
+      final b = await db.createNote();
+      await db.setQuickNote(a.id);
+
+      await expectLater(
+        db.customStatement(
+          "UPDATE notes SET is_quick_note = 1 WHERE id = '${b.id}'",
+        ),
+        throwsA(anything),
+      );
+
+      await db.close();
+    });
+
+    test(
+      'migration is idempotent — re-running the index guard does not error',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.customSelect('SELECT 1').get();
+
+        // beforeOpen already ran _ensureNotesIndexes once during open above;
+        // re-invoking it directly must be a no-op, not a "duplicate index"
+        // error — mirrors the color-slot migration's idempotency guarantee.
+        await db.ensureNotesIndexesForTesting();
+        await db.ensureNotesIndexesForTesting();
+
+        await db.close();
+      },
+    );
+  });
+
   group(
     'TextReplacementTriggers migration (v13, multi-trigger replacements)',
     () {
