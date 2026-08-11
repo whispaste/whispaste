@@ -481,7 +481,7 @@ class _SttChipState extends State<_SttChip> {
       case RecordingPhase.transcribing:
         return (
           // Recording family: this rung reads a `RecordingPhase`, so it is the
-          // one accent in this chip that means "your dictation is in flight".
+          // one accent in this chip that means "your recording is in flight".
           // The `SttServerState.starting` rung below looks the same today but
           // reads a different enum (subprocess boot, no recording running) and
           // therefore stays on the generic accent.

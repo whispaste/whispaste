@@ -360,6 +360,13 @@ class HistoryDatabase extends _$HistoryDatabase {
     // 6. Ensure daily_stats has duration bucket columns (Go-era DBs lack them).
     await _addDailyStatsDurationColumns();
 
+    // 7. Ensure history_entries has the color_slot column (Go-era DBs lack
+    // it too — like #6, a fresh Go-era DB's very first open lands on
+    // `onCreate` (user_version 0), which skips the `onUpgrade` staircase
+    // entirely, so `_addHistoryColorSlotColumn`'s `if (from < 18)` call
+    // there never runs for it).
+    await _addHistoryColorSlotColumn();
+
     if (changed) {
       await _recreateFtsWithTags();
       _goMigrationEntryCount = await _countHistoryEntries();
@@ -1296,7 +1303,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> insertHistoryEntry(HistoryEntriesCompanion entry) {
     return _writeCoordinator.write<void>(() async {
       // Ordered by the implicit SQLite `rowid`, not `timestamp` — two
-      // creations in the same millisecond (a fast dictation burst, or a
+      // creations in the same millisecond (a fast burst of recordings, or a
       // tight test loop) would otherwise tie on `timestamp` and leave which
       // row counts as "previous" up to SQLite's unspecified tie-break,
       // breaking the never-twice-in-a-row guarantee below.
@@ -1307,7 +1314,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       final slot = _drawColorSlot(previousSlot: previousSlot);
       await into(
         historyEntries,
-      ).insertOnConflictUpdate(entry.copyWith(colorSlot: Value(slot)));
+      ).insert(entry.copyWith(colorSlot: Value(slot)));
     });
   }
 
