@@ -273,21 +273,45 @@ abstract final class WpColorsDark {
   /// The ambient the content plane is painted on, and the ground every card
   /// fill is gated against — a cool violet top-left, the [surface] anchor in
   /// the middle, and a magenta pole bottom-right that sheds saturation as it
-  /// turns. Opaque tonal steps (no alpha glow): neighbouring stops sit 1.05:1
-  /// and 1.07:1 apart in relative luminance (1.02:1 end to end), so the panel
-  /// reads as chromatic *temperature* under
-  /// flat light, never as a lit edge.
+  /// turns. Opaque tonal steps (no alpha glow): neighbouring stops sit 1.07:1
+  /// apart in relative luminance, so the panel reads as chromatic
+  /// *temperature* under flat light, never as a lit edge.
   ///
-  /// Measured: 249° / 254° / 291°, saturation 43 % → 34 % → 21 %. The middle
+  /// Measured: 252° / 254° / 291°, saturation 41 % → 34 % → 21 %. The middle
   /// stop *is* [surface] and moves with it. What keeps the magenta pole from
   /// reading as a second signal is that saturation floor — under a quarter of
   /// the accent's — not hue distance; it deliberately sits on the same
   /// violet-magenta arc the accent gradient walks, because one atmosphere is
   /// the point.
+  ///
+  /// **The first stop is the seam** (Ticket 07). It is not a free color: it is
+  /// painted at the plane's own top-left corner, at
+  /// (`WpLayout.sidebarWidth`, `WpLayout.appBarHeight`) = (72, 64) of a
+  /// [frameGradient] that spans the whole window, and it has to read there as
+  /// the same light one step nearer — **identical hue, lower chroma, more
+  /// light**. Against the frame under it (#1D153A at the 1100 × 750 the app
+  /// opens at, 252.29° / 46.8 % / Y 0.01096) this stop lands at 252.35° /
+  /// 41.5 % / Y 0.01250: hue 0.07° off, chroma 5.4 points down, luminance
+  /// 1.025:1 up. It used to sit at 248.6°, i.e. the corner turned 3.7° of hue
+  /// across a seam that carries no border to explain it.
+  ///
+  /// **Why a constant and not a measurement.** The seam sits close enough to
+  /// the frame gradient's origin (t ≈ 0.021–0.095 for every window from the
+  /// enforced minimum to 4K) that the frame's color there moves by one to
+  /// three 8-bit steps across that entire range — 1.15° of hue on dark. A
+  /// `LayoutBuilder` would buy less than the quantisation of its own
+  /// neighbourhood, so this stays a token like every other gradient here, and
+  /// the `Frame → content-plane seam` group in `wcag_contrast_test.dart`
+  /// walks the whole resize range to prove the constant holds at all of it.
+  ///
+  /// The seam lift is why end to end this now spans 1.009:1 rather than the
+  /// 1.02:1 of Ticket 06 — the first stop rose toward the last. The plane's
+  /// actual range is unchanged: its widest stop pair is still the middle stop
+  /// against the magenta pole, 1.07:1.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1C173A), Color(0xFF191429), Color(0xFF261A28)],
+    colors: [Color(0xFF1F183A), Color(0xFF191429), Color(0xFF261A28)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -310,14 +334,14 @@ abstract final class WpColorsDark {
   /// walks, so this introduces no hue family; saturation 47 % → 45 % → 38 %.
   ///
   /// **Why it may be the louder of the two ambients.** End to end it spans
-  /// 1.14:1 where the content plane spans 1.02:1 — the deliberate role
+  /// 1.14:1 where the content plane spans 1.009:1 — the deliberate role
   /// reversal of Ticket 06. The frame is the room; the content plane is the
   /// sheet lying in it, and a sheet that patterned itself as strongly as the
   /// room would compete with what is printed on it. Both halves are gated in
   /// `wcag_contrast_test.dart`.
   ///
   /// **Why it stays darker than the content plane.** Mean relative luminance
-  /// 0.0077 against the plane's 0.0111, and every stop sits at or below the
+  /// 0.0077 against the plane's 0.0114, and every stop sits at or below the
   /// plane's at the same diagonal position — so the plane still reads as
   /// raised, which on dark is the *only* depth source there is (no card shadow
   /// token exists here). Livening the frame therefore had to happen by chroma
@@ -575,21 +599,35 @@ abstract final class WpColorsLight {
     colors: [Color(0xFFF8F7FB), Color(0xFFF3F1F6)],
   );
 
-  /// The light ambient — the [surface] anchor as its *first* stop (dark anchors
-  /// on its middle one; on pearl the cool pole is the surface itself), a
-  /// slightly deeper violet mid-stop, a pearl-magenta pole bottom-right.
-  /// Mirrors [WpColorsDark.warmSurfaceGradient] in shape and in the direction
-  /// of its hue arc — measured 255° → 255° → 285°, i.e. the violet end is flat
-  /// where dark's still turns, because at this lightness 8-bit quantisation
-  /// swallows a few degrees of hue — at a fraction of its amplitude: luminance
-  /// stays
-  /// within 1.03:1 across all three stops, so the drift reads as a temperature
-  /// shift on pearl rather than a color cast. Opaque tonal steps, no alpha
-  /// glow. This is the ground every light card fill is gated against.
+  /// The light ambient — a pearl-violet cool pole top-left, a slightly deeper
+  /// violet mid-stop, a pearl-magenta pole bottom-right. Mirrors
+  /// [WpColorsDark.warmSurfaceGradient] in shape and in the direction of its
+  /// hue arc — measured 260° → 255° → 285° — at a fraction of its amplitude:
+  /// luminance stays within 1.04:1 across all three stops, so the drift reads
+  /// as a temperature shift on pearl rather than a color cast. Opaque tonal
+  /// steps, no alpha glow. This is the ground every light card fill is gated
+  /// against.
+  ///
+  /// **The first stop is the seam** — see the dark twin for the full argument;
+  /// this is its pearl solution. Against the frame at (72, 64) (#F4F2F9 at
+  /// the 1100 × 750 the app opens at, 258.83° / 39.5 % / Y 0.89762) it lands
+  /// at 260.0° / 20.0 % / Y 0.92525: hue 1.17° off, chroma 19.5 points down,
+  /// luminance 1.029:1 up. 1.17° is the *floor*, not a tolerance — at L ≈ 97 %
+  /// a single 8-bit step is worth several degrees of hue, the same
+  /// quantisation ceiling [frameGradient] argues for its own stops — and it
+  /// still more than halves the 3.8° the previous value turned.
+  ///
+  /// **This stop no longer equals [surface].** Until Ticket 07 the two were
+  /// the same value (#F6F5F9) and this comment read the plane as anchored on
+  /// the surface token. That was a coincidence of tuning, not a derivation:
+  /// the plane's first stop answers to the frame beneath it, [surface] answers
+  /// to the opaque tonal stack, and the two are now one 8-bit step apart. The
+  /// dark twin still anchors on [surface] — at its *middle* stop, where
+  /// nothing reads it against the frame.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF6F5F9), Color(0xFFF3F2F6), Color(0xFFF4F1F5)],
+    colors: [Color(0xFFF7F6F9), Color(0xFFF3F2F6), Color(0xFFF4F1F5)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -607,12 +645,11 @@ abstract final class WpColorsLight {
   /// ≥ 0.798 to hold 4.5:1, and the frame is exactly where the status bar and
   /// the nav rail's inactive icons put it. The darkest stop lands at 0.819 (4.61:1) and
   /// the range is bought at the bright end instead — 1.10:1 end to end against
-  /// the content plane's 1.03:1, so the frame is still the livelier of the two
-  /// ambients, by the same margin ratio as on dark. That is *The
-  /// Increment–Decrement Rule*'s sanctioned asymmetry arguing for itself at
-  /// the token, exactly as [background] does.
+  /// the content plane's 1.04:1, so the frame is still the livelier of the two
+  /// ambients. That is *The Increment–Decrement Rule*'s sanctioned asymmetry
+  /// arguing for itself at the token, exactly as [background] does.
   ///
-  /// Mean relative luminance 0.861 against the content plane's 0.899: on
+  /// Mean relative luminance 0.861 against the content plane's 0.902: on
   /// pearl, raised means brighter, so the plane again sits above its room.
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topLeft,

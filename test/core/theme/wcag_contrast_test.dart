@@ -22,7 +22,7 @@ import 'package:flutter/painting.dart'
     show Alignment, BoxShadow, HSLColor, LinearGradient;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
-import 'package:whispaste/core/theme/tokens.dart' show WpShadows;
+import 'package:whispaste/core/theme/tokens.dart' show WpLayout, WpShadows;
 import 'package:whispaste/services/model_download_service.dart'
     show TierPerformance, sttModels;
 import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart'
@@ -118,6 +118,115 @@ double hslSaturation(Color c) {
 double hslLightness(Color c) {
   return HSLColor.fromColor(c).lightness;
 }
+
+/// HSL of a color computed from its *floating-point* channels.
+///
+/// `HSLColor.fromColor` reads the 8-bit accessors and rounds before it
+/// converts. Harmless for a token — a token is 8-bit anyway — but it turns a
+/// *sampled* point on a gradient into rounding noise: at the lightness the
+/// ambients live at, one LSB is worth several degrees of hue, so the same
+/// gradient measured two pixels apart would appear to turn by 4°. Used for
+/// everything sampled off a gradient; the plain [hslSaturation] /
+/// [hslLightness] stay for the 8-bit tokens the rest of this file audits.
+({double hue, double saturation, double lightness}) preciseHsl(Color c) {
+  final max = math.max(c.r, math.max(c.g, c.b));
+  final min = math.min(c.r, math.min(c.g, c.b));
+  final delta = max - min;
+  final lightness = (max + min) / 2.0;
+  if (delta == 0) {
+    return (hue: 0.0, saturation: 0.0, lightness: lightness);
+  }
+  final double hue;
+  if (max == c.r) {
+    hue = 60.0 * (((c.g - c.b) / delta) % 6.0);
+  } else if (max == c.g) {
+    hue = 60.0 * (((c.b - c.r) / delta) + 2.0);
+  } else {
+    hue = 60.0 * (((c.r - c.g) / delta) + 4.0);
+  }
+  return (
+    hue: hue % 360.0,
+    saturation: delta / (1.0 - (2.0 * lightness - 1.0).abs()),
+    lightness: lightness,
+  );
+}
+
+/// Shortest angular distance between two colors' hues, in degrees.
+double hueDelta(Color a, Color b) {
+  final gap = (preciseHsl(a).hue - preciseHsl(b).hue).abs();
+  final wrapped = gap % 360.0;
+  return wrapped > 180.0 ? 360.0 - wrapped : wrapped;
+}
+
+// ---------------------------------------------------------------------------
+// Sampling a linear gradient at a point — the frame ambient is painted across
+// the whole window, so "what color is the frame *there*" is a projection, not
+// a stop lookup.
+// ---------------------------------------------------------------------------
+
+/// The gradient parameter at the content plane's top-left corner, for a window
+/// of [windowSize].
+///
+/// The frame ambient runs `topLeft → bottomRight` across the entire window, so
+/// its gradient line is the vector (w, h) from the window origin. A linear
+/// gradient's parameter at a point is that point's scalar projection onto the
+/// line, normalised by its squared length — here at
+/// (`WpLayout.sidebarWidth`, `WpLayout.appBarHeight`), the corner where the
+/// nav rail and the title bar hand over to the content panel.
+double seamGradientT(Size windowSize) {
+  final w = windowSize.width;
+  final h = windowSize.height;
+  return (WpLayout.sidebarWidth * w + WpLayout.appBarHeight * h) /
+      (w * w + h * h);
+}
+
+/// The color a [gradient] shows at parameter [t] (0 = `begin`, 1 = `end`).
+///
+/// Deliberately *not* `Color.lerp`: that one rounds its result back to 8 bits,
+/// and one LSB is worth several degrees of hue at the lightness both ambients
+/// live at — sampling the frame two pixels further along would swing the
+/// measured hue by ~4° on pearl without a single token having changed. The
+/// shader interpolates in floating point, so this does too, and the gate then
+/// measures the gradient rather than its rounding.
+Color gradientColorAt(LinearGradient gradient, double t) {
+  final colors = gradient.colors;
+  final stops =
+      gradient.stops ??
+      [for (var i = 0; i < colors.length; i++) i / (colors.length - 1)];
+  if (t <= stops.first) return colors.first;
+  for (var i = 0; i < stops.length - 1; i++) {
+    if (t <= stops[i + 1]) {
+      final span = stops[i + 1] - stops[i];
+      final f = span == 0 ? 0.0 : (t - stops[i]) / span;
+      final a = colors[i];
+      final b = colors[i + 1];
+      return Color.from(
+        alpha: a.a + (b.a - a.a) * f,
+        red: a.r + (b.r - a.r) * f,
+        green: a.g + (b.g - a.g) * f,
+        blue: a.b + (b.b - a.b) * f,
+      );
+    }
+  }
+  return colors.last;
+}
+
+/// Window sizes the seam is measured at: the smallest the app allows itself to
+/// be, the size it actually opens at, and the way up to 4K. The seam's frame
+/// color is a *constant* in `colors.dart`, and this range is what says the
+/// approximation holds everywhere rather than at the one window it was solved
+/// at.
+final _seamWindowSizes = <(String, Size)>[
+  (
+    'minimum window',
+    const Size(WpLayout.minWindowWidth, WpLayout.minWindowHeight),
+  ),
+  ('default window', const Size(1100, 750)),
+  ('1440 × 900', const Size(1440, 900)),
+  ('1920 × 1080', const Size(1920, 1080)),
+  ('3440 × 1440', const Size(3440, 1440)),
+  ('3840 × 2160', const Size(3840, 2160)),
+];
 
 /// A named color with a minimum saturation requirement.
 class _SaturationCheck {
@@ -2289,6 +2398,113 @@ void main() {
           }
         });
       });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // The seam between the frame and the content plane (Ticket 07)
+  //
+  // The content plane's first stop is painted at its own top-left corner,
+  // which sits at (`sidebarWidth`, `appBarHeight`) = (72, 64) of a frame
+  // gradient that spans the *whole window*. The plane is meant to read there
+  // as the same light, only nearer: **identical hue, lower chroma, more
+  // light**. Anything else is a seam the eye reads as two rooms meeting.
+  //
+  // Why the plane's stop is a constant and this sweep is the gate: the seam
+  // sits so close to the frame gradient's origin (t ≈ 0.021–0.095 over every
+  // window from the enforced minimum to 4K) that the frame's color there
+  // moves by one to three 8-bit steps across that entire range. A constant is
+  // therefore exact to within the quantisation of its own neighbourhood — but
+  // only this sweep proves it, so it walks the range instead of measuring the
+  // one window the token was solved at.
+  //
+  // "More light" is measured as *relative luminance*, not HSL lightness: both
+  // ambients are blue-heavy at their violet end, and HSL lightness weights
+  // blue like green while the eye — and every other gate in this file — does
+  // not.
+  // -------------------------------------------------------------------------
+
+  for (final (themeName, frame, plane, hueTolerance) in [
+    // Tolerance is the measured worst case plus headroom, not a fence around
+    // today's numbers: the sweep peaks at 1.15° on dark and 2.34° on light,
+    // and the *pre-Ticket-07* stops missed by 4.24° / 4.35°, so a regression
+    // to them trips this. Light cannot reach 0° at all — at L ≈ 97 % an 8-bit
+    // step is worth several degrees of hue, the same quantisation argument
+    // `WpColorsLight.frameGradient` already makes for its own stops.
+    ('dark', WpColorsDark.frameGradient, WpColorsDark.warmSurfaceGradient, 3.0),
+    (
+      'light',
+      WpColorsLight.frameGradient,
+      WpColorsLight.warmSurfaceGradient,
+      3.0,
+    ),
+  ]) {
+    group('Frame → content-plane seam – $themeName theme', () {
+      final planeStart = plane.colors.first;
+
+      for (final (label, window) in _seamWindowSizes) {
+        final t = seamGradientT(window);
+        final frameAtSeam = gradientColorAt(frame, t);
+
+        test('$label: same light, nearer', () {
+          final hueGap = hueDelta(planeStart, frameAtSeam);
+          expect(
+            hueGap,
+            lessThanOrEqualTo(hueTolerance),
+            reason:
+                '$themeName at $label: the plane starts at hue '
+                '${preciseHsl(planeStart).hue.toStringAsFixed(1)}° '
+                'where the frame under it is at '
+                '${preciseHsl(frameAtSeam).hue.toStringAsFixed(1)}° — '
+                'a ${hueGap.toStringAsFixed(1)}° turn across the seam is a '
+                'hue *jump*, and the corner then reads as two light sources '
+                'meeting rather than as one plane lying in one room',
+          );
+
+          expect(
+            preciseHsl(planeStart).saturation,
+            lessThan(preciseHsl(frameAtSeam).saturation),
+            reason:
+                '$themeName at $label: the plane is no less saturated than '
+                'the frame beneath it — a surface nearer the light loses '
+                'chroma; one that gains it reads as a colored panel laid on '
+                'the room, not as part of it',
+          );
+
+          expect(
+            relativeLuminance(planeStart),
+            greaterThan(relativeLuminance(frameAtSeam)),
+            reason:
+                '$themeName at $label: the plane is not brighter than the '
+                'frame at the seam. On dark that delta is the only depth '
+                'source there is, and on light the raised thing is the '
+                'brighter one too — either way a plane that sits *below* its '
+                'room is a hole, not a sheet',
+          );
+        });
+
+        test('$label: the step stays a seam, never an outline', () {
+          final step = contrastRatio(planeStart, frameAtSeam);
+          expect(
+            step,
+            greaterThan(1.01),
+            reason:
+                '$themeName at $label: the seam steps only '
+                '${step.toStringAsFixed(4)}:1 — below that the plane has no '
+                'edge at all and the panel stops floating',
+          );
+          expect(
+            step,
+            lessThan(1.5),
+            reason:
+                '$themeName at $label: the seam steps '
+                '${step.toStringAsFixed(3)}:1, at or above the threshold at '
+                'which a field stops being atmosphere and becomes a drawn '
+                'object — the seam carries no border and no contour, so its '
+                'whole weight is this step and it may not turn into a line',
+          );
+        });
+      }
     });
   }
 }
