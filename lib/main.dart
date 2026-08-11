@@ -35,6 +35,7 @@ import 'services/auto_updater_service.dart';
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
+import 'services/graceful_shutdown.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
@@ -452,33 +453,32 @@ void _scheduleStartupSideEffects(
       .read(telemetryProvider)
       .trackEvent(category: 'lifecycle', action: 'start');
 
-  // Best-effort telemetry drain on logout/kill. macOS/Linux emit SIGTERM on
+  // Best-effort graceful teardown on logout/kill. macOS/Linux emit SIGTERM on
   // session end; SIGINT covers Ctrl+C everywhere. Windows has no real
   // SIGTERM, so only sigint is wired there.
-  _installTelemetrySignalHandlers(container);
+  _installShutdownSignalHandlers(container);
 }
 
-/// Installs best-effort signal handlers that drain session-aggregated
-/// telemetry before the process exits on logout/kill. Non-blocking budget of
-/// 2 s; counts already put on the wire via the periodic flush timer are not
-/// lost when this still misses the drain.
-void _installTelemetrySignalHandlers(ProviderContainer container) {
-  Future<void> drainAndExit() async {
+/// Installs best-effort signal handlers that run the same native-resource
+/// teardown as every other quit path (window close, tray quit, macOS
+/// Cmd+Q/Dock-quit — see `graceful_shutdown.dart`) before the process exits
+/// on logout/kill. Without this, a SIGINT/SIGTERM arriving while the
+/// on-device STT engine holds native GPU/Metal resources exits the process
+/// out from under it — the same crash class as FLUTTER_WHISPASTE-BC, just
+/// reached via a quit path that bypasses window-close entirely.
+void _installShutdownSignalHandlers(ProviderContainer container) {
+  Future<void> shutdownAndExit() async {
     try {
-      final telemetry = container.read(telemetryProvider);
-      await container
-          .read(telemetrySessionAggregatorProvider)
-          .drainAndFlush(telemetry)
-          .timeout(const Duration(seconds: 2), onTimeout: () {});
+      await runGracefulEngineShutdown(container);
     } catch (e) {
-      _log.warning('Telemetry drain on exit failed (best-effort): $e');
+      _log.warning('Graceful shutdown on exit failed (best-effort): $e');
     }
     exit(0);
   }
 
-  ProcessSignal.sigint.watch().listen((_) => drainAndExit());
+  ProcessSignal.sigint.watch().listen((_) => shutdownAndExit());
   if (!Platform.isWindows) {
-    ProcessSignal.sigterm.watch().listen((_) => drainAndExit());
+    ProcessSignal.sigterm.watch().listen((_) => shutdownAndExit());
   }
 }
 
