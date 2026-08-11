@@ -648,12 +648,15 @@ void main() {
   // Tier-performance info line (STT model selector)
   //
   // [WpTierPerformancePresentation.color] grades the line by measured tier
-  // performance instead of painting every verdict the same accent blue. The
+  // performance with a sequential ramp cut from a single category slot
+  // (`orchid`), instead of painting every verdict the same accent blue. The
   // line renders at `WpTypography.micro` (10 px) — far below WCAG's large-text
   // threshold (18 pt / 14 pt bold), so it is normal text under 1.4.3 and owes
-  // the full 4.5:1. That floor is what rules the amber and green steps out:
-  // `WpColorsLight.warning` reaches only 3.11:1 and `WpColorsLight.success`
-  // 3.74:1 on these grounds, so the ramp is accent / error / textMuted.
+  // the full 4.5:1. That floor does two things here. It rules a traffic light
+  // out outright — `WpColorsLight.warning` reaches only 3.11:1 and
+  // `WpColorsLight.success` 3.74:1 on these grounds — and it is why the line
+  // starts at the ramp's third rung: the two beneath are solved for a graphical
+  // object's 3:1 and land at 3.60:1 and 4.40:1 on the tightest ground below.
   //
   // GROUNDS — modeling choice, stated so a reviewer can disagree with it:
   // the row sits on the settings content panel, which is painted with
@@ -661,12 +664,11 @@ void main() {
   // gates against the flat `surface` / `surfaceElevated` tokens (plus the
   // `accentButtonFill` wash the selected row adds on top), matching every
   // other group in this file. On the gradient's warmest stop under that same
-  // wash the two tightest pairs dip just below the floor — light `error`
-  // 4.44:1 and light `textMuted` 4.42:1 — which is a property of the
-  // incumbent palette, not of this change: `textMuted` is already used for
-  // body copy on that exact gradient elsewhere in this very section. Raising
-  // the floor here would fail the incumbent alongside the newcomers; that
-  // belongs to a palette phase, not to this one.
+  // wash the tightest pair dips just below the floor — light `textMuted` at
+  // 4.42:1 — which is a property of the incumbent palette, not of this change:
+  // `textMuted` is already used for body copy on that exact gradient elsewhere
+  // in this very section. Raising the floor here would fail the incumbent
+  // alongside the ramp; that belongs to a palette phase, not to this one.
   // -------------------------------------------------------------------------
 
   for (final (
@@ -733,27 +735,86 @@ void main() {
         });
       }
 
-      // Guards the *ramp itself*: a future edit that collapses the mapping
-      // back to one flat colour would otherwise leave every contrast test
-      // green while silently removing the signal this phase introduced.
-      test('the ramp is actually graded', () {
-        Color of(TierPerformance p) =>
-            WpTierPerformancePresentation.color(isDark: isDark, performance: p);
+      // Guards the *shape* of the ramp rather than only its legibility. Every
+      // group above stays green if a future edit collapses the mapping back to
+      // one flat colour, or splits it into a red/amber/green verdict; what
+      // follows is those two decisions written as assertions.
+      Color of(TierPerformance p) =>
+          WpTierPerformancePresentation.color(isDark: isDark, performance: p);
 
+      // The three tiers that have actually been measured. `unmeasured` is
+      // deliberately not in the chain — see the test below.
+      const measured = [
+        TierPerformance.fast,
+        TierPerformance.moderate,
+        TierPerformance.slow,
+      ];
+
+      test('weight rises with the time cost, away from the ground', () {
+        for (var i = 1; i < measured.length; i++) {
+          final delta =
+              relativeLuminance(of(measured[i])) -
+              relativeLuminance(of(measured[i - 1]));
+          expect(
+            isDark ? delta : -delta,
+            greaterThan(0),
+            reason:
+                '$themeName: ${measured[i].name} does not sit further from the '
+                'ground than ${measured[i - 1].name}. The line reports how much '
+                'time a tier costs, so its weight has to rise with that cost — '
+                'and it has to rise in the direction the theme leaves room in, '
+                'lighter on dark, darker on light',
+          );
+        }
+      });
+
+      test('the graded tiers are one hue, not a traffic light', () {
+        final hues = [for (final p in measured) HSLColor.fromColor(of(p)).hue];
+        for (var i = 1; i < hues.length; i++) {
+          expect(
+            (hues[i] - hues.first).abs(),
+            lessThan(2),
+            reason:
+                '$themeName: ${measured[i].name} sits at '
+                '${hues[i].toStringAsFixed(0)}° against '
+                '${hues.first.toStringAsFixed(0)}° for ${measured.first.name}. '
+                'An ordinal scale is one hue at rising weight; a second hue '
+                'turns a time cost into a verdict, which is exactly what this '
+                'line refuses to be',
+          );
+        }
+      });
+
+      test('an unmeasured tier sits off the ramp entirely', () {
+        final unmeasured = of(TierPerformance.unmeasured);
+        final rampHue = HSLColor.fromColor(of(TierPerformance.slow)).hue;
+
+        for (final p in measured) {
+          expect(
+            unmeasured,
+            isNot(of(p)),
+            reason:
+                '$themeName: an unmeasured tier borrowed ${p.name}\'s rung — a '
+                'tier nobody has benchmarked has no position on an ordinal '
+                'scale and may not occupy one',
+          );
+        }
         expect(
-          of(TierPerformance.slow),
-          isNot(of(TierPerformance.moderate)),
+          (HSLColor.fromColor(unmeasured).hue - rampHue).abs(),
+          greaterThan(45),
           reason:
-              '$themeName: a slow tier must not look like a moderate one — '
-              'that is the whole point of the graded line',
+              '$themeName: the unmeasured colour is close enough to the ramp\'s '
+              'hue to read as one of its rungs',
         );
-        expect(
-          of(TierPerformance.unmeasured),
-          isNot(of(TierPerformance.moderate)),
-          reason:
-              '$themeName: an unmeasured tier must not borrow the confident '
-              'accent of a measured one',
-        );
+        for (final p in measured) {
+          expect(
+            contrastRatio(unmeasured, surface),
+            lessThan(contrastRatio(of(p), surface)),
+            reason:
+                '$themeName: the unmeasured line is louder than ${p.name} — '
+                '"no verdict yet" must be the quietest thing in the card',
+          );
+        }
       });
     });
   }
@@ -1363,7 +1424,8 @@ void main() {
       );
     });
 
-    test('the decorative hue is not the accent and not the ramp source', () {
+    test('the decorative hue is not the accent and not the analytics ramp '
+        'source', () {
       for (final (themeName, source, accent) in [
         ('dark', WpDecorativeColorsDark.source, WpColorsDark.accent),
         ('light', WpDecorativeColorsLight.source, WpColorsLight.accent),
@@ -1388,6 +1450,15 @@ void main() {
         // Ticket 14 sources the analytics duration ramp from `iris`. A
         // decorative wash that reads as a paler iris would put the ordinal
         // scale's hue on the chrome around it.
+        //
+        // The clearance is held against `iris` only, and deliberately so: the
+        // *second* ordinal ramp — the settings tier-performance line (Ticket
+        // 18) — is cut from `orchid`, 18° away, and is exempt by construction
+        // rather than by oversight. What holds the two apart there is form and
+        // weight, the same argument this group's other tests gate: the wash is
+        // a ≤5 % field at 1.03–1.07:1, the ramp is opaque text at ≥4.5:1.
+        // Asserting >45° against every ramp source would fail here, and the
+        // failure would be wrong — see *The Categorical vs. Sequential Rule*.
         final irisHue = HSLColor.fromColor(
           WpCategorySlot.iris.color(themeName == 'dark'),
         ).hue;

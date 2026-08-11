@@ -45,46 +45,60 @@ abstract final class WpTierPerformancePresentation {
     }
   }
 
-  /// Color for the info line of [performance].
+  /// Color for the info line of [performance] — one hue at rising weight.
   ///
-  /// Three steps, not four — and the omitted step is the amber one, for two
-  /// independent reasons:
+  /// **A neutral ramp, not a traffic light.** This is the design question the
+  /// grading opened, and it is answered against warning colors. The line
+  /// reports *how much time* a tier costs on this machine; a quantity gets one
+  /// hue at several weights, never several hues (*The Categorical vs.
+  /// Sequential Rule*, the same rule the analytics duration ramp follows). Three
+  /// hues would make the line a verdict and turn a trade-off the user chose into
+  /// a malfunction. That continues, rather than drops, the stance the
+  /// predecessor comment held — "all tier info uses neutral blue styling, no
+  /// red/yellow warnings": what changes is that the line is graded at all, not
+  /// that it started warning. The flat blue went because it said nothing about
+  /// the user's own hardware, which is the whole point of measuring; the amber
+  /// and green it refused stay refused.
   ///
-  /// 1. **The copy for `moderate` is praise.** `qualityTierInfoModerate` reads
-  ///    "Good balance of speed and quality". An amber line under an affirmative
-  ///    sentence tells the user two opposite things at once, so `moderate`
-  ///    keeps the neutral accent: something worth reading, nothing worth
-  ///    worrying about.
-  /// 2. **Light-theme amber is not legible here.** This line renders at
-  ///    `WpTypography.micro` (10 px) — normal text under WCAG 1.4.3, so it owes
-  ///    4.5:1. `WpColorsLight.warning` reaches at most 3.11:1 on the settings
-  ///    gradient and 2.76:1 on the accent-tinted selected row. It cannot carry
-  ///    this text at any size used here. (`WpColorsLight.success` fails the
-  ///    same floor at 3.74:1, which is why a green "fine" step is absent too.)
+  /// The refusal is now also measurable rather than only principled. The line
+  /// renders at `WpTypography.micro` (10 px) — normal text under WCAG 1.4.3, so
+  /// it owes 4.5:1. `WpColorsLight.warning` reaches at most 3.11:1 on these
+  /// grounds and `WpColorsLight.success` 3.74:1: a traffic light is not
+  /// renderable here at AA at any size this line uses, whatever one thinks of
+  /// it.
   ///
-  /// What remains is honest and readable:
+  /// **Which end is which.** Weight rises with the cost reported, so `slow`
+  /// takes the ramp's far rung and `fast` its near one. Fading the line out as
+  /// the tier gets slower would spend the most ink on the message that carries
+  /// the least ("good balance of speed and quality") and the least on the one
+  /// the user actually has to act on.
   ///
-  /// | tier         | color       | says                                  |
-  /// |--------------|-------------|---------------------------------------|
-  /// | `fast`       | accent      | nothing — [message] returns null       |
-  /// | `moderate`   | accent      | informational, no cost worth flagging  |
-  /// | `slow`       | `error`     | this tier will visibly cost you time   |
-  /// | `unmeasured` | `textMuted` | no verdict yet — don't imply one       |
+  /// | tier         | color         | says                                  |
+  /// |--------------|---------------|---------------------------------------|
+  /// | `fast`       | rung 2 (near) | nothing — [message] returns null      |
+  /// | `moderate`   | rung 3        | worth reading, no cost worth weighing |
+  /// | `slow`       | rung 4 (far)  | this tier will visibly cost you time  |
+  /// | `unmeasured` | `textMuted`   | no verdict yet — off the ramp         |
   ///
-  /// `error` on `slow` is a *cost* signal, not a fault signal; the paired icon
-  /// is an hourglass rather than a warning triangle precisely so the line reads
-  /// "slower on your machine", not "broken". `unmeasured` trades a little
-  /// contrast (accent 5.02:1 → textMuted 4.42:1 at the worst gradient stop) for
-  /// not dressing an unmeasured tier in the same confident blue as a measured
-  /// one.
+  /// **`unmeasured` is not a rung.** A tier nobody has benchmarked has no
+  /// position on an ordinal scale, so it may not occupy one — the same argument
+  /// [WpCategorySlot.neutral] makes for not being a ninth category. It keeps
+  /// `textMuted`: quieter than every rung and visibly off the hue.
+  ///
+  /// **What is actually on screen.** The line renders for the *current* tier
+  /// only, so at most one rung is ever visible at a time, and the `fast` rung
+  /// never is — [message] returns null there. Color carries nothing on its own:
+  /// the message says the verdict in words and the paired [icon] repeats it, an
+  /// hourglass for time spent rather than an alert triangle.
   static Color color({
     required bool isDark,
     required TierPerformance performance,
   }) {
+    final rungs = _tierRampSlot.ramp(_tierRampTextRung + 3, isDark);
     return switch (performance) {
-      TierPerformance.fast || TierPerformance.moderate =>
-        isDark ? WpColorsDark.accent : WpColorsLight.accent,
-      TierPerformance.slow => isDark ? WpColorsDark.error : WpColorsLight.error,
+      TierPerformance.fast => rungs[_tierRampTextRung],
+      TierPerformance.moderate => rungs[_tierRampTextRung + 1],
+      TierPerformance.slow => rungs[_tierRampTextRung + 2],
       TierPerformance.unmeasured =>
         isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
     };
@@ -104,3 +118,47 @@ abstract final class WpTierPerformancePresentation {
     };
   }
 }
+
+/// The slot [WpTierPerformancePresentation.color] cuts its ramp from.
+///
+/// Named here rather than mixed at the call site for the reason every category
+/// color is: a hue reached through a name is a statement about the data, a hue
+/// written into a widget is decoration. Why `orchid` out of the nine:
+///
+/// * **Not the accent.** Ticket 11 answered ② with (b) — cyan belongs to the
+///   brand voice alone, so no ordinal ramp may be built from it. `azure` is the
+///   near miss and falls to the same argument once measured: 38° from the dark
+///   accent and 32° from the light one, inside the 45° this app treats as
+///   "mistakable for the one voice", and its rungs are pale desaturated
+///   periwinkle sitting *in* the accent-washed selected row — which is exactly
+///   where a column of graded blues starts reading as a disabled control.
+/// * **The hue carries no verdict.** `ember` and `plum` border error red,
+///   `brass` borders warning amber, `fern` and `moss` sit on the success band;
+///   each would say "fault" about a tier that merely takes longer. 296°
+///   magenta-violet means nothing else in this app.
+/// * **`iris` is spoken for** — it is the analytics duration ramp's source
+///   (Ticket 14), and one hue should not carry two ordinal scales.
+/// * **Its 18° to Quartz is not a collision**, and the governance says so
+///   directly: the decorative hue is held apart by form and weight rather than
+///   hue distance, appearing only as a ≤5 % wash at 1.03–1.07:1 — under the
+///   threshold at which a field has a readable hue at all. Opaque text at
+///   ≥4.5:1 cannot be confused with it, even on the settings page the wash
+///   covers.
+///
+/// The one property `iris` has that no second ramp can have: *no model wears
+/// it*. `_modelSlots` spends seven of the eight category slots, so there is no
+/// unworn slot left to take. `orchid` is `whisper-large-v3-turbo`'s bar hue —
+/// one page away in Analytics, the only file that calls [categorySlotForModel];
+/// nothing on the settings page paints a category at all.
+const _tierRampSlot = WpCategorySlot.orchid;
+
+/// The ramp's first rung that is legible as *text*, i.e. how many of its low
+/// rungs this line skips.
+///
+/// [WpCategorySlot.ramp] is solved for a graphical object's 3:1 floor and its
+/// low rungs sit near it. Against the accent-washed selected row this line
+/// renders in, light rung 0 reaches 3.60:1 and rung 1 4.40:1 — both under the
+/// 4.5:1 that 10 px normal text owes. So the text ramp is the ramp's top three
+/// rungs; the two beneath it are object rungs, not text rungs, and skipping
+/// them is cheaper than re-solving the palette for one line.
+const _tierRampTextRung = 2;

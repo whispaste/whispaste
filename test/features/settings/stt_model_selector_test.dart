@@ -558,7 +558,7 @@ void main() {
         expect(find.byIcon(LucideIcons.hourglass), findsNothing);
       });
 
-      testWidgets('$themeName: a moderate tier stays on the neutral accent', (
+      testWidgets('$themeName: a moderate tier takes the ramp\'s middle rung', (
         tester,
       ) async {
         await tester.pumpWidget(
@@ -573,15 +573,16 @@ void main() {
 
         expect(
           lineColor(tester, l10n.qualityTierInfoModerate),
-          isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          WpCategorySlot.orchid.ramp(5, isDark)[3],
           reason:
-              'the copy reads "Good balance of speed and quality" — a warning '
-              'tint would contradict the sentence it colours',
+              'the copy reads "Good balance of speed and quality" — it sits one '
+              'rung under the slow verdict in the *same* hue, so the grading '
+              'reads as less time rather than as praise contradicted by a tint',
         );
         expect(find.byIcon(LucideIcons.gauge), findsOneWidget);
       });
 
-      testWidgets('$themeName: a slow tier is flagged as a time cost', (
+      testWidgets('$themeName: a slow tier takes the ramp\'s far rung', (
         tester,
       ) async {
         await tester.pumpWidget(
@@ -596,7 +597,10 @@ void main() {
 
         expect(
           lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
-          isDark ? WpColorsDark.error : WpColorsLight.error,
+          WpCategorySlot.orchid.ramp(5, isDark)[4],
+          reason:
+              'the heaviest rung of the one hue, not a second hue — weight '
+              'rises with the time cost the line reports',
         );
         expect(
           find.byIcon(LucideIcons.hourglass),
@@ -619,6 +623,9 @@ void main() {
         expect(
           lineColor(tester, l10n.qualityTierInfoBenchmarking),
           isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+          reason:
+              'an unmeasured tier has no position on an ordinal scale, so it '
+              'takes no rung of the ramp at all',
         );
         expect(find.byIcon(LucideIcons.hourglass), findsNothing);
         expect(find.byIcon(LucideIcons.gauge), findsNothing);
@@ -628,8 +635,8 @@ void main() {
         '$themeName: a running benchmark never borrows the slow verdict',
         (tester) async {
           // The VRAM estimate for this tier is `slow`, but nothing has been
-          // measured yet — painting the line red here would announce a verdict
-          // the app does not have.
+          // measured yet — putting the line on the ramp's far rung here would
+          // announce a verdict the app does not have.
           await tester.pumpWidget(
             _makeTestable(
               isDark: isDark,
