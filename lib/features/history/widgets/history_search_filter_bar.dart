@@ -1076,6 +1076,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
     this.totalCount,
     this.onMerge,
     this.onBatchCopy,
+    this.onBatchCopyMarkdown,
     this.onExport,
     this.onArchive,
     this.onDelete,
@@ -1091,6 +1092,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
   final int? totalCount;
   final VoidCallback? onMerge;
   final VoidCallback? onBatchCopy;
+  final VoidCallback? onBatchCopyMarkdown;
   final VoidCallback? onExport;
   final VoidCallback? onArchive;
   final VoidCallback? onDelete;
@@ -1202,6 +1204,14 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       ),
                       isDark: isDark,
                       onTap: onBatchCopy!,
+                    ),
+                  if (onBatchCopyMarkdown != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
+                    HistoryMultiSelectAction(
+                      icon: LucideIcons.fileText,
+                      label: l10n.historyCopyAsMarkdown,
+                      isDark: isDark,
+                      onTap: onBatchCopyMarkdown!,
                     ),
                   if (onExport != null)
                     // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build

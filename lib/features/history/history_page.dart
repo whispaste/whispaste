@@ -456,6 +456,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   onBatchCopy: _selectedIds.isNotEmpty
                       ? () => _copySelectedEntries(filteredEntries)
                       : null,
+                  onBatchCopyMarkdown: _selectedIds.isNotEmpty
+                      ? () => _copySelectedEntriesAsMarkdown(filteredEntries)
+                      : null,
                   onExport: _selectedIds.isNotEmpty
                       ? () => _exportSelectedEntries(filteredEntries)
                       : null,
@@ -845,6 +848,46 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     WpToast.show(
       context,
       message: L10n.of(context).historyCopiedToClipboard,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  /// Copy all selected entries' text formatted as Markdown to clipboard (joined by double newline).
+  void _copySelectedEntriesAsMarkdown(List<HistoryEntry> flat) {
+    final selected = flat.where((e) => _selectedIds.contains(e.id)).toList();
+    if (selected.isEmpty) return;
+
+    final md = StringBuffer();
+    for (var i = 0; i < selected.length; i++) {
+      final entry = selected[i];
+      md.writeln('# ${entry.title.isNotEmpty ? entry.title : "Untitled"}');
+      md.writeln();
+      md.writeln(entry.content);
+      md.writeln();
+      md.writeln('---');
+      md.writeln();
+      final tags = _parseTags(entry.tags);
+      if (tags.isNotEmpty) {
+        md.writeln('**Tags:** ${tags.map((t) => '#$t').join(', ')}');
+      }
+      md.writeln(
+        '**Date:** ${DateFormat.yMMMd().add_Hm().format(entry.timestamp)}',
+      );
+      if (entry.model.isNotEmpty) {
+        md.writeln('**Model:** ${entry.model}');
+      }
+      if (i < selected.length - 1) {
+        md.writeln();
+        md.writeln();
+      }
+    }
+
+    Clipboard.setData(ClipboardData(text: md.toString()));
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyCopiedAsMarkdown,
       type: WpToastType.success,
       duration: const Duration(seconds: 2),
     );
