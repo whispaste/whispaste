@@ -227,33 +227,12 @@ void main() {
       );
     });
 
-    testWidgets('outlined: the light theme keeps the same flat geometry', (
-      tester,
-    ) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _field(
-            controller: controller,
-            variant: WpSearchFieldVariant.outlined,
-          ),
-          brightness: Brightness.light,
-        ),
-      );
-
-      // The variant that used to be `raised` (History, Notes) resolved a
-      // theme-dependent shadow here, which is the axis this pins shut: both
-      // themes are now flat, and only the palette differs.
-      expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
-      expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
-      expect(_boxDecoration(tester).boxShadow, isNull);
-      expect(
-        _borderDecoration(tester).border!.top.color,
-        WpColorsDark.borderSubtle,
-      );
-    });
+    // Removed 2026-08-11 (dark-only build): 'outlined: the light theme keeps
+    // the same flat geometry' repeated the assertions above with
+    // Brightness.light, pinning that both themes were flat (no
+    // theme-dependent shadow) and differed only in palette. The app now
+    // ships a single dark theme only, so there is no second theme left to
+    // compare against.
 
     testWidgets('capsule: full radius, translucent fill, hairline', (
       tester,

@@ -119,40 +119,32 @@ void main() {
   ];
 
   group('No bar paints its own ground', () {
-    for (final brightness in [Brightness.dark, Brightness.light]) {
-      final themeName = brightness == Brightness.dark ? 'dark' : 'light';
+    testWidgets('dark: nav rail', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidebar(items: navItems, activeId: 'history', onItemTap: (_) {}),
+        ),
+      );
+      _expectNoOwnGround(tester, find.byType(WpSidebar), 'WpSidebar');
+    });
 
-      testWidgets('$themeName: nav rail', (tester) async {
-        await tester.pumpWidget(
-          makeTestable(
-            WpSidebar(items: navItems, activeId: 'history', onItemTap: (_) {}),
-            brightness: brightness,
-          ),
-        );
-        _expectNoOwnGround(tester, find.byType(WpSidebar), 'WpSidebar');
-      });
+    // Whichever branch the host platform takes (`_MacOSTitleBar` on macOS,
+    // the window-controls layout elsewhere) — neither may carry a ground,
+    // and the one that runs here is the one this test measures.
+    testWidgets('dark: title bar', (tester) async {
+      await tester.pumpWidget(makeTestable(const WpTitleBar()));
+      _expectNoOwnGround(tester, find.byType(WpTitleBar), 'WpTitleBar');
+    });
 
-      // Whichever branch the host platform takes (`_MacOSTitleBar` on macOS,
-      // the window-controls layout elsewhere) — neither may carry a ground,
-      // and the one that runs here is the one this test measures.
-      testWidgets('$themeName: title bar', (tester) async {
-        await tester.pumpWidget(
-          makeTestable(const WpTitleBar(), brightness: brightness),
-        );
-        _expectNoOwnGround(tester, find.byType(WpTitleBar), 'WpTitleBar');
-      });
-
-      testWidgets('$themeName: status bar', (tester) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const WpStatusBar(sttModeLabel: 'Local', hotkeyLabel: 'Ctrl+Alt+D'),
-            brightness: brightness,
-          ),
-        );
-        await tester.pumpAndSettle();
-        _expectNoOwnGround(tester, find.byType(WpStatusBar), 'WpStatusBar');
-      });
-    }
+    testWidgets('dark: status bar', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpStatusBar(sttModeLabel: 'Local', hotkeyLabel: 'Ctrl+Alt+D'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _expectNoOwnGround(tester, find.byType(WpStatusBar), 'WpStatusBar');
+    });
   });
 
   group('The sweep catches a ground that is there', () {

@@ -33,7 +33,6 @@ String _formatElapsed(Duration elapsed) {
 
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
-  bool isDark = true,
   OverlaySizeVariant size = OverlaySizeVariant.normal,
   String elapsed = '',
   String? errorMessage,
@@ -44,7 +43,6 @@ FloatingOverlaySnapshot _snap(
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
-    isDark: isDark,
     size: size,
     label: label,
     elapsed: elapsed,

@@ -8,16 +8,15 @@ import 'package:whispaste/services/hardware_info_service.dart';
 
 /// Wraps a widget in [ProviderScope] + [MaterialApp] for testing.
 ///
-/// Uses the real WhisPaste theme builders so tests exercise the actual
+/// Uses the real WhisPaste theme builder so tests exercise the actual
 /// theme data the production app uses.
 Widget makeTestable(
   Widget child, {
-  Brightness brightness = Brightness.dark,
   Size size = const Size(1280, 800),
   List overrides = const [],
   Locale? locale,
 }) {
-  final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
+  final theme = wpDarkTheme();
 
   return ProviderScope(
     overrides: [

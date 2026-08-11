@@ -18,19 +18,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('wpLightTheme builds a valid ThemeData', (tester) async {
-      final theme = wpLightTheme();
-
-      await tester.pumpWidget(
-        MaterialApp(theme: theme, home: const Scaffold()),
-      );
-
-      expect(theme.brightness, Brightness.light);
-      expect(theme.useMaterial3, isTrue);
-      expect(theme.colorScheme.brightness, Brightness.light);
-      expect(tester.takeException(), isNull);
-    });
-
+    // Removed 2026-08-11 (dark-only build): `wpLightTheme builds a valid
+    // ThemeData`. It exercised `wpLightTheme()`, which no longer exists now
+    // that the app ships one theme.
     testWidgets('dark theme renders a Scaffold with correct background', (
       tester,
     ) async {

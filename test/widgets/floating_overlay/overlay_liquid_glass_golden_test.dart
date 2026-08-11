@@ -25,7 +25,6 @@ void main() {
     const snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: OverlayVisualState.recording,
-      isDark: false,
       label: 'Recording',
       elapsed: '1:30',
       progress: 0.4,

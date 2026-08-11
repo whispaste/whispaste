@@ -76,14 +76,8 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('WpRecordingIndicatorBar — phase rendering (AC3)', () {
-    Widget buildBar(
-      RecordingPhase phase, {
-      Brightness brightness = Brightness.dark,
-    }) {
-      return makeTestable(
-        WpRecordingIndicatorBar(phase: phase),
-        brightness: brightness,
-      );
+    Widget buildBar(RecordingPhase phase) {
+      return makeTestable(WpRecordingIndicatorBar(phase: phase));
     }
 
     // Helper: finds AnimatedBuilder scoped to the indicator bar only.
@@ -129,13 +123,8 @@ void main() {
       expect(indicatorBuilder(tester), findsNothing);
     });
 
-    testWidgets('builds without exception in light mode', (tester) async {
-      await tester.pumpWidget(
-        buildBar(RecordingPhase.recording, brightness: Brightness.light),
-      );
-      await tester.pump(const Duration(milliseconds: 250));
-
-      expect(tester.takeException(), isNull);
-    });
+    // Removed 2026-08-11 (dark-only build): 'builds without exception in
+    // light mode' pumped the bar with Brightness.light. The app now ships a
+    // single dark theme only, so there is no light mode left to build.
   });
 }

@@ -31,35 +31,25 @@ ThemeData wpDarkTheme() {
     shadow: Color(0xFF000000),
   );
 
-  return _buildTheme(colorScheme, isDark: true);
+  return _buildTheme(colorScheme);
 }
 
-/// Build the complete WhisPaste light [ThemeData].
-ThemeData wpLightTheme() {
-  const colorScheme = ColorScheme(
-    brightness: Brightness.light,
-    primary: WpColors.accent,
-    onPrimary: Colors.white,
-    primaryContainer: WpColors.accentSubtle,
-    onPrimaryContainer: WpColors.accent,
-    secondary: WpColors.textSecondary,
-    onSecondary: Colors.white,
-    secondaryContainer: WpColors.surfaceVariant,
-    onSecondaryContainer: WpColors.textPrimary,
-    surface: WpColors.surface,
-    onSurface: WpColors.textPrimary,
-    surfaceContainerHighest: WpColors.surfaceVariant,
-    error: WpColors.error,
-    onError: Colors.white,
-    outline: WpColors.borderDefault,
-    outlineVariant: WpColors.borderSubtle,
-    shadow: Color(0x1A000000),
-  );
-
-  return _buildTheme(colorScheme, isDark: false);
-}
-
-ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
+/// Turns the [ColorScheme] above into the full [ThemeData].
+///
+/// `wpLightTheme()` stood beside [wpDarkTheme] here until 2026-08-11 and is
+/// gone with the light stack. It had already stopped being a second theme:
+/// once `WpColorsLight` went, every surface it named resolved through
+/// [WpColors] to the same dark tokens, and what still differed was four
+/// literals — `Colors.white` where dark used `WpColors.background`, and a
+/// 10 %-black shadow — i.e. white text painted on dark surfaces. It was not
+/// a light theme any more, it was a broken dark one.
+///
+/// This stays split out from [wpDarkTheme] even with one caller left. The
+/// split is not a leftover of the theme pair: it separates the colour
+/// contract (the [ColorScheme] literal, which is the part a reader looks up)
+/// from ~240 lines of component styling derived from it. Merging them would
+/// bury the first in the second.
+ThemeData _buildTheme(ColorScheme colorScheme) {
   const bg = WpColors.background;
   // Build textTheme first so component themes can reference it (e.g. snackBar).
   final textTheme = _textTheme(colorScheme);

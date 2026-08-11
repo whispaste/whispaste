@@ -1,7 +1,7 @@
 /// Marketing-Asset-Generator für die Store-Composites — KEIN Vergleichstest.
 ///
-/// Rendert den echten [WpOverlayPainter] (recording, normal + compact,
-/// dark + light) auf transparentem Canvas und schreibt die PNGs nach
+/// Rendert den echten [WpOverlayPainter] (recording, normal + compact)
+/// auf transparentem Canvas und schreibt die PNGs nach
 /// `tools/appstore-screens/assets/overlay-recording-*.png`. Diese Dateien
 /// bettet die Screenshot-Pipeline (render-hero-device.cjs / generate.cjs)
 /// per <img> in die Store-Bilder ein — so zeigt das Marketing exakt den
@@ -42,76 +42,70 @@ void main() {
   setUpAll(() => loadAppFonts(onlyLoadTheseFonts: {'Inter'}));
 
   group('overlay pill store-asset capture', () {
-    for (final isDark in [true, false]) {
-      for (final size in [
-        OverlaySizeVariant.normal,
-        OverlaySizeVariant.compact,
-      ]) {
-        final theme = isDark ? 'dark' : 'light';
-        final suffix = size == OverlaySizeVariant.compact ? '-compact' : '';
-        final fileName = 'overlay-recording-$theme$suffix.png';
+    for (final size in [
+      OverlaySizeVariant.normal,
+      OverlaySizeVariant.compact,
+    ]) {
+      final suffix = size == OverlaySizeVariant.compact ? '-compact' : '';
+      final fileName = 'overlay-recording-dark$suffix.png';
 
-        testWidgets('capture $fileName', (tester) async {
-          final snapshot = FloatingOverlaySnapshot(
-            visible: true,
-            state: OverlayVisualState.recording,
-            isDark: isDark,
-            size: size,
-            label: 'Recording',
-            elapsed: '1:30',
-            progress: 0.4,
-          );
-          final windowSize = OverlayDesignSpec.windowSizeFor(size);
-          final bars = List<double>.generate(
-            OverlayDesignSpec.waveform.barCount,
-            (i) => (i % 7) / 7.0,
-          );
-          const key = ValueKey('pill-capture');
+      testWidgets('capture $fileName', (tester) async {
+        final snapshot = FloatingOverlaySnapshot(
+          visible: true,
+          state: OverlayVisualState.recording,
+          size: size,
+          label: 'Recording',
+          elapsed: '1:30',
+          progress: 0.4,
+        );
+        final windowSize = OverlayDesignSpec.windowSizeFor(size);
+        final bars = List<double>.generate(
+          OverlayDesignSpec.waveform.barCount,
+          (i) => (i % 7) / 7.0,
+        );
+        const key = ValueKey('pill-capture');
 
-          await tester.pumpWidget(
-            Center(
-              child: Directionality(
-                textDirection: TextDirection.ltr,
-                child: RepaintBoundary(
-                  key: key,
-                  child: SizedBox(
-                    width: windowSize.width,
-                    height: windowSize.height,
-                    child: CustomPaint(
-                      size: windowSize,
-                      painter: WpFloatingOverlayView.painterFor(
-                        snapshot: snapshot,
-                        waveformBars: bars,
-                        dotPulse: 1.0,
-                        glassPhase: 0.3,
-                        liquidMotion: 1.0,
-                        liquidLevel: 0.8,
-                      ),
+        await tester.pumpWidget(
+          Center(
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: RepaintBoundary(
+                key: key,
+                child: SizedBox(
+                  width: windowSize.width,
+                  height: windowSize.height,
+                  child: CustomPaint(
+                    size: windowSize,
+                    painter: WpFloatingOverlayView.painterFor(
+                      snapshot: snapshot,
+                      waveformBars: bars,
+                      dotPulse: 1.0,
+                      glassPhase: 0.3,
+                      liquidMotion: 1.0,
+                      liquidLevel: 0.8,
                     ),
                   ),
                 ),
               ),
             ),
-          );
-          await tester.pump();
+          ),
+        );
+        await tester.pump();
 
-          final boundary =
-              tester.renderObject(find.byKey(key)) as RenderRepaintBoundary;
-          await tester.runAsync(() async {
-            final image = await boundary.toImage(pixelRatio: _pixelRatio);
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            final outFile = File('tools/appstore-screens/assets/$fileName');
-            outFile.writeAsBytesSync(bytes!.buffer.asUint8List());
-            // ignore: avoid_print
-            print(
-              'PILL_ASSET_WRITTEN=${outFile.absolute.path} '
-              '(${image.width}x${image.height})',
-            );
-          });
-        }, skip: !capture);
-      }
+        final boundary =
+            tester.renderObject(find.byKey(key)) as RenderRepaintBoundary;
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: _pixelRatio);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final outFile = File('tools/appstore-screens/assets/$fileName');
+          outFile.writeAsBytesSync(bytes!.buffer.asUint8List());
+          // ignore: avoid_print
+          print(
+            'PILL_ASSET_WRITTEN=${outFile.absolute.path} '
+            '(${image.width}x${image.height})',
+          );
+        });
+      }, skip: !capture);
     }
   });
 }

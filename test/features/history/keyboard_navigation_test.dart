@@ -141,21 +141,10 @@ void main() {
       expect(find.byType(HistoryPage), findsOneWidget);
     });
 
-    testWidgets('works in light theme', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const HistoryPage(),
-          brightness: Brightness.light,
-          overrides: _sampleOverrides(),
-        ),
-      );
-      await _settle(tester);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await _settle(tester);
-
-      expect(find.byType(HistoryPage), findsOneWidget);
-    });
+    // Removed 2026-08-11 (dark-only build): 'works in light theme' pumped the
+    // page with Brightness.light and asserted arrow-key navigation still
+    // worked. The app now ships a single dark theme only, so there is no
+    // light theme left to build.
   });
 
   // ---------------------------------------------------------------------------

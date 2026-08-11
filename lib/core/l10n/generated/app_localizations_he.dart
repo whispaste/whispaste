@@ -318,9 +318,6 @@ class L10nHe extends L10n {
   String get settingsInterfaceSubtitle => 'מראה והתנהגות';
 
   @override
-  String get settingsTheme => 'ערכת נושא';
-
-  @override
   String get settingsLaunchAtStartup => 'הפעל עם ההפעלה';
 
   @override
@@ -985,15 +982,6 @@ class L10nHe extends L10n {
   String get settingsOn => 'פעיל';
 
   @override
-  String get settingsThemeDark => 'כהה';
-
-  @override
-  String get settingsThemeLight => 'בהיר';
-
-  @override
-  String get settingsThemeSystem => 'מערכת';
-
-  @override
   String get statusReady => 'מוכן';
 
   @override
@@ -1059,9 +1047,6 @@ class L10nHe extends L10n {
 
   @override
   String get actionClearSearch => 'נקה חיפוש';
-
-  @override
-  String get tooltipTheme => 'החלף ערכת נושא';
 
   @override
   String get tooltipLanguage => 'שפה';
@@ -1716,12 +1701,6 @@ class L10nHe extends L10n {
 
   @override
   String get shortcutKeyPageDown => 'Page Down';
-
-  @override
-  String get tooltipSwitchToLight => 'עבור למצב בהיר';
-
-  @override
-  String get tooltipSwitchToDark => 'עבור למצב כהה';
 
   @override
   String get modelServerReady => 'מנוע דיבור מוכן';
@@ -2419,20 +2398,7 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get onboardingThemeLight => 'בהיר';
-
-  @override
-  String get onboardingThemeDark => 'כהה';
-
-  @override
-  String get onboardingThemeSystem => 'מערכת';
-
-  @override
-  String get onboardingAppearancePageTitle => 'מראה והפעלה';
-
-  @override
-  String get onboardingAppearancePageSubtitle =>
-      'בהיר, כהה או לפי המערכת — והאם WhisPaste יופעל עם ההתחברות.';
+  String get onboardingAppearancePageTitle => 'הפעלה';
 
   @override
   String get onboardingBeat1Title => 'לחץ על הקיצור, דבר, סיימת';

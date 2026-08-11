@@ -15,15 +15,15 @@ import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 final _screenshots = <_WelcomeShot>[
   const _WelcomeShot(
     name: '05_onboarding_welcome_dark_en',
-    settings: AppSettings(
-      interface_: InterfaceSettings(themeMode: ThemeMode.dark, locale: 'en'),
-    ),
+    settings: AppSettings(interface_: InterfaceSettings(locale: 'en')),
   ),
+  // Was `06_onboarding_welcome_light_de` — the German shot happened to be the
+  // light one, so removing the light theme would otherwise have taken the
+  // only non-English capture of this screen with it. The locale is the point
+  // of the second shot; the theme never was.
   const _WelcomeShot(
-    name: '06_onboarding_welcome_light_de',
-    settings: AppSettings(
-      interface_: InterfaceSettings(themeMode: ThemeMode.light, locale: 'de'),
-    ),
+    name: '06_onboarding_welcome_dark_de',
+    settings: AppSettings(interface_: InterfaceSettings(locale: 'de')),
   ),
 ];
 
@@ -89,11 +89,7 @@ Widget _buildScreenshotApp({
 }) {
   return ScreenshotApp(
     device: device,
-    theme: wpLightTheme(),
-    darkTheme: wpDarkTheme(),
-    themeMode: settings.themeMode == ThemeMode.light
-        ? ThemeMode.light
-        : ThemeMode.dark,
+    theme: wpDarkTheme(),
     localizationsDelegates: L10n.localizationsDelegates,
     supportedLocales: L10n.supportedLocales,
     locale: Locale(settings.locale),

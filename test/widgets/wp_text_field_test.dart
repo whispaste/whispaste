@@ -275,40 +275,11 @@ void main() {
     );
   });
 
-  // -------------------------------------------------------------------------
-  // AC4 — light theme
-  // -------------------------------------------------------------------------
-  testWidgets('AC4 — light theme resolves light tokens only', (tester) async {
-    final controller = TextEditingController();
-    addTearDown(controller.dispose);
-    final focusNode = FocusNode();
-    addTearDown(focusNode.dispose);
-
-    await tester.pumpWidget(
-      makeTestable(
-        _field(
-          controller: controller,
-          variant: WpTextFieldVariant.passage,
-          focusNode: focusNode,
-        ),
-        brightness: Brightness.light,
-      ),
-    );
-
-    expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
-    expect(_renderedStyle(tester).color, WpColorsDark.textPrimary);
-    expect(
-      (_strokeDecoration(tester)!.border! as Border).top.color,
-      WpColorsDark.borderSubtle,
-    );
-
-    focusNode.requestFocus();
-    await tester.pumpAndSettle();
-    expect(
-      (_strokeDecoration(tester)!.border! as Border).top.color,
-      WpColorsDark.accent,
-    );
-  });
+  // Removed 2026-08-11 (dark-only build): 'AC4 — light theme resolves light
+  // tokens only' pumped the field with Brightness.light and asserted it
+  // resolved the light-theme surface/text/border/focus tokens. The app now
+  // ships a single dark theme only, so there is no light theme left to
+  // resolve.
 
   // -------------------------------------------------------------------------
   // AC5 — read view matches edit view

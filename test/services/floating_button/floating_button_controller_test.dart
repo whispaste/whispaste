@@ -83,10 +83,9 @@ void main() {
       expect(controller.calls, ['setState(recording)']);
     });
 
-    test('setTheme() records call', () async {
-      await controller.setTheme(isDark: true);
-      expect(controller.calls, ['setTheme(true)']);
-    });
+    // Removed 2026-08-11 (dark-only build): `setTheme() records call`.
+    // `FloatingButtonController.setTheme` no longer exists — the floating
+    // button renders one theme.
 
     test('setPosition() records call', () async {
       await controller.setPosition(50, 60);
@@ -146,11 +145,6 @@ class _MockController extends FloatingButtonController {
   @override
   Future<void> setState(FloatingButtonVisualState state) async {
     calls.add('setState(${state.name})');
-  }
-
-  @override
-  Future<void> setTheme({required bool isDark}) async {
-    calls.add('setTheme($isDark)');
   }
 
   @override

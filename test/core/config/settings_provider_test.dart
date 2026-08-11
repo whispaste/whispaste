@@ -8,7 +8,6 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
 import 'package:whispaste/core/onboarding/onboarding_revision.dart';
-import 'package:whispaste/core/theme/theme_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/settings_portability_service.dart'
     show mergeImportedSettings;
@@ -91,10 +90,8 @@ void main() {
     final settings = container.read(settingsProvider).value;
 
     expect(settings, isNotNull);
-    expect(settings!.themeMode, ThemeMode.dark);
-    expect(settings.locale, 'en');
+    expect(settings!.locale, 'en');
     expect(settings.showOverlay, false);
-    expect(container.read(themeModeProvider), ThemeMode.dark);
     expect(container.read(localeProvider), const Locale('en'));
   });
 
@@ -103,7 +100,6 @@ void main() {
         .read(settingsProvider.notifier)
         .updateSettings(
           (settings) => settings.copyWith(
-            themeMode: ThemeMode.light,
             locale: 'de',
             sttModel: 'Best Quality (Large)',
             showOverlay: true,
@@ -111,11 +107,9 @@ void main() {
           ),
         );
 
-    expect(container.read(themeModeProvider), ThemeMode.light);
     expect(container.read(localeProvider), const Locale('de'));
 
     final persisted = AppSettings.fromStorageMap(await db.readAppSettings());
-    expect(persisted.themeMode, ThemeMode.light);
     expect(persisted.locale, 'de');
     expect(persisted.sttModel, 'whisper-large-v3-turbo');
     expect(persisted.showOverlay, true);
@@ -128,8 +122,7 @@ void main() {
 
     expect(rowsAfterReset, isEmpty);
     expect(resetState, isNotNull);
-    expect(resetState!.themeMode, ThemeMode.dark);
-    expect(resetState.locale, 'en');
+    expect(resetState!.locale, 'en');
     expect(resetState.showOverlay, false);
   });
 

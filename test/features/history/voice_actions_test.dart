@@ -250,9 +250,8 @@ Widget _makeTestableButton({
   required HistoryDatabase db,
   required _FakeAudioService fakeAudio,
   required _FakeSttService fakeStt,
-  bool isDark = true,
 }) {
-  final theme = isDark ? wpDarkTheme() : wpLightTheme();
+  final theme = wpDarkTheme();
   return ProviderScope(
     overrides: [
       historyDatabaseProvider.overrideWith((ref) {
@@ -633,20 +632,10 @@ void main() {
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
     });
 
-    testWidgets('renders correctly in light mode', (tester) async {
-      await tester.pumpWidget(
-        _makeTestableButton(
-          entryId: entryId,
-          db: db,
-          fakeAudio: fakeAudio,
-          fakeStt: fakeStt,
-          isDark: false,
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(LucideIcons.mic), findsOneWidget);
-    });
+    // Removed 2026-08-11 (dark-only build): 'renders correctly in light
+    // mode' pumped the button with isDark: false and asserted the mic icon
+    // still rendered. The app now ships a single dark theme only, so there
+    // is no light mode left to render.
   });
 
   // =========================================================================

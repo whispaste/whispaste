@@ -214,26 +214,11 @@ void main() {
       expect(style.side, isNull);
     });
 
-    testWidgets('light theme resolves its own disabled-primary outline', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpButton(
-            label: 'Gesperrt',
-            variant: WpButtonVariant.primary,
-            onPressed: null,
-          ),
-          brightness: Brightness.light,
-        ),
-      );
-
-      final style = tester
-          .widget<FilledButton>(find.byType(FilledButton))
-          .style!;
-
-      expect(style.side!.resolve(const {})!.color, WpColorsDark.borderSubtle);
-    });
+    // Removed 2026-08-11 (dark-only build): 'light theme resolves its own
+    // disabled-primary outline' repeated the assertion above with
+    // Brightness.light, confirming both themes resolved to the same border
+    // token. The app now ships a single dark theme only, so there is no
+    // second theme left to compare against.
   });
 
   // -------------------------------------------------------------------------
@@ -343,25 +328,10 @@ void main() {
       expect(style.backgroundColor!.resolve(const {}), WpColorsDark.error);
     });
 
-    testWidgets('light theme resolves its own error tokens', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpButton(
-            label: 'Zurücksetzen',
-            variant: WpButtonVariant.secondary,
-            tone: WpButtonTone.danger,
-            onPressed: _noop,
-          ),
-          brightness: Brightness.light,
-        ),
-      );
-
-      final style = tester
-          .widget<OutlinedButton>(find.byType(OutlinedButton))
-          .style!;
-
-      expect(style.side!.resolve(const {})!.color, WpColorsDark.errorBorder30);
-    });
+    // Removed 2026-08-11 (dark-only build): 'light theme resolves its own
+    // error tokens' repeated the danger-tone assertions above with
+    // Brightness.light. The app now ships a single dark theme only, so there
+    // is no second theme left to compare against.
   });
 
   // -------------------------------------------------------------------------
@@ -569,20 +539,10 @@ void main() {
       }
     });
 
-    testWidgets('light theme resolves its own ring colour', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpButton(
-            label: 'Aktion',
-            variant: WpButtonVariant.primary,
-            onPressed: _noop,
-          ),
-          brightness: Brightness.light,
-        ),
-      );
-
-      expect(ringColorOf(tester), WpColorsDark.textPrimary);
-    });
+    // Removed 2026-08-11 (dark-only build): 'light theme resolves its own
+    // ring colour' repeated the ring assertion above with Brightness.light.
+    // The app now ships a single dark theme only, so there is no second
+    // theme left to compare against.
 
     testWidgets('unfilled variants keep the shared accent ring', (
       tester,

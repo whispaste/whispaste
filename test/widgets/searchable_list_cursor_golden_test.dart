@@ -78,7 +78,6 @@ void main() {
         makeTestable(
           const ReplacementsPage(),
           locale: const Locale('en'),
-          brightness: Brightness.dark,
           size: const Size(900, 620),
           // The master switch on by default, as the store screenshot does it:
           // with replacements off the page dims its whole list to 50 %

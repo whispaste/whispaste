@@ -9,7 +9,6 @@ library;
 import 'dart:convert';
 
 import 'package:file/memory.dart';
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -174,7 +173,6 @@ void main() {
       restored.settings,
     );
 
-    expect(merged.themeMode, ThemeMode.light);
     expect(merged.locale, 'de');
     // Normalized, not the raw legacy label fed in — proves the merge
     // actually runs through SttSettings.fromMap rather than bypassing it.
@@ -188,7 +186,6 @@ void main() {
   test('importing a settings map with a key unknown to this build is silently '
       'dropped — no throw, neighbouring known keys still merge', () async {
     final imported = Map.of(sampleSettings)
-      ..['theme_mode'] = 'light'
       ..['a_future_key_this_build_does_not_know'] = 'some-value';
 
     expect(
@@ -196,7 +193,7 @@ void main() {
       returnsNormally,
     );
     final merged = mergeImportedSettings(AppSettings.defaults, imported);
-    expect(merged.themeMode, ThemeMode.light);
+    expect(merged.customVocabulary, sampleSettings['custom_vocabulary']);
   });
 
   // ---------------------------------------------------------------------------

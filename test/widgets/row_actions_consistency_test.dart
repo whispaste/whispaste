@@ -3,8 +3,8 @@
 /// Verifies at the *row* level what `wp_row_action_test.dart` verifies at the
 /// component level: the three history views offer the same actions, revealing
 /// them costs no information and no reflow, and none of the rows overflows at
-/// the narrowest panel width the app allows — in either theme, at normal and
-/// at enlarged system font size.
+/// the narrowest panel width the app allows — at normal and at enlarged
+/// system font size.
 library;
 
 import 'package:flutter/gestures.dart';
@@ -54,7 +54,7 @@ Note _note() => Note(
   updatedAt: DateTime(2026, 4, 14, 9, 41),
 );
 
-Widget _historyRow({bool isDark = true}) => HistoryEntryRow(
+Widget _historyRow() => HistoryEntryRow(
   entry: _entry(),
   isSelected: false,
   onTap: () {},
@@ -63,7 +63,7 @@ Widget _historyRow({bool isDark = true}) => HistoryEntryRow(
   onDelete: () {},
 );
 
-Widget _compactRow({bool isDark = true}) => HistoryCompactRow(
+Widget _compactRow() => HistoryCompactRow(
   entry: _entry(),
   isSelected: false,
   onTap: () {},
@@ -72,7 +72,7 @@ Widget _compactRow({bool isDark = true}) => HistoryCompactRow(
   onDelete: () {},
 );
 
-Widget _notesRow({bool isDark = true}) => NotesListTile(
+Widget _notesRow() => NotesListTile(
   note: _note(),
   tags: const [],
   isTrashView: false,
@@ -199,41 +199,30 @@ void main() {
     // anything to — three revealed actions plus that cluster need ~320px.
     // A 150% system font pushes every row one step up. Measured, not
     // guessed; the ticket records the compact-row limit as a known one.
-    final rows = <(String, Type, Widget Function({bool isDark}), double)>[
+    final rows = <(String, Type, Widget Function(), double)>[
       ('history list row', HistoryEntryRow, _historyRow, _minPanelWidth),
       ('history compact row', HistoryCompactRow, _compactRow, 320.0),
       ('notes row', NotesListTile, _notesRow, _minPanelWidth),
     ];
 
     for (final (name, type, build, minWidth) in rows) {
-      for (final isDark in [true, false]) {
-        for (final (width, scale) in [(minWidth, 1.0), (360.0, 1.5)]) {
-          final theme = isDark ? 'dark' : 'light';
-          testWidgets(
-            '$name at ${width.toInt()}px, $theme, textScaler $scale',
-            (tester) async {
-              await tester.pumpWidget(
-                makeTestable(
-                  _panel(
-                    build(isDark: isDark),
-                    width: width,
-                    scale: scale,
-                  ),
-                  brightness: isDark ? Brightness.dark : Brightness.light,
-                ),
-              );
-              await tester.pumpAndSettle();
-              expect(tester.takeException(), isNull);
-
-              await _hover(tester, find.byType(type));
-              expect(
-                tester.takeException(),
-                isNull,
-                reason: 'revealing the actions must not overflow the row',
-              );
-            },
+      for (final (width, scale) in [(minWidth, 1.0), (360.0, 1.5)]) {
+        testWidgets('$name at ${width.toInt()}px, textScaler $scale', (
+          tester,
+        ) async {
+          await tester.pumpWidget(
+            makeTestable(_panel(build(), width: width, scale: scale)),
           );
-        }
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+
+          await _hover(tester, find.byType(type));
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'revealing the actions must not overflow the row',
+          );
+        });
       }
     }
   });

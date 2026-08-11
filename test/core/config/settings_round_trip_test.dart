@@ -8,7 +8,6 @@ void main() {
       final original = AppSettings.defaults;
       final restored = AppSettings.fromStorageMap(original.toStorageMap());
 
-      expect(restored.themeMode, original.themeMode);
       expect(restored.locale, original.locale);
       expect(restored.microphone, original.microphone);
       expect(restored.sttProvider, original.sttProvider);
@@ -59,7 +58,6 @@ void main() {
       // Empty map = old DB with no settings
       final restored = AppSettings.fromStorageMap({});
 
-      expect(restored.themeMode, AppSettings.defaults.themeMode);
       expect(restored.sttModel, AppSettings.defaults.sttModel);
       expect(
         restored.historyMaxEntries,

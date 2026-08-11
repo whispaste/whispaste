@@ -1,8 +1,8 @@
 /// Tests for the full WhisPaste type scale.
 ///
 /// Verifies:
-/// 1. All required TextTheme roles are present in the dark and light themes
-///    with the correct font size, weight, and tracking (AC1).
+/// 1. All required TextTheme roles are present in the dark theme with the
+///    correct font size, weight, and tracking (AC1).
 /// 2. Phase-2 ad-hoc TextStyles (Button-Label 16/700, Toast-Message 13/500)
 ///    are now served via theme roles instead of hard-coded values (AC2).
 library;
@@ -83,33 +83,9 @@ void main() {
     });
   });
 
-  group('TextTheme roles — light theme (parity check)', () {
-    late TextTheme tt;
-
-    setUpAll(() {
-      tt = wpLightTheme().textTheme;
-    });
-
-    test('labelLarge 16/700 present', () {
-      expect(tt.labelLarge!.fontSize, 16);
-      expect(tt.labelLarge!.fontWeight, FontWeight.w700);
-    });
-
-    test('labelMedium 13/500 present', () {
-      expect(tt.labelMedium!.fontSize, 13);
-      expect(tt.labelMedium!.fontWeight, FontWeight.w500);
-    });
-
-    test('titleLarge 17/600 present', () {
-      expect(tt.titleLarge!.fontSize, 17);
-      expect(tt.titleLarge!.fontWeight, FontWeight.w600);
-    });
-
-    test('titleSmall 13/600 present', () {
-      expect(tt.titleSmall!.fontSize, 13);
-      expect(tt.titleSmall!.fontWeight, FontWeight.w600);
-    });
-  });
+  // Removed 2026-08-11 (dark-only build): `TextTheme roles — light theme
+  // (parity check)`. It asserted the light theme's role metrics matched the
+  // dark theme's; there is one theme now, so parity is moot.
 
   // ---------------------------------------------------------------------------
   // AC2: ad-hoc call sites now use theme roles

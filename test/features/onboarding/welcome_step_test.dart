@@ -165,11 +165,6 @@ void main() {
         expect(find.text(l10n.onboardingBeat2Caption), findsOneWidget);
         expect(find.text(l10n.onboardingBeat3Title), findsOneWidget);
         expect(find.text(l10n.onboardingBeat3Caption), findsOneWidget);
-
-        // Theme selector is gone from page 1.
-        expect(find.text(l10n.onboardingThemeLight), findsNothing);
-        expect(find.text(l10n.onboardingThemeDark), findsNothing);
-        expect(find.text(l10n.onboardingThemeSystem), findsNothing);
       },
     );
 
@@ -379,7 +374,6 @@ void main() {
     Future<void> pumpAtFrameWidth(
       WidgetTester tester, {
       bool disableAnimations = false,
-      Brightness brightness = Brightness.dark,
       TextScaler textScaler = TextScaler.noScaling,
     }) async {
       tester.view.physicalSize = kOnboardingWindowSize;
@@ -401,7 +395,6 @@ void main() {
             ),
           ),
           size: const Size(1280, 980),
-          brightness: brightness,
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(FakeSettingsNotifier.new)],
         ),
@@ -507,40 +500,30 @@ void main() {
       await pumpAtFrameWidth(tester);
       expect(
         assetOfActivePanel(tester),
-        onboardingBeatAssetPath(index: 0, isDark: true, still: false),
+        onboardingBeatAssetPath(index: 0, still: false),
       );
 
       await pumpAtFrameWidth(tester, disableAnimations: true);
       expect(
         assetOfActivePanel(tester),
-        onboardingBeatAssetPath(index: 0, isDark: true, still: true),
+        onboardingBeatAssetPath(index: 0, still: true),
       );
     });
 
-    testWidgets('follows the theme — a clip recorded in dark mode must not be '
-        'shown on a light page', (tester) async {
-      await pumpAtFrameWidth(tester, brightness: Brightness.light);
+    // Removed 2026-08-11 (dark-only build): `follows the theme — a clip
+    // recorded in dark mode must not be shown on a light page`.
+    // `onboardingBeatAssetPath` no longer takes an `isDark` parameter — it
+    // always resolves the `_dark.webp` asset, so there is no light variant
+    // to follow.
 
-      final image = tester.widget<Image>(
-        find.descendant(
-          of: find.byKey(onboardingBeatMediaKey(0)),
-          matching: find.byType(Image),
-        ),
-      );
+    test('asset paths are 1-based per beat', () {
       expect(
-        (image.image as AssetImage).assetName,
-        onboardingBeatAssetPath(index: 0, isDark: false, still: false),
-      );
-    });
-
-    test('asset paths are 1-based per beat and name both axes explicitly', () {
-      expect(
-        onboardingBeatAssetPath(index: 0, isDark: true, still: false),
+        onboardingBeatAssetPath(index: 0, still: false),
         'assets/onboarding/beat_1_loop_dark.webp',
       );
       expect(
-        onboardingBeatAssetPath(index: 2, isDark: false, still: true),
-        'assets/onboarding/beat_3_still_light.webp',
+        onboardingBeatAssetPath(index: 2, still: true),
+        'assets/onboarding/beat_3_still_dark.webp',
       );
     });
   });

@@ -52,14 +52,15 @@ Key onboardingBeatMediaKey(int index) => Key('onboardingBeatMedia$index');
 /// placeholder for any variant that is missing, so dark-only (or loop-only)
 /// deliveries render correctly without a code change.
 @visibleForTesting
-String onboardingBeatAssetPath({
-  required int index,
-  required bool isDark,
-  required bool still,
-}) =>
+/// The `_dark` suffix is now a fixed part of the name rather than a choice.
+/// It took an `isDark` flag until 2026-08-11; no `_light` file was ever
+/// delivered, so that branch only ever produced a path that missed and fell
+/// through to the placeholder below. The suffix stays in the filename so the
+/// assets already on disk keep their names.
+String onboardingBeatAssetPath({required int index, required bool still}) =>
     'assets/onboarding/beat_${index + 1}'
     '_${still ? 'still' : 'loop'}'
-    '_${isDark ? 'dark' : 'light'}.webp';
+    '_dark.webp';
 
 /// Start inset that lines page-1 controls up with the beat *text* rather than
 /// with the edge of the beat highlight, which bleeds outward by exactly this
@@ -732,7 +733,6 @@ class _BeatMediaPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
     const glyphWash = WpColors.decorativeGlyphWash;
 
@@ -790,7 +790,6 @@ class _BeatMediaPlaceholder extends StatelessWidget {
         child: Image.asset(
           onboardingBeatAssetPath(
             index: index,
-            isDark: isDark,
             still: MediaQuery.of(context).disableAnimations,
           ),
           // The clip is recorded to the panel's exact aspect ratio (see

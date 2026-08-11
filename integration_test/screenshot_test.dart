@@ -8,8 +8,8 @@
 ///   flutter test integration_test/screenshot_test.dart -d windows
 ///
 /// Output structure:
-///   screenshots/{locale}/{theme}/01_workspace_overview.png
-///   screenshots/{locale}/{theme}/02_workspace_detail.png
+///   screenshots/{locale}/dark/01_workspace_overview.png
+///   screenshots/{locale}/dark/02_workspace_detail.png
 ///   ...
 library;
 
@@ -119,62 +119,54 @@ void main() {
     await _settle(tester, const Duration(seconds: 2));
 
     for (final locale in _locales) {
-      for (final themeLabel in ['dark', 'light']) {
-        final themeMode = themeLabel == 'dark'
-            ? ThemeMode.dark
-            : ThemeMode.light;
+      // ignore: avoid_print
+      print('\n=== $locale ===');
 
+      // Fresh in-memory database per locale
+      final db = await tester.runAsync(() async {
+        final d = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await _seedDemoData(d, locale: locale);
+        return d;
+      });
+
+      for (final screen in _screens) {
         // ignore: avoid_print
-        print('\n=== $locale / $themeLabel ===');
+        print('  Rendering: ${screen.name}');
 
-        // Fresh in-memory database per combo
-        final db = await tester.runAsync(() async {
-          final d = HistoryDatabase.forTesting(NativeDatabase.memory());
-          await _seedDemoData(d, locale: locale);
-          return d;
-        });
+        final settings = AppSettings.defaults.copyWith(
+          locale: locale,
+          textReplacementsEnabled: screen.textReplacementsEnabled,
+          hotkeyEnabled: true,
+          hotkeyKey: 'D',
+          hotkeyModifiers: 'ctrl+shift',
+          onboardingCompleted: true,
+        );
 
-        for (final screen in _screens) {
-          // ignore: avoid_print
-          print('  Rendering: ${screen.name}');
+        final app = _buildScreenshotApp(
+          db: db!,
+          settings: settings,
+          locale: locale,
+          pageId: screen.pageId,
+          child: screen.builder(),
+        );
 
-          final settings = AppSettings.defaults.copyWith(
-            locale: locale,
-            themeMode: themeMode,
-            textReplacementsEnabled: screen.textReplacementsEnabled,
-            hotkeyEnabled: true,
-            hotkeyKey: 'D',
-            hotkeyModifiers: 'ctrl+shift',
-            onboardingCompleted: true,
-          );
+        await tester.pumpWidget(app);
+        await _settle(tester, const Duration(seconds: 1));
 
-          final app = _buildScreenshotApp(
-            db: db!,
-            settings: settings,
-            themeMode: themeMode,
-            locale: locale,
-            pageId: screen.pageId,
-            child: screen.builder(),
-          );
-
-          await tester.pumpWidget(app);
-          await _settle(tester, const Duration(seconds: 1));
-
-          // Run any screen-specific arrangement (open detail, scroll, etc.)
-          if (screen.arrange != null) {
-            await screen.arrange!(tester, locale);
-            await _settle(tester);
-          }
-
-          // Capture
-          final path = '$_outputDir/$locale/$themeLabel/${screen.name}.png';
-          await _captureScreen(tester, path);
+        // Run any screen-specific arrangement (open detail, scroll, etc.)
+        if (screen.arrange != null) {
+          await screen.arrange!(tester, locale);
+          await _settle(tester);
         }
 
-        // In-memory DB is GC'd — no explicit close needed.
-        // (db.close() hangs because Riverpod providers still hold stream
-        // subscriptions; they're disposed on the next pumpWidget anyway.)
+        // Capture
+        final path = '$_outputDir/$locale/dark/${screen.name}.png';
+        await _captureScreen(tester, path);
       }
+
+      // In-memory DB is GC'd — no explicit close needed.
+      // (db.close() hangs because Riverpod providers still hold stream
+      // subscriptions; they're disposed on the next pumpWidget anyway.)
     }
 
     // ignore: avoid_print
@@ -189,7 +181,6 @@ void main() {
 Widget _buildScreenshotApp({
   required HistoryDatabase db,
   required AppSettings settings,
-  required ThemeMode themeMode,
   required String locale,
   required String pageId,
   required Widget child,
@@ -212,13 +203,7 @@ Widget _buildScreenshotApp({
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: wpLightTheme().copyWith(
-        scaffoldBackgroundColor: Colors.transparent,
-      ),
-      darkTheme: wpDarkTheme().copyWith(
-        scaffoldBackgroundColor: Colors.transparent,
-      ),
-      themeMode: themeMode,
+      theme: wpDarkTheme().copyWith(scaffoldBackgroundColor: Colors.transparent),
       locale: Locale(locale),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
@@ -249,7 +234,6 @@ class _ScreenshotShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = wpNavItems(l10n);
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
@@ -278,7 +262,7 @@ class _ScreenshotShell extends StatelessWidget {
             // Main layout — mirrors _AppShell exactly
             Column(
               children: [
-                WpTitleBar(actions: [_ScreenshotThemeToggle(isDark: isDark)]),
+                const WpTitleBar(actions: [_ScreenshotThemeToggle()]),
                 Expanded(
                   child: Row(
                     children: [
@@ -359,19 +343,13 @@ class _ScreenshotShell extends StatelessWidget {
 
 /// Non-interactive theme toggle icon for screenshots.
 class _ScreenshotThemeToggle extends StatelessWidget {
-  const _ScreenshotThemeToggle({required this.isDark});
-
-  final bool isDark;
+  const _ScreenshotThemeToggle();
 
   @override
   Widget build(BuildContext context) {
     const mutedColor = WpColorsDark.textMuted;
     return IconButton(
-      icon: Icon(
-        isDark ? LucideIcons.moon : LucideIcons.sun,
-        color: mutedColor,
-        size: 16,
-      ),
+      icon: const Icon(LucideIcons.moon, color: mutedColor, size: 16),
       onPressed: () {},
       splashRadius: 16,
       constraints: const BoxConstraints(minWidth: 36, minHeight: 32),

@@ -84,13 +84,12 @@ const _populatedAnalytics = AnalyticsData(
 Widget _testShell(
   Widget page,
   Size size, {
-  Brightness brightness = Brightness.dark,
   double textScale = 1.0,
   // Untyped for the same reason `test_helpers.dart` does it: this Riverpod
   // version does not export the `Override` type name.
   List extraOverrides = const [],
 }) {
-  final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
+  final theme = wpDarkTheme();
   return ProviderScope(
     overrides: [
       historyDatabaseProvider.overrideWith((ref) {
@@ -201,9 +200,9 @@ void main() {
   }
 
   // Extra: the pages whose frame ticket 07 unified (About moved to
-  // WpSection's 16px headline, Settings to WpPageShell) — checked in both
-  // themes at an accessibility text size, where a grown section head is
-  // most likely to push a row over the edge.
+  // WpSection's 16px headline, Settings to WpPageShell) — checked at an
+  // accessibility text size, where a grown section head is most likely to
+  // push a row over the edge.
   //
   // Analytics joins them: it is the page with the most hard-coded text boxes
   // in the app (the duration bars pin their label and count to fixed widths),
@@ -216,63 +215,54 @@ void main() {
     MapEntry('Settings', SettingsPage()),
     MapEntry('Analytics', AnalyticsPage()),
   ]) {
-    for (final brightness in Brightness.values) {
-      testWidgets('${page.key} at textScaler 1.5, ${brightness.name}', (
-        tester,
-      ) async {
-        const size = Size(1280, 800);
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
+    testWidgets('${page.key} at textScaler 1.5', (tester) async {
+      const size = Size(1280, 800);
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-        final overflows = <String>[];
-        final originalHandler = FlutterError.onError;
-        FlutterError.onError = (details) {
-          if (details.toString().contains('overflowed')) {
-            overflows.add(details.toString());
-          } else {
-            originalHandler?.call(details);
-          }
-        };
-        addTearDown(() => FlutterError.onError = originalHandler);
-
-        await tester.pumpWidget(
-          _testShell(
-            page.value,
-            size,
-            brightness: brightness,
-            textScale: 1.5,
-            extraOverrides: [
-              analyticsProvider.overrideWith(
-                (ref) async => _populatedAnalytics,
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Guard against a hollow pass: if the override ever stops taking, the
-        // page falls back to its empty state and this case silently stops
-        // testing the fixed-width boxes it exists for.
-        if (page.key == 'Analytics') {
-          expect(
-            find.byType(WpEmptyState),
-            findsNothing,
-            reason: 'Analytics must render seeded data, not the empty state',
-          );
+      final overflows = <String>[];
+      final originalHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        if (details.toString().contains('overflowed')) {
+          overflows.add(details.toString());
+        } else {
+          originalHandler?.call(details);
         }
+      };
+      addTearDown(() => FlutterError.onError = originalHandler);
 
+      await tester.pumpWidget(
+        _testShell(
+          page.value,
+          size,
+          textScale: 1.5,
+          extraOverrides: [
+            analyticsProvider.overrideWith((ref) async => _populatedAnalytics),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Guard against a hollow pass: if the override ever stops taking, the
+      // page falls back to its empty state and this case silently stops
+      // testing the fixed-width boxes it exists for.
+      if (page.key == 'Analytics') {
         expect(
-          overflows,
-          isEmpty,
-          reason:
-              '${page.key} overflow at 1.5x text, ${brightness.name}:\n'
-              '${overflows.join('\n')}',
+          find.byType(WpEmptyState),
+          findsNothing,
+          reason: 'Analytics must render seeded data, not the empty state',
         );
-        expect(tester.takeException(), isNull);
-      });
-    }
+      }
+
+      expect(
+        overflows,
+        isEmpty,
+        reason: '${page.key} overflow at 1.5x text:\n${overflows.join('\n')}',
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 
   // Extra: test History with narrow detail panel (common overflow source)

@@ -34,7 +34,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.transcribing,
-        isDark: false,
         size: OverlaySizeVariant.compact,
         label: 'Transcribing',
         elapsed: '0:03',
@@ -120,7 +119,6 @@ void main() {
     const snap = FloatingOverlaySnapshot(
       visible: true,
       state: OverlayVisualState.recording,
-      isDark: true,
       label: '',
     );
 

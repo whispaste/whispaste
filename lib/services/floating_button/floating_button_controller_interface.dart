@@ -34,7 +34,6 @@ abstract class FloatingButtonController {
   Future<void> setState(FloatingButtonVisualState state);
 
   /// Switch between dark/light theme (affects idle/muted gradients).
-  Future<void> setTheme({required bool isDark});
 
   /// Move the button to a new position (logical pixels).
   Future<void> setPosition(double x, double y);

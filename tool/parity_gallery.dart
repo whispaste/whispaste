@@ -1,7 +1,7 @@
 /// Cross-platform parity gallery — a dev harness, NOT part of the shipped app.
 ///
-/// Renders every shared floating-surface frame (the 16-cell overlay matrix
-/// `4 states × 2 themes × 2 sizes` plus the 6 floating-button states) with the
+/// Renders every shared floating-surface frame (the 12-cell overlay matrix
+/// `4 states × 3 sizes` plus the 6 floating-button states) with the
 /// exact same `WpOverlayPainter` / `WpFloatingButtonPainter` the native shells host
 /// (ADR 0002). It then captures itself to a single PNG via
 /// `RepaintBoundary.toImage` and exits.
@@ -138,7 +138,7 @@ class _Gallery extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _Heading('Overlay — 4 states × 2 themes × 3 sizes'),
+            const _Heading('Overlay — 4 states × 3 sizes'),
             const SizedBox(height: 8),
             for (final state in OverlayVisualState.values)
               Padding(
@@ -147,9 +147,8 @@ class _Gallery extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _RowLabel(state.name),
-                    for (final isDark in const [true, false])
-                      for (final size in OverlaySizeVariant.values)
-                        _OverlayTile(state: state, isDark: isDark, size: size),
+                    for (final size in OverlaySizeVariant.values)
+                      _OverlayTile(state: state, size: size),
                   ],
                 ),
               ),
@@ -204,14 +203,9 @@ class _RowLabel extends StatelessWidget {
 
 /// A single overlay frame painted on a checkerboard so transparency is visible.
 class _OverlayTile extends StatelessWidget {
-  const _OverlayTile({
-    required this.state,
-    required this.isDark,
-    required this.size,
-  });
+  const _OverlayTile({required this.state, required this.size});
 
   final OverlayVisualState state;
-  final bool isDark;
   final OverlaySizeVariant size;
 
   @override
@@ -224,7 +218,6 @@ class _OverlayTile extends StatelessWidget {
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: state,
-      isDark: isDark,
       size: size,
       label: switch (state) {
         OverlayVisualState.recording => 'Recording',
@@ -257,7 +250,7 @@ class _OverlayTile extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            '${isDark ? 'dark' : 'light'} · ${size.name}',
+            size.name,
             style: const TextStyle(color: Colors.white70, fontSize: 10),
           ),
         ],
@@ -299,8 +292,8 @@ class _ButtonTile extends StatelessWidget {
   }
 }
 
-/// Mid-contrast checkerboard backdrop so the (partly transparent) surfaces read
-/// clearly in both themes.
+/// Mid-contrast checkerboard backdrop so the (partly transparent) surfaces
+/// read clearly against it.
 class _Checkerboard extends StatelessWidget {
   const _Checkerboard({required this.size, required this.child});
   final Size size;

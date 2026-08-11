@@ -319,9 +319,6 @@ class L10nDe extends L10n {
   String get settingsInterfaceSubtitle => 'Aussehen und Verhalten';
 
   @override
-  String get settingsTheme => 'Design';
-
-  @override
   String get settingsLaunchAtStartup => 'Beim Start ausführen';
 
   @override
@@ -1007,15 +1004,6 @@ class L10nDe extends L10n {
   String get settingsOn => 'An';
 
   @override
-  String get settingsThemeDark => 'Dunkel';
-
-  @override
-  String get settingsThemeLight => 'Hell';
-
-  @override
-  String get settingsThemeSystem => 'System';
-
-  @override
   String get statusReady => 'Bereit';
 
   @override
@@ -1081,9 +1069,6 @@ class L10nDe extends L10n {
 
   @override
   String get actionClearSearch => 'Suche zurücksetzen';
-
-  @override
-  String get tooltipTheme => 'Design wechseln';
 
   @override
   String get tooltipLanguage => 'Sprache';
@@ -1750,12 +1735,6 @@ class L10nDe extends L10n {
 
   @override
   String get shortcutKeyPageDown => 'Bild runter';
-
-  @override
-  String get tooltipSwitchToLight => 'Zu hellem Modus wechseln';
-
-  @override
-  String get tooltipSwitchToDark => 'Zu dunklem Modus wechseln';
 
   @override
   String get modelServerReady => 'Sprachdienst bereit';
@@ -2480,20 +2459,7 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get onboardingThemeLight => 'Hell';
-
-  @override
-  String get onboardingThemeDark => 'Dunkel';
-
-  @override
-  String get onboardingThemeSystem => 'System';
-
-  @override
-  String get onboardingAppearancePageTitle => 'Aussehen & Start';
-
-  @override
-  String get onboardingAppearancePageSubtitle =>
-      'Hell, dunkel oder wie das System — und ob WhisPaste beim Anmelden mitstartet.';
+  String get onboardingAppearancePageTitle => 'Start';
 
   @override
   String get onboardingBeat1Title => 'Hotkey drücken, sprechen, fertig';

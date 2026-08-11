@@ -17,15 +17,14 @@ import 'package:whispaste/services/hardware_info_service.dart';
 /// Wraps [child] in a [ProviderScope] + [MaterialApp] with locale set to
 /// Hebrew so Flutter propagates [TextDirection.rtl] through the widget tree.
 ///
-/// [brightness] controls the theme; [size] the virtual screen dimensions.
-/// Additional [overrides] are merged into the [ProviderScope].
+/// [size] controls the virtual screen dimensions. Additional [overrides] are
+/// merged into the [ProviderScope].
 Widget wrapForRtlGolden(
   Widget child, {
-  Brightness brightness = Brightness.dark,
   Size size = const Size(400, 600),
   List overrides = const [],
 }) {
-  final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
+  final theme = wpDarkTheme();
 
   return ProviderScope(
     overrides: [

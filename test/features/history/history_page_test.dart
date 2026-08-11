@@ -193,20 +193,10 @@ void main() {
       expect(find.byIcon(LucideIcons.copy), findsWidgets);
     });
 
-    testWidgets('works in light theme', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const HistoryPage(),
-          brightness: Brightness.light,
-          overrides: _sampleOverrides(),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.historySearchTranscriptions), findsOneWidget);
-      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
-    });
+    // Removed 2026-08-11 (dark-only build): 'works in light theme' pumped the
+    // page with Brightness.light and asserted it still rendered. The app now
+    // ships a single dark theme only, so there is no light theme left to
+    // build.
 
     testWidgets('view mode toggle switches between views', (tester) async {
       await tester.pumpWidget(

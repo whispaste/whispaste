@@ -22,7 +22,6 @@ class FloatingOverlaySnapshot {
   const FloatingOverlaySnapshot({
     required this.visible,
     required this.state,
-    required this.isDark,
     required this.label,
     this.size = OverlaySizeVariant.normal,
     this.elapsed = '',
@@ -36,7 +35,6 @@ class FloatingOverlaySnapshot {
 
   final bool visible;
   final OverlayVisualState state;
-  final bool isDark;
 
   /// The overlay size variant (normal / compact / mini). The native shells
   /// size their window from the serialised `size` name.
@@ -56,7 +54,6 @@ class FloatingOverlaySnapshot {
   Map<String, dynamic> toMap() => {
     'visible': visible,
     'state': state.name,
-    'isDark': isDark,
     'size': size.name,
     // Legacy mirror of the old two-size contract, kept so any consumer that
     // still switches on the boolean (older shell binaries during a staged
@@ -98,7 +95,6 @@ class FloatingOverlaySnapshot {
     return FloatingOverlaySnapshot(
       visible: map['visible'] as bool? ?? false,
       state: state,
-      isDark: map['isDark'] as bool? ?? true,
       size: size,
       label: map['label'] as String? ?? '',
       elapsed: map['elapsed'] as String? ?? '',

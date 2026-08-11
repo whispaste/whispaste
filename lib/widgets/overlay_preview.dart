@@ -42,11 +42,9 @@ class WpOverlayRealPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: OverlayVisualState.recording,
-      isDark: isDark,
       size: size.variant,
       label: 'Recording',
       elapsed: '0:05',

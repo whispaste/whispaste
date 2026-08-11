@@ -18,7 +18,6 @@ import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../floating_platform_service_base.dart';
-import '../floating_theme_brightness.dart';
 import '../graceful_shutdown.dart';
 import '../recording_orchestrator.dart';
 import '../telemetry_service.dart';
@@ -162,12 +161,6 @@ class FloatingButtonService
 
         await c.show(x: x, y: y, size: size);
         await c.setSize(size);
-
-        // Send theme. ThemeMode.system derives from the live platform
-        // brightness via the shared resolver — the same path the overlay uses,
-        // so both surfaces never disagree (issue 08, bug D5).
-        final isDark = resolveFloatingSurfaceIsDark(s.themeMode);
-        await c.setTheme(isDark: isDark);
 
         // Send current recording phase.
         final phase = ref.read(recordingPhaseProvider);

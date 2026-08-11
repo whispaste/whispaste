@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
@@ -102,24 +101,9 @@ void main() {
     });
   });
 
-  group('isDark computation', () {
-    // Mirrors FloatingOverlayService._computeIsDark (theme mode only,
-    // not system brightness which needs WidgetsBinding).
-    test('dark mode returns true', () {
-      expect(ThemeMode.dark == ThemeMode.dark, isTrue);
-    });
-
-    test('light mode returns false', () {
-      expect(ThemeMode.light == ThemeMode.dark, isFalse);
-    });
-
-    test('system mode defers to platform brightness', () {
-      // The actual logic uses WidgetsBinding.instance.platformDispatcher.
-      // We just verify the enum exists and is distinct from light/dark.
-      expect(ThemeMode.system, isNot(ThemeMode.dark));
-      expect(ThemeMode.system, isNot(ThemeMode.light));
-    });
-  });
+  // Removed 2026-08-11 (dark-only build): `isDark computation` group. It
+  // mirrored `FloatingOverlayService._computeIsDark`, which no longer
+  // exists — the overlay renders one theme, so there is nothing to compute.
 
   group('FloatingOverlaySize enum', () {
     test('has expected values', () {
@@ -188,7 +172,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
-        isDark: true,
         label: 'Recording',
         elapsed: '0:12',
         hint: 'Press Ctrl+Shift+D to stop',
@@ -206,7 +189,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.transcribing,
-        isDark: true,
         label: 'Transcribing…',
         privacyMode: 'local',
       );
@@ -219,7 +201,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.done,
-        isDark: false,
         label: 'Done',
         doneMessage: 'Pasted!',
       );
@@ -231,7 +212,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.error,
-        isDark: true,
         label: 'Error',
         errorMessage: 'Network timeout',
       );
@@ -243,7 +223,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: false,
         state: OverlayVisualState.recording,
-        isDark: true,
         label: '',
       );
 
@@ -255,20 +234,17 @@ void main() {
       const normal = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
-        isDark: true,
         label: 'Recording',
       );
       const compact = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
-        isDark: true,
         size: OverlaySizeVariant.compact,
         label: 'Recording',
       );
       const mini = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
-        isDark: true,
         size: OverlaySizeVariant.mini,
         label: 'Recording',
       );
@@ -285,14 +261,12 @@ void main() {
       const local = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.transcribing,
-        isDark: true,
         label: 'Transcribing…',
         privacyMode: 'local',
       );
       const cloud = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.transcribing,
-        isDark: true,
         label: 'Transcribing…',
         privacyMode: 'cloud',
       );

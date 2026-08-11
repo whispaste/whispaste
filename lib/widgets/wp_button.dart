@@ -205,7 +205,7 @@ class _WpButtonState extends State<WpButton> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = _WpButtonPalette.of(Theme.of(context).brightness);
+    const palette = _WpButtonPalette._palette;
     final spec = _WpButtonSpec.of(widget.size);
     final tone = palette.toneOf(widget.tone);
 
@@ -457,7 +457,12 @@ class _WpButtonPalette {
     WpButtonTone.danger => danger,
   };
 
-  static const _dark = _WpButtonPalette(
+  /// The one palette. Named `_dark` while it had a `_light` twin and an
+  /// `of(Brightness)` resolver between them; both went with the light
+  /// stack (2026-08-11). The twin was not merely unreachable — it was
+  /// wrong for this app, painting white on the accent fill where the
+  /// dark palette paints the near-black background colour.
+  static const _palette = _WpButtonPalette(
     disabledContent: WpColors.textMuted,
     disabledFill: WpColors.surfaceVariant,
     disabledBorder: WpColors.borderSubtle,
@@ -491,40 +496,6 @@ class _WpButtonPalette {
       pressedWash: WpColors.errorActiveFill,
     ),
   );
-
-  static const _light = _WpButtonPalette(
-    disabledContent: WpColors.textMuted,
-    disabledFill: WpColors.surfaceVariant,
-    disabledBorder: WpColors.borderSubtle,
-    focusRing: WpColors.textPrimary,
-    accent: _WpButtonToneColors(
-      fill: WpColors.accent,
-      onFill: Color(0xFFFFFFFF),
-      content: WpColors.accent,
-      border: WpColors.borderSubtle,
-      hoverWash: WpColors.accentRowHover,
-      pressedWash: WpColors.accentActiveFill,
-    ),
-    neutral: _WpButtonToneColors(
-      fill: WpColors.active,
-      onFill: WpColors.textPrimary,
-      content: WpColors.textSecondary,
-      border: WpColors.borderSubtle,
-      hoverWash: WpColors.mutedRowHover,
-      pressedWash: WpColors.mutedActiveFill,
-    ),
-    danger: _WpButtonToneColors(
-      fill: WpColors.error,
-      onFill: Color(0xFFFFFFFF),
-      content: WpColors.error,
-      border: WpColors.errorBorder30,
-      hoverWash: WpColors.errorRowHover,
-      pressedWash: WpColors.errorActiveFill,
-    ),
-  );
-
-  static _WpButtonPalette of(Brightness brightness) =>
-      brightness == Brightness.dark ? _dark : _light;
 }
 
 /// Everything [WpButtonSize] actually decides.

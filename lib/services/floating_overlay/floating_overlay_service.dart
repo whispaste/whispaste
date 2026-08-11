@@ -15,7 +15,6 @@ import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
 import '../../core/theme/overlay_design_spec.dart' show OverlaySizeVariant;
 import '../floating_platform_service_base.dart';
-import '../floating_theme_brightness.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
@@ -357,7 +356,6 @@ class FloatingOverlayService
     if (c == null) return;
 
     final l10n = _l10n ?? _resolveL10n();
-    final isDark = _computeIsDark(s);
     final sizeVariant = s.overlaySizeType.variant;
     final elapsed = ref.read(recordingElapsedProvider);
     final recording = ref.read(recordingProvider);
@@ -372,7 +370,6 @@ class FloatingOverlayService
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: _mapPhase(phase),
-      isDark: isDark,
       size: sizeVariant,
       label: _labelFor(phase, l10n),
       elapsed: phase == RecordingPhase.recording ? _formatElapsed(elapsed) : '',
@@ -390,7 +387,7 @@ class FloatingOverlayService
 
     _log.debug(
       'Overlay show: phase=${phase.name} size=${sizeVariant.name} '
-      'isDark=$isDark visible=true',
+      'visible=true',
     );
     c.updateSnapshot(snapshot).catchError((e, st) {
       _log.error('Failed to send overlay snapshot', e, st);
@@ -411,7 +408,6 @@ class FloatingOverlayService
     final hidden = FloatingOverlaySnapshot(
       visible: false,
       state: OverlayVisualState.recording,
-      isDark: true,
       size: sizeVariant,
       label: '',
     );
@@ -650,9 +646,6 @@ class FloatingOverlayService
     final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
-
-  bool _computeIsDark(AppSettings s) =>
-      resolveFloatingSurfaceIsDark(s.themeMode);
 
   L10n? _resolveL10n() {
     final locale = WidgetsBinding.instance.platformDispatcher.locale;

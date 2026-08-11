@@ -30,9 +30,6 @@ class MacOSFloatingButtonController
       invokeMethod('setState', {'state': state.name});
 
   @override
-  Future<void> setTheme({required bool isDark}) =>
-      invokeMethod('setTheme', {'isDark': isDark});
-
   @override
   Future<void> setPosition(double x, double y) =>
       invokeMethod('setPosition', {'x': x, 'y': y});

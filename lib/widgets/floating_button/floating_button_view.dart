@@ -29,11 +29,12 @@ import 'floating_button_painter.dart';
 class WpFloatingButtonView extends StatelessWidget {
   /// Creates the button view.
   ///
-  /// There is deliberately no `isDark` parameter: the V2 disc (white disc, dark
-  /// mic) is theme-independent by design, so it renders identically in dark and
-  /// light. The dark-mode sync the issue asks for lives one layer up — the
-  /// service resolves `isDark` via the shared `resolveFloatingSurfaceIsDark`
-  /// (same path as the overlay) and forwards it to the native shell.
+  /// There is deliberately no theme parameter: the V2 disc (white disc, dark
+  /// mic) is theme-independent by design. That was already true when the app
+  /// had two themes — the service used to resolve a brightness and forward it
+  /// to the native shell, which relayed it to a render channel that ignored
+  /// it. With the light theme gone (2026-08-11) the whole relay is gone with
+  /// it; the disc is unchanged, having never read the flag.
   const WpFloatingButtonView({
     super.key,
     required this.state,

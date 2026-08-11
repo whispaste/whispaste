@@ -345,8 +345,7 @@ class _WpSearchFieldState extends State<WpSearchField> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final brightness = Theme.of(context).brightness;
-    final palette = _WpSearchFieldPalette.of(brightness);
+    const palette = _WpSearchFieldPalette._palette;
     final spec = _WpSearchFieldSpec.of(widget.variant);
     final clearLabel = widget.clearTooltip ?? l10n.actionClearSearch;
 
@@ -550,7 +549,12 @@ class _WpSearchFieldPalette {
   /// The focused border, in every variant — the single focus signal.
   final Color accent;
 
-  static const _dark = _WpSearchFieldPalette(
+  /// The one palette. Named `_dark` while it had a `_light` twin and an
+  /// `of(Brightness)` resolver between them; both went with the light
+  /// stack (2026-08-11). The twin was not merely unreachable — it was
+  /// wrong for this app, painting white on the accent fill where the
+  /// dark palette paints the near-black background colour.
+  static const _palette = _WpSearchFieldPalette(
     surface: WpColors.surfaceVariant,
     mutedFill: WpColors.surfaceMutedFill,
     border: WpColors.borderSubtle,
@@ -558,18 +562,6 @@ class _WpSearchFieldPalette {
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
   );
-
-  static const _light = _WpSearchFieldPalette(
-    surface: WpColors.surfaceVariant,
-    mutedFill: WpColors.surfaceMutedFill,
-    border: WpColors.borderSubtle,
-    textPrimary: WpColors.textPrimary,
-    textMuted: WpColors.textMuted,
-    accent: WpColors.accent,
-  );
-
-  static _WpSearchFieldPalette of(Brightness brightness) =>
-      brightness == Brightness.dark ? _dark : _light;
 }
 
 /// Everything [WpSearchFieldVariant] actually decides.

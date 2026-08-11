@@ -32,7 +32,6 @@ import '../../fixtures/test_helpers.dart';
 
 Future<BoxDecoration> _pumpAvatar(
   WidgetTester tester, {
-  required bool isDark,
   WpCategorySlot slot = WpCategorySlot.iris,
 }) async {
   await tester.pumpWidget(
@@ -44,7 +43,6 @@ Future<BoxDecoration> _pumpAvatar(
           isPinned: false,
         ),
       ),
-      brightness: isDark ? Brightness.dark : Brightness.light,
     ),
   );
   final container = tester.widget<Container>(
@@ -60,65 +58,61 @@ Future<BoxDecoration> _pumpAvatar(
 
 void main() {
   group('The disc is the nav chip\'s material on a circle', () {
-    for (final isDark in [true, false]) {
-      final theme = isDark ? 'dark' : 'light';
+    testWidgets('dark: three stops on one vertical axis', (tester) async {
+      final d = await _pumpAvatar(tester);
+      final gradient = d.gradient! as LinearGradient;
 
-      testWidgets('$theme: three stops on one vertical axis', (tester) async {
-        final d = await _pumpAvatar(tester, isDark: isDark);
-        final gradient = d.gradient! as LinearGradient;
+      expect(
+        (gradient.colors.length, gradient.stops, gradient.begin),
+        (3, const [0.0, WpAvatarTint.glossStop, 1.0], Alignment.topCenter),
+        reason:
+            'dark: the disc is not the nav chip\'s three-stop vertical '
+            'shape. The gloss is a *stop*, not a second painted layer — a '
+            'two-stop diagonal fill is the flat disc this replaced, and a '
+            'highlight drawn on top of it would be the second element the '
+            'chip\'s own gate forbids',
+      );
+    });
 
-        expect(
-          (gradient.colors.length, gradient.stops, gradient.begin),
-          (3, const [0.0, WpAvatarTint.glossStop, 1.0], Alignment.topCenter),
-          reason:
-              '$theme: the disc is not the nav chip\'s three-stop vertical '
-              'shape. The gloss is a *stop*, not a second painted layer — a '
-              'two-stop diagonal fill is the flat disc this replaced, and a '
-              'highlight drawn on top of it would be the second element the '
-              'chip\'s own gate forbids',
-        );
-      });
+    testWidgets('dark: the gloss is a lit crown, not a shaded one', (
+      tester,
+    ) async {
+      final d = await _pumpAvatar(tester);
+      final gradient = d.gradient! as LinearGradient;
 
-      testWidgets('$theme: the gloss is a lit crown, not a shaded one', (
-        tester,
-      ) async {
-        final d = await _pumpAvatar(tester, isDark: isDark);
-        final gradient = d.gradient! as LinearGradient;
+      expect(
+        gradient.colors[0].a,
+        greaterThan(gradient.colors[1].a),
+        reason:
+            'dark: the first stop is thinner than the fill under it, so '
+            'the crown was not precomposited *over* the lit stop — the '
+            'source-over of a highlight can only ever raise the alpha it '
+            'lands on',
+      );
+    });
 
-        expect(
-          gradient.colors[0].a,
-          greaterThan(gradient.colors[1].a),
-          reason:
-              '$theme: the first stop is thinner than the fill under it, so '
-              'the crown was not precomposited *over* the lit stop — the '
-              'source-over of a highlight can only ever raise the alpha it '
-              'lands on',
-        );
-      });
-
-      testWidgets('$theme: it is still a circle', (tester) async {
-        final d = await _pumpAvatar(tester, isDark: isDark);
-        expect(
-          d.shape,
-          BoxShape.circle,
-          reason:
-              '$theme: the disc grew a rounded rectangle. Only the chip\'s '
-              '*material* was ported; its geometry stays in the rail',
-        );
-        expect(
-          d.borderRadius,
-          isNull,
-          reason:
-              '$theme: a borderRadius on a circle is dead weight at best and '
-              'a Flutter assertion at worst',
-        );
-      });
-    }
+    testWidgets('dark: it is still a circle', (tester) async {
+      final d = await _pumpAvatar(tester);
+      expect(
+        d.shape,
+        BoxShape.circle,
+        reason:
+            'dark: the disc grew a rounded rectangle. Only the chip\'s '
+            '*material* was ported; its geometry stays in the rail',
+      );
+      expect(
+        d.borderRadius,
+        isNull,
+        reason:
+            'dark: a borderRadius on a circle is dead weight at best and '
+            'a Flutter assertion at worst',
+      );
+    });
 
     testWidgets('dark buys depth with light, not with a shadow', (
       tester,
     ) async {
-      final d = await _pumpAvatar(tester, isDark: true);
+      final d = await _pumpAvatar(tester);
       expect(
         d.boxShadow,
         isNull,
@@ -146,7 +140,7 @@ void main() {
       // be the material quietly saying something the colour is not allowed to.
       final shapes = <(int, List<double>?, BoxShape, bool)>{};
       for (final slot in WpCategorySlot.categories) {
-        final d = await _pumpAvatar(tester, isDark: true, slot: slot);
+        final d = await _pumpAvatar(tester, slot: slot);
         final g = d.gradient! as LinearGradient;
         shapes.add((g.colors.length, g.stops, d.shape, d.boxShadow == null));
       }

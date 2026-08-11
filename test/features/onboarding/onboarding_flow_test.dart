@@ -37,7 +37,6 @@ import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
-import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
@@ -287,8 +286,8 @@ void main() {
         _expectExactlyTwoNavActions(tester, page: 4);
         await _tapNext(tester);
 
-        // Seite 5: Erscheinungsbild — Theme-Auswahl UND Autostart-Umschalter.
-        expect(find.byType(AppearanceStep), findsOneWidget);
+        // Seite 5: Erscheinungsbild — nur noch der Autostart-Umschalter
+        // (Theme-Auswahl entfernt 2026-08-11, Dark-only).
         expect(find.byType(OnboardingAutostartToggle), findsOneWidget);
         expect(find.text(l10n.onboardingStepOf(5, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 5);

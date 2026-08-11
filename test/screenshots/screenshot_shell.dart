@@ -46,7 +46,6 @@ class WpScreenshotShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Use theme.platform (overridden by ScreenshotDevice) so Windows-target
     // screenshots render with Windows window controls even on a macOS host.
     final platform = Theme.of(context).platform;
@@ -71,7 +70,7 @@ class WpScreenshotShell extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _ScreenshotTitleBar(isDark: isDark, platform: platform),
+                _ScreenshotTitleBar(platform: platform),
                 Expanded(
                   child: Row(
                     children: [
@@ -92,10 +91,7 @@ class WpScreenshotShell extends StatelessWidget {
                               const WpRecordingIndicatorBar(
                                 phase: RecordingPhase.idle,
                               ),
-                              _ScreenshotPageHeader(
-                                title: pageTitle,
-                                isDark: isDark,
-                              ),
+                              _ScreenshotPageHeader(title: pageTitle),
                               Expanded(child: child),
                             ],
                           ),
@@ -123,9 +119,8 @@ class WpScreenshotShell extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ScreenshotTitleBar extends StatelessWidget {
-  const _ScreenshotTitleBar({required this.isDark, required this.platform});
+  const _ScreenshotTitleBar({required this.platform});
 
-  final bool isDark;
   final TargetPlatform platform;
 
   @override
@@ -147,9 +142,9 @@ class _ScreenshotTitleBar extends StatelessWidget {
             const Spacer(),
             // Windows: static window control buttons.
             if (!isMacOS) ...[
-              _StaticWindowButton(icon: LucideIcons.minus, isDark: isDark),
-              _StaticWindowButton(icon: LucideIcons.square, isDark: isDark),
-              _StaticWindowButton(icon: LucideIcons.x, isDark: isDark),
+              const _StaticWindowButton(icon: LucideIcons.minus),
+              const _StaticWindowButton(icon: LucideIcons.square),
+              const _StaticWindowButton(icon: LucideIcons.x),
             ],
           ],
         ),
@@ -201,10 +196,9 @@ class _TrafficDot extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _StaticWindowButton extends StatelessWidget {
-  const _StaticWindowButton({required this.icon, required this.isDark});
+  const _StaticWindowButton({required this.icon});
 
   final IconData icon;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -223,10 +217,9 @@ class _StaticWindowButton extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ScreenshotPageHeader extends StatelessWidget {
-  const _ScreenshotPageHeader({required this.title, required this.isDark});
+  const _ScreenshotPageHeader({required this.title});
 
   final String title;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {

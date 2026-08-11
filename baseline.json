@@ -3,18 +3,18 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
-      "fingerprint": "5b1d40d0386cd28e",
+      "fingerprint": "a3eb033072cf1402",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 391,
+      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:391, lib/core/config/settings_sections.dart:1086"
+    },
+    {
+      "fingerprint": "f414c148d17659f7",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 407,
-      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1102"
-    },
-    {
-      "fingerprint": "1f2cf1f6e3b2056e",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 423,
-      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:423, lib/core/config/settings_sections.dart:1115"
+      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1099"
     },
     {
       "fingerprint": "f2e7450830891215",

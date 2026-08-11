@@ -131,9 +131,6 @@ class AppSettings {
   // Remove once all call-sites migrate to the section API.
   // ---------------------------------------------------------------------------
 
-  @Deprecated('Use interface_.themeMode instead')
-  ThemeMode get themeMode => interface_.themeMode;
-
   @Deprecated('Use interface_.locale instead')
   String get locale => interface_.locale;
 
@@ -522,7 +519,6 @@ class AppSettings {
     'Existing call sites (including snapshot tests) will migrate gradually.',
   )
   AppSettings copyWith({
-    ThemeMode? themeMode,
     String? locale,
     bool? launchAtStartup,
     bool? startMinimized,
@@ -584,7 +580,6 @@ class AppSettings {
   }) {
     return AppSettings(
       interface_: interface_.copyWith(
-        themeMode: themeMode,
         locale: locale,
         launchAtStartup: launchAtStartup,
         startMinimized: startMinimized,
@@ -898,17 +893,6 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await ref
         .read(historyDatabaseProvider)
         .writeAppSettings(updated.toStorageMap());
-  }
-
-  /// Toggle between dark and light theme.
-  Future<void> toggleDarkLight() async {
-    await updateSettings(
-      (s) => s.copyWith(
-        themeMode: s.interface_.themeMode == ThemeMode.dark
-            ? ThemeMode.light
-            : ThemeMode.dark,
-      ),
-    );
   }
 
   /// Restore all settings to factory defaults.

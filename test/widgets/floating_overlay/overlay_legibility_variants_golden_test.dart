@@ -27,7 +27,6 @@ FloatingOverlaySnapshot _snap(OverlayVisualState state) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
-    isDark: false,
     label: switch (state) {
       OverlayVisualState.recording => 'Recording',
       OverlayVisualState.done => 'Pasted',

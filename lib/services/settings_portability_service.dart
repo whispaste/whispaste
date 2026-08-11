@@ -164,7 +164,13 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'stt_strip_punctuation',
   'stt_vad_enabled',
   'text_replacements_enabled',
-  'theme_mode',
+  // No 'theme_mode' since 2026-08-11. It left this list with the light theme:
+  // `toStorageMap()` no longer emits the key, and the assertion that every
+  // emitted key is accounted for here cuts both ways — a portable key with
+  // nothing to carry fails it just as loudly as an unlisted one. An older
+  // export file that still contains the key stays importable; the merge path
+  // does not consult this list, so the stale entry is ignored rather than
+  // rejected.
   'transcription_complete_sound',
 };
 

@@ -17,8 +17,6 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-
 import 'quality_tier.dart' show QualityTier;
 import 'settings_enums.dart';
 
@@ -37,12 +35,6 @@ double _readDouble(Map<String, String> v, String key, double fallback) =>
 
 int _readInt(Map<String, String> v, String key, int fallback) =>
     int.tryParse(v[key] ?? '') ?? fallback;
-
-ThemeMode _themeModeFromString(String name) => switch (name) {
-  'light' => ThemeMode.light,
-  'system' => ThemeMode.system,
-  _ => ThemeMode.dark,
-};
 
 Map<QualityTier, double>? _readBenchmarkRtf(String? value) {
   if (value == null || value.isEmpty) return null;
@@ -96,14 +88,12 @@ String _migrateModelId(String raw) => switch (raw) {
 
 class InterfaceSettings {
   const InterfaceSettings({
-    this.themeMode = ThemeMode.dark,
     this.locale = 'en',
     this.launchAtStartup = false,
     this.startMinimized = false,
     this.showNotifications = true,
   });
 
-  final ThemeMode themeMode;
   final String locale;
   final bool launchAtStartup;
   final bool startMinimized;
@@ -112,7 +102,6 @@ class InterfaceSettings {
   static const InterfaceSettings defaults = InterfaceSettings();
 
   factory InterfaceSettings.fromMap(Map<String, String> v) => InterfaceSettings(
-    themeMode: _themeModeFromString(v['theme_mode'] ?? 'dark'),
     locale: v['locale'] ?? defaults.locale,
     launchAtStartup: _readBool(
       v,
@@ -127,8 +116,11 @@ class InterfaceSettings {
     ),
   );
 
+  // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
+  // survives untouched — migrations here are additive-only — but nothing
+  // writes it any more and nothing reads it back, so a value left over from
+  // a user who once picked Light is inert rather than authoritative.
   Map<String, String> toMap() => {
-    'theme_mode': themeMode.name,
     'locale': locale,
     'launch_at_startup': '$launchAtStartup',
     'start_minimized': '$startMinimized',
@@ -136,13 +128,11 @@ class InterfaceSettings {
   };
 
   InterfaceSettings copyWith({
-    ThemeMode? themeMode,
     String? locale,
     bool? launchAtStartup,
     bool? startMinimized,
     bool? showNotifications,
   }) => InterfaceSettings(
-    themeMode: themeMode ?? this.themeMode,
     locale: locale ?? this.locale,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     startMinimized: startMinimized ?? this.startMinimized,
@@ -153,20 +143,14 @@ class InterfaceSettings {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is InterfaceSettings &&
-          themeMode == other.themeMode &&
           locale == other.locale &&
           launchAtStartup == other.launchAtStartup &&
           startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications;
 
   @override
-  int get hashCode => Object.hash(
-    themeMode,
-    locale,
-    launchAtStartup,
-    startMinimized,
-    showNotifications,
-  );
+  int get hashCode =>
+      Object.hash(locale, launchAtStartup, startMinimized, showNotifications);
 }
 
 // ===========================================================================

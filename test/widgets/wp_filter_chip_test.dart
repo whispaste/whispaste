@@ -48,7 +48,6 @@ void _noop() {}
 
 Widget _chip({
   bool isActive = false,
-  bool isDark = true,
   int? count,
   IconData? icon,
   VoidCallback? onTap,
@@ -113,29 +112,10 @@ void main() {
       );
     });
 
-    testWidgets('the light theme resolves the same three states through its '
-        'own token pair', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(_chip(isDark: false), brightness: Brightness.light),
-      );
-      await tester.pumpAndSettle();
-      expect(_pillDecoration(tester).color, WpColorsDark.surfaceVariant);
-      expect(_labelColor(tester, 'All'), WpColorsDark.textSecondary);
-
-      await _hover(tester);
-      expect(_pillDecoration(tester).color, WpColorsDark.accentRowHover);
-      expect(_labelColor(tester, 'All'), WpColorsDark.textPrimary);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _chip(isActive: true, isDark: false),
-          brightness: Brightness.light,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(_pillDecoration(tester).color, WpColorsDark.accentActiveFill);
-      expect(_labelColor(tester, 'All'), WpColorsDark.accent);
-    });
+    // Removed 2026-08-11 (dark-only build): `the light theme resolves the
+    // same three states through its own token pair`. It re-pumped `_chip`
+    // under `Brightness.light` to prove the light token pair matched the
+    // dark one; there is one token pair now.
   });
 
   group('WpFilterChip — anatomy', () {

@@ -12,12 +12,11 @@
 /// The driver's own main window is hidden, so a full-screen capture shows only
 /// the native floating surfaces.
 ///
-/// Run (pick state/theme via dart-define):
+/// Run (pick state via dart-define):
 ///   flutter run -t tool/overlay_live_driver.dart \
-///     --dart-define=STATE=recording --dart-define=THEME=dark
+///     --dart-define=STATE=recording
 ///
-/// STATE ∈ {recording, transcribing, done, error}; THEME ∈ {dark, light};
-/// COMPACT ∈ {true, false}.
+/// STATE ∈ {recording, transcribing, done, error}; COMPACT ∈ {true, false}.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -43,7 +42,6 @@ const String _stateName = String.fromEnvironment(
   'STATE',
   defaultValue: 'recording',
 );
-const String _themeName = String.fromEnvironment('THEME', defaultValue: 'dark');
 // SIZE=normal|compact|mini (legacy COMPACT=true maps to compact).
 const String _sizeName = String.fromEnvironment('SIZE', defaultValue: '');
 const bool _compact = bool.fromEnvironment('COMPACT', defaultValue: false);
@@ -92,8 +90,6 @@ Future<void> main(List<String> args) async {
   // shells render in their own windows/engines.
   runApp(const SizedBox.shrink());
 
-  const isDark = _themeName != 'light';
-
   final overlay = createFloatingOverlayController();
   final button = createFloatingButtonController();
 
@@ -103,7 +99,6 @@ Future<void> main(List<String> args) async {
       FloatingOverlaySnapshot(
         visible: true,
         state: _state,
-        isDark: isDark,
         size: _size,
         label: switch (_state) {
           OverlayVisualState.recording => 'Recording',
@@ -128,7 +123,6 @@ Future<void> main(List<String> args) async {
   }
 
   if (button != null) {
-    await button.setTheme(isDark: isDark);
     await button.show(x: 480, y: 360, size: 56);
     await button.setState(_buttonState);
   }

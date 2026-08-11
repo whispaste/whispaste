@@ -197,40 +197,31 @@ void main() {
 
     // The card clamps itself to the viewport and scrolls its body, so a 2x
     // text scale on an 800x600 window must not cut a dialog off.
-    for (final brightness in Brightness.values) {
-      testWidgets('${brightness.name}: a content dialog stays whole', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          makeTestable(
-            _contentDialogOpener(
-              body:
-                  'Deleting downloaded models, the transcript database, '
-                  'the secure store and every setting you have changed. '
-                  'This cannot be undone.',
-            ),
-            brightness: brightness,
+    testWidgets('dark: a content dialog stays whole', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          _contentDialogOpener(
+            body:
+                'Deleting downloaded models, the transcript database, '
+                'the secure store and every setting you have changed. '
+                'This cannot be undone.',
           ),
-        );
-        await tester.tap(find.text('Open dialog'));
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.tap(find.text('Open dialog'));
+      await tester.pumpAndSettle();
 
-        expect(find.text('Resetting WhisPaste'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
+      expect(find.text('Resetting WhisPaste'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
 
-      testWidgets('${brightness.name}: a form dialog stays whole', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          makeTestable(_formDialogOpener(), brightness: brightness),
-        );
-        await tester.tap(find.text('Open dialog'));
-        await tester.pumpAndSettle();
+    testWidgets('dark: a form dialog stays whole', (tester) async {
+      await tester.pumpWidget(makeTestable(_formDialogOpener()));
+      await tester.tap(find.text('Open dialog'));
+      await tester.pumpAndSettle();
 
-        expect(find.text('New Snippet'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
-    }
+      expect(find.text('New Snippet'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

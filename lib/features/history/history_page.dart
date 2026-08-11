@@ -270,7 +270,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     List<DateGroup> groups,
     List<HistoryEntry> filteredEntries,
     HistoryEntry? selectedEntry,
-    bool isDark,
     bool isTrashView,
     bool isArchiveView,
   ) {
@@ -408,7 +407,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeFilter = ref.watch(historyFilterProvider);
     final groupedAsync = ref.watch(groupedHistoryProvider);
     final filteredAsync = ref.watch(filteredHistoryProvider);
@@ -531,7 +529,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       groups,
                       filteredEntries,
                       selectedEntry,
-                      isDark,
                       isTrashView,
                       isArchiveView,
                     );

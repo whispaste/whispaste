@@ -96,7 +96,6 @@ Widget _makeTestable({
   Map<QualityTier, double>? benchmarkRtf,
   hw.GpuInfo? gpu,
   void Function(String)? onModelSelected,
-  bool isDark = true,
   bool isBenchmarking = false,
   QualityTier? benchmarkingTier,
 }) {
@@ -119,7 +118,7 @@ Widget _makeTestable({
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: isDark ? wpDarkTheme() : wpLightTheme(),
+      theme: wpDarkTheme(),
       // Pin locale to `en` so tier labels are deterministic across CI hosts.
       locale: const Locale('en'),
       localizationsDelegates: L10n.localizationsDelegates,
@@ -539,125 +538,110 @@ void main() {
     Color? lineColor(WidgetTester tester, String message) =>
         tester.widget<Text>(find.text(message)).style?.color;
 
-    for (final (themeName, isDark) in [('dark', true), ('light', false)]) {
-      testWidgets('$themeName: a fast tier says nothing at all', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _makeTestable(
-            isDark: isDark,
-            gpu: gpu,
-            currentModelId: compactId,
-            benchmarkRtf: const {QualityTier.compact: 0.1},
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text(l10n.qualityTierInfoModerate), findsNothing);
-        expect(find.byIcon(LucideIcons.gauge), findsNothing);
-        expect(find.byIcon(LucideIcons.hourglass), findsNothing);
-      });
-
-      testWidgets('$themeName: a moderate tier takes the ramp\'s middle rung', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _makeTestable(
-            isDark: isDark,
-            gpu: gpu,
-            currentModelId: compactId,
-            benchmarkRtf: const {QualityTier.compact: 0.5},
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          lineColor(tester, l10n.qualityTierInfoModerate),
-          WpCategorySlot.orchid.ramp(5)[3],
-          reason:
-              'the copy reads "Good balance of speed and quality" — it sits one '
-              'rung under the slow verdict in the *same* hue, so the grading '
-              'reads as less time rather than as praise contradicted by a tint',
-        );
-        expect(find.byIcon(LucideIcons.gauge), findsOneWidget);
-      });
-
-      testWidgets('$themeName: a slow tier takes the ramp\'s far rung', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _makeTestable(
-            isDark: isDark,
-            gpu: gpu,
-            currentModelId: compactId,
-            benchmarkRtf: const {QualityTier.compact: 1.5},
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
-          WpCategorySlot.orchid.ramp(5)[4],
-          reason:
-              'the heaviest rung of the one hue, not a second hue — weight '
-              'rises with the time cost the line reports',
-        );
-        expect(
-          find.byIcon(LucideIcons.hourglass),
-          findsOneWidget,
-          reason:
-              'an hourglass, not an alert triangle — the tier is slower, not '
-              'broken',
-        );
-        expect(find.byIcon(LucideIcons.triangleAlert), findsNothing);
-      });
-
-      testWidgets('$themeName: an unmeasured tier claims nothing', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _makeTestable(isDark: isDark, currentModelId: compactId),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          lineColor(tester, l10n.qualityTierInfoBenchmarking),
-          WpColorsDark.textMuted,
-          reason:
-              'an unmeasured tier has no position on an ordinal scale, so it '
-              'takes no rung of the ramp at all',
-        );
-        expect(find.byIcon(LucideIcons.hourglass), findsNothing);
-        expect(find.byIcon(LucideIcons.gauge), findsNothing);
-      });
-
-      testWidgets(
-        '$themeName: a running benchmark never borrows the slow verdict',
-        (tester) async {
-          // The VRAM estimate for this tier is `slow`, but nothing has been
-          // measured yet — putting the line on the ramp's far rung here would
-          // announce a verdict the app does not have.
-          await tester.pumpWidget(
-            _makeTestable(
-              isDark: isDark,
-              gpu: gpu,
-              currentModelId: compactId,
-              benchmarkRtf: const {QualityTier.compact: 1.5},
-              isBenchmarking: true,
-              benchmarkingTier: QualityTier.compact,
-            ),
-          );
-          await tester.pump();
-
-          expect(
-            lineColor(tester, l10n.qualityTierInfoBenchmarking),
-            WpColorsDark.textMuted,
-            reason:
-                'while measuring, the line must read as "no verdict yet", not '
-                'as the estimate it is about to replace',
-          );
-        },
+    testWidgets('a fast tier says nothing at all', (tester) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          gpu: gpu,
+          currentModelId: compactId,
+          benchmarkRtf: const {QualityTier.compact: 0.1},
+        ),
       );
-    }
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.qualityTierInfoModerate), findsNothing);
+      expect(find.byIcon(LucideIcons.gauge), findsNothing);
+      expect(find.byIcon(LucideIcons.hourglass), findsNothing);
+    });
+
+    testWidgets('a moderate tier takes the ramp\'s middle rung', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          gpu: gpu,
+          currentModelId: compactId,
+          benchmarkRtf: const {QualityTier.compact: 0.5},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        lineColor(tester, l10n.qualityTierInfoModerate),
+        WpCategorySlot.orchid.ramp(5)[3],
+        reason:
+            'the copy reads "Good balance of speed and quality" — it sits one '
+            'rung under the slow verdict in the *same* hue, so the grading '
+            'reads as less time rather than as praise contradicted by a tint',
+      );
+      expect(find.byIcon(LucideIcons.gauge), findsOneWidget);
+    });
+
+    testWidgets('a slow tier takes the ramp\'s far rung', (tester) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          gpu: gpu,
+          currentModelId: compactId,
+          benchmarkRtf: const {QualityTier.compact: 1.5},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
+        WpCategorySlot.orchid.ramp(5)[4],
+        reason:
+            'the heaviest rung of the one hue, not a second hue — weight '
+            'rises with the time cost the line reports',
+      );
+      expect(
+        find.byIcon(LucideIcons.hourglass),
+        findsOneWidget,
+        reason:
+            'an hourglass, not an alert triangle — the tier is slower, not '
+            'broken',
+      );
+      expect(find.byIcon(LucideIcons.triangleAlert), findsNothing);
+    });
+
+    testWidgets('an unmeasured tier claims nothing', (tester) async {
+      await tester.pumpWidget(_makeTestable(currentModelId: compactId));
+      await tester.pumpAndSettle();
+
+      expect(
+        lineColor(tester, l10n.qualityTierInfoBenchmarking),
+        WpColorsDark.textMuted,
+        reason:
+            'an unmeasured tier has no position on an ordinal scale, so it '
+            'takes no rung of the ramp at all',
+      );
+      expect(find.byIcon(LucideIcons.hourglass), findsNothing);
+      expect(find.byIcon(LucideIcons.gauge), findsNothing);
+    });
+
+    testWidgets('a running benchmark never borrows the slow verdict', (
+      tester,
+    ) async {
+      // The VRAM estimate for this tier is `slow`, but nothing has been
+      // measured yet — putting the line on the ramp's far rung here would
+      // announce a verdict the app does not have.
+      await tester.pumpWidget(
+        _makeTestable(
+          gpu: gpu,
+          currentModelId: compactId,
+          benchmarkRtf: const {QualityTier.compact: 1.5},
+          isBenchmarking: true,
+          benchmarkingTier: QualityTier.compact,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        lineColor(tester, l10n.qualityTierInfoBenchmarking),
+        WpColorsDark.textMuted,
+        reason:
+            'while measuring, the line must read as "no verdict yet", not '
+            'as the estimate it is about to replace',
+      );
+    });
   });
 }

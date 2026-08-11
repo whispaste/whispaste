@@ -126,7 +126,7 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
 
   if (strcmp(method, "updateSnapshot") == 0) {
     // ── updateSnapshot ────────────────────────────────────────────────────
-    // args: { visible, size, state, isDark, label, … }
+    // args: { visible, size, state, label, … }
     bool visible = false;
     // "size" is the canonical key ("normal" | "compact" | "mini"); fall back
     // to the legacy "compact" bool for payloads from an older main engine.

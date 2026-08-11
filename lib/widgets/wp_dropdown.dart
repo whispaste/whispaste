@@ -184,7 +184,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     });
 
     final theme = Theme.of(context);
-    final palette = _WpDropdownPalette.of(theme.brightness);
+    const palette = _WpDropdownPalette._palette;
 
     // `bodyLarge`, not `titleMedium`: the trigger shows a *value*, exactly as
     // a text field does, and 13/w400 is what `WpTextFieldVariant.form` and
@@ -337,7 +337,12 @@ class _WpDropdownPalette {
   final Color focusWash;
   final Color hoverWash;
 
-  static const _dark = _WpDropdownPalette(
+  /// The one palette. Named `_dark` while it had a `_light` twin and an
+  /// `of(Brightness)` resolver between them; both went with the light
+  /// stack (2026-08-11). The twin was not merely unreachable — it was
+  /// wrong for this app, painting white on the accent fill where the
+  /// dark palette paints the near-black background colour.
+  static const _palette = _WpDropdownPalette(
     surface: WpColors.surfaceVariant,
     border: WpColors.borderSubtle,
     textPrimary: WpColors.textPrimary,
@@ -348,21 +353,6 @@ class _WpDropdownPalette {
     focusWash: WpColors.accentActiveFill,
     hoverWash: WpColors.accentRowHover,
   );
-
-  static const _light = _WpDropdownPalette(
-    surface: WpColors.surfaceVariant,
-    border: WpColors.borderSubtle,
-    textPrimary: WpColors.textPrimary,
-    textSecondary: WpColors.textSecondary,
-    textMuted: WpColors.textMuted,
-    accent: WpColors.accent,
-    menuSurface: WpColors.surfaceElevated,
-    focusWash: WpColors.accentActiveFill,
-    hoverWash: WpColors.accentRowHover,
-  );
-
-  static _WpDropdownPalette of(Brightness brightness) =>
-      brightness == Brightness.dark ? _dark : _light;
 }
 
 // ---------------------------------------------------------------------------

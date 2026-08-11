@@ -7,8 +7,8 @@
 ///  - Spike fidelity: the painter consumes the approved capsule/tint/layout
 ///    tokens (capsule radius, tint-gradient fill stops, accent dot, spike
 ///    layout offsets).
-///  - painter-per-state: the view builds and paints for all 4 states × 2 themes
-///    × 2 sizes without throwing.
+///  - painter-per-state: the view builds and paints for all 4 states × 3 sizes
+///    without throwing.
 ///  - AC5: no glow/badge; calm rendering builds for every combination.
 library;
 
@@ -20,13 +20,11 @@ import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
-  required bool isDark,
   OverlaySizeVariant size = OverlaySizeVariant.normal,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
-    isDark: isDark,
     size: size,
     label: switch (state) {
       OverlayVisualState.recording => 'Press Ctrl+Shift+D to stop',
@@ -43,10 +41,9 @@ FloatingOverlaySnapshot _snap(
 
 void main() {
   group('WpFloatingOverlayView.painterFor — spec sourcing (AC1)', () {
-    test('theme mapping comes from the spec', () {
-      expect(WpFloatingOverlayView.themeFor(true), OverlayDesignTheme.dark);
-      expect(WpFloatingOverlayView.themeFor(false), OverlayDesignTheme.light);
-    });
+    // Removed 2026-08-11 (dark-only build): `theme mapping comes from the
+    // spec`. It asserted `WpFloatingOverlayView.themeFor(bool)`, which is
+    // gone — call sites now use `OverlayDesignTheme.dark` directly.
 
     test('design-state mapping covers every visual state', () {
       for (final s in OverlayVisualState.values) {
@@ -59,27 +56,19 @@ void main() {
     });
 
     test('colours, size and layout are taken from OverlayDesignSpec', () {
-      for (final isDark in [true, false]) {
-        for (final size in OverlaySizeVariant.values) {
-          final painter = WpFloatingOverlayView.painterFor(
-            snapshot: _snap(
-              OverlayVisualState.recording,
-              isDark: isDark,
-              size: size,
-            ),
-          );
-          final theme = isDark
-              ? OverlayDesignTheme.dark
-              : OverlayDesignTheme.light;
+      for (final size in OverlaySizeVariant.values) {
+        final painter = WpFloatingOverlayView.painterFor(
+          snapshot: _snap(OverlayVisualState.recording, size: size),
+        );
+        const theme = OverlayDesignTheme.dark;
 
-          expect(
-            painter.colors.capsuleFillStart,
-            OverlayDesignSpec.colors(theme).capsuleFillStart,
-          );
-          expect(painter.colors.accent, OverlayDesignSpec.colors(theme).accent);
-          expect(painter.sizeSpec, OverlayDesignSpec.sizeFor(size));
-          expect(painter.layout, OverlayDesignSpec.layoutFor(size));
-        }
+        expect(
+          painter.colors.capsuleFillStart,
+          OverlayDesignSpec.colors(theme).capsuleFillStart,
+        );
+        expect(painter.colors.accent, OverlayDesignSpec.colors(theme).accent);
+        expect(painter.sizeSpec, OverlayDesignSpec.sizeFor(size));
+        expect(painter.layout, OverlayDesignSpec.layoutFor(size));
       }
     });
 
@@ -89,11 +78,11 @@ void main() {
         0.5,
       );
       final recording = WpFloatingOverlayView.painterFor(
-        snapshot: _snap(OverlayVisualState.recording, isDark: true),
+        snapshot: _snap(OverlayVisualState.recording),
         waveformBars: bars,
       );
       final done = WpFloatingOverlayView.painterFor(
-        snapshot: _snap(OverlayVisualState.done, isDark: true),
+        snapshot: _snap(OverlayVisualState.done),
         waveformBars: bars,
       );
       expect(recording.waveformBars, isNotEmpty);
@@ -272,7 +261,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
-        isDark: false,
         label: 'Recording',
         elapsed: '0:05',
         progress: 0.1,
@@ -311,7 +299,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.transcribing,
-        isDark: false,
         label: 'Transcribing…',
         elapsed: '',
         progress: 0.0,
@@ -327,7 +314,6 @@ void main() {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
-        isDark: false,
         label: 'Recording',
         elapsed: '0:01',
         progress: 0.0,
@@ -342,7 +328,6 @@ void main() {
       final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
-          isDark: false,
           size: OverlaySizeVariant.mini,
         ),
       );
@@ -380,36 +365,35 @@ void main() {
     });
   });
 
-  group('WpFloatingOverlayView — paints every state/theme/size (AC2)', () {
+  group('WpFloatingOverlayView — paints every state/size (AC2)', () {
     for (final state in OverlayVisualState.values) {
-      for (final isDark in [true, false]) {
-        for (final size in OverlaySizeVariant.values) {
-          testWidgets('${state.name} · ${isDark ? 'dark' : 'light'} · '
-              '${size.name} builds & paints', (tester) async {
-            final bars = List<double>.generate(
-              OverlayDesignSpec.waveform.barCount,
-              (i) => (i % 7) / 7.0,
-            );
-            await tester.pumpWidget(
-              Directionality(
-                textDirection: TextDirection.ltr,
-                child: Center(
-                  child: WpFloatingOverlayView(
-                    snapshot: _snap(state, isDark: isDark, size: size),
-                    waveformBars: bars,
-                  ),
+      for (final size in OverlaySizeVariant.values) {
+        testWidgets('${state.name} · ${size.name} builds & paints', (
+          tester,
+        ) async {
+          final bars = List<double>.generate(
+            OverlayDesignSpec.waveform.barCount,
+            (i) => (i % 7) / 7.0,
+          );
+          await tester.pumpWidget(
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Center(
+                child: WpFloatingOverlayView(
+                  snapshot: _snap(state, size: size),
+                  waveformBars: bars,
                 ),
               ),
-            );
-            await tester.pump(const Duration(milliseconds: 16));
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
 
-            expect(find.byType(CustomPaint), findsWidgets);
-            expect(tester.takeException(), isNull);
+          expect(find.byType(CustomPaint), findsWidgets);
+          expect(tester.takeException(), isNull);
 
-            // Tear down the repeating animation cleanly.
-            await tester.pumpWidget(const SizedBox.shrink());
-          });
-        }
+          // Tear down the repeating animation cleanly.
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
       }
     }
   });

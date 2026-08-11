@@ -130,7 +130,6 @@
 
   "settingsInterface": "Interface",
   "settingsInterfaceSubtitle": "Appearance and behavior",
-  "settingsTheme": "Theme",
   "settingsLaunchAtStartup": "Launch at Startup",
   "settingsStartMinimized": "Start Minimized",
   "settingsStartMinimizedSubtitle": "Start in the background when launched at system boot",
@@ -383,9 +382,6 @@
   },
   "settingsOff": "Off",
   "settingsOn": "On",
-  "settingsThemeDark": "Dark",
-  "settingsThemeLight": "Light",
-  "settingsThemeSystem": "System",
 
   "statusReady": "Ready",
   "statusRecording": "Recording…",
@@ -412,7 +408,6 @@
   "@actionClearSearch": {
     "description": "Tooltip and screen-reader label of WpSearchField's clear button. Used by every search field that has no feature-specific wording of its own."
   },
-  "tooltipTheme": "Toggle theme",
   "tooltipLanguage": "Language",
   "aboutVersion": "Version {version}",
   "@aboutVersion": {
@@ -668,8 +663,6 @@
   "shortcutKeyPageUp": "Page Up",
   "shortcutKeyPageDown": "Page Down",
 
-  "tooltipSwitchToLight": "Switch to Light Mode",
-  "tooltipSwitchToDark": "Switch to Dark Mode",
 
   "modelServerReady": "Speech service ready",
   "modelServerMissing": "Speech service not installed",
@@ -932,11 +925,7 @@
   "onboardingPrivacyCrashToggleHint": "Helps fix bugs, on by default, switch off anytime",
   "onboardingStepOf": "Step {current} of {total}",
   "@onboardingStepOf": { "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } } },
-  "onboardingThemeLight": "Light",
-  "onboardingThemeDark": "Dark",
-  "onboardingThemeSystem": "System",
-  "onboardingAppearancePageTitle": "Look & launch",
-  "onboardingAppearancePageSubtitle": "Light, dark, or match your system — and whether WhisPaste starts when you log in.",
+  "onboardingAppearancePageTitle": "Launch",
   "onboardingBeat1Title": "Press the hotkey, speak, done",
   "onboardingBeat1Caption": "Recording starts instantly — your words land as text right at your cursor.",
   "onboardingBeat2Title": "Runs locally, on your hardware",

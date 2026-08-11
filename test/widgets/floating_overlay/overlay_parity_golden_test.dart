@@ -4,7 +4,13 @@
 /// Plattformen denselben Painter-Output konsumieren, erzwingt ein Golden-Match
 /// mechanisch die Parität (ADR 0002 / Issue 06).
 ///
-/// Abdeckung: 4 States × 2 Themes × 3 Sizes = 24 Goldens.
+/// Abdeckung: 4 States × 3 Sizes = 12 Goldens.
+///
+/// The light-theme half of this matrix was removed 2026-08-11 (dark-only
+/// build): [WpFloatingOverlayView.painterFor] always resolved
+/// `OverlayDesignTheme.dark`, and [OverlayDesignSpec.colors] returns the same
+/// constant for both theme values, so the dropped goldens were pixel-for-
+/// pixel duplicates of the ones that remain, not a second design.
 ///
 /// Determinismus-Ankerpunkte:
 /// - [dotPulse] ist auf 1.0 fixiert (keine Animation).
@@ -25,13 +31,11 @@ import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
-  required bool isDark,
   required OverlaySizeVariant size,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
-    isDark: isDark,
     size: size,
     label: switch (state) {
       OverlayVisualState.recording => 'Recording',
@@ -92,31 +96,28 @@ void main() {
   // `setUpAll` guarantees the font is registered before any test pumps.
   setUpAll(() => loadAppFonts(onlyLoadTheseFonts: {'Inter'}));
 
-  group('WpOverlayPainter parität-goldens (4 states × 2 themes × 3 sizes)', () {
+  group('WpOverlayPainter parität-goldens (4 states × 3 sizes)', () {
     for (final state in OverlayVisualState.values) {
-      for (final isDark in [true, false]) {
-        for (final size in OverlaySizeVariant.values) {
-          final stateName = state.name;
-          final themeName = isDark ? 'dark' : 'light';
-          final sizeName = size.name;
-          final goldenName = 'overlay_${stateName}_${themeName}_$sizeName';
-          final testKey = ValueKey(goldenName);
+      for (final size in OverlaySizeVariant.values) {
+        final stateName = state.name;
+        final sizeName = size.name;
+        final goldenName = 'overlay_${stateName}_dark_$sizeName';
+        final testKey = ValueKey(goldenName);
 
-          testWidgets('golden: $goldenName', (tester) async {
-            final snapshot = _snap(state, isDark: isDark, size: size);
+        testWidgets('golden: $goldenName', (tester) async {
+          final snapshot = _snap(state, size: size);
 
-            await tester.pumpWidget(
-              _buildStaticFrame(snapshot: snapshot, key: testKey),
-            );
-            // Ein einzelner Frame genügt (kein AnimationController aktiv).
-            await tester.pump();
+          await tester.pumpWidget(
+            _buildStaticFrame(snapshot: snapshot, key: testKey),
+          );
+          // Ein einzelner Frame genügt (kein AnimationController aktiv).
+          await tester.pump();
 
-            await expectLater(
-              find.byKey(testKey),
-              matchesGoldenFile('goldens/overlay/$goldenName.png'),
-            );
-          });
-        }
+          await expectLater(
+            find.byKey(testKey),
+            matchesGoldenFile('goldens/overlay/$goldenName.png'),
+          );
+        });
       }
     }
   });

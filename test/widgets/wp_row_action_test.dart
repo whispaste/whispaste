@@ -75,41 +75,37 @@ void main() {
   });
 
   group('WpRowAction — destructive colour follows the theme', () {
-    for (final isDark in [true, false]) {
-      final label = isDark ? 'dark' : 'light';
-      testWidgets('destructive action turns error-red on hover ($label)', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          makeTestable(
-            Center(
-              child: WpRowAction(
-                icon: LucideIcons.trash2,
-                tooltip: 'Delete',
-                isDestructive: true,
-                onTap: () {},
-              ),
+    testWidgets('destructive action turns error-red on hover (dark)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          Center(
+            child: WpRowAction(
+              icon: LucideIcons.trash2,
+              tooltip: 'Delete',
+              isDestructive: true,
+              onTap: () {},
             ),
-            brightness: isDark ? Brightness.dark : Brightness.light,
           ),
-        );
+        ),
+      );
 
-        const muted = WpColorsDark.textMuted;
-        expect(
-          _iconColor(tester),
-          muted,
-          reason: 'at rest a destructive action is as quiet as any other',
-        );
+      const muted = WpColorsDark.textMuted;
+      expect(
+        _iconColor(tester),
+        muted,
+        reason: 'at rest a destructive action is as quiet as any other',
+      );
 
-        await _hover(tester, find.byType(WpRowAction));
+      await _hover(tester, find.byType(WpRowAction));
 
-        expect(
-          _iconColor(tester),
-          WpColorsDark.error,
-          reason: 'each theme must contribute its own error colour',
-        );
-      });
-    }
+      expect(
+        _iconColor(tester),
+        WpColorsDark.error,
+        reason: 'each theme must contribute its own error colour',
+      );
+    });
   });
 
   group('WpRowActions — reveal without reflow', () {

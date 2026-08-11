@@ -1,4 +1,4 @@
-/// Smoke test: verifies that both WhisPaste themes use Inter as the primary
+/// Smoke test: verifies that the WhisPaste theme uses Inter as the primary
 /// font family.
 ///
 /// Flutter propagates the ThemeData(fontFamily:) value by applying it to the
@@ -23,11 +23,8 @@ void main() {
       expect(theme.textTheme.bodyLarge?.fontFamily, 'Inter');
     });
 
-    test('wpLightTheme textTheme uses Inter for body roles', () {
-      final theme = wpLightTheme();
-      expect(theme.textTheme.bodyMedium?.fontFamily, 'Inter');
-      expect(theme.textTheme.bodyLarge?.fontFamily, 'Inter');
-    });
+    // Removed 2026-08-11 (dark-only build): `wpLightTheme textTheme uses
+    // Inter for body roles`. `wpLightTheme()` no longer exists.
 
     test('wpDarkTheme textTheme uses Inter for headline roles', () {
       final theme = wpDarkTheme();

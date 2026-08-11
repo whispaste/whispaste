@@ -651,12 +651,6 @@ abstract class L10n {
   /// **'Appearance and behavior'**
   String get settingsInterfaceSubtitle;
 
-  /// No description provided for @settingsTheme.
-  ///
-  /// In en, this message translates to:
-  /// **'Theme'**
-  String get settingsTheme;
-
   /// No description provided for @settingsLaunchAtStartup.
   ///
   /// In en, this message translates to:
@@ -1803,24 +1797,6 @@ abstract class L10n {
   /// **'On'**
   String get settingsOn;
 
-  /// No description provided for @settingsThemeDark.
-  ///
-  /// In en, this message translates to:
-  /// **'Dark'**
-  String get settingsThemeDark;
-
-  /// No description provided for @settingsThemeLight.
-  ///
-  /// In en, this message translates to:
-  /// **'Light'**
-  String get settingsThemeLight;
-
-  /// No description provided for @settingsThemeSystem.
-  ///
-  /// In en, this message translates to:
-  /// **'System'**
-  String get settingsThemeSystem;
-
   /// No description provided for @statusReady.
   ///
   /// In en, this message translates to:
@@ -1952,12 +1928,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Clear search'**
   String get actionClearSearch;
-
-  /// No description provided for @tooltipTheme.
-  ///
-  /// In en, this message translates to:
-  /// **'Toggle theme'**
-  String get tooltipTheme;
 
   /// No description provided for @tooltipLanguage.
   ///
@@ -3183,18 +3153,6 @@ abstract class L10n {
   /// **'Page Down'**
   String get shortcutKeyPageDown;
 
-  /// No description provided for @tooltipSwitchToLight.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch to Light Mode'**
-  String get tooltipSwitchToLight;
-
-  /// No description provided for @tooltipSwitchToDark.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch to Dark Mode'**
-  String get tooltipSwitchToDark;
-
   /// No description provided for @modelServerReady.
   ///
   /// In en, this message translates to:
@@ -4377,35 +4335,11 @@ abstract class L10n {
   /// **'Step {current} of {total}'**
   String onboardingStepOf(int current, int total);
 
-  /// No description provided for @onboardingThemeLight.
-  ///
-  /// In en, this message translates to:
-  /// **'Light'**
-  String get onboardingThemeLight;
-
-  /// No description provided for @onboardingThemeDark.
-  ///
-  /// In en, this message translates to:
-  /// **'Dark'**
-  String get onboardingThemeDark;
-
-  /// No description provided for @onboardingThemeSystem.
-  ///
-  /// In en, this message translates to:
-  /// **'System'**
-  String get onboardingThemeSystem;
-
   /// No description provided for @onboardingAppearancePageTitle.
   ///
   /// In en, this message translates to:
-  /// **'Look & launch'**
+  /// **'Launch'**
   String get onboardingAppearancePageTitle;
-
-  /// No description provided for @onboardingAppearancePageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Light, dark, or match your system — and whether WhisPaste starts when you log in.'**
-  String get onboardingAppearancePageSubtitle;
 
   /// No description provided for @onboardingBeat1Title.
   ///

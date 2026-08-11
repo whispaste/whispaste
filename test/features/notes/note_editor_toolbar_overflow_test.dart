@@ -7,8 +7,8 @@
 /// cluster is inflexible — a `Row` hands non-flex children unbounded width —
 /// and measures a few dp more than the 24/12 inset leaves at that floor.
 ///
-/// Pinned at the floor, below it, and at a comfortable width, in both themes
-/// and at an accessibility text size.
+/// Pinned at the floor, below it, and at a comfortable width, and at an
+/// accessibility text size.
 library;
 
 import 'package:drift/drift.dart' show Value;
@@ -29,7 +29,6 @@ Note _note() => Note(
 );
 
 Widget _panel({
-  required bool isDark,
   required bool trashed,
   required TextEditingController controller,
   required FocusNode focusNode,
@@ -71,7 +70,6 @@ void main() {
                 width: width,
                 height: 600,
                 child: _panel(
-                  isDark: true,
                   trashed: trashed,
                   controller: controller,
                   focusNode: focusNode,
@@ -87,8 +85,8 @@ void main() {
     }
   }
 
-  testWidgets('toolbar does not overflow at the render floor in the light '
-      'theme with a 1.5x text scaler', (tester) async {
+  testWidgets('toolbar does not overflow at the render floor with a 1.5x text '
+      'scaler', (tester) async {
     final controller = TextEditingController(text: _note().content);
     addTearDown(controller.dispose);
     final focusNode = FocusNode();
@@ -107,7 +105,6 @@ void main() {
                 width: 280,
                 height: 600,
                 child: _panel(
-                  isDark: false,
                   trashed: false,
                   controller: controller,
                   focusNode: focusNode,
@@ -116,7 +113,6 @@ void main() {
             ),
           ),
         ),
-        brightness: Brightness.light,
       ),
     );
     await tester.pump();

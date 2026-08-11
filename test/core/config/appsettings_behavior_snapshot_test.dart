@@ -10,7 +10,6 @@
 /// 2. Per-cluster groups — 16 groups mirroring the planned section split
 library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -40,15 +39,9 @@ void main() {
   // =========================================================================
   group('Per-field roundtrip', () {
     // --- Interface ---
-    test('themeMode light survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(themeMode: ThemeMode.light);
-      expect(_roundtrip(s).themeMode, ThemeMode.light);
-    });
-
-    test('themeMode system survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(themeMode: ThemeMode.system);
-      expect(_roundtrip(s).themeMode, ThemeMode.system);
-    });
+    // Removed 2026-08-11 (dark-only build): `themeMode light survives
+    // roundtrip` and `themeMode system survives roundtrip`. `AppSettings`
+    // no longer has a `themeMode` field — the app ships one theme.
 
     test('locale survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(locale: 'de');
@@ -465,14 +458,12 @@ void main() {
   group('Section: interface', () {
     test('all interface fields use expected storage keys', () {
       final s = AppSettings.defaults.copyWith(
-        themeMode: ThemeMode.light,
         locale: 'de',
         launchAtStartup: true,
         startMinimized: true,
         showNotifications: false,
       );
       final map = s.toStorageMap();
-      expect(map['theme_mode'], 'light');
       expect(map['locale'], 'de');
       expect(map['launch_at_startup'], 'true');
       expect(map['start_minimized'], 'true');
@@ -481,25 +472,21 @@ void main() {
 
     test('interface cluster full roundtrip', () {
       final s = AppSettings.defaults.copyWith(
-        themeMode: ThemeMode.system,
         locale: 'de',
         launchAtStartup: true,
         startMinimized: true,
         showNotifications: false,
       );
       final r = _roundtrip(s);
-      expect(r.themeMode, ThemeMode.system);
       expect(r.locale, 'de');
       expect(r.launchAtStartup, isTrue);
       expect(r.startMinimized, isTrue);
       expect(r.showNotifications, isFalse);
     });
 
-    test('unknown themeMode string falls back to dark', () {
-      final map = {'theme_mode': 'totally_unknown'};
-      final s = AppSettings.fromStorageMap(map);
-      expect(s.themeMode, ThemeMode.dark);
-    });
+    // Removed 2026-08-11 (dark-only build): `unknown themeMode string falls
+    // back to dark`. `AppSettings` no longer has a `themeMode` field or a
+    // `theme_mode` storage key to fall back from.
   });
 
   // ---- Section 2: Audio Input ---------------------------------------------
@@ -822,7 +809,6 @@ void main() {
 
         final restored = AppSettings.fromStorageMap(map);
         // Other settings must be unchanged.
-        expect(restored.themeMode, AppSettings.defaults.themeMode);
         expect(restored.sttModel, AppSettings.defaults.sttModel);
         // Round-tripping must NOT re-emit the removed key.
         expect(restored.toStorageMap().containsKey('trim_silence'), isFalse);
@@ -845,7 +831,6 @@ void main() {
 
         final restored = AppSettings.fromStorageMap(map);
         // Other settings unchanged.
-        expect(restored.themeMode, AppSettings.defaults.themeMode);
         expect(restored.sttModel, AppSettings.defaults.sttModel);
         // Round-tripping the restored settings does NOT re-emit the legacy
         // VAD keys — they have been dropped from the schema.

@@ -14,7 +14,7 @@
 //
 // Public channel contract (com.whispaste.floating_overlay) — UNCHANGED:
 //   Inbound (Dart → host):
-//     updateSnapshot{visible,state,isDark,size,label,elapsed,...}
+//     updateSnapshot{visible,state,size,label,elapsed,...}
 //     setWaveformBars{bars:List<double>}
 //     setPosition{x,y,anchorMode}
 //     setContextMenuItems{items:[{id,label}]}   ← BUG FIX: unwrap "items" key

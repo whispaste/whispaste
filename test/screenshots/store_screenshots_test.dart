@@ -5,11 +5,9 @@
 /// navigation sidebar, content panel and status bar — via [WpScreenshotShell].
 ///
 /// Narrative flow:
-///   01 workspace overview (dark/EN+DE)
-///   02 workspace detail / open entry (light/EN+DE)
-///   03 replacements (dark/EN+DE)
-///   04 settings / hotkey section (light/EN+DE)
-///   05 analytics (dark/EN+DE)
+///   01 workspace overview (EN+DE)
+///   03 replacements (EN+DE)
+///   05 analytics (EN+DE)
 @Tags(<String>['golden'])
 library;
 
@@ -47,14 +45,17 @@ final _screenshots = <_ScreenDef>[
   _ScreenDef(
     name: '01_workspace_overview_dark',
     activePageId: 'history',
-    themeMode: ThemeMode.dark,
     builder: () => const HistoryPage(),
     needsDemoData: true,
   ),
+  // 02 and 04 were the store set's only *light* captures, and each is the
+  // only shot of its screen. When the light theme went (2026-08-11) they came
+  // back as dark rather than out: the set is five screens of the product, and
+  // dropping the theme is not a reason to stop showing the detail view and
+  // the settings page at all.
   _ScreenDef(
-    name: '02_workspace_detail_light',
+    name: '02_workspace_detail_dark',
     activePageId: 'history',
-    themeMode: ThemeMode.light,
     builder: () => const HistoryPage(),
     needsDemoData: true,
     arrange: _openFirstHistoryEntry,
@@ -62,22 +63,19 @@ final _screenshots = <_ScreenDef>[
   _ScreenDef(
     name: '03_voice_shortcuts_dark',
     activePageId: 'replacements',
-    themeMode: ThemeMode.dark,
     builder: () => const ReplacementsPage(),
     needsDemoData: true,
     textReplacementsEnabled: true,
   ),
   _ScreenDef(
-    name: '04_settings_light',
+    name: '04_settings_dark',
     activePageId: 'settings',
-    themeMode: ThemeMode.light,
     builder: () => const SettingsPage(),
     arrange: _scrollToHotkeySection,
   ),
   _ScreenDef(
     name: '05_analytics_dark',
     activePageId: 'analytics',
-    themeMode: ThemeMode.dark,
     builder: () => const AnalyticsPage(),
   ),
 ];
@@ -113,7 +111,6 @@ void _screenshotTest(_ScreenDef screen, String locale) {
         final db = HistoryDatabase.forTesting(NativeDatabase.memory());
         final settings = AppSettings.defaults.copyWith(
           locale: locale,
-          themeMode: screen.themeMode,
           textReplacementsEnabled: screen.textReplacementsEnabled,
           hotkeyEnabled: true,
           hotkeyKey: 'D',
@@ -179,9 +176,7 @@ Widget _buildScreenshotApp({
 }) {
   return ScreenshotApp(
     device: device,
-    theme: wpLightTheme(),
-    darkTheme: wpDarkTheme(),
-    themeMode: settings.themeMode,
+    theme: wpDarkTheme(),
     localizationsDelegates: L10n.localizationsDelegates,
     supportedLocales: L10n.supportedLocales,
     locale: Locale(settings.locale),
@@ -229,7 +224,6 @@ class _ScreenDef {
   const _ScreenDef({
     required this.name,
     required this.activePageId,
-    required this.themeMode,
     required this.builder,
     this.needsDemoData = false,
     this.textReplacementsEnabled = false,
@@ -238,7 +232,6 @@ class _ScreenDef {
 
   final String name;
   final String activePageId;
-  final ThemeMode themeMode;
   final Widget Function() builder;
   final bool needsDemoData;
   final bool textReplacementsEnabled;

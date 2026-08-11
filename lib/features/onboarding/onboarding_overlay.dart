@@ -23,7 +23,6 @@ import '../../widgets/wp_button.dart';
 import '../../widgets/wp_hero_button.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
-import 'steps/appearance_step.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/autostart_toggle.dart';
 import 'steps/onboarding_headings.dart';
@@ -147,9 +146,10 @@ enum OnboardingStepId {
   /// (warn box plus a full inline recorder) blew through by ~360 px.
   hotkey,
 
-  /// 5 — Appearance: the light/dark/system theme choice plus the autostart
-  /// toggle — the two things that decide how the app presents itself before
-  /// it is ever used.
+  /// 5 — Appearance: the autostart toggle. Carried the light/dark/system
+  /// theme choice as well until the light theme was removed (2026-08-11);
+  /// the name is kept because the position is persisted by index and
+  /// renaming would buy nothing a reader does not get from this line.
   appearance,
 
   /// 6 — Auto-Paste: the permission that lets a transcript land at the
@@ -695,29 +695,26 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         body: const ModelStep(),
       ),
       OnboardingStepId.hotkey => _buildHotkeyPage(l10n),
-      // Theme choice and autostart under one heading: both answer "how does
-      // this app present itself before I ever use it". The heading names both
-      // halves in order, which is what keeps the settings row from reading as
-      // a second, unrelated screen glued below the tiles — it needs no
-      // section label of its own, since its own label and subtitle already
-      // say what it is.
+      // Autostart alone since the light theme was removed (2026-08-11). The
+      // page used to carry the light/dark/system tiles above this row, and
+      // the heading named both halves in order; with the tiles gone the
+      // heading names the one that is left.
+      //
+      // It keeps its own page rather than folding into a neighbour because
+      // dropping a step would renumber every position after it and need a
+      // fourth entry in `onboarding_flow_migration.dart` — a migration owed
+      // to a copy change. Whether the page is still worth a page is a
+      // maintainer call, deliberately left open.
+      //
+      // No subtitle. The only honest one would restate the toggle's own
+      // label directly beneath it, which is the "same string twice at two
+      // sizes" this file rejects everywhere else; the title carries the
+      // topic and the row states the choice.
       OnboardingStepId.appearance => OnboardingPage(
         header: OnboardingPageHeading(
           title: l10n.onboardingAppearancePageTitle,
-          subtitle: l10n.onboardingAppearancePageSubtitle,
         ),
-        // The one page whose body has an internal gap: `xl` between the theme
-        // tiles and the autostart row, deliberately one step under the header
-        // gap so the two halves still read as one page.
-        body: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppearanceStep(),
-            SizedBox(height: WpSpacing.xl),
-            OnboardingAutostartToggle(),
-          ],
-        ),
+        body: const OnboardingAutostartToggle(),
       ),
       OnboardingStepId.autoPaste => OnboardingPage(
         header: OnboardingPageHeading(

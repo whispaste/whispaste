@@ -105,7 +105,6 @@
 
   "settingsInterface": "Oberfläche",
   "settingsInterfaceSubtitle": "Aussehen und Verhalten",
-  "settingsTheme": "Design",
   "settingsLaunchAtStartup": "Beim Start ausführen",
   "settingsStartMinimized": "Minimiert starten",
   "settingsStartMinimizedSubtitle": "Beim Systemstart im Hintergrund starten",
@@ -309,9 +308,6 @@
   },
   "settingsOff": "Aus",
   "settingsOn": "An",
-  "settingsThemeDark": "Dunkel",
-  "settingsThemeLight": "Hell",
-  "settingsThemeSystem": "System",
 
   "statusReady": "Bereit",
   "statusRecording": "Aufnahme…",
@@ -335,7 +331,6 @@
   "actionSave": "Speichern",
   "actionRetry": "Erneut versuchen",
   "actionClearSearch": "Suche zurücksetzen",
-  "tooltipTheme": "Design wechseln",
   "tooltipLanguage": "Sprache",
   "aboutVersion": "Version {version}",
   "onboardingWelcome": "Einmal sprechen. Überall einfügen.",
@@ -548,8 +543,6 @@
   "shortcutKeyPageUp": "Bild hoch",
   "shortcutKeyPageDown": "Bild runter",
 
-  "tooltipSwitchToLight": "Zu hellem Modus wechseln",
-  "tooltipSwitchToDark": "Zu dunklem Modus wechseln",
 
   "modelServerReady": "Sprachdienst bereit",
   "modelServerMissing": "Sprachdienst nicht installiert",
@@ -800,11 +793,7 @@
   "onboardingPrivacyCrashToggleHint": "Hilft beim Beheben von Fehlern, standardmäßig aktiv, jederzeit abschaltbar",
   "onboardingStepOf": "Schritt {current} von {total}",
   "@onboardingStepOf": { "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } } },
-  "onboardingThemeLight": "Hell",
-  "onboardingThemeDark": "Dunkel",
-  "onboardingThemeSystem": "System",
-  "onboardingAppearancePageTitle": "Aussehen & Start",
-  "onboardingAppearancePageSubtitle": "Hell, dunkel oder wie das System — und ob WhisPaste beim Anmelden mitstartet.",
+  "onboardingAppearancePageTitle": "Start",
   "onboardingBeat1Title": "Hotkey drücken, sprechen, fertig",
   "onboardingBeat1Caption": "Die Aufnahme startet sofort – deine Worte landen als Text direkt an der Cursor-Position.",
   "onboardingBeat2Title": "Läuft lokal, auf deiner Hardware",

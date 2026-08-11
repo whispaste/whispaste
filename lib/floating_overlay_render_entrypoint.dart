@@ -64,7 +64,6 @@ class _OverlayRenderAppState
   FloatingOverlaySnapshot _snapshot = const FloatingOverlaySnapshot(
     visible: false,
     state: OverlayVisualState.recording,
-    isDark: true,
     label: '',
   );
   List<double> _bars = const [];

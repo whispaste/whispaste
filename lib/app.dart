@@ -16,7 +16,6 @@ import 'core/onboarding/onboarding_surface.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
 import 'core/theme/theme.dart';
-import 'core/theme/theme_provider.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
@@ -86,15 +85,17 @@ class WhisPasteApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
 
     return MaterialApp(
       title: 'WhisPaste',
       debugShowCheckedModeBanner: false,
-      theme: wpLightTheme(),
-      darkTheme: wpDarkTheme(),
-      themeMode: themeMode,
+      // One theme, passed as `theme:` alone — no `darkTheme:`/`themeMode:`
+      // pair (2026-08-11). Handing the same ThemeData to both slots would
+      // have kept the shape of a choice the app no longer offers, and
+      // `themeMode:` would then be a setting whose every value looks the
+      // same.
+      theme: wpDarkTheme(),
       locale: locale,
       localizationsDelegates: const [
         ...L10n.localizationsDelegates,
@@ -1082,7 +1083,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                       // Main layout
                       Column(
                         children: [
-                          const WpTitleBar(actions: [_ThemeToggle()]),
+                          const WpTitleBar(),
                           Expanded(
                             child: Row(
                               children: [
@@ -1330,52 +1331,6 @@ class _PageHeader extends StatelessWidget {
         children: [
           Text(title, style: Theme.of(context).textTheme.headlineLarge),
         ],
-      ),
-    );
-  }
-}
-
-/// Theme toggle — cycles dark ↔ light. Placed in title bar.
-class _ThemeToggle extends ConsumerWidget {
-  const _ThemeToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = L10n.of(context);
-    const mutedColor = WpColors.textMuted;
-    return Semantics(
-      label: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
-      button: true,
-      child: IconButton(
-        icon: Icon(
-          isDark ? LucideIcons.moon : LucideIcons.sun,
-          color: mutedColor,
-          // [WpIconSize.md], not the [WpIconSize.sm] this used to be:
-          // `lib/DESIGN.md` puts the icon scale's floor for *interactive*
-          // marks at 20 px and calls 14/16 decorative-only, so a 16 px glyph
-          // on a control the pointer has to hit was below the app's own line.
-          // The nav rail (`sidebar.dart`, `WpIconSize.md`) is the closest
-          // peer — a standalone, icon-only chrome control with no text row to
-          // scale against — and this matches it. The app's smaller 48 dp
-          // icon buttons (api-key eye, path folder-pen, tag trash, search
-          // help) are inline adornments sized to the row they sit in, which
-          // this is not.
-          size: WpIconSize.md,
-        ),
-        tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
-        onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
-        // Ink radius half the target, so the hover circle marks the whole
-        // 48 dp instead of a 32 dp island inside it.
-        splashRadius: WpLayout.minTouchTarget / 2,
-        // 48 × 48, not the 36 × 32 this used to be: an app control that a
-        // pointer has to hit, sharing a bar with the OS window buttons, is
-        // still an app control and owes the same minimum as every other one.
-        constraints: const BoxConstraints(
-          minWidth: WpLayout.minTouchTarget,
-          minHeight: WpLayout.minTouchTarget,
-        ),
-        padding: EdgeInsets.zero,
       ),
     );
   }

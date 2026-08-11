@@ -29,7 +29,6 @@ FloatingOverlaySnapshot _snap(OverlaySizeVariant size) =>
     FloatingOverlaySnapshot(
       visible: true,
       state: OverlayVisualState.recording,
-      isDark: false,
       size: size,
       label: 'Recording',
       elapsed: '0:07',

@@ -16,9 +16,9 @@
 ///  - leaving page 1 auto-fires the mic request exactly when the user never
 ///    triggered it themselves (status still `unknown`) — and never otherwise;
 ///  - every page fits the fixed onboarding window (1100×720,
-///    [kOnboardingWindowSize]) without scrolling, in every locale and both
-///    brightnesses — including the two tall branches (hotkey conflict,
-///    model download error);
+///    [kOnboardingWindowSize]) without scrolling, in every locale —
+///    including the two tall branches (hotkey conflict, model download
+///    error);
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
 ///  - the layout survives a window *below* the size the app enforces (800×550;
@@ -40,7 +40,6 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
-import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
@@ -315,7 +314,6 @@ Future<void> _pumpOverlay(
   _FakeSettingsNotifier? settings,
   Size size = const Size(1280, 980),
   Locale locale = const Locale('en'),
-  Brightness brightness = Brightness.dark,
   TextScaler textScaler = TextScaler.noScaling,
   HotkeyRegistrationStatus? hotkeyStatus,
   bool downloadFailed = false,
@@ -332,7 +330,6 @@ Future<void> _pumpOverlay(
       ),
       size: size,
       locale: locale,
-      brightness: brightness,
       overrides: [
         settingsProvider.overrideWith(
           () => settings ?? _FakeSettingsNotifier(),
@@ -469,7 +466,7 @@ void main() {
           for (var page = 2; page <= 5; page++) {
             await _tapNext(tester); // → 5: Appearance
           }
-          expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
+          expect(find.byKey(kOnboardingAutostartToggleKey), findsOneWidget);
           expect(find.byType(AutoPasteStep), findsNothing);
 
           await _tapNext(tester); // → 6: Auto-Paste
@@ -491,7 +488,7 @@ void main() {
   group('OnboardingOverlay — page composition', () {
     testWidgets(
       'Model and Hotkey are separate pages, and the Appearance page carries '
-      'the theme choice together with the autostart toggle',
+      'the autostart toggle',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         try {
@@ -515,7 +512,6 @@ void main() {
           expect(find.text(l10n.onboardingTriggerTitle), findsOneWidget);
 
           await _tapNext(tester); // → 5: Appearance
-          expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
           expect(
             find.byKey(kOnboardingAutostartToggleKey),
             findsOneWidget,
@@ -1189,9 +1185,6 @@ void main() {
     // whole point of the table is that each row has to name the open decision
     // that owns it.
     //
-    // Brightness is deliberately not part of the key: measured across both
-    // themes, page heights are identical, so keying on it would double the
-    // table without distinguishing anything.
     // Empty, and that is the point: every page in every locale at every scale
     // in [foldTextScales] now fits the fixed window outright.
     //
@@ -1208,56 +1201,53 @@ void main() {
 
     for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
       for (final locale in L10n.supportedLocales) {
-        for (final brightness in [Brightness.dark, Brightness.light]) {
-          for (final scale in foldTextScales) {
-            testWidgets('every page fits the fixed window on $platform in '
-                '${locale.languageCode}, ${brightness.name}, at text scale '
-                '$scale', (tester) async {
-              useFixedWindow(tester);
-              debugDefaultTargetPlatformOverride = platform;
-              try {
-                await _pumpOverlay(
-                  tester,
-                  size: kOnboardingWindowSize,
-                  locale: locale,
-                  brightness: brightness,
-                  textScaler: TextScaler.linear(scale),
-                  // Seed the *dictation* language too, not just the UI one.
-                  // The model page reads it (`recommendEngine`) and disables
-                  // the Parakeet card for a language it cannot do, which adds
-                  // a reason line that IntrinsicHeight applies to BOTH engine
-                  // cards. Leaving it at the default measured the cheap
-                  // branch for every locale and missed exactly the case where
-                  // the page is at its tallest.
-                  settings: _FakeSettingsNotifier(
-                    AppSettings.defaults.copyWith(locale: locale.languageCode),
-                  ),
-                );
+        for (final scale in foldTextScales) {
+          testWidgets('every page fits the fixed window on $platform in '
+              '${locale.languageCode}, at text scale '
+              '$scale', (tester) async {
+            useFixedWindow(tester);
+            debugDefaultTargetPlatformOverride = platform;
+            try {
+              await _pumpOverlay(
+                tester,
+                size: kOnboardingWindowSize,
+                locale: locale,
+                textScaler: TextScaler.linear(scale),
+                // Seed the *dictation* language too, not just the UI one.
+                // The model page reads it (`recommendEngine`) and disables
+                // the Parakeet card for a language it cannot do, which adds
+                // a reason line that IntrinsicHeight applies to BOTH engine
+                // cards. Leaving it at the default measured the cheap
+                // branch for every locale and missed exactly the case where
+                // the page is at its tallest.
+                settings: _FakeSettingsNotifier(
+                  AppSettings.defaults.copyWith(locale: locale.languageCode),
+                ),
+              );
 
-                final total = _totalSteps(platform);
-                for (var page = 1; page <= total; page++) {
-                  if (page > 1) await _tapNext(tester);
-                  expectFits(
-                    tester,
-                    measure(tester),
-                    what:
-                        'page $page ($platform, ${locale.languageCode}, '
-                        '${brightness.name}, scale $scale)',
-                    allowed:
-                        foldRatchet[(
-                          platform,
-                          page,
-                          locale.languageCode,
-                          scale,
-                        )] ??
-                        0,
-                  );
-                }
-              } finally {
-                debugDefaultTargetPlatformOverride = null;
+              final total = _totalSteps(platform);
+              for (var page = 1; page <= total; page++) {
+                if (page > 1) await _tapNext(tester);
+                expectFits(
+                  tester,
+                  measure(tester),
+                  what:
+                      'page $page ($platform, ${locale.languageCode}, '
+                      'scale $scale)',
+                  allowed:
+                      foldRatchet[(
+                        platform,
+                        page,
+                        locale.languageCode,
+                        scale,
+                      )] ??
+                      0,
+                );
               }
-            });
-          }
+            } finally {
+              debugDefaultTargetPlatformOverride = null;
+            }
+          });
         }
       }
     }

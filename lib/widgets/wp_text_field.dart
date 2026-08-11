@@ -325,8 +325,7 @@ class _WpTextFieldState extends State<WpTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final palette = _WpTextFieldPalette.of(brightness);
+    const palette = _WpTextFieldPalette._palette;
     final spec = _WpTextFieldSpec.of(widget.variant);
     final style = spec.textStyle(palette.textPrimary);
 
@@ -473,24 +472,18 @@ class _WpTextFieldPalette {
   /// signal.
   final Color accent;
 
-  static const _dark = _WpTextFieldPalette(
+  /// The one palette. Named `_dark` while it had a `_light` twin and an
+  /// `of(Brightness)` resolver between them; both went with the light
+  /// stack (2026-08-11). The twin was not merely unreachable — it was
+  /// wrong for this app, painting white on the accent fill where the
+  /// dark palette paints the near-black background colour.
+  static const _palette = _WpTextFieldPalette(
     surface: WpColors.surfaceVariant,
     border: WpColors.borderSubtle,
     textPrimary: WpColors.textPrimary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
   );
-
-  static const _light = _WpTextFieldPalette(
-    surface: WpColors.surfaceVariant,
-    border: WpColors.borderSubtle,
-    textPrimary: WpColors.textPrimary,
-    textMuted: WpColors.textMuted,
-    accent: WpColors.accent,
-  );
-
-  static _WpTextFieldPalette of(Brightness brightness) =>
-      brightness == Brightness.dark ? _dark : _light;
 }
 
 /// Everything [WpTextFieldVariant] actually decides.

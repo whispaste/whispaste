@@ -86,10 +86,6 @@ class WpFloatingOverlayView extends StatefulWidget {
     OverlayVisualState.error => OverlayDesignState.error,
   };
 
-  /// Maps the snapshot's dark flag onto the design-spec theme.
-  static OverlayDesignTheme themeFor(bool isDark) =>
-      isDark ? OverlayDesignTheme.dark : OverlayDesignTheme.light;
-
   /// The text actually painted for [snapshot] in its current (non-recording)
   /// state — mirrors [painterFor]'s `statusText` selection so pill-width
   /// sizing ([OverlayDesignSpec.pillWidthForText]) never drifts from what
@@ -117,7 +113,12 @@ class WpFloatingOverlayView extends StatefulWidget {
     double liquidMotion = 0.0,
     double liquidLevel = 0.0,
   }) {
-    final theme = themeFor(snapshot.isDark);
+    // The spec still declares a dark/light pair, and its two members are
+    // the same constant on purpose (`dark = light` — the spike has one
+    // design). What went with the light theme is the bridge that used to
+    // pick between them from `snapshot.isDark`; the spec's own pair is not
+    // this refactor's to collapse.
+    const theme = OverlayDesignTheme.dark;
     final designState = designStateFor(snapshot.state);
     return WpOverlayPainter(
       state: designState,

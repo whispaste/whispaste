@@ -36,7 +36,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/overlay_design_spec.dart';
-import 'core/theme/persisted_theme.dart';
 import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
 import 'services/snippet_picker/snippet_picker_render_channel.dart';
@@ -87,24 +86,6 @@ class _SnippetPickerRenderAppState
   /// new picker invocation started" and resets its transient search /
   /// highlight / keyboard-focus state (see `_resetForShow`).
   int _showGeneration = 0;
-
-  /// Dark until the persisted preference resolves — matches the app default
-  /// (`GeneralSettings.themeMode` defaults to dark).
-  bool _isDark = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _resolveTheme();
-  }
-
-  // Resolved once at engine boot; a mid-session theme switch in the main
-  // window applies to this panel on the next app start (deliberate
-  // simplification — relay it over the channel if that ever matters).
-  Future<void> _resolveTheme() async {
-    final isDark = await resolvePersistedIsDark();
-    if (mounted && isDark != _isDark) setState(() => _isDark = isDark);
-  }
 
   @override
   SnippetPickerRenderChannel createChannel() => SnippetPickerRenderChannel(

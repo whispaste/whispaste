@@ -409,24 +409,8 @@ void main() {
       },
     );
 
-    // -------------------------------------------------------------------------
-    // 7. Works in light theme
-    // -------------------------------------------------------------------------
-
-    testWidgets('renders without error in light theme', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const AnalyticsPage(),
-          brightness: Brightness.light,
-          overrides: _dataOverrides(_mockData),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(find.text(l10n.analyticsOverview), findsOneWidget);
-    });
+    // Removed 2026-08-11 (dark-only build): `renders without error in light
+    // theme` (section 7, "Works in light theme"). There is one theme now.
   });
 
   // ---------------------------------------------------------------------------
@@ -489,86 +473,80 @@ void main() {
     // The `light` row went with the light stack (2026-08-11): it pumped the
     // same page at `Brightness.light` and asked the duration ramp for its
     // light derivation, neither of which the app can produce any more.
-    for (final (themeName, brightness) in [('dark', Brightness.dark)]) {
-      testWidgets('$themeName: every model bar wears its own slot', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const AnalyticsPage(),
-            brightness: brightness,
-            overrides: _dataOverrides(colorData),
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('dark: every model bar wears its own slot', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(colorData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final fills = coloredBoxFills(tester);
-        final expected = [
-          for (final id in const [
-            'whisper-small',
-            'whisper-medium',
-            'whisper-large-v3-turbo',
-          ])
-            categorySlotForModel(id).color(),
-        ];
+      final fills = coloredBoxFills(tester);
+      final expected = [
+        for (final id in const [
+          'whisper-small',
+          'whisper-medium',
+          'whisper-large-v3-turbo',
+        ])
+          categorySlotForModel(id).color(),
+      ];
+      expect(
+        expected.toSet(),
+        hasLength(3),
+        reason:
+            'two of the three shipped models resolve to one hue — a nominal '
+            'scale whose members collide cannot separate its categories',
+      );
+      for (final color in expected) {
         expect(
-          expected.toSet(),
-          hasLength(3),
+          fills,
+          contains(color),
           reason:
-              'two of the three shipped models resolve to one hue — a nominal '
-              'scale whose members collide cannot separate its categories',
+              'dark: no bar is painted in '
+              '#${color.toARGB32().toRadixString(16)} — the model bars are '
+              'not reaching their category slot',
         );
-        for (final color in expected) {
-          expect(
-            fills,
-            contains(color),
-            reason:
-                '$themeName: no bar is painted in '
-                '#${color.toARGB32().toRadixString(16)} — the model bars are '
-                'not reaching their category slot',
-          );
-        }
-      });
+      }
+    });
 
-      testWidgets('$themeName: the duration bars are one hue at five weights', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const AnalyticsPage(),
-            brightness: brightness,
-            overrides: _dataOverrides(colorData),
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('dark: the duration bars are one hue at five weights', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(colorData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        // `iris` named outright rather than read back off the widget: the point
-        // of the assertion is *which* slot the ramp comes from. It is not the
-        // brand accent (Ticket 11, ② = b) and it is not one of the model hues
-        // one panel up, and both only hold as long as the source is pinned.
-        final ramp = WpCategorySlot.iris.ramp(5);
-        final fills = decorationFills(tester);
-        for (final rung in ramp) {
-          expect(
-            fills,
-            contains(rung),
-            reason:
-                '$themeName: the duration panel is missing the rung '
-                '#${rung.toARGB32().toRadixString(16)} — an ordinal scale with '
-                'a gap in it no longer reads as ordered',
-          );
-        }
+      // `iris` named outright rather than read back off the widget: the point
+      // of the assertion is *which* slot the ramp comes from. It is not the
+      // brand accent (Ticket 11, ② = b) and it is not one of the model hues
+      // one panel up, and both only hold as long as the source is pinned.
+      final ramp = WpCategorySlot.iris.ramp(5);
+      final fills = decorationFills(tester);
+      for (final rung in ramp) {
         expect(
-          ramp.toSet(),
-          hasLength(5),
+          fills,
+          contains(rung),
           reason:
-              '$themeName: two rungs of the duration ramp resolve to the same '
-              'color — the scale has fewer steps than buckets',
+              'dark: the duration panel is missing the rung '
+              '#${rung.toARGB32().toRadixString(16)} — an ordinal scale with '
+              'a gap in it no longer reads as ordered',
         );
-      });
-    }
+      }
+      expect(
+        ramp.toSet(),
+        hasLength(5),
+        reason:
+            'dark: two rungs of the duration ramp resolve to the same '
+            'color — the scale has fewer steps than buckets',
+      );
+    });
 
     testWidgets('the brand gradient stays on the hero pills alone', (
       tester,

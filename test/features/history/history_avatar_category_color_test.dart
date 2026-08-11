@@ -1,11 +1,9 @@
 // Ticket 12 — the history avatar makes no claim about content any more. The
 // app classifies nothing, so every entry wears the same microphone glyph and
 // the hue is pure decoration, read straight off the slot Ticket 03 persisted
-// on the entry. Four things have to hold and each has its own group below:
+// on the entry. Three things have to hold and each has its own group below:
 // the hue is the persisted slot and nothing else, the entry's own content no
-// longer moves it, all three history surfaces show the microphone, and a
-// runtime theme switch still repaints every avatar (the cache trap: the slot
-// is cached, the color is not).
+// longer moves it, and all three history surfaces show the microphone.
 //
 // What is deliberately *not* here: the rotation itself — which entry gets
 // which slot, and never twice in a row. That is written once at creation time
@@ -56,52 +54,49 @@ final _oneEntryPerSlot = <HistoryEntry>[
     _entry(id: 's$slot', title: 'Recording $slot', colorSlot: slot),
 ];
 
-typedef _ViewBuilder =
-    Widget Function(List<HistoryEntry> entries, {required bool isDark});
+typedef _ViewBuilder = Widget Function(List<HistoryEntry> entries);
 
 // Scrollable, but not lazy: every row has to be built for the sweep below to
 // see all of them, which a ListView.builder would not guarantee.
-Widget _list(List<HistoryEntry> entries, {required bool isDark}) =>
-    SingleChildScrollView(
-      child: Column(
-        children: [
-          for (final entry in entries)
-            HistoryEntryRow(
-              entry: entry,
-              isSelected: false,
-              onTap: () {},
-              onCopy: () {},
-              onPin: () {},
-              onDelete: () {},
-            ),
-        ],
-      ),
-    );
+Widget _list(List<HistoryEntry> entries) => SingleChildScrollView(
+  child: Column(
+    children: [
+      for (final entry in entries)
+        HistoryEntryRow(
+          entry: entry,
+          isSelected: false,
+          onTap: () {},
+          onCopy: () {},
+          onPin: () {},
+          onDelete: () {},
+        ),
+    ],
+  ),
+);
 
-/// The same entries as cards. The card view caches the slot in its own `State`,
-/// so the theme-switch guarantee has to be proven twice — a fix applied to only
-/// one of the two views is the failure mode this arm catches.
-Widget _cards(List<HistoryEntry> entries, {required bool isDark}) =>
-    SingleChildScrollView(
-      child: Column(
-        children: [
-          for (final entry in entries)
-            SizedBox(
-              width: 260,
-              child: HistoryEntryCard(
-                entry: entry,
-                isSelected: false,
-                onTap: () {},
-                onCopy: () {},
-                onPin: () {},
-                onDelete: () {},
-                multiSelectMode: false,
-                isChecked: false,
-              ),
-            ),
-        ],
-      ),
-    );
+/// The same entries as cards. The card view caches the slot in its own
+/// `State`, so the microphone-glyph guarantee has to be proven twice — a fix
+/// applied to only one of the two views is the failure mode this arm catches.
+Widget _cards(List<HistoryEntry> entries) => SingleChildScrollView(
+  child: Column(
+    children: [
+      for (final entry in entries)
+        SizedBox(
+          width: 260,
+          child: HistoryEntryCard(
+            entry: entry,
+            isSelected: false,
+            onTap: () {},
+            onCopy: () {},
+            onPin: () {},
+            onDelete: () {},
+            multiSelectMode: false,
+            isChecked: false,
+          ),
+        ),
+    ],
+  ),
+);
 
 Iterable<HistoryEntryAvatar> _avatars(WidgetTester tester) =>
     tester.widgetList<HistoryEntryAvatar>(find.byType(HistoryEntryAvatar));
@@ -214,9 +209,7 @@ void main() {
       testWidgets('the history ${view.key} shows nothing but the microphone', (
         tester,
       ) async {
-        await tester.pumpWidget(
-          makeTestable(view.value(_oneEntryPerSlot, isDark: true)),
-        );
+        await tester.pumpWidget(makeTestable(view.value(_oneEntryPerSlot)));
 
         expect(
           _avatarIcons(tester),
@@ -278,63 +271,13 @@ void main() {
     });
   });
 
-  group('Runtime theme switch', () {
-    final views = <String, ({_ViewBuilder build, Type stateOwner})>{
-      'list': (build: _list, stateOwner: HistoryEntryRow),
-      'card grid': (build: _cards, stateOwner: HistoryEntryCard),
-    };
-
-    for (final view in views.entries) {
-      testWidgets('repaints every avatar in the open history ${view.key}', (
-        tester,
-      ) async {
-        final build = view.value.build;
-        final entries = _oneEntryPerSlot;
-
-        await tester.pumpWidget(makeTestable(build(entries, isDark: true)));
-        final darkColors = _avatarColors(tester);
-        final stateBefore = tester.state(
-          find.byType(view.value.stateOwner).first,
-        );
-
-        // Same entries, same tree shape — only the theme flips, which is
-        // exactly the case a cached `Color` survives and a cached slot does
-        // not.
-        await tester.pumpWidget(
-          makeTestable(
-            build(entries, isDark: false),
-            brightness: Brightness.light,
-          ),
-        );
-        final lightColors = _avatarColors(tester);
-        final stateAfter = tester.state(
-          find.byType(view.value.stateOwner).first,
-        );
-
-        expect(
-          identical(stateBefore, stateAfter),
-          isTrue,
-          reason:
-              'the ${view.key} was rebuilt from scratch, so this run would pass '
-              'even against a cached color — the regression it guards needs the '
-              'same State to survive the theme switch',
-        );
-        expect(darkColors.length, entries.length);
-        for (var i = 0; i < entries.length; i++) {
-          final slot = historyAvatarSlot(entries[i]);
-          expect(darkColors[i], slot.color());
-          expect(
-            lightColors[i],
-            slot.color(),
-            reason:
-                'avatar ${entries[i].id} still paints the dark theme\'s hue '
-                'after the switch — the resolved color was cached instead of '
-                'the slot',
-          );
-        }
-      });
-    }
-  });
+  // Removed 2026-08-11 (dark-only build): this group ('Runtime theme
+  // switch') proved that flipping Brightness.dark → Brightness.light on the
+  // same widget State still repainted every avatar with the correct hue,
+  // guarding against a cached `Color` surviving the switch. The app now
+  // ships a single dark theme only, so there is no runtime theme switch left
+  // to prove — the state-identity/cache-trap guarantee this group existed
+  // for no longer has a scenario to exercise.
 
   group('Tag chips', () {
     testWidgets('carry their tag\'s category hue at 12 % fill / 30 % border', (
@@ -346,7 +289,7 @@ void main() {
         tags: '["meeting"]',
       );
 
-      await tester.pumpWidget(makeTestable(_list([entry], isDark: true)));
+      await tester.pumpWidget(makeTestable(_list([entry])));
 
       final chip = tester.widget<Container>(
         find

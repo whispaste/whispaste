@@ -99,8 +99,6 @@ class _ButtonFake implements FloatingButtonController {
   @override
   Future<void> setState(FloatingButtonVisualState state) async {}
   @override
-  Future<void> setTheme({required bool isDark}) async {}
-  @override
   Future<void> setPosition(double x, double y) async {}
   @override
   Future<void> setSize(int size) async {}

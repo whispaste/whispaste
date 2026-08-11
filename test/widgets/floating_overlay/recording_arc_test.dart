@@ -25,7 +25,6 @@ import 'package:whispaste/widgets/floating_overlay/overlay_painter.dart';
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
   bool visible = true,
-  bool isDark = false,
   OverlaySizeVariant size = OverlaySizeVariant.normal,
   String elapsed = '',
   String? doneMessage,
@@ -35,7 +34,6 @@ FloatingOverlaySnapshot _snap(
   return FloatingOverlaySnapshot(
     visible: visible,
     state: state,
-    isDark: isDark,
     size: size,
     label: switch (state) {
       OverlayVisualState.recording => 'Recording',

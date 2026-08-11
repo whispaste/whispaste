@@ -32,39 +32,6 @@ class InterfaceSection extends ConsumerWidget {
       child: Column(
         children: [
           SettingRow(
-            icon: LucideIcons.palette,
-            label: l10n.settingsTheme,
-            trailing: settingsDropdown(
-              context: context,
-              value: switch (settings.themeMode) {
-                ThemeMode.dark => 'dark',
-                ThemeMode.light => 'light',
-                ThemeMode.system => 'system',
-              },
-              items: const ['dark', 'light', 'system'],
-              labels: [
-                l10n.settingsThemeDark,
-                l10n.settingsThemeLight,
-                l10n.settingsThemeSystem,
-              ],
-              onChanged: (v) {
-                final mode = switch (v) {
-                  'light' => ThemeMode.light,
-                  'system' => ThemeMode.system,
-                  _ => ThemeMode.dark,
-                };
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(themeMode: mode));
-                try {
-                  ref.read(telemetryProvider).trackSettingChange('theme');
-                } catch (e) {
-                  _log.debug('telemetry failed: $e');
-                }
-              },
-            ),
-          ),
-          SettingRow(
             icon: LucideIcons.globe,
             label: l10n.settingsAppLanguage,
             // Content-width, exactly like the settingsDropdown() rows above
