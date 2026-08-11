@@ -29,8 +29,11 @@ class WpNavItem {
 
 /// Gaming-launcher sidebar — icon-only rail, seamless with content.
 ///
-/// Inspired by Dixper: icons positioned in upper portion (not dead center),
-/// generous spacing, solid filled pill for active state. No glow effects.
+/// Icons positioned in the upper portion (not dead center), generous spacing,
+/// and every icon on a frosted chip: a top-lit gradient tile with a
+/// precomposited gloss, the active one tinted with the accent. The bloom is
+/// fill, chroma and a lit edge — never a colored shadow at offset 0, which
+/// *The Depth-Source Rule* forbids as a glow.
 class WpSidebar extends StatelessWidget {
   const WpSidebar({
     super.key,
@@ -204,52 +207,66 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Active: tonal accent gradient + hairline + elevation, accent icon,
-    //         reading-start indicator bar
-    // Hovered: flat bg-hover + text-primary — clean, like old app
-    // Default: muted icon, transparent
+    // **Every item stands on a chip.** The tile is *material*, not a state:
+    // a top-lit frost gradient with a precomposited gloss on its first tenth,
+    // worn by resting, hovered and active items alike. That is what keeps the
+    // accent-tinted tile the single marking of selection (*The One Highlight
+    // Per State Rule*) — the rail no longer says "you are here" by being the
+    // only row with a fill at all, it says it in the accent's hue.
     //
-    // Only the active pill lifts off the rail. Hover and idle stay flat on
-    // purpose: elevation here means "this is where you are", and a rail where
-    // the cursor also raises pills has two things claiming that meaning.
+    // Active:  accent tile (36→25 % dark / 20→12 % light) + accent hairline +
+    //          bright icon + reading-start indicator bar
+    // Hovered: the same tile one step along (brighter on dark, deeper on
+    //          pearl — the light theme has ~0.03 of luminance left above the
+    //          resting tile and 1.07:1 below it) + text-primary icon
+    // Resting: the frost tile + muted icon
+    //
+    // The icon on the active tile is `textPrimary`, not `accent`: the tile it
+    // stands on is now accent-tinted, and an accent glyph on an accent fill
+    // falls to ≈3.5:1 where a bright one holds ≈9:1. Selection is carried by
+    // the tile's hue and the indicator bar; the glyph's job is to be legible.
     final Color iconColor;
-    final Color bgColor;
 
-    if (widget.isActive) {
-      iconColor = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-      bgColor = widget.isDark
-          ? WpColorsDark.accentSubtle
-          : WpColorsLight.accentSubtle;
-    } else if (_isHovered) {
+    if (widget.isActive || _isHovered) {
       iconColor = widget.isDark
           ? WpColorsDark.textPrimary
           : WpColorsLight.textPrimary;
-      bgColor = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
       iconColor = widget.isDark
           ? WpColorsDark.textSecondary
           : WpColorsLight.textMuted;
-      bgColor = widget.isDark
-          ? WpColorsDark.hoverTransparent
-          : WpColorsLight.hoverTransparent;
     }
 
-    // Everything the pill fills is routed through the *gradient* channel,
+    // Everything the chip fills is routed through the *gradient* channel,
     // never `color`. `BoxDecoration.lerp` interpolates `color` and `gradient`
     // independently, so a `color -> gradient` cross-fade produces a frame
     // where both are non-null — which the BoxDecoration constructor asserts
-    // against. Inactive states therefore use a flat two-stop gradient with
-    // the same axis and stop count as the active one, which also keeps
-    // `LinearGradient.lerp` on its cheap same-shape path.
+    // against. All three states are three-stop gradients on one axis with
+    // identical stops, which also keeps `LinearGradient.lerp` on its cheap
+    // same-shape path.
     final Gradient pillGradient = widget.isActive
         ? (widget.isDark
               ? WpColorsDark.navPillActiveGradient
               : WpColorsLight.navPillActiveGradient)
-        : LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [bgColor, bgColor],
-          );
+        : _isHovered
+        ? (widget.isDark
+              ? WpColorsDark.navChipGradientHover
+              : WpColorsLight.navChipGradientHover)
+        : (widget.isDark
+              ? WpColorsDark.navChipGradient
+              : WpColorsLight.navChipGradient);
+
+    // The resting hairline: `borderSubtle` on dark, `borderDefault` on light.
+    // Not a copy-paste slip — on pearl the tile has only ≈1.03:1 of fill lift
+    // to work with, so the hairline is carrying objecthood there, the same
+    // reason `_SidebarGroupDivider` below takes the default weight.
+    final Color chipBorder = widget.isActive
+        ? (widget.isDark
+              ? WpColorsDark.accentBorder20
+              : WpColorsLight.accentBorder20)
+        : (widget.isDark
+              ? WpColorsDark.borderSubtle
+              : WpColorsLight.borderDefault);
 
     final Color accent = widget.isDark
         ? WpColorsDark.accent
@@ -336,22 +353,20 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                           // a null->Border cross-fade scales the *width* up
                           // from zero, which would nudge the glyph by half a
                           // pixel mid-transition.
-                          border: Border.all(
-                            color: widget.isActive
-                                ? (widget.isDark
-                                      ? WpColorsDark.accentBorder20
-                                      : WpColorsLight.accentBorder20)
-                                : Colors.transparent,
-                          ),
-                          // `subtleFor`, not the hardcoded dark-theme
-                          // `subtle` — black-alpha shadows read far heavier
-                          // over the pearl light surfaces. The off state is
-                          // the alpha-0 twin rather than null, so toggling
-                          // fades the ink out instead of shrinking it into a
-                          // harder-edged patch for one frame.
-                          boxShadow: widget.isActive
-                              ? WpShadows.subtleFor(widget.isDark)
-                              : WpShadows.subtleTransparent,
+                          border: Border.all(color: chipBorder),
+                          // **One depth source per theme** (*The Depth-Source
+                          // Rule*): on light the tile's lift is this offset
+                          // shadow, worn by every chip in every state so
+                          // nothing animates here; on dark it is the tile's
+                          // own brightness delta against the frame and there
+                          // is no shadow at all. The dark theme used to put
+                          // `WpShadows.subtle` under the active pill alone —
+                          // black ink on a near-black ground, which is the
+                          // mud that rule exists to keep out, and it now sits
+                          // on a frame saturated enough to show it.
+                          boxShadow: widget.isDark
+                              ? null
+                              : WpShadows.subtleLight,
                         ),
                         alignment: Alignment.center,
                         child: Icon(

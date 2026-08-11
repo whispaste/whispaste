@@ -336,8 +336,10 @@ abstract final class WpNavRail {
   static const double productionContentHeight =
       8 * rowHeight + dividerRowHeight + bottomInset;
 
-  /// The rounded square behind the icon; carries the active state's fill,
-  /// hairline and elevation.
+  /// The rounded square behind the icon. Every item wears one in every state —
+  /// it is the rail's material, not the selection mark (see *The One Highlight
+  /// Per State Rule*); the state lives in the tile's fill and hairline colour.
+  /// Elevation is light-theme only, per *The Depth-Source Rule*.
   static const double pillSize = 38;
 
   /// Active-item accent bar, flush with the reading-start window edge.

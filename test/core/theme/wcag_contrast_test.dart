@@ -151,6 +151,16 @@ double hslLightness(Color c) {
   );
 }
 
+/// How far a color's channels are spread apart, 0.0–1.0 — chroma in the only
+/// unit two colors at different lightnesses can be compared in.
+///
+/// HSL saturation divides that spread by `1 − |2L − 1|`, which is ≈0.06 on
+/// pearl and ≈0.33 on the dark ambient: eighteen *points* of saturation on
+/// light and eight on dark are the same four bytes of actual color. Anything
+/// comparing chroma *across* the two ambients has to use this instead.
+double channelSpread(Color c) =>
+    math.max(c.r, math.max(c.g, c.b)) - math.min(c.r, math.min(c.g, c.b));
+
 /// Shortest angular distance between two colors' hues, in degrees.
 double hueDelta(Color a, Color b) {
   final gap = (preciseHsl(a).hue - preciseHsl(b).hue).abs();
@@ -173,11 +183,19 @@ double hueDelta(Color a, Color b) {
 /// line, normalised by its squared length — here at
 /// (`WpLayout.sidebarWidth`, `WpLayout.appBarHeight`), the corner where the
 /// nav rail and the title bar hand over to the content panel.
-double seamGradientT(Size windowSize) {
+double seamGradientT(Size windowSize) =>
+    frameGradientT(WpLayout.sidebarWidth, WpLayout.appBarHeight, windowSize);
+
+/// The frame ambient's gradient parameter at an arbitrary window point.
+///
+/// Same projection as [seamGradientT], which is this function evaluated at the
+/// one corner Ticket 07 cares about; the nav rail's chips need it at other
+/// points, because "what does a chip stand on" is a question about the middle
+/// of the rail, not about a corner.
+double frameGradientT(double x, double y, Size windowSize) {
   final w = windowSize.width;
   final h = windowSize.height;
-  return (WpLayout.sidebarWidth * w + WpLayout.appBarHeight * h) /
-      (w * w + h * h);
+  return (x * w + y * h) / (w * w + h * h);
 }
 
 /// The color a [gradient] shows at parameter [t] (0 = `begin`, 1 = `end`).
@@ -2426,7 +2444,7 @@ void main() {
 
   for (final (themeName, frame, plane, hueTolerance) in [
     // Tolerance is the measured worst case plus headroom, not a fence around
-    // today's numbers: the sweep peaks at 1.15° on dark and 2.34° on light,
+    // today's numbers: the sweep peaks at 1.46° on dark and 1.37° on light,
     // and the *pre-Ticket-07* stops missed by 4.24° / 4.35°, so a regression
     // to them trips this. Light cannot reach 0° at all — at L ≈ 97 % an 8-bit
     // step is worth several degrees of hue, the same quantisation argument
@@ -2471,6 +2489,32 @@ void main() {
                 'the room, not as part of it',
           );
 
+          // Direction is not enough. The assertion above is satisfied by a
+          // one-step drop and by a thirty-step cliff alike, and the cliff is
+          // the failure mode a *re-saturated frame* produces if this stop is
+          // left where it was: the plane would still be "less saturated",
+          // just no longer the same material. Measured as channel spread
+          // (max − min) rather than HSL saturation because the divisor
+          // 1 − |2L − 1| explodes at both ambients' lightnesses, so points of
+          // saturation are not comparable between them — bytes are.
+          final planeSpread = channelSpread(planeStart);
+          final frameSpread = channelSpread(frameAtSeam);
+          expect(
+            (frameSpread - planeSpread) * 255.0,
+            lessThan(8.0),
+            reason:
+                '$themeName at $label: chroma falls by '
+                '${((frameSpread - planeSpread) * 255).toStringAsFixed(1)} '
+                '8-bit steps across the seam (frame '
+                '${(frameSpread * 255).toStringAsFixed(1)}, plane '
+                '${(planeSpread * 255).toStringAsFixed(1)}). Ticket 07 '
+                'ratified a drop of ~3–4 steps as "the same light, one step '
+                'nearer"; several times that is a chroma cliff at a corner '
+                'that carries no border to explain it, and it is what the '
+                'plane inherits if the frame is re-saturated and this stop is '
+                'not re-solved with it',
+          );
+
           expect(
             relativeLuminance(planeStart),
             greaterThan(relativeLuminance(frameAtSeam)),
@@ -2505,6 +2549,318 @@ void main() {
           );
         });
       }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // The cool shadow — the one sanctioned cool note outside `recordingAccent`
+  // (maintainer decision ② = b, 2026-08-11)
+  //
+  // Warm light, cool shadow: the frame's deepest corner falls back toward blue
+  // instead of continuing into magenta. The maintainer wanted the app's
+  // historic cyan identity to show through the violet skin; the *Two Accent,
+  // Two Jobs Rule* reserves the whole cyan/teal family for "a recording is in
+  // flight". This is the narrow opening that satisfies both, and it is narrow
+  // in four measurable directions at once — hue clearance, saturation, weight
+  // and role. Actual teal is *not* reachable this way and is not meant to be:
+  // 45° of clearance from the recording hue is exactly what stops the cool
+  // note at blue.
+  //
+  // The 45° is the app's own "mistakable for a brand voice" radius, already
+  // spent twice: the accent is held 45° off Quartz, and `azure` is kept out of
+  // the ramp for sitting *inside* it. Measured per theme, because
+  // `recordingAccent` is a theme pair (189.5° dark / 195.9° light) and the
+  // clearance is owed to the hue the user actually sees.
+  // -------------------------------------------------------------------------
+
+  for (final (themeName, frame, recordingAccent, saturationCeiling) in [
+    // The ceiling is the category layer's own saturation, the app's ratified
+    // level for "perceptible, never a signal" — 52 % dark / 58 % light. The
+    // recording accent itself runs at 77 % / 92 %.
+    ('dark', WpColorsDark.frameGradient, WpColorsDark.recordingAccent, 0.52),
+    ('light', WpColorsLight.frameGradient, WpColorsLight.recordingAccent, 0.58),
+  ]) {
+    group('Frame cool-shadow stop – $themeName theme', () {
+      final shadow = frame.colors.last;
+      final magenta = frame.colors[frame.colors.length - 2];
+
+      test('it is a shadow, not a highlight', () {
+        final luminances = frame.colors.map(relativeLuminance).toList();
+        expect(
+          relativeLuminance(shadow),
+          luminances.reduce(math.min),
+          reason:
+              '$themeName: the cool stop is not the deepest one. It is only '
+              'allowed to exist as the corner furthest from the light — a '
+              'cool *highlight* is a second light source, and a second cool '
+              'light source is the recording signal wearing the room as a '
+              'costume',
+        );
+      });
+
+      test('it turns back toward blue rather than on into magenta', () {
+        final turn = preciseHsl(magenta).hue - preciseHsl(shadow).hue;
+        expect(
+          turn,
+          greaterThanOrEqualTo(30.0),
+          reason:
+              '$themeName: the deepest stop sits at '
+              '${preciseHsl(shadow).hue.toStringAsFixed(1)}° against '
+              '${preciseHsl(magenta).hue.toStringAsFixed(1)}° at the stop '
+              'before it, i.e. it only turns ${turn.toStringAsFixed(1)}°. '
+              'Under 30° there is no cool note left — the arc simply ends '
+              'where it ended before, and the exception has stopped buying '
+              'anything',
+        );
+      });
+
+      test('it clears the recording accent by the app\'s 45°', () {
+        final gap = hueDelta(shadow, recordingAccent);
+        expect(
+          gap,
+          greaterThan(45.0),
+          reason:
+              '$themeName: the cool stop sits '
+              '${gap.toStringAsFixed(1)}° from recordingAccent '
+              '(${preciseHsl(recordingAccent).hue.toStringAsFixed(1)}°). '
+              'Inside 45° the app treats a hue as mistakable for the voice it '
+              'belongs to — the same radius that holds the accent off Quartz '
+              'and keeps `azure` out of the ramps. Closing it is not a tuning '
+              'decision; it retires the exclusivity half of *Two Accent, Two '
+              'Jobs* and needs the maintainer, not a re-measurement',
+        );
+      });
+
+      test('it stays under signal saturation', () {
+        final sat = preciseHsl(shadow).saturation;
+        expect(
+          sat,
+          lessThanOrEqualTo(saturationCeiling),
+          reason:
+              '$themeName: the cool stop is '
+              '${(sat * 100).toStringAsFixed(1)} % saturated, over the '
+              '${(saturationCeiling * 100).round()} % the category layer '
+              'settles at for "perceptible, never a signal". Hue distance '
+              'alone does not keep a cool field out of the recording family\'s '
+              'territory — a *saturated* cool corner reads as a state '
+              'whatever its exact hue',
+        );
+      });
+
+      test('it stays atmosphere, never a drawn object', () {
+        final step = contrastRatio(shadow, magenta);
+        expect(
+          step,
+          lessThan(1.5),
+          reason:
+              '$themeName: the cool stop steps ${step.toStringAsFixed(3)}:1 '
+              'against the stop before it, at or above the threshold this app '
+              'uses to separate a field from an object (*The Decorative Color '
+              'Rule*). A corner the eye reads as a shape is something the user '
+              'will look for a meaning in, and this one has none',
+        );
+      });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // The nav rail's icon chips (2026-08-11)
+  //
+  // Every rail item stands on a frosted tile. Two things have to hold and
+  // neither is visible in a golden diff:
+  //
+  //   1. the tile is *material* — it lifts off the frame at every point of the
+  //      rail, at both ends of the ambient and at every window size;
+  //   2. the states still separate. The active fill used to be calibrated
+  //      against bare frame; its ground is now the resting tile, so the step
+  //      that matters is active-over-resting, not active-over-frame.
+  //
+  // The grounds are sampled where the rail actually is: the frame ambient runs
+  // diagonally across the whole window, so the tile at the top of the rail and
+  // the tile above the status bar stand on visibly different colors.
+  // -------------------------------------------------------------------------
+
+  for (final (themeName, frame, chips, iconResting, iconLit, tileFloor) in [
+    (
+      'dark',
+      WpColorsDark.frameGradient,
+      <String, LinearGradient>{
+        'resting': WpColorsDark.navChipGradient,
+        'hover': WpColorsDark.navChipGradientHover,
+        'active': WpColorsDark.navPillActiveGradient,
+      },
+      WpColorsDark.textSecondary,
+      WpColorsDark.textPrimary,
+      1.15,
+    ),
+    (
+      // Pearl's ceiling, stated as a number: the frame under the rail sits at
+      // relative luminance ≈0.90, so *no* fill can lift a tile by more than
+      // ≈1.06:1 there. The light floor is therefore not a weaker version of
+      // dark's — it is most of what physics leaves, and the rest of the tile's
+      // objecthood is the offset shadow and the hairline (*The Depth-Source
+      // Rule*'s light branch), neither of which this group can see.
+      'light',
+      WpColorsLight.frameGradient,
+      <String, LinearGradient>{
+        'resting': WpColorsLight.navChipGradient,
+        'hover': WpColorsLight.navChipGradientHover,
+        'active': WpColorsLight.navPillActiveGradient,
+      },
+      WpColorsLight.textMuted,
+      WpColorsLight.textPrimary,
+      1.015,
+    ),
+  ]) {
+    group('Nav-rail icon chip – $themeName theme', () {
+      // The frame under the rail, sampled at both ends of every window the
+      // seam group already walks — the rail spans the full height between the
+      // title bar and the status bar.
+      final grounds = <String, Color>{
+        for (final (label, window) in _seamWindowSizes) ...{
+          '$label, rail top': gradientColorAt(
+            frame,
+            frameGradientT(
+              WpLayout.sidebarWidth / 2,
+              WpLayout.appBarHeight,
+              window,
+            ),
+          ),
+          '$label, rail bottom': gradientColorAt(
+            frame,
+            frameGradientT(
+              WpLayout.sidebarWidth / 2,
+              window.height - WpLayout.statusBarHeight,
+              window,
+            ),
+          ),
+        },
+      };
+
+      /// The tile's body over [ground] — the two fill stops, without the
+      /// gloss, which only covers the top tenth.
+      Color body(LinearGradient chip, Color ground) => midpoint(
+        alphaComposite(chip.colors[1], ground),
+        alphaComposite(chip.colors[2], ground),
+      );
+
+      test('the sweep found both ends of every window', () {
+        expect(
+          grounds.length,
+          _seamWindowSizes.length * 2,
+          reason:
+              'the ground sweep is incomplete — the checks below would '
+              'measure fewer places than they claim to',
+        );
+      });
+
+      test('every chip is one shape, so the states can cross-fade', () {
+        for (final entry in chips.entries) {
+          expect(
+            (entry.value.colors.length, entry.value.stops, entry.value.begin),
+            (3, const [0.0, 0.1, 1.0], Alignment.topCenter),
+            reason:
+                '$themeName: the ${entry.key} chip is not the same three-stop '
+                'vertical shape as its siblings — `LinearGradient.lerp` then '
+                'leaves its cheap path and the tile visibly resamples '
+                'mid-transition',
+          );
+        }
+      });
+
+      test('the resting tile is material, at every point of the rail', () {
+        grounds.forEach((label, ground) {
+          final ratio = contrastRatio(body(chips['resting']!, ground), ground);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(tileFloor),
+            reason:
+                '$themeName at $label: the resting tile lifts only '
+                '${ratio.toStringAsFixed(3)}:1 off the frame. Below that it is '
+                'not a tile the icon stands on, it is a smudge — and the '
+                'active state then reads as "the one row that has a fill" '
+                'rather than as the one row wearing the accent',
+          );
+        });
+      });
+
+      test('the states still separate on their new ground', () {
+        grounds.forEach((label, ground) {
+          final resting = body(chips['resting']!, ground);
+          final hover = contrastRatio(body(chips['hover']!, ground), resting);
+          final active = contrastRatio(body(chips['active']!, ground), resting);
+          expect(
+            hover,
+            greaterThanOrEqualTo(1.05),
+            reason:
+                '$themeName at $label: hover steps only '
+                '${hover.toStringAsFixed(3)}:1 over the resting tile',
+          );
+          expect(
+            active,
+            greaterThanOrEqualTo(1.20),
+            reason:
+                '$themeName at $label: the active tile steps only '
+                '${active.toStringAsFixed(3)}:1 over the resting one. It was '
+                'solved against *bare frame*, where the same alphas bought '
+                '1.5:1; a chip under it changes the ground and the state has '
+                'to be re-solved, not inherited',
+          );
+        });
+      });
+
+      test('the gloss is a lit edge, never a second object', () {
+        grounds.forEach((label, ground) {
+          for (final entry in chips.entries) {
+            final gloss = alphaComposite(entry.value.colors.first, ground);
+            final fill = alphaComposite(entry.value.colors[1], ground);
+            expect(
+              relativeLuminance(gloss),
+              greaterThan(relativeLuminance(fill)),
+              reason:
+                  '$themeName at $label: the ${entry.key} chip\'s first stop '
+                  'is darker than the fill under it — that is a shadow drawn '
+                  'along the top edge, i.e. the tile lit from below',
+            );
+            final step = contrastRatio(gloss, fill);
+            expect(
+              step,
+              lessThan(3.0),
+              reason:
+                  '$themeName at $label: the ${entry.key} chip\'s gloss steps '
+                  '${step.toStringAsFixed(2)}:1 over its fill, at the '
+                  'contrast an *object* owes (WCAG 1.4.11) — a band that '
+                  'strong stops reading as light on the tile and starts '
+                  'reading as a second element drawn on it',
+            );
+          }
+        });
+      });
+
+      test('the icon stays legible on every tile', () {
+        grounds.forEach((label, ground) {
+          final checks = <String, (Color, Color)>{
+            'resting': (iconResting, body(chips['resting']!, ground)),
+            'hover': (iconLit, body(chips['hover']!, ground)),
+            'active': (iconLit, body(chips['active']!, ground)),
+          };
+          checks.forEach((state, pair) {
+            final ratio = contrastRatio(pair.$1, pair.$2);
+            expect(
+              ratio,
+              greaterThanOrEqualTo(4.5),
+              reason:
+                  '$themeName at $label: the $state icon reaches only '
+                  '${ratio.toStringAsFixed(2)}:1 on its own tile. A nav '
+                  'pictogram would clear the 3:1 a graphical object owes, but '
+                  'this rail is the app\'s primary navigation and the tiles '
+                  'are what the icons had to be re-solved against — the whole '
+                  'point of a tile is that the glyph gains contrast, not '
+                  'spends it',
+            );
+          });
+        });
+      });
     });
   }
 }

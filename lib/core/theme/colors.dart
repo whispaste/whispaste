@@ -4,6 +4,10 @@
 /// family (`accent` and its ladder) means "you can act on this", and a
 /// cyan/teal family (`recordingAccent`) means "a recording or its
 /// transcription is in flight" — nothing else is allowed a saturated voice.
+/// The single sanctioned cool note outside that family is the deepest stop of
+/// `frameGradient`: a shadow, 50° clear of the recording hue, under the
+/// category layer's saturation ceiling, carrying no meaning at all (*The
+/// Cool-Shadow Exception*, `lib/DESIGN.md`).
 ///
 /// Depth is *precomposited frost*, not a compositor effect: tinted translucent
 /// card fills (`cardFill`, `cardFillElevated`) painted over one chromatic
@@ -277,7 +281,9 @@ abstract final class WpColorsDark {
   /// apart in relative luminance, so the panel reads as chromatic
   /// *temperature* under flat light, never as a lit edge.
   ///
-  /// Measured: 252° / 254° / 291°, saturation 41 % → 34 % → 21 %. The middle
+  /// Measured: 253° / 254° / 291°, saturation 67 % → 34 % → 21 % — the first
+  /// stop answers to the frame beneath it (see below), the other two to the
+  /// opaque tonal stack. The middle
   /// stop *is* [surface] and moves with it. What keeps the magenta pole from
   /// reading as a second signal is that saturation floor — under a quarter of
   /// the accent's — not hue distance; it deliberately sits on the same
@@ -289,11 +295,19 @@ abstract final class WpColorsDark {
   /// (`WpLayout.sidebarWidth`, `WpLayout.appBarHeight`) = (72, 64) of a
   /// [frameGradient] that spans the whole window, and it has to read there as
   /// the same light one step nearer — **identical hue, lower chroma, more
-  /// light**. Against the frame under it (#1D153A at the 1100 × 750 the app
-  /// opens at, 252.29° / 46.8 % / Y 0.01096) this stop lands at 252.35° /
-  /// 41.5 % / Y 0.01250: hue 0.07° off, chroma 5.4 points down, luminance
-  /// 1.025:1 up. It used to sit at 248.6°, i.e. the corner turned 3.7° of hue
-  /// across a seam that carries no border to explain it.
+  /// light**. Against the frame under it (#1A0B50 at the 1100 × 750 the app
+  /// opens at, 252.83° / 74.9 % / Y 0.01151) this stop lands at 252.92° /
+  /// 67.0 % / Y 0.01241: hue 0.09° off, chroma 7.9 points down, luminance
+  /// 1.034:1 up.
+  ///
+  /// **Re-solved with the frame's chroma, not merely re-measured.** It sat at
+  /// 41.5 % while the frame beneath it sat at 46.8 % — a 5.4-point drop, about
+  /// four 8-bit steps of channel spread. When the frame's chroma went up ~1.6×
+  /// (2026-08-11) this stop had to follow, or the same four-step drop would
+  /// have become a thirty-point chroma cliff at a corner that carries no
+  /// border to explain it. It follows *only* at the seam: the plane's other
+  /// two stops are untouched, and the chroma falls off inside the plane as a
+  /// continuous ramp — which is a gradient, not an edge.
   ///
   /// **Why a constant and not a measurement.** The seam sits close enough to
   /// the frame gradient's origin (t ≈ 0.021–0.095 for every window from the
@@ -304,14 +318,14 @@ abstract final class WpColorsDark {
   /// the `Frame → content-plane seam` group in `wcag_contrast_test.dart`
   /// walks the whole resize range to prove the constant holds at all of it.
   ///
-  /// The seam lift is why end to end this now spans 1.009:1 rather than the
+  /// The seam lift is why end to end this now spans 1.010:1 rather than the
   /// 1.02:1 of Ticket 06 — the first stop rose toward the last. The plane's
   /// actual range is unchanged: its widest stop pair is still the middle stop
   /// against the magenta pole, 1.07:1.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1F183A), Color(0xFF191429), Color(0xFF261A28)],
+    colors: [Color(0xFF1E1051), Color(0xFF191429), Color(0xFF261A28)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -329,29 +343,48 @@ abstract final class WpColorsDark {
   ///
   /// **Where it turned.** It used to be a two-stop vertical ramp at 225° —
   /// blue-navy, left behind when the opaque stack turned violet with the
-  /// accent, and 29° off the ambient everything else stands on. Measured now:
-  /// 251° / 266° / 295°, the same violet→magenta arc [warmSurfaceGradient]
-  /// walks, so this introduces no hue family; saturation 47 % → 45 % → 38 %.
+  /// accent, and 29° off the ambient everything else stands on. Ticket 06 put
+  /// it on the violet→magenta arc at 251° / 266° / 295° and 47 % / 45 % / 38 %
+  /// saturation; that read as *correct but timid*, so the chroma was re-solved
+  /// upward at unchanged luminance (maintainer decision, 2026-08-11 — "the
+  /// existing WhisPaste, seen through coloured glass"). Measured now:
+  /// **251° / 268° / 296° / 240°, saturation 75 % / 74 % / 69 % / 50 %** — the
+  /// same arc, roughly 1.6× the chroma, plus the cool shadow stop below.
+  ///
+  /// **The fourth stop is a cool shadow, and it is the one sanctioned cool
+  /// note in the app** (maintainer decision ② = b, 2026-08-11). Warm light,
+  /// cool shadow: the corner furthest from the light falls back toward blue
+  /// instead of continuing into magenta. It carries **no meaning and no
+  /// interaction** — see *The Cool-Shadow Exception* in `lib/DESIGN.md` — and
+  /// it is held clear of [recordingAccent] by 50.5° of hue (the app's 45°
+  /// "mistakable for a brand voice" radius plus margin) and by a saturation
+  /// ceiling of 52 %, the category layer's "perceptible, never a signal"
+  /// level. 240° is as cool as that clearance allows; actual teal is not
+  /// available to an ambient, because teal *is* the recording signal.
   ///
   /// **Why it may be the louder of the two ambients.** End to end it spans
-  /// 1.14:1 where the content plane spans 1.009:1 — the deliberate role
+  /// 1.10:1 where the content plane spans 1.010:1 — the deliberate role
   /// reversal of Ticket 06. The frame is the room; the content plane is the
   /// sheet lying in it, and a sheet that patterned itself as strongly as the
   /// room would compete with what is printed on it. Both halves are gated in
   /// `wcag_contrast_test.dart`.
   ///
   /// **Why it stays darker than the content plane.** Mean relative luminance
-  /// 0.0077 against the plane's 0.0114, and every stop sits at or below the
-  /// plane's at the same diagonal position — so the plane still reads as
-  /// raised, which on dark is the *only* depth source there is (no card shadow
-  /// token exists here). Livening the frame therefore had to happen by chroma
-  /// and by amplitude, never by brightening it past the thing it carries.
-  /// Opaque tonal steps, no alpha glow.
+  /// 0.0080 against the plane's 0.0114 — so the plane still reads as raised,
+  /// which on dark is the *only* depth source there is (no card shadow token
+  /// exists here). Livening the frame therefore happens by chroma alone, never
+  /// by brightening it past the thing it carries: every stop keeps the
+  /// luminance Ticket 06 solved for it. Opaque tonal steps, no alpha glow.
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1D163D), Color(0xFF1A0F28), Color(0xFF150A16)],
-    stops: [0.0, 0.5, 1.0],
+    colors: [
+      Color(0xFF190C54),
+      Color(0xFF21093D),
+      Color(0xFF240726),
+      Color(0xFF0E0E2A),
+    ],
+    stops: [0.0, 0.42, 0.74, 1.0],
   );
 
   /// Top accent line gradient
@@ -373,18 +406,64 @@ abstract final class WpColorsDark {
     colors: [Color(0xFFAF8EFA), Color(0xFFAB63EE), Color(0xFFB348D7)],
   );
 
-  /// Nav-rail active pill — a *tonal* top-lit gradient on the existing accent,
-  /// not a new hue: 20 % accent at the top stop falling to 12 % at the bottom.
+  /// Nav-rail icon chip, resting — the rail's icons stand on **material**, not
+  /// on bare frame.
   ///
-  /// The mean (16 %) sits on top of the flat [accentSubtle] (16.5 %) it
-  /// replaces, so the pill gains a lit top edge and a settled base without
-  /// getting louder overall. Deliberately *not* [accentWarmGradient] — that
-  /// one is opaque, and an opaque accent fill would swallow the accent-colored
-  /// icon standing on it.
+  /// Three stops on one vertical axis, and the first two are one idea: a
+  /// *precomposited* top gloss (27 % of the [cardEdgeHighlight] tint over the
+  /// first tenth of the tile) over a frost fill falling 17.6 % → 12.2 %. The
+  /// gloss is what a 1px edge highlight would be if the tile were a card —
+  /// baked into the gradient instead of drawn as a second border, because a
+  /// non-uniform `Border` and a `borderRadius` cannot coexist in Flutter.
+  ///
+  /// **This is a glow the *Depth-Source Rule* allows.** No colored shadow at
+  /// offset 0 is involved anywhere: the bloom is fill, chroma and a lit top
+  /// edge, and on dark the tile's own brightness delta against the frame
+  /// (≈1.24:1) is the whole depth source, exactly as it is between the card
+  /// fills.
+  ///
+  /// **It marks nothing.** Every rail item wears one, resting or not, so the
+  /// tile is material rather than a state — which is what keeps
+  /// [navPillActiveGradient] the single marking of selection (*The One
+  /// Highlight Per State Rule*).
+  static const LinearGradient navChipGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x45A190D5), Color(0x2DA190D5), Color(0x1FA190D5)],
+    stops: [0.0, 0.1, 1.0],
+  );
+
+  /// Nav-rail icon chip, hovered — the same tile one step brighter (25 % →
+  /// 18 % frost under a 36 % [cardEdgeHighlight] gloss), ≈1.12:1 over
+  /// [navChipGradient].
+  ///
+  /// Deliberately carries no accent: hover says "you can act on this", the
+  /// accent-tinted tile says "you are here", and a hover that borrowed the
+  /// accent would make the two states one.
+  static const LinearGradient navChipGradientHover = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x5CD7C8F9), Color(0x40A190D5), Color(0x2EA190D5)],
+    stops: [0.0, 0.1, 1.0],
+  );
+
+  /// Nav-rail active chip — the same tile in the accent's hue: 36 % accent at
+  /// the top falling to 25 % at the bottom, under a 56 % [accentHover] gloss.
+  ///
+  /// **Re-solved upward with the chip (2026-08-11).** It used to be 20 % → 12 %
+  /// (mean 16 %, matching the flat [accentSubtle] it replaced), calibrated
+  /// against *bare frame*. Its ground is now [navChipGradient], so the same
+  /// alphas would have bought a 1.09:1 step where the old one bought 1.5:1 —
+  /// the state would have survived the audit and lost its voice. At 36/25 it
+  /// stands 1.40:1 over the resting tile and 1.72:1 over the frame.
+  ///
+  /// Still deliberately *not* [accentWarmGradient]: that one is opaque, and an
+  /// opaque accent fill would swallow the tile's ground rather than tint it.
   static const LinearGradient navPillActiveGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x33AF8EFA), Color(0x1FAF8EFA)],
+    colors: [Color(0x8FCEBAFC), Color(0x5CAF8EFA), Color(0x40AF8EFA)],
+    stops: [0.0, 0.1, 1.0],
   );
 }
 
@@ -609,53 +688,77 @@ abstract final class WpColorsLight {
   /// against.
   ///
   /// **The first stop is the seam** — see the dark twin for the full argument;
-  /// this is its pearl solution. Against the frame at (72, 64) (#F4F2F9 at
-  /// the 1100 × 750 the app opens at, 258.83° / 39.5 % / Y 0.89762) it lands
-  /// at 260.0° / 20.0 % / Y 0.92525: hue 1.17° off, chroma 19.5 points down,
-  /// luminance 1.029:1 up. 1.17° is the *floor*, not a tolerance — at L ≈ 97 %
-  /// a single 8-bit step is worth several degrees of hue, the same
-  /// quantisation ceiling [frameGradient] argues for its own stops — and it
-  /// still more than halves the 3.8° the previous value turned.
+  /// this is its pearl solution. Against the frame at (72, 64) (#F5F1FC at
+  /// the 1100 × 750 the app opens at, 259.92° / 61.2 % / Y 0.89504) it lands
+  /// at 260.0° / 42.9 % / Y 0.92044: hue 0.05° off, chroma 18.3 points down,
+  /// luminance 1.029:1 up. The residual hue gap is a *floor*, not a tolerance
+  /// — at L ≈ 97 % a single 8-bit step is worth several degrees of hue, the
+  /// same quantisation ceiling [frameGradient] argues for its own stops.
+  ///
+  /// **Re-solved with the frame's chroma (2026-08-11).** It sat at 20.0 % under
+  /// a 39.5 % frame; both went up together when the frame's chroma did, so the
+  /// drop across the seam stays the ~4½ 8-bit steps of channel spread Ticket 07
+  /// ratified rather than doubling into a visible edge. Pearl flatters this:
+  /// at L ≈ 97 % the divisor `1 − |2L − 1|` is ≈ 0.06, so eighteen *points* of
+  /// HSL saturation are four bytes of actual color.
   ///
   /// **This stop no longer equals [surface].** Until Ticket 07 the two were
   /// the same value (#F6F5F9) and this comment read the plane as anchored on
   /// the surface token. That was a coincidence of tuning, not a derivation:
   /// the plane's first stop answers to the frame beneath it, [surface] answers
-  /// to the opaque tonal stack, and the two are now one 8-bit step apart. The
+  /// to the opaque tonal stack, and the two have drifted apart accordingly —
+  /// two 8-bit steps of blue and one of red since the frame's chroma rose. The
   /// dark twin still anchors on [surface] — at its *middle* stop, where
   /// nothing reads it against the frame.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF7F6F9), Color(0xFFF3F2F6), Color(0xFFF4F1F5)],
+    colors: [Color(0xFFF7F5FB), Color(0xFFF3F2F6), Color(0xFFF4F1F5)],
     stops: [0.0, 0.5, 1.0],
   );
 
   /// The light twin of [WpColorsDark.frameGradient] — same diagonal, same
-  /// top-left light source, same violet→magenta arc (measured 257° / 267° /
-  /// 288°), at a third of its amplitude.
+  /// top-left light source, same violet→magenta arc plus the same cool shadow
+  /// stop (measured 258° / 268° / 288° / 247°), at a fraction of its
+  /// amplitude.
   ///
   /// Same correction, too: the old stops sat at 212–215°, pearl-*blue*, left
   /// behind by the violet turn and 45° off the pearl everything else stands
   /// on.
   ///
-  /// **Why the amplitude is a third, not a taste.** The dark twin gains its
-  /// range by descending into shadow; on pearl the same move descends into
-  /// [textMuted]'s AA margin. `textMuted` needs a ground at relative luminance
-  /// ≥ 0.798 to hold 4.5:1, and the frame is exactly where the status bar and
-  /// the nav rail's inactive icons put it. The darkest stop lands at 0.819 (4.61:1) and
-  /// the range is bought at the bright end instead — 1.10:1 end to end against
-  /// the content plane's 1.04:1, so the frame is still the livelier of the two
-  /// ambients. That is *The Increment–Decrement Rule*'s sanctioned asymmetry
-  /// arguing for itself at the token, exactly as [background] does.
+  /// **Chroma is bought sideways here, not downward** (2026-08-11). Saturation
+  /// went 41 / 33 / 26 % → **63 / 57 / 59 / 56 %** without spending the
+  /// luminance budget, because on pearl chroma can be taken by pushing red and
+  /// blue apart while green — 71.5 % of relative luminance — barely moves. The
+  /// budget is real and it is [textMuted]'s: it needs a ground at relative
+  /// luminance ≥ 0.798 to hold 4.5:1, and the frame is exactly where the
+  /// status bar and the nav rail's resting icons put it. The deepest stop
+  /// lands at 0.805 (4.54:1). The dark twin has no such cap and takes its
+  /// chroma straight.
   ///
-  /// Mean relative luminance 0.861 against the content plane's 0.902: on
+  /// **Amplitude.** 1.11:1 end to end against the content plane's 1.04:1, so
+  /// the frame is still the livelier of the two ambients — that is *The
+  /// Increment–Decrement Rule*'s sanctioned asymmetry arguing for itself at the
+  /// token, exactly as [background] does.
+  ///
+  /// Mean relative luminance 0.847 against the content plane's 0.900: on
   /// pearl, raised means brighter, so the plane again sits above its room.
+  ///
+  /// **The fourth stop is the cool shadow** — see [WpColorsDark.frameGradient]
+  /// for the whole argument. On pearl it clears this theme's
+  /// [recordingAccent] (196°) by 50.8° and stays at 56 % saturation, under the
+  /// light category layer's 58 %. It reads more plainly here than on dark,
+  /// where the same corner sits near black.
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF5F3FA), Color(0xFFF1EDF6), Color(0xFFEFE7F1)],
-    stops: [0.0, 0.5, 1.0],
+    colors: [
+      Color(0xFFF5F2FC),
+      Color(0xFFF3EDFA),
+      Color(0xFFF4E4F8),
+      Color(0xFFE8E6F8),
+    ],
+    stops: [0.0, 0.42, 0.74, 1.0],
   );
 
   /// The interactive gradient — violet to magenta, the light twin of
@@ -671,16 +774,52 @@ abstract final class WpColorsLight {
     colors: [Color(0xFF6B35E9), Color(0xFF8F3CDD), Color(0xFF882AA7)],
   );
 
-  /// Nav-rail active pill — see [WpColorsDark.navPillActiveGradient].
+  /// Nav-rail icon chip, resting — see [WpColorsDark.navChipGradient].
   ///
-  /// Light keeps its own, lower alpha pair (14 % → 8 %, mean 11 %) rather than
-  /// reusing the dark stops: the deep accent on a near-white pearl surface
-  /// reads heavier per unit alpha than the light violet on violet-navy does.
-  /// The mean again matches the flat [accentSubtle] (11 %) it replaces.
+  /// **Pearl has a ceiling the dark theme does not.** The frame under the rail
+  /// already sits at relative luminance ≈0.90, so a tile can be at most
+  /// ≈1.06:1 brighter than it no matter what it is filled with; at 80 % → 70 %
+  /// of a violet-white this one reaches ≈1.03:1. The tile's objecthood is
+  /// therefore carried by the other two channels the *Depth-Source Rule*
+  /// gives the light theme: the offset shadow (`WpShadows.subtleLight`, which
+  /// the dark theme deliberately does without) and a [borderDefault] hairline
+  /// rather than the [borderSubtle] one dark can afford — the same argument
+  /// the rail's own group divider already makes, that a subtle hairline on a
+  /// 38 px shape reads as a rendering artifact.
+  static const LinearGradient navChipGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xF2FFFCFF), Color(0xCCFAF7FF), Color(0xB3F7F3FE)],
+    stops: [0.0, 0.1, 1.0],
+  );
+
+  /// Nav-rail icon chip, hovered — see [WpColorsDark.navChipGradientHover].
+  ///
+  /// Light hovers the tile *downward* into violet (90 % → 80 % of a pearl
+  /// violet) where dark hovers it upward into light. That is not a stylistic
+  /// mirror but the pearl ceiling again: there is ≈0.03 of luminance left
+  /// above the resting tile and 1.07:1 available below it, so the perceptible
+  /// step is the one that exists. *The Increment–Decrement Rule*, taken to its
+  /// literal end.
+  static const LinearGradient navChipGradientHover = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFAFFFCFF), Color(0xE6F3ECFE), Color(0xCCEFE7FD)],
+    stops: [0.0, 0.1, 1.0],
+  );
+
+  /// Nav-rail active chip — see [WpColorsDark.navPillActiveGradient].
+  ///
+  /// Light keeps its own, lower alpha pair (20 % → 12 %, mean 16 %) rather than
+  /// reusing the dark stops (36 → 25): the deep accent on a near-white pearl
+  /// surface reads heavier per unit alpha than the light violet on violet-navy
+  /// does. Both were re-solved together when the resting tile became their
+  /// shared ground; the light pair lands 1.31:1 over it.
   static const LinearGradient navPillActiveGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x246B35E9), Color(0x146B35E9)],
+    colors: [Color(0xCCFDFAFF), Color(0x336B35E9), Color(0x1F6B35E9)],
+    stops: [0.0, 0.1, 1.0],
   );
 }
 
@@ -1174,12 +1313,13 @@ final class WpAvatarTint {
 /// The rail was the layer's first surface, and the wash's job there was to
 /// make the chrome its own plate — a job [WpColorsDark.frameGradient] now does
 /// itself, chromatically and across all three bars at once. What settles it is
-/// not that the wash became invisible (it still lifts the rail by ≈1.08:1 on
-/// dark) but that it became *wrong*: a flat veil on one strip of a diagonal
-/// ambient cuts a seam down the frame at x = 72 dp, and the frame has to read
-/// as one light source across title bar, rail and status bar. The prohibition
-/// that no bar paints a ground of its own is the same rule seen from the other
-/// side, and it is gated in `test/widgets/frame_single_paint_test.dart`.
+/// not that the wash became invisible (it would still lift the rail by
+/// ≈1.07:1 on dark) but that it became *wrong*: a flat veil on one strip of a
+/// diagonal ambient cuts a seam down the frame at x = 72 dp, and the frame
+/// has to read as one light source across title bar, rail and status bar.
+/// The prohibition that no bar paints a ground of its own is the same rule
+/// seen from the other side, and it is gated in
+/// `test/widgets/frame_single_paint_test.dart`.
 /// Recorded rather than deleted, per this file's audit convention.
 ///
 /// **Never cyan.** Cyan/teal stays the brand accent alone (decision ② = b), so
