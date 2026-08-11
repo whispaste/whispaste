@@ -8,6 +8,7 @@
 library;
 
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
@@ -471,7 +472,106 @@ enum WpCategorySlot {
   /// *The Tint Ladder Rule*'s 30 % outline rung, in this slot's hue. See
   /// [chipFill].
   Color chipBorder(bool isDark) => color(isDark).withValues(alpha: 0.30);
+
+  /// A [steps]-step **sequential** ramp in this slot's hue — the ordinal half
+  /// of *The Categorical vs. Sequential Rule*.
+  ///
+  /// Ordered data (a duration distribution, a ranked tier) gets one hue at
+  /// several weights, never several hues: a reader who sees eight hues on a
+  /// ranked axis has to learn an arbitrary order, where one hue at rising
+  /// weight already carries it. `steps` is capped at the rule's own 3–5 so the
+  /// cap is executable rather than advisory.
+  ///
+  /// **Step 0 is the slot itself, and the ramp climbs *away* from the ground.**
+  /// On dark it lightens, on light it darkens — which means every rung clears
+  /// the surfaces by at least as much as the base slot does, and the 3:1 floor
+  /// for a graphical object is inherited rather than re-argued per rung. A ramp
+  /// laid symmetrically around the slot would sink its low end under that floor
+  /// on light.
+  ///
+  /// **The axis is luminance, not HSL lightness**, because the palette itself is
+  /// built on equal relative luminance (see [WpCategoryColorsDark]). Each rung
+  /// sits a fixed [_rampStepContrast] contrast ratio from the one before it, so
+  /// the rungs are exactly as separable in `moss` as in `plum` — equal steps of
+  /// HSL lightness are not, and collapse into each other on the slots that
+  /// already sit low. Solving in linear light also makes the step a closed form
+  /// instead of a search.
+  ///
+  /// The two themes mirror rather than share, as everywhere else in this file:
+  /// lightening on dark blends toward white and therefore desaturates a little,
+  /// while darkening on light is a pure luminance scale that leaves the
+  /// chromaticity — and so the hue's identity — untouched.
+  ///
+  /// Verified per slot, per theme and per step count in
+  /// `test/core/theme/wcag_contrast_test.dart`: neighbouring rungs stay ≥ 1.2:1
+  /// apart and every rung clears every surface by ≥ 3:1.
+  List<Color> ramp(int steps, bool isDark) {
+    assert(
+      steps >= 3 && steps <= 5,
+      'a sequential ramp carries 3–5 steps (The Categorical vs. Sequential '
+      'Rule); $steps rungs is a scale the eye can no longer order',
+    );
+    final base = color(isDark);
+    final baseLuminance = base.computeLuminance();
+    final r = _srgbToLinear(base.r);
+    final g = _srgbToLinear(base.g);
+    final b = _srgbToLinear(base.b);
+
+    final rungs = <Color>[base];
+    var offsetLuminance = baseLuminance + 0.05;
+    for (var i = 1; i < steps; i++) {
+      offsetLuminance = isDark
+          ? offsetLuminance * _rampStepContrast
+          : offsetLuminance / _rampStepContrast;
+      final target = offsetLuminance - 0.05;
+      if (isDark) {
+        // Blend toward white in linear light: Y rises linearly with the blend
+        // factor, so the factor that hits `target` is a division, not a search.
+        final t = ((target - baseLuminance) / (1 - baseLuminance)).clamp(
+          0.0,
+          1.0,
+        );
+        rungs.add(
+          Color.from(
+            alpha: 1,
+            red: _linearToSrgb(r + t * (1 - r)),
+            green: _linearToSrgb(g + t * (1 - g)),
+            blue: _linearToSrgb(b + t * (1 - b)),
+          ),
+        );
+      } else {
+        // Scaling every linear channel by the same factor scales Y by it too.
+        final k = (target / baseLuminance).clamp(0.0, 1.0);
+        rungs.add(
+          Color.from(
+            alpha: 1,
+            red: _linearToSrgb(r * k),
+            green: _linearToSrgb(g * k),
+            blue: _linearToSrgb(b * k),
+          ),
+        );
+      }
+    }
+    return rungs;
+  }
 }
+
+/// Contrast ratio between two neighbouring rungs of [WpCategorySlot.ramp].
+///
+/// Chosen as the largest step a five-rung ramp can afford without its far end
+/// running out of room: from the palette's Y ≈ 0.30 (dark) / 0.19 (light) base,
+/// four steps of 1.22 land at Y ≈ 0.72 and Y ≈ 0.05 — pale and deep, but still
+/// hue-bearing rather than white or black.
+const double _rampStepContrast = 1.22;
+
+/// The sRGB transfer function and its inverse — the same one
+/// [Color.computeLuminance] applies, restated here because [WpCategorySlot.ramp]
+/// has to leave linear light again after doing its arithmetic there.
+double _srgbToLinear(double c) =>
+    c <= 0.03928 ? c / 12.92 : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+
+double _linearToSrgb(double c) =>
+    c <= 0.0031308 ? c * 12.92 : 1.055 * math.pow(c, 1 / 2.4) - 0.055;
 
 /// Dark-theme category slots — one recipe, nine outcomes.
 ///
@@ -557,11 +657,37 @@ abstract final class WpCategoryColorsLight {
 
 /// Deterministic slot for an STT model, keyed by its `SttModelInfo.id`.
 ///
-/// Stable across restarts and across model-list edits: the id hashes, the
-/// list position does not, so adding a fourth model never re-colors the other
-/// three.
+/// Stable across restarts and across model-list edits: the identity is the id,
+/// never the list position, so adding a model never re-colors the others.
+///
+/// **A table, not a hash**, for the same reason as [categorySlotForAvatarRule]:
+/// the shipped ids are a small closed set, and the sum-of-code-units hash is not
+/// injective over it — `whisper-small` and `whisper-medium` both sum onto slot 0
+/// and would paint the two most-used models the same hue. An id the table does
+/// not know still hashes, so an unreleased model keeps working; a test pins that
+/// every id the app actually ships is tabled.
 WpCategorySlot categorySlotForModel(String modelId) =>
-    _categorySlotForIdentity(modelId);
+    _modelSlots[modelId] ?? _categorySlotForIdentity(modelId);
+
+/// The STT model ids the app can show, one slot each.
+///
+/// The four selectable models take the four most widely separated hues on the
+/// wheel; the three legacy ids — `_migrateModelId` rewrites the *setting*, so
+/// history rows written before it still carry them — take what remains. Which
+/// key gets which hue means nothing, the scale is nominal.
+///
+/// [WpCategorySlot.iris] is deliberately absent: it is the source of the
+/// analytics duration ramp (see [WpCategorySlot.ramp]), which sits one panel
+/// away from the model bars, and one hue should not mean two things on a screen.
+const Map<String, WpCategorySlot> _modelSlots = {
+  'whisper-small': WpCategorySlot.fern,
+  'whisper-medium': WpCategorySlot.azure,
+  'whisper-large-v3-turbo': WpCategorySlot.orchid,
+  'parakeet-tdt-0.6b-v3': WpCategorySlot.ember,
+  'whisper-tiny': WpCategorySlot.moss,
+  'whisper-base': WpCategorySlot.brass,
+  'whisper-large-v3': WpCategorySlot.plum,
+};
 
 /// Deterministic slot for a tag, keyed by its name.
 ///
@@ -601,10 +727,13 @@ const Map<String, WpCategorySlot> _avatarRuleSlots = {
   'reminder': WpCategorySlot.moss,
 };
 
-/// The one hash behind the open-ended mappers — sum of code units, modulo the
-/// slot count — so the repo keeps a single, recognisable "identity → slot"
-/// idiom. Sound for models and user-typed tags, whose domains are open; the
-/// closed set of avatar rules is tabled instead (see [categorySlotForAvatarRule]).
+/// The one hash behind the mappers — sum of code units, modulo the slot count —
+/// so the repo keeps a single, recognisable "identity → slot" idiom. Sound for
+/// user-typed tags, whose domain is genuinely open; the closed sets (avatar
+/// rules, model ids) are tabled instead, because over a small domain the hash
+/// collides and a bijection is both possible and owed. See
+/// [categorySlotForAvatarRule] and [categorySlotForModel] — for those two the
+/// hash is only the fallback for a key the table has not met.
 ///
 /// Distributes over [WpCategorySlot.categories] only; [WpCategorySlot.neutral]
 /// is unreachable from here by design. An empty identity is a caller bug, not a

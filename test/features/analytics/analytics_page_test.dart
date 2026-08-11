@@ -15,7 +15,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart' show AnalyticsModelUsage;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
+import 'package:whispaste/widgets/section.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -428,7 +430,178 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 8. Period selector in the Overview header, at the narrowest window
+  // 8. Color assignment — nominal for models, ordinal for durations (Ticket 14)
+  // ---------------------------------------------------------------------------
+  //
+  // Both panels used to paint the same accent gradient, so the color said only
+  // "this is a bar". They now carry two *different* kinds of meaning, and the
+  // point of the tests below is that the two kinds stay apart: models are an
+  // unordered set and get distinct hues, durations are an ordered one and get a
+  // single hue at rising weight.
+
+  group('bar colors', () {
+    /// Three models and five non-empty duration buckets — every bar and every
+    /// ramp rung actually gets painted. (`_mockData` ends on a zero bucket,
+    /// whose bar has zero width and would let a missing rung pass unnoticed.)
+    const colorData = AnalyticsData(
+      totalRecordings: 42,
+      totalDurationMinutes: 120,
+      totalWords: 5000,
+      timeSavedMinutes: 80,
+      weeklyActivity: [1, 2, 3, 4, 5, 6, 7],
+      modelUsage: [
+        AnalyticsModelUsage(model: 'whisper-small', count: 20, fraction: 0.5),
+        AnalyticsModelUsage(model: 'whisper-medium', count: 12, fraction: 0.3),
+        AnalyticsModelUsage(
+          model: 'whisper-large-v3-turbo',
+          count: 8,
+          fraction: 0.2,
+        ),
+      ],
+      durationBuckets: [5, 4, 3, 2, 1],
+      localSavingsUsd: 2.50,
+      cloudCostUsd: 0.75,
+    );
+
+    /// Solid fills painted by [ColoredBox] — the model bars and both tracks.
+    List<Color> coloredBoxFills(WidgetTester tester) => tester
+        .widgetList<ColoredBox>(find.byType(ColoredBox))
+        .map((b) => b.color)
+        .toList();
+
+    /// Fills painted through a [BoxDecoration] — the duration bars.
+    List<Color> decorationFills(WidgetTester tester) => tester
+        .widgetList<Container>(find.byType(Container))
+        .map((c) => c.decoration)
+        .whereType<BoxDecoration>()
+        .map((d) => d.color)
+        .whereType<Color>()
+        .toList();
+
+    List<Gradient> decorationGradients(WidgetTester tester) => tester
+        .widgetList<Container>(find.byType(Container))
+        .map((c) => c.decoration)
+        .whereType<BoxDecoration>()
+        .map((d) => d.gradient)
+        .whereType<Gradient>()
+        .toList();
+
+    for (final (themeName, brightness, isDark) in [
+      ('dark', Brightness.dark, true),
+      ('light', Brightness.light, false),
+    ]) {
+      testWidgets('$themeName: every model bar wears its own slot', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const AnalyticsPage(),
+            brightness: brightness,
+            overrides: _dataOverrides(colorData),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final fills = coloredBoxFills(tester);
+        final expected = [
+          for (final id in const [
+            'whisper-small',
+            'whisper-medium',
+            'whisper-large-v3-turbo',
+          ])
+            categorySlotForModel(id).color(isDark),
+        ];
+        expect(
+          expected.toSet(),
+          hasLength(3),
+          reason:
+              'two of the three shipped models resolve to one hue — a nominal '
+              'scale whose members collide cannot separate its categories',
+        );
+        for (final color in expected) {
+          expect(
+            fills,
+            contains(color),
+            reason:
+                '$themeName: no bar is painted in '
+                '#${color.toARGB32().toRadixString(16)} — the model bars are '
+                'not reaching their category slot',
+          );
+        }
+      });
+
+      testWidgets('$themeName: the duration bars are one hue at five weights', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const AnalyticsPage(),
+            brightness: brightness,
+            overrides: _dataOverrides(colorData),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // `iris` named outright rather than read back off the widget: the point
+        // of the assertion is *which* slot the ramp comes from. It is not the
+        // brand accent (Ticket 11, ② = b) and it is not one of the model hues
+        // one panel up, and both only hold as long as the source is pinned.
+        final ramp = WpCategorySlot.iris.ramp(5, isDark);
+        final fills = decorationFills(tester);
+        for (final rung in ramp) {
+          expect(
+            fills,
+            contains(rung),
+            reason:
+                '$themeName: the duration panel is missing the rung '
+                '#${rung.toARGB32().toRadixString(16)} — an ordinal scale with '
+                'a gap in it no longer reads as ordered',
+          );
+        }
+        expect(
+          ramp.toSet(),
+          hasLength(5),
+          reason:
+              '$themeName: two rungs of the duration ramp resolve to the same '
+              'color — the scale has fewer steps than buckets',
+        );
+      });
+    }
+
+    testWidgets('the brand gradient stays on the hero pills alone', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(colorData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Seven, and each one accounted for: four hero pills (no latency sample
+      // in `colorData`, so four rather than five) plus the accent bar of the
+      // three `WpSection`s. The eight bars that used to wear it — three model,
+      // five duration — are flat now. The gradient is the brand's own moment;
+      // when everything wore it, nothing on the page was emphatic any more.
+      // Ticket 17 owns where else it may appear; until then, seven.
+      expect(
+        decorationGradients(
+          tester,
+        ).where((g) => g == WpColorsDark.accentWarmGradient).length,
+        4 + tester.widgetList(find.byType(WpSection)).length,
+        reason:
+            'the accent gradient escaped the hero pills and section bars — the '
+            'model and duration bars are flat by decision, not by accident',
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 9. The narrowest window — period selector in the header, hero numbers below
   // ---------------------------------------------------------------------------
   //
   // The period selector sits in `WpSection.trailing`, on the same line as the
@@ -455,7 +628,7 @@ void main() {
   // accessibility size is deliberately allowed to wrap rather than being
   // designed away — the subtitle reflowing under the title is the graceful
   // failure, the title itself never wraps and nothing is clipped.
-  group('period selector at the minimum window width', () {
+  group('at the minimum window width', () {
     const minWindow = Size(800, 600);
 
     /// Five hero pills, six- and seven-digit numbers, long model names — the
@@ -607,6 +780,195 @@ void main() {
           );
         });
       }
+    }
+
+    // -------------------------------------------------------------------------
+    // The hero number at the same pressure.
+    //
+    // Ticket 14 moved the value from `headlineMedium` (16) to `headlineLarge`
+    // (22) so it clears its 11 px caption by 2:1 instead of 1.45:1. That is a
+    // ~38 % wider number inside a pill only ~110 px wide at the minimum window,
+    // and the failure mode is silent in both directions: `maxLines: 1` clips
+    // without raising the overflow assertion the group above watches for, and
+    // without it the number wraps and leaves one pill taller than its four
+    // neighbours. Hence the `FittedBox` — which cannot overflow by
+    // construction, so the two measurements worth taking are what it *costs*
+    // where it engages, and that the 22 px rung is real rather than nominal
+    // everywhere else.
+    //
+    // Measured against `pressureData`: 1,234,567 words and 164 h of audio, the
+    // longest strings the five formatters can produce.
+    //
+    // The room, measured rather than assumed (`getMaxIntrinsicWidth` of the
+    // widest of the five values, against ~104 px of pill):
+    //
+    //   de   1.0×  ~104 → fits        1.15×  117 → scaled
+    //   en   1.0×  ~104 → fits        1.15×  117 → scaled
+    //   he   1.0×   124 → scaled      1.15×  143 → scaled
+    //
+    // Hebrew is the tightest of the three here as it is in the header group
+    // above, and it is the reason the guard exists at all rather than the 22 px
+    // simply being declared safe.
+    // -------------------------------------------------------------------------
+
+    for (final localeCode in const ['de', 'en', 'he']) {
+      for (final textScale in const [1.0, 1.15]) {
+        testWidgets('$localeCode at ${textScale}x: hero value stays >= 16 px', (
+          tester,
+        ) async {
+          final t = await L10n.delegate.load(Locale(localeCode));
+
+          tester.view.physicalSize = minWindow;
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+
+          await tester.pumpWidget(
+            makeTestable(
+              Builder(
+                builder: (context) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: const AnalyticsPage(),
+                ),
+              ),
+              size: minWindow,
+              overrides: _dataOverrides(pressureData),
+              locale: Locale(localeCode),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // Every hero label is present, so every hero value is too — the
+          // values themselves are locale-formatted and not worth restating
+          // here; the label is the stable handle on the pill.
+          for (final label in [
+            t.analyticsTotalRecordings,
+            t.analyticsTotalDuration,
+            t.analyticsWordsDictated,
+            t.analyticsTimeSaved,
+          ]) {
+            expect(find.text(label), findsOneWidget, reason: 'pill "$label"');
+          }
+
+          final values = tester.renderObjectList<RenderParagraph>(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is Text &&
+                  w.style?.fontSize == 22 &&
+                  w.style?.fontWeight == FontWeight.w700,
+            ),
+          );
+          expect(
+            values.length,
+            5,
+            reason:
+                'expected five hero values at the 22 px rung — '
+                '`pressureData` has a latency sample, so all five pills render',
+          );
+
+          // A `BoxFit.scaleDown` box cannot overflow by construction, so "is it
+          // cut" is not the question worth asking — "how much did it give up"
+          // is. The box lays its child out unbounded and then sizes itself to
+          // `min(child, available)`, so the ratio of the two is the scale the
+          // number is actually painted at.
+          final boxes = find.byWidgetPredicate(
+            (w) => w is FittedBox && w.fit == BoxFit.scaleDown,
+          );
+          expect(tester.widgetList(boxes), hasLength(5));
+
+          for (var i = 0; i < 5; i++) {
+            final scale =
+                tester.getSize(boxes.at(i)).width /
+                values.elementAt(i).size.width;
+            expect(
+              scale,
+              lessThanOrEqualTo(1.0001),
+              reason:
+                  'hero value $i was scaled *up*, which scaleDown cannot do',
+            );
+            // `scale * 22` is the rung the value effectively renders at *before*
+            // the user's text scaler — the same footing as the 16 it is compared
+            // against, since that rung was scaled too. The floor is therefore
+            // the rung this ticket replaced: whatever the guard gives up at the
+            // narrow extremes, the number may never come out smaller than it
+            // was before. The worst case measures 15.993 (he, 1.15×), i.e. the
+            // guard hands back the whole type increase there and not a pixel
+            // more, so the half-pixel of tolerance is float slack, not headroom.
+            // If this fires, the hero row has genuinely run out of width and the
+            // fix is the row (fewer pills per line), not a smaller number.
+            expect(
+              scale * 22,
+              greaterThanOrEqualTo(15.5),
+              reason:
+                  'hero value $i renders at an effective rung of '
+                  '${(scale * 22).toStringAsFixed(3)} px at '
+                  '800px/$localeCode/${textScale}x — below the 16 px rung it '
+                  'had before Ticket 14, so the type change has been undone by '
+                  'the guard that was meant to protect it',
+            );
+          }
+        });
+      }
+    }
+
+    // The other half of the guarantee: the `FittedBox` is a safety net for the
+    // narrow extremes, not a licence to ship a smaller number everywhere. Under
+    // the same seven-digit pressure at the minimum window, plain text size, the
+    // Latin locales render the value at the full 22 px rung — unscaled.
+    for (final localeCode in const ['de', 'en']) {
+      testWidgets('$localeCode: the hero value keeps its full 22 px rung', (
+        tester,
+      ) async {
+        tester.view.physicalSize = minWindow;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          makeTestable(
+            const AnalyticsPage(),
+            size: minWindow,
+            overrides: _dataOverrides(pressureData),
+            locale: Locale(localeCode),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final paragraphs = tester.renderObjectList<RenderParagraph>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Text &&
+                w.style?.fontSize == 22 &&
+                w.style?.fontWeight == FontWeight.w700,
+          ),
+        );
+        expect(
+          paragraphs.length,
+          5,
+          reason:
+              'expected five hero values at the 22 px rung — `pressureData` '
+              'has a latency sample, so all five pills render',
+        );
+
+        final boxes = find.byWidgetPredicate(
+          (w) => w is FittedBox && w.fit == BoxFit.scaleDown,
+        );
+        for (var i = 0; i < 5; i++) {
+          final painted = tester.getRect(boxes.at(i)).width;
+          final unscaled = paragraphs.elementAt(i).size.width;
+          expect(
+            painted,
+            closeTo(unscaled, 0.5),
+            reason:
+                'hero value $i is being scaled down to '
+                '${(painted / unscaled * 100).toStringAsFixed(0)}% at '
+                '800px/$localeCode — a normal dashboard must get the whole '
+                '22 px, or the type rung the ticket bought is fiction',
+          );
+        }
+      });
     }
   });
 }

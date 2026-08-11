@@ -22,7 +22,9 @@ import 'package:flutter/painting.dart' show HSLColor;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/services/model_download_service.dart'
-    show TierPerformance;
+    show TierPerformance, sttModels;
+import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelId;
 import 'package:whispaste/widgets/tier_performance_presentation.dart';
 
 // ---------------------------------------------------------------------------
@@ -1015,6 +1017,205 @@ void main() {
         });
       }
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // Model → slot table (Ticket 14)
+  //
+  // The shipped model ids are a closed set, so the mapping owes a bijection —
+  // and the sum-of-code-units hash cannot give one here: `whisper-small` (1352)
+  // and `whisper-medium` (1456) are both ≡ 0 mod 8 and would paint the two
+  // most-used models the same hue. Same defect, same remedy as the avatar rules
+  // in Ticket 13.
+  // -------------------------------------------------------------------------
+
+  group('Model slot table', () {
+    // Pinned by name, like `every slot resolves to the constant of the same
+    // name` above: a bijection test alone cannot catch a *re-shuffled* table,
+    // and a model silently changing hue between releases is exactly the kind of
+    // drift the mapper exists to prevent.
+    const tabled = <String, WpCategorySlot>{
+      'whisper-small': WpCategorySlot.fern,
+      'whisper-medium': WpCategorySlot.azure,
+      'whisper-large-v3-turbo': WpCategorySlot.orchid,
+      'parakeet-tdt-0.6b-v3': WpCategorySlot.ember,
+      'whisper-tiny': WpCategorySlot.moss,
+      'whisper-base': WpCategorySlot.brass,
+      'whisper-large-v3': WpCategorySlot.plum,
+    };
+
+    test('every tabled id keeps its slot', () {
+      tabled.forEach((id, slot) {
+        expect(
+          categorySlotForModel(id),
+          slot,
+          reason:
+              '"$id" no longer resolves to ${slot.name} — a model that changes '
+              'hue between releases makes the color a decoration again',
+        );
+      });
+    });
+
+    test('no two models share a slot', () {
+      expect(
+        tabled.values.toSet().length,
+        tabled.length,
+        reason:
+            'two model ids landed on one hue — the whole point of the table is '
+            'that the hash could not promise a bijection over this set',
+      );
+    });
+
+    test('every model the app can ship is tabled', () {
+      final shipped = [...sttModels.map((m) => m.id), parakeetModelId];
+      for (final id in shipped) {
+        expect(
+          tabled.keys,
+          contains(id),
+          reason:
+              '"$id" ships but has no entry in `_modelSlots`, so it falls back '
+              'to the hash — which may collide with another model or land on '
+              'the duration ramp\'s hue',
+        );
+      }
+    });
+
+    test('no model wears the duration ramp\'s hue', () {
+      // The model bars and the duration distribution sit one panel apart on the
+      // analytics page. Sharing a hue there would give it two meanings on one
+      // screen — see `_durationRampSlot` in `analytics_page.dart`.
+      expect(
+        tabled.values,
+        isNot(contains(WpCategorySlot.iris)),
+        reason:
+            'a model took `iris`, the source of the analytics duration ramp — '
+            'pick one of the seven remaining slots instead',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Sequential ramps (Ticket 14) — the ordinal half of *The Categorical vs.
+  // Sequential Rule*. Nominal data gets distinct hues, ordered data gets one
+  // hue at rising weight; what follows gates that the rungs of that one hue are
+  // both separable from each other and legible against every surface.
+  // -------------------------------------------------------------------------
+
+  group('Sequential ramp', () {
+    // Rungs are placed a fixed contrast ratio apart (1.22:1); 8-bit rounding
+    // costs a little of it, so the floor sits just below the nominal step.
+    const rungFloor = 1.20;
+
+    for (final (themeName, isDark, grounds) in [
+      (
+        'dark',
+        true,
+        <String, Color>{
+          'surface': WpColorsDark.surface,
+          'surfaceElevated': WpColorsDark.surfaceElevated,
+          'surfaceVariant': WpColorsDark.surfaceVariant,
+          'background': WpColorsDark.background,
+        },
+      ),
+      (
+        'light',
+        false,
+        <String, Color>{
+          'surface': WpColorsLight.surface,
+          'surfaceElevated': WpColorsLight.surfaceElevated,
+          'surfaceVariant': WpColorsLight.surfaceVariant,
+          'background': WpColorsLight.background,
+        },
+      ),
+    ]) {
+      for (final slot in WpCategorySlot.values) {
+        test('$themeName: ${slot.name} — rungs are separable and legible', () {
+          for (var steps = 3; steps <= 5; steps++) {
+            final rungs = slot.ramp(steps, isDark);
+            expect(rungs, hasLength(steps));
+            expect(
+              rungs.first,
+              slot.color(isDark),
+              reason:
+                  '$themeName ${slot.name}: rung 0 is not the slot itself, so '
+                  'the ramp no longer starts on the ground it was solved for',
+            );
+
+            for (var i = 1; i < steps; i++) {
+              final ratio = contrastRatio(rungs[i - 1], rungs[i]);
+              expect(
+                ratio,
+                greaterThanOrEqualTo(rungFloor),
+                reason:
+                    '$themeName ${slot.name} ($steps steps): rungs $i-1 and $i '
+                    'are only ${ratio.toStringAsFixed(3)}:1 apart — an ordinal '
+                    'scale whose steps collapse cannot be read as ordered',
+              );
+
+              // Away from the ground, never back toward it: this is what lets
+              // every rung inherit the base slot's clearance instead of
+              // re-arguing it, and what stops the low end sinking under 3:1 on
+              // the light theme.
+              final delta =
+                  relativeLuminance(rungs[i]) - relativeLuminance(rungs[i - 1]);
+              expect(
+                isDark ? delta : -delta,
+                greaterThan(0),
+                reason:
+                    '$themeName ${slot.name}: rung $i moves back toward the '
+                    'ground instead of away from it',
+              );
+            }
+
+            for (final rung in rungs) {
+              grounds.forEach((groundName, ground) {
+                final ratio = contrastRatio(rung, ground);
+                expect(
+                  ratio,
+                  greaterThanOrEqualTo(categorySlotFloor),
+                  reason:
+                      '$themeName ${slot.name} ($steps steps): a rung clears '
+                      '$groundName by only ${ratio.toStringAsFixed(2)}:1 — a '
+                      'chart bar is a graphical object and owes 3:1',
+                );
+              });
+            }
+          }
+        });
+      }
+    }
+
+    test('the 3–5 step range is executable, not advisory', () {
+      expect(() => WpCategorySlot.iris.ramp(2, true), throwsAssertionError);
+      expect(() => WpCategorySlot.iris.ramp(6, true), throwsAssertionError);
+    });
+
+    // Ticket 11, ② = (b): cyan stays the accent's alone, so no ordinal ramp may
+    // be built from it. The tickets call the forbidden hue "slot 0", meaning the
+    // pre-Ticket-12 palette's Harbor Cyan — not `WpCategorySlot.values[0]`,
+    // which is `iris`. Ticket 12 dropped the whole 165–215° band from the
+    // category recipe, so the exclusion is structural: a ramp takes a
+    // `WpCategorySlot`, and no slot is cyan. This pins that it stays that way.
+    test('no ramp can be built out of the accent band', () {
+      for (final isDark in [true, false]) {
+        for (final slot in WpCategorySlot.values) {
+          for (final rung in slot.ramp(5, isDark)) {
+            final hue = HSLColor.fromColor(rung).hue;
+            // Near-achromatic rungs have no hue worth reading — the neutral
+            // slot's far end lands there by design.
+            if (hslSaturation(rung) < 0.10) continue;
+            expect(
+              hue > 165 && hue < 215,
+              isFalse,
+              reason:
+                  '${slot.name} has a rung at ${hue.toStringAsFixed(0)}° — '
+                  'inside the accent\'s reserved 165–215° band, where a graded '
+                  'scale reads as a disabled control',
+            );
+          }
+        }
+      }
+    });
   });
 
   // -------------------------------------------------------------------------

@@ -24,7 +24,12 @@ import '../../core/data/analytics_provider.dart';
 // ---------------------------------------------------------------------------
 
 class _ModelUsage {
-  const _ModelUsage(this.name, this.count, this.fraction);
+  const _ModelUsage(this.id, this.name, this.count, this.fraction);
+
+  /// The raw model id, kept alongside the display name because it — not the
+  /// translated label — is what [categorySlotForModel] keys on. A localized
+  /// name would hand the same model a different hue per language.
+  final String id;
   final String name;
   final int count;
   final double fraction;
@@ -205,6 +210,7 @@ class _AnalyticsDashboard extends StatelessWidget {
                 models: data.modelUsage
                     .map(
                       (m) => _ModelUsage(
+                        m.model,
                         _displayNameForModel(m.model, l10n),
                         m.count,
                         m.fraction,
@@ -584,6 +590,26 @@ class _HeroPillState extends State<_HeroPill>
             // states the final value from the first frame; announcing every
             // intermediate step would have a screen reader read the same
             // statistic dozens of times on its way to the real one.
+            //
+            // `headlineLarge` (22/w700), the scale's top rung, against an 11 px
+            // caption below: 2:1, where the previous `headlineMedium` made 16
+            // against 11 and left the number and its label reading as one
+            // paragraph. This is the page's single largest number and the type
+            // scale already had the rung for it.
+            //
+            // The `FittedBox` is what pays for that rung at the narrow end.
+            // Five pills across the app's 800 px minimum window leave each one
+            // about 110 px of inner width, and a seven-digit total needs 117 px
+            // at 22 px in German at 1.15× text — 124 px in Hebrew at plain 1.0×.
+            // Without it the number either wraps (and one pill in the row
+            // stands taller than its four neighbours) or, with `maxLines: 1`,
+            // is silently *clipped* — a truncated statistic that still looks
+            // like a statistic. Scaling down is the only one of the three that
+            // stays honest. It costs nothing in the ordinary case: the box only
+            // engages when the string would not have fitted anyway, so a
+            // typical dashboard renders every value at the full 22 px.
+            //
+            // Measured per locale and text scale in `analytics_page_test.dart`.
             Semantics(
               label: widget.formatter(widget.rawValue),
               excludeSemantics: true,
@@ -591,10 +617,13 @@ class _HeroPillState extends State<_HeroPill>
                 animation: _curve,
                 builder: (context, _) {
                   final current = (widget.rawValue * _curve.value).round();
-                  return Text(
-                    widget.formatter(current),
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  return FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      widget.formatter(current),
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.headlineLarge,
                     ),
                   );
                 },
@@ -859,6 +888,19 @@ class _ModelUsagePanel extends StatelessWidget {
   }
 }
 
+/// One model's share of the recordings — name, percentage, count, bar.
+///
+/// The bar is a **flat category color**, not the accent gradient it used to be.
+/// Models are a *nominal* scale: three of them wearing one cyan ramp said only
+/// "this is a bar", while three category slots say *which* model each bar is —
+/// the same distinction the history avatars now make. The gradient stays out on
+/// purpose; it is the brand's own moment and spending it on a list of three
+/// bars is what made every panel on this page look equally important.
+///
+/// Which hue a model gets is decided in `colors.dart` and keyed on the raw id,
+/// never picked here — see [categorySlotForModel]. The percentage stays on the
+/// accent: it is the value being read, and letting the category hue mark it
+/// would turn a slot into an importance marker (*The Single Accent Rule*).
 class _ModelUsageBar extends StatelessWidget {
   const _ModelUsageBar({required this.model, required this.isDark});
 
@@ -918,15 +960,11 @@ class _ModelUsageBar extends StatelessWidget {
               height: 6,
               child: Stack(
                 children: [
-                  Container(color: trackColor),
+                  ColoredBox(color: trackColor),
                   FractionallySizedBox(
                     widthFactor: model.fraction,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: isDark
-                            ? WpColorsDark.accentWarmGradient
-                            : WpColorsLight.accentWarmGradient,
-                      ),
+                    child: ColoredBox(
+                      color: categorySlotForModel(model.id).color(isDark),
                     ),
                   ),
                 ],
@@ -943,6 +981,33 @@ class _ModelUsageBar extends StatelessWidget {
 // Row 3 — Duration distribution
 // ---------------------------------------------------------------------------
 
+/// Source slot of the duration ramp — the one hue this ordinal scale is built
+/// from.
+///
+/// Duration buckets are *ordered*, so they get a ramp rather than eight
+/// unordered hues (*The Categorical vs. Sequential Rule*). Three things picked
+/// `iris` out of the eight:
+///
+/// * **It is not the brand accent.** Ticket 11 answered ② with (b): cyan stays
+///   the accent's alone, so no ordinal ramp may be built from it — a column of
+///   graded cyans standing next to a live control reads as that control
+///   disabled. This is worth saying precisely, because the tickets call the
+///   forbidden hue "slot 0": that is the *pre-Ticket-12* palette's name for
+///   Harbor Cyan `#2A9CB2`, not `WpCategorySlot.values[0]`. Cyan is not a
+///   category slot at all any more — Ticket 12 excluded the whole 165–215°
+///   band — so taking the ramp's source from [WpCategorySlot] is what makes the
+///   exclusion structural instead of a promise.
+/// * **The hue carries no verdict.** A duration is a quantity, not a grade.
+///   Green (`fern`, `moss`) borders the success band and would praise long
+///   recordings; `brass` borders warning amber, `plum` and `ember` border error
+///   red. Violet is the one family in the palette that means nothing yet, which
+///   is exactly what a neutral quantity needs — and it is the traditional
+///   single-hue sequential family for the same reason.
+/// * **No model wears it.** `_modelSlots` in `colors.dart` deliberately skips
+///   `iris`, so the model bars one panel up never repeat this hue with a
+///   different meaning.
+const _durationRampSlot = WpCategorySlot.iris;
+
 class _DurationDistPanel extends StatelessWidget {
   const _DurationDistPanel({required this.buckets, required this.isDark});
 
@@ -952,6 +1017,9 @@ class _DurationDistPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    // Resolved once here, not per bar: the ramp is one scale, and a bar that
+    // asked for its own rung could not tell how many rungs there are.
+    final ramp = _durationRampSlot.ramp(buckets.length, isDark);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -961,26 +1029,37 @@ class _DurationDistPanel extends StatelessWidget {
           isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.md),
-        ...buckets.map((b) => _DurationBar(bucket: b, isDark: isDark)),
+        for (final (i, b) in buckets.indexed)
+          _DurationBar(bucket: b, barColor: ramp[i], isDark: isDark),
       ],
     );
   }
 }
 
+/// One duration bucket — label, bar, count.
+///
+/// [barColor] is handed down rather than chosen here: it is one rung of the
+/// panel's ramp, and a rung only means something next to the others.
 class _DurationBar extends StatelessWidget {
-  const _DurationBar({required this.bucket, required this.isDark});
+  const _DurationBar({
+    required this.bucket,
+    required this.barColor,
+    required this.isDark,
+  });
 
   final _DurationBucket bucket;
+  final Color barColor;
   final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    final barColor = isDark
-        ? WpColorsDark.textMuted.withAlpha(40)
-        : WpColorsLight.textMuted.withAlpha(30);
-    final barGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
+    // The track is `surfaceVariant`, the same ground the model bars run on. It
+    // used to be `textMuted` at a hand-rolled alpha, which *The Tint Ladder
+    // Rule* forbids — and an alpha over an unknown ground is also a track no
+    // ramp rung can be measured against.
+    final trackColor = isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
@@ -1016,12 +1095,12 @@ class _DurationBar extends StatelessWidget {
                 height: 8,
                 child: Stack(
                   children: [
-                    Container(color: barColor),
+                    ColoredBox(color: trackColor),
                     FractionallySizedBox(
                       widthFactor: bucket.fraction,
                       child: Container(
                         decoration: BoxDecoration(
-                          gradient: barGradient,
+                          color: barColor,
                           borderRadius: WpRadius.borderFull,
                         ),
                       ),
