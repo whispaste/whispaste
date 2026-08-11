@@ -456,7 +456,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                 onCreate: _createNote,
                 currentFilter: filter,
                 onFilterChanged: _setFilter,
-                isDark: isDark,
                 searchController: _searchController,
                 searchFocusNode: _searchFocusNode,
                 onSearchChanged: () {
@@ -647,8 +646,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           onVoiceTranscript: _insertVoiceTranscript,
         );
       },
-      loading: () =>
-          WpListSkeleton(isDark: isDark, rowHeight: _notesSkeletonRowHeight),
+      loading: () => const WpListSkeleton(rowHeight: _notesSkeletonRowHeight),
       error: (e, _) => WpEmptyState(
         icon: LucideIcons.triangleAlert,
         title: l10n.errorGeneric,

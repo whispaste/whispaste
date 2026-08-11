@@ -228,7 +228,6 @@ class _StoreThankYouDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     final slide = Tween<Offset>(
       begin: const Offset(0, 0.05),
@@ -245,15 +244,9 @@ class _StoreThankYouDialog extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 380),
             padding: const EdgeInsets.all(WpSpacing.lg),
             decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceElevated
-                  : WpColorsLight.surfaceElevated,
+              color: WpColorsDark.surfaceElevated,
               borderRadius: WpRadius.borderLg,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
-              ),
+              border: Border.all(color: WpColorsDark.borderSubtle),
               boxShadow: WpShadows.elevated,
             ),
             child: Column(
@@ -269,9 +262,7 @@ class _StoreThankYouDialog extends StatelessWidget {
                 Text(
                   l10n.storeThankYouBody,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark
-                        ? WpColorsDark.textSecondary
-                        : WpColorsLight.textSecondary,
+                    color: WpColorsDark.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),

@@ -316,7 +316,6 @@ class _SnippetPickerTriggerFieldState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -328,15 +327,9 @@ class _SnippetPickerTriggerFieldState
       child: Container(
         padding: const EdgeInsets.all(WpSpacing.xxs),
         decoration: BoxDecoration(
-          color: isDark
-              ? WpColorsDark.surfaceElevated
-              : WpColorsLight.surfaceElevated,
+          color: WpColorsDark.surfaceElevated,
           borderRadius: WpRadius.borderMd,
-          border: Border.all(
-            color: isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
-          ),
+          border: Border.all(color: WpColorsDark.borderSubtle),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,21 +357,17 @@ class _SnippetPickerTriggerFieldState
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       LucideIcons.triangleAlert,
                       size: WpIconSize.xs,
-                      color: isDark
-                          ? WpColorsDark.warning
-                          : WpColorsLight.warning,
+                      color: WpColorsDark.warning,
                     ),
                     const SizedBox(width: WpSpacing.xs),
                     Expanded(
                       child: Text(
                         l10n.snippetsPickerTriggerEmptyListHint,
-                        style: TextStyle(
-                          color: isDark
-                              ? WpColorsDark.warning
-                              : WpColorsLight.warning,
+                        style: const TextStyle(
+                          color: WpColorsDark.warning,
                           fontSize: WpTypography.small,
                           height: 1.4,
                         ),
@@ -619,7 +608,6 @@ class _SnippetTileState extends State<_SnippetTile> {
                   WpRowAction(
                     icon: LucideIcons.trash2,
                     tooltip: L10n.of(context).actionDelete,
-                    isDark: widget.isDark,
                     onTap: widget.onDelete,
                     isDestructive: true,
                   ),
@@ -627,12 +615,10 @@ class _SnippetTileState extends State<_SnippetTile> {
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     LucideIcons.notebookText,
                     size: WpIconSize.sm,
-                    color: widget.isDark
-                        ? WpColorsDark.accent
-                        : WpColorsLight.accent,
+                    color: WpColorsDark.accent,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   Expanded(
@@ -641,10 +627,8 @@ class _SnippetTileState extends State<_SnippetTile> {
                       children: [
                         Text(
                           widget.snippet.title,
-                          style: TextStyle(
-                            color: widget.isDark
-                                ? WpColorsDark.textPrimary
-                                : WpColorsLight.textPrimary,
+                          style: const TextStyle(
+                            color: WpColorsDark.textPrimary,
                             fontSize: WpTypography.body,
                             fontWeight: FontWeight.w500,
                           ),
@@ -654,10 +638,8 @@ class _SnippetTileState extends State<_SnippetTile> {
                         const SizedBox(height: WpSpacing.xxs),
                         Text(
                           _bodyPreview,
-                          style: TextStyle(
-                            color: widget.isDark
-                                ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted,
+                          style: const TextStyle(
+                            color: WpColorsDark.textMuted,
                             fontSize: WpTypography.small,
                           ),
                           maxLines: 2,

@@ -55,25 +55,16 @@ class _OomRecoveryDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final slide = Tween<Offset>(
       begin: const Offset(0, 0.05),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
 
-    final surface = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final border = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
-    final titleColor = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final bodyColor = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+    const surface = WpColorsDark.surfaceElevated;
+    const border = WpColorsDark.borderDefault;
+    const titleColor = WpColorsDark.textPrimary;
+    const bodyColor = WpColorsDark.textSecondary;
+    const warningColor = WpColorsDark.warning;
 
     return Center(
       child: SlideTransition(
@@ -106,7 +97,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                             color: warningColor.withValues(alpha: 0.14),
                             borderRadius: WpRadius.borderMd,
                           ),
-                          child: Icon(
+                          child: const Icon(
                             LucideIcons.triangleAlert,
                             color: warningColor,
                             size: WpIconSize.lg,

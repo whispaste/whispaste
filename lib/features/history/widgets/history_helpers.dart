@@ -141,7 +141,7 @@ class HistoryEntryAvatar extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: tint.edge(color), width: 1),
                 // One depth source per theme — see this class's docs.
-                boxShadow: isDark ? null : WpShadows.subtleLight,
+                boxShadow: null,
               ),
               child: Icon(icon, size: iconSize, color: tint.glyph(color)),
             ),
@@ -179,12 +179,8 @@ class HistoryStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = isDark
-        ? WpColorsDark.surfaceMutedFill
-        : WpColorsLight.surfaceMutedFill;
-    final text = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const fill = WpColorsDark.surfaceMutedFill;
+    const text = WpColorsDark.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xxs,
@@ -193,7 +189,7 @@ class HistoryStatusChip extends StatelessWidget {
       decoration: BoxDecoration(color: fill, borderRadius: WpRadius.borderSm),
       child: Text(
         label,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: WpTypography.micro,
           color: text,
           fontWeight: FontWeight.w500,

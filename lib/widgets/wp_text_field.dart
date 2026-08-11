@@ -482,11 +482,11 @@ class _WpTextFieldPalette {
   );
 
   static const _light = _WpTextFieldPalette(
-    surface: WpColorsLight.surfaceVariant,
-    border: WpColorsLight.borderSubtle,
-    textPrimary: WpColorsLight.textPrimary,
-    textMuted: WpColorsLight.textMuted,
-    accent: WpColorsLight.accent,
+    surface: WpColorsDark.surfaceVariant,
+    border: WpColorsDark.borderSubtle,
+    textPrimary: WpColorsDark.textPrimary,
+    textMuted: WpColorsDark.textMuted,
+    accent: WpColorsDark.accent,
   );
 
   static _WpTextFieldPalette of(Brightness brightness) =>

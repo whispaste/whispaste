@@ -465,17 +465,11 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final border = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const bg = WpColorsDark.surfaceElevated;
+    const border = WpColorsDark.borderDefault;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
     final l10n = L10n.of(context);
 
     // Modifier chips, derived from the canonical storage tokens at render time
@@ -511,12 +505,16 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
             // ── Header ──────────────────────────────────────
             Row(
               children: [
-                Icon(LucideIcons.keyboard, size: WpIconSize.md, color: accent),
+                const Icon(
+                  LucideIcons.keyboard,
+                  size: WpIconSize.md,
+                  color: accent,
+                ),
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
                   child: Text(
                     l10n.settingsHotkeyRecorderTitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: textPrimary,
                       fontSize: WpTypography.heading,
                       fontWeight: FontWeight.w600,
@@ -528,7 +526,10 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
             const SizedBox(height: WpSpacing.xs),
             Text(
               l10n.settingsHotkeyRecorderHint,
-              style: TextStyle(color: textMuted, fontSize: WpTypography.small),
+              style: const TextStyle(
+                color: textMuted,
+                fontSize: WpTypography.small,
+              ),
             ),
             const SizedBox(height: WpSpacing.xl),
 
@@ -553,7 +554,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
               child: Text(
                 l10n.settingsHotkeyRecorderModifierHint,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: textMuted,
                   fontSize: WpTypography.caption,
                 ),
@@ -569,10 +570,8 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
                   child: Text(
                     l10n.settingsHotkeyRecorderInvalidKey,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: isDark
-                          ? WpColorsDark.warning
-                          : WpColorsLight.warning,
+                    style: const TextStyle(
+                      color: WpColorsDark.warning,
                       fontSize: WpTypography.caption,
                     ),
                   ),
@@ -683,7 +682,7 @@ class _KeyComboDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
 
     // Nothing recorded yet — show placeholder
     if (modifiers.isEmpty && keyLabel.isEmpty) {
@@ -694,7 +693,7 @@ class _KeyComboDisplay extends StatelessWidget {
         // box. Both branches now reserve the same 48 dp floor and grow.
         constraints: const BoxConstraints(minHeight: 48),
         alignment: Alignment.center,
-        child: Text(
+        child: const Text(
           '—',
           style: TextStyle(color: textMuted, fontSize: WpTypography.title),
         ),
@@ -744,16 +743,10 @@ class _KeyCap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-    final textColor = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final accentColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const bgColor = WpColorsDark.surfaceVariant;
+    const borderColor = WpColorsDark.borderSubtle;
+    const textColor = WpColorsDark.textPrimary;
+    const accentColor = WpColorsDark.accent;
 
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),
@@ -763,9 +756,7 @@ class _KeyCap extends StatelessWidget {
         vertical: WpSpacing.xxs + 2,
       ),
       decoration: BoxDecoration(
-        color: isPrimary
-            ? (isDark ? WpColorsDark.active : WpColorsLight.active)
-            : bgColor,
+        color: isPrimary ? (WpColorsDark.active) : bgColor,
         borderRadius: BorderRadius.circular(WpRadius.sm),
         border: Border.all(
           color: isPrimary ? accentColor.withValues(alpha: 0.4) : borderColor,
@@ -796,14 +787,14 @@ class _PlusSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
       child: Text(
         '+',
         style: TextStyle(
           fontSize: WpTypography.subheading,
           fontWeight: FontWeight.w600,
-          color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+          color: WpColorsDark.textMuted,
         ),
       ),
     );
@@ -838,9 +829,9 @@ class _ConflictWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final warningBg = warningColor.withValues(alpha: isDark ? 0.12 : 0.10);
-    final warningBorder = warningColor.withValues(alpha: isDark ? 0.35 : 0.30);
+    const warningColor = WpColorsDark.warning;
+    final warningBg = warningColor.withValues(alpha: 0.12);
+    final warningBorder = warningColor.withValues(alpha: 0.35);
 
     return Container(
       key: const Key('hotkeyConflictWarning'),
@@ -857,7 +848,7 @@ class _ConflictWarning extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
+          const Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.sm,
             color: warningColor,
@@ -869,7 +860,7 @@ class _ConflictWarning extends StatelessWidget {
                 _platformName(),
                 conflict.note.isNotEmpty ? conflict.note : conflict.key,
               ),
-              style: TextStyle(
+              style: const TextStyle(
                 color: warningColor,
                 fontSize: WpTypography.caption,
                 height: 1.4,

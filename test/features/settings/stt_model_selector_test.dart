@@ -622,7 +622,7 @@ void main() {
 
         expect(
           lineColor(tester, l10n.qualityTierInfoBenchmarking),
-          isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+          WpColorsDark.textMuted,
           reason:
               'an unmeasured tier has no position on an ordinal scale, so it '
               'takes no rung of the ramp at all',
@@ -651,7 +651,7 @@ void main() {
 
           expect(
             lineColor(tester, l10n.qualityTierInfoBenchmarking),
-            isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+            WpColorsDark.textMuted,
             reason:
                 'while measuring, the line must read as "no verdict yet", not '
                 'as the estimate it is about to replace',

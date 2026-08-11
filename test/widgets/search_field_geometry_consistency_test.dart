@@ -304,7 +304,6 @@ Widget _notes(TextEditingController controller, FocusNode focus) =>
     NotesSearchBar(
       currentFilter: NotesFilter.active,
       onFilterChanged: (_) {},
-      isDark: true,
       searchController: controller,
       searchFocusNode: focus,
       onSearchChanged: () {},

@@ -13,10 +13,7 @@ class WpBrandWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final asset = isDark
-        ? 'assets/icons/wordmark-dark.png'
-        : 'assets/icons/wordmark-light.png';
+    const asset = 'assets/icons/wordmark-dark.png';
 
     return Image.asset(
       asset,

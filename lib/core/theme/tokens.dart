@@ -14,9 +14,16 @@
 /// still documents the superseded single-accent doctrine and is rewritten in a
 /// follow-up ticket. Two accents, two exclusive jobs: violet-magenta means "you
 /// can act on this", cyan/teal means "a recording is in flight" — no element
-/// may reach for the other family to look important. One depth source per
-/// theme: light uses a soft, wide, tinted shadow ([WpShadows.cardTintedLight]),
-/// dark uses the brightness delta between its fills and gets no shadow at all.
+/// may reach for the other family to look important. One depth source: the
+/// brightness delta between the card fills, and no card shadow at all.
+///
+/// > **Retracted 2026-08-11 (dark-only build).** This paragraph used to close
+/// > with "one depth source per *theme*: light uses a soft, wide, tinted
+/// > shadow ([WpShadows.cardTintedLight]), dark uses the brightness delta
+/// > between its fills and gets no shadow at all." The per-theme half went
+/// > with the light theme; the surviving clause is the dark one, which was
+/// > always the app's real depth source. Recorded rather than reworded so the
+/// > tinted-shadow token's disappearance has a reason attached to it.
 library;
 
 import 'package:flutter/material.dart';
@@ -79,55 +86,41 @@ abstract final class WpShadows {
     BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
   ];
 
-  // -- Light-theme interaction shadows (history polish pass, 2026-07-28) -----
+  // -- Light-theme interaction shadows: removed 2026-08-11 (dark-only) -------
   //
-  // Black-alpha shadows read much heavier over the pearl light surfaces than
-  // over the dark navy ones: composited on `WpColorsLight.surface` (#F2F6FC,
-  // rel. luminance 0.92) the dark-theme alphas produce a clearly visible dark
-  // haze — [subtle] (12 % black) ≈ 1.32:1 and [card]'s first layer (20 %
-  // black) ≈ 1.60:1 against the surface. The light variants halve the alpha,
-  // landing at ≈ 1.14:1 and ≈ 1.26:1 — still a perceptible material lift,
-  // no longer a dark halo. Same geometry, so Animated fades stay smooth.
+  // `subtleLight` (6 % black) and `cardLight` (10 % / 4 %) halved the alpha of
+  // [subtle] and [card] because black-alpha shadows read much heavier over the
+  // pearl light surfaces than over the dark navy ones. With no light stack to
+  // composite against, both tokens lost their only ground and are deleted
+  // rather than left as unreachable constants.
 
-  /// [subtle] at light-theme strength (6 % instead of 12 % black).
-  static const List<BoxShadow> subtleLight = [
-    BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2)),
-  ];
+  /// Theme-resolved [subtle]. Retained as the named entry point for a shadow
+  /// that used to vary by theme; there is one stack now, so it resolves to
+  /// [subtle] unconditionally.
+  static List<BoxShadow> subtleFor(bool isDark) => subtle;
 
-  /// [card] at light-theme strength (10 % / 4 % instead of 20 % / 8 %).
-  static const List<BoxShadow> cardLight = [
-    BoxShadow(color: Color(0x1A000000), blurRadius: 14, offset: Offset(0, 4)),
-    BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1)),
-  ];
-
-  /// Theme-resolved [subtle]: full strength on dark, halved on light.
-  static List<BoxShadow> subtleFor(bool isDark) =>
-      isDark ? subtle : subtleLight;
-
-  /// Theme-resolved [card]: full strength on dark, halved on light.
-  static List<BoxShadow> cardFor(bool isDark) => isDark ? card : cardLight;
+  /// Theme-resolved [card]. See [subtleFor] — one stack, one answer.
+  static List<BoxShadow> cardFor(bool isDark) => card;
 
   static const List<BoxShadow> elevated = [
     BoxShadow(color: Color(0x40000000), blurRadius: 28, offset: Offset(0, 10)),
     BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
-  /// The light theme's one card shadow: soft, wide, violet-tinted, offset.
-  ///
-  /// Mirrors `WpColorsLight.cardShadowLight` (kept as a literal here so the
-  /// primitive layer stays free of a dependency on the color layer; a test
-  /// pins the two together). **Light-theme only, by refusal rather than by
-  /// omission** — on the dark theme depth comes from the brightness delta
-  /// between the card fills, and a shadow on near-black adds mud, not depth.
-  ///
-  /// The geometry carries the whole argument: a *glow* is a colored shadow at
-  /// offset 0 and stays forbidden; a *shadow* is offset + wide blur + low
-  /// alpha, and a shadow may be tinted. (The distinction is not yet a named
-  /// rule in `lib/DESIGN.md`; it is audited executably in
-  /// `test/core/theme/wcag_contrast_test.dart` instead.)
-  static const List<BoxShadow> cardTintedLight = [
-    BoxShadow(color: Color(0x14281446), blurRadius: 35, offset: Offset(0, 10)),
-  ];
+  // -- cardTintedLight: removed 2026-08-11 (dark-only) ----------------------
+  //
+  // The light theme's one card shadow — soft, wide, violet-tinted, offset
+  // (`0x14281446`, blur 35, offset (0, 10)) — mirroring the deleted
+  // `WpColorsLight.cardShadowLight`. It was **light-theme only by refusal**:
+  // on dark, depth comes from the brightness delta between the card fills and
+  // a shadow on near-black adds mud, not depth. With the light stack gone the
+  // refusal is the only case left, so the token has no theme to serve.
+  //
+  // The argument it carried is worth keeping even though the token is not: a
+  // *glow* is a colored shadow at offset 0 and stays forbidden; a *shadow* is
+  // offset + wide blur + low alpha, and a shadow may be tinted. That
+  // distinction survives this deletion and still governs any future tinted
+  // shadow.
 
   /// Warm inner top-light illusion — the only `BlurStyle.inner` entry here.
   ///

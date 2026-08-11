@@ -50,7 +50,6 @@ void main() {
               label: 'Pinned',
               icon: LucideIcons.star,
               isActive: false,
-              isDark: true,
               onTap: () => taps++,
             ),
           ),
@@ -74,12 +73,7 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           Center(
-            child: WpFilterChip(
-              label: 'All',
-              isActive: true,
-              isDark: true,
-              onTap: () {},
-            ),
+            child: WpFilterChip(label: 'All', isActive: true, onTap: () {}),
           ),
         ),
       );

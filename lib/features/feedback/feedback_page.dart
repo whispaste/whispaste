@@ -208,9 +208,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   Text(
                     l10n.feedbackSubtitle,
                     style: ts.bodyMedium?.copyWith(
-                      color: isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
+                      color: WpColorsDark.textSecondary,
                     ),
                   ),
 
@@ -269,7 +267,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
                           icon: icon,
                           label: label,
                           isActive: _category == value,
-                          isDark: isDark,
                           onTap: () => setState(() => _category = value),
                         ),
                     ],
@@ -360,12 +357,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
+                      const Icon(
                         LucideIcons.lock,
                         size: WpIconSize.xs,
-                        color: isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted,
+                        color: WpColorsDark.textMuted,
                       ),
                       const SizedBox(width: WpSpacing.xxs),
                       Flexible(
@@ -373,9 +368,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                           l10n.feedbackPrivacyNote,
                           textAlign: TextAlign.center,
                           style: ts.bodySmall?.copyWith(
-                            color: isDark
-                                ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted,
+                            color: WpColorsDark.textMuted,
                           ),
                         ),
                       ),
@@ -520,7 +513,6 @@ class _ContactEmailSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
     final email = emailController.text.trim();
@@ -534,11 +526,7 @@ class _ContactEmailSection extends StatelessWidget {
         const SizedBox(height: WpSpacing.xs),
         Text(
           l10n.feedbackContactEmailExplanation,
-          style: ts.bodySmall?.copyWith(
-            color: isDark
-                ? WpColorsDark.textSecondary
-                : WpColorsLight.textSecondary,
-          ),
+          style: ts.bodySmall?.copyWith(color: WpColorsDark.textSecondary),
         ),
         const SizedBox(height: WpSpacing.sm),
         WpTextField(
@@ -568,11 +556,7 @@ class _ContactEmailSection extends StatelessWidget {
           const SizedBox(height: WpSpacing.xs),
           Text(
             l10n.feedbackContactLanguageHint,
-            style: ts.bodySmall?.copyWith(
-              color: isDark
-                  ? WpColorsDark.textSecondary
-                  : WpColorsLight.textSecondary,
-            ),
+            style: ts.bodySmall?.copyWith(color: WpColorsDark.textSecondary),
           ),
           const SizedBox(height: WpSpacing.sm),
           WpLanguageSelector(
@@ -621,17 +605,15 @@ class _ThankYouView extends StatelessWidget {
                 Container(
                   width: 72,
                   height: 72,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? WpColorsDark.accentSubtle
-                        : WpColorsLight.accentSubtle,
+                  decoration: const BoxDecoration(
+                    color: WpColorsDark.accentSubtle,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
+                  child: const Icon(
                     LucideIcons.heart,
                     size: WpIconSize.xl,
-                    color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                    color: WpColorsDark.accent,
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxl),
@@ -641,9 +623,7 @@ class _ThankYouView extends StatelessWidget {
                   l10n.feedbackThankYouMessage,
                   textAlign: TextAlign.center,
                   style: ts.bodyMedium?.copyWith(
-                    color: isDark
-                        ? WpColorsDark.textSecondary
-                        : WpColorsLight.textSecondary,
+                    color: WpColorsDark.textSecondary,
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
@@ -698,11 +678,7 @@ class _ReviewSupportCtas extends StatelessWidget {
         Text(
           l10n.reviewSupportSubtitle,
           textAlign: TextAlign.center,
-          style: ts.bodySmall?.copyWith(
-            color: isDark
-                ? WpColorsDark.textSecondary
-                : WpColorsLight.textSecondary,
-          ),
+          style: ts.bodySmall?.copyWith(color: WpColorsDark.textSecondary),
         ),
         const SizedBox(height: WpSpacing.md),
         // Windows has a store listing → offer the Store-Review deep-link as the
@@ -812,12 +788,8 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
 
   @override
   Widget build(BuildContext context) {
-    final accentSubtle = widget.isDark
-        ? WpColorsDark.accentSubtle
-        : WpColorsLight.accentSubtle;
-    final surfaceVariant = widget.isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
+    const accentSubtle = WpColorsDark.accentSubtle;
+    const surfaceVariant = WpColorsDark.surfaceVariant;
 
     final tile = AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),
@@ -831,9 +803,7 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
           // the one place on this page where picking something drew a
           // different outline than picking something one section above it.
           color: widget.isSelected
-              ? (widget.isDark
-                    ? WpColorsDark.accentBorder30
-                    : WpColorsLight.accentBorder30)
+              ? (WpColorsDark.accentBorder30)
               : Colors.transparent,
         ),
       ),
@@ -863,12 +833,8 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
               fontSize: WpTypography.micro,
               fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
               color: widget.isSelected
-                  ? (widget.isDark
-                        ? WpColorsDark.textPrimary
-                        : WpColorsLight.textPrimary)
-                  : (widget.isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted),
+                  ? (WpColorsDark.textPrimary)
+                  : (WpColorsDark.textMuted),
             ),
           ),
         ],

@@ -131,7 +131,7 @@ class _SnippetPickerRenderAppState
     final resolvedL10n = l10n ?? lookupL10n(const Locale('en'));
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: _isDark ? wpDarkTheme() : wpLightTheme(),
+      theme: wpDarkTheme(),
       // [WpSearchField] (the capsule field below) reads `L10n.of(context)`
       // itself rather than taking [resolvedL10n] as a parameter — the shared
       // component was built for the main engine, where `app.dart` always
@@ -418,11 +418,9 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                   // (unlike the near-clear capsule) the fill is opaque and
                   // the glass identity is carried by the light layers on
                   // top of it.
-                  DecoratedBox(
+                  const DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: isDark
-                          ? WpColorsDark.warmSurfaceGradient
-                          : WpColorsLight.warmSurfaceGradient,
+                      gradient: WpColorsDark.warmSurfaceGradient,
                     ),
                   ),
                   // The overlay's glass light: sheen, Fresnel band,
@@ -434,9 +432,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                         painter: _PanelGlassPainter(
                           phase: _driftController.value,
                           radius: WpRadius.xl,
-                          borderColor: isDark
-                              ? WpColorsDark.accentBorder20
-                              : WpColorsLight.accentBorder20,
+                          borderColor: WpColorsDark.accentBorder20,
                         ),
                       ),
                     ),
@@ -563,15 +559,9 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
               curve: Curves.easeOutCubic,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? WpColorsDark.accentActiveFill
-                      : WpColorsLight.accentActiveFill,
+                  color: WpColorsDark.accentActiveFill,
                   borderRadius: WpRadius.borderMd,
-                  border: Border.all(
-                    color: isDark
-                        ? WpColorsDark.accentBorder20
-                        : WpColorsLight.accentBorder20,
-                  ),
+                  border: Border.all(color: WpColorsDark.accentBorder20),
                 ),
               ),
               builder: (context, animIndex, capsule) => AnimatedBuilder(
@@ -621,10 +611,8 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
     );
   }
 
-  Widget _hairline(bool isDark) => Container(
-    height: 1,
-    color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
-  );
+  Widget _hairline(bool isDark) =>
+      Container(height: 1, color: WpColorsDark.borderSubtle);
 }
 
 /// One snippet row: a soft accent icon chip, title + single-line body
@@ -662,7 +650,7 @@ class _PickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
     // House idiom for a composed control (`section.dart`,
     // `mic_permission_chip.dart`): MergeSemantics + a *label-less*
     // Semantics. An explicit `label: item.title` here does not replace the
@@ -699,17 +687,13 @@ class _PickerTile extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? WpColorsDark.accentChipFill
-                          : WpColorsLight.accentChipFill,
+                      color: WpColorsDark.accentChipFill,
                       borderRadius: WpRadius.borderSm,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       LucideIcons.notebookText,
                       size: WpIconSize.sm,
-                      color: isDark
-                          ? WpColorsDark.accent
-                          : WpColorsLight.accent,
+                      color: WpColorsDark.accent,
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
@@ -721,10 +705,8 @@ class _PickerTile extends StatelessWidget {
                       children: [
                         Text(
                           item.title,
-                          style: TextStyle(
-                            color: isDark
-                                ? WpColorsDark.textPrimary
-                                : WpColorsLight.textPrimary,
+                          style: const TextStyle(
+                            color: WpColorsDark.textPrimary,
                             fontSize: WpTypography.body,
                             fontWeight: FontWeight.w500,
                             height: _lineHeight,
@@ -735,7 +717,7 @@ class _PickerTile extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           _bodyPreview,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: textMuted,
                             fontSize: WpTypography.small,
                             height: _lineHeight,
@@ -754,7 +736,7 @@ class _PickerTile extends StatelessWidget {
                     opacity: highlighted ? 1 : 0,
                     duration: WpMotion.durationFor(context, WpMotion.fast),
                     curve: WpMotion.defaultCurve,
-                    child: Icon(
+                    child: const Icon(
                       LucideIcons.cornerDownLeft,
                       size: WpIconSize.xs,
                       color: textMuted,
@@ -1015,7 +997,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(WpSpacing.xl),
@@ -1027,10 +1009,8 @@ class _EmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isDark
-                    ? WpColorsDark.textSecondary
-                    : WpColorsLight.textSecondary,
+              style: const TextStyle(
+                color: WpColorsDark.textSecondary,
                 fontSize: WpTypography.body,
                 fontWeight: FontWeight.w500,
               ),
@@ -1040,7 +1020,7 @@ class _EmptyState extends StatelessWidget {
               Text(
                 hint,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: textMuted,
                   fontSize: WpTypography.small,
                 ),
@@ -1067,29 +1047,21 @@ class _KeyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.surfaceMutedFill
-                : WpColorsLight.surfaceMutedFill,
+            color: WpColorsDark.surfaceMutedFill,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isDark
-                  ? WpColorsDark.borderSubtle
-                  : WpColorsLight.borderSubtle,
-            ),
+            border: Border.all(color: WpColorsDark.borderSubtle),
           ),
           child: Text(
             keyLabel,
-            style: TextStyle(
-              color: isDark
-                  ? WpColorsDark.textSecondary
-                  : WpColorsLight.textSecondary,
+            style: const TextStyle(
+              color: WpColorsDark.textSecondary,
               fontSize: WpTypography.micro,
               fontWeight: FontWeight.w500,
             ),
@@ -1098,7 +1070,10 @@ class _KeyHint extends StatelessWidget {
         const SizedBox(width: WpSpacing.xxs),
         Text(
           label,
-          style: TextStyle(color: textMuted, fontSize: WpTypography.caption),
+          style: const TextStyle(
+            color: textMuted,
+            fontSize: WpTypography.caption,
+          ),
         ),
       ],
     );

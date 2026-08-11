@@ -252,37 +252,19 @@ class _ToastCard extends StatelessWidget {
 
   (IconData, Color) _iconAndColor() {
     return switch (type) {
-      WpToastType.success => (
-        LucideIcons.circleCheck,
-        isDark ? WpColorsDark.success : WpColorsLight.success,
-      ),
-      WpToastType.error => (
-        LucideIcons.circleAlert,
-        isDark ? WpColorsDark.error : WpColorsLight.error,
-      ),
-      WpToastType.warning => (
-        LucideIcons.triangleAlert,
-        isDark ? WpColorsDark.warning : WpColorsLight.warning,
-      ),
-      WpToastType.info => (
-        LucideIcons.info,
-        isDark ? WpColorsDark.accent : WpColorsLight.accent,
-      ),
+      WpToastType.success => (LucideIcons.circleCheck, WpColorsDark.success),
+      WpToastType.error => (LucideIcons.circleAlert, WpColorsDark.error),
+      WpToastType.warning => (LucideIcons.triangleAlert, WpColorsDark.warning),
+      WpToastType.info => (LucideIcons.info, WpColorsDark.accent),
     };
   }
 
   @override
   Widget build(BuildContext context) {
     final (icon, color) = _iconAndColor();
-    final surfaceBg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final borderColor = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
+    const surfaceBg = WpColorsDark.surfaceElevated;
+    const textPrimary = WpColorsDark.textPrimary;
+    const borderColor = WpColorsDark.borderDefault;
 
     return Semantics(
       // Not a liveRegion: WpToast.show() already calls sendAnnouncement()
@@ -313,7 +295,7 @@ class _ToastCard extends StatelessWidget {
               border: Border.all(color: borderColor),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+                  color: Colors.black.withValues(alpha: 0.4),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -378,14 +360,12 @@ class _ToastCard extends StatelessWidget {
                 InkWell(
                   onTap: onDismiss,
                   borderRadius: BorderRadius.circular(WpRadius.full),
-                  child: Padding(
-                    padding: const EdgeInsets.all(WpSpacing.xxs),
+                  child: const Padding(
+                    padding: EdgeInsets.all(WpSpacing.xxs),
                     child: Icon(
                       LucideIcons.x,
                       size: 14,
-                      color: isDark
-                          ? WpColorsDark.textMuted
-                          : WpColorsLight.textMuted,
+                      color: WpColorsDark.textMuted,
                     ),
                   ),
                 ),

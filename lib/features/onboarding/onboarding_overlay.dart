@@ -892,7 +892,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final steps = _onboardingSteps();
     final totalSteps = steps.length;
@@ -937,13 +936,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         hotkeyStatus != HotkeyRegistrationStatus.conflict &&
         (testRecordingSucceeded || micBypassed);
 
-    final background = isDark
-        ? WpColorsDark.background
-        : WpColorsLight.background;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
+    const background = WpColorsDark.background;
+    const textMuted = WpColorsDark.textMuted;
+    const accentGradient = WpColorsDark.accentWarmGradient;
 
     return BlockSemantics(
       // The whole surface doubles as a window drag area: the title bar is
@@ -1101,7 +1096,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   const SizedBox(width: WpSpacing.sm),
                   Text(
                     l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
                     ),
@@ -1129,9 +1124,8 @@ class _StepperDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const muted = WpColorsDark.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

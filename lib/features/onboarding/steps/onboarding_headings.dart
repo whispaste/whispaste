@@ -51,13 +51,8 @@ class OnboardingPageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
@@ -68,7 +63,7 @@ class OnboardingPageHeading extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.start,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.headline,
               fontWeight: FontWeight.bold,
               color: textPrimary,
@@ -87,7 +82,7 @@ class OnboardingPageHeading extends StatelessWidget {
               child: Text(
                 subtitle!,
                 textAlign: TextAlign.start,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.subheading,
                   color: textSecondary,
                   height: 1.5,
@@ -201,11 +196,8 @@ class OnboardingSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
@@ -223,7 +215,7 @@ class OnboardingSectionLabel extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.start,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.heading,
               fontWeight: FontWeight.w700,
               color: textPrimary,
@@ -237,7 +229,7 @@ class OnboardingSectionLabel extends StatelessWidget {
             Text(
               subtitle!,
               textAlign: TextAlign.start,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.small,
                 color: textMuted,
                 height: 1.35,

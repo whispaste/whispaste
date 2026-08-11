@@ -38,21 +38,21 @@ ThemeData wpDarkTheme() {
 ThemeData wpLightTheme() {
   const colorScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: WpColorsLight.accent,
+    primary: WpColorsDark.accent,
     onPrimary: Colors.white,
-    primaryContainer: WpColorsLight.accentSubtle,
-    onPrimaryContainer: WpColorsLight.accent,
-    secondary: WpColorsLight.textSecondary,
+    primaryContainer: WpColorsDark.accentSubtle,
+    onPrimaryContainer: WpColorsDark.accent,
+    secondary: WpColorsDark.textSecondary,
     onSecondary: Colors.white,
-    secondaryContainer: WpColorsLight.surfaceVariant,
-    onSecondaryContainer: WpColorsLight.textPrimary,
-    surface: WpColorsLight.surface,
-    onSurface: WpColorsLight.textPrimary,
-    surfaceContainerHighest: WpColorsLight.surfaceVariant,
-    error: WpColorsLight.error,
+    secondaryContainer: WpColorsDark.surfaceVariant,
+    onSecondaryContainer: WpColorsDark.textPrimary,
+    surface: WpColorsDark.surface,
+    onSurface: WpColorsDark.textPrimary,
+    surfaceContainerHighest: WpColorsDark.surfaceVariant,
+    error: WpColorsDark.error,
     onError: Colors.white,
-    outline: WpColorsLight.borderDefault,
-    outlineVariant: WpColorsLight.borderSubtle,
+    outline: WpColorsDark.borderDefault,
+    outlineVariant: WpColorsDark.borderSubtle,
     shadow: Color(0x1A000000),
   );
 
@@ -60,7 +60,7 @@ ThemeData wpLightTheme() {
 }
 
 ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
-  final bg = isDark ? WpColorsDark.background : WpColorsLight.background;
+  const bg = WpColorsDark.background;
   // Build textTheme first so component themes can reference it (e.g. snackBar).
   final textTheme = _textTheme(colorScheme);
 
@@ -91,9 +91,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Cards
     cardTheme: CardThemeData(
-      color: isDark
-          ? WpColorsDark.surfaceElevated
-          : WpColorsLight.surfaceElevated,
+      color: WpColorsDark.surfaceElevated,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: WpRadius.borderMd,
@@ -208,9 +206,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Input fields
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: isDark
-          ? WpColorsDark.surfaceVariant
-          : WpColorsLight.surfaceVariant,
+      fillColor: WpColorsDark.surfaceVariant,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.sm,
@@ -227,8 +223,8 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         borderRadius: WpRadius.borderSm,
         borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
       ),
-      hintStyle: TextStyle(
-        color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+      hintStyle: const TextStyle(
+        color: WpColorsDark.textMuted,
         fontSize: WpTypography.body,
       ),
     ),
@@ -237,7 +233,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return colorScheme.primary;
-        return isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+        return WpColorsDark.textMuted;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -257,16 +253,12 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Tooltip
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.textPrimary,
+        color: WpColorsDark.surfaceElevated,
         borderRadius: WpRadius.borderSm,
-        border: Border.all(
-          color: isDark ? WpColorsDark.borderDefault : Colors.transparent,
-        ),
+        border: Border.all(color: WpColorsDark.borderDefault),
       ),
-      textStyle: TextStyle(
-        color: isDark ? WpColorsDark.textPrimary : Colors.white,
+      textStyle: const TextStyle(
+        color: WpColorsDark.textPrimary,
         fontSize: WpTypography.small,
         fontWeight: FontWeight.w500,
       ),
@@ -280,9 +272,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Scrollbar
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStateProperty.all(
-        (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted).withValues(
-          alpha: 0.3,
-        ),
+        (WpColorsDark.textMuted).withValues(alpha: 0.3),
       ),
       radius: const Radius.circular(WpRadius.full),
       thickness: WidgetStateProperty.resolveWith((states) {
@@ -293,9 +283,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Snackbar
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: isDark
-          ? WpColorsDark.surfaceElevated
-          : colorScheme.surface,
+      backgroundColor: WpColorsDark.surfaceElevated,
       contentTextStyle: textTheme.labelMedium?.copyWith(
         color: colorScheme.onSurface,
       ),
@@ -306,9 +294,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Dialog
     dialogTheme: DialogThemeData(
-      backgroundColor: isDark
-          ? WpColorsDark.surfaceElevated
-          : colorScheme.surface,
+      backgroundColor: WpColorsDark.surfaceElevated,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
       elevation: 8,
       titleTextStyle: TextStyle(

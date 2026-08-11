@@ -96,9 +96,7 @@ class _AnalyticsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final boxColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    const boxColor = WpColorsDark.borderSubtle;
 
     return WpPageShell(
       child: Column(
@@ -335,7 +333,7 @@ class _PanelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const accent = WpColorsDark.accent;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -347,12 +345,10 @@ class _PanelHeader extends StatelessWidget {
               child: Text(
                 title,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
+                  color: WpColorsDark.textPrimary,
                 ),
               ),
             ),
@@ -537,14 +533,9 @@ class _HeroPillState extends State<_HeroPill>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    const accent = WpColorsDark.accent;
+    const textSecondary = WpColorsDark.textSecondary;
+    const borderColor = WpColorsDark.borderSubtle;
 
     // One stat, one node. The number and its caption were two unrelated
     // fragments in the semantics tree, so the value arrived without ever
@@ -572,9 +563,7 @@ class _HeroPillState extends State<_HeroPill>
               height: 2,
               margin: const EdgeInsets.only(bottom: WpSpacing.sm),
               decoration: BoxDecoration(
-                gradient: isDark
-                    ? WpColorsDark.accentWarmGradient
-                    : WpColorsLight.accentWarmGradient,
+                gradient: WpColorsDark.accentWarmGradient,
                 borderRadius: WpRadius.borderFull,
               ),
             ),
@@ -633,7 +622,7 @@ class _HeroPillState extends State<_HeroPill>
             // Label
             Text(
               widget.label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.caption,
                 color: textSecondary,
               ),
@@ -700,7 +689,7 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,7 +700,10 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
           isDark: isDark,
           trailing: Text(
             l10n.analyticsLast7Days,
-            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
+            style: const TextStyle(
+              fontSize: WpTypography.caption,
+              color: textMuted,
+            ),
           ),
         ),
         const SizedBox(height: WpSpacing.md),
@@ -724,18 +716,12 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
               painter: _BarChartPainter(
                 values: widget.values,
                 labels: _activityDayLabels(l10n),
-                barColor: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                barColor: WpColorsDark.accent,
                 // Same accent token, faded — was a hand-picked hex pair that
                 // had drifted from the real accent (#3CCBE6 / #06678A).
-                barColorEnd:
-                    (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-                        .withValues(alpha: 0.65),
-                gridColor: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
-                labelColor: isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
+                barColorEnd: (WpColorsDark.accent).withValues(alpha: 0.65),
+                gridColor: WpColorsDark.borderSubtle,
+                labelColor: WpColorsDark.textMuted,
                 // CustomPainter TextPainter bypasses widget font inheritance.
                 // Pass fontFamily explicitly so labels render with the correct
                 // typeface in tests and on all platforms.
@@ -874,11 +860,11 @@ class _ModelUsagePanel extends StatelessWidget {
         ),
         const SizedBox(height: WpSpacing.md),
         if (models.isEmpty)
-          Text(
+          const Text(
             '—',
             style: TextStyle(
               fontSize: WpTypography.small,
-              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+              color: WpColorsDark.textMuted,
             ),
           )
         else
@@ -909,14 +895,10 @@ class _ModelUsageBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final trackColor = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const trackColor = WpColorsDark.surfaceVariant;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: WpSpacing.sm),
@@ -928,7 +910,7 @@ class _ModelUsageBar extends StatelessWidget {
               Expanded(
                 child: Text(
                   model.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.small,
                     color: textPrimary,
                   ),
@@ -937,7 +919,7 @@ class _ModelUsageBar extends StatelessWidget {
               ),
               Text(
                 '${(model.fraction * 100).round()}%',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.small,
                   fontWeight: FontWeight.w700,
                   color: accent,
@@ -946,7 +928,7 @@ class _ModelUsageBar extends StatelessWidget {
               const SizedBox(width: WpSpacing.xs),
               Text(
                 '(${model.count})',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.caption,
                   color: textMuted,
                 ),
@@ -960,7 +942,7 @@ class _ModelUsageBar extends StatelessWidget {
               height: 6,
               child: Stack(
                 children: [
-                  ColoredBox(color: trackColor),
+                  const ColoredBox(color: trackColor),
                   FractionallySizedBox(
                     widthFactor: model.fraction,
                     child: ColoredBox(
@@ -1057,13 +1039,9 @@ class _DurationBar extends StatelessWidget {
     // used to be `textMuted` at a hand-rolled alpha, which *The Tint Ladder
     // Rule* forbids — and an alpha over an unknown ground is also a track no
     // ramp rung can be measured against.
-    final trackColor = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const trackColor = WpColorsDark.surfaceVariant;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
 
     // The two text columns are fixed-width on purpose — that is what keeps
     // the bars starting and ending on one line down the whole panel. But a
@@ -1081,7 +1059,7 @@ class _DurationBar extends StatelessWidget {
             width: textScaler.scale(52),
             child: Text(
               bucket.label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.caption,
                 color: textPrimary,
               ),
@@ -1095,7 +1073,7 @@ class _DurationBar extends StatelessWidget {
                 height: 8,
                 child: Stack(
                   children: [
-                    ColoredBox(color: trackColor),
+                    const ColoredBox(color: trackColor),
                     FractionallySizedBox(
                       widthFactor: bucket.fraction,
                       child: Container(
@@ -1115,7 +1093,7 @@ class _DurationBar extends StatelessWidget {
             width: textScaler.scale(32),
             child: Text(
               '${bucket.count}',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.caption,
                 color: textMuted,
               ),
@@ -1145,8 +1123,8 @@ class _CostPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
-    final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+    const success = WpColorsDark.success;
+    const warning = WpColorsDark.warning;
     final l10n = L10n.of(context);
 
     final savingsStr = '\$${localSavingsUsd.toStringAsFixed(2)}';
@@ -1206,9 +1184,7 @@ class _CostRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    const textPrimary = WpColorsDark.textPrimary;
 
     return Row(
       children: [
@@ -1217,7 +1193,10 @@ class _CostRow extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: TextStyle(fontSize: WpTypography.small, color: textPrimary),
+            style: const TextStyle(
+              fontSize: WpTypography.small,
+              color: textPrimary,
+            ),
           ),
         ),
         Text(
@@ -1304,7 +1283,6 @@ class _PeriodSelector extends ConsumerWidget {
             child: WpFilterChip(
               label: periods[i],
               isActive: i == selectedIndex,
-              isDark: isDark,
               onTap: () => ref
                   .read(analyticsPeriodProvider.notifier)
                   .setPeriod(AnalyticsPeriod.values[i]),

@@ -140,22 +140,16 @@ class WpListTileSurface extends StatelessWidget {
     switch (variant) {
       case WpListTileVariant.card:
         return _isActive
-            ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
-            : (isDark
-                  ? WpColorsDark.surfaceElevated
-                  : WpColorsLight.surfaceElevated);
+            ? (WpColorsDark.hover)
+            : (WpColorsDark.surfaceElevated);
       case WpListTileVariant.panel:
         if (isSelected) {
-          return isDark
-              ? WpColorsDark.accentSubtle
-              : WpColorsLight.accentSubtle;
+          return WpColorsDark.accentSubtle;
         }
         if (isFocused || isHovered) {
-          return isDark ? WpColorsDark.hover : WpColorsLight.hover;
+          return WpColorsDark.hover;
         }
-        return isDark
-            ? WpColorsDark.hoverTransparent
-            : WpColorsLight.hoverTransparent;
+        return WpColorsDark.hoverTransparent;
     }
   }
 
@@ -164,16 +158,12 @@ class WpListTileSurface extends StatelessWidget {
       case WpListTileVariant.card:
         return Border.all(
           color: _isActive
-              ? (isDark
-                    ? WpColorsDark.cardActiveBorder
-                    : WpColorsLight.cardActiveBorder)
-              : (isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle),
+              ? (WpColorsDark.cardActiveBorder)
+              : (WpColorsDark.borderSubtle),
           width: borderWidth,
         );
       case WpListTileVariant.panel:
-        final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+        const accent = WpColorsDark.accent;
         if (isSelected) {
           // Light-theme ink is deliberately reduced (history polish pass,
           // 2026-07-28): the light accent #06678A is itself dark
@@ -184,16 +174,11 @@ class WpListTileSurface extends StatelessWidget {
           // lifted shadow — with ~45 % less ink. Dark keeps the approved
           // full-strength values, and is the one place the shared
           // [borderWidth] is exceeded.
-          return isDark
-              ? Border.all(color: accent.withValues(alpha: 0.7), width: 2)
-              : Border.all(
-                  color: accent.withValues(alpha: 0.6),
-                  width: borderWidth,
-                );
+          return Border.all(color: accent.withValues(alpha: 0.7), width: 2);
         }
         if (isFocused) {
           return Border.all(
-            color: accent.withValues(alpha: isDark ? 0.5 : 0.45),
+            color: accent.withValues(alpha: 0.5),
             width: borderWidth,
           );
         }

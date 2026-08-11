@@ -204,24 +204,18 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     Color borderColor,
   })
   _resolveColors(bool isDark) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const accent = WpColorsDark.accent;
     final borderColor = widget.isSelected
-        ? accent.withValues(alpha: isDark ? 0.5 : 0.45)
+        ? accent.withValues(alpha: 0.5)
         : widget.isFocused
-        ? accent.withValues(alpha: isDark ? 0.4 : 0.35)
-        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
-    final restingSurface = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
+        ? accent.withValues(alpha: 0.4)
+        : (WpColorsDark.borderSubtle);
+    const restingSurface = WpColorsDark.surfaceElevated;
     return (
       accent: accent,
-      textPrimary: isDark
-          ? WpColorsDark.textPrimary
-          : WpColorsLight.textPrimary,
-      textSecondary: isDark
-          ? WpColorsDark.textSecondary
-          : WpColorsLight.textSecondary,
-      textMuted: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+      textPrimary: WpColorsDark.textPrimary,
+      textSecondary: WpColorsDark.textSecondary,
+      textMuted: WpColorsDark.textMuted,
       // Selected cards get the same accent wash the list tile paints
       // (history_list_tile.dart:114) — composited over the card's own
       // elevated fill rather than replacing it, so the grid keeps its
@@ -229,10 +223,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
       // hairline border, which is far too quiet to scan a 4-column grid
       // for "what did Ctrl+A just check?".
       surfaceElevated: widget.isSelected
-          ? Color.alphaBlend(
-              isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle,
-              restingSurface,
-            )
+          ? Color.alphaBlend(WpColorsDark.accentSubtle, restingSurface)
           : restingSurface,
       borderColor: borderColor,
     );
@@ -306,7 +297,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         child: WpRowCheckbox(
                           value: widget.isChecked,
                           onChanged: widget.onTap,
-                          isDark: isDark,
                         ),
                       ),
                     HistoryEntryAvatar(
@@ -358,7 +348,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         WpRowAction(
                           icon: LucideIcons.copy,
                           tooltip: l10n.historyCopyText,
-                          isDark: isDark,
                           onTap: widget.onCopy,
                           dense: true,
                         ),
@@ -374,7 +363,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                           tooltip: widget.entry.pinned
                               ? l10n.historyUnpin
                               : l10n.historyPinToTop,
-                          isDark: isDark,
                           onTap: widget.onPin,
                           dense: true,
                         ),
@@ -382,7 +370,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         WpRowAction(
                           icon: LucideIcons.trash2,
                           tooltip: l10n.actionDelete,
-                          isDark: isDark,
                           onTap: widget.onDelete,
                           isDestructive: true,
                           dense: true,

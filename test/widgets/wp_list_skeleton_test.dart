@@ -82,9 +82,7 @@ void main() {
   group('WpListSkeleton', () {
     testWidgets('renders `count` bars at exactly `rowHeight`', (tester) async {
       await tester.pumpWidget(
-        makeTestable(
-          const WpListSkeleton(isDark: true, rowHeight: 96, count: 4),
-        ),
+        makeTestable(const WpListSkeleton(rowHeight: 96, count: 4)),
       );
 
       final bars = find.descendant(
@@ -99,7 +97,7 @@ void main() {
 
     testWidgets('honours the default count of six', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const WpListSkeleton(isDark: false, rowHeight: 48)),
+        makeTestable(const WpListSkeleton(rowHeight: 48)),
       );
       expect(
         find.descendant(

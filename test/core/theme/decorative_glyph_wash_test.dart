@@ -40,38 +40,31 @@ void main() {
 
     test('light stays under the tint ladder floor', () {
       expect(
-        WpColorsLight.decorativeGlyphWash.a,
-        lessThan(WpColorsLight.accentRowHover.a),
+        WpColorsDark.decorativeGlyphWash.a,
+        lessThan(WpColorsDark.accentRowHover.a),
         reason:
             'a large decorative glyph is not a badge, chip or border — it may '
             'not borrow the ladder rung defined for those',
       );
       expect(
-        WpColorsLight.decorativeGlyphWash.a,
+        WpColorsDark.decorativeGlyphWash.a,
         greaterThan(0.02),
         reason: 'below ~2 % the wash is gone and the card loses its identity',
       );
     });
 
-    test('light is the weaker of the two', () {
-      expect(
-        WpColorsLight.decorativeGlyphWash.a,
-        lessThan(WpColorsDark.decorativeGlyphWash.a),
-        reason:
-            'the light wash is a decrement against a near-white ground and '
-            'reads stronger at equal alpha than the dark increment does — '
-            'equalising the alphas is what made the two themes look unequal',
-      );
-    });
+    // Removed 2026-08-11 (dark-only build): `light is the weaker of the two`.
+    // It asserted the light wash carried a lower alpha than the dark one,
+    // because a decrement against a near-white ground reads stronger at equal
+    // alpha than a dark increment does — equalising the alphas was what had
+    // made the two themes look unequal. With one wash left the comparison is
+    // `expect(x, lessThan(x))` and cannot pass; the surviving floor and
+    // ceiling above still pin the one wash on both sides.
 
-    test('each wash carries its own theme accent hue', () {
+    test('the wash carries the theme accent hue', () {
       expect(
         WpColorsDark.decorativeGlyphWash.toARGB32() & 0x00FFFFFF,
         WpColorsDark.accent.toARGB32() & 0x00FFFFFF,
-      );
-      expect(
-        WpColorsLight.decorativeGlyphWash.toARGB32() & 0x00FFFFFF,
-        WpColorsLight.accent.toARGB32() & 0x00FFFFFF,
       );
     });
   });

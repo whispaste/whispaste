@@ -60,12 +60,20 @@ abstract final class WpTierPerformancePresentation {
   /// the user's own hardware, which is the whole point of measuring; the amber
   /// and green it refused stay refused.
   ///
-  /// The refusal is now also measurable rather than only principled. The line
-  /// renders at `WpTypography.micro` (10 px) — normal text under WCAG 1.4.3, so
-  /// it owes 4.5:1. `WpColorsLight.warning` reaches at most 3.11:1 on these
-  /// grounds and `WpColorsLight.success` 3.74:1: a traffic light is not
-  /// renderable here at AA at any size this line uses, whatever one thinks of
-  /// it.
+  /// The refusal was, for a while, measurable rather than only principled: the
+  /// line renders at `WpTypography.micro` (10 px) — normal text under WCAG
+  /// 1.4.3, so it owes 4.5:1 — and on the light stack `warning` reached at
+  /// most 3.11:1 against these grounds and `success` 3.74:1, so a traffic
+  /// light was not renderable here at AA at any size this line uses.
+  ///
+  /// > **Retracted 2026-08-11 (dark-only build): the measured half of this
+  /// > argument.** Those two numbers were light-stack measurements and the
+  /// > light stack is gone; they are recorded above as history, not re-derived
+  /// > against dark. The refusal itself is unaffected — it rests on *The
+  /// > Categorical vs. Sequential Rule*, which is a statement about what a
+  /// > quantity may look like, not about contrast. Re-deriving the AA figures
+  /// > on dark would either add a second reason or remove one, and neither is
+  /// > this pass's business.
   ///
   /// **Which end is which.** Weight rises with the cost reported, so `slow`
   /// takes the ramp's far rung and `fast` its near one. Fading the line out as
@@ -99,8 +107,7 @@ abstract final class WpTierPerformancePresentation {
       TierPerformance.fast => rungs[_tierRampTextRung],
       TierPerformance.moderate => rungs[_tierRampTextRung + 1],
       TierPerformance.slow => rungs[_tierRampTextRung + 2],
-      TierPerformance.unmeasured =>
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+      TierPerformance.unmeasured => WpColorsDark.textMuted,
     };
   }
 

@@ -209,7 +209,6 @@ void main() {
           NotesSearchBar(
             currentFilter: NotesFilter.active,
             onFilterChanged: (_) {},
-            isDark: true,
             searchController: TextEditingController(text: 'grocery'),
             searchFocusNode: FocusNode(),
             onSearchChanged: () {},

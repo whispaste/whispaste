@@ -541,8 +541,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       isArchiveView,
                     );
                   },
-                  loading: () => WpListSkeleton(
-                    isDark: isDark,
+                  loading: () => const WpListSkeleton(
                     rowHeight: _historySkeletonRowHeight,
                   ),
                   error: (e, _) {

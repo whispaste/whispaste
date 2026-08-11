@@ -295,18 +295,18 @@ void main() {
       ),
     );
 
-    expect(_boxDecoration(tester).color, WpColorsLight.surfaceVariant);
-    expect(_renderedStyle(tester).color, WpColorsLight.textPrimary);
+    expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
+    expect(_renderedStyle(tester).color, WpColorsDark.textPrimary);
     expect(
       (_strokeDecoration(tester)!.border! as Border).top.color,
-      WpColorsLight.borderSubtle,
+      WpColorsDark.borderSubtle,
     );
 
     focusNode.requestFocus();
     await tester.pumpAndSettle();
     expect(
       (_strokeDecoration(tester)!.border! as Border).top.color,
-      WpColorsLight.accent,
+      WpColorsDark.accent,
     );
   });
 

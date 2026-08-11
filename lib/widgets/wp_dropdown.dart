@@ -350,15 +350,15 @@ class _WpDropdownPalette {
   );
 
   static const _light = _WpDropdownPalette(
-    surface: WpColorsLight.surfaceVariant,
-    border: WpColorsLight.borderSubtle,
-    textPrimary: WpColorsLight.textPrimary,
-    textSecondary: WpColorsLight.textSecondary,
-    textMuted: WpColorsLight.textMuted,
-    accent: WpColorsLight.accent,
-    menuSurface: WpColorsLight.surfaceElevated,
-    focusWash: WpColorsLight.accentActiveFill,
-    hoverWash: WpColorsLight.accentRowHover,
+    surface: WpColorsDark.surfaceVariant,
+    border: WpColorsDark.borderSubtle,
+    textPrimary: WpColorsDark.textPrimary,
+    textSecondary: WpColorsDark.textSecondary,
+    textMuted: WpColorsDark.textMuted,
+    accent: WpColorsDark.accent,
+    menuSurface: WpColorsDark.surfaceElevated,
+    focusWash: WpColorsDark.accentActiveFill,
+    hoverWash: WpColorsDark.accentRowHover,
   );
 
   static _WpDropdownPalette of(Brightness brightness) =>

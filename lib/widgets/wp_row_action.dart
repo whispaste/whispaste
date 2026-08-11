@@ -99,7 +99,6 @@ class WpRowAction extends StatefulWidget {
     this.icon,
     this.faIcon,
     required this.tooltip,
-    required this.isDark,
     required this.onTap,
     this.isDestructive = false,
     this.activeColor,
@@ -109,7 +108,6 @@ class WpRowAction extends StatefulWidget {
   final IconData? icon;
   final FaIconData? faIcon;
   final String tooltip;
-  final bool isDark;
   final VoidCallback onTap;
   final bool isDestructive;
 
@@ -144,15 +142,11 @@ class _WpRowActionState extends State<WpRowAction> {
     if (widget.activeColor != null) {
       iconColor = widget.activeColor!;
     } else if (widget.isDestructive && _isHovered) {
-      iconColor = widget.isDark ? WpColorsDark.error : WpColorsLight.error;
+      iconColor = WpColorsDark.error;
     } else if (_isHovered) {
-      iconColor = widget.isDark
-          ? WpColorsDark.textPrimary
-          : WpColorsLight.textPrimary;
+      iconColor = WpColorsDark.textPrimary;
     } else {
-      iconColor = widget.isDark
-          ? WpColorsDark.textMuted
-          : WpColorsLight.textMuted;
+      iconColor = WpColorsDark.textMuted;
     }
 
     return Semantics(
@@ -190,12 +184,8 @@ class _WpRowActionState extends State<WpRowAction> {
                   padding: EdgeInsets.all(widget.dense ? 6 : 10),
                   decoration: BoxDecoration(
                     color: _isHovered
-                        ? (widget.isDark
-                              ? WpColorsDark.active
-                              : WpColorsLight.active)
-                        : (widget.isDark
-                              ? WpColorsDark.hoverTransparent
-                              : WpColorsLight.hoverTransparent),
+                        ? (WpColorsDark.active)
+                        : (WpColorsDark.hoverTransparent),
                     borderRadius: WpRadius.borderSm,
                   ),
                   child: widget.faIcon != null

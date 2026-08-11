@@ -128,22 +128,12 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final notes = ref.watch(entryNotesProvider(widget.entryId));
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = widget.isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final borderColor = widget.isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-    final surfaceElevated = widget.isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
+    const borderColor = WpColorsDark.borderSubtle;
+    const surfaceElevated = WpColorsDark.surfaceElevated;
 
     return notes.when(
       loading: () => const SizedBox.shrink(),
@@ -158,7 +148,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
               behavior: HitTestBehavior.opaque,
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     LucideIcons.stickyNote,
                     size: WpIconSize.sm,
                     color: accent,
@@ -169,7 +159,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       noteList.isEmpty
                           ? l10n.historyAddNote
                           : '${l10n.historyNotes} (${noteList.length})',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w600,
                         color: textSecondary,
@@ -180,10 +170,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  VoiceNoteButton(
-                    entryId: widget.entryId,
-                    isDark: widget.isDark,
-                  ),
+                  VoiceNoteButton(entryId: widget.entryId),
                   const SizedBox(width: WpSpacing.xxs),
                   if (!_isAdding)
                     Semantics(
@@ -194,8 +181,8 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                         child: InkWell(
                           onTap: () => setState(() => _isAdding = true),
                           borderRadius: WpRadius.borderSm,
-                          child: Padding(
-                            padding: const EdgeInsets.all(WpSpacing.xs),
+                          child: const Padding(
+                            padding: EdgeInsets.all(WpSpacing.xs),
                             child: Icon(
                               LucideIcons.plus,
                               size: WpIconSize.md,
@@ -250,7 +237,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       label: l10n.actionSave,
                       button: true,
                       child: IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           LucideIcons.check,
                           size: WpIconSize.md,
                           color: accent,
@@ -264,7 +251,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       label: l10n.actionCancel,
                       button: true,
                       child: IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           LucideIcons.x,
                           size: WpIconSize.md,
                           color: textMuted,
@@ -284,7 +271,6 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
               WpDiscoverabilityHint(
                 hintId: 'voice_note_prefixes',
                 text: l10n.historyVoiceNoteHint,
-                isDark: widget.isDark,
               ),
             ],
             // Existing notes
@@ -376,9 +362,7 @@ class _NoteItemState extends State<_NoteItem> {
 
   @override
   Widget build(BuildContext context) {
-    final hoverBg = widget.isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
+    const hoverBg = WpColorsDark.surfaceVariant;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),

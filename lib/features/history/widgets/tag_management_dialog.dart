@@ -121,16 +121,10 @@ class _TagManagementContentState extends State<_TagManagementContent> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final borderColor = widget.isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    const accent = WpColorsDark.accent;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
+    const borderColor = WpColorsDark.borderSubtle;
 
     final unusedCount = _tags.where((t) => t.$2 == 0).length;
 
@@ -145,9 +139,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
             child: Material(
-              color: widget.isDark
-                  ? WpColorsDark.surfaceElevated
-                  : WpColorsLight.surfaceElevated,
+              color: WpColorsDark.surfaceElevated,
               borderRadius: BorderRadius.circular(WpRadius.lg),
               elevation: 8,
               child: Column(
@@ -163,7 +155,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           LucideIcons.tags,
                           size: WpIconSize.md,
                           color: accent,
@@ -172,7 +164,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                         Expanded(
                           child: Text(
                             l10n.tagManageTitle,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: WpTypography.heading,
                               fontWeight: FontWeight.w600,
                               color: textPrimary,
@@ -180,7 +172,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                           ),
                         ),
                         IconButton(
-                          icon: Icon(
+                          icon: const Icon(
                             LucideIcons.x,
                             size: WpIconSize.sm,
                             color: textMuted,
@@ -196,7 +188,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                   ),
 
                   // Divider
-                  Divider(height: 1, color: borderColor),
+                  const Divider(height: 1, color: borderColor),
 
                   // Content
                   if (_loading)
@@ -216,7 +208,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                       child: Center(
                         child: Text(
                           l10n.tagManageEmpty,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: textMuted,
                             fontSize: WpTypography.subheading,
                           ),
@@ -245,7 +237,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
 
                   // Footer with "Delete unused" action
                   if (!_loading && unusedCount > 0) ...[
-                    Divider(height: 1, color: borderColor),
+                    const Divider(height: 1, color: borderColor),
                     Padding(
                       padding: const EdgeInsets.all(WpSpacing.sm),
                       child: WpButton(
@@ -317,36 +309,28 @@ class _TagRowState extends State<_TagRow> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-        color: _hovered
-            ? (widget.isDark
-                  ? WpColorsDark.accentRowHover
-                  : WpColorsLight.accentRowHover)
-            : Colors.transparent,
+        color: _hovered ? (WpColorsDark.accentRowHover) : Colors.transparent,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.lg,
           vertical: WpSpacing.xs,
         ),
         child: Row(
           children: [
-            Icon(LucideIcons.hash, size: 14, color: accent),
+            const Icon(LucideIcons.hash, size: 14, color: accent),
             const SizedBox(width: WpSpacing.xs),
             Expanded(
               child: Text(
                 widget.tag.name,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.subheading,
                   color: textPrimary,
                 ),
@@ -356,7 +340,10 @@ class _TagRowState extends State<_TagRow> {
             const SizedBox(width: WpSpacing.sm),
             Text(
               l10n.tagUsageCount(widget.count),
-              style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+              style: const TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+              ),
             ),
             const SizedBox(width: WpSpacing.xs),
             AnimatedOpacity(
@@ -364,12 +351,10 @@ class _TagRowState extends State<_TagRow> {
               duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               child: IconButton(
                 focusNode: _deleteFocus,
-                icon: Icon(
+                icon: const Icon(
                   LucideIcons.trash2,
                   size: 14,
-                  color: widget.isDark
-                      ? WpColorsDark.error
-                      : WpColorsLight.error,
+                  color: WpColorsDark.error,
                 ),
                 onPressed: widget.onDelete,
                 tooltip: l10n.actionDelete,

@@ -166,7 +166,6 @@ class _SupportPromptDialog extends StatelessWidget {
 
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final isRecurringFollowUp = kind == SupportPromptKind.recurringFollowUp;
     final title = isRecurringFollowUp
         ? l10n.supportPromptRecurringTitle
@@ -185,15 +184,9 @@ class _SupportPromptDialog extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 380),
             padding: const EdgeInsets.all(WpSpacing.lg),
             decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceElevated
-                  : WpColorsLight.surfaceElevated,
+              color: WpColorsDark.surfaceElevated,
               borderRadius: WpRadius.borderLg,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
-              ),
+              border: Border.all(color: WpColorsDark.borderSubtle),
               boxShadow: WpShadows.elevated,
             ),
             child: Column(
@@ -209,9 +202,7 @@ class _SupportPromptDialog extends StatelessWidget {
                 Text(
                   description,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark
-                        ? WpColorsDark.textSecondary
-                        : WpColorsLight.textSecondary,
+                    color: WpColorsDark.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),

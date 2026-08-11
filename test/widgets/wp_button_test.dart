@@ -232,7 +232,7 @@ void main() {
           .widget<FilledButton>(find.byType(FilledButton))
           .style!;
 
-      expect(style.side!.resolve(const {})!.color, WpColorsLight.borderSubtle);
+      expect(style.side!.resolve(const {})!.color, WpColorsDark.borderSubtle);
     });
   });
 
@@ -360,7 +360,7 @@ void main() {
           .widget<OutlinedButton>(find.byType(OutlinedButton))
           .style!;
 
-      expect(style.side!.resolve(const {})!.color, WpColorsLight.errorBorder30);
+      expect(style.side!.resolve(const {})!.color, WpColorsDark.errorBorder30);
     });
   });
 
@@ -581,7 +581,7 @@ void main() {
         ),
       );
 
-      expect(ringColorOf(tester), WpColorsLight.textPrimary);
+      expect(ringColorOf(tester), WpColorsDark.textPrimary);
     });
 
     testWidgets('unfilled variants keep the shared accent ring', (

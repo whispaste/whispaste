@@ -258,20 +258,12 @@ class _TierRowState extends State<_TierRow> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final accentButtonFill = widget.isDark
-        ? WpColorsDark.accentButtonFill
-        : WpColorsLight.accentButtonFill;
-    final accentBorder30 = widget.isDark
-        ? WpColorsDark.accentBorder30
-        : WpColorsLight.accentBorder30;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    final success = widget.isDark
-        ? WpColorsDark.success
-        : WpColorsLight.success;
+    const accent = WpColorsDark.accent;
+    const accentButtonFill = WpColorsDark.accentButtonFill;
+    const accentBorder30 = WpColorsDark.accentBorder30;
+    const textMuted = WpColorsDark.textMuted;
+    const hoverBg = WpColorsDark.hover;
+    const success = WpColorsDark.success;
 
     // Performance info is only shown on the current tier
     final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
@@ -400,21 +392,23 @@ class _TierRowState extends State<_TierRow> {
           return _ActionChip(
             label: widget.l10n.actionDelete,
             icon: LucideIcons.trash2,
-            color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+            color: WpColorsDark.error,
             onTap: widget.onDelete,
           );
         }
-        final success = widget.isDark
-            ? WpColorsDark.success
-            : WpColorsLight.success;
+        const success = WpColorsDark.success;
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.circleCheck, size: WpIconSize.xs, color: success),
+            const Icon(
+              LucideIcons.circleCheck,
+              size: WpIconSize.xs,
+              color: success,
+            ),
             const SizedBox(width: 4),
             Text(
               widget.l10n.modelReady,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w500,
                 color: success,
@@ -441,7 +435,7 @@ class _TierRowState extends State<_TierRow> {
       return _ActionChip(
         label: widget.l10n.actionDelete,
         icon: LucideIcons.trash2,
-        color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+        color: WpColorsDark.error,
         onTap: widget.onDelete,
       );
     }
@@ -489,12 +483,8 @@ class _TierRowInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
     final bestModel = bestModelForTier(tier);
 
     return Column(
@@ -506,7 +496,7 @@ class _TierRowInfo extends StatelessWidget {
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: textPrimary,
@@ -570,7 +560,7 @@ class _TierRowInfo extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           desc,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: WpTypography.caption,
             color: textSecondary,
           ),
@@ -705,9 +695,7 @@ class _DownloadProgressInfo extends StatelessWidget {
                 ? null // indeterminate for verification/extraction
                 : downloadState.progressPercent / 100,
             minHeight: 3,
-            backgroundColor: isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
+            backgroundColor: WpColorsDark.borderSubtle,
             valueColor: AlwaysStoppedAnimation(accent),
           ),
         ),
@@ -715,9 +703,9 @@ class _DownloadProgressInfo extends StatelessWidget {
         // Status text row
         Text(
           _statusText(),
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: WpTypography.caption,
-            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+            color: WpColorsDark.textMuted,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -863,25 +851,19 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    const errorColor = WpColorsDark.error;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
       padding: const EdgeInsets.all(WpSpacing.sm),
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.errorButtonFill
-            : WpColorsLight.errorButtonFill,
+        color: WpColorsDark.errorButtonFill,
         borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.errorBorder20
-              : WpColorsLight.errorBorder20,
-        ),
+        border: Border.all(color: WpColorsDark.errorBorder20),
       ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.xs,
             color: errorColor,
@@ -890,7 +872,10 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: WpTypography.small, color: errorColor),
+              style: const TextStyle(
+                fontSize: WpTypography.small,
+                color: errorColor,
+              ),
             ),
           ),
           if (onRetry != null) ...[

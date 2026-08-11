@@ -1312,9 +1312,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       ).getSingleOrNull();
       final previousSlot = previousRow?.data['color_slot'] as int?;
       final slot = _drawColorSlot(previousSlot: previousSlot);
-      await into(
-        historyEntries,
-      ).insert(entry.copyWith(colorSlot: Value(slot)));
+      await into(historyEntries).insert(entry.copyWith(colorSlot: Value(slot)));
     });
   }
 

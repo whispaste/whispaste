@@ -233,19 +233,11 @@ class WpTagInputState extends State<WpTagInput> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final surfaceEl = widget.isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final borderCol = widget.isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    const accent = WpColorsDark.accent;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
+    const surfaceEl = WpColorsDark.surfaceElevated;
+    const borderCol = WpColorsDark.borderSubtle;
     final l10n = L10n.of(context);
 
     // Collapse tags when not editing.
@@ -433,13 +425,9 @@ class _TagChipState extends State<_TagChip> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final chipFill = widget.isDark
-        ? WpColorsDark.accentChipFill
-        : WpColorsLight.accentChipFill;
-    final chipFillHover = widget.isDark
-        ? WpColorsDark.accentChipFillHover
-        : WpColorsLight.accentChipFillHover;
+    const accent = WpColorsDark.accent;
+    const chipFill = WpColorsDark.accentChipFill;
+    const chipFillHover = WpColorsDark.accentChipFillHover;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -459,7 +447,7 @@ class _TagChipState extends State<_TagChip> {
           children: [
             Text(
               widget.tag.name,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.body,
                 color: accent,
                 fontWeight: FontWeight.w500,
@@ -482,7 +470,7 @@ class _TagChipState extends State<_TagChip> {
                       context,
                       _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       LucideIcons.x,
                       size: WpIconSize.xs,
                       color: accent,
@@ -515,7 +503,7 @@ class _OverflowChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
 
     // Keep an explicit label here and exclude the visible text instead (the
     // `SettingRow` shape rather than the `MergeSemantics` one): "+12" is a
@@ -541,7 +529,7 @@ class _OverflowChip extends StatelessWidget {
           child: ExcludeSemantics(
             child: Text(
               '+$count',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.small,
                 color: textMuted,
                 fontWeight: FontWeight.w500,
@@ -574,10 +562,8 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const textMuted = WpColorsDark.textMuted;
 
     // Two shapes in one control, so the semantics has to branch with it.
     // With a label the trigger renders that same string as `Text`, so the
@@ -622,7 +608,7 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
                     const SizedBox(width: WpSpacing.xxs),
                     Text(
                       widget.label!,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.small,
                         color: textMuted,
                       ),
@@ -666,11 +652,9 @@ class _SuggestionTileState extends State<_SuggestionTile> {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    const textPrimary = WpColorsDark.textPrimary;
+    const accent = WpColorsDark.accent;
+    const hoverBg = WpColorsDark.hover;
 
     // House idiom (`section.dart`): MergeSemantics + a *label-less*
     // Semantics — a `label:` is prepended to the subtree's text, not a
@@ -713,7 +697,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                   Expanded(
                     child: Text(
                       widget.tag.name,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.body,
                         color: textPrimary,
                       ),
@@ -774,11 +758,9 @@ class _CreateTagTileState extends State<_CreateTagTile> {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    const textPrimary = WpColorsDark.textPrimary;
+    const accent = WpColorsDark.accent;
+    const hoverBg = WpColorsDark.hover;
 
     // Same construction and same reasoning as `_SuggestionRow` above: the
     // create-row is the last stop of the very same arrow-key walk
@@ -806,12 +788,16 @@ class _CreateTagTileState extends State<_CreateTagTile> {
                   : Colors.transparent,
               child: Row(
                 children: [
-                  Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
+                  const Icon(
+                    LucideIcons.plus,
+                    size: WpIconSize.sm,
+                    color: accent,
+                  ),
                   const SizedBox(width: WpSpacing.xs),
                   Expanded(
                     child: Text(
                       widget.label,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.body,
                         color: textPrimary,
                         fontWeight: FontWeight.w500,

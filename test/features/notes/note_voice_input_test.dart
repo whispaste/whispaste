@@ -129,7 +129,7 @@ Widget _makeTestableButton({
   required ValueChanged<String> onTranscript,
 }) {
   return makeTestable(
-    WpVoiceInputButton(isDark: true, onTranscript: onTranscript),
+    WpVoiceInputButton(onTranscript: onTranscript),
     overrides: [
       audioServiceProvider.overrideWith(() => fakeAudio),
       localSttBundleProvider.overrideWith(() => fakeStt),

@@ -26,7 +26,6 @@ class WpFilterChip extends StatefulWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
-    required this.isDark,
     this.icon,
     this.count,
   });
@@ -34,7 +33,6 @@ class WpFilterChip extends StatefulWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-  final bool isDark;
   final IconData? icon;
 
   /// Number of search hits for this filter. Shown as a badge when non-null.
@@ -74,22 +72,14 @@ class _WpFilterChipState extends State<WpFilterChip> {
     //     which is what a chip's hover is *for*: previewing the state the
     //     click leads to.
     if (widget.isActive) {
-      bg = widget.isDark
-          ? WpColorsDark.accentActiveFill
-          : WpColorsLight.accentActiveFill;
-      fg = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+      bg = WpColorsDark.accentActiveFill;
+      fg = WpColorsDark.accent;
     } else if (_isHovered) {
-      bg = widget.isDark
-          ? WpColorsDark.accentRowHover
-          : WpColorsLight.accentRowHover;
-      fg = widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+      bg = WpColorsDark.accentRowHover;
+      fg = WpColorsDark.textPrimary;
     } else {
-      bg = widget.isDark
-          ? WpColorsDark.surfaceVariant
-          : WpColorsLight.surfaceVariant;
-      fg = widget.isDark
-          ? WpColorsDark.textSecondary
-          : WpColorsLight.textSecondary;
+      bg = WpColorsDark.surfaceVariant;
+      fg = WpColorsDark.textSecondary;
     }
 
     // Compact visual pill — the actual tap/focus surface around it is
@@ -110,11 +100,7 @@ class _WpFilterChipState extends State<WpFilterChip> {
         color: bg,
         borderRadius: WpRadius.borderFull,
         border: widget.isActive
-            ? Border.all(
-                color: widget.isDark
-                    ? WpColorsDark.accentBorder30
-                    : WpColorsLight.accentBorder30,
-              )
+            ? Border.all(color: WpColorsDark.accentBorder30)
             : null,
       ),
       child: Row(
@@ -153,9 +139,7 @@ class _WpFilterChipState extends State<WpFilterChip> {
                 // Foreground de-emphasis of the chip's own label color, not a
                 // surface tint — the 6/12/30% ladder does not apply here.
                 color: (!widget.isActive && widget.count! > 0)
-                    ? (widget.isDark
-                          ? WpColorsDark.accent
-                          : WpColorsLight.accent)
+                    ? (WpColorsDark.accent)
                     : fg.withValues(alpha: 0.6),
                 fontSize: WpTypography.caption,
                 height: 1.15,

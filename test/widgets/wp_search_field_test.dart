@@ -247,11 +247,11 @@ void main() {
       // theme-dependent shadow here, which is the axis this pins shut: both
       // themes are now flat, and only the palette differs.
       expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
-      expect(_boxDecoration(tester).color, WpColorsLight.surfaceVariant);
+      expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
       expect(_boxDecoration(tester).boxShadow, isNull);
       expect(
         _borderDecoration(tester).border!.top.color,
-        WpColorsLight.borderSubtle,
+        WpColorsDark.borderSubtle,
       );
     });
 

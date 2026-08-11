@@ -29,14 +29,9 @@ import '../data/history_detail_provider.dart';
 /// - **tag** → `addTag`
 /// - **correction** → `updateContent`
 class VoiceNoteButton extends ConsumerWidget {
-  const VoiceNoteButton({
-    super.key,
-    required this.entryId,
-    required this.isDark,
-  });
+  const VoiceNoteButton({super.key, required this.entryId});
 
   final String entryId;
-  final bool isDark;
 
   static final _log = AppLogger('VoiceNoteButton');
 
@@ -94,7 +89,6 @@ class VoiceNoteButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return WpVoiceInputButton(
-      isDark: isDark,
       onTranscript: (transcript) => _dispatch(context, ref, transcript),
     );
   }

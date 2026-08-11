@@ -176,7 +176,6 @@ class WelcomeStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     // Only a revision run reads the registry at all — in a first run this
@@ -191,9 +190,7 @@ class WelcomeStep extends ConsumerWidget {
           )
         : const <String>[];
 
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textSecondary = WpColorsDark.textSecondary;
 
     void selectLocale(String locale) {
       HapticFeedback.selectionClick();
@@ -254,7 +251,7 @@ class WelcomeStep extends ConsumerWidget {
               Text(
                 l10n.onboardingWelcome,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.heading,
                   fontWeight: FontWeight.w500,
                   color: textSecondary,
@@ -310,7 +307,7 @@ class WelcomeStep extends ConsumerWidget {
               children: [
                 Text(
                   l10n.settingsAppLanguage,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
                     color: textSecondary,
@@ -379,24 +376,13 @@ class _RevisionNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final fill = isDark
-        ? WpColorsDark.accentButtonFill
-        : WpColorsLight.accentButtonFill;
-    final border = isDark
-        ? WpColorsDark.accentBorder20
-        : WpColorsLight.accentBorder20;
-    final badgeFill = isDark
-        ? WpColorsDark.accentChipFill
-        : WpColorsLight.accentChipFill;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const accent = WpColorsDark.accent;
+    const fill = WpColorsDark.accentButtonFill;
+    const border = WpColorsDark.accentBorder20;
+    const badgeFill = WpColorsDark.accentChipFill;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
 
     return Container(
       key: kOnboardingRevisionNoticeKey,
@@ -416,7 +402,7 @@ class _RevisionNotice extends StatelessWidget {
               color: badgeFill,
               borderRadius: WpRadius.borderSm,
             ),
-            child: Center(
+            child: const Center(
               child: Icon(
                 LucideIcons.sparkles,
                 size: WpIconSize.sm,
@@ -431,7 +417,7 @@ class _RevisionNotice extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: l10n.onboardingRevisionNoticeTitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       color: textPrimary,
                     ),
@@ -445,7 +431,7 @@ class _RevisionNotice extends StatelessWidget {
               textAlign: TextAlign.start,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.small,
                 color: textSecondary,
                 height: 1.4,
@@ -626,17 +612,10 @@ class _BeatListTileState extends State<_BeatListTile> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
+    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.5);
 
     // MergeSemantics + a plain Semantics wrapper, not
     // `Semantics(excludeSemantics: true)`: excluding the subtree also discards
@@ -754,12 +733,8 @@ class _BeatMediaPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final glyphWash = isDark
-        ? WpColorsDark.decorativeGlyphWash
-        : WpColorsLight.decorativeGlyphWash;
+    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.5);
+    const glyphWash = WpColorsDark.decorativeGlyphWash;
 
     // The empty stage, designed as one.
     //

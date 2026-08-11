@@ -33,7 +33,6 @@ void main() {
           WpRowAction(
             icon: LucideIcons.copy,
             tooltip: 'Copy text',
-            isDark: true,
             onTap: () {},
           ),
         ),
@@ -53,7 +52,6 @@ void main() {
               child: WpRowAction(
                 icon: LucideIcons.star,
                 tooltip: 'Pin to top',
-                isDark: true,
                 onTap: () => taps++,
               ),
             ),
@@ -88,7 +86,6 @@ void main() {
               child: WpRowAction(
                 icon: LucideIcons.trash2,
                 tooltip: 'Delete',
-                isDark: isDark,
                 isDestructive: true,
                 onTap: () {},
               ),
@@ -97,7 +94,7 @@ void main() {
           ),
         );
 
-        final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+        const muted = WpColorsDark.textMuted;
         expect(
           _iconColor(tester),
           muted,
@@ -108,7 +105,7 @@ void main() {
 
         expect(
           _iconColor(tester),
-          isDark ? WpColorsDark.error : WpColorsLight.error,
+          WpColorsDark.error,
           reason: 'each theme must contribute its own error colour',
         );
       });
@@ -129,7 +126,6 @@ void main() {
                 WpRowAction(
                   icon: LucideIcons.copy,
                   tooltip: 'Copy',
-                  isDark: true,
                   onTap: () {},
                   dense: dense,
                 ),
@@ -210,11 +206,7 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           Center(
-            child: WpRowCheckbox(
-              value: false,
-              isDark: true,
-              onChanged: () => toggles++,
-            ),
+            child: WpRowCheckbox(value: false, onChanged: () => toggles++),
           ),
         ),
       );

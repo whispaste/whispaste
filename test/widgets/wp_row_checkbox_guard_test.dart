@@ -48,7 +48,7 @@ void main() {
       isEmpty,
       reason:
           'Raw Checkbox built outside WpRowCheckbox. Route it through '
-          'WpRowCheckbox(value: …, onChanged: …, isDark: …) instead — '
+          'WpRowCheckbox(value: …, onChanged: …,) instead — '
           'otherwise it carries a different size/styling than every other '
           'row selection checkbox in the app: ${offenders.join(', ')}',
     );

@@ -149,9 +149,7 @@ class _WpDialogBarrier extends StatelessWidget {
     final bool useBlur = !Platform.isWindows;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final barrierColor = isDark
-        ? WpColorsDark.background.withValues(alpha: 0.92)
-        : WpColorsLight.background.withValues(alpha: 0.88);
+    final barrierColor = WpColorsDark.background.withValues(alpha: 0.92);
 
     return FadeTransition(
       opacity: opacity,
@@ -202,7 +200,6 @@ class _WpDialogSurface extends StatelessWidget {
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final viewport = MediaQuery.sizeOf(context);
     // Leave a gutter so the card never touches the window edge, and never
     // demand more than the window offers.
@@ -224,15 +221,9 @@ class _WpDialogSurface extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: width, maxHeight: maxHeight),
             padding: const EdgeInsets.all(WpSpacing.lg),
             decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceElevated
-                  : WpColorsLight.surfaceElevated,
+              color: WpColorsDark.surfaceElevated,
               borderRadius: WpRadius.borderLg,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
-              ),
+              border: Border.all(color: WpColorsDark.borderSubtle),
               boxShadow: WpShadows.elevated,
             ),
             child: AnimatedSize(
@@ -331,7 +322,6 @@ class WpFormDialogShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return _WpDialogSurface(
       animation: animation,
@@ -344,7 +334,7 @@ class WpFormDialogShell extends StatelessWidget {
           Text(
             subtitle,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+              color: WpColorsDark.textMuted,
             ),
           ),
           const SizedBox(height: WpSpacing.lg),

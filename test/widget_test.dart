@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 
 void main() {
@@ -46,14 +47,13 @@ void main() {
       expect(find.byType(Scaffold), findsOneWidget);
     });
 
-    test('dark and light themes have different scaffold backgrounds', () {
-      final dark = wpDarkTheme();
-      final light = wpLightTheme();
-
-      expect(
-        dark.scaffoldBackgroundColor,
-        isNot(light.scaffoldBackgroundColor),
-      );
+    // Removed 2026-08-11 (dark-only build): `dark and light themes have
+    // different scaffold backgrounds`. It compared `wpDarkTheme()` against
+    // `wpLightTheme()` to prove the app shipped two grounds. There is one
+    // ground now, and `wpLightTheme()` itself is removed in the phase that
+    // takes out the theme switcher.
+    test('the scaffold background is the palette background', () {
+      expect(wpDarkTheme().scaffoldBackgroundColor, WpColorsDark.background);
     });
 
     test('theme appBarTheme uses correct toolbar height', () {

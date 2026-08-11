@@ -86,11 +86,7 @@ class AboutPage extends ConsumerWidget {
           Center(
             child: Text(
               l10n.aboutTagline,
-              style: ts.bodyMedium?.copyWith(
-                color: isDark
-                    ? WpColorsDark.textSecondary
-                    : WpColorsLight.textSecondary,
-              ),
+              style: ts.bodyMedium?.copyWith(color: WpColorsDark.textSecondary),
             ),
           ),
           const SizedBox(height: WpSpacing.lg),
@@ -158,10 +154,8 @@ class AboutPage extends ConsumerWidget {
             children: [
               Text(
                 l10n.aboutSupportDescription,
-                style: TextStyle(
-                  color: isDark
-                      ? WpColorsDark.textSecondary
-                      : WpColorsLight.textSecondary,
+                style: const TextStyle(
+                  color: WpColorsDark.textSecondary,
                   fontSize: WpTypography.body,
                   height: 1.5,
                 ),
@@ -338,10 +332,8 @@ class AboutPage extends ConsumerWidget {
             children: [
               Text(
                 l10n.aboutSystemInfoDesc,
-                style: TextStyle(
-                  color: isDark
-                      ? WpColorsDark.textSecondary
-                      : WpColorsLight.textSecondary,
+                style: const TextStyle(
+                  color: WpColorsDark.textSecondary,
                   fontSize: WpTypography.body,
                 ),
               ),
@@ -358,11 +350,7 @@ class AboutPage extends ConsumerWidget {
           Center(
             child: Text(
               l10n.aboutMadeWith,
-              style: ts.bodySmall?.copyWith(
-                color: isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
-              ),
+              style: ts.bodySmall?.copyWith(color: WpColorsDark.textMuted),
             ),
           ),
           const SizedBox(height: WpSpacing.xs),
@@ -370,9 +358,7 @@ class AboutPage extends ConsumerWidget {
             child: Text(
               l10n.aboutOpenSource,
               style: ts.bodySmall?.copyWith(
-                color: isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
+                color: WpColorsDark.textMuted,
                 fontSize: WpTypography.caption,
               ),
             ),
@@ -409,15 +395,9 @@ class _AboutCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(WpSpacing.lg),
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated,
+        color: WpColorsDark.surfaceElevated,
         borderRadius: WpRadius.borderLg,
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.borderSubtle
-              : WpColorsLight.borderSubtle,
-        ),
+        border: Border.all(color: WpColorsDark.borderSubtle),
       ),
       // The card already pads itself — the section only supplies the header.
       child: WpSection(
@@ -529,12 +509,8 @@ class _SponsorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-    final textColor = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    const borderColor = WpColorsDark.borderSubtle;
+    const textColor = WpColorsDark.textPrimary;
 
     final chip = Container(
       padding: const EdgeInsets.symmetric(
@@ -547,7 +523,7 @@ class _SponsorChip extends StatelessWidget {
       ),
       child: Text(
         sponsor.name,
-        style: TextStyle(fontSize: WpTypography.body, color: textColor),
+        style: const TextStyle(fontSize: WpTypography.body, color: textColor),
       ),
     );
 
@@ -588,17 +564,11 @@ class _BuiltWithRow extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.accentSubtle
-                  : WpColorsLight.accentSubtle,
+              color: WpColorsDark.accentSubtle,
               borderRadius: WpRadius.borderSm,
             ),
             alignment: Alignment.center,
-            child: Icon(
-              icon,
-              size: WpIconSize.sm,
-              color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-            ),
+            child: Icon(icon, size: WpIconSize.sm, color: WpColorsDark.accent),
           ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
@@ -607,21 +577,17 @@ class _BuiltWithRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.subheading,
                     fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? WpColorsDark.textPrimary
-                        : WpColorsLight.textPrimary,
+                    color: WpColorsDark.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: TextStyle(
-                    color: isDark
-                        ? WpColorsDark.textSecondary
-                        : WpColorsLight.textSecondary,
+                  style: const TextStyle(
+                    color: WpColorsDark.textSecondary,
                     fontSize: WpTypography.body,
                     height: 1.4,
                   ),
@@ -649,24 +615,22 @@ class _PrivacyPoint extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
+          const Padding(
             // Off-scale on purpose: optical nudge aligning the check icon with
             // the first text line's cap height (body 13px at 1.5 line height).
-            padding: const EdgeInsets.only(top: 3),
+            padding: EdgeInsets.only(top: 3),
             child: Icon(
               LucideIcons.check,
               size: WpIconSize.xs,
-              color: isDark ? WpColorsDark.success : WpColorsLight.success,
+              color: WpColorsDark.success,
             ),
           ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                color: isDark
-                    ? WpColorsDark.textSecondary
-                    : WpColorsLight.textSecondary,
+              style: const TextStyle(
+                color: WpColorsDark.textSecondary,
                 fontSize: WpTypography.body,
                 height: 1.5,
               ),
@@ -759,10 +723,8 @@ class _LinkRowState extends State<_LinkRow> {
           ),
           decoration: BoxDecoration(
             color: _isHovered
-                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : (widget.isDark
-                      ? WpColorsDark.hoverTransparent
-                      : WpColorsLight.hoverTransparent),
+                ? (WpColorsDark.hover)
+                : (WpColorsDark.hoverTransparent),
             borderRadius: WpRadius.borderSm,
           ),
           child: Row(
@@ -770,9 +732,7 @@ class _LinkRowState extends State<_LinkRow> {
               Icon(
                 widget.icon,
                 size: WpIconSize.sm,
-                color: widget.isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
+                color: WpColorsDark.textMuted,
               ),
               const SizedBox(width: WpSpacing.sm),
               Expanded(
@@ -785,21 +745,17 @@ class _LinkRowState extends State<_LinkRow> {
                 child: Text(
                   widget.displayUrl,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: widget.isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted,
+                  style: const TextStyle(
+                    color: WpColorsDark.textMuted,
                     fontSize: WpTypography.small,
                   ),
                 ),
               ),
               const SizedBox(width: WpSpacing.xs),
-              Icon(
+              const Icon(
                 LucideIcons.externalLink,
                 size: WpIconSize.xs,
-                color: widget.isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
+                color: WpColorsDark.textMuted,
               ),
             ],
           ),

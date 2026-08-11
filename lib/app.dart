@@ -1006,7 +1006,6 @@ class _AppShellState extends ConsumerState<_AppShell>
       settings.afterTranscriptionAction,
     );
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = wpNavItems(l10n);
     final sttStatus = ref.watch(localSttBundleProvider);
@@ -1039,10 +1038,8 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
 
     // Content panel uses a warm gradient for depth (both themes)
-    final contentDecoration = BoxDecoration(
-      gradient: isDark
-          ? WpColorsDark.warmSurfaceGradient
-          : WpColorsLight.warmSurfaceGradient,
+    const contentDecoration = BoxDecoration(
+      gradient: WpColorsDark.warmSurfaceGradient,
       borderRadius: contentRadius,
     );
 
@@ -1076,13 +1073,11 @@ class _AppShellState extends ConsumerState<_AppShell>
                       // Any future depth belongs *inside* this DecoratedBox,
                       // never as a second layer above it — see *The
                       // One-Atmosphere Rule*.
-                      DecoratedBox(
+                      const DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: isDark
-                              ? WpColorsDark.frameGradient
-                              : WpColorsLight.frameGradient,
+                          gradient: WpColorsDark.frameGradient,
                         ),
-                        child: const SizedBox.expand(),
+                        child: SizedBox.expand(),
                       ),
                       // Main layout
                       Column(
@@ -1348,9 +1343,7 @@ class _ThemeToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final mutedColor = isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    const mutedColor = WpColorsDark.textMuted;
     return Semantics(
       label: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
       button: true,

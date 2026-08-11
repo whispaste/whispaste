@@ -29,14 +29,11 @@ class ReadyStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final status = ref.watch(hotkeyRegistrationStatusProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
 
     // The completion CTA (owned by the onboarding shell) is gated on a healthy
     // hotkey registration; this content mirrors that gate with a short
@@ -87,17 +84,17 @@ class ReadyStep extends ConsumerWidget {
           Text(
             l10n.onboardingTriggerHotkeyConflictTitle,
             textAlign: TextAlign.start,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
-              color: isDark ? WpColorsDark.error : WpColorsLight.error,
+              color: WpColorsDark.error,
             ),
           ),
           const SizedBox(height: WpSpacing.xs),
           Text(
             l10n.onboardingReadyHotkeyConflictBody,
             textAlign: TextAlign.start,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.small,
               color: textMuted,
               height: 1.35,

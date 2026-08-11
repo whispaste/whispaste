@@ -19,7 +19,6 @@ class WpRowCheckbox extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    required this.isDark,
   });
 
   final bool value;
@@ -27,8 +26,6 @@ class WpRowCheckbox extends StatelessWidget {
   /// Called on tap. Row-level multi-select toggles the row itself, so this
   /// deliberately takes no argument — the checkbox never owns the state.
   final VoidCallback onChanged;
-
-  final bool isDark;
 
   /// Layout extent, so rows can reserve space for the leading slot.
   static const double extent = 24;
@@ -41,10 +38,8 @@ class WpRowCheckbox extends StatelessWidget {
       child: Checkbox(
         value: value,
         onChanged: (_) => onChanged(),
-        activeColor: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-        side: BorderSide(
-          color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        ),
+        activeColor: WpColorsDark.accent,
+        side: const BorderSide(color: WpColorsDark.textMuted),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
       ),

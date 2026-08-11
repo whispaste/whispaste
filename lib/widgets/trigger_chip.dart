@@ -5,10 +5,9 @@ import '../core/theme/tokens.dart';
 /// Small accent pill for a single trigger phrase inside a list tile — shared
 /// by the Replacements settings page.
 class WpTriggerChip extends StatelessWidget {
-  const WpTriggerChip({super.key, required this.label, required this.isDark});
+  const WpTriggerChip({super.key, required this.label});
 
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -18,20 +17,14 @@ class WpTriggerChip extends StatelessWidget {
         vertical: WpSpacing.xxs / 2,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.accentChipFill
-            : WpColorsLight.accentChipFill,
+        color: WpColorsDark.accentChipFill,
         borderRadius: BorderRadius.circular(WpRadius.full),
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.accentBorder20
-              : WpColorsLight.accentBorder20,
-        ),
+        border: Border.all(color: WpColorsDark.accentBorder20),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+        style: const TextStyle(
+          color: WpColorsDark.accent,
           fontWeight: FontWeight.w600,
           fontSize: WpTypography.small,
         ),

@@ -402,14 +402,7 @@ void main() {
   group('WpFilterChip — filter chip semantics', () {
     testWidgets('WpFilterChip semantics node carries label', (tester) async {
       await tester.pumpWidget(
-        makeTestable(
-          WpFilterChip(
-            label: 'All',
-            isActive: true,
-            onTap: () {},
-            isDark: true,
-          ),
-        ),
+        makeTestable(WpFilterChip(label: 'All', isActive: true, onTap: () {})),
       );
       await tester.pumpAndSettle();
 

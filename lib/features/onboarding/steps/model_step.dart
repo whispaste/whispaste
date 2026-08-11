@@ -271,11 +271,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     final whisperDl = ref.watch(modelDownloadProvider);
     final parakeetDl = ref.watch(parakeetDownloadProvider);
 
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
+    const accentGradient = WpColorsDark.accentWarmGradient;
 
     final whisperModel = _effectiveWhisperModel;
 
@@ -459,7 +457,10 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           child: Text(
             l10n.onboardingModelChangeLater,
             textAlign: TextAlign.start,
-            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+            style: const TextStyle(
+              fontSize: WpTypography.small,
+              color: textMuted,
+            ),
           ),
         ),
       ],
@@ -534,18 +535,22 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       );
     }
     if (isDone) {
-      final success = isDark ? WpColorsDark.success : WpColorsLight.success;
+      const success = WpColorsDark.success;
       // Start-aligned like every other status row in the app (settings,
       // history and notes rows are all CrossAxisAlignment.start; no centred
       // status state exists anywhere else) and like the full-width CTA,
       // progress bar and error banner that occupy this same spot.
       return Row(
         children: [
-          Icon(LucideIcons.circleCheck, size: WpIconSize.sm, color: success),
+          const Icon(
+            LucideIcons.circleCheck,
+            size: WpIconSize.sm,
+            color: success,
+          ),
           const SizedBox(width: WpSpacing.xs),
           Text(
             l10n.modelReady,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.subheading,
               fontWeight: FontWeight.w600,
               color: success,
@@ -606,9 +611,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
 /// more `isDark ? … : …` inside [_EngineCardColors.resolve]: that factory is
 /// already at the repo's cyclomatic ceiling, and this pick has nothing to do
 /// with the selected/hovered/disabled state the rest of it resolves.
-Color _decorativeGlyphWash(bool isDark) => isDark
-    ? WpColorsDark.decorativeGlyphWash
-    : WpColorsLight.decorativeGlyphWash;
+Color _decorativeGlyphWash(bool isDark) => WpColorsDark.decorativeGlyphWash;
 
 class _EngineCardColors {
   const _EngineCardColors({
@@ -629,42 +632,28 @@ class _EngineCardColors {
     required bool isHovered,
     required bool isTappable,
   }) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final surface = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const surface = WpColorsDark.surfaceVariant;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
     // The accent ladder's lowest rung (6 %) — the hover fill.
-    final accentSix = isDark
-        ? WpColorsDark.accentRowHover
-        : WpColorsLight.accentRowHover;
+    const accentSix = WpColorsDark.accentRowHover;
     final hovering = isHovered && isTappable;
 
     return _EngineCardColors(
       accent: accent,
       fill: isSelected
-          ? (isDark
-                ? WpColorsDark.accentButtonFill
-                : WpColorsLight.accentButtonFill)
+          ? (WpColorsDark.accentButtonFill)
           : hovering
           ? accentSix
           : surface.withValues(alpha: 0.5),
       border: isSelected
           ? accent
           : hovering
-          ? (isDark
-                ? WpColorsDark.accentBorder30
-                : WpColorsLight.accentBorder30)
-          : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle),
-      badgeFill: isDark
-          ? WpColorsDark.accentBadgeFill
-          : WpColorsLight.accentBadgeFill,
+          ? (WpColorsDark.accentBorder30)
+          : (WpColorsDark.borderSubtle),
+      badgeFill: WpColorsDark.accentBadgeFill,
       // `decorativeGlyphWash`, not the tint ladder: the 6/12/30% rungs are
       // defined for badges, chips and borders, and a 140px glyph bleeding out
       // of the corner is none of those. It gets its own, lower category — and
@@ -1024,9 +1013,7 @@ class _DownloadProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textSecondary = WpColorsDark.textSecondary;
 
     final label = switch (phase) {
       DownloadPhase.downloading => '${(progress * 100).round()}%',
@@ -1044,9 +1031,7 @@ class _DownloadProgress extends StatelessWidget {
           borderRadius: WpRadius.borderFull,
           child: LinearProgressIndicator(
             value: phase == DownloadPhase.downloading ? progress : null,
-            backgroundColor: isDark
-                ? WpColorsDark.accentBadgeFill
-                : WpColorsLight.accentBadgeFill,
+            backgroundColor: WpColorsDark.accentBadgeFill,
             color: accent,
             minHeight: 6,
           ),
@@ -1054,7 +1039,10 @@ class _DownloadProgress extends StatelessWidget {
         const SizedBox(height: WpSpacing.xs),
         Text(
           label,
-          style: TextStyle(fontSize: WpTypography.small, color: textSecondary),
+          style: const TextStyle(
+            fontSize: WpTypography.small,
+            color: textSecondary,
+          ),
         ),
       ],
     );
@@ -1080,7 +1068,7 @@ class _DownloadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    const errorColor = WpColorsDark.error;
 
     return Column(
       children: [
@@ -1088,19 +1076,13 @@ class _DownloadError extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(WpSpacing.md),
           decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.errorButtonFill
-                : WpColorsLight.errorButtonFill,
+            color: WpColorsDark.errorButtonFill,
             borderRadius: WpRadius.borderMd,
-            border: Border.all(
-              color: isDark
-                  ? WpColorsDark.errorBorder20
-                  : WpColorsLight.errorBorder20,
-            ),
+            border: Border.all(color: WpColorsDark.errorBorder20),
           ),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 LucideIcons.triangleAlert,
                 size: WpIconSize.sm,
                 color: errorColor,
@@ -1109,7 +1091,7 @@ class _DownloadError extends StatelessWidget {
               Expanded(
                 child: Text(
                   message ?? l10n.modelDownloadFailed,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.small,
                     color: errorColor,
                   ),
@@ -1160,7 +1142,7 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
     // that helper only while every tier state shared one neutral blue. Now
     // that the helper grades slow/unmeasured differently, feeding it a tier
     // this notice does not have would be meaningless.
-    final infoColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const infoColor = WpColorsDark.accent;
     // Frameless, like the recording-duration note on the same page: a filled
     // and outlined banner gave a purely informational line the weight of a
     // warning, and it was the fourth box competing on this page. Dropping the
@@ -1171,8 +1153,8 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
+        const Padding(
+          padding: EdgeInsets.only(top: 1),
           child: Icon(LucideIcons.info, size: WpIconSize.sm, color: infoColor),
         ),
         const SizedBox(width: WpSpacing.xs),
@@ -1185,7 +1167,7 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
             // was set one step below the card descriptions it qualifies — the
             // hardware verdict rendered as the least important thing on a page
             // about hardware.
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.body,
               color: infoColor,
               height: 1.35,

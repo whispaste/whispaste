@@ -20,7 +20,6 @@ class NotesSearchBar extends StatelessWidget {
     super.key,
     required this.currentFilter,
     required this.onFilterChanged,
-    required this.isDark,
     required this.searchController,
     required this.searchFocusNode,
     required this.onSearchChanged,
@@ -31,7 +30,6 @@ class NotesSearchBar extends StatelessWidget {
 
   final NotesFilter currentFilter;
   final ValueChanged<NotesFilter> onFilterChanged;
-  final bool isDark;
   final TextEditingController searchController;
   final FocusNode searchFocusNode;
 
@@ -47,7 +45,7 @@ class NotesSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
 
     return Padding(
       // Same side inset as every other list area's search bar (History,
@@ -93,7 +91,6 @@ class NotesSearchBar extends StatelessWidget {
                 label: l10n.navNotes,
                 icon: LucideIcons.stickyNote,
                 isActive: currentFilter == NotesFilter.active,
-                isDark: isDark,
                 onTap: () => onFilterChanged(NotesFilter.active),
               ),
               const SizedBox(width: WpSpacing.xs),
@@ -101,7 +98,6 @@ class NotesSearchBar extends StatelessWidget {
                 label: l10n.notesTrash,
                 icon: LucideIcons.trash2,
                 isActive: currentFilter == NotesFilter.trash,
-                isDark: isDark,
                 onTap: () => onFilterChanged(NotesFilter.trash),
               ),
               if (showResultCount) ...[
@@ -110,7 +106,7 @@ class NotesSearchBar extends StatelessWidget {
                   padding: const EdgeInsets.only(left: WpSpacing.sm),
                   child: Text(
                     l10n.notesResultCount(resultCount),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
                     ),

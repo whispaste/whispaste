@@ -26,7 +26,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
-import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -133,20 +132,12 @@ void main() {
       );
     });
 
-    testWidgets('light keeps the offset shadow the rule gives it', (
-      tester,
-    ) async {
-      final d = await _pumpAvatar(tester, isDark: false);
-      expect(
-        d.boxShadow,
-        WpShadows.subtleLight,
-        reason:
-            'the light disc lost its shadow. Pearl has almost no room above '
-            'the plane, so the offset shadow is most of what makes the disc '
-            'an object there — the same argument `navChipGradient`\'s light '
-            'twin already makes',
-      );
-    });
+    // Removed 2026-08-11 (dark-only build): `light keeps the offset shadow the
+    // rule gives it`. It asserted the light disc carried `WpShadows.subtleLight`
+    // — pearl has almost no room above the plane, so the offset shadow was
+    // most of what made the disc an object there, the same argument
+    // `navChipGradient`'s light twin made. Both the token and the theme it
+    // served are gone; the dark case above is now the only case.
 
     testWidgets('every slot gets the same recipe, only a different hue', (
       tester,

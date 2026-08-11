@@ -54,11 +54,9 @@ class WpScreenshotShell extends StatelessWidget {
     final navItems = wpNavItems(l10n);
     final pageTitle = wpPageTitle(activePageId, navItems, l10n);
 
-    final contentDecoration = BoxDecoration(
-      gradient: isDark
-          ? WpColorsDark.warmSurfaceGradient
-          : WpColorsLight.warmSurfaceGradient,
-      borderRadius: const BorderRadius.only(
+    const contentDecoration = BoxDecoration(
+      gradient: WpColorsDark.warmSurfaceGradient,
+      borderRadius: BorderRadius.only(
         topLeft: Radius.circular(WpRadius.xl),
         bottomLeft: Radius.circular(WpRadius.xl),
       ),
@@ -67,11 +65,7 @@ class WpScreenshotShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? WpColorsDark.frameGradient
-              : WpColorsLight.frameGradient,
-        ),
+        decoration: const BoxDecoration(gradient: WpColorsDark.frameGradient),
         child: Stack(
           children: [
             Column(
@@ -214,9 +208,7 @@ class _StaticWindowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor = isDark
-        ? WpColorsDark.textMuted.withValues(alpha: 0.5)
-        : WpColorsLight.textMuted.withValues(alpha: 0.5);
+    final mutedColor = WpColorsDark.textMuted.withValues(alpha: 0.5);
 
     return SizedBox(
       width: 40,

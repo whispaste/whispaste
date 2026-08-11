@@ -69,14 +69,16 @@ void main() {
       );
     });
 
-    testWidgets('Replacements, light — cursor on the middle row', (
-      tester,
-    ) async {
+    // This case used to pump at `Brightness.light`, so the pair covered both
+    // pages *and* both themes at once. The theme half of that went with the
+    // light stack (2026-08-11); the page half is the reason the case exists,
+    // so it stays and now renders on the one ground the app has.
+    testWidgets('Replacements — cursor on the middle row', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const ReplacementsPage(),
           locale: const Locale('en'),
-          brightness: Brightness.light,
+          brightness: Brightness.dark,
           size: const Size(900, 620),
           // The master switch on by default, as the store screenshot does it:
           // with replacements off the page dims its whole list to 50 %
@@ -102,7 +104,7 @@ void main() {
       await expectLater(
         find.byType(ListView),
         matchesGoldenFile(
-          'goldens/searchable_list_cursor_replacements_light.png',
+          'goldens/searchable_list_cursor_replacements_dark.png',
         ),
       );
     });

@@ -44,13 +44,7 @@ enum _VoicePhase { idle, recording, transcribing }
 /// On completion the raw, non-empty transcript is delivered via
 /// [onTranscript]; the button returns to idle once that callback settles.
 class WpVoiceInputButton extends ConsumerStatefulWidget {
-  const WpVoiceInputButton({
-    super.key,
-    required this.isDark,
-    required this.onTranscript,
-  });
-
-  final bool isDark;
+  const WpVoiceInputButton({super.key, required this.onTranscript});
 
   /// Called with the raw, non-empty transcript once transcription succeeds.
   /// May be async — the button stays in its transcribing state until the
@@ -76,11 +70,9 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
 
   _VoicePhase _phase = _VoicePhase.idle;
 
-  Color get _accent =>
-      widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-  Color get _textMuted =>
-      widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-  Color get _error => widget.isDark ? WpColorsDark.error : WpColorsLight.error;
+  Color get _accent => WpColorsDark.accent;
+  Color get _textMuted => WpColorsDark.textMuted;
+  Color get _error => WpColorsDark.error;
 
   bool get _isBusy => _phase != _VoicePhase.idle;
 

@@ -174,17 +174,10 @@ class _ThemeSwatchState extends State<_ThemeSwatch> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const accent = WpColorsDark.accent;
+    const border = WpColorsDark.borderSubtle;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
 
     return MergeSemantics(
       child: Semantics(
@@ -299,19 +292,17 @@ class _MiniaturePalette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = dark
-        ? WpColorsDark.background
-        : WpColorsLight.background;
-    final panel = dark ? WpColorsDark.surface : WpColorsLight.surface;
-    final bar = (dark ? WpColorsDark.textMuted : WpColorsLight.textMuted)
+    final background = dark ? WpColorsDark.background : WpColorsDark.background;
+    final panel = dark ? WpColorsDark.surface : WpColorsDark.surface;
+    final bar = (dark ? WpColorsDark.textMuted : WpColorsDark.textMuted)
         .withValues(alpha: 0.45);
-    final accent = dark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accent = dark ? WpColorsDark.accent : WpColorsDark.accent;
     // Surface and background sit deliberately close together in both
     // palettes, so at this size the sidebar would otherwise be invisible and
     // the miniature would read as bars floating on a colour field.
     final divider = dark
         ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
+        : WpColorsDark.borderDefault;
 
     return ColoredBox(
       color: background,

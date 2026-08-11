@@ -568,15 +568,9 @@ class _HistorySearchFilterBarState
           vertical: WpSpacing.xxs + 1,
         ),
         decoration: BoxDecoration(
-          color: widget.isDark
-              ? WpColorsDark.accentButtonFill
-              : WpColorsLight.accentButtonFill,
+          color: WpColorsDark.accentButtonFill,
           borderRadius: WpRadius.borderFull,
-          border: Border.all(
-            color: widget.isDark
-                ? WpColorsDark.accentBorder20
-                : WpColorsLight.accentBorder20,
-          ),
+          border: Border.all(color: WpColorsDark.accentBorder20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -626,9 +620,7 @@ class _HistorySearchFilterBarState
                   vertical: WpSpacing.xs,
                 ),
                 color: selected
-                    ? (widget.isDark
-                          ? WpColorsDark.accentActiveFill
-                          : WpColorsLight.accentActiveFill)
+                    ? (WpColorsDark.accentActiveFill)
                     : Colors.transparent,
                 child: Row(
                   children: [
@@ -676,16 +668,10 @@ class _HistorySearchFilterBarState
       activeCommands.add('lang:${parsed.langCode}');
     }
 
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final surface = widget.isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final borderCol = widget.isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
+    const accent = WpColorsDark.accent;
+    const textMuted = WpColorsDark.textMuted;
+    const surface = WpColorsDark.surfaceElevated;
+    const borderCol = WpColorsDark.borderDefault;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -841,21 +827,18 @@ class _HistorySearchFilterBarState
                     label: l10n.historyAll,
                     isActive: widget.activeFilter == HistoryFilter.all,
                     onTap: () => widget.onFilterChanged(HistoryFilter.all),
-                    isDark: widget.isDark,
                     count: searchCounts?[HistoryFilter.all],
                   ),
                   WpFilterChip(
                     label: l10n.historyToday,
                     isActive: widget.activeFilter == HistoryFilter.today,
                     onTap: () => widget.onFilterChanged(HistoryFilter.today),
-                    isDark: widget.isDark,
                     count: searchCounts?[HistoryFilter.today],
                   ),
                   WpFilterChip(
                     label: l10n.historyThisWeek,
                     isActive: widget.activeFilter == HistoryFilter.week,
                     onTap: () => widget.onFilterChanged(HistoryFilter.week),
-                    isDark: widget.isDark,
                     count: searchCounts?[HistoryFilter.week],
                   ),
                   WpFilterChip(
@@ -863,7 +846,6 @@ class _HistorySearchFilterBarState
                     icon: LucideIcons.star,
                     isActive: widget.activeFilter == HistoryFilter.pinned,
                     onTap: () => widget.onFilterChanged(HistoryFilter.pinned),
-                    isDark: widget.isDark,
                     count: searchCounts?[HistoryFilter.pinned],
                   ),
                   WpFilterChip(
@@ -871,7 +853,6 @@ class _HistorySearchFilterBarState
                     icon: LucideIcons.archive,
                     isActive: widget.activeFilter == HistoryFilter.archived,
                     onTap: () => widget.onFilterChanged(HistoryFilter.archived),
-                    isDark: widget.isDark,
                     count: searchCounts?[HistoryFilter.archived],
                   ),
                   WpFilterChip(
@@ -879,7 +860,6 @@ class _HistorySearchFilterBarState
                     icon: LucideIcons.trash2,
                     isActive: widget.activeFilter == HistoryFilter.trash,
                     onTap: () => widget.onFilterChanged(HistoryFilter.trash),
-                    isDark: widget.isDark,
                     count: searchCounts?[HistoryFilter.trash],
                   ),
                 ],
@@ -898,7 +878,7 @@ class _HistorySearchFilterBarState
                   if (rawQuery.isNotEmpty)
                     Text(
                       l10n.historyResultCount(widget.resultCount),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.small,
                         color: textMuted,
                       ),
@@ -924,12 +904,10 @@ class _HistorySearchFilterBarState
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
+                                const Icon(
                                   LucideIcons.trash2,
                                   size: WpIconSize.sm,
-                                  color: widget.isDark
-                                      ? WpColorsDark.error
-                                      : WpColorsLight.error,
+                                  color: WpColorsDark.error,
                                 ),
                                 const SizedBox(width: 4),
                                 // Flexible for the same reason as
@@ -942,11 +920,9 @@ class _HistorySearchFilterBarState
                                     l10n.historyEmptyTrash,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: WpTypography.small,
-                                      color: widget.isDark
-                                          ? WpColorsDark.error
-                                          : WpColorsLight.error,
+                                      color: WpColorsDark.error,
                                     ),
                                   ),
                                 ),
@@ -1076,7 +1052,7 @@ class _CommandChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const accent = WpColorsDark.accent;
     return Container(
       // Vertical 2 stays off-scale on purpose: the active-filter pill hugs its
       // small text; xxs would visibly inflate it.
@@ -1085,22 +1061,16 @@ class _CommandChip extends StatelessWidget {
         vertical: 2,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.accentActiveFill
-            : WpColorsLight.accentActiveFill,
+        color: WpColorsDark.accentActiveFill,
         borderRadius: WpRadius.borderFull,
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.accentBorder30
-              : WpColorsLight.accentBorder30,
-        ),
+        border: Border.all(color: WpColorsDark.accentBorder30),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
               color: accent,
@@ -1160,25 +1130,18 @@ class HistoryMultiSelectBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
+    const accent = WpColorsDark.accent;
+    const bg = WpColorsDark.surfaceElevated;
 
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xl,
         vertical: WpSpacing.sm,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: bg,
         border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? WpColorsDark.accentBorder20
-                : WpColorsLight.accentBorder20,
-            width: 1,
-          ),
+          bottom: BorderSide(color: WpColorsDark.accentBorder20, width: 1),
         ),
       ),
       child: Row(
@@ -1191,15 +1154,13 @@ class HistoryMultiSelectBar extends StatelessWidget {
                 vertical: WpSpacing.xxs,
               ),
               decoration: BoxDecoration(
-                color: isDark
-                    ? WpColorsDark.accentBadgeFill
-                    : WpColorsLight.accentBadgeFill,
+                color: WpColorsDark.accentBadgeFill,
                 borderRadius: WpRadius.borderFull,
               ),
               child: Text(
                 l10n.historyItemsSelected(selectedCount),
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: accent,
@@ -1222,7 +1183,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                   totalCount != null && selectedCount >= totalCount!
                       ? l10n.historyDeselectAll
                       : l10n.historySelectAll,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.small,
                     color: accent,
                     fontWeight: FontWeight.w500,
@@ -1356,14 +1317,10 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
 
   @override
   Widget build(BuildContext context) {
-    final textSecondary = widget.isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textSecondary = WpColorsDark.textSecondary;
     final hoverColor = widget.isDestructive
-        ? (widget.isDark ? WpColorsDark.error : WpColorsLight.error)
-        : (widget.isDark
-              ? WpColorsDark.textPrimary
-              : WpColorsLight.textPrimary);
+        ? (WpColorsDark.error)
+        : (WpColorsDark.textPrimary);
     final color = _hovered ? hoverColor : textSecondary;
 
     // House idiom (`no_double_announcement_test.dart`, `wp_hero_button.dart`):
@@ -1440,9 +1397,7 @@ class HistoryViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
+    const bgColor = WpColorsDark.surfaceVariant;
     return Container(
       // Off-scale on purpose: classic 2px segmented-control inset between the
       // track and its segments; xxs would make the track look chunky.
@@ -1514,18 +1469,15 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
     final color = widget.isActive
-        ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-        : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted);
+        ? (WpColorsDark.accent)
+        : (WpColorsDark.textMuted);
     // Same rung as WpFilterChip's active fill (ticket 03, point 6): the two
     // are the app's selectable controls and sit side by side in this very
     // bar, so "selected" has to mean the same amount of accent in both. The
     // former `accentSubtle` was off-ladder and theme-asymmetric.
     final bg = widget.isActive
-        ? (isDark
-              ? WpColorsDark.accentActiveFill
-              : WpColorsLight.accentActiveFill)
+        ? (WpColorsDark.accentActiveFill)
         : Colors.transparent;
     return Semantics(
       label: widget.label,
@@ -1651,16 +1603,12 @@ class _SearchHelpButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final surface = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
+    const textMuted = WpColorsDark.textMuted;
+    const textPrimary = WpColorsDark.textPrimary;
+    const surface = WpColorsDark.surfaceElevated;
 
     return IconButton(
-      icon: Icon(LucideIcons.info, size: 15, color: textMuted),
+      icon: const Icon(LucideIcons.info, size: 15, color: textMuted),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(
         minWidth: WpLayout.minTouchTarget,
@@ -1692,7 +1640,7 @@ class _SearchHelpButton extends StatelessWidget {
                 children: [
                   Text(
                     l10n.historySearchHelpTitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.body,
                       fontWeight: FontWeight.w600,
                       color: textPrimary,
@@ -1744,8 +1692,8 @@ class _HelpRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1755,7 +1703,10 @@ class _HelpRow extends StatelessWidget {
         Flexible(
           child: Text(
             text,
-            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+            style: const TextStyle(
+              fontSize: WpTypography.small,
+              color: textMuted,
+            ),
           ),
         ),
         if (example.isNotEmpty) ...[
@@ -1768,14 +1719,12 @@ class _HelpRow extends StatelessWidget {
               vertical: 1,
             ),
             decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.accentChipFill
-                  : WpColorsLight.accentChipFill,
+              color: WpColorsDark.accentChipFill,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               example,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w500,
                 color: accent,
@@ -1817,8 +1766,8 @@ class _SortDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
 
     final labels = {
       HistorySortOrder.newest: l10n.historySortNewest,

@@ -118,16 +118,12 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         (phase == RecordingPhase.recording ||
             phase == RecordingPhase.transcribing);
 
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
     // Recording family: this colour has exactly one job below — the live
     // border of the sandbox field while the test recording runs.
-    final recordingAccent = isDark
-        ? WpColorsDark.recordingAccent
-        : WpColorsLight.recordingAccent;
-    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
+    const recordingAccent = WpColorsDark.recordingAccent;
+    const success = WpColorsDark.success;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -177,7 +173,10 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               // the line instead of a fourth item in it.
               Text(
                 l10n.onboardingTestRecordingHotkeyLabel,
-                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
+                style: const TextStyle(
+                  fontSize: WpTypography.body,
+                  color: textMuted,
+                ),
               ),
               HotkeyDisplay(
                 hotkeyKey: settings.hotkeyKey,
@@ -237,7 +236,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           const SizedBox(height: WpSpacing.xs),
           Row(
             children: [
-              Icon(
+              const Icon(
                 LucideIcons.circleCheck,
                 size: WpIconSize.sm,
                 color: success,
@@ -249,7 +248,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                 child: Text(
                   l10n.onboardingTestRecordingDoneMessage,
                   textAlign: TextAlign.start,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
                     color: success,
@@ -295,8 +294,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (settings.behavior.maxRecordDuration > 0) ...[
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
                   child: Icon(
                     LucideIcons.info,
                     size: WpIconSize.xs,
@@ -314,7 +313,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                         )
                       : l10n.onboardingTestRecordingReassurance,
                   textAlign: TextAlign.start,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.small,
                     color: textMuted,
                     height: 1.35,
@@ -357,7 +356,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               child: Text(
                 l10n.onboardingTestRecordingCompletionHint,
                 textAlign: TextAlign.start,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.small,
                   color: textSecondary,
                 ),
@@ -380,8 +379,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
                   child: Icon(
                     LucideIcons.info,
                     size: WpIconSize.xs,
@@ -393,7 +392,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                   child: Text(
                     l10n.onboardingTestRecordingMicBypassHint,
                     textAlign: TextAlign.start,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
                       height: 1.35,
@@ -437,14 +436,10 @@ class _SandboxField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final error = isDark ? WpColorsDark.error : WpColorsLight.error;
-    final borderDefault = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
+    const error = WpColorsDark.error;
+    const borderDefault = WpColorsDark.borderDefault;
 
     final borderColor = isRecording ? recordingAccent : borderDefault;
 
@@ -466,7 +461,7 @@ class _SandboxField extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: error,
                     shape: BoxShape.circle,
                   ),
@@ -475,7 +470,7 @@ class _SandboxField extends StatelessWidget {
                 Expanded(
                   child: Text(
                     l10n.onboardingTestRecordingInProgress,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.body,
                       color: textPrimary,
                     ),

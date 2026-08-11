@@ -230,7 +230,7 @@ Widget _makeTestableButtonViaEngine({
           child: Consumer(
             builder: (context, ref, _) {
               ref.watch(historyDetailProvider(entryId));
-              return VoiceNoteButton(entryId: entryId, isDark: true);
+              return VoiceNoteButton(entryId: entryId);
             },
           ),
         ),
@@ -276,7 +276,7 @@ Widget _makeTestableButton({
             builder: (context, ref, _) {
               // Pre-warm the detail provider so it's loaded before dispatch.
               ref.watch(historyDetailProvider(entryId));
-              return VoiceNoteButton(entryId: entryId, isDark: isDark);
+              return VoiceNoteButton(entryId: entryId);
             },
           ),
         ),

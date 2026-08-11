@@ -48,7 +48,7 @@ void main() {
           RecordingPhase.recording,
           isDark: false,
         ),
-        WpColorsLight.error,
+        WpColorsDark.error,
       );
     });
 
@@ -58,7 +58,7 @@ void main() {
           RecordingPhase.transcribing,
           isDark: false,
         ),
-        WpColorsLight.warning,
+        WpColorsDark.warning,
       );
     });
 

@@ -417,11 +417,9 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                   widget.subtitle!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.small,
-                    color: isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted,
+                    color: WpColorsDark.textMuted,
                   ),
                 ),
               ),
@@ -434,7 +432,6 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
       // app whose loading state neither reserved the rows' space nor matched
       // its siblings — the list visibly re-flowed the moment data arrived.
       loading: () => WpListSkeleton(
-        isDark: isDark,
         rowHeight: widget.skeletonRowHeight ?? _searchableListSkeletonRowHeight,
         // The real rows below sit on the `xl` gutter, not the skeleton's
         // history/notes default — pass it so the bars land on their edge.

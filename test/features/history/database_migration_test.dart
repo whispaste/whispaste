@@ -557,57 +557,54 @@ void main() {
       },
     );
 
-    test(
-      'migration is idempotent — a second run neither errors nor re-rolls '
-      'already-assigned slots',
-      () async {
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        await db.customSelect('SELECT 1').get();
+    test('migration is idempotent — a second run neither errors nor re-rolls '
+        'already-assigned slots', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
 
-        // Simulate a pre-v18 row exactly like the backfill test, so the
-        // first call actually exercises the ALTER/UPDATE branch instead of
-        // finding the column already present (which would make this test
-        // pass even with broken migration SQL).
-        await db.customStatement(
-          'ALTER TABLE history_entries DROP COLUMN color_slot',
-        );
-        await db.customStatement('''
+      // Simulate a pre-v18 row exactly like the backfill test, so the
+      // first call actually exercises the ALTER/UPDATE branch instead of
+      // finding the column already present (which would make this test
+      // pass even with broken migration SQL).
+      await db.customStatement(
+        'ALTER TABLE history_entries DROP COLUMN color_slot',
+      );
+      await db.customStatement('''
           INSERT INTO history_entries (id, timestamp)
           VALUES ('legacy-1', 1767225600000), ('legacy-2', 1767225700000)
         ''');
 
-        await db.addHistoryColorSlotColumnForTesting();
-        final firstRun = await db
-            .customSelect(
-              'SELECT id, color_slot FROM history_entries ORDER BY id',
-            )
-            .get();
-        final slotsAfterFirstRun = {
-          for (final row in firstRun)
-            row.data['id'] as String: row.data['color_slot'] as int,
-        };
+      await db.addHistoryColorSlotColumnForTesting();
+      final firstRun = await db
+          .customSelect(
+            'SELECT id, color_slot FROM history_entries ORDER BY id',
+          )
+          .get();
+      final slotsAfterFirstRun = {
+        for (final row in firstRun)
+          row.data['id'] as String: row.data['color_slot'] as int,
+      };
 
-        // Second call must be a no-op: the column already exists, so this
-        // must not re-run the ALTER (would throw "duplicate column") nor
-        // re-randomize the slots already assigned by the first run — this
-        // guarantee now matters beyond the one-time v17->v18 upgrade path,
-        // since _reconcileGoSchema also calls this on every app open.
-        await db.addHistoryColorSlotColumnForTesting();
+      // Second call must be a no-op: the column already exists, so this
+      // must not re-run the ALTER (would throw "duplicate column") nor
+      // re-randomize the slots already assigned by the first run — this
+      // guarantee now matters beyond the one-time v17->v18 upgrade path,
+      // since _reconcileGoSchema also calls this on every app open.
+      await db.addHistoryColorSlotColumnForTesting();
 
-        final secondRun = await db
-            .customSelect(
-              'SELECT id, color_slot FROM history_entries ORDER BY id',
-            )
-            .get();
-        final slotsAfterSecondRun = {
-          for (final row in secondRun)
-            row.data['id'] as String: row.data['color_slot'] as int,
-        };
-        expect(slotsAfterSecondRun, slotsAfterFirstRun);
+      final secondRun = await db
+          .customSelect(
+            'SELECT id, color_slot FROM history_entries ORDER BY id',
+          )
+          .get();
+      final slotsAfterSecondRun = {
+        for (final row in secondRun)
+          row.data['id'] as String: row.data['color_slot'] as int,
+      };
+      expect(slotsAfterSecondRun, slotsAfterFirstRun);
 
-        await db.close();
-      },
-    );
+      await db.close();
+    });
   });
 
   group(

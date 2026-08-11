@@ -38,9 +38,9 @@ class HighlightedText extends ConsumerWidget {
       );
     }
 
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const accent = WpColorsDark.accent;
     // Translucent tint behind each match — warmer in dark mode.
-    final highlightBg = accent.withValues(alpha: isDark ? 0.28 : 0.20);
+    final highlightBg = accent.withValues(alpha: 0.28);
     final lower = text.toLowerCase();
     final lowerQuery = query.toLowerCase();
 

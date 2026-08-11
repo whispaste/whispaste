@@ -154,9 +154,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       // ring has to be caught in peripheral vision and clears itself after
       // 1.5 s, which is the opposite job from a resting outline. See
       // WpColorsDark.accentLocatorRing.
-      final ringColor = isDark
-          ? WpColorsDark.accentLocatorRing
-          : WpColorsLight.accentLocatorRing;
+      const ringColor = WpColorsDark.accentLocatorRing;
       return AnimatedContainer(
         duration: WpMotion.durationFor(
           context,

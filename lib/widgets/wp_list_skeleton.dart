@@ -18,7 +18,6 @@ import '../core/theme/tokens.dart';
 class WpListSkeleton extends StatelessWidget {
   const WpListSkeleton({
     super.key,
-    required this.isDark,
     required this.rowHeight,
     this.count = 6,
     this.padding = const EdgeInsets.symmetric(
@@ -26,8 +25,6 @@ class WpListSkeleton extends StatelessWidget {
       vertical: WpSpacing.sm,
     ),
   });
-
-  final bool isDark;
 
   /// Inset of the placeholder column. Defaults to the history/notes gutter;
   /// callers whose real rows sit on a different edge pass their own so the
@@ -44,9 +41,7 @@ class WpListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final boxColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    const boxColor = WpColorsDark.borderSubtle;
 
     return ListView.separated(
       padding: padding,

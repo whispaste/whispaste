@@ -486,9 +486,11 @@ void main() {
         .whereType<Gradient>()
         .toList();
 
+    // The `light` row went with the light stack (2026-08-11): it pumped the
+    // same page at `Brightness.light` and asked the duration ramp for its
+    // light derivation, neither of which the app can produce any more.
     for (final (themeName, brightness, isDark) in [
       ('dark', Brightness.dark, true),
-      ('light', Brightness.light, false),
     ]) {
       testWidgets('$themeName: every model bar wears its own slot', (
         tester,

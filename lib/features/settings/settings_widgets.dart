@@ -80,13 +80,10 @@ class _SettingRowState extends State<SettingRow> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Subtitle style: use the theme bodySmall token but substitute textMuted
     // for slightly softer contrast (both textMuted and cs.secondary pass WCAG AA).
-    final subtitleStyle = tt.bodySmall?.copyWith(
-      color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-    );
+    final subtitleStyle = tt.bodySmall?.copyWith(color: WpColorsDark.textMuted);
 
     // The label and hint stay on the wrapper, but the rendered title and
     // subtitle are excluded from the semantics tree below (see the
@@ -122,10 +119,8 @@ class _SettingRowState extends State<SettingRow> {
             ),
             decoration: BoxDecoration(
               color: _isHovered
-                  ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (isDark
-                        ? WpColorsDark.hoverTransparent
-                        : WpColorsLight.hoverTransparent),
+                  ? (WpColorsDark.hover)
+                  : (WpColorsDark.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
             child: Row(
@@ -183,7 +178,6 @@ class HotkeyDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final parts = hotkeyDisplayParts(
       hotkeyModifiers,
@@ -197,16 +191,14 @@ class HotkeyDisplay extends StatelessWidget {
       children: [
         for (int i = 0; i < parts.length; i++) ...[
           if (i > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
               child: Text(
                 '+',
                 style: TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
+                  color: WpColorsDark.textMuted,
                 ),
               ),
             ),
@@ -223,15 +215,9 @@ class HotkeyDisplay extends StatelessWidget {
               vertical: WpSpacing.xxs,
             ),
             decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceVariant
-                  : WpColorsLight.surfaceVariant,
+              color: WpColorsDark.surfaceVariant,
               borderRadius: WpRadius.borderSm,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
-              ),
+              border: Border.all(color: WpColorsDark.borderSubtle),
             ),
             // `widthFactor: 1` so the cap centres its glyph in the taller box
             // without also claiming the width the row has left over.
@@ -239,13 +225,11 @@ class HotkeyDisplay extends StatelessWidget {
               widthFactor: 1,
               child: Text(
                 parts[i],
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  color: isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  color: WpColorsDark.textPrimary,
                 ),
               ),
             ),
@@ -317,8 +301,7 @@ Widget settingsSlider({
   required ValueChanged<double> onChanged,
   ValueChanged<double>? onChangeEnd,
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+  const accent = WpColorsDark.accent;
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -327,9 +310,7 @@ Widget settingsSlider({
         child: SliderTheme(
           data: SliderThemeData(
             activeTrackColor: accent,
-            inactiveTrackColor: isDark
-                ? WpColorsDark.surfaceVariant
-                : WpColorsLight.surfaceVariant,
+            inactiveTrackColor: WpColorsDark.surfaceVariant,
             thumbColor: accent,
             overlayColor: accent.withValues(alpha: 0.12),
             trackHeight: 3,
@@ -352,13 +333,11 @@ Widget settingsSlider({
         child: Text(
           valueLabel,
           textAlign: TextAlign.right,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w500,
-            color: isDark
-                ? WpColorsDark.textSecondary
-                : WpColorsLight.textSecondary,
-            fontFeatures: const [FontFeature.tabularFigures()],
+            color: WpColorsDark.textSecondary,
+            fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
       ),
@@ -406,7 +385,6 @@ Widget settingsApiKeyField({
   ValueChanged<String>? onChanged,
   String? semanticLabel,
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
   // The reveal toggle rides the field's own trailing slot, which is 48 dp
   // tall because the field is — so the button meets WpLayout.minTouchTarget
   // without the field having to be pinned to a shorter fixed height and
@@ -427,7 +405,7 @@ Widget settingsApiKeyField({
           icon: Icon(
             obscure ? LucideIcons.eye : LucideIcons.eyeOff,
             size: WpIconSize.sm,
-            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+            color: WpColorsDark.textMuted,
           ),
           onPressed: onToggle,
           tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
@@ -469,12 +447,9 @@ Widget settingsTextField({
 
 /// Horizontal divider between settings sections.
 Widget settingsSectionDivider(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
-    child: Divider(
-      color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
-    ),
+  return const Padding(
+    padding: EdgeInsets.symmetric(vertical: WpSpacing.xs),
+    child: Divider(color: WpColorsDark.borderSubtle),
   );
 }
 
@@ -483,11 +458,7 @@ Widget settingsSectionDivider(BuildContext context) {
 /// conditionally-shown size/preview rows) — a tighter, lower-profile sibling
 /// of [settingsSectionDivider], which separates whole top-level sections.
 Widget settingsInlineDivider(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  return Divider(
-    height: 1,
-    color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
-  );
+  return const Divider(height: 1, color: WpColorsDark.borderSubtle);
 }
 
 // ---------------------------------------------------------------------------
@@ -526,11 +497,8 @@ Widget settingsInlineNotice({
     vertical: WpSpacing.xs,
   ),
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-  final textPrimary = isDark
-      ? WpColorsDark.textPrimary
-      : WpColorsLight.textPrimary;
+  const warning = WpColorsDark.warning;
+  const textPrimary = WpColorsDark.textPrimary;
 
   return Container(
     margin: margin,
@@ -543,7 +511,11 @@ Widget settingsInlineNotice({
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
+        const Icon(
+          LucideIcons.triangleAlert,
+          size: WpIconSize.sm,
+          color: warning,
+        ),
         const SizedBox(width: WpSpacing.sm),
         Expanded(
           child: Column(
@@ -565,7 +537,11 @@ Widget settingsInlineNotice({
         ),
         if (onDismiss != null)
           IconButton(
-            icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warning),
+            icon: const Icon(
+              LucideIcons.x,
+              size: WpIconSize.sm,
+              color: warning,
+            ),
             tooltip: dismissTooltip,
             onPressed: onDismiss,
             padding: EdgeInsets.zero,

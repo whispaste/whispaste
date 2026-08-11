@@ -129,23 +129,19 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
 
     final Color bg;
     if (widget.isSelected) {
-      bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+      bg = WpColorsDark.accentSubtle;
     } else if (widget.isFocused) {
-      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
+      bg = WpColorsDark.hover;
     } else if (_isHovered) {
-      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
+      bg = WpColorsDark.hover;
     } else {
-      bg = isDark
-          ? WpColorsDark.hoverTransparent
-          : WpColorsLight.hoverTransparent;
+      bg = WpColorsDark.hoverTransparent;
     }
 
     final l10n = L10n.of(context);
@@ -191,10 +187,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
               // tile's focused stroke) — the dark light-accent #06678A at
               // 0.5 read heavier here than the same alpha does on dark.
               border: widget.isFocused
-                  ? Border.all(
-                      color: accent.withValues(alpha: isDark ? 0.5 : 0.45),
-                      width: 1.5,
-                    )
+                  ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
                   : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
             ),
             child: Row(
@@ -209,7 +202,6 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                     child: WpRowCheckbox(
                       value: widget.isChecked,
                       onChanged: widget.onTap,
-                      isDark: isDark,
                     ),
                   ),
                 // Favorite indicator
@@ -237,7 +229,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       isDark: isDark,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w500,
                         color: textPrimary,
@@ -260,7 +252,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Duration
                 Text(
                   formatHistoryDuration(widget.entry.durationSec),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.caption,
                     color: textMuted,
                   ),
@@ -270,7 +262,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   const SizedBox(width: WpSpacing.sm),
                   Text(
                     widget.entry.language.toUpperCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.caption,
                       color: textMuted,
                       fontWeight: FontWeight.w500,
@@ -281,7 +273,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Time
                 Text(
                   formatHistoryTime(widget.entry.timestamp),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.caption,
                     color: textMuted,
                   ),
@@ -337,7 +329,6 @@ class HistoryCompactRowActions extends StatelessWidget {
         WpRowAction(
           icon: LucideIcons.copy,
           tooltip: l10n.historyCopyText,
-          isDark: isDark,
           onTap: onCopy,
           dense: true,
         ),
@@ -347,7 +338,6 @@ class HistoryCompactRowActions extends StatelessWidget {
           icon: pinned ? null : LucideIcons.star,
           activeColor: pinned ? WpSharedColors.pinnedAccent : null,
           tooltip: pinned ? l10n.historyUnpin : l10n.historyPinToTop,
-          isDark: isDark,
           onTap: onPin,
           dense: true,
         ),
@@ -355,7 +345,6 @@ class HistoryCompactRowActions extends StatelessWidget {
         WpRowAction(
           icon: LucideIcons.trash2,
           tooltip: l10n.actionDelete,
-          isDark: isDark,
           onTap: onDelete,
           isDestructive: true,
           dense: true,

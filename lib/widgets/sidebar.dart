@@ -170,9 +170,7 @@ class _SidebarGroupDivider extends StatelessWidget {
         // `borderDefault`, not `borderSubtle`: at 36 px wide and 1 px tall
         // between two icon groups, the subtle tone read as a rendering
         // artifact rather than as a deliberate break.
-        color: isDark
-            ? WpColorsDark.borderDefault
-            : WpColorsLight.borderDefault,
+        color: WpColorsDark.borderDefault,
       ),
     );
   }
@@ -228,13 +226,9 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
     final Color iconColor;
 
     if (widget.isActive || _isHovered) {
-      iconColor = widget.isDark
-          ? WpColorsDark.textPrimary
-          : WpColorsLight.textPrimary;
+      iconColor = WpColorsDark.textPrimary;
     } else {
-      iconColor = widget.isDark
-          ? WpColorsDark.textSecondary
-          : WpColorsLight.textMuted;
+      iconColor = WpColorsDark.textSecondary;
     }
 
     // Everything the chip fills is routed through the *gradient* channel,
@@ -245,32 +239,20 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
     // identical stops, which also keeps `LinearGradient.lerp` on its cheap
     // same-shape path.
     final Gradient pillGradient = widget.isActive
-        ? (widget.isDark
-              ? WpColorsDark.navPillActiveGradient
-              : WpColorsLight.navPillActiveGradient)
+        ? (WpColorsDark.navPillActiveGradient)
         : _isHovered
-        ? (widget.isDark
-              ? WpColorsDark.navChipGradientHover
-              : WpColorsLight.navChipGradientHover)
-        : (widget.isDark
-              ? WpColorsDark.navChipGradient
-              : WpColorsLight.navChipGradient);
+        ? (WpColorsDark.navChipGradientHover)
+        : (WpColorsDark.navChipGradient);
 
     // The resting hairline: `borderSubtle` on dark, `borderDefault` on light.
     // Not a copy-paste slip — on pearl the tile has only ≈1.03:1 of fill lift
     // to work with, so the hairline is carrying objecthood there, the same
     // reason `_SidebarGroupDivider` below takes the default weight.
     final Color chipBorder = widget.isActive
-        ? (widget.isDark
-              ? WpColorsDark.accentBorder20
-              : WpColorsLight.accentBorder20)
-        : (widget.isDark
-              ? WpColorsDark.borderSubtle
-              : WpColorsLight.borderDefault);
+        ? (WpColorsDark.accentBorder20)
+        : (WpColorsDark.borderSubtle);
 
-    final Color accent = widget.isDark
-        ? WpColorsDark.accent
-        : WpColorsLight.accent;
+    const Color accent = WpColorsDark.accent;
     final String? badgeHint = widget.item.badgeHint;
     // The dot is decorative — it carries no semantics of its own, so the
     // reason it appeared has to travel in the label the item already has.
@@ -320,17 +302,15 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                           child: Container(
                             width: WpNavRail.indicatorWidth,
                             height: WpNavRail.indicatorHeight,
-                            decoration: BoxDecoration(
-                              gradient: widget.isDark
-                                  ? WpColorsDark.accentWarmGradient
-                                  : WpColorsLight.accentWarmGradient,
+                            decoration: const BoxDecoration(
+                              gradient: WpColorsDark.accentWarmGradient,
                               // Directional, like the `start: 0` above it:
                               // the bar is flush with the window edge and
                               // rounds on its *inner* side. With the plain
                               // `topRight`/`bottomRight` it used to round on
                               // the outer edge in RTL (Hebrew) — the shape
                               // flipped while the position did not.
-                              borderRadius: const BorderRadiusDirectional.only(
+                              borderRadius: BorderRadiusDirectional.only(
                                 topEnd: Radius.circular(WpRadius.sm),
                                 bottomEnd: Radius.circular(WpRadius.sm),
                               ),
@@ -364,9 +344,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                           // black ink on a near-black ground, which is the
                           // mud that rule exists to keep out, and it now sits
                           // on a frame saturated enough to show it.
-                          boxShadow: widget.isDark
-                              ? null
-                              : WpShadows.subtleLight,
+                          boxShadow: null,
                         ),
                         alignment: Alignment.center,
                         child: Icon(
@@ -383,7 +361,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                           child: Container(
                             width: WpNavRail.badgeSize,
                             height: WpNavRail.badgeSize,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: accent,
                               shape: BoxShape.circle,
                             ),

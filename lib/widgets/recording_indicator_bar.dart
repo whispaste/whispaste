@@ -25,9 +25,9 @@ class WpRecordingIndicatorBar extends StatefulWidget {
   @visibleForTesting
   static Color colorFor(RecordingPhase phase, {required bool isDark}) {
     if (phase == RecordingPhase.recording) {
-      return isDark ? WpColorsDark.error : WpColorsLight.error;
+      return WpColorsDark.error;
     }
-    return isDark ? WpColorsDark.warning : WpColorsLight.warning;
+    return WpColorsDark.warning;
   }
 
   @override

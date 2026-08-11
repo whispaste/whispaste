@@ -94,75 +94,22 @@ void main() {
     });
   });
 
-  group('WpColorsLight', () {
-    test('background is light (high RGB values)', () {
-      expect(WpColorsLight.background.a, 1.0);
-      expect(WpColorsLight.background.r, greaterThan(0.9));
-      expect(WpColorsLight.background.g, greaterThan(0.9));
-      expect(WpColorsLight.background.b, greaterThan(0.9));
-    });
-
-    test('key surface colors are defined and non-null', () {
-      expect(WpColorsLight.surface, isNotNull);
-      expect(WpColorsLight.surfaceElevated, isNotNull);
-      expect(WpColorsLight.surfaceVariant, isNotNull);
-    });
-
-    test('text hierarchy has three distinct levels', () {
-      expect(WpColorsLight.textPrimary, isNot(WpColorsLight.textSecondary));
-      expect(WpColorsLight.textSecondary, isNot(WpColorsLight.textMuted));
-      expect(WpColorsLight.textPrimary, isNot(WpColorsLight.textMuted));
-    });
-
-    test('accent color is a deep violet', () {
-      // Same hue family as dark, darkened for AA on pearl.
-      expect(WpColorsLight.accent.a, 1.0);
-      expect(WpColorsLight.accent.b, greaterThan(WpColorsLight.accent.r));
-      expect(WpColorsLight.accent.r, greaterThan(WpColorsLight.accent.g));
-      expect(WpColorsLight.accent, isNot(WpColorsDark.accent));
-    });
-
-    test('semantic colors (success, warning, error) are distinct', () {
-      expect(WpColorsLight.success, isNot(WpColorsLight.warning));
-      expect(WpColorsLight.warning, isNot(WpColorsLight.error));
-      expect(WpColorsLight.success, isNot(WpColorsLight.error));
-    });
-
-    test('card material tokens exist, including the light-only shadow', () {
-      expect(WpColorsLight.cardFill.a, lessThan(1.0));
-      expect(WpColorsLight.cardFillElevated.a, lessThan(1.0));
-      expect(WpColorsLight.cardEdgeHighlight.a, lessThan(1.0));
-      expect(WpColorsLight.cardShadowLight.a, lessThan(1.0));
-    });
-
-    test('surfaceGradient returns a valid two-stop gradient', () {
-      expect(WpColorsLight.surfaceGradient.colors.length, 2);
-    });
-
-    test('warmSurfaceGradient returns a valid three-stop gradient', () {
-      expect(WpColorsLight.warmSurfaceGradient.colors.length, 3);
-      expect(WpColorsLight.warmSurfaceGradient.stops!.length, 3);
-    });
-  });
-
-  group('Dark vs Light theme contrast', () {
-    test('background colors differ between themes', () {
-      expect(WpColorsDark.background, isNot(WpColorsLight.background));
-    });
-
-    test('surface colors differ between themes', () {
-      expect(WpColorsDark.surface, isNot(WpColorsLight.surface));
-    });
-
-    test('text primary colors differ between themes', () {
-      expect(WpColorsDark.textPrimary, isNot(WpColorsLight.textPrimary));
-    });
-
-    test('accent colors differ between dark and light', () {
-      // Dark is back on the brand cyan (ADR 0013); the light theme still
-      // carries Ticket 04's deep violet and is out of scope for that ADR,
-      // which applies to the dark theme only.
-      expect(WpColorsDark.accent, isNot(WpColorsLight.accent));
-    });
-  });
+  // Removed 2026-08-11 (dark-only build): `group('WpColorsLight')` and
+  // `group('Dark vs Light theme contrast')`.
+  //
+  // The first mirrored the dark group above assertion for assertion against
+  // `WpColorsLight` — a background above 0.9 in every channel, a deep-violet
+  // accent darkened for AA on pearl, the light card shadow. Its subject is
+  // gone, so it has no tokens left to describe.
+  //
+  // The second existed only to prove the two palettes were actually two:
+  // background, surface, textPrimary and accent each asserted `isNot` its
+  // opposite number. With one palette those four assertions read
+  // `expect(x, isNot(x))` and can never pass again — they are not coverage
+  // that regressed, they are a question that stopped being askable.
+  //
+  // Nothing here is re-derived against dark: every property those groups
+  // pinned on the dark palette is already pinned by the `WpColorsDark` group
+  // above, and the contrast floors they gestured at live in
+  // `test/core/theme/wcag_contrast_test.dart`, which measures them.
 }

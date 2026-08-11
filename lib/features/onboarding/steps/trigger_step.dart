@@ -295,12 +295,10 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use the theme's danger/error semantic so the box clearly reads as a
     // blocker — matches the rest of WhisPaste's destructive surfaces.
-    final dangerColor = isDark ? WpColorsDark.error : WpColorsLight.error;
-    final bgColor = dangerColor.withValues(alpha: isDark ? 0.12 : 0.10);
-    final borderColor = dangerColor.withValues(alpha: isDark ? 0.40 : 0.32);
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    const dangerColor = WpColorsDark.error;
+    final bgColor = dangerColor.withValues(alpha: 0.12);
+    final borderColor = dangerColor.withValues(alpha: 0.40);
+    const textPrimary = WpColorsDark.textPrimary;
 
     return Container(
       width: double.infinity,
@@ -320,7 +318,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
+          const Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.md,
             color: dangerColor,
@@ -332,7 +330,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w700,
                     color: dangerColor,
@@ -341,7 +339,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
                 const SizedBox(height: WpSpacing.xxs),
                 Text(
                   body,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: WpTypography.small,
                     color: textPrimary,
                     height: 1.4,

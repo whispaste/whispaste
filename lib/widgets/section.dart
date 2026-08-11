@@ -126,8 +126,6 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final inkWell = InkWell(
       onTap: onTap,
       focusNode: focusNode,
@@ -145,9 +143,7 @@ class _SectionHeader extends StatelessWidget {
               height: 18,
               margin: const EdgeInsets.only(right: _accentBarGutter),
               decoration: BoxDecoration(
-                gradient: isDark
-                    ? WpColorsDark.accentWarmGradient
-                    : WpColorsLight.accentWarmGradient,
+                gradient: WpColorsDark.accentWarmGradient,
                 borderRadius: WpRadius.borderFull,
               ),
             ),

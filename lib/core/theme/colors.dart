@@ -44,18 +44,24 @@
 /// the same transient full-screen effect, which already has a Windows
 /// fallback).
 ///
-/// Depth comes from **one source per theme**: on dark from the brightness
-/// delta between fills (no card shadow token exists here at all), on light
-/// from a single soft, wide, violet-tinted shadow (`cardShadowLight`). A glow
-/// — a colored shadow at offset 0 — is not a depth source and stays out.
+/// Depth comes from **one source**: the brightness delta between fills. No
+/// card shadow token exists here at all. A glow — a colored shadow at offset 0
+/// — is not a depth source and stays out.
 ///
-/// **Theme asymmetry, sanctioned here.** The light stack's chroma is capped
-/// well below the dark stack's — not for taste, but because rotating a pearl
-/// toward violet drains the green channel that carries 71.5 % of relative
-/// luminance, and `textMuted` runs out of AA headroom before the dark side
-/// notices anything. That is the *Increment–Decrement Rule*'s closing clause in
-/// `lib/DESIGN.md` — "a new theme asymmetry is allowed, but it argues for
-/// itself at the token" — and the argument sits at [WpColorsLight.background].
+/// > **Retracted 2026-08-11 (dark-only build): the per-theme half of the depth
+/// > rule, and *Theme asymmetry, sanctioned here* entirely.** Depth used to be
+/// > "one source per *theme*" — the brightness delta on dark, a single soft,
+/// > wide, violet-tinted shadow (`cardShadowLight`) on light. And the light
+/// > stack's chroma was capped well below the dark stack's, because rotating a
+/// > pearl toward violet drains the green channel that carries 71.5 % of
+/// > relative luminance, so `textMuted` ran out of AA headroom before the dark
+/// > side noticed anything. That was the *Increment–Decrement Rule*'s closing
+/// > clause — "a new theme asymmetry is allowed, but it argues for itself at
+/// > the token" — and the argument sat at `WpColorsLight.background`. With one
+/// > stack left there is no asymmetry to sanction and no second depth source
+/// > to choose between. Recorded rather than deleted: both clauses were
+/// > argued-for positions, not defaults, and a rule that quietly disappears
+/// > cannot be audited.
 ///
 /// The two-accent and one-depth-source splits are stated in this file rather
 /// than cited: `lib/DESIGN.md` still carries the superseded single-accent
@@ -115,14 +121,21 @@ abstract final class WpColorsDark {
   static const Color hoverTransparent = Color(0x00152856);
   static const Color active = Color(0xFF1B306E);
 
-  /// Hairline borders — white at 11.8 % / 18.8 %, both a step *above* their
-  /// light twins (7.8 % / 14.1 %). Not an oversight: see
-  /// [WpColorsLight.borderSubtle] for the increment/decrement reasoning.
+  /// Hairline borders — white at 11.8 % / 18.8 %.
+  ///
+  /// These used to be described as "a step *above* their light twins (7.8 % /
+  /// 14.1 %)", the increment half of the *Increment–Decrement Rule*: a
+  /// translucent structural token needs more alpha over navy than its
+  /// counterpart needs over pearl to read at the same weight. The twins are
+  /// gone with the light stack; the values here are unchanged, and what
+  /// justifies them now is simply what they measure against this ground.
   static const Color borderSubtle = Color(0x1EFFFFFF);
   static const Color borderDefault = Color(0x30FFFFFF);
 
-  /// Hairline of an *active* card tile — see [WpColorsLight.cardActiveBorder]
-  /// for why this pair carries the same alpha byte in both themes.
+  /// Hairline of an *active* card tile. This was one of the few structural
+  /// translucents that carried the *same* alpha byte in both themes rather
+  /// than stepping between them; with one theme left, that exemption no
+  /// longer distinguishes it from anything.
   static const Color cardActiveBorder = Color(0x24FFFFFF);
 
   /// Text — readable, not overly bright to avoid harshness
@@ -160,9 +173,9 @@ abstract final class WpColorsDark {
   static const Color accent = Color(0xFF6FDDF0);
   static const Color accentHover = Color(0xFFA7EAF6);
 
-  /// Flat accent surface tint, 16.5 % — deliberately *above* its light twin
-  /// (11 %). See [WpColorsLight.accentSubtle] for the increment/decrement
-  /// reasoning shared by every structural translucent in this file.
+  /// Flat accent surface tint, 16.5 % — formerly "deliberately *above* its
+  /// light twin (11 %)", the increment/decrement reasoning shared by every
+  /// structural translucent in this file. The twin is gone; the value is not.
   static const Color accentSubtle = Color(0x2A6FDDF0);
 
   /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
@@ -248,8 +261,8 @@ abstract final class WpColorsDark {
   static const Color cardEdgeHighlight = Color(0x24D7C8F9);
 
   /// Wash for a large decorative background glyph — its own category, *below*
-  /// the 6/12/30% tint ladder above. See [WpColorsLight.decorativeGlyphWash]
-  /// for why the two themes carry different alphas.
+  /// the 6/12/30% tint ladder above. The two themes used to carry different
+  /// alphas here; only this one is left.
   static const Color decorativeGlyphWash = Color(0x0D6FDDF0); // accent @ 5%
 
   /// Saturated status colors — rich and warm
@@ -290,10 +303,10 @@ abstract final class WpColorsDark {
   /// that wants to be louder than 30 % is a hierarchy problem, not an alpha
   /// problem.
   ///
-  /// Carries the same alpha in both themes, unlike the structural tints above
-  /// (see [WpColorsLight.accentSubtle]). Left unsplit on purpose: this value
-  /// is calibrated for the peak of something transient, so a per-theme split
-  /// would have to be judged against a moving target. If it ever reads heavy
+  /// Carried the same alpha in both themes, unlike the structural tints above,
+  /// and was left unsplit on purpose: this value is calibrated for the peak of
+  /// something transient, so a per-theme split would have had to be judged
+  /// against a moving target. The split is moot now. If it ever reads heavy
   /// on light, that is a maintainer call with the ring on screen, not a
   /// derivation from the rule.
   static const Color accentLocatorRing = Color(0x8C6FDDF0); // accent @ 55%
@@ -741,408 +754,6 @@ abstract final class WpColorsDark {
 }
 
 // ---------------------------------------------------------------------------
-// Light Theme Colors
-// ---------------------------------------------------------------------------
-abstract final class WpColorsLight {
-  /// Window frame — pearl-violet tint for brand identity; the light twin of
-  /// Dark's deep violet-navy.
-  ///
-  /// Same operation as [WpColorsDark.background]: hue turned from ~214° to
-  /// ~260° at unchanged HSL lightness, so *Frame–content unity* (≤ 5 % gap on
-  /// light) holds by construction rather than by re-tuning the gate.
-  ///
-  /// The chroma of the whole light stack is *capped*, not chosen: rotating a
-  /// pearl from blue toward violet moves weight out of the green channel, and
-  /// green carries 71.5 % of relative luminance. At the old saturations the
-  /// violet pearls dropped [textMuted] below AA on three grounds. So every
-  /// light surface sits as close to the ratified 15 % tint floor as the gates
-  /// allow — the cap is [textMuted]'s AA headroom on pearl, not taste. Dark
-  /// has no such cap and keeps its full chroma. That asymmetry is what *The
-  /// Increment–Decrement Rule* in `lib/DESIGN.md` closes with — "a new theme
-  /// asymmetry is allowed, but it argues for itself at the token" — and this
-  /// paragraph is the argument.
-  static const Color background = Color(0xFFEFEDF3);
-
-  /// Content surfaces — cool pearl-white with a visible violet tint (not
-  /// sterile white)
-  static const Color surface = Color(0xFFF6F5F9);
-
-  /// Elevated panels, cards — lighter than surface, still clearly tinted
-  static const Color surfaceElevated = Color(0xFFFAF9FB);
-
-  /// Variant surface for alternate rows, secondary panels
-  static const Color surfaceVariant = Color(0xFFF1EFF4);
-
-  /// Hover and press rungs — see [WpColorsDark.hover] for why they move with
-  /// the surfaces instead of staying behind on the old hue.
-  static const Color hover = Color(0xFFEBE8F0);
-
-  /// Transparent version of hover for smooth AnimatedContainer transitions
-  /// (prevents flash when interpolating from transparent to hover)
-  static const Color hoverTransparent = Color(0x00EBE8F0);
-  static const Color active = Color(0xFFE0DCE7);
-
-  /// Hairline borders — navy-ink at 7.8 % / 14.1 %, a step *under* dark's
-  /// 11.8 % / 18.8 %. Same reason as [accentSubtle] below, and the reason is
-  /// independent of size: an ink hairline on pearl is a decrement on a bright
-  /// ground and reads harder per unit alpha than a white hairline does as an
-  /// increment on navy. Matching the bytes would leave the light theme visibly
-  /// more ruled than the dark one.
-  static const Color borderSubtle = Color(0x140F172A);
-  static const Color borderDefault = Color(0x24131F32);
-
-  /// Hairline of an *active* card tile — the one border pair that carries the
-  /// same alpha byte (14.1 %) in both themes instead of stepping dark above
-  /// light. An active card already sits on the lifted `hover` fill, so its
-  /// hairline only has to separate two surfaces that already differ; the
-  /// increment dark normally needs is bought by the fill underneath it.
-  ///
-  /// Replaces the former `glassBorder`, which survived the deleted glass
-  /// family on dark only and left this call site pairing a glass token against
-  /// an ink one. Values are unchanged in both themes — this is a rename into
-  /// a proper theme pair, not a re-tune.
-  static const Color cardActiveBorder = Color(0x24131F32);
-
-  /// Strong text contrast for light theme
-  static const Color textPrimary = Color(0xFF101828);
-  static const Color textSecondary = Color(0xFF44556E);
-  static const Color textMuted = Color(0xFF5B697E);
-
-  /// Deep violet accent — the same 258° hue as Dark's #AF8EFA, darkened for
-  /// WCAG AA on pearl (5.84:1 against `surface`, 5.46:1 against `background`).
-  ///
-  /// Solved for *relative-luminance parity* with the teal it replaces
-  /// (Y ≈ 0.1157, byte-identical in effect): every light tint rung, the
-  /// nav pill's 14/8 % pair and [decorativeGlyphWash] were calibrated against
-  /// that luminance, so the whole light ladder keeps its optical weight
-  /// without a single alpha being re-tuned. Dark cannot have that parity — the
-  /// old cyan sat at Y ≈ 0.49 and matching it would have forced a near-white
-  /// lavender — so the dark ladder resolves a little quieter than before. That
-  /// is a deliberate consequence, not an oversight.
-  static const Color accent = Color(0xFF6B35E9);
-
-  /// Flat accent surface tint, 11 % — a step under dark's 16.5 %, and the
-  /// canonical statement of why every *structural* translucent in this file
-  /// runs lighter on light (*The Increment–Decrement Rule*, `lib/DESIGN.md`).
-  ///
-  /// A tint does not buy the same presence in both themes. On light it lands
-  /// *darker* than its ground — a decrement, resolved at full contrast against
-  /// a bright surface; on dark it lands *lighter* — an increment against a
-  /// near-black surface, where the display's black floor and any reflected
-  /// room light eat most of the difference. Equal alpha bytes therefore read
-  /// visibly unequal, light heavier, so the light side is tuned down instead
-  /// of copied across. Same argument, already applied: [navPillActiveGradient]
-  /// (16 % → 11 % mean, pinned to exactly this token) and
-  /// [decorativeGlyphWash] (5 % → 3 %).
-  ///
-  /// The tint ladder is the deliberate carve-out: its rungs stay byte-identical
-  /// across themes because they are a cross-hue *semantic* scale — 6 % is
-  /// "hover" and 30 % is "outline" whatever the hue, whatever the theme — and
-  /// re-tuning them per theme would break the guarantee that a destructive
-  /// control's states carry exactly the weight of an accent one's.
-  static const Color accentSubtle = Color(0x1C6B35E9); // accent @ 11%
-
-  /// Instance-safe tint tokens — see [WpColorsDark.accentChipFill] for rationale.
-  static const Color accentChipFill = Color(0x1A6B35E9); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2E6B35E9); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1F6B35E9); // accent @ 12%
-  static const Color accentBorder30 = Color(0x4D6B35E9); // accent @ 30%
-  static const Color accentButtonFill = Color(0x146B35E9); // accent @ 8%
-  static const Color accentActiveFill = Color(0x1F6B35E9); // accent @ 12%
-  static const Color accentBadgeFill = Color(0x266B35E9); // accent @ 15%
-  static const Color accentBorder20 = Color(0x336B35E9); // accent @ 20%
-  static const Color accentRowHover = Color(0x0F6B35E9); // accent @ 6%
-  static const Color surfaceChipFill = Color(0x80F6F5F9); // surface @ 50%
-  static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
-
-  /// Precomposited frost — see [WpColorsDark.cardFill] for the material.
-  ///
-  /// The light twin runs the *other* direction, as the ground demands: on
-  /// pearl a card is a lift toward white, not toward the accent, so the tint
-  /// is a violet-white rather than a lavender. It still carries hue in the
-  /// value (#FAF7FF / #FDFAFF, never `0x..FFFFFF`) — a plain white alpha here
-  /// would bleach the ambient's violet out of the card and leave the same grey
-  /// the dark theme was failing at.
-  ///
-  /// The alphas run *higher* than dark's 8/14 %, which is not a violation of
-  /// *The Increment–Decrement Rule* but its consequence: these are not tints
-  /// laid over a ground to tint it, they are the card's own body, and on pearl
-  /// the card's body is nearly the ground's own value.
-  static const Color cardFill = Color(0xCCFAF7FF); // frost tint @ 80%
-  static const Color cardFillElevated = Color(0xE6FDFAFF); // frost tint @ 90%
-
-  /// The card's static 1px top edge — see [WpColorsDark.cardEdgeHighlight].
-  /// Lifts its fill by ≈1.02:1 here; on pearl there is barely any room above
-  /// the card left, which is exactly why light gets a shadow and dark does not.
-  static const Color cardEdgeHighlight = Color(0xCCFFFCFF);
-
-  /// The light theme's one depth source: a soft, wide, violet-tinted shadow
-  /// (≈`0 10px 35px rgba(40,20,70,0.08)`, wired up as
-  /// `WpShadows.cardTintedLight`).
-  ///
-  /// Tinted, not neutral black — a black shadow under a violet card greys the
-  /// pearl around it, which is the same failure mode as a white-alpha fill,
-  /// one layer down. **Deliberately has no dark counterpart**: on near-black
-  /// a shadow adds mud instead of depth, so dark reads its depth off the
-  /// brightness delta between the card fills. A `WpColorsDark.cardShadow` is
-  /// not missing here — it is refused. One depth source per theme; the split
-  /// is stated in the library header, not yet named in `lib/DESIGN.md`.
-  static const Color cardShadowLight = Color(0x14281446);
-
-  /// Transient settings-search locator ring — see
-  /// [WpColorsDark.accentLocatorRing], including why this one alpha is *not*
-  /// tuned down for light the way the structural tints are.
-  static const Color accentLocatorRing = Color(0x8C6B35E9); // accent @ 55%
-
-  /// Recording/listening family — see [WpColorsDark.recordingAccent] for the
-  /// split's rationale. Same deal on light: byte-for-byte copies of [accent]
-  /// and [accentWarmGradient], written as literals so the recording signal
-  /// stays put when the generic accent family changes hue.
-  static const Color recordingAccent = Color(0xFF06678A);
-
-  /// Gradient twin of [recordingAccent] — teal to deep teal, copied from
-  /// [accentWarmGradient]. See [WpColorsDark.recordingAccentGradient] for why
-  /// the family reserves a gradient it does not paint yet.
-  // loam-ignore: unused-public-exports – see WpColorsDark.recordingAccentGradient.
-  static const LinearGradient recordingAccentGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF06678A), Color(0xFF0E7490), Color(0xFF155E75)],
-  );
-
-  /// Wash for a large decorative background glyph — its own category, *below*
-  /// the 6/12/30% tint ladder above, because that ladder is defined for
-  /// badges, chips and borders: small, bounded shapes the user is meant to
-  /// read. A 140px glyph bleeding out of a card corner is neither, and the
-  /// ladder's bottom rung is too loud once it covers that much area.
-  ///
-  /// The alpha is lower here than on dark, and deliberately so — the same
-  /// alpha does not buy the same presence in both themes. On light the wash
-  /// lands *darker* than its ground (a decrement, which the eye resolves at
-  /// lower contrast); on dark it lands *lighter* (an increment), against a
-  /// near-black surface where a display's black floor and any reflected room
-  /// light eat most of the difference. Equal alphas therefore read unequal —
-  /// light visibly stronger — which is exactly what the model step showed.
-  /// Both values still sit clearly under the ladder's 6% floor.
-  static const Color decorativeGlyphWash = Color(0x086B35E9); // accent @ 3%
-
-  /// Danger/off-brand-neutral tint ladder — see [WpColorsDark.errorRowHover]
-  /// for rationale.
-  static const Color errorRowHover = Color(0x0FCC1C1C); // error @ 6%
-  static const Color errorButtonFill = Color(0x14CC1C1C); // error @ 8%
-  static const Color errorActiveFill = Color(0x1FCC1C1C); // error @ 12%
-  static const Color errorBorder20 = Color(0x33CC1C1C); // error @ 20%
-  static const Color errorBorder30 = Color(0x4DCC1C1C); // error @ 30%
-  static const Color mutedRowHover = Color(0x0F5B697E); // textMuted @ 6%
-  static const Color mutedActiveFill = Color(0x1F5B697E); // textMuted @ 12%
-
-  static const Color success = Color(0xFF05875C);
-  static const Color warning = Color(0xFFC97A06);
-  static const Color error = Color(0xFFCC1C1C);
-
-  /// 12 % status badge rungs — see [WpColorsDark.successActiveFill].
-  static const Color successActiveFill = Color(0x1F05875C); // success @ 12%
-  static const Color warningActiveFill = Color(0x1FC97A06); // warning @ 12%
-
-  /// Premium pearl-violet card gradient — subtle diagonal wash
-  static const LinearGradient surfaceGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFF8F7FB), Color(0xFFF3F1F6)],
-  );
-
-  /// The light ambient — a pearl-violet cool pole top-left, a slightly deeper
-  /// violet mid-stop, a pearl-magenta pole bottom-right. Mirrors
-  /// [WpColorsDark.warmSurfaceGradient] in shape and in the direction of its
-  /// hue arc — measured 260° → 255° → 285° — at a fraction of its amplitude:
-  /// luminance stays within 1.04:1 across all three stops, so the drift reads
-  /// as a temperature shift on pearl rather than a color cast. Opaque tonal
-  /// steps, no alpha glow. This is the ground every light card fill is gated
-  /// against.
-  ///
-  /// **The first stop is the seam** — see the dark twin for the full argument;
-  /// this is its pearl solution. Against the frame at (72, 64) (#F5F1FC at
-  /// the 1100 × 750 the app opens at, 259.92° / 61.2 % / Y 0.89504) it lands
-  /// at 260.0° / Y 0.95481: hue 0.05° off, chroma 4.5 8-bit steps down,
-  /// luminance 1.065:1 up. *(Ticket 07 first shipped this stop at Y 0.92044 =
-  /// 1.029:1; see the perceptibility re-solve below.)* The residual hue gap is
-  /// a *floor*, not a tolerance
-  /// — at L ≈ 97 % a single 8-bit step is worth several degrees of hue, the
-  /// same quantisation ceiling [frameGradient] argues for its own stops.
-  ///
-  /// **Re-solved with the frame's chroma (2026-08-11).** It sat at 20.0 % under
-  /// a 39.5 % frame; both went up together when the frame's chroma did, so the
-  /// drop across the seam stays the ~4½ 8-bit steps of channel spread Ticket 07
-  /// ratified rather than doubling into a visible edge. Pearl flatters this:
-  /// at L ≈ 97 % the divisor `1 − |2L − 1|` is ≈ 0.06, so eighteen *points* of
-  /// HSL saturation are four bytes of actual color.
-  ///
-  /// **This stop no longer equals [surface].** Until Ticket 07 the two were
-  /// the same value (#F6F5F9) and this comment read the plane as anchored on
-  /// the surface token. That was a coincidence of tuning, not a derivation:
-  /// the plane's first stop answers to the frame beneath it, [surface] answers
-  /// to the opaque tonal stack, and the two have drifted apart accordingly —
-  /// two 8-bit steps of blue and one of red since the frame's chroma rose. The
-  /// dark twin still anchors on [surface] — at its *middle* stop, where
-  /// nothing reads it against the frame. ~~*(dark anchor)*~~ **Retracted
-  /// 2026-08-11:** the dark twin has since dropped that anchor too, for the
-  /// same reason this one did. See [WpColorsDark.warmSurfaceGradient].
-  ///
-  /// **Perceptibility re-solve (2026-08-11) — +4 8-bit steps on every channel,
-  /// and this plane is now at its physical ceiling.** The dark twin carries the
-  /// full argument: Ticket 07 gated the seam's direction and continuity but
-  /// never its magnitude, and the result was invisible — 1.029:1 is ΔL\* 0.94,
-  /// under the just-noticeable difference. Same uniform additive offset, so
-  /// hue (260.0° / 255.0° / 285.0°) and channel spread survive bit for bit and
-  /// every Ticket 07 invariant is numerically unchanged.
-  ///
-  /// Unlike dark, pearl cannot be lifted to a comfortable value, and it is
-  /// worth being exact about why rather than filing the shortfall as a weaker
-  /// choice. The first stop is now **#FBF9FF, and its blue channel landed on
-  /// 0xFF exactly** (0xFB + 4). That is what makes +4 the ceiling and not a
-  /// taste call: one more step would clip that channel alone, and a *clipped*
-  /// offset is no longer a uniform one — the moment blue stops moving with
-  /// red and green, the pairwise channel differences change and this token
-  /// loses the very hue-and-spread preservation the whole method rests on.
-  /// The lift stops where the arithmetic stops being lossless. The seam reads
-  /// **1.060:1 minimum (ΔL\* 2.3)** along the edge, 1.065:1 at the corner:
-  /// 2.5 × the old step, and the most this plane can give while the frame
-  /// stays where it is. Even a literally white plane would only reach 1.113:1,
-  /// because the frame at the seam sits at Y ≈ 0.894 — the ceiling is the
-  /// *frame's* brightness, and the frame's own deepest stop is pinned 0.007
-  /// above the luminance at which [textMuted] loses AA on it. **Going past
-  /// ≈1.06:1 on pearl is a decision about [frameGradient], not a tuning pass
-  /// on this token**, and it is deliberately left open rather than taken here.
-  ///
-  /// Two things that do *not* work, tried and measured, so they are not
-  /// re-tried: buying luminance by narrowing the plane's channel spread (at
-  /// 4–6 bytes one LSB is worth ~10–15° of hue, so the seam's 3° hue tolerance
-  /// blows out to 9°, 20°, 41°, and then to a fully achromatic stop), and
-  /// reading the chroma direction in HSL saturation (see the seam group in
-  /// `wcag_contrast_test.dart`: as these stops approach white the divisor
-  /// `1 − |2L − 1|` collapses and HSL saturation *rises* to 100 % on a stop
-  /// carrying six bytes of color, while the frame beneath it carries eleven).
-  static const LinearGradient warmSurfaceGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFFBF9FF), Color(0xFFF7F6FA), Color(0xFFF8F5F9)],
-    stops: [0.0, 0.5, 1.0],
-  );
-
-  /// The light twin of [WpColorsDark.frameGradient] — same diagonal, same
-  /// top-left light source, four stops on the same arc (measured 258° / 268° /
-  /// 288° / 247°), at a fraction of its amplitude.
-  ///
-  /// **Left on the Ticket-04 violet arc on purpose.** ADR 0012 returned the
-  /// *dark* ambient to the brand's blue/navy and is explicitly scoped to dark
-  /// only, because the light theme is being removed wholesale by a parallel
-  /// ticket. These stops therefore no longer twin their dark counterparts in
-  /// hue, only in shape — a temporary, documented break of *The Theme-Pair
-  /// Rule* that resolves when the theme goes.
-  ///
-  /// Same correction, too: the old stops sat at 212–215°, pearl-*blue*, left
-  /// behind by the violet turn and 45° off the pearl everything else stands
-  /// on.
-  ///
-  /// **Chroma is bought sideways here, not downward** (2026-08-11). Saturation
-  /// went 41 / 33 / 26 % → **63 / 57 / 59 / 56 %** without spending the
-  /// luminance budget, because on pearl chroma can be taken by pushing red and
-  /// blue apart while green — 71.5 % of relative luminance — barely moves. The
-  /// budget is real and it is [textMuted]'s: it needs a ground at relative
-  /// luminance ≥ 0.798 to hold 4.5:1, and the frame is exactly where the
-  /// status bar and the nav rail's resting icons put it. The deepest stop
-  /// lands at 0.805 (4.54:1). The dark twin has no such cap and takes its
-  /// chroma straight.
-  ///
-  /// **Amplitude.** 1.11:1 end to end against the content plane's 1.04:1, so
-  /// the frame is still the livelier of the two ambients — that is *The
-  /// Increment–Decrement Rule*'s sanctioned asymmetry arguing for itself at the
-  /// token, exactly as [background] does.
-  ///
-  /// Mean relative luminance 0.847 against the content plane's 0.900: on
-  /// pearl, raised means brighter, so the plane again sits above its room.
-  ///
-  /// ~~**The fourth stop is the cool shadow**, clearing this theme's
-  /// [recordingAccent] (196°) by 50.8° at 56 % saturation.~~ *Retracted
-  /// 2026-08-11 with ADR 0012* — see [WpColorsDark.frameGradient] for why the
-  /// carve-out dissolved. The stop and its value stay exactly where they are;
-  /// it is now simply the arc's deepest continuation, and it reads more plainly
-  /// here than on dark, where the same corner sits near black.
-  static const LinearGradient frameGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [
-      Color(0xFFF5F2FC),
-      Color(0xFFF3EDFA),
-      Color(0xFFF4E4F8),
-      Color(0xFFE8E6F8),
-    ],
-    stops: [0.0, 0.42, 0.74, 1.0],
-  );
-
-  /// The interactive gradient — violet to magenta, the light twin of
-  /// [WpColorsDark.accentWarmGradient]: same 258° → 271° → 285° arc, each stop
-  /// solved back toward the relative luminance its teal predecessor carried
-  /// (old 0.1157 / 0.1460 / 0.0945 → new 0.1156 / 0.1429 / 0.0968 — the first
-  /// stop is parity, the other two land within ~2 %, which is where the hue
-  /// arc and 8-bit quantisation leave them). Buttons and indicator bars
-  /// therefore keep their weight on pearl.
-  static const LinearGradient accentWarmGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF6B35E9), Color(0xFF8F3CDD), Color(0xFF882AA7)],
-  );
-
-  /// Nav-rail icon chip, resting — see [WpColorsDark.navChipGradient].
-  ///
-  /// **Pearl has a ceiling the dark theme does not.** The frame under the rail
-  /// already sits at relative luminance ≈0.90, so a tile can be at most
-  /// ≈1.06:1 brighter than it no matter what it is filled with; at 80 % → 70 %
-  /// of a violet-white this one reaches ≈1.03:1. The tile's objecthood is
-  /// therefore carried by the other two channels the *Depth-Source Rule*
-  /// gives the light theme: the offset shadow (`WpShadows.subtleLight`, which
-  /// the dark theme deliberately does without) and a [borderDefault] hairline
-  /// rather than the [borderSubtle] one dark can afford — the same argument
-  /// the rail's own group divider already makes, that a subtle hairline on a
-  /// 38 px shape reads as a rendering artifact.
-  static const LinearGradient navChipGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xF2FFFCFF), Color(0xCCFAF7FF), Color(0xB3F7F3FE)],
-    stops: [0.0, 0.1, 1.0],
-  );
-
-  /// Nav-rail icon chip, hovered — see [WpColorsDark.navChipGradientHover].
-  ///
-  /// Light hovers the tile *downward* into violet (90 % → 80 % of a pearl
-  /// violet) where dark hovers it upward into light. That is not a stylistic
-  /// mirror but the pearl ceiling again: there is ≈0.03 of luminance left
-  /// above the resting tile and 1.07:1 available below it, so the perceptible
-  /// step is the one that exists. *The Increment–Decrement Rule*, taken to its
-  /// literal end.
-  static const LinearGradient navChipGradientHover = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFAFFFCFF), Color(0xE6F3ECFE), Color(0xCCEFE7FD)],
-    stops: [0.0, 0.1, 1.0],
-  );
-
-  /// Nav-rail active chip — see [WpColorsDark.navPillActiveGradient].
-  ///
-  /// Light keeps its own, lower alpha pair (20 % → 12 %, mean 16 %) rather than
-  /// reusing the dark stops (36 → 25): the deep accent on a near-white pearl
-  /// surface reads heavier per unit alpha than the light violet on violet-navy
-  /// does. Both were re-solved together when the resting tile became their
-  /// shared ground; the light pair lands 1.31:1 over it.
-  static const LinearGradient navPillActiveGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xCCFDFAFF), Color(0x336B35E9), Color(0x1F6B35E9)],
-    stops: [0.0, 0.1, 1.0],
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Reusable glass decoration builder
 // ---------------------------------------------------------------------------
 
@@ -1212,9 +823,7 @@ enum WpCategorySlot {
 
   /// Resolves this slot against the active theme. The only sanctioned way from
   /// a slot to a paintable color.
-  Color color(bool isDark) => (isDark
-      ? WpCategoryColorsDark.slots
-      : WpCategoryColorsLight.slots)[index];
+  Color color(bool isDark) => (WpCategoryColorsDark.slots)[index];
 
   /// *The Tint Ladder Rule*'s 12 % fill rung, in this slot's hue.
   ///
@@ -1239,11 +848,11 @@ enum WpCategorySlot {
   /// cap is executable rather than advisory.
   ///
   /// **Step 0 is the slot itself, and the ramp climbs *away* from the ground.**
-  /// On dark it lightens, on light it darkens — which means every rung clears
-  /// the surfaces by at least as much as the base slot does, and the 3:1 floor
-  /// for a graphical object is inherited rather than re-argued per rung. A ramp
-  /// laid symmetrically around the slot would sink its low end under that floor
-  /// on light.
+  /// It lightens, blending toward white — which means every rung clears the
+  /// surfaces by at least as much as the base slot does, and the 3:1 floor for
+  /// a graphical object is inherited rather than re-argued per rung. A ramp
+  /// laid symmetrically around the slot would sink its low end under that
+  /// floor.
   ///
   /// **The axis is luminance, not HSL lightness**, because the palette itself is
   /// built on equal relative luminance (see [WpCategoryColorsDark]). Each rung
@@ -1253,12 +862,19 @@ enum WpCategorySlot {
   /// already sit low. Solving in linear light also makes the step a closed form
   /// instead of a search.
   ///
-  /// The two themes mirror rather than share, as everywhere else in this file:
-  /// lightening on dark blends toward white and therefore desaturates a little,
-  /// while darkening on light is a pure luminance scale that leaves the
-  /// chromaticity — and so the hue's identity — untouched.
+  /// > **Retracted 2026-08-11 (dark-only build): the mirrored light branch.**
+  /// > This ramp used to derive two ways — lightening on dark by blending
+  /// > toward white, darkening on light by a pure luminance scale that left
+  /// > the chromaticity untouched. Only the blend survives. The light branch
+  /// > was not merely unreachable once [color] stopped answering per theme: it
+  /// > was actively *wrong*, because it would have scaled an already-dark base
+  /// > further down instead of climbing away from the ground the ramp is
+  /// > solved against.
   ///
-  /// Verified per slot, per theme and per step count in
+  /// [isDark] is retained on the signature for the callers that still thread
+  /// it; it no longer selects anything here.
+  ///
+  /// Verified per slot and per step count in
   /// `test/core/theme/wcag_contrast_test.dart`: neighbouring rungs stay ≥ 1.2:1
   /// apart and every rung clears every surface by ≥ 3:1.
   List<Color> ramp(int steps, bool isDark) {
@@ -1276,37 +892,22 @@ enum WpCategorySlot {
     final rungs = <Color>[base];
     var offsetLuminance = baseLuminance + 0.05;
     for (var i = 1; i < steps; i++) {
-      offsetLuminance = isDark
-          ? offsetLuminance * _rampStepContrast
-          : offsetLuminance / _rampStepContrast;
+      offsetLuminance = offsetLuminance * _rampStepContrast;
       final target = offsetLuminance - 0.05;
-      if (isDark) {
-        // Blend toward white in linear light: Y rises linearly with the blend
-        // factor, so the factor that hits `target` is a division, not a search.
-        final t = ((target - baseLuminance) / (1 - baseLuminance)).clamp(
-          0.0,
-          1.0,
-        );
-        rungs.add(
-          Color.from(
-            alpha: 1,
-            red: _linearToSrgb(r + t * (1 - r)),
-            green: _linearToSrgb(g + t * (1 - g)),
-            blue: _linearToSrgb(b + t * (1 - b)),
-          ),
-        );
-      } else {
-        // Scaling every linear channel by the same factor scales Y by it too.
-        final k = (target / baseLuminance).clamp(0.0, 1.0);
-        rungs.add(
-          Color.from(
-            alpha: 1,
-            red: _linearToSrgb(r * k),
-            green: _linearToSrgb(g * k),
-            blue: _linearToSrgb(b * k),
-          ),
-        );
-      }
+      // Blend toward white in linear light: Y rises linearly with the blend
+      // factor, so the factor that hits `target` is a division, not a search.
+      final t = ((target - baseLuminance) / (1 - baseLuminance)).clamp(
+        0.0,
+        1.0,
+      );
+      rungs.add(
+        Color.from(
+          alpha: 1,
+          red: _linearToSrgb(r + t * (1 - r)),
+          green: _linearToSrgb(g + t * (1 - g)),
+          blue: _linearToSrgb(b + t * (1 - b)),
+        ),
+      );
     }
     return rungs;
   }
@@ -1315,9 +916,10 @@ enum WpCategorySlot {
 /// Contrast ratio between two neighbouring rungs of [WpCategorySlot.ramp].
 ///
 /// Chosen as the largest step a five-rung ramp can afford without its far end
-/// running out of room: from the palette's Y ≈ 0.30 (dark) / 0.19 (light) base,
-/// four steps of 1.22 land at Y ≈ 0.72 and Y ≈ 0.05 — pale and deep, but still
-/// hue-bearing rather than white or black.
+/// running out of room: from the palette's Y ≈ 0.30 base, four steps of 1.22
+/// land at Y ≈ 0.72 — pale, but still hue-bearing rather than white. (The
+/// second figure this note used to carry, Y ≈ 0.05 from the light base, went
+/// with the light stack on 2026-08-11.)
 const double _rampStepContrast = 1.22;
 
 /// The sRGB transfer function and its inverse — the same one
@@ -1365,37 +967,6 @@ abstract final class WpCategoryColorsDark {
   /// chroma dropped to ≈20 % so it reads as *absence of a category* rather than
   /// as a ninth one. Never returned by a hash.
   static const Color neutral = Color(0xFF8A95B1);
-
-  /// Indexed by [WpCategorySlot.index] — same order as the enum, neutral last.
-  static const List<Color> slots = [
-    iris,
-    ember,
-    fern,
-    orchid,
-    brass,
-    azure,
-    plum,
-    moss,
-    neutral,
-  ];
-}
-
-/// Light-theme category slots — the pearl-ground twins of
-/// [WpCategoryColorsDark], same hues and saturation (≈58 %), lightness
-/// re-solved against the light stack so all nine sit at Y ≈ 0.19: ≈4.0:1
-/// against `surface`, over the 3:1 floor and under the light accent's 5.8:1.
-abstract final class WpCategoryColorsLight {
-  static const Color iris = Color(0xFF8C62D5); // 262° violet
-  static const Color ember = Color(0xFFB76231); // 22° terracotta
-  static const Color fern = Color(0xFF258A3E); // 135° leaf green
-  static const Color orchid = Color(0xFFC23CCB); // 296° purple-magenta
-  static const Color brass = Color(0xFF7A7D21); // 62° olive-gold
-  static const Color azure = Color(0xFF5A72D3); // 228° blue
-  static const Color plum = Color(0xFFCE4585); // 332° rose-plum
-  static const Color moss = Color(0xFF488824); // 98° yellow-green
-
-  /// See [WpCategoryColorsDark.neutral].
-  static const Color neutral = Color(0xFF68789F);
 
   /// Indexed by [WpCategorySlot.index] — same order as the enum, neutral last.
   static const List<Color> slots = [
@@ -1607,33 +1178,21 @@ final class WpAvatarTint {
     glossAlpha: 0.20,
   );
 
-  /// Light theme: denser fill (not thinner), hue pushed toward ink, glyph
-  /// darker still — every sign mirrored against [dark].
-  ///
-  /// The crown is the one value that is **not** mirrored, and that is the
-  /// point rather than an oversight: "lit" means lit in both themes. Pearl's
-  /// disc is ink *under* its ground, so a crown mirrored into a shadow would
-  /// light the disc from below — the exact failure the nav chip's own gloss
-  /// gate names. Light pays for it with a paler source (0.97 vs. 0.90) and
-  /// slightly more of it (24 % vs. 20 %), because the crown has to climb from
-  /// an inked fill toward pearl rather than from a thin tint toward navy.
-  static const WpAvatarTint light = WpAvatarTint._(
-    fillTopAlpha: 0.36,
-    fillBottomAlpha: 0.26,
-    edgeAlpha: 0.44,
-    glyphAlpha: 0.95,
-    fillLightnessShift: -0.20,
-    fillLightnessMin: 0.22,
-    fillLightnessMax: 0.56,
-    topStopLightnessDelta: -0.12,
-    glyphLightnessShift: -0.36,
-    glyphLightnessMin: 0.14,
-    glyphLightnessMax: 0.34,
-    glossLightness: 0.97,
-    glossAlpha: 0.24,
-  );
+  // -- The light tint: removed 2026-08-11 (dark-only) ------------------------
+  //
+  // `light` was [dark] with every sign mirrored — denser fill (0.36 / 0.26 vs.
+  // 0.28 / 0.20), hue pushed toward ink rather than away from it, glyph darker
+  // still. One value was deliberately *not* mirrored, and that exception is
+  // the part worth recording: the crown. "Lit" means lit in both themes, so a
+  // crown mirrored into a shadow would have lit the disc from below — the
+  // exact failure the nav chip's gloss gate names. Light paid for it with a
+  // paler source (0.97 vs. 0.90) and slightly more of it (24 % vs. 20 %).
+  //
+  // The surviving rule is the one that outlived the mirror: the crown is lit
+  // from above, whatever the ground.
 
-  static WpAvatarTint of(bool isDark) => isDark ? dark : light;
+  /// The disc tint. One theme, one tint — [dark] is the only answer.
+  static WpAvatarTint of(bool isDark) => dark;
 
   /// Lit (top-left) gradient stop for [base], alpha included.
   Color fillTop(Color base) => _shift(
@@ -1762,39 +1321,12 @@ abstract final class WpDecorativeColorsDark {
   /// The one decorative fill: [source] at 5 %, flat, over a whole surface.
   ///
   /// Below the tint ladder, where *The Decorative Glyph Rule* already puts the
-  /// large-area washes, and per theme like everything down there (*The
-  /// Increment–Decrement Rule*) — but the light value is **measured, not
-  /// inherited**; see [WpDecorativeColorsLight.chromeWash].
+  /// large-area washes. It used to be split per theme (*The Increment–Decrement
+  /// Rule*), with the light value **measured, not inherited** — a legibility
+  /// budget rather than an optical one set that one, because the wash lies
+  /// under the page ground. Only the dark value survives, and it is the
+  /// optically-set one.
   static const Color chromeWash = Color(0x0DDA8BC8); // source @ 5%
-}
-
-/// Light-theme decorative source — the pearl-ground twin of
-/// [WpDecorativeColorsDark], same 314° hue at ≈58 % saturation with its
-/// lightness re-solved toward ink so the wash lands *darker* than its ground.
-abstract final class WpDecorativeColorsLight {
-  static const Color source = Color(0xFFA12B86);
-
-  /// [source] at 2 % — a third of the dark twin's presence, and the one value
-  /// in this file that a *legibility* budget sets rather than an optical one.
-  ///
-  /// The chrome wash lies under the page ground, which is where a settings row
-  /// puts its `textMuted` subtitle. The pairing starts at 4.98:1 on the
-  /// content plane — 0.48 over AA — and every point the wash darkens the
-  /// ground comes straight out of that margin; 2 % holds 4.83:1. On dark the
-  /// same text has room to spare and is optically tuned as usual.
-  ///
-  /// **The margin used to be 0.19, not 0.48** (4.69:1 on the pearl *frame*,
-  /// where 3 % already cost AA and settled this number). Ticket 06 moved the
-  /// wash's only remaining ground from the frame to the content plane by
-  /// dropping the nav rail's use of it, which is why the numbers above are
-  /// larger than the argument that first chose 2 %. The value is left where it
-  /// stands rather than re-opened: that ticket narrows *where* the decoration
-  /// applies, not how loud it is, and 2 % is the value the layer was ratified
-  /// at.
-  ///
-  /// The per-theme direction is still *The Increment–Decrement Rule*'s — light
-  /// under dark — the size of the step is simply not free here.
-  static const Color chromeWash = Color(0x05A12B86); // source @ 2%
 }
 
 /// The only sanctioned way to a decorative color.
@@ -1805,9 +1337,7 @@ abstract final class WpDecorativeColorsLight {
 /// cannot grow into a category scale. That is the mirror image of
 /// [categorySlotForModel] and friends, whose *parameter* is the evidence that
 /// a category color means something.
-Color wpDecorativeChromeWash(bool isDark) => isDark
-    ? WpDecorativeColorsDark.chromeWash
-    : WpDecorativeColorsLight.chromeWash;
+Color wpDecorativeChromeWash(bool isDark) => WpDecorativeColorsDark.chromeWash;
 
 /// The translucent scrim behind a [BackdropFilter]-blurred dialog barrier.
 ///
@@ -1815,6 +1345,5 @@ Color wpDecorativeChromeWash(bool isDark) => isDark
 /// already carries the surface tint, this only needs to darken/lighten what
 /// shows through it. Was duplicated verbatim across five dialog widgets.
 Color wpDialogBarrierColor(bool isDark) {
-  return (isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF))
-      .withValues(alpha: isDark ? 0.45 : 0.35);
+  return (const Color(0xFF000000)).withValues(alpha: 0.45);
 }

@@ -417,25 +417,22 @@ void main() {
   });
 
   group('FTS search', () {
-    test(
-      'searchEntries still finds entries created through insertHistoryEntry '
-      '— the color_slot column is not indexed and does not disturb the '
-      'title/content/tags triggers',
-      () async {
-        await db.insertHistoryEntry(
-          HistoryEntriesCompanion.insert(
-            id: 'fts-color-slot',
-            timestamp: DateTime(2025, 1, 15),
-            title: const Value('Roadmap sync'),
-            content: const Value('Discussed the color slot rollout'),
-          ),
-        );
+    test('searchEntries still finds entries created through insertHistoryEntry '
+        '— the color_slot column is not indexed and does not disturb the '
+        'title/content/tags triggers', () async {
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-color-slot',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Roadmap sync'),
+          content: const Value('Discussed the color slot rollout'),
+        ),
+      );
 
-        final results = await db.searchEntries('roadmap');
-        expect(results, hasLength(1));
-        expect(results.first.id, 'fts-color-slot');
-      },
-    );
+      final results = await db.searchEntries('roadmap');
+      expect(results, hasLength(1));
+      expect(results.first.id, 'fts-color-slot');
+    });
 
     test('searchEntries finds entries by title', () async {
       await db.upsertEntry(

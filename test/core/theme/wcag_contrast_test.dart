@@ -416,71 +416,71 @@ final _lightPairs = [
   // Text on surface
   const _ColorPair(
     'light: textPrimary on surface',
-    WpColorsLight.textPrimary,
-    WpColorsLight.surface,
+    WpColorsDark.textPrimary,
+    WpColorsDark.surface,
   ),
   const _ColorPair(
     'light: textSecondary on surface',
-    WpColorsLight.textSecondary,
-    WpColorsLight.surface,
+    WpColorsDark.textSecondary,
+    WpColorsDark.surface,
   ),
   const _ColorPair(
     'light: textMuted on surface',
-    WpColorsLight.textMuted,
-    WpColorsLight.surface,
+    WpColorsDark.textMuted,
+    WpColorsDark.surface,
   ),
 
   // Text on elevated surface
   const _ColorPair(
     'light: textPrimary on surfaceElevated',
-    WpColorsLight.textPrimary,
-    WpColorsLight.surfaceElevated,
+    WpColorsDark.textPrimary,
+    WpColorsDark.surfaceElevated,
   ),
   const _ColorPair(
     'light: textSecondary on surfaceElevated',
-    WpColorsLight.textSecondary,
-    WpColorsLight.surfaceElevated,
+    WpColorsDark.textSecondary,
+    WpColorsDark.surfaceElevated,
   ),
   const _ColorPair(
     'light: textMuted on surfaceElevated',
-    WpColorsLight.textMuted,
-    WpColorsLight.surfaceElevated,
+    WpColorsDark.textMuted,
+    WpColorsDark.surfaceElevated,
   ),
 
   // Text on hover
   const _ColorPair(
     'light: textPrimary on hover',
-    WpColorsLight.textPrimary,
-    WpColorsLight.hover,
+    WpColorsDark.textPrimary,
+    WpColorsDark.hover,
   ),
   const _ColorPair(
     'light: textSecondary on hover',
-    WpColorsLight.textSecondary,
-    WpColorsLight.hover,
+    WpColorsDark.textSecondary,
+    WpColorsDark.hover,
   ),
   const _ColorPair(
     'light: textMuted on hover',
-    WpColorsLight.textMuted,
-    WpColorsLight.hover,
+    WpColorsDark.textMuted,
+    WpColorsDark.hover,
   ),
 
   // Text on background (frame)
   const _ColorPair(
     'light: textPrimary on background',
-    WpColorsLight.textPrimary,
-    WpColorsLight.background,
+    WpColorsDark.textPrimary,
+    WpColorsDark.background,
   ),
   const _ColorPair(
     'light: textSecondary on background',
-    WpColorsLight.textSecondary,
-    WpColorsLight.background,
+    WpColorsDark.textSecondary,
+    WpColorsDark.background,
   ),
 
   // Accent as text (large text)
   const _ColorPair(
     'light: accent on surface (large)',
-    WpColorsLight.accent,
-    WpColorsLight.surface,
+    WpColorsDark.accent,
+    WpColorsDark.surface,
     isLargeText: true,
   ),
 
@@ -489,28 +489,28 @@ final _lightPairs = [
   // on-background pair here, so its twin does not invent one.
   const _ColorPair(
     'light: recordingAccent on surface (large)',
-    WpColorsLight.recordingAccent,
-    WpColorsLight.surface,
+    WpColorsDark.recordingAccent,
+    WpColorsDark.surface,
     isLargeText: true,
   ),
 
   // Status colors on surface (large text)
   const _ColorPair(
     'light: success on surface (large)',
-    WpColorsLight.success,
-    WpColorsLight.surface,
+    WpColorsDark.success,
+    WpColorsDark.surface,
     isLargeText: true,
   ),
   const _ColorPair(
     'light: warning on surface (large)',
-    WpColorsLight.warning,
-    WpColorsLight.surface,
+    WpColorsDark.warning,
+    WpColorsDark.surface,
     isLargeText: true,
   ),
   const _ColorPair(
     'light: error on surface (large)',
-    WpColorsLight.error,
-    WpColorsLight.surface,
+    WpColorsDark.error,
+    WpColorsDark.surface,
     isLargeText: true,
   ),
 ];
@@ -651,15 +651,15 @@ void main() {
 
   group('Color saturation – light theme (accent/status ≥ 40%)', () {
     final lightAccentChecks = [
-      const _SaturationCheck('light: accent', WpColorsLight.accent, 0.40),
+      const _SaturationCheck('light: accent', WpColorsDark.accent, 0.40),
       const _SaturationCheck(
         'light: recordingAccent',
-        WpColorsLight.recordingAccent,
+        WpColorsDark.recordingAccent,
         0.40,
       ),
-      const _SaturationCheck('light: success', WpColorsLight.success, 0.40),
-      const _SaturationCheck('light: warning', WpColorsLight.warning, 0.40),
-      const _SaturationCheck('light: error', WpColorsLight.error, 0.40),
+      const _SaturationCheck('light: success', WpColorsDark.success, 0.40),
+      const _SaturationCheck('light: warning', WpColorsDark.warning, 0.40),
+      const _SaturationCheck('light: error', WpColorsDark.error, 0.40),
     ];
     for (final check in lightAccentChecks) {
       test(check.name, () {
@@ -680,21 +680,21 @@ void main() {
     final lightSurfaceChecks = [
       const _SaturationCheck(
         'light: background',
-        WpColorsLight.background,
+        WpColorsDark.background,
         0.15,
       ),
-      const _SaturationCheck('light: surface', WpColorsLight.surface, 0.15),
+      const _SaturationCheck('light: surface', WpColorsDark.surface, 0.15),
       const _SaturationCheck(
         'light: surfaceElevated',
-        WpColorsLight.surfaceElevated,
+        WpColorsDark.surfaceElevated,
         0.15,
       ),
       const _SaturationCheck(
         'light: surfaceVariant',
-        WpColorsLight.surfaceVariant,
+        WpColorsDark.surfaceVariant,
         0.15,
       ),
-      const _SaturationCheck('light: hover', WpColorsLight.hover, 0.15),
+      const _SaturationCheck('light: hover', WpColorsDark.hover, 0.15),
     ];
     for (final check in lightSurfaceChecks) {
       test(check.name, () {
@@ -727,8 +727,8 @@ void main() {
     });
 
     test('light: background vs surface lightness delta', () {
-      final bgL = hslLightness(WpColorsLight.background);
-      final sfL = hslLightness(WpColorsLight.surface);
+      final bgL = hslLightness(WpColorsDark.background);
+      final sfL = hslLightness(WpColorsDark.surface);
       final delta = (bgL - sfL).abs();
       expect(
         delta,
@@ -818,10 +818,10 @@ void main() {
     (
       'light',
       false,
-      WpColorsLight.warmSurfaceGradient,
-      WpColorsLight.surface,
-      WpColorsLight.surfaceElevated,
-      WpColorsLight.hover,
+      WpColorsDark.warmSurfaceGradient,
+      WpColorsDark.surface,
+      WpColorsDark.surfaceElevated,
+      WpColorsDark.hover,
     ),
   ]) {
     final tint = WpAvatarTint.of(isDark);
@@ -970,11 +970,16 @@ void main() {
   // (`orchid`), instead of painting every verdict the same accent blue. The
   // line renders at `WpTypography.micro` (10 px) — far below WCAG's large-text
   // threshold (18 pt / 14 pt bold), so it is normal text under 1.4.3 and owes
-  // the full 4.5:1. That floor does two things here. It rules a traffic light
-  // out outright — `WpColorsLight.warning` reaches only 3.11:1 and
-  // `WpColorsLight.success` 3.74:1 on these grounds — and it is why the line
-  // starts at the ramp's third rung: the two beneath are solved for a graphical
-  // object's 3:1 and land at 3.60:1 and 4.40:1 on the tightest ground below.
+  // the full 4.5:1. That floor is why the line starts at the ramp's third rung:
+  // the two beneath are solved for a graphical object's 3:1 and land at 3.60:1
+  // and 4.40:1 on the tightest ground below.
+  //
+  // Retracted 2026-08-11 (dark-only build): this note also rested the
+  // traffic-light refusal on measurement — `WpColorsLight.warning` reaching
+  // only 3.11:1 and `WpColorsLight.success` 3.74:1 on these grounds. Both were
+  // light-stack figures and are not re-derived against dark here; the refusal
+  // now rests on *The Categorical vs. Sequential Rule* alone, as
+  // `lib/widgets/tier_performance_presentation.dart` records at more length.
   //
   // GROUNDS — modeling choice, stated so a reviewer can disagree with it:
   // the row sits on the settings content panel, which is painted with
@@ -998,6 +1003,9 @@ void main() {
         hover,
       )
       in [
+        // The `light` row of this table went with the light stack (2026-08-11).
+        // It gated the same tokens against the same floor with `isDark: false`,
+        // which no longer describes anything the app can render.
         (
           'dark',
           true,
@@ -1005,14 +1013,6 @@ void main() {
           WpColorsDark.surfaceElevated,
           WpColorsDark.accentButtonFill,
           WpColorsDark.hover,
-        ),
-        (
-          'light',
-          false,
-          WpColorsLight.surface,
-          WpColorsLight.surfaceElevated,
-          WpColorsLight.accentButtonFill,
-          WpColorsLight.hover,
         ),
       ]) {
     group('Tier-performance info line – $themeName theme (≥ 4.5:1)', () {
@@ -1074,14 +1074,14 @@ void main() {
               relativeLuminance(of(measured[i])) -
               relativeLuminance(of(measured[i - 1]));
           expect(
-            isDark ? delta : -delta,
+            delta,
             greaterThan(0),
             reason:
                 '$themeName: ${measured[i].name} does not sit further from the '
                 'ground than ${measured[i - 1].name}. The line reports how much '
                 'time a tier costs, so its weight has to rise with that cost — '
                 'and it has to rise in the direction the theme leaves room in, '
-                'lighter on dark, darker on light',
+                'lighter on a dark ground',
           );
         }
       });
@@ -1167,7 +1167,7 @@ void main() {
   group('Category slot palette – structure', () {
     test('both themes carry a color for every slot, neutral last', () {
       expect(WpCategoryColorsDark.slots.length, WpCategorySlot.values.length);
-      expect(WpCategoryColorsLight.slots.length, WpCategorySlot.values.length);
+      expect(WpCategoryColorsDark.slots.length, WpCategorySlot.values.length);
       expect(
         WpCategorySlot.values.last,
         WpCategorySlot.neutral,
@@ -1179,8 +1179,8 @@ void main() {
         reason: 'dark slot list is out of sync with the enum order',
       );
       expect(
-        WpCategoryColorsLight.slots.last,
-        WpCategoryColorsLight.neutral,
+        WpCategoryColorsDark.slots.last,
+        WpCategoryColorsDark.neutral,
         reason: 'light slot list is out of sync with the enum order',
       );
     });
@@ -1230,15 +1230,15 @@ void main() {
         WpCategorySlot.neutral: WpCategoryColorsDark.neutral,
       };
       const light = <WpCategorySlot, Color>{
-        WpCategorySlot.iris: WpCategoryColorsLight.iris,
-        WpCategorySlot.ember: WpCategoryColorsLight.ember,
-        WpCategorySlot.fern: WpCategoryColorsLight.fern,
-        WpCategorySlot.orchid: WpCategoryColorsLight.orchid,
-        WpCategorySlot.brass: WpCategoryColorsLight.brass,
-        WpCategorySlot.azure: WpCategoryColorsLight.azure,
-        WpCategorySlot.plum: WpCategoryColorsLight.plum,
-        WpCategorySlot.moss: WpCategoryColorsLight.moss,
-        WpCategorySlot.neutral: WpCategoryColorsLight.neutral,
+        WpCategorySlot.iris: WpCategoryColorsDark.iris,
+        WpCategorySlot.ember: WpCategoryColorsDark.ember,
+        WpCategorySlot.fern: WpCategoryColorsDark.fern,
+        WpCategorySlot.orchid: WpCategoryColorsDark.orchid,
+        WpCategorySlot.brass: WpCategoryColorsDark.brass,
+        WpCategorySlot.azure: WpCategoryColorsDark.azure,
+        WpCategorySlot.plum: WpCategoryColorsDark.plum,
+        WpCategorySlot.moss: WpCategoryColorsDark.moss,
+        WpCategorySlot.neutral: WpCategoryColorsDark.neutral,
       };
       for (final (themeName, isDark, expected) in [
         ('dark', true, dark),
@@ -1314,11 +1314,11 @@ void main() {
     (
       'light',
       false,
-      WpColorsLight.accent,
+      WpColorsDark.accent,
       <String, Color>{
-        'surface': WpColorsLight.surface,
-        'surfaceElevated': WpColorsLight.surfaceElevated,
-        'surfaceVariant': WpColorsLight.surfaceVariant,
+        'surface': WpColorsDark.surface,
+        'surfaceElevated': WpColorsDark.surfaceElevated,
+        'surfaceVariant': WpColorsDark.surfaceVariant,
       },
     ),
   ]) {
@@ -1488,16 +1488,9 @@ void main() {
           'background': WpColorsDark.background,
         },
       ),
-      (
-        'light',
-        false,
-        <String, Color>{
-          'surface': WpColorsLight.surface,
-          'surfaceElevated': WpColorsLight.surfaceElevated,
-          'surfaceVariant': WpColorsLight.surfaceVariant,
-          'background': WpColorsLight.background,
-        },
-      ),
+      // The `light` row went with the light stack (2026-08-11). It gated the
+      // same nine slots against the same grounds with `isDark: false`, which
+      // `WpCategorySlot.ramp` no longer answers differently.
     ]) {
       for (final slot in WpCategorySlot.values) {
         test('$themeName: ${slot.name} — rungs are separable and legible', () {
@@ -1525,12 +1518,11 @@ void main() {
 
               // Away from the ground, never back toward it: this is what lets
               // every rung inherit the base slot's clearance instead of
-              // re-arguing it, and what stops the low end sinking under 3:1 on
-              // the light theme.
+              // re-arguing it, and what stops the low end sinking under 3:1.
               final delta =
                   relativeLuminance(rungs[i]) - relativeLuminance(rungs[i - 1]);
               expect(
-                isDark ? delta : -delta,
+                delta,
                 greaterThan(0),
                 reason:
                     '$themeName ${slot.name}: rung $i moves back toward the '
@@ -1661,8 +1653,8 @@ void main() {
         ),
         (
           'light',
-          WpDecorativeColorsLight.source,
-          WpDecorativeColorsLight.chromeWash,
+          WpDecorativeColorsDark.source,
+          WpDecorativeColorsDark.chromeWash,
         ),
       ]) {
         expect(
@@ -1681,21 +1673,22 @@ void main() {
       }
     });
 
-    test('the resolver takes no identity, only the theme', () {
+    // Retracted 2026-08-11 (dark-only build): this test's third assertion
+    // required `wpDecorativeChromeWash(true) != wpDecorativeChromeWash(false)`
+    // — "the decorative layer is a theme pair like everything else". There is
+    // no pair left to assert, so what remains is that the resolver still takes
+    // only a theme flag and answers with the wash token rather than a
+    // per-identity colour.
+    test('the resolver takes no identity, only the wash', () {
       expect(
         wpDecorativeChromeWash(true),
         WpDecorativeColorsDark.chromeWash,
-        reason: 'dark resolves to the dark wash',
+        reason: 'the resolver answers with the decorative wash token',
       );
       expect(
         wpDecorativeChromeWash(false),
-        WpDecorativeColorsLight.chromeWash,
-        reason: 'light resolves to the light wash',
-      );
-      expect(
-        wpDecorativeChromeWash(true),
-        isNot(wpDecorativeChromeWash(false)),
-        reason: 'the decorative layer is a theme pair like everything else',
+        WpDecorativeColorsDark.chromeWash,
+        reason: 'there is one wash now, so the flag cannot change the answer',
       );
     });
 
@@ -1738,7 +1731,7 @@ void main() {
         'source', () {
       for (final (themeName, source, accent) in [
         ('dark', WpDecorativeColorsDark.source, WpColorsDark.accent),
-        ('light', WpDecorativeColorsLight.source, WpColorsLight.accent),
+        ('light', WpDecorativeColorsDark.source, WpColorsDark.accent),
       ]) {
         final hue = HSLColor.fromColor(source).hue;
         expect(
@@ -1808,16 +1801,12 @@ void main() {
     (
       'light',
       false,
-      WpColorsLight.accent,
-      WpDecorativeColorsLight.chromeWash,
+      WpColorsDark.accent,
+      WpDecorativeColorsDark.chromeWash,
       <String, Color>{
-        'surface': WpColorsLight.surface,
-        for (
-          var i = 0;
-          i < WpColorsLight.warmSurfaceGradient.colors.length;
-          i++
-        )
-          'warmSurfaceGradient.$i': WpColorsLight.warmSurfaceGradient.colors[i],
+        'surface': WpColorsDark.surface,
+        for (var i = 0; i < WpColorsDark.warmSurfaceGradient.colors.length; i++)
+          'warmSurfaceGradient.$i': WpColorsDark.warmSurfaceGradient.colors[i],
       },
     ),
   ]) {
@@ -1871,15 +1860,9 @@ void main() {
 
       test('body text keeps AA over the washed ground', () {
         final texts = <String, Color>{
-          'textPrimary': isDark
-              ? WpColorsDark.textPrimary
-              : WpColorsLight.textPrimary,
-          'textSecondary': isDark
-              ? WpColorsDark.textSecondary
-              : WpColorsLight.textSecondary,
-          'textMuted': isDark
-              ? WpColorsDark.textMuted
-              : WpColorsLight.textMuted,
+          'textPrimary': WpColorsDark.textPrimary,
+          'textSecondary': WpColorsDark.textSecondary,
+          'textMuted': WpColorsDark.textMuted,
         };
         grounds.forEach((groundName, ground) {
           final washed = alphaComposite(wash, ground);
@@ -1904,7 +1887,7 @@ void main() {
   group('Decorative source saturation – ≤ 80%', () {
     for (final (themeName, source) in [
       ('dark', WpDecorativeColorsDark.source),
-      ('light', WpDecorativeColorsLight.source),
+      ('light', WpDecorativeColorsDark.source),
     ]) {
       test(themeName, () {
         final sat = hslSaturation(source);
@@ -1952,17 +1935,17 @@ void main() {
     ),
     (
       'light',
-      WpColorsLight.warmSurfaceGradient,
+      WpColorsDark.warmSurfaceGradient,
       <String, Color>{
-        'cardFill': WpColorsLight.cardFill,
-        'cardFillElevated': WpColorsLight.cardFillElevated,
+        'cardFill': WpColorsDark.cardFill,
+        'cardFillElevated': WpColorsDark.cardFillElevated,
       },
       <String, Color>{
-        'textPrimary': WpColorsLight.textPrimary,
-        'textSecondary': WpColorsLight.textSecondary,
-        'textMuted': WpColorsLight.textMuted,
+        'textPrimary': WpColorsDark.textPrimary,
+        'textSecondary': WpColorsDark.textSecondary,
+        'textMuted': WpColorsDark.textMuted,
       },
-      WpColorsLight.accent,
+      WpColorsDark.accent,
     ),
   ]) {
     final extremes = gradientExtremes(ambient);
@@ -2021,8 +2004,8 @@ void main() {
     final fills = <String, Color>{
       'dark: cardFill': WpColorsDark.cardFill,
       'dark: cardFillElevated': WpColorsDark.cardFillElevated,
-      'light: cardFill': WpColorsLight.cardFill,
-      'light: cardFillElevated': WpColorsLight.cardFillElevated,
+      'light: cardFill': WpColorsDark.cardFill,
+      'light: cardFillElevated': WpColorsDark.cardFillElevated,
     };
 
     fills.forEach((name, fill) {
@@ -2060,9 +2043,9 @@ void main() {
     ),
     (
       'light',
-      WpColorsLight.warmSurfaceGradient,
-      WpColorsLight.cardFillElevated,
-      WpColorsLight.cardEdgeHighlight,
+      WpColorsDark.warmSurfaceGradient,
+      WpColorsDark.cardFillElevated,
+      WpColorsDark.cardEdgeHighlight,
     ),
   ]) {
     group('Card edge highlight – $themeName theme', () {
@@ -2115,52 +2098,26 @@ void main() {
     });
   }
 
-  // One depth source per theme: dark gets its depth from the brightness delta
-  // between fills and owns *no* card shadow token; light gets exactly one soft,
-  // wide, violet-tinted shadow. The dark half of that is a deliberate absence,
-  // which a test cannot assert directly (a missing member is a compile error,
-  // not a failure) — what is assertable is that the one shadow that does exist
-  // is the light one, is tinted, and is wired to the light token.
-  group('Card shadow – light theme only, tinted, offset', () {
-    test('the shadow token is a tinted ink, not neutral black', () {
-      const shadow = WpColorsLight.cardShadowLight;
-      expect(
-        isAchromatic(shadow),
-        isFalse,
-        reason:
-            'the light card shadow is neutral black at alpha — a tinted '
-            'shadow is what keeps the light theme from going grey under its '
-            'own cards',
-      );
-      expect(
-        shadow.a,
-        lessThan(0.2),
-        reason:
-            'the light card shadow is heavier than 20 % — one soft wide '
-            'shadow, not a drop shadow',
-      );
-      expect(
-        relativeLuminance(shadow),
-        lessThan(relativeLuminance(WpColorsLight.background)),
-        reason: 'a shadow darker than its ground, or it is not a shadow',
-      );
-    });
-
-    test('WpShadows.cardTintedLight is that token', () {
-      expect(
-        WpShadows.cardTintedLight.single.color,
-        WpColorsLight.cardShadowLight,
-        reason:
-            'the shadow list and the color token drifted apart — the token is '
-            'the single source, the list is its wiring',
-      );
-      expect(
-        WpShadows.cardTintedLight.single.blurRadius,
-        greaterThanOrEqualTo(24.0),
-        reason: 'soft and wide — a tight blur would read as a drop shadow',
-      );
-    });
-  });
+  // Removed 2026-08-11 (dark-only build): `Card shadow – light theme only,
+  // tinted, offset`.
+  //
+  // The group gated the light theme's single card shadow — that
+  // `WpColorsLight.cardShadowLight` was a *tinted* ink rather than neutral
+  // black (a neutral black at alpha is what sent the light theme grey under
+  // its own cards), that it stayed under 20 % alpha, that it was darker than
+  // its ground, and that `WpShadows.cardTintedLight` was wired to that same
+  // token. Both tokens are deleted with the light stack, so every assertion
+  // here referenced a name that no longer exists.
+  //
+  // Nothing about the *dark* half moved: dark takes its depth from the
+  // brightness delta between fills and still owns no card shadow token at all.
+  // That was never assertable here anyway — a missing member is a compile
+  // error, not a test failure — and it is now the only case.
+  //
+  // The tinted-vs-neutral finding is preserved as prose in `tokens.dart`,
+  // where `cardTintedLight`'s deletion note keeps the glow/shadow distinction
+  // that outlived the token. The offset audit below is unaffected and still
+  // gates every surviving shadow.
 
   // One depth source per theme, the executable half: a *glow* is a colored
   // shadow at offset zero and stays forbidden; a *shadow* is offset + wide
@@ -2180,11 +2137,8 @@ void main() {
       'subtle': WpShadows.subtle,
       'subtleTransparent': WpShadows.subtleTransparent,
       'card': WpShadows.card,
-      'subtleLight': WpShadows.subtleLight,
-      'cardLight': WpShadows.cardLight,
       'elevated': WpShadows.elevated,
       'glassInner': WpShadows.glassInner,
-      'cardTintedLight': WpShadows.cardTintedLight,
     };
 
     test('the audit covers every shadow token in tokens.dart', () {
@@ -2514,8 +2468,8 @@ void main() {
       for (final (themeName, gradientName, gradient) in [
         ('dark', 'frameGradient', WpColorsDark.frameGradient),
         ('dark', 'warmSurfaceGradient', WpColorsDark.warmSurfaceGradient),
-        ('light', 'frameGradient', WpColorsLight.frameGradient),
-        ('light', 'warmSurfaceGradient', WpColorsLight.warmSurfaceGradient),
+        ('light', 'frameGradient', WpColorsDark.frameGradient),
+        ('light', 'warmSurfaceGradient', WpColorsDark.warmSurfaceGradient),
       ])
         for (var i = 0; i < gradient.colors.length; i++)
           _SaturationCheck(
@@ -2580,12 +2534,12 @@ void main() {
     ),
     (
       'light',
-      WpColorsLight.frameGradient,
-      WpColorsLight.warmSurfaceGradient,
+      WpColorsDark.frameGradient,
+      WpColorsDark.warmSurfaceGradient,
       <String, Color>{
-        'textPrimary': WpColorsLight.textPrimary,
-        'textSecondary': WpColorsLight.textSecondary,
-        'textMuted': WpColorsLight.textMuted,
+        'textPrimary': WpColorsDark.textPrimary,
+        'textSecondary': WpColorsDark.textSecondary,
+        'textMuted': WpColorsDark.textMuted,
       },
     ),
   ]) {
@@ -2796,8 +2750,8 @@ void main() {
     ),
     (
       'light',
-      WpColorsLight.frameGradient,
-      WpColorsLight.warmSurfaceGradient,
+      WpColorsDark.frameGradient,
+      WpColorsDark.warmSurfaceGradient,
       3.0,
       1.05,
     ),
@@ -3173,14 +3127,14 @@ void main() {
       // objecthood is the offset shadow and the hairline (*The Depth-Source
       // Rule*'s light branch), neither of which this group can see.
       'light',
-      WpColorsLight.frameGradient,
+      WpColorsDark.frameGradient,
       <String, LinearGradient>{
-        'resting': WpColorsLight.navChipGradient,
-        'hover': WpColorsLight.navChipGradientHover,
-        'active': WpColorsLight.navPillActiveGradient,
+        'resting': WpColorsDark.navChipGradient,
+        'hover': WpColorsDark.navChipGradientHover,
+        'active': WpColorsDark.navPillActiveGradient,
       },
-      WpColorsLight.textMuted,
-      WpColorsLight.textPrimary,
+      WpColorsDark.textMuted,
+      WpColorsDark.textPrimary,
       1.015,
     ),
   ]) {

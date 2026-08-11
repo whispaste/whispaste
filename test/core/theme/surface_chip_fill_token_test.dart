@@ -19,7 +19,7 @@ void main() {
 
     test('WpColorsLight.surfaceChipFill is not fully opaque', () {
       expect(
-        WpColorsLight.surfaceChipFill.a,
+        WpColorsDark.surfaceChipFill.a,
         lessThan(1.0),
         reason:
             'light chip fill must be translucent (surface@50%), '

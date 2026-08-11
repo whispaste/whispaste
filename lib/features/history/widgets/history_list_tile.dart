@@ -174,7 +174,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                     child: WpRowCheckbox(
                       value: widget.isChecked,
                       onChanged: widget.onTap,
-                      isDark: isDark,
                     ),
                   ),
                 // Avatar — colored circle, one shared glyph: the app
@@ -251,12 +250,8 @@ class _EntryRowContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,7 +282,7 @@ class _EntryRowContent extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   isDark: isDark,
-                  style: TextStyle(
+                  style: const TextStyle(
                     // Off-scale on purpose: one step above `subheading` (14)
                     // — the preview line below stays at 14, so the title now
                     // carries real size contrast instead of only weight/color.
@@ -307,7 +302,6 @@ class _EntryRowContent extends StatelessWidget {
                 WpRowAction(
                   icon: LucideIcons.copy,
                   tooltip: l10n.historyCopyText,
-                  isDark: isDark,
                   onTap: onCopy,
                   dense: true,
                 ),
@@ -321,7 +315,6 @@ class _EntryRowContent extends StatelessWidget {
                   tooltip: entry.pinned
                       ? l10n.historyUnpin
                       : l10n.historyPinToTop,
-                  isDark: isDark,
                   onTap: onPin,
                   dense: true,
                 ),
@@ -329,7 +322,6 @@ class _EntryRowContent extends StatelessWidget {
                 WpRowAction(
                   icon: LucideIcons.trash2,
                   tooltip: l10n.actionDelete,
-                  isDark: isDark,
                   onTap: onDelete,
                   isDestructive: true,
                   dense: true,
@@ -345,7 +337,7 @@ class _EntryRowContent extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           isDark: isDark,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: WpTypography.subheading,
             color: textSecondary,
             height: 1.35,
@@ -390,13 +382,11 @@ class _EntryMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
+    const textSecondary = WpColorsDark.textSecondary;
     return Row(
       children: [
-        Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
+        const Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
         const SizedBox(width: 3),
         Flexible(
           // Off-scale on purpose: only the primary metric steps up from
@@ -406,7 +396,7 @@ class _EntryMetaRow extends StatelessWidget {
           // row so the hover actions can no longer displace it.
           child: Text(
             timeLabel,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.caption,
               color: textSecondary,
             ),
@@ -418,7 +408,10 @@ class _EntryMetaRow extends StatelessWidget {
         Flexible(
           child: Text(
             '· $durationLabel',
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+            style: const TextStyle(
+              fontSize: WpTypography.micro,
+              color: textMuted,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -431,7 +424,10 @@ class _EntryMetaRow extends StatelessWidget {
           Flexible(
             child: Text(
               '· ~$wordCount w',
-              style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+              style: const TextStyle(
+                fontSize: WpTypography.micro,
+                color: textMuted,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -443,12 +439,12 @@ class _EntryMetaRow extends StatelessWidget {
         ],
         if (!isLocal) ...[
           const SizedBox(width: WpSpacing.xs),
-          Text(
+          const Text(
             '·',
             style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
           ),
           const SizedBox(width: WpSpacing.xs),
-          Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
+          const Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
         ],
       ],
     );
@@ -468,7 +464,7 @@ class _EntryTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
     return Wrap(
       spacing: 4,
       runSpacing: 2,
@@ -484,7 +480,10 @@ class _EntryTagChips extends StatelessWidget {
         if (tags.length > 3)
           Text(
             '+${tags.length - 3}',
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+            style: const TextStyle(
+              fontSize: WpTypography.micro,
+              color: textMuted,
+            ),
           ),
       ],
     );
@@ -539,11 +538,9 @@ class _EntryTagChipState extends State<_EntryTagChip> {
       ),
       child: Text(
         '#${widget.tag}',
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: WpTypography.micro,
-          color: widget.isDark
-              ? WpColorsDark.textSecondary
-              : WpColorsLight.textSecondary,
+          color: WpColorsDark.textSecondary,
           fontWeight: FontWeight.w500,
         ),
       ),

@@ -127,13 +127,9 @@ class _NotesListTileState extends State<NotesListTile> {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
 
     final title = _title ?? l10n.notesUntitled;
 
@@ -199,7 +195,6 @@ class _NotesListTileState extends State<NotesListTile> {
                         tooltip: widget.note.pinned
                             ? l10n.notesUnfavorite
                             : l10n.notesFavorite,
-                        isDark: isDark,
                         onTap: widget.onFavoriteToggle,
                         dense: true,
                       ),
@@ -210,7 +205,7 @@ class _NotesListTileState extends State<NotesListTile> {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: WpTypography.heading,
                           fontWeight: FontWeight.w600,
                           color: textPrimary,
@@ -220,7 +215,7 @@ class _NotesListTileState extends State<NotesListTile> {
                     const SizedBox(width: WpSpacing.xs),
                     Text(
                       _relativeDateLabel(context),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.caption,
                         color: textMuted,
                       ),
@@ -237,7 +232,6 @@ class _NotesListTileState extends State<NotesListTile> {
                             // history's per-item restore action.
                             icon: LucideIcons.undo2,
                             tooltip: l10n.notesRestore,
-                            isDark: isDark,
                             onTap: widget.onRestore,
                             dense: true,
                           ),
@@ -245,7 +239,6 @@ class _NotesListTileState extends State<NotesListTile> {
                           WpRowAction(
                             icon: LucideIcons.trash2,
                             tooltip: l10n.notesDeleteForever,
-                            isDark: isDark,
                             onTap: widget.onDeleteForever,
                             isDestructive: true,
                             dense: true,
@@ -262,7 +255,7 @@ class _NotesListTileState extends State<NotesListTile> {
                     _preview,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.subheading,
                       color: textSecondary,
                       height: 1.35,
@@ -297,8 +290,8 @@ class _NoteTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const textMuted = WpColorsDark.textMuted;
     return Wrap(
       spacing: 4,
       runSpacing: 2,
@@ -308,7 +301,10 @@ class _NoteTagChips extends StatelessWidget {
         if (tags.length > 3)
           Text(
             '+${tags.length - 3}',
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+            style: const TextStyle(
+              fontSize: WpTypography.micro,
+              color: textMuted,
+            ),
           ),
       ],
     );
@@ -336,9 +332,7 @@ class _NoteTagChip extends StatelessWidget {
         vertical: 1,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.accentMiniTagFill
-            : WpColorsLight.accentMiniTagFill,
+        color: WpColorsDark.accentMiniTagFill,
         borderRadius: WpRadius.borderSm,
       ),
       child: Text(

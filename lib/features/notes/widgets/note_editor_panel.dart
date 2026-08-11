@@ -68,19 +68,13 @@ class NoteEditorPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textMuted = WpColorsDark.textMuted;
+    const errorColor = WpColorsDark.error;
     final isTrashed = note.deletedAt != null;
 
     return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? WpColorsDark.surfaceGradient
-            : WpColorsLight.surfaceGradient,
-      ),
+      decoration: const BoxDecoration(gradient: WpColorsDark.surfaceGradient),
       child: Column(
         children: [
           // ── Toolbar row ──
@@ -101,7 +95,7 @@ class NoteEditorPanel extends StatelessWidget {
                       deriveNoteTitle(note.content) ?? l10n.notesUntitled,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.title,
                         fontWeight: FontWeight.w600,
                         color: textPrimary,
@@ -160,7 +154,7 @@ class NoteEditorPanel extends StatelessWidget {
                                 );
                               },
                               tooltip: l10n.notesCopy,
-                              icon: Icon(
+                              icon: const Icon(
                                 LucideIcons.copy,
                                 size: WpIconSize.md,
                                 color: textMuted,
@@ -173,17 +167,14 @@ class NoteEditorPanel extends StatelessWidget {
                             child: IconButton(
                               onPressed: onExport,
                               tooltip: l10n.notesExport,
-                              icon: Icon(
+                              icon: const Icon(
                                 LucideIcons.download,
                                 size: WpIconSize.md,
                                 color: textMuted,
                               ),
                             ),
                           ),
-                          WpVoiceInputButton(
-                            isDark: isDark,
-                            onTranscript: onVoiceTranscript,
-                          ),
+                          WpVoiceInputButton(onTranscript: onVoiceTranscript),
                           if (isTrashed) ...[
                             // Trash view: restore + delete forever instead of the
                             // favourite/move-to-trash pair (copy stays — it's harmless
@@ -194,7 +185,7 @@ class NoteEditorPanel extends StatelessWidget {
                               child: IconButton(
                                 onPressed: onRestore,
                                 tooltip: l10n.notesRestore,
-                                icon: Icon(
+                                icon: const Icon(
                                   LucideIcons.undo2,
                                   size: WpIconSize.md,
                                   color: textMuted,
@@ -207,7 +198,7 @@ class NoteEditorPanel extends StatelessWidget {
                               child: IconButton(
                                 onPressed: onDeleteForever,
                                 tooltip: l10n.notesDeleteForever,
-                                icon: Icon(
+                                icon: const Icon(
                                   LucideIcons.trash2,
                                   size: WpIconSize.md,
                                   color: errorColor,
@@ -234,7 +225,7 @@ class NoteEditorPanel extends StatelessWidget {
                                         size: WpIconSize.sm,
                                         color: WpSharedColors.pinnedAccent,
                                       )
-                                    : Icon(
+                                    : const Icon(
                                         LucideIcons.star,
                                         size: WpIconSize.md,
                                         color: textMuted,
@@ -247,7 +238,7 @@ class NoteEditorPanel extends StatelessWidget {
                               child: IconButton(
                                 onPressed: onMoveToTrash,
                                 tooltip: l10n.notesMoveToTrash,
-                                icon: Icon(
+                                icon: const Icon(
                                   LucideIcons.trash2,
                                   size: WpIconSize.md,
                                   color: textMuted,
@@ -261,7 +252,7 @@ class NoteEditorPanel extends StatelessWidget {
                             child: IconButton(
                               onPressed: onClose,
                               tooltip: l10n.historyClose,
-                              icon: Icon(
+                              icon: const Icon(
                                 LucideIcons.x,
                                 size: WpIconSize.md,
                                 color: textMuted,
@@ -302,9 +293,7 @@ class NoteEditorPanel extends StatelessWidget {
           Container(
             height: 1,
             margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-            color: isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
+            color: WpColorsDark.borderSubtle,
           ),
           // ── Formatting toolbar ──
           // Its own row under the divider, permanently — Notes has no read

@@ -60,7 +60,6 @@ class _SpeechRecognitionSectionState
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isLocal = settings.sttProviderType.isLocal;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Recognition-language names localised to the active UI language via CLDR
     // data; falls back to the catalog's English name for any Whisper-specific
@@ -162,11 +161,9 @@ class _SpeechRecognitionSectionState
               ),
               child: Text(
                 l10n.settingsSttEngineSubtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: WpColorsDark.textMuted),
               ),
             ),
             const SizedBox(height: WpSpacing.xs),
@@ -470,7 +467,6 @@ class _ParakeetModelRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dl = ref.watch(parakeetDownloadProvider);
     final sizeLabel = '${(parakeetModelTotalBytes / (1024 * 1024)).round()} MB';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Widget trailing;
     if (dl.installed && !dl.isBusy) {
@@ -529,9 +525,9 @@ class _ParakeetModelRow extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
               child: Text(
                 dl.errorMessage!,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.caption,
-                  color: isDark ? WpColorsDark.error : WpColorsLight.error,
+                  color: WpColorsDark.error,
                 ),
               ),
             ),
@@ -608,7 +604,6 @@ class _CustomVocabularyFieldState
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -641,11 +636,9 @@ class _CustomVocabularyFieldState
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         l10n.settingsCustomVocabularyHint,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: WpTypography.small,
-                          color: isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
+                          color: WpColorsDark.textMuted,
                         ),
                       ),
                     ),

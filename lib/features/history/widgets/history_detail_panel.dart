@@ -342,10 +342,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       child: Focus(
         focusNode: _panelFocusNode,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? WpColorsDark.surfaceGradient
-                : WpColorsLight.surfaceGradient,
+          decoration: const BoxDecoration(
+            gradient: WpColorsDark.surfaceGradient,
           ),
           child: Column(
             children: [
@@ -374,9 +372,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               Container(
                 height: 1,
                 margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-                color: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
+                color: WpColorsDark.borderSubtle,
               ),
               // Content
               Expanded(
@@ -412,9 +408,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           const SizedBox(height: WpSpacing.md),
                           Container(
                             height: 1,
-                            color: isDark
-                                ? WpColorsDark.borderSubtle
-                                : WpColorsLight.borderSubtle,
+                            color: WpColorsDark.borderSubtle,
                           ),
                           const SizedBox(height: WpSpacing.md),
                           // ── Content zone: transcript + edit controls ──
@@ -594,13 +588,9 @@ class _DetailPanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
     final avatarCol = historyAvatarSlot(entry).color(isDark);
 
     return Padding(
@@ -682,7 +672,7 @@ class _DetailPanelHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     timestamp,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
                     ),
@@ -789,9 +779,7 @@ class _DetailOverflowMenu extends StatelessWidget {
       tooltip: '',
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      color: isDark
-          ? WpColorsDark.surfaceElevated
-          : WpColorsLight.surfaceElevated,
+      color: WpColorsDark.surfaceElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WpRadius.md),
       ),
@@ -949,9 +937,7 @@ class _DetailTranscriptZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    const textPrimary = WpColorsDark.textPrimary;
 
     // Cap prose measure at ~85 chars/line for the 16px body (Fill-By-Default
     // Rule: only the transcript degrades on ultrawide, so only it gets capped).
@@ -1053,8 +1039,8 @@ class _TranscriptEditBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
     final showBadge = entry.titleEdited || isEditing;
     final showWordCount = entry.content.isNotEmpty || isEditing;
 
@@ -1113,7 +1099,7 @@ class _TranscriptEditBar extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 120),
                     child: Text(
                       wordCountLabel,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: WpTypography.caption,
                         color: textMuted,
                       ),
@@ -1148,9 +1134,7 @@ class _TranscriptEditBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isEditing
                       ? accent.withValues(alpha: 0.15)
-                      : (isDark
-                            ? WpColorsDark.surfaceMutedFill
-                            : WpColorsLight.surfaceMutedFill),
+                      : (WpColorsDark.surfaceMutedFill),
                   borderRadius: WpRadius.borderFull,
                 ),
                 child: Row(
@@ -1208,8 +1192,8 @@ class HistoryPopupMenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isDestructive
-        ? (isDark ? WpColorsDark.error : WpColorsLight.error)
-        : (isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary);
+        ? (WpColorsDark.error)
+        : (WpColorsDark.textPrimary);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1270,15 +1254,11 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
     if (widget.activeColor != null) {
       iconColor = widget.activeColor!;
     } else if (widget.isDestructive && _isHovered) {
-      iconColor = widget.isDark ? WpColorsDark.error : WpColorsLight.error;
+      iconColor = WpColorsDark.error;
     } else if (_isHovered) {
-      iconColor = widget.isDark
-          ? WpColorsDark.textPrimary
-          : WpColorsLight.textPrimary;
+      iconColor = WpColorsDark.textPrimary;
     } else {
-      iconColor = widget.isDark
-          ? WpColorsDark.textMuted
-          : WpColorsLight.textMuted;
+      iconColor = WpColorsDark.textMuted;
     }
 
     return Semantics(
@@ -1316,12 +1296,8 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
                 padding: const EdgeInsets.all(WpSpacing.sm),
                 decoration: BoxDecoration(
                   color: _isHovered
-                      ? (widget.isDark
-                            ? WpColorsDark.hover
-                            : WpColorsLight.hover)
-                      : (widget.isDark
-                            ? WpColorsDark.hoverTransparent
-                            : WpColorsLight.hoverTransparent),
+                      ? (WpColorsDark.hover)
+                      : (WpColorsDark.hoverTransparent),
                   borderRadius: WpRadius.borderSm,
                 ),
                 child: widget.faIcon != null
@@ -1360,12 +1336,8 @@ class HistoryDetailMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textPrimary = WpColorsDark.textPrimary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
@@ -1375,7 +1347,7 @@ class HistoryDetailMetaRow extends StatelessWidget {
           const SizedBox(width: WpSpacing.sm),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: WpTypography.small,
               color: textSecondary,
             ),
@@ -1387,7 +1359,7 @@ class HistoryDetailMetaRow extends StatelessWidget {
               textAlign: TextAlign.end,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.small,
                 color: textPrimary,
                 fontWeight: FontWeight.w500,
@@ -1414,7 +1386,7 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const fg = WpColorsDark.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1423,7 +1395,7 @@ class _MetaChip extends StatelessWidget {
         const SizedBox(width: WpSpacing.xxs),
         Text(
           label,
-          style: TextStyle(fontSize: WpTypography.caption, color: fg),
+          style: const TextStyle(fontSize: WpTypography.caption, color: fg),
         ),
       ],
     );
@@ -1510,13 +1482,9 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   Widget build(BuildContext context) {
     final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
     final l10n = L10n.of(context);
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textSecondary = widget.isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    const accent = WpColorsDark.accent;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1533,11 +1501,11 @@ class _TagSectionState extends ConsumerState<_TagSection> {
           inlineLabel: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
+              const Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
               const SizedBox(width: WpSpacing.xxs),
               Text(
                 l10n.historyTags,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: textSecondary,
@@ -1546,7 +1514,11 @@ class _TagSectionState extends ConsumerState<_TagSection> {
               ),
               const SizedBox(width: WpSpacing.xxs),
               IconButton(
-                icon: Icon(LucideIcons.settings, size: 12, color: textMuted),
+                icon: const Icon(
+                  LucideIcons.settings,
+                  size: 12,
+                  color: textMuted,
+                ),
                 onPressed: () async {
                   final db = ref.read(historyDatabaseProvider);
                   final modified = await showTagManagementDialog(

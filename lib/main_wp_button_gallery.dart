@@ -60,7 +60,7 @@ class _WpButtonGalleryAppState extends State<WpButtonGalleryApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WpButton Gallery',
-      theme: _isDark ? wpDarkTheme() : wpLightTheme(),
+      theme: wpDarkTheme(),
       home: _GalleryScreen(
         isDark: _isDark,
         onThemeChanged: (value) => setState(() => _isDark = value),
@@ -161,9 +161,7 @@ class _Header extends StatelessWidget {
               button: true,
               child: WpButton(
                 label: 'Dark',
-                variant: isDark
-                    ? WpButtonVariant.primary
-                    : WpButtonVariant.ghost,
+                variant: WpButtonVariant.primary,
                 tone: WpButtonTone.neutral,
                 size: WpButtonSize.dense,
                 onPressed: () => onThemeChanged(true),
@@ -175,9 +173,7 @@ class _Header extends StatelessWidget {
               button: true,
               child: WpButton(
                 label: 'Light',
-                variant: isDark
-                    ? WpButtonVariant.ghost
-                    : WpButtonVariant.primary,
+                variant: WpButtonVariant.ghost,
                 tone: WpButtonTone.neutral,
                 size: WpButtonSize.dense,
                 onPressed: () => onThemeChanged(false),

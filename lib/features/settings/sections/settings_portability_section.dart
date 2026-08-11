@@ -426,7 +426,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
                             color:
                                 Theme.of(context).brightness == Brightness.dark
                                 ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted,
+                                : WpColorsDark.textMuted,
                           ),
                           // The tooltip does double duty: it names the
                           // icon-only affordance (all three languages) and
@@ -473,8 +473,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const muted = WpColorsDark.textMuted;
 
     final autosave =
         ref.watch(settingsProvider).value?.autosave ??
@@ -552,7 +551,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
                   if (enabled) ...[
                     const SizedBox(width: WpSpacing.xxs),
                     IconButton(
-                      icon: Icon(
+                      icon: const Icon(
                         LucideIcons.folderPen,
                         size: WpIconSize.sm,
                         color: muted,
@@ -594,7 +593,6 @@ class SettingsPortabilitySection extends ConsumerWidget {
 
     final l10n = L10n.of(context);
     final tt = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final failed = autosave.lastError.isNotEmpty;
     final lastSuccess = DateTime.tryParse(autosave.lastSuccess)?.toLocal();
@@ -624,9 +622,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
           message,
           key: const ValueKey(kPortabilityAutosaveStatusKey),
           style: tt.bodySmall?.copyWith(
-            color: failed
-                ? (isDark ? WpColorsDark.warning : WpColorsLight.warning)
-                : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
+            color: failed ? (WpColorsDark.warning) : (WpColorsDark.textMuted),
           ),
           // Two lines, unlike every other text in this section: the
           // timestamp sits at the *end* of the sentence ("Letzter Versuch
@@ -656,11 +652,8 @@ class SettingsPortabilitySection extends ConsumerWidget {
   Widget _locationDisplay(BuildContext context, WidgetRef ref, bool forExport) {
     final l10n = L10n.of(context);
     final tt = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final primary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    const muted = WpColorsDark.textMuted;
+    const primary = WpColorsDark.textPrimary;
 
     // Read for display only — never `resolvePath()`, which would open the
     // native file dialog while merely rendering the settings page. Watched

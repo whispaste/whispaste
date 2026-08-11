@@ -97,19 +97,12 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
     }
 
     final l10n = L10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final status = ref.watch(micPermissionNotifierProvider).status;
 
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.55);
-    final hover = isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.55);
+    const hover = WpColorsDark.hover;
+    const border = WpColorsDark.borderSubtle;
+    const textPrimary = WpColorsDark.textPrimary;
 
     // Status is carried by the tinted leading glyph and the copy — the pill
     // itself stays neutral (same quiet register as the Auto-Paste indicator).
@@ -117,19 +110,19 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
       MicPermissionStatus.granted => (
         l10n.onboardingMicChipReady,
         LucideIcons.circleCheck,
-        isDark ? WpColorsDark.success : WpColorsLight.success,
+        WpColorsDark.success,
       ),
       MicPermissionStatus.denied => (
         l10n.onboardingMicChipAction,
         LucideIcons.shieldAlert,
-        isDark ? WpColorsDark.warning : WpColorsLight.warning,
+        WpColorsDark.warning,
       ),
       // unknown & requesting both read "pending": a fresh install has simply
       // not been asked yet and must never claim "action needed".
       MicPermissionStatus.unknown || MicPermissionStatus.requesting => (
         l10n.onboardingMicChipPending,
         status == MicPermissionStatus.requesting ? null : LucideIcons.mic,
-        isDark ? WpColorsDark.accent : WpColorsLight.accent,
+        WpColorsDark.accent,
       ),
     };
 
@@ -190,7 +183,7 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
                   const SizedBox(width: WpSpacing.xs),
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: WpTypography.body,
                       fontWeight: FontWeight.w600,
                       color: textPrimary,

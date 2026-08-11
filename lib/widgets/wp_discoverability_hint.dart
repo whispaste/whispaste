@@ -30,7 +30,6 @@ class WpDiscoverabilityHint extends StatefulWidget {
     super.key,
     required this.hintId,
     required this.text,
-    required this.isDark,
   });
 
   /// Unique persistence key — one "seen" flag per distinct hint.
@@ -39,8 +38,6 @@ class WpDiscoverabilityHint extends StatefulWidget {
   /// The discoverability copy. Should name the concrete prefix/operator
   /// rather than a vague nudge.
   final String text;
-
-  final bool isDark;
 
   @override
   State<WpDiscoverabilityHint> createState() => _WpDiscoverabilityHintState();
@@ -88,22 +85,20 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
   Widget build(BuildContext context) {
     if (_seen != false) return const SizedBox.shrink();
 
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColorsDark.accent;
 
     return Padding(
       padding: const EdgeInsets.only(top: WpSpacing.xxs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.lightbulb, size: WpIconSize.xs, color: accent),
+          const Icon(LucideIcons.lightbulb, size: WpIconSize.xs, color: accent),
           const SizedBox(width: WpSpacing.xxs),
           Expanded(
             child: Text(
               widget.text,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: WpTypography.caption,
                 color: textMuted,
               ),
@@ -115,7 +110,11 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
             button: true,
             child: GestureDetector(
               onTap: _dismiss,
-              child: Icon(LucideIcons.x, size: WpIconSize.xs, color: textMuted),
+              child: const Icon(
+                LucideIcons.x,
+                size: WpIconSize.xs,
+                color: textMuted,
+              ),
             ),
           ),
         ],

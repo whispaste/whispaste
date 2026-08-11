@@ -57,7 +57,6 @@ Widget _chip({
     label: 'All',
     icon: icon,
     isActive: isActive,
-    isDark: isDark,
     count: count,
     onTap: onTap ?? () {},
   ),
@@ -120,12 +119,12 @@ void main() {
         makeTestable(_chip(isDark: false), brightness: Brightness.light),
       );
       await tester.pumpAndSettle();
-      expect(_pillDecoration(tester).color, WpColorsLight.surfaceVariant);
-      expect(_labelColor(tester, 'All'), WpColorsLight.textSecondary);
+      expect(_pillDecoration(tester).color, WpColorsDark.surfaceVariant);
+      expect(_labelColor(tester, 'All'), WpColorsDark.textSecondary);
 
       await _hover(tester);
-      expect(_pillDecoration(tester).color, WpColorsLight.accentRowHover);
-      expect(_labelColor(tester, 'All'), WpColorsLight.textPrimary);
+      expect(_pillDecoration(tester).color, WpColorsDark.accentRowHover);
+      expect(_labelColor(tester, 'All'), WpColorsDark.textPrimary);
 
       await tester.pumpWidget(
         makeTestable(
@@ -134,8 +133,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(_pillDecoration(tester).color, WpColorsLight.accentActiveFill);
-      expect(_labelColor(tester, 'All'), WpColorsLight.accent);
+      expect(_pillDecoration(tester).color, WpColorsDark.accentActiveFill);
+      expect(_labelColor(tester, 'All'), WpColorsDark.accent);
     });
   });
 
@@ -284,12 +283,7 @@ void main() {
               runSpacing: WpSpacing.sm,
               children: [
                 for (final label in ['Bug', 'Idee', 'Allgemein', 'KI'])
-                  WpFilterChip(
-                    label: label,
-                    isActive: false,
-                    isDark: true,
-                    onTap: _noop,
-                  ),
+                  WpFilterChip(label: label, isActive: false, onTap: _noop),
               ],
             ),
           ),
@@ -317,12 +311,7 @@ void main() {
           const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              WpFilterChip(
-                label: 'All',
-                isActive: false,
-                isDark: true,
-                onTap: _noop,
-              ),
+              WpFilterChip(label: 'All', isActive: false, onTap: _noop),
             ],
           ),
         ),

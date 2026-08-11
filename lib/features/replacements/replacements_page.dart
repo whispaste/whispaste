@@ -292,7 +292,6 @@ class _ReplacementsToggleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -304,15 +303,9 @@ class _ReplacementsToggleCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(WpSpacing.xxs),
         decoration: BoxDecoration(
-          color: isDark
-              ? WpColorsDark.surfaceElevated
-              : WpColorsLight.surfaceElevated,
+          color: WpColorsDark.surfaceElevated,
           borderRadius: WpRadius.borderMd,
-          border: Border.all(
-            color: isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
-          ),
+          border: Border.all(color: WpColorsDark.borderSubtle),
         ),
         child: SettingRow(
           icon: LucideIcons.replace,
@@ -431,8 +424,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const textMuted = WpColorsDark.textMuted;
     final l10n = L10n.of(context);
 
     return WpFormDialogShell(
@@ -480,7 +472,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                           // above already counts 48 dp per row.
                           IconButton(
                             tooltip: l10n.replacementsRemoveTrigger,
-                            icon: Icon(
+                            icon: const Icon(
                               LucideIcons.x,
                               size: WpIconSize.sm,
                               color: textMuted,
@@ -642,7 +634,6 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                   WpRowAction(
                     icon: LucideIcons.trash2,
                     tooltip: L10n.of(context).actionDelete,
-                    isDark: widget.isDark,
                     onTap: widget.onDelete,
                     isDestructive: true,
                   ),
@@ -650,12 +641,10 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     LucideIcons.arrowRightLeft,
                     size: WpIconSize.sm,
-                    color: widget.isDark
-                        ? WpColorsDark.accent
-                        : WpColorsLight.accent,
+                    color: WpColorsDark.accent,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   // Trigger phrases — one chip per phrase, wrapping onto
@@ -666,27 +655,23 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                       runSpacing: WpSpacing.xxs,
                       children: [
                         for (final trigger in widget.replacement.triggers)
-                          WpTriggerChip(label: trigger, isDark: widget.isDark),
+                          WpTriggerChip(label: trigger),
                       ],
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  Icon(
+                  const Icon(
                     LucideIcons.arrowRight,
                     size: WpIconSize.xs,
-                    color: widget.isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted,
+                    color: WpColorsDark.textMuted,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   // Replacement
                   Expanded(
                     child: Text(
                       '"${widget.replacement.replacement}"',
-                      style: TextStyle(
-                        color: widget.isDark
-                            ? WpColorsDark.textSecondary
-                            : WpColorsLight.textSecondary,
+                      style: const TextStyle(
+                        color: WpColorsDark.textSecondary,
                         fontSize: WpTypography.body,
                       ),
                       // `maxLines` is load-bearing, not cosmetic: without a

@@ -28,11 +28,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       makeTestable(
-        const WpDiscoverabilityHint(
-          hintId: 'test-hint',
-          text: _hintText,
-          isDark: true,
-        ),
+        const WpDiscoverabilityHint(hintId: 'test-hint', text: _hintText),
       ),
     );
     await tester.pumpAndSettle();
@@ -49,11 +45,7 @@ void main() {
 
     await tester.pumpWidget(
       makeTestable(
-        const WpDiscoverabilityHint(
-          hintId: 'test-hint',
-          text: _hintText,
-          isDark: true,
-        ),
+        const WpDiscoverabilityHint(hintId: 'test-hint', text: _hintText),
       ),
     );
     await tester.pumpAndSettle();
@@ -69,11 +61,7 @@ void main() {
 
     await tester.pumpWidget(
       makeTestable(
-        const WpDiscoverabilityHint(
-          hintId: 'test-hint',
-          text: _hintText,
-          isDark: true,
-        ),
+        const WpDiscoverabilityHint(hintId: 'test-hint', text: _hintText),
         locale: const Locale('en'),
       ),
     );

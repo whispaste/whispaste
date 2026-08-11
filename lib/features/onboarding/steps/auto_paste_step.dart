@@ -315,19 +315,13 @@ class _MacOsBody extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
-    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
-    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColorsDark.textMuted;
+    const accentGradient = WpColorsDark.accentWarmGradient;
+    const successColor = WpColorsDark.success;
+    const warningColor = WpColorsDark.warning;
+    const errorColor = WpColorsDark.error;
 
     final phase = _phase;
 
@@ -432,31 +426,25 @@ class _MacOsBody extends StatelessWidget {
       _AutoPastePhase.checking => (
         LucideIcons.loaderCircle,
         textSecondary,
-        isDark ? WpColorsDark.mutedActiveFill : WpColorsLight.mutedActiveFill,
+        WpColorsDark.mutedActiveFill,
         l10n.onboardingPasteChipPending,
       ),
       _AutoPastePhase.granted => (
         LucideIcons.circleCheck,
         successColor,
-        isDark
-            ? WpColorsDark.successActiveFill
-            : WpColorsLight.successActiveFill,
+        WpColorsDark.successActiveFill,
         l10n.onboardingPasteChipReady,
       ),
       _AutoPastePhase.waiting => (
         LucideIcons.squareCheckBig,
         warningColor,
-        isDark
-            ? WpColorsDark.warningActiveFill
-            : WpColorsLight.warningActiveFill,
+        WpColorsDark.warningActiveFill,
         l10n.onboardingPasteWaitingForGrantTitle,
       ),
       _AutoPastePhase.intro || _AutoPastePhase.troubleshoot => (
         LucideIcons.shieldAlert,
         warningColor,
-        isDark
-            ? WpColorsDark.warningActiveFill
-            : WpColorsLight.warningActiveFill,
+        WpColorsDark.warningActiveFill,
         l10n.onboardingPasteChipAction,
       ),
     };
@@ -616,14 +604,10 @@ class _WindowsBody extends StatelessWidget {
     // between leaving Auto-Paste on or skipping to clipboard-only mode.
     final isUipiEdge = cap?.status == PasteCapabilityStatus.permissionMissing;
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
-    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+    const textPrimary = WpColorsDark.textPrimary;
+    const textSecondary = WpColorsDark.textSecondary;
+    const successColor = WpColorsDark.success;
+    const warningColor = WpColorsDark.warning;
 
     // Same object as the macOS body renders, on purpose: this is one page in
     // the flow, and it had two private card classes of its own here — a
@@ -638,9 +622,7 @@ class _WindowsBody extends StatelessWidget {
         ? _PermissionStatusCard(
             icon: LucideIcons.triangleAlert,
             color: warningColor,
-            tint: isDark
-                ? WpColorsDark.warningActiveFill
-                : WpColorsLight.warningActiveFill,
+            tint: WpColorsDark.warningActiveFill,
             // Titleless on purpose — see [_PermissionStatusCard.title]. UIPI
             // is a caveat about *some* target windows, not a task: Auto-Paste
             // works in every non-elevated app, and the correct default here is
@@ -655,9 +637,7 @@ class _WindowsBody extends StatelessWidget {
         : _PermissionStatusCard(
             icon: LucideIcons.circleCheck,
             color: successColor,
-            tint: isDark
-                ? WpColorsDark.successActiveFill
-                : WpColorsLight.successActiveFill,
+            tint: WpColorsDark.successActiveFill,
             title: l10n.onboardingPasteChipReady,
             detail: l10n.onboardingPasteWhyWin,
             isDark: isDark,
@@ -745,12 +725,8 @@ class _PermissionStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.5);
+    const border = WpColorsDark.borderSubtle;
 
     return Container(
       width: double.infinity,

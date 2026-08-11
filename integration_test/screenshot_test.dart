@@ -259,10 +259,8 @@ class _ScreenshotShell extends StatelessWidget {
       bottomLeft: Radius.circular(WpRadius.xl),
     );
 
-    final contentDecoration = BoxDecoration(
-      gradient: isDark
-          ? WpColorsDark.warmSurfaceGradient
-          : WpColorsLight.warmSurfaceGradient,
+    const contentDecoration = BoxDecoration(
+      gradient: WpColorsDark.warmSurfaceGradient,
       borderRadius: contentRadius,
     );
 
@@ -273,13 +271,9 @@ class _ScreenshotShell extends StatelessWidget {
         child: Stack(
           children: [
             // Frame gradient background
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: isDark
-                    ? WpColorsDark.frameGradient
-                    : WpColorsLight.frameGradient,
-              ),
-              child: const SizedBox.expand(),
+            const DecoratedBox(
+              decoration: BoxDecoration(gradient: WpColorsDark.frameGradient),
+              child: SizedBox.expand(),
             ),
             // Main layout — mirrors _AppShell exactly
             Column(
@@ -371,9 +365,7 @@ class _ScreenshotThemeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor = isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    const mutedColor = WpColorsDark.textMuted;
     return IconButton(
       icon: Icon(
         isDark ? LucideIcons.moon : LucideIcons.sun,

@@ -107,9 +107,7 @@ class _PickerBarrier extends StatelessWidget {
     final bool useBlur = !Platform.isWindows;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final barrierColor = isDark
-        ? WpColorsDark.background.withValues(alpha: 0.92)
-        : WpColorsLight.background.withValues(alpha: 0.88);
+    final barrierColor = WpColorsDark.background.withValues(alpha: 0.92);
 
     return FadeTransition(
       opacity: opacity,
@@ -220,7 +218,6 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
     ).animate(CurvedAnimation(parent: widget.animation, curve: Curves.easeOut));
 
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     return Center(
@@ -237,15 +234,9 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
               constraints: const BoxConstraints(maxWidth: 420),
               padding: const EdgeInsets.all(WpSpacing.lg),
               decoration: BoxDecoration(
-                color: isDark
-                    ? WpColorsDark.surfaceElevated
-                    : WpColorsLight.surfaceElevated,
+                color: WpColorsDark.surfaceElevated,
                 borderRadius: WpRadius.borderLg,
-                border: Border.all(
-                  color: isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle,
-                ),
+                border: Border.all(color: WpColorsDark.borderSubtle),
                 boxShadow: WpShadows.elevated,
               ),
               child: Column(
@@ -304,13 +295,10 @@ class _FormatOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
-    final highlightColor = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
+    const highlightColor = WpColorsDark.surfaceVariant;
 
-    final mutedText = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    const mutedText = WpColorsDark.textMuted;
 
     // Same construction as the snippet picker, and for the same two reasons.
     // House idiom (`section.dart`): MergeSemantics + a *label-less*

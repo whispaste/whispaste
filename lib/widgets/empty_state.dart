@@ -37,8 +37,6 @@ class WpEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     // Scrollable so a tight viewport (minimum window height plus a tall
     // header above, e.g. the snippet-trigger card with its warning hint)
     // degrades to scrolling instead of a RenderFlex overflow.
@@ -54,20 +52,14 @@ class WpEmptyState extends StatelessWidget {
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? WpColorsDark.accentChipFill
-                      : WpColorsLight.accentChipFill,
+                  color: WpColorsDark.accentChipFill,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark
-                        ? WpColorsDark.accentBorder20
-                        : WpColorsLight.accentBorder20,
-                  ),
+                  border: Border.all(color: WpColorsDark.accentBorder20),
                 ),
                 child: Icon(
                   icon,
                   size: WpIconSize.xl,
-                  color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                  color: WpColorsDark.accent,
                 ),
               ),
               const SizedBox(height: WpSpacing.xl),
