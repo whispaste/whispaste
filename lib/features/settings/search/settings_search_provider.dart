@@ -76,11 +76,16 @@ List<SettingsSearchEntry> matchSettingsEntries(
 ) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return const [];
-  final needle = _fold(trimmed.toLowerCase());
+
+  // ⚡ Bolt: Precompile folded case-insensitive RegExp outside the loop
+  // to avoid calling toLowerCase() and generating new strings for every field
+  final foldedQuery = _fold(trimmed);
+  final needleRegExp = RegExp(RegExp.escape(foldedQuery), caseSensitive: false);
+
   return table.where((e) {
-    if (_fold(e.title(locale).toLowerCase()).contains(needle)) return true;
-    if (_fold(e.subtitle(locale).toLowerCase()).contains(needle)) return true;
-    return e.keywords.any((kw) => _fold(kw.toLowerCase()).contains(needle));
+    if (needleRegExp.hasMatch(_fold(e.title(locale)))) return true;
+    if (needleRegExp.hasMatch(_fold(e.subtitle(locale)))) return true;
+    return e.keywords.any((kw) => needleRegExp.hasMatch(_fold(kw)));
   }).toList();
 }
 
