@@ -122,7 +122,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    // Recording family: this colour has exactly one job below — the live
+    // border of the sandbox field while the test recording runs.
+    final recordingAccent = isDark
+        ? WpColorsDark.recordingAccent
+        : WpColorsLight.recordingAccent;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     return Column(
@@ -225,7 +229,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           isRecording: isRecording,
           sandboxText: _sandboxText,
           isDark: isDark,
-          accent: accent,
+          recordingAccent: recordingAccent,
           l10n: l10n,
         ),
 
@@ -420,7 +424,7 @@ class _SandboxField extends StatelessWidget {
     required this.isRecording,
     required this.sandboxText,
     required this.isDark,
-    required this.accent,
+    required this.recordingAccent,
     required this.l10n,
   });
 
@@ -428,7 +432,7 @@ class _SandboxField extends StatelessWidget {
   final bool isRecording;
   final String? sandboxText;
   final bool isDark;
-  final Color accent;
+  final Color recordingAccent;
   final L10n l10n;
 
   @override
@@ -442,7 +446,7 @@ class _SandboxField extends StatelessWidget {
         ? WpColorsDark.borderDefault
         : WpColorsLight.borderDefault;
 
-    final borderColor = isRecording ? accent : borderDefault;
+    final borderColor = isRecording ? recordingAccent : borderDefault;
 
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),

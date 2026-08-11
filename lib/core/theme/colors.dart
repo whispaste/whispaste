@@ -123,6 +123,38 @@ abstract final class WpColorsDark {
   /// derivation from the rule.
   static const Color accentLocatorRing = Color(0x8C3CCBE6); // accent @ 55%
 
+  /// Recording/listening family — the one meaning cyan keeps.
+  ///
+  /// Split off from [accent] so the palette can say two different things with
+  /// two different hues: [accent] means "you can act on this", these mean "a
+  /// recording or its transcription is in flight" (audio-level bars, the
+  /// transcribing rung of the status chip, the onboarding sandbox's live
+  /// border). The values below are copied byte-for-byte from [accent] and
+  /// [accentWarmGradient] — deliberately *literals*, not aliases: when the
+  /// generic family moves off cyan, the recording family must stay where it
+  /// is, and an alias would drag it along.
+  ///
+  /// Every call site is classified in the split's audit table; anything that
+  /// is merely tappable, selected, hovered or focused stays on [accent], and
+  /// so does everything that reads a state other than the recording phase
+  /// (microphone *permission*, STT subprocess boot, an idle mic affordance).
+  /// The frozen floating overlay carries the same meaning in its own spec and
+  /// is not wired through here.
+  static const Color recordingAccent = Color(0xFF3CCBE6);
+
+  /// Gradient twin of [recordingAccent] — cyan to teal, copied from
+  /// [accentWarmGradient]. No main-app surface paints a recording gradient
+  /// today (the overlay owns that job and keeps its own spec), so this is the
+  /// family's reserved home rather than a live call site.
+  // loam-ignore: unused-public-exports – required by Ticket 02 AC even
+  // without a live call site, so the recording family's gradient home
+  // exists before Ticket 04 repoints the generic accentWarmGradient.
+  static const LinearGradient recordingAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF3CCBE6), Color(0xFF14B8D4), Color(0xFF0A99B8)],
+  );
+
   /// Preflight-screen palette — `WpInsufficientRamScreen` only.
   ///
   /// These three (plus the two badge tints below) are the sanctioned break of
@@ -299,6 +331,22 @@ abstract final class WpColorsLight {
   /// [WpColorsDark.accentLocatorRing], including why this one alpha is *not*
   /// tuned down for light the way the structural tints are.
   static const Color accentLocatorRing = Color(0x8C06678A); // accent @ 55%
+
+  /// Recording/listening family — see [WpColorsDark.recordingAccent] for the
+  /// split's rationale. Same deal on light: byte-for-byte copies of [accent]
+  /// and [accentWarmGradient], written as literals so the recording signal
+  /// stays put when the generic accent family changes hue.
+  static const Color recordingAccent = Color(0xFF06678A);
+
+  /// Gradient twin of [recordingAccent] — teal to deep teal, copied from
+  /// [accentWarmGradient]. See [WpColorsDark.recordingAccentGradient] for why
+  /// the family reserves a gradient it does not paint yet.
+  // loam-ignore: unused-public-exports – see WpColorsDark.recordingAccentGradient.
+  static const LinearGradient recordingAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF06678A), Color(0xFF0E7490), Color(0xFF155E75)],
+  );
 
   /// Wash for a large decorative background glyph — its own category, *below*
   /// the 6/12/30% tint ladder above, because that ladder is defined for

@@ -40,7 +40,7 @@ class WpWaveform extends StatefulWidget {
   /// Total widget height.
   final double height;
 
-  /// Active bar color. Defaults to theme accent.
+  /// Active bar color. Defaults to the theme's recording accent.
   final Color? color;
 
   /// Idle bar color. Defaults to a muted variant.
@@ -113,8 +113,11 @@ class _WpWaveformState extends State<WpWaveform>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Recording family, not the generic accent: these bars only ever move
+    // while audio is coming in.
     final activeColor =
-        widget.color ?? (isDark ? WpColorsDark.accent : WpColorsLight.accent);
+        widget.color ??
+        (isDark ? WpColorsDark.recordingAccent : WpColorsLight.recordingAccent);
     final idleColor =
         widget.inactiveColor ??
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant);

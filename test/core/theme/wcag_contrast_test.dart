@@ -200,6 +200,23 @@ final _darkPairs = [
     isLargeText: true,
   ),
 
+  // Recording accent — the recording/listening family split off from `accent`.
+  // Same grounds and the same large-text threshold the accent carries: the
+  // split copied the values, so it must inherit the whole guarantee, not just
+  // the hue. If the two ever drift apart, they drift under the same floor.
+  const _ColorPair(
+    'dark: recordingAccent on surface (large)',
+    WpColorsDark.recordingAccent,
+    WpColorsDark.surface,
+    isLargeText: true,
+  ),
+  const _ColorPair(
+    'dark: recordingAccent on background (large)',
+    WpColorsDark.recordingAccent,
+    WpColorsDark.background,
+    isLargeText: true,
+  ),
+
   // Status colors on surface (typically used as badges/labels — large text)
   const _ColorPair(
     'dark: success on surface (large)',
@@ -290,6 +307,16 @@ final _lightPairs = [
   const _ColorPair(
     'light: accent on surface (large)',
     WpColorsLight.accent,
+    WpColorsLight.surface,
+    isLargeText: true,
+  ),
+
+  // Recording accent — see the dark half. Light mirrors the accent's coverage
+  // exactly, which means surface only: `accent` never carried an
+  // on-background pair here, so its twin does not invent one.
+  const _ColorPair(
+    'light: recordingAccent on surface (large)',
+    WpColorsLight.recordingAccent,
     WpColorsLight.surface,
     isLargeText: true,
   ),
@@ -394,6 +421,11 @@ void main() {
         WpColorsDark.accentHover,
         0.35,
       ),
+      const _SaturationCheck(
+        'dark: recordingAccent',
+        WpColorsDark.recordingAccent,
+        0.40,
+      ),
       const _SaturationCheck('dark: success', WpColorsDark.success, 0.40),
       const _SaturationCheck('dark: warning', WpColorsDark.warning, 0.40),
       const _SaturationCheck('dark: error', WpColorsDark.error, 0.40),
@@ -447,6 +479,11 @@ void main() {
   group('Color saturation – light theme (accent/status ≥ 40%)', () {
     final lightAccentChecks = [
       const _SaturationCheck('light: accent', WpColorsLight.accent, 0.40),
+      const _SaturationCheck(
+        'light: recordingAccent',
+        WpColorsLight.recordingAccent,
+        0.40,
+      ),
       const _SaturationCheck('light: success', WpColorsLight.success, 0.40),
       const _SaturationCheck('light: warning', WpColorsLight.warning, 0.40),
       const _SaturationCheck('light: error', WpColorsLight.error, 0.40),
