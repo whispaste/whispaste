@@ -80,15 +80,12 @@ class _WpSupportPromptWatcherState
           parent: animation,
           curve: Curves.easeOut,
         );
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
         return FadeTransition(
           opacity: opacity,
           child: Stack(
             children: [
-              Positioned.fill(
-                child: ColoredBox(color: wpDialogBarrierColor(isDark)),
-              ),
+              Positioned.fill(child: ColoredBox(color: wpDialogBarrierColor())),
               _SupportPromptDialog(
                 animation: animation,
                 kind: kind,

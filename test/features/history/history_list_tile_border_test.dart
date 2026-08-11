@@ -34,7 +34,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: entry,
-            isDark: true,
             isSelected: true, // Selected state triggers the border
             onTap: () {},
             onCopy: () {},
@@ -77,7 +76,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: entry,
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -119,7 +117,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: entry,
-            isDark: true,
             isSelected: true,
             onTap: () {},
             onCopy: () {},

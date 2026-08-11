@@ -103,7 +103,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final phase = ref.watch(recordingPhaseProvider);
@@ -227,7 +226,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           isDone: isDone,
           isRecording: isRecording,
           sandboxText: _sandboxText,
-          isDark: isDark,
           recordingAccent: recordingAccent,
           l10n: l10n,
         ),
@@ -422,7 +420,6 @@ class _SandboxField extends StatelessWidget {
     required this.isDone,
     required this.isRecording,
     required this.sandboxText,
-    required this.isDark,
     required this.recordingAccent,
     required this.l10n,
   });
@@ -430,7 +427,6 @@ class _SandboxField extends StatelessWidget {
   final bool isDone;
   final bool isRecording;
   final String? sandboxText;
-  final bool isDark;
   final Color recordingAccent;
   final L10n l10n;
 

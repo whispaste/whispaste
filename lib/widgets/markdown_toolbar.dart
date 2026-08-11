@@ -193,12 +193,10 @@ class WpMarkdownToolbar extends StatelessWidget {
   const WpMarkdownToolbar({
     super.key,
     required this.controller,
-    required this.isDark,
     required this.focusNode,
   });
 
   final TextEditingController controller;
-  final bool isDark;
   final FocusNode focusNode;
 
   @override
@@ -232,7 +230,6 @@ class WpMarkdownToolbar extends StatelessWidget {
               tooltip: l10n.markdownToolbarBold(
                 WpMarkdownFormatting.boldShortcutLabel,
               ),
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.bold,
@@ -243,7 +240,6 @@ class WpMarkdownToolbar extends StatelessWidget {
               tooltip: l10n.markdownToolbarItalic(
                 WpMarkdownFormatting.italicShortcutLabel,
               ),
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.italic,
@@ -258,7 +254,6 @@ class WpMarkdownToolbar extends StatelessWidget {
             _ToolbarButton(
               icon: LucideIcons.heading,
               tooltip: l10n.markdownToolbarHeading,
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.heading,
@@ -269,7 +264,6 @@ class WpMarkdownToolbar extends StatelessWidget {
               tooltip: l10n.markdownToolbarBulletList(
                 WpMarkdownFormatting.bulletListShortcutLabel,
               ),
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.bulletList,
@@ -278,7 +272,6 @@ class WpMarkdownToolbar extends StatelessWidget {
             _ToolbarButton(
               icon: LucideIcons.listOrdered,
               tooltip: l10n.markdownToolbarNumberedList,
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.numberedList,
@@ -293,7 +286,6 @@ class WpMarkdownToolbar extends StatelessWidget {
             _ToolbarButton(
               icon: LucideIcons.quote,
               tooltip: l10n.markdownToolbarQuote,
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.quote,
@@ -302,7 +294,6 @@ class WpMarkdownToolbar extends StatelessWidget {
             _ToolbarButton(
               icon: LucideIcons.code,
               tooltip: l10n.markdownToolbarCode,
-              isDark: isDark,
               accent: accent,
               muted: mutedColor,
               onTap: format.code,
@@ -318,7 +309,6 @@ class _ToolbarButton extends StatefulWidget {
   const _ToolbarButton({
     required this.icon,
     required this.tooltip,
-    required this.isDark,
     required this.accent,
     required this.muted,
     required this.onTap,
@@ -326,7 +316,6 @@ class _ToolbarButton extends StatefulWidget {
 
   final IconData icon;
   final String tooltip;
-  final bool isDark;
   final Color accent;
   final Color muted;
   final VoidCallback onTap;

@@ -178,8 +178,6 @@ class _WpToastOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Positioned(
       bottom: 56,
       right: WpSpacing.lg,
@@ -198,7 +196,6 @@ class _WpToastOverlay extends StatelessWidget {
           child: _ToastCard(
             message: message,
             type: type,
-            isDark: isDark,
             onDismiss: onDismiss,
             actionLabel: actionLabel,
             onAction: onAction,
@@ -213,7 +210,6 @@ class _ToastCard extends StatelessWidget {
   const _ToastCard({
     required this.message,
     required this.type,
-    required this.isDark,
     required this.onDismiss,
     this.actionLabel,
     this.onAction,
@@ -221,7 +217,6 @@ class _ToastCard extends StatelessWidget {
 
   final String message;
   final WpToastType type;
-  final bool isDark;
   final VoidCallback onDismiss;
   final String? actionLabel;
   final VoidCallback? onAction;

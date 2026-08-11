@@ -21,7 +21,6 @@ class HistoryCompactView extends StatelessWidget {
   HistoryCompactView({
     super.key,
     required this.groups,
-    required this.isDark,
     required this.selectedId,
     required this.onEntryTap,
     required this.onCopy,
@@ -33,7 +32,6 @@ class HistoryCompactView extends StatelessWidget {
   });
 
   final List<DateGroup> groups;
-  final bool isDark;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
@@ -64,7 +62,6 @@ class HistoryCompactView extends StatelessWidget {
         if (item.headerLabel != null) {
           return HistoryCompactDateHeader(
             label: resolveDateLabel(item.headerLabel!, l10n),
-            isDark: isDark,
           );
         }
         final entry = item.entry!;
@@ -72,7 +69,6 @@ class HistoryCompactView extends StatelessWidget {
         return HistoryCompactRow(
           key: ValueKey(entry.id),
           entry: entry,
-          isDark: isDark,
           isSelected: multiSelectMode
               ? selectedIds.contains(entry.id)
               : entry.id == selectedId,
@@ -97,7 +93,6 @@ class HistoryCompactRow extends StatefulWidget {
   const HistoryCompactRow({
     super.key,
     required this.entry,
-    required this.isDark,
     required this.isSelected,
     required this.onTap,
     required this.onCopy,
@@ -109,7 +104,6 @@ class HistoryCompactRow extends StatefulWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onCopy;
@@ -128,7 +122,6 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
     const textPrimary = WpColors.textPrimary;
     const textMuted = WpColors.textMuted;
     const accent = WpColors.accent;
@@ -228,7 +221,6 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                           : l10n.historyUntitledRecording,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      isDark: isDark,
                       style: const TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w500,
@@ -240,7 +232,6 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 const SizedBox(width: WpSpacing.xs),
                 HistoryCompactRowActions(
                   entry: widget.entry,
-                  isDark: isDark,
                   visible:
                       (_isHovered || widget.isFocused) &&
                       !widget.multiSelectMode,
@@ -303,7 +294,6 @@ class HistoryCompactRowActions extends StatelessWidget {
   const HistoryCompactRowActions({
     super.key,
     required this.entry,
-    required this.isDark,
     required this.visible,
     required this.onCopy,
     required this.onPin,
@@ -311,7 +301,6 @@ class HistoryCompactRowActions extends StatelessWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool visible;
   final VoidCallback onCopy;
   final VoidCallback onPin;

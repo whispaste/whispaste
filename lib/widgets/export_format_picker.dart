@@ -105,7 +105,6 @@ class _PickerBarrier extends StatelessWidget {
     final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
 
     final bool useBlur = !Platform.isWindows;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final barrierColor = WpColors.background.withValues(alpha: 0.92);
 
@@ -122,7 +121,7 @@ class _PickerBarrier extends StatelessWidget {
               child: useBlur
                   ? BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: ColoredBox(color: wpDialogBarrierColor(isDark)),
+                      child: ColoredBox(color: wpDialogBarrierColor()),
                     )
                   : ColoredBox(color: barrierColor),
             ),

@@ -171,7 +171,6 @@ class WpStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final textStyle = Theme.of(context).textTheme.labelSmall!;
     final l10n = L10n.of(context);
 
@@ -210,7 +209,6 @@ class WpStatusBar extends StatelessWidget {
                       startingSince: sttStartingSince,
                       recordingPhase: recordingPhase,
                       textStyle: textStyle,
-                      isDark: isDark,
                       l10n: l10n,
                       onTap: onSttTap,
                     ),
@@ -222,7 +220,6 @@ class WpStatusBar extends StatelessWidget {
                         current: microphoneLabel!,
                         options: microphoneOptions!,
                         textStyle: textStyle,
-                        isDark: isDark,
                         l10n: l10n,
                         onChanged: onMicrophoneChanged!,
                         onOpened: onMicrophoneMenuOpened,
@@ -236,7 +233,6 @@ class WpStatusBar extends StatelessWidget {
                         label: afterActionLabel!,
                         current: afterAction!,
                         textStyle: textStyle,
-                        isDark: isDark,
                         l10n: l10n,
                         onChanged: onAfterActionChanged!,
                       ),
@@ -246,7 +242,6 @@ class WpStatusBar extends StatelessWidget {
                       // loam-ignore: a11y-interactive-semantics – semantics provided in _AutoPasteOffHintChip.build
                       _AutoPasteOffHintChip(
                         textStyle: textStyle,
-                        isDark: isDark,
                         l10n: l10n,
                         onTap: onAutoPasteOffHintTap,
                         onDismiss: onAutoPasteOffHintDismiss,
@@ -261,7 +256,6 @@ class WpStatusBar extends StatelessWidget {
                             : LucideIcons.keyboardOff,
                         label: hotkeyLabel!,
                         textStyle: textStyle,
-                        isDark: isDark,
                         tooltip: l10n.statusBarHotkeyTooltip,
                         onTap: onHotkeyTap,
                         dimmed: !hotkeyEnabled,
@@ -274,7 +268,6 @@ class WpStatusBar extends StatelessWidget {
                         icon: LucideIcons.packageCheck,
                         label: l10n.updateInstall,
                         textStyle: textStyle,
-                        isDark: isDark,
                         tooltip: l10n.updateInstall,
                         onTap: onUpdateTap,
                       ),
@@ -285,7 +278,6 @@ class WpStatusBar extends StatelessWidget {
                         icon: LucideIcons.download,
                         label: l10n.updateStatusBarChip(updateVersion!),
                         textStyle: textStyle,
-                        isDark: isDark,
                         tooltip: l10n.updateAvailable(updateVersion!),
                         onTap: onUpdateTap,
                       ),
@@ -320,7 +312,6 @@ class _SttChip extends StatefulWidget {
     this.startingSince,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
-    required this.isDark,
     required this.l10n,
     this.onTap,
   });
@@ -330,7 +321,6 @@ class _SttChip extends StatefulWidget {
   final DateTime? startingSince;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
-  final bool isDark;
   final L10n l10n;
   final VoidCallback? onTap;
 
@@ -527,7 +517,6 @@ class _StatusChip extends StatefulWidget {
   const _StatusChip({
     required this.label,
     required this.textStyle,
-    required this.isDark,
     this.icon,
     this.tooltip,
     this.onTap,
@@ -537,7 +526,6 @@ class _StatusChip extends StatefulWidget {
   final IconData? icon;
   final String label;
   final TextStyle textStyle;
-  final bool isDark;
   final String? tooltip;
   final VoidCallback? onTap;
   final bool dimmed;
@@ -635,7 +623,6 @@ class _AfterActionChip extends StatelessWidget {
     required this.label,
     required this.current,
     required this.textStyle,
-    required this.isDark,
     required this.l10n,
     required this.onChanged,
   });
@@ -643,7 +630,6 @@ class _AfterActionChip extends StatelessWidget {
   final String label;
   final AfterTranscriptionAction current;
   final TextStyle textStyle;
-  final bool isDark;
   final L10n l10n;
   final ValueChanged<AfterTranscriptionAction> onChanged;
 
@@ -771,7 +757,6 @@ class _MicrophoneChip extends StatelessWidget {
     required this.current,
     required this.options,
     required this.textStyle,
-    required this.isDark,
     required this.l10n,
     required this.onChanged,
     this.onOpened,
@@ -783,7 +768,6 @@ class _MicrophoneChip extends StatelessWidget {
   /// Raw option labels, system-default sentinel first.
   final List<String> options;
   final TextStyle textStyle;
-  final bool isDark;
   final L10n l10n;
   final ValueChanged<String> onChanged;
   final VoidCallback? onOpened;
@@ -902,14 +886,12 @@ class _MicrophoneRow extends StatelessWidget {
 class _AutoPasteOffHintChip extends StatefulWidget {
   const _AutoPasteOffHintChip({
     required this.textStyle,
-    required this.isDark,
     required this.l10n,
     this.onTap,
     this.onDismiss,
   });
 
   final TextStyle textStyle;
-  final bool isDark;
   final L10n l10n;
   final VoidCallback? onTap;
   final VoidCallback? onDismiss;

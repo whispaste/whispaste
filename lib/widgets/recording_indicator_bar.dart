@@ -17,13 +17,13 @@ class WpRecordingIndicatorBar extends StatefulWidget {
 
   final RecordingPhase phase;
 
-  /// Returns the bar colour for [phase] and the current [isDark] setting.
+  /// Returns the bar colour for [phase].
   ///
   /// Recording → error token (red), transcribing → warning token (amber).
   /// Exposed `@visibleForTesting` so the colour-token mapping can be pinned
   /// without depending on the full widget/render pipeline.
   @visibleForTesting
-  static Color colorFor(RecordingPhase phase, {required bool isDark}) {
+  static Color colorFor(RecordingPhase phase) {
     if (phase == RecordingPhase.recording) {
       return WpColors.error;
     }
@@ -88,11 +88,7 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
         widget.phase == RecordingPhase.recording ||
         widget.phase == RecordingPhase.transcribing;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = WpRecordingIndicatorBar.colorFor(
-      widget.phase,
-      isDark: isDark,
-    );
+    final color = WpRecordingIndicatorBar.colorFor(widget.phase);
 
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.normal),

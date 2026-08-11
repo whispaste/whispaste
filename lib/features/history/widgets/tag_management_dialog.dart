@@ -19,12 +19,11 @@ import '../../../widgets/wp_button.dart';
 Future<bool> showTagManagementDialog({
   required BuildContext context,
   required HistoryDatabase db,
-  required bool isDark,
 }) async {
   final result = await showWpFormDialog<bool>(
     context: context,
     builder: (ctx, animation) =>
-        _TagManagementContent(animation: animation, db: db, isDark: isDark),
+        _TagManagementContent(animation: animation, db: db),
   );
   return result ?? false;
 }
@@ -34,15 +33,10 @@ Future<bool> showTagManagementDialog({
 // ---------------------------------------------------------------------------
 
 class _TagManagementContent extends StatefulWidget {
-  const _TagManagementContent({
-    required this.animation,
-    required this.db,
-    required this.isDark,
-  });
+  const _TagManagementContent({required this.animation, required this.db});
 
   final Animation<double> animation;
   final HistoryDatabase db;
-  final bool isDark;
 
   @override
   State<_TagManagementContent> createState() => _TagManagementContentState();
@@ -228,7 +222,6 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                           return _TagRow(
                             tag: tag,
                             count: count,
-                            isDark: widget.isDark,
                             onDelete: () => _deleteTag(tag, count),
                           );
                         },
@@ -267,13 +260,11 @@ class _TagRow extends StatefulWidget {
   const _TagRow({
     required this.tag,
     required this.count,
-    required this.isDark,
     required this.onDelete,
   });
 
   final Tag tag;
   final int count;
-  final bool isDark;
   final VoidCallback onDelete;
 
   @override

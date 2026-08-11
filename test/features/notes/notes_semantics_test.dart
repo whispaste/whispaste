@@ -45,7 +45,6 @@ Widget _buildTile({
       deletedAt: trashView ? DateTime(2025, 6, 2) : null,
     ),
     tags: const [],
-    isDark: true,
     isTrashView: trashView,
     isSelected: false,
     isFocused: isFocused,
@@ -62,7 +61,6 @@ Widget _buildPanel({bool trashed = false}) {
   return NoteEditorPanel(
     note: _note(deletedAt: trashed ? DateTime(2025, 6, 2) : null),
     tags: const [],
-    isDark: true,
     controller: controller,
     focusNode: focusNode,
     onClose: () {},
@@ -116,7 +114,6 @@ void main() {
           NotesListTile(
             note: _note(content: '   '),
             tags: const [],
-            isDark: true,
             isTrashView: false,
             isSelected: false,
             isFocused: false,

@@ -27,11 +27,7 @@ void main() {
         // The fix uses \u200B (zero-width space) instead of empty string
         await tester.pumpWidget(
           makeTestable(
-            const HighlightedText(
-              text: '',
-              style: TextStyle(fontSize: 14),
-              isDark: true,
-            ),
+            const HighlightedText(text: '', style: TextStyle(fontSize: 14)),
           ),
         );
 
@@ -50,7 +46,6 @@ void main() {
           const HighlightedText(
             text: 'Hello world',
             style: TextStyle(fontSize: 14),
-            isDark: true,
           ),
         ),
       );
@@ -67,7 +62,6 @@ void main() {
           const HighlightedText(
             text: 'Hello world',
             style: TextStyle(fontSize: 14),
-            isDark: true,
           ),
           overrides: [
             historySearchProvider.overrideWith(
@@ -95,7 +89,6 @@ void main() {
           const HighlightedText(
             text: 'test case with test data and testing',
             style: TextStyle(fontSize: 14),
-            isDark: true,
           ),
           overrides: [
             historySearchProvider.overrideWith(
@@ -120,7 +113,6 @@ void main() {
           const HighlightedText(
             text: 'hello world Hello again',
             style: TextStyle(fontSize: 14),
-            isDark: true,
           ),
           overrides: [
             historySearchProvider.overrideWith(
@@ -144,7 +136,6 @@ void main() {
           const HighlightedText(
             text: 'Hello world',
             style: TextStyle(fontSize: 14),
-            isDark: true,
           ),
           overrides: [
             historySearchProvider.overrideWith(
@@ -167,7 +158,6 @@ void main() {
           const HighlightedText(
             text: 'Long text that might overflow',
             style: TextStyle(fontSize: 14),
-            isDark: true,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -185,7 +175,6 @@ void main() {
           const HighlightedText(
             text: 'test content',
             style: TextStyle(fontSize: 14),
-            isDark: true,
           ),
           overrides: [
             historySearchProvider.overrideWith(
@@ -219,7 +208,6 @@ void main() {
           const HighlightedText(
             text: 'test content',
             style: TextStyle(fontSize: 14),
-            isDark: false,
           ),
           overrides: [
             historySearchProvider.overrideWith(

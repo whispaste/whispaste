@@ -167,7 +167,6 @@ void main() {
                 pinned: false,
               ),
               tags: const [],
-              isDark: true,
               isTrashView: false,
               isSelected: true,
               isFocused: true,

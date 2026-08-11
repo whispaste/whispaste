@@ -402,7 +402,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final filter = ref.watch(notesFilterProvider);
     final isTrash = filter == NotesFilter.trash;
@@ -506,7 +505,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                       isTrash: isTrash,
                       hasQuery: hasQuery,
                       query: query,
-                      isDark: isDark,
                       l10n: l10n,
                       tagsByNoteId: tagsByNoteId,
                       currentNote: currentNote,
@@ -580,7 +578,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     required bool isTrash,
     required bool hasQuery,
     required String query,
-    required bool isDark,
     required L10n l10n,
     required Map<String, List<Tag>> tagsByNoteId,
     required Note? currentNote,
@@ -619,7 +616,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
         return NotesSplitView(
           notes: notes,
           tagsByNoteId: tagsByNoteId,
-          isDark: isDark,
           isTrashView: isTrash,
           selectedNote: currentNote,
           focusedNoteId: _focusedNoteId,

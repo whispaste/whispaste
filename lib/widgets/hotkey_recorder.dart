@@ -464,7 +464,6 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     const bg = WpColors.surfaceElevated;
     const border = WpColors.borderDefault;
     const textPrimary = WpColors.textPrimary;
@@ -543,7 +542,6 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
                   key: ValueKey('$modifierLabels-$_keyLabel'),
                   modifiers: modifierLabels,
                   keyLabel: _keyLabel,
-                  isDark: isDark,
                 ),
               ),
             ),
@@ -581,11 +579,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
             // ── Conflict warning ─────────────────────────────
             if (_conflict != null)
-              _ConflictWarning(
-                conflict: _conflict!,
-                isDark: isDark,
-                l10n: l10n,
-              ),
+              _ConflictWarning(conflict: _conflict!, l10n: l10n),
             if (_conflict != null) const SizedBox(height: WpSpacing.md),
 
             // ── Action buttons ──────────────────────────────
@@ -673,12 +667,10 @@ class _KeyComboDisplay extends StatelessWidget {
     super.key,
     required this.modifiers,
     required this.keyLabel,
-    required this.isDark,
   });
 
   final List<String> modifiers;
   final String keyLabel;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -703,13 +695,13 @@ class _KeyComboDisplay extends StatelessWidget {
     final caps = <Widget>[];
 
     for (var i = 0; i < modifiers.length; i++) {
-      if (i > 0) caps.add(_PlusSeparator(isDark: isDark));
-      caps.add(_KeyCap(label: modifiers[i], isDark: isDark));
+      if (i > 0) caps.add(const _PlusSeparator());
+      caps.add(_KeyCap(label: modifiers[i]));
     }
 
     if (keyLabel.isNotEmpty) {
-      if (caps.isNotEmpty) caps.add(_PlusSeparator(isDark: isDark));
-      caps.add(_KeyCap(label: keyLabel, isDark: isDark, isPrimary: true));
+      if (caps.isNotEmpty) caps.add(const _PlusSeparator());
+      caps.add(_KeyCap(label: keyLabel, isPrimary: true));
     }
 
     return Container(
@@ -731,14 +723,9 @@ class _KeyComboDisplay extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _KeyCap extends StatelessWidget {
-  const _KeyCap({
-    required this.label,
-    required this.isDark,
-    this.isPrimary = false,
-  });
+  const _KeyCap({required this.label, this.isPrimary = false});
 
   final String label;
-  final bool isDark;
   final bool isPrimary;
 
   @override
@@ -781,9 +768,7 @@ class _KeyCap extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _PlusSeparator extends StatelessWidget {
-  const _PlusSeparator({required this.isDark});
-
-  final bool isDark;
+  const _PlusSeparator();
 
   @override
   Widget build(BuildContext context) {
@@ -810,14 +795,9 @@ class _PlusSeparator extends StatelessWidget {
 /// Non-blocking: the Save button remains enabled. The user retains full
 /// control over whether to accept the potential conflict.
 class _ConflictWarning extends StatelessWidget {
-  const _ConflictWarning({
-    required this.conflict,
-    required this.isDark,
-    required this.l10n,
-  });
+  const _ConflictWarning({required this.conflict, required this.l10n});
 
   final ConflictEntry conflict;
-  final bool isDark;
   final L10n l10n;
 
   static String _platformName() {

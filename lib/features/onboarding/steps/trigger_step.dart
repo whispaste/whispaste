@@ -50,7 +50,6 @@ class TriggerStep extends ConsumerWidget {
     final supportsKeyUp = ref
         .read(hotkeyServiceProvider.notifier)
         .supportsKeyUp;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     final hotkeyKey = settings.hotkeyKey;
@@ -91,7 +90,6 @@ class TriggerStep extends ConsumerWidget {
             key: kTriggerStepConflictWarnBoxKey,
             title: l10n.onboardingTriggerHotkeyConflictTitle,
             body: l10n.onboardingTriggerHotkeyConflictBody,
-            isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xs),
           WpHotkeyRecorderDialog(
@@ -284,12 +282,10 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
     super.key,
     required this.title,
     required this.body,
-    required this.isDark,
   });
 
   final String title;
   final String body;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {

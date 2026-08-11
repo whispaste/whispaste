@@ -61,7 +61,6 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
   @override
   Widget build(BuildContext context) {
     final downloadState = ref.watch(modelDownloadProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final gpu = widget.gpu;
 
@@ -92,7 +91,6 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
                 : TierPerformance.unmeasured,
             gpu: gpu,
             downloadState: downloadState,
-            isDark: isDark,
             l10n: l10n,
             isBenchmarking: isBenchmarking && benchmarkingTier == tier,
             benchmarkingTier: benchmarkingTier,
@@ -121,7 +119,6 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
           const SizedBox(height: WpSpacing.sm),
           _ErrorBanner(
             message: downloadState.errorMessage!,
-            isDark: isDark,
             l10n: l10n,
             onRetry: () => ref.invalidate(modelDownloadProvider),
           ),
@@ -183,7 +180,6 @@ class _TierRow extends StatefulWidget {
     required this.performance,
     required this.gpu,
     required this.downloadState,
-    required this.isDark,
     required this.l10n,
     required this.onSelect,
     required this.onCancel,
@@ -198,7 +194,6 @@ class _TierRow extends StatefulWidget {
   final TierPerformance performance;
   final hw.GpuInfo? gpu;
   final ModelDownloadState downloadState;
-  final bool isDark;
   final L10n l10n;
   final VoidCallback? onSelect;
   final VoidCallback? onCancel;
@@ -276,7 +271,6 @@ class _TierRowState extends State<_TierRow> {
         : null;
     final infoPerformance = _infoPerformance;
     final infoColor = WpTierPerformancePresentation.color(
-      isDark: widget.isDark,
       performance: infoPerformance,
     );
 
@@ -339,7 +333,6 @@ class _TierRowState extends State<_TierRow> {
                       infoMessage: infoMessage,
                       infoColor: infoColor,
                       performance: infoPerformance,
-                      isDark: widget.isDark,
                       l10n: widget.l10n,
                       accent: accent,
                       textMuted: textMuted,
@@ -357,7 +350,6 @@ class _TierRowState extends State<_TierRow> {
                   child: _DownloadProgressInfo(
                     downloadState: widget.downloadState,
                     accent: accent,
-                    isDark: widget.isDark,
                     l10n: widget.l10n,
                   ),
                 ),
@@ -459,7 +451,6 @@ class _TierRowInfo extends StatelessWidget {
     required this.infoMessage,
     required this.infoColor,
     required this.performance,
-    required this.isDark,
     required this.l10n,
     required this.accent,
     required this.textMuted,
@@ -475,7 +466,6 @@ class _TierRowInfo extends StatelessWidget {
   final String? infoMessage;
   final Color infoColor;
   final TierPerformance performance;
-  final bool isDark;
   final L10n l10n;
   final Color accent;
   final Color textMuted;
@@ -668,13 +658,11 @@ class _DownloadProgressInfo extends StatelessWidget {
   const _DownloadProgressInfo({
     required this.downloadState,
     required this.accent,
-    required this.isDark,
     required this.l10n,
   });
 
   final ModelDownloadState downloadState;
   final Color accent;
-  final bool isDark;
   final L10n l10n;
 
   @override
@@ -837,15 +825,9 @@ class _ActionChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({
-    required this.message,
-    required this.isDark,
-    required this.l10n,
-    this.onRetry,
-  });
+  const _ErrorBanner({required this.message, required this.l10n, this.onRetry});
 
   final String message;
-  final bool isDark;
   final L10n l10n;
   final VoidCallback? onRetry;
 

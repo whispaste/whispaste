@@ -8,14 +8,9 @@ import '../../../core/theme/tokens.dart';
 // ---------------------------------------------------------------------------
 
 class HistoryDateHeader extends StatelessWidget {
-  const HistoryDateHeader({
-    super.key,
-    required this.label,
-    required this.isDark,
-  });
+  const HistoryDateHeader({super.key, required this.label});
 
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -55,14 +50,9 @@ class HistoryDateHeader extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class HistoryCompactDateHeader extends StatelessWidget {
-  const HistoryCompactDateHeader({
-    super.key,
-    required this.label,
-    required this.isDark,
-  });
+  const HistoryCompactDateHeader({super.key, required this.label});
 
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {

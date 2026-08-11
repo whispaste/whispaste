@@ -39,11 +39,7 @@ void main() {
     testWidgets('Bold button exposes semantics label', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          WpMarkdownToolbar(
-            controller: controller,
-            isDark: true,
-            focusNode: focusNode,
-          ),
+          WpMarkdownToolbar(controller: controller, focusNode: focusNode),
           locale: const Locale('en'),
         ),
       );
@@ -62,11 +58,7 @@ void main() {
     testWidgets('All toolbar buttons expose semantics labels', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          WpMarkdownToolbar(
-            controller: controller,
-            isDark: true,
-            focusNode: focusNode,
-          ),
+          WpMarkdownToolbar(controller: controller, focusNode: focusNode),
           locale: const Locale('en'),
         ),
       );

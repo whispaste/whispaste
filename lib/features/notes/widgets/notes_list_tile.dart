@@ -22,7 +22,6 @@ class NotesListTile extends StatefulWidget {
     super.key,
     required this.note,
     required this.tags,
-    required this.isDark,
     required this.isTrashView,
     required this.isSelected,
     required this.isFocused,
@@ -37,7 +36,6 @@ class NotesListTile extends StatefulWidget {
   /// Tags linked to this note, alphabetically sorted (from
   /// allNoteTagsProvider). Purely informative in the tile — no tap handler.
   final List<Tag> tags;
-  final bool isDark;
 
   /// Trash view swaps the leading favourite star for trailing
   /// restore/delete-forever actions.
@@ -124,7 +122,6 @@ class _NotesListTileState extends State<NotesListTile> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
     final l10n = L10n.of(context);
 
     const textPrimary = WpColors.textPrimary;
@@ -163,7 +160,6 @@ class _NotesListTileState extends State<NotesListTile> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: WpListTileSurface(
-            isDark: isDark,
             variant: WpListTileVariant.panel,
             isHovered: _isHovered,
             isFocused: widget.isFocused,
@@ -266,7 +262,7 @@ class _NotesListTileState extends State<NotesListTile> {
                 // tag filtering may come in a later ticket)
                 if (widget.tags.isNotEmpty) ...[
                   const SizedBox(height: WpSpacing.xxs),
-                  _NoteTagChips(tags: widget.tags, isDark: isDark),
+                  _NoteTagChips(tags: widget.tags),
                 ],
               ],
             ),
@@ -283,10 +279,9 @@ class _NotesListTileState extends State<NotesListTile> {
 // ---------------------------------------------------------------------------
 
 class _NoteTagChips extends StatelessWidget {
-  const _NoteTagChips({required this.tags, required this.isDark});
+  const _NoteTagChips({required this.tags});
 
   final List<Tag> tags;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +292,7 @@ class _NoteTagChips extends StatelessWidget {
       runSpacing: 2,
       children: [
         for (final tag in tags.take(3))
-          _NoteTagChip(name: tag.name, isDark: isDark, accent: accent),
+          _NoteTagChip(name: tag.name, accent: accent),
         if (tags.length > 3)
           Text(
             '+${tags.length - 3}',
@@ -312,14 +307,9 @@ class _NoteTagChips extends StatelessWidget {
 }
 
 class _NoteTagChip extends StatelessWidget {
-  const _NoteTagChip({
-    required this.name,
-    required this.isDark,
-    required this.accent,
-  });
+  const _NoteTagChip({required this.name, required this.accent});
 
   final String name;
-  final bool isDark;
   final Color accent;
 
   @override

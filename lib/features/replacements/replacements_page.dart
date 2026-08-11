@@ -219,11 +219,10 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       ),
       onItemActivate: (r) => _showAddEditDialog(existing: r),
       onItemDelete: _confirmDelete,
-      itemBuilder: (context, r, isDark, isCursor) {
+      itemBuilder: (context, r, isCursor) {
         // loam-ignore: a11y-interactive-semantics – semantics provided in _ReplacementTileState.build
         return _ReplacementTile(
           replacement: r,
-          isDark: isDark,
           isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: r),
           onDelete: () => _confirmDelete(r),
@@ -547,14 +546,12 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
 class _ReplacementTile extends StatefulWidget {
   const _ReplacementTile({
     required this.replacement,
-    required this.isDark,
     required this.isCursor,
     required this.onTap,
     required this.onDelete,
   });
 
   final Replacement replacement;
-  final bool isDark;
 
   /// This row is the list's arrow cursor — same contract, same two outlets
   /// and same reasoning as `_SnippetTile.isCursor`, which see.
@@ -623,7 +620,6 @@ class _ReplacementTileState extends State<_ReplacementTile> {
           child: GestureDetector(
             onTap: widget.onTap,
             child: WpListTileSurface(
-              isDark: widget.isDark,
               variant: WpListTileVariant.card,
               isHovered: _isHovered,
               isFocused: _isFocused || widget.isCursor,

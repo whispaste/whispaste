@@ -573,7 +573,7 @@ void main() {
 
         expect(
           lineColor(tester, l10n.qualityTierInfoModerate),
-          WpCategorySlot.orchid.ramp(5, isDark)[3],
+          WpCategorySlot.orchid.ramp(5)[3],
           reason:
               'the copy reads "Good balance of speed and quality" — it sits one '
               'rung under the slow verdict in the *same* hue, so the grading '
@@ -597,7 +597,7 @@ void main() {
 
         expect(
           lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
-          WpCategorySlot.orchid.ramp(5, isDark)[4],
+          WpCategorySlot.orchid.ramp(5)[4],
           reason:
               'the heaviest rung of the one hue, not a second hue — weight '
               'rises with the time cost the line reports',

@@ -176,7 +176,6 @@ Widget _historyList() => HistoryEntryList(
   groups: [
     DateGroup(labelKey: 'today', entries: [_entry()]),
   ],
-  isDark: true,
   selectedId: null,
   onEntryTap: (_) {},
   onCopy: (_) {},
@@ -191,7 +190,6 @@ Widget _historyCompact() => HistoryCompactView(
   groups: [
     DateGroup(labelKey: 'today', entries: [_entry()]),
   ],
-  isDark: true,
   selectedId: null,
   onEntryTap: (_) {},
   onCopy: (_) {},
@@ -205,7 +203,6 @@ Widget _historyCards() => HistoryCardView(
   groups: [
     DateGroup(labelKey: 'today', entries: [_entry()]),
   ],
-  isDark: true,
   selectedId: null,
   onEntryTap: (_) {},
   onCopy: (_) {},
@@ -218,7 +215,6 @@ Widget _historyCards() => HistoryCardView(
 Widget _notesList() => NotesListView(
   notes: [_note()],
   tagsByNoteId: const {},
-  isDark: true,
   isTrashView: false,
   selectedId: null,
   focusedId: null,
@@ -392,7 +388,7 @@ void main() {
         isNot(WpShadows.subtleTransparent),
         reason: 'hovering a row must lift it; the shadow stayed transparent',
       );
-      expect(hovered.restingShadow, WpShadows.subtleFor(true));
+      expect(hovered.restingShadow, WpShadows.subtle);
     });
 
     testWidgets('every area indents its tiles by the same amount', (
@@ -552,7 +548,6 @@ void main() {
                       child: HistorySearchFilterBar(
                         controller: controller,
                         activeFilter: HistoryFilter.all,
-                        isDark: true,
                         onFilterChanged: (_) {},
                         onSearchChanged: () {},
                         resultCount: 3,

@@ -15,7 +15,6 @@ class NotesListView extends StatelessWidget {
     super.key,
     required this.notes,
     required this.tagsByNoteId,
-    required this.isDark,
     required this.isTrashView,
     required this.selectedId,
     required this.focusedId,
@@ -30,7 +29,6 @@ class NotesListView extends StatelessWidget {
   /// Note id → linked tags (from allNoteTagsProvider); notes without tags
   /// simply have no entry here.
   final Map<String, List<Tag>> tagsByNoteId;
-  final bool isDark;
   final bool isTrashView;
   final String? selectedId;
 
@@ -63,7 +61,6 @@ class NotesListView extends StatelessWidget {
             key: ValueKey(note.id),
             note: note,
             tags: tagsByNoteId[note.id] ?? const [],
-            isDark: isDark,
             isTrashView: isTrashView,
             isSelected: note.id == selectedId,
             isFocused: note.id == focusedId,

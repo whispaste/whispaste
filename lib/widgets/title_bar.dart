@@ -21,8 +21,6 @@ class WpTitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (Platform.isMacOS) return _MacOSTitleBar(actions: actions);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (_) => windowManager.startDragging(),
@@ -49,16 +47,14 @@ class WpTitleBar extends StatelessWidget {
             _WindowButton(
               icon: LucideIcons.minus,
               onPressed: () => windowManager.minimize(),
-              isDark: isDark,
               semanticLabel: 'Minimize window',
             ),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _MaximizeButton.build
-            _MaximizeButton(isDark: isDark),
+            const _MaximizeButton(),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
             _WindowButton(
               icon: LucideIcons.x,
               onPressed: () => windowManager.close(),
-              isDark: isDark,
               semanticLabel: 'Close window',
             ),
           ],
@@ -73,13 +69,11 @@ class _WindowButton extends StatefulWidget {
   const _WindowButton({
     required this.icon,
     required this.onPressed,
-    required this.isDark,
     required this.semanticLabel,
   });
 
   final IconData icon;
   final VoidCallback onPressed;
-  final bool isDark;
   final String semanticLabel;
 
   @override
@@ -127,9 +121,7 @@ class _WindowButtonState extends State<_WindowButton> {
 }
 
 class _MaximizeButton extends StatefulWidget {
-  const _MaximizeButton({required this.isDark});
-
-  final bool isDark;
+  const _MaximizeButton();
 
   @override
   State<_MaximizeButton> createState() => _MaximizeButtonState();

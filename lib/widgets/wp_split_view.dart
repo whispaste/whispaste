@@ -24,14 +24,11 @@ import '../core/theme/tokens.dart';
 class WpSplitView<T> extends StatefulWidget {
   const WpSplitView({
     super.key,
-    required this.isDark,
     required this.selectedItem,
     required this.idOf,
     required this.listBuilder,
     required this.detailBuilder,
   });
-
-  final bool isDark;
 
   /// The item whose detail column is open, or `null` for the list-only state.
   final T? selectedItem;
@@ -190,7 +187,6 @@ class _WpSplitViewState<T> extends State<WpSplitView<T>>
                 ),
                 // Draggable divider
                 _SplitViewDivider(
-                  isDark: widget.isDark,
                   isDragging: _isDragging,
                   hitWidth: _dividerHitWidth,
                   visualWidth: _dividerVisualWidth,
@@ -248,7 +244,6 @@ class _WpSplitViewState<T> extends State<WpSplitView<T>>
 
 class _SplitViewDivider extends StatelessWidget {
   const _SplitViewDivider({
-    required this.isDark,
     required this.isDragging,
     required this.hitWidth,
     required this.visualWidth,
@@ -260,7 +255,6 @@ class _SplitViewDivider extends StatelessWidget {
     required this.onDragEnd,
   });
 
-  final bool isDark;
   final bool isDragging;
   final double hitWidth;
   final double visualWidth;

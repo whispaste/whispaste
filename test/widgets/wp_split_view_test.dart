@@ -87,7 +87,6 @@ void main() {
             key: key,
             initial: 'a',
             builder: (selected) => WpSplitView<String>(
-              isDark: true,
               selectedItem: selected,
               idOf: (id) => id,
               listBuilder: (_, _) => const SizedBox.expand(),
@@ -125,7 +124,6 @@ void main() {
               key: key,
               initial: 'a',
               builder: (selected) => WpSplitView<String>(
-                isDark: true,
                 selectedItem: selected,
                 idOf: (id) => id,
                 listBuilder: (_, _) => const SizedBox.expand(),
@@ -156,7 +154,6 @@ void main() {
             key: key,
             initial: 'a',
             builder: (selected) => WpSplitView<String>(
-              isDark: true,
               selectedItem: selected,
               // Identity is the first character, so 'a' and 'a2' are the same
               // item with changed content — a stream emit, not a switch.
@@ -191,7 +188,6 @@ void main() {
             key: key,
             initial: 'a',
             builder: (selected) => WpSplitView<String>(
-              isDark: true,
               selectedItem: selected,
               idOf: (id) => id,
               // Fills the list column, so its size *is* the column width.
@@ -241,7 +237,6 @@ void main() {
                   entries: [_entry('a'), _entry('b')],
                 ),
               ],
-              isDark: true,
               viewMode: HistoryViewMode.list,
               selectedEntry: selected,
               onEntryTap: (_) {},
@@ -296,7 +291,6 @@ void main() {
             builder: (selected) => NotesSplitView(
               notes: [_note('a'), _note('b')],
               tagsByNoteId: const {},
-              isDark: true,
               isTrashView: false,
               selectedNote: selected,
               focusedNoteId: null,

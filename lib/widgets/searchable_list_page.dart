@@ -82,18 +82,14 @@ class WpSearchableListPage<T> extends StatefulWidget {
   final String noMatchesTitle;
   final String noMatchesHint;
 
-  /// Builds one list tile. [isDark] is the current theme brightness, passed
-  /// through so tiles don't each re-derive it. [isCursor] is true for the one
+  /// Builds one list tile. It used to receive the theme brightness as well,
+  /// so tiles would not each re-derive it; with one theme left there is
+  /// nothing to derive. [isCursor] is true for the one
   /// row the arrow keys currently point at — see the keyboard-cursor section
   /// of this state's docs; the tile must render it through
   /// `WpListTileSurface.isFocused` and `Semantics(selected:)`, never as a
   /// treatment of its own.
-  final Widget Function(
-    BuildContext context,
-    T item,
-    bool isDark,
-    bool isCursor,
-  )
+  final Widget Function(BuildContext context, T item, bool isCursor)
   itemBuilder;
 
   /// Opens [item] — what Enter does to the keyboard cursor's row, and what
@@ -377,7 +373,6 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     // Sits between the page H1 (drawn by `_PageHeader` in app.dart, outside
@@ -491,7 +486,6 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                   child: widget.itemBuilder(
                     context,
                     visible[index],
-                    isDark,
                     index == cursor,
                   ),
                 ),

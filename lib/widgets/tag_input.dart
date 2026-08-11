@@ -25,7 +25,6 @@ class WpTagInput extends StatefulWidget {
   const WpTagInput({
     super.key,
     required this.tags,
-    required this.isDark,
     required this.onAdd,
     required this.onRemove,
     this.suggestions = const [],
@@ -37,7 +36,6 @@ class WpTagInput extends StatefulWidget {
   });
 
   final List<Tag> tags;
-  final bool isDark;
   final ValueChanged<String> onAdd;
   final ValueChanged<String> onRemove; // tagId
   final List<Tag> suggestions;
@@ -266,18 +264,10 @@ class WpTagInputState extends State<WpTagInput> {
             children: [
               if (widget.inlineLabel != null) widget.inlineLabel!,
               for (final tag in visibleTags)
-                _TagChip(
-                  tag: tag,
-                  isDark: widget.isDark,
-                  onRemove: () => widget.onRemove(tag.id),
-                ),
+                _TagChip(tag: tag, onRemove: () => widget.onRemove(tag.id)),
               if (hiddenCount > 0)
                 // loam-ignore: a11y-interactive-semantics – semantics provided in _OverflowChip.build
-                _OverflowChip(
-                  count: hiddenCount,
-                  isDark: widget.isDark,
-                  onTap: enterAddMode,
-                ),
+                _OverflowChip(count: hiddenCount, onTap: enterAddMode),
               if (_isAddMode)
                 _buildInlineField(
                   textPrimary: textPrimary,
@@ -288,7 +278,6 @@ class WpTagInputState extends State<WpTagInput> {
               else
                 // loam-ignore: a11y-interactive-semantics – semantics provided in _AddTagTrigger.build
                 _AddTagTrigger(
-                  isDark: widget.isDark,
                   label: widget.tags.isEmpty ? widget.hintText : null,
                   onTap: enterAddMode,
                 ),
@@ -315,7 +304,6 @@ class WpTagInputState extends State<WpTagInput> {
                       // loam-ignore: a11y-interactive-semantics – semantics provided in _SuggestionTile.build
                       _SuggestionTile(
                         tag: suggestions[i],
-                        isDark: widget.isDark,
                         count: widget.suggestionCounts[suggestions[i].id],
                         isSelected: i == _selectedIndex,
                         onTap: () => _selectSuggestion(suggestions[i]),
@@ -324,7 +312,6 @@ class WpTagInputState extends State<WpTagInput> {
                       // loam-ignore: a11y-interactive-semantics – semantics provided in _CreateTagTile.build
                       _CreateTagTile(
                         text: _controller.text.trim().toLowerCase(),
-                        isDark: widget.isDark,
                         isSelected: _selectedIndex == suggestions.length,
                         label: l10n.historyCreateTag(
                           _controller.text.trim().toLowerCase(),
@@ -406,14 +393,9 @@ class WpTagInputState extends State<WpTagInput> {
 // ---------------------------------------------------------------------------
 
 class _TagChip extends StatefulWidget {
-  const _TagChip({
-    required this.tag,
-    required this.isDark,
-    required this.onRemove,
-  });
+  const _TagChip({required this.tag, required this.onRemove});
 
   final Tag tag;
-  final bool isDark;
   final VoidCallback onRemove;
 
   @override
@@ -491,14 +473,9 @@ class _TagChipState extends State<_TagChip> {
 // ---------------------------------------------------------------------------
 
 class _OverflowChip extends StatelessWidget {
-  const _OverflowChip({
-    required this.count,
-    required this.isDark,
-    required this.onTap,
-  });
+  const _OverflowChip({required this.count, required this.onTap});
 
   final int count;
-  final bool isDark;
   final VoidCallback onTap;
 
   @override
@@ -547,9 +524,8 @@ class _OverflowChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _AddTagTrigger extends StatefulWidget {
-  const _AddTagTrigger({required this.isDark, required this.onTap, this.label});
+  const _AddTagTrigger({required this.onTap, this.label});
 
-  final bool isDark;
   final VoidCallback onTap;
   final String? label;
 
@@ -631,14 +607,12 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
 class _SuggestionTile extends StatefulWidget {
   const _SuggestionTile({
     required this.tag,
-    required this.isDark,
     required this.onTap,
     this.count,
     this.isSelected = false,
   });
 
   final Tag tag;
-  final bool isDark;
   final VoidCallback onTap;
   final int? count;
   final bool isSelected;
@@ -737,14 +711,12 @@ class _SuggestionTileState extends State<_SuggestionTile> {
 class _CreateTagTile extends StatefulWidget {
   const _CreateTagTile({
     required this.text,
-    required this.isDark,
     required this.label,
     required this.onTap,
     this.isSelected = false,
   });
 
   final String text;
-  final bool isDark;
   final String label;
   final VoidCallback onTap;
   final bool isSelected;

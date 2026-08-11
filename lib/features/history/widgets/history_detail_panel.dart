@@ -62,7 +62,6 @@ class HistoryDetailPanel extends ConsumerStatefulWidget {
   const HistoryDetailPanel({
     super.key,
     required this.entry,
-    required this.isDark,
     required this.onClose,
     required this.onCopy,
     required this.onPin,
@@ -77,7 +76,6 @@ class HistoryDetailPanel extends ConsumerStatefulWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final VoidCallback onClose;
   final VoidCallback onCopy;
   final VoidCallback onPin;
@@ -156,7 +154,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   }
 
   HistoryEntry get entry => widget.entry;
-  bool get isDark => widget.isDark;
   VoidCallback get onClose => widget.onClose;
   VoidCallback get onCopy => widget.onCopy;
   VoidCallback get onPin => widget.onPin;
@@ -348,7 +345,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               // Header bar
               _DetailPanelHeader(
                 entry: entry,
-                isDark: isDark,
                 isTrashView: isTrashView,
                 isEditingTitle: _isEditingTitle,
                 titleController: _titleController,
@@ -387,7 +383,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           // ── Context zone: metadata + tags ──
                           _DetailMetaChips(
                             entry: entry,
-                            isDark: isDark,
                             durationLabel: _durationLabel,
                           ),
                           const SizedBox(height: WpSpacing.sm),
@@ -396,7 +391,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                             key: _tagSectionKey,
                             entryId: entry.id,
                             tags: tags,
-                            isDark: isDark,
                             content: entry.content,
                             searchQuery: _tagSearchQuery,
                             onSearchChanged: (q) =>
@@ -409,7 +403,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           // ── Content zone: transcript + edit controls ──
                           _DetailTranscriptZone(
                             entry: entry,
-                            isDark: isDark,
                             isTrashView: isTrashView,
                             isEditing: _isEditingTranscript,
                             transcriptController: _transcriptController,
@@ -423,7 +416,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           HistoryNotesSection(
                             key: _notesSectionKey,
                             entryId: entry.id,
-                            isDark: isDark,
                           ),
                           const SizedBox(height: WpSpacing.xl),
                         ],
@@ -542,7 +534,6 @@ class _ShortcutRow extends StatelessWidget {
 class _DetailPanelHeader extends StatelessWidget {
   const _DetailPanelHeader({
     required this.entry,
-    required this.isDark,
     required this.isTrashView,
     required this.isEditingTitle,
     required this.titleController,
@@ -562,7 +553,6 @@ class _DetailPanelHeader extends StatelessWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool isTrashView;
   final bool isEditingTitle;
   final TextEditingController titleController;
@@ -586,7 +576,7 @@ class _DetailPanelHeader extends StatelessWidget {
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
     const textMuted = WpColors.textMuted;
-    final avatarCol = historyAvatarSlot(entry).color(isDark);
+    final avatarCol = historyAvatarSlot(entry).color();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -601,9 +591,8 @@ class _DetailPanelHeader extends StatelessWidget {
             HistoryEntryAvatar(
               color: avatarCol,
               icon: historyAvatarIcon,
-              isPinned: entry.pinned,
-              isDark: isDark,
-              // Off-scale on purpose (explicit default): mid-sized between
+              isPinned: entry
+                  .pinned, // Off-scale on purpose (explicit default): mid-sized between
               // the card (32) and the list row (42) — the header shares the
               // row with title/metadata/actions, unlike the list row.
               size: 36,
@@ -653,7 +642,6 @@ class _DetailPanelHeader extends StatelessWidget {
                                       WpTextFieldVariant.heading,
                                       color: textPrimary,
                                     ),
-                                    isDark: isDark,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -681,14 +669,12 @@ class _DetailPanelHeader extends StatelessWidget {
               HistoryDetailAction(
                 icon: LucideIcons.undo2,
                 tooltip: l10n.historyRestore,
-                isDark: isDark,
                 onTap: onRestore,
               ),
               // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
                 icon: LucideIcons.trash2,
                 tooltip: l10n.historyDeleteForever,
-                isDark: isDark,
                 onTap: onDelete,
                 isDestructive: true,
               ),
@@ -697,7 +683,6 @@ class _DetailPanelHeader extends StatelessWidget {
               HistoryDetailAction(
                 icon: LucideIcons.copy,
                 tooltip: '${l10n.historyCopyText} (Ctrl+C)',
-                isDark: isDark,
                 onTap: onCopy,
               ),
               // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
@@ -707,13 +692,11 @@ class _DetailPanelHeader extends StatelessWidget {
                 activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
                 tooltip:
                     '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
-                isDark: isDark,
                 onTap: onPin,
               ),
               // Overflow menu for secondary actions
               _DetailOverflowMenu(
                 entry: entry,
-                isDark: isDark,
                 textSecondary: textSecondary,
                 onCopyMarkdown: onCopyMarkdown,
                 onDuplicate: onDuplicate,
@@ -727,7 +710,6 @@ class _DetailPanelHeader extends StatelessWidget {
             HistoryDetailAction(
               icon: LucideIcons.x,
               tooltip: '${l10n.historyClose} (Esc)',
-              isDark: isDark,
               onTap: onClose,
             ),
           ],
@@ -744,7 +726,6 @@ class _DetailPanelHeader extends StatelessWidget {
 class _DetailOverflowMenu extends StatelessWidget {
   const _DetailOverflowMenu({
     required this.entry,
-    required this.isDark,
     required this.textSecondary,
     required this.onCopyMarkdown,
     required this.onDuplicate,
@@ -754,7 +735,6 @@ class _DetailOverflowMenu extends StatelessWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final Color textSecondary;
   final VoidCallback? onCopyMarkdown;
   final VoidCallback? onDuplicate;
@@ -799,7 +779,6 @@ class _DetailOverflowMenu extends StatelessWidget {
             child: HistoryPopupMenuRow(
               icon: LucideIcons.fileText,
               label: l10n.historyCopyAsMarkdown,
-              isDark: isDark,
             ),
           ),
         if (onDuplicate != null)
@@ -808,7 +787,6 @@ class _DetailOverflowMenu extends StatelessWidget {
             child: HistoryPopupMenuRow(
               icon: LucideIcons.files,
               label: l10n.historyDuplicate,
-              isDark: isDark,
             ),
           ),
         PopupMenuItem(
@@ -816,7 +794,6 @@ class _DetailOverflowMenu extends StatelessWidget {
           child: HistoryPopupMenuRow(
             icon: LucideIcons.download,
             label: l10n.historyExportAction,
-            isDark: isDark,
           ),
         ),
         PopupMenuItem(
@@ -826,7 +803,6 @@ class _DetailOverflowMenu extends StatelessWidget {
                 ? LucideIcons.archiveRestore
                 : LucideIcons.archive,
             label: entry.archived ? l10n.historyUnarchive : l10n.historyArchive,
-            isDark: isDark,
           ),
         ),
         PopupMenuItem(
@@ -834,7 +810,6 @@ class _DetailOverflowMenu extends StatelessWidget {
           child: HistoryPopupMenuRow(
             icon: LucideIcons.trash2,
             label: l10n.actionDelete,
-            isDark: isDark,
             isDestructive: true,
           ),
         ),
@@ -848,14 +823,9 @@ class _DetailOverflowMenu extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DetailMetaChips extends StatelessWidget {
-  const _DetailMetaChips({
-    required this.entry,
-    required this.isDark,
-    required this.durationLabel,
-  });
+  const _DetailMetaChips({required this.entry, required this.durationLabel});
 
   final HistoryEntry entry;
-  final bool isDark;
   final String durationLabel;
 
   @override
@@ -866,21 +836,15 @@ class _DetailMetaChips extends StatelessWidget {
       runSpacing: WpSpacing.xs,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _MetaChip(
-          icon: LucideIcons.clock,
-          label: durationLabel,
-          isDark: isDark,
-        ),
+        _MetaChip(icon: LucideIcons.clock, label: durationLabel),
         if (entry.language.isNotEmpty)
           _MetaChip(
             icon: LucideIcons.globe,
             label: entry.language.toUpperCase(),
-            isDark: isDark,
           ),
         _MetaChip(
           icon: entry.isLocal ? LucideIcons.hardDrive : LucideIcons.cloud,
           label: entry.isLocal ? l10n.historyOnDevice : l10n.statusCloud,
-          isDark: isDark,
         ),
         if (entry.model.isNotEmpty) ...[
           () {
@@ -892,7 +856,6 @@ class _DetailMetaChips extends StatelessWidget {
                 label: modelName.length > 25
                     ? '${modelName.substring(0, 25)}…'
                     : modelName,
-                isDark: isDark,
               ),
             );
           }(),
@@ -909,7 +872,6 @@ class _DetailMetaChips extends StatelessWidget {
 class _DetailTranscriptZone extends StatelessWidget {
   const _DetailTranscriptZone({
     required this.entry,
-    required this.isDark,
     required this.isTrashView,
     required this.isEditing,
     required this.transcriptController,
@@ -920,7 +882,6 @@ class _DetailTranscriptZone extends StatelessWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool isTrashView;
   final bool isEditing;
   final TextEditingController transcriptController;
@@ -944,7 +905,6 @@ class _DetailTranscriptZone extends StatelessWidget {
           if (isEditing) ...[
             WpMarkdownToolbar(
               controller: transcriptController,
-              isDark: isDark,
               focusNode: editorFocusNode,
             ),
             const SizedBox(height: WpSpacing.xs),
@@ -987,7 +947,6 @@ class _DetailTranscriptZone extends StatelessWidget {
                                   WpTextFieldVariant.passage,
                                   color: textPrimary,
                                 ),
-                                isDark: isDark,
                               ),
                             ),
                           ),
@@ -1000,7 +959,6 @@ class _DetailTranscriptZone extends StatelessWidget {
             const SizedBox(height: WpSpacing.xs),
             _TranscriptEditBar(
               entry: entry,
-              isDark: isDark,
               isEditing: isEditing,
               wordCountLabel: wordCountLabel,
               onToggleEdit: onToggleEdit,
@@ -1019,14 +977,12 @@ class _DetailTranscriptZone extends StatelessWidget {
 class _TranscriptEditBar extends StatelessWidget {
   const _TranscriptEditBar({
     required this.entry,
-    required this.isDark,
     required this.isEditing,
     required this.wordCountLabel,
     required this.onToggleEdit,
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool isEditing;
   final String wordCountLabel;
   final VoidCallback onToggleEdit;
@@ -1175,13 +1131,11 @@ class HistoryPopupMenuRow extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    required this.isDark,
     this.isDestructive = false,
   });
 
   final IconData icon;
   final String label;
-  final bool isDark;
   final bool isDestructive;
 
   @override
@@ -1211,7 +1165,6 @@ class HistoryDetailAction extends StatefulWidget {
     this.icon,
     this.faIcon,
     required this.tooltip,
-    required this.isDark,
     required this.onTap,
     this.isDestructive = false,
     this.activeColor,
@@ -1220,7 +1173,6 @@ class HistoryDetailAction extends StatefulWidget {
   final IconData? icon;
   final FaIconData? faIcon;
   final String tooltip;
-  final bool isDark;
   final VoidCallback onTap;
   final bool isDestructive;
 
@@ -1319,13 +1271,11 @@ class HistoryDetailMetaRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    required this.isDark,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -1367,15 +1317,10 @@ class HistoryDetailMetaRow extends StatelessWidget {
 
 /// Compact inline metadata chip for the detail panel.
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({
-    required this.icon,
-    required this.label,
-    required this.isDark,
-  });
+  const _MetaChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -1404,7 +1349,6 @@ class _TagSection extends ConsumerStatefulWidget {
     super.key,
     required this.entryId,
     required this.tags,
-    required this.isDark,
     required this.content,
     required this.searchQuery,
     required this.onSearchChanged,
@@ -1412,7 +1356,6 @@ class _TagSection extends ConsumerStatefulWidget {
 
   final String entryId;
   final List<Tag> tags;
-  final bool isDark;
   final String content;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
@@ -1486,7 +1429,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
         WpTagInput(
           key: _tagInputKey,
           tags: widget.tags,
-          isDark: widget.isDark,
           hintText: l10n.historyAddTag,
           searchHintText: l10n.historySearchTags,
           suggestions: _suggestions,
@@ -1517,7 +1459,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
                   final modified = await showTagManagementDialog(
                     context: context,
                     db: db,
-                    isDark: widget.isDark,
                   );
                   if (modified) _loadSuggestions();
                 },

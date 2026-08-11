@@ -13,14 +13,12 @@ class HighlightedText extends ConsumerWidget {
     super.key,
     required this.text,
     required this.style,
-    required this.isDark,
     this.maxLines,
     this.overflow,
   });
 
   final String text;
   final TextStyle style;
-  final bool isDark;
   final int? maxLines;
   final TextOverflow? overflow;
 

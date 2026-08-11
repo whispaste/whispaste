@@ -116,7 +116,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     // Watch scroll target — triggers when search field selects a suggestion.
@@ -368,7 +367,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // `DecoratedBox` adds no inset, so the shell's own padding is
             // still the only thing positioning the content.
             return DecoratedBox(
-              decoration: BoxDecoration(color: wpDecorativeChromeWash(isDark)),
+              decoration: BoxDecoration(color: wpDecorativeChromeWash()),
               child: WpPageShell(
                 header: SettingsSearchField(focusNode: _searchFocusNode),
                 child: scrollContent,

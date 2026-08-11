@@ -30,7 +30,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const HistoryNotesSection(entryId: 'hint-test-entry', isDark: true),
+          const HistoryNotesSection(entryId: 'hint-test-entry'),
           locale: const Locale('en'),
         ),
       );
@@ -59,7 +59,7 @@ void main() {
 
     await tester.pumpWidget(
       makeTestable(
-        const HistoryNotesSection(entryId: 'hint-test-entry', isDark: true),
+        const HistoryNotesSection(entryId: 'hint-test-entry'),
         locale: const Locale('en'),
       ),
     );

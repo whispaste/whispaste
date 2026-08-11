@@ -312,7 +312,6 @@ class _MacOsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     const textPrimary = WpColors.textPrimary;
@@ -337,7 +336,6 @@ class _MacOsBody extends StatelessWidget {
         ..._buildPhase(
           phase: phase,
           l10n: l10n,
-          isDark: isDark,
           textPrimary: textPrimary,
           textSecondary: textSecondary,
           textMuted: textMuted,
@@ -353,7 +351,6 @@ class _MacOsBody extends StatelessWidget {
   List<Widget> _buildPhase({
     required _AutoPastePhase phase,
     required L10n l10n,
-    required bool isDark,
     required Color textPrimary,
     required Color textSecondary,
     required Color textMuted,
@@ -470,7 +467,6 @@ class _MacOsBody extends StatelessWidget {
       tint: tint,
       title: title,
       detail: detail,
-      isDark: isDark,
       textPrimary: textPrimary,
       textSecondary: textSecondary,
     );
@@ -595,7 +591,6 @@ class _WindowsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final cap = state.capability;
     // UIPI/UAC edge: the SendInput bridge cannot deliver keystrokes into an
@@ -630,7 +625,6 @@ class _WindowsBody extends StatelessWidget {
             // card under it.
             title: null,
             detail: l10n.onboardingPasteWhyWinUipi,
-            isDark: isDark,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
           )
@@ -640,7 +634,6 @@ class _WindowsBody extends StatelessWidget {
             tint: WpColors.successActiveFill,
             title: l10n.onboardingPasteChipReady,
             detail: l10n.onboardingPasteWhyWin,
-            isDark: isDark,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
           );
@@ -692,7 +685,6 @@ class _PermissionStatusCard extends StatelessWidget {
     required this.tint,
     required this.title,
     required this.detail,
-    required this.isDark,
     required this.textPrimary,
     required this.textSecondary,
   });
@@ -719,7 +711,6 @@ class _PermissionStatusCard extends StatelessWidget {
   /// more words in it.
   final String? detail;
 
-  final bool isDark;
   final Color textPrimary;
   final Color textSecondary;
 

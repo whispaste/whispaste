@@ -56,7 +56,6 @@ Note _note() => Note(
 
 Widget _historyRow({bool isDark = true}) => HistoryEntryRow(
   entry: _entry(),
-  isDark: isDark,
   isSelected: false,
   onTap: () {},
   onCopy: () {},
@@ -66,7 +65,6 @@ Widget _historyRow({bool isDark = true}) => HistoryEntryRow(
 
 Widget _compactRow({bool isDark = true}) => HistoryCompactRow(
   entry: _entry(),
-  isDark: isDark,
   isSelected: false,
   onTap: () {},
   onCopy: () {},
@@ -77,7 +75,6 @@ Widget _compactRow({bool isDark = true}) => HistoryCompactRow(
 Widget _notesRow({bool isDark = true}) => NotesListTile(
   note: _note(),
   tags: const [],
-  isDark: isDark,
   isTrashView: false,
   isSelected: false,
   isFocused: false,

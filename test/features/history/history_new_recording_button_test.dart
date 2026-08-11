@@ -70,7 +70,6 @@ void main() {
           child: HistorySearchFilterBar(
             controller: controller,
             activeFilter: HistoryFilter.all,
-            isDark: true,
             onFilterChanged: (_) {},
             onSearchChanged: () {},
             resultCount: 0,

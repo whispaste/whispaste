@@ -98,11 +98,8 @@ abstract final class WpTierPerformancePresentation {
   /// never is — [message] returns null there. Color carries nothing on its own:
   /// the message says the verdict in words and the paired [icon] repeats it, an
   /// hourglass for time spent rather than an alert triangle.
-  static Color color({
-    required bool isDark,
-    required TierPerformance performance,
-  }) {
-    final rungs = _tierRampSlot.ramp(_tierRampTextRung + 3, isDark);
+  static Color color({required TierPerformance performance}) {
+    final rungs = _tierRampSlot.ramp(_tierRampTextRung + 3);
     return switch (performance) {
       TierPerformance.fast => rungs[_tierRampTextRung],
       TierPerformance.moderate => rungs[_tierRampTextRung + 1],

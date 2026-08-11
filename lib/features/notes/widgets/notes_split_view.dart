@@ -18,7 +18,6 @@ class NotesSplitView extends StatelessWidget {
     super.key,
     required this.notes,
     required this.tagsByNoteId,
-    required this.isDark,
     required this.isTrashView,
     required this.selectedNote,
     required this.focusedNoteId,
@@ -41,7 +40,6 @@ class NotesSplitView extends StatelessWidget {
 
   /// Note id → linked tags for the list tiles (from allNoteTagsProvider).
   final Map<String, List<Tag>> tagsByNoteId;
-  final bool isDark;
 
   /// Whether the trash filter is active — swaps the per-note actions
   /// (favourite/trash vs. restore/delete-forever) in list tiles and editor.
@@ -83,7 +81,6 @@ class NotesSplitView extends StatelessWidget {
     return NotesListView(
       notes: notes,
       tagsByNoteId: tagsByNoteId,
-      isDark: isDark,
       isTrashView: isTrashView,
       selectedId: selectedId,
       focusedId: focusedNoteId,
@@ -98,7 +95,6 @@ class NotesSplitView extends StatelessWidget {
     return NoteEditorPanel(
       note: note,
       tags: selectedNoteTags,
-      isDark: isDark,
       controller: editorController,
       focusNode: editorFocusNode,
       onClose: onCloseEditor,
@@ -116,7 +112,6 @@ class NotesSplitView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WpSplitView<Note>(
-      isDark: isDark,
       selectedItem: selectedNote,
       idOf: (note) => note.id,
       listBuilder: _buildListBody,

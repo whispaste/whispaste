@@ -35,15 +35,12 @@ Future<T?> showWpAnimatedPromptDialog<T>({
     pageBuilder: (_, _, _) => const SizedBox.shrink(),
     transitionBuilder: (ctx, animation, _, _) {
       final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-      final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
       return FadeTransition(
         opacity: opacity,
         child: Stack(
           children: [
-            Positioned.fill(
-              child: ColoredBox(color: wpDialogBarrierColor(isDark)),
-            ),
+            Positioned.fill(child: ColoredBox(color: wpDialogBarrierColor())),
             contentBuilder(ctx, animation),
           ],
         ),

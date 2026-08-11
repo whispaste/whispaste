@@ -24,7 +24,6 @@ class HistoryEntryRow extends StatefulWidget {
   const HistoryEntryRow({
     super.key,
     required this.entry,
-    required this.isDark,
     required this.isSelected,
     required this.onTap,
     required this.onCopy,
@@ -38,7 +37,6 @@ class HistoryEntryRow extends StatefulWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onCopy;
@@ -111,8 +109,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
-
     final showActions =
         (_isHovered || widget.isFocused) && !widget.multiSelectMode;
 
@@ -152,7 +148,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: WpListTileSurface(
-            isDark: isDark,
             variant: WpListTileVariant.panel,
             isHovered: _isHovered,
             isFocused: widget.isFocused,
@@ -180,11 +175,11 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                 // classifies nothing, so the icon says only "dictation
                 // transcript" and the hue is decoration.
                 HistoryEntryAvatar(
-                  color: _avatarSlot.color(isDark),
+                  color: _avatarSlot.color(),
                   icon: historyAvatarIcon,
-                  isPinned: widget.entry.pinned,
-                  isDark: isDark,
-                  // Off-scale on purpose: largest of the three avatar
+                  isPinned: widget
+                      .entry
+                      .pinned, // Off-scale on purpose: largest of the three avatar
                   // contexts — the primary list row has no competing header
                   // chrome, so the avatar carries more of the row's visual
                   // weight than the card (32) or detail header (36 default).
@@ -195,7 +190,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                 Expanded(
                   child: _EntryRowContent(
                     entry: widget.entry,
-                    isDark: isDark,
                     showActions: showActions,
                     timeLabel: _timeLabel,
                     durationLabel: _durationLabel,
@@ -223,7 +217,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
 class _EntryRowContent extends StatelessWidget {
   const _EntryRowContent({
     required this.entry,
-    required this.isDark,
     required this.showActions,
     required this.timeLabel,
     required this.durationLabel,
@@ -236,7 +229,6 @@ class _EntryRowContent extends StatelessWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool showActions;
   final String timeLabel;
   final String durationLabel;
@@ -281,7 +273,6 @@ class _EntryRowContent extends StatelessWidget {
                       : l10n.historyUntitledRecording,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  isDark: isDark,
                   style: const TextStyle(
                     // Off-scale on purpose: one step above `subheading` (14)
                     // — the preview line below stays at 14, so the title now
@@ -336,7 +327,6 @@ class _EntryRowContent extends StatelessWidget {
           text: entry.content,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          isDark: isDark,
           style: const TextStyle(
             fontSize: WpTypography.subheading,
             color: textSecondary,
@@ -351,12 +341,11 @@ class _EntryRowContent extends StatelessWidget {
           wordCount: wordCount,
           language: entry.language,
           isLocal: entry.isLocal,
-          isDark: isDark,
         ),
         // Tag chips — only rendered when entry has tags
         if (tags.isNotEmpty) ...[
           const SizedBox(height: 3),
-          _EntryTagChips(tags: tags, isDark: isDark, onTagTap: onTagTap),
+          _EntryTagChips(tags: tags, onTagTap: onTagTap),
         ],
       ],
     );
@@ -370,7 +359,6 @@ class _EntryMetaRow extends StatelessWidget {
     required this.wordCount,
     required this.language,
     required this.isLocal,
-    required this.isDark,
   });
 
   final String timeLabel;
@@ -378,7 +366,6 @@ class _EntryMetaRow extends StatelessWidget {
   final int wordCount;
   final String language;
   final bool isLocal;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +422,7 @@ class _EntryMetaRow extends StatelessWidget {
         ],
         if (language.isNotEmpty) ...[
           const SizedBox(width: WpSpacing.xs),
-          HistoryStatusChip(label: language.toUpperCase(), isDark: isDark),
+          HistoryStatusChip(label: language.toUpperCase()),
         ],
         if (!isLocal) ...[
           const SizedBox(width: WpSpacing.xs),
@@ -452,14 +439,9 @@ class _EntryMetaRow extends StatelessWidget {
 }
 
 class _EntryTagChips extends StatelessWidget {
-  const _EntryTagChips({
-    required this.tags,
-    required this.isDark,
-    this.onTagTap,
-  });
+  const _EntryTagChips({required this.tags, this.onTagTap});
 
   final List<String> tags;
-  final bool isDark;
   final void Function(String tag)? onTagTap;
 
   @override
@@ -473,7 +455,6 @@ class _EntryTagChips extends StatelessWidget {
           // loam-ignore: a11y-interactive-semantics – semantics provided in _EntryTagChipState.build
           _EntryTagChip(
             tag: tag,
-            isDark: isDark,
             slot: categorySlotForTag(tag),
             onTap: onTagTap == null ? null : () => onTagTap!.call(tag),
           ),
@@ -499,13 +480,11 @@ class _EntryTagChips extends StatelessWidget {
 class _EntryTagChip extends StatefulWidget {
   const _EntryTagChip({
     required this.tag,
-    required this.isDark,
     required this.slot,
     required this.onTap,
   });
 
   final String tag;
-  final bool isDark;
   final WpCategorySlot slot;
   final VoidCallback? onTap;
 
@@ -532,8 +511,8 @@ class _EntryTagChipState extends State<_EntryTagChip> {
         vertical: 1,
       ),
       decoration: BoxDecoration(
-        color: widget.slot.chipFill(widget.isDark),
-        border: Border.all(color: widget.slot.chipBorder(widget.isDark)),
+        color: widget.slot.chipFill(),
+        border: Border.all(color: widget.slot.chipBorder()),
         borderRadius: WpRadius.borderSm,
       ),
       child: Text(

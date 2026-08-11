@@ -26,7 +26,6 @@ class NoteEditorPanel extends StatelessWidget {
     super.key,
     required this.note,
     required this.tags,
-    required this.isDark,
     required this.controller,
     required this.focusNode,
     required this.onClose,
@@ -44,7 +43,6 @@ class NoteEditorPanel extends StatelessWidget {
 
   /// Tags linked to this note (from noteTagsProvider, alphabetically sorted).
   final List<Tag> tags;
-  final bool isDark;
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onClose;
@@ -281,7 +279,6 @@ class NoteEditorPanel extends StatelessWidget {
               alignment: AlignmentDirectional.centerStart,
               child: WpTagInput(
                 tags: tags,
-                isDark: isDark,
                 onAdd: onAddTag,
                 onRemove: onRemoveTag,
                 hintText: l10n.notesAddTag,
@@ -314,7 +311,6 @@ class NoteEditorPanel extends StatelessWidget {
               alignment: AlignmentDirectional.centerStart,
               child: WpMarkdownToolbar(
                 controller: controller,
-                isDark: isDark,
                 focusNode: focusNode,
               ),
             ),

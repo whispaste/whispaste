@@ -68,7 +68,6 @@ Widget _list(List<HistoryEntry> entries, {required bool isDark}) =>
           for (final entry in entries)
             HistoryEntryRow(
               entry: entry,
-              isDark: isDark,
               isSelected: false,
               onTap: () {},
               onCopy: () {},
@@ -91,7 +90,6 @@ Widget _cards(List<HistoryEntry> entries, {required bool isDark}) =>
               width: 260,
               child: HistoryEntryCard(
                 entry: entry,
-                isDark: isDark,
                 isSelected: false,
                 onTap: () {},
                 onCopy: () {},
@@ -231,7 +229,7 @@ void main() {
           _avatarColors(tester),
           [
             for (final entry in _oneEntryPerSlot)
-              historyAvatarSlot(entry).color(true),
+              historyAvatarSlot(entry).color(),
           ],
           reason: 'the ${view.key} paints a hue its entry does not carry',
         );
@@ -270,7 +268,7 @@ void main() {
       expect(_avatarIcons(tester), [LucideIcons.mic, LucideIcons.mic]);
       expect(
         _avatarColors(tester),
-        everyElement(WpCategorySlot.categories[7].color(true)),
+        everyElement(WpCategorySlot.categories[7].color()),
       );
 
       // Drain pending Drift/Riverpod cleanup timers before teardown — see
@@ -324,10 +322,10 @@ void main() {
         expect(darkColors.length, entries.length);
         for (var i = 0; i < entries.length; i++) {
           final slot = historyAvatarSlot(entries[i]);
-          expect(darkColors[i], slot.color(true));
+          expect(darkColors[i], slot.color());
           expect(
             lightColors[i],
-            slot.color(false),
+            slot.color(),
             reason:
                 'avatar ${entries[i].id} still paints the dark theme\'s hue '
                 'after the switch — the resolved color was cached instead of '
@@ -361,8 +359,8 @@ void main() {
       final decoration = chip.decoration! as BoxDecoration;
       final slot = categorySlotForTag('meeting');
 
-      expect(decoration.color, slot.chipFill(true));
-      expect(decoration.border!.top.color, slot.chipBorder(true));
+      expect(decoration.color, slot.chipFill());
+      expect(decoration.border!.top.color, slot.chipBorder());
 
       final label = tester.widget<Text>(find.text('#meeting'));
       expect(

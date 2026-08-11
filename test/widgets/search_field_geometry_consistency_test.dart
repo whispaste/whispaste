@@ -297,7 +297,7 @@ Widget _searchableList() => WpSearchableListPage<String>(
   noMatchesTitle: 'none',
   noMatchesHint: 'none',
   onItemActivate: (_) {},
-  itemBuilder: (_, _, _, _) => const SizedBox(height: 40),
+  itemBuilder: (_, _, _) => const SizedBox(height: 40),
 );
 
 Widget _notes(TextEditingController controller, FocusNode focus) =>
@@ -315,7 +315,6 @@ Widget _notes(TextEditingController controller, FocusNode focus) =>
 Widget _history(TextEditingController controller) => HistorySearchFilterBar(
   controller: controller,
   activeFilter: HistoryFilter.all,
-  isDark: true,
   onFilterChanged: (_) {},
   onSearchChanged: () {},
   resultCount: 0,

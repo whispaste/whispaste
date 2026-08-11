@@ -60,11 +60,10 @@ class AnalyticsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncData = ref.watch(analyticsProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
     return asyncData.when(
-      loading: () => _AnalyticsSkeleton(isDark: isDark),
+      loading: () => const _AnalyticsSkeleton(),
       error: (e, _) => WpEmptyState(
         icon: LucideIcons.triangleAlert,
         title: l10n.errorGeneric,
@@ -79,7 +78,7 @@ class AnalyticsPage extends ConsumerWidget {
             hint: l10n.analyticsEmptySubtitle,
           );
         }
-        return _AnalyticsDashboard(data: data, isDark: isDark);
+        return _AnalyticsDashboard(data: data);
       },
     );
   }
@@ -90,9 +89,7 @@ class AnalyticsPage extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _AnalyticsSkeleton extends StatelessWidget {
-  const _AnalyticsSkeleton({required this.isDark});
-
-  final bool isDark;
+  const _AnalyticsSkeleton();
 
   @override
   Widget build(BuildContext context) {
@@ -165,10 +162,9 @@ class _AnalyticsSkeleton extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _AnalyticsDashboard extends StatelessWidget {
-  const _AnalyticsDashboard({required this.data, required this.isDark});
+  const _AnalyticsDashboard({required this.data});
 
   final AnalyticsData data;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +185,8 @@ class _AnalyticsDashboard extends StatelessWidget {
             title: l10n.analyticsOverview,
             subtitle: l10n.analyticsOverviewSubtitle,
             padding: EdgeInsets.zero,
-            trailing: _PeriodSelector(isDark: isDark),
-            child: _HeroStatsRow(data: data, isDark: isDark),
+            trailing: const _PeriodSelector(),
+            child: _HeroStatsRow(data: data),
           ),
 
           const SizedBox(height: WpSpacing.xxl),
@@ -200,10 +196,7 @@ class _AnalyticsDashboard extends StatelessWidget {
             title: l10n.analyticsActivity,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _ActivityChartPanel(
-                values: data.weeklyActivity,
-                isDark: isDark,
-              ),
+              left: _ActivityChartPanel(values: data.weeklyActivity),
               right: _ModelUsagePanel(
                 models: data.modelUsage
                     .map(
@@ -215,7 +208,6 @@ class _AnalyticsDashboard extends StatelessWidget {
                       ),
                     )
                     .toList(),
-                isDark: isDark,
               ),
             ),
           ),
@@ -229,12 +221,10 @@ class _AnalyticsDashboard extends StatelessWidget {
             child: WpTwoPanel(
               left: _DurationDistPanel(
                 buckets: _buildBuckets(l10n, data.durationBuckets),
-                isDark: isDark,
               ),
               right: _CostPanel(
                 localSavingsUsd: data.localSavingsUsd,
                 cloudCostUsd: data.cloudCostUsd,
-                isDark: isDark,
               ),
             ),
           ),
@@ -242,7 +232,7 @@ class _AnalyticsDashboard extends StatelessWidget {
           const SizedBox(height: WpSpacing.xxl),
 
           // ── Row 4: Reset ───────────────────────────────────────
-          _ResetRow(isDark: isDark),
+          const _ResetRow(),
 
           const SizedBox(height: WpSpacing.xl),
         ],
@@ -319,16 +309,10 @@ List<String> _activityDayLabels(L10n l10n) => [
 /// Making it a `WpSection` instead would mean two accent bars stacked eight
 /// pixels apart, which is worse than the small inconsistency it would fix.
 class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    required this.isDark,
-    this.trailing,
-  });
+  const _PanelHeader({required this.icon, required this.title, this.trailing});
 
   final IconData icon;
   final String title;
-  final bool isDark;
   final Widget? trailing;
 
   @override
@@ -377,10 +361,9 @@ class _PanelHeader extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _HeroStatsRow extends StatelessWidget {
-  const _HeroStatsRow({required this.data, required this.isDark});
+  const _HeroStatsRow({required this.data});
 
   final AnalyticsData data;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -395,28 +378,24 @@ class _HeroStatsRow extends StatelessWidget {
         final narrow = constraints.maxWidth < 520;
         final pills = [
           _HeroPill(
-            isDark: isDark,
             icon: LucideIcons.mic,
             rawValue: data.totalRecordings,
             formatter: formatCount,
             label: l10n.analyticsTotalRecordings,
           ),
           _HeroPill(
-            isDark: isDark,
             icon: LucideIcons.clock,
             rawValue: data.totalDurationMinutes,
             formatter: formatDuration,
             label: l10n.analyticsTotalDuration,
           ),
           _HeroPill(
-            isDark: isDark,
             icon: LucideIcons.type,
             rawValue: data.totalWords,
             formatter: formatCount,
             label: l10n.analyticsWordsDictated,
           ),
           _HeroPill(
-            isDark: isDark,
             icon: LucideIcons.zap,
             rawValue: data.timeSavedMinutes,
             formatter: formatDuration,
@@ -424,7 +403,6 @@ class _HeroStatsRow extends StatelessWidget {
           ),
           if (data.averageHotkeyLatencyMs != null)
             _HeroPill(
-              isDark: isDark,
               icon: LucideIcons.gauge,
               rawValue: data.averageHotkeyLatencyMs!.round(),
               formatter: (ms) => _latencySecondsFormat(localeName, ms),
@@ -472,14 +450,12 @@ class _HeroStatsRow extends StatelessWidget {
 /// target this app does not offer here.
 class _HeroPill extends StatefulWidget {
   const _HeroPill({
-    required this.isDark,
     required this.icon,
     required this.rawValue,
     required this.formatter,
     required this.label,
   });
 
-  final bool isDark;
   final IconData icon;
   final int rawValue;
   final String Function(int) formatter;
@@ -639,10 +615,9 @@ class _HeroPillState extends State<_HeroPill>
 // ---------------------------------------------------------------------------
 
 class _ActivityChartPanel extends StatefulWidget {
-  const _ActivityChartPanel({required this.values, required this.isDark});
+  const _ActivityChartPanel({required this.values});
 
   final List<double> values;
-  final bool isDark;
 
   @override
   State<_ActivityChartPanel> createState() => _ActivityChartPanelState();
@@ -687,7 +662,6 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
     final l10n = L10n.of(context);
     const textMuted = WpColors.textMuted;
 
@@ -697,7 +671,6 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
         _PanelHeader(
           icon: LucideIcons.chartNoAxesColumn,
           title: l10n.analyticsRecordingActivity,
-          isDark: isDark,
           trailing: Text(
             l10n.analyticsLast7Days,
             style: const TextStyle(
@@ -842,10 +815,9 @@ class _BarChartPainter extends CustomPainter {
 // ---------------------------------------------------------------------------
 
 class _ModelUsagePanel extends StatelessWidget {
-  const _ModelUsagePanel({required this.models, required this.isDark});
+  const _ModelUsagePanel({required this.models});
 
   final List<_ModelUsage> models;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -853,11 +825,7 @@ class _ModelUsagePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _PanelHeader(
-          icon: LucideIcons.brain,
-          title: l10n.analyticsModelUsage,
-          isDark: isDark,
-        ),
+        _PanelHeader(icon: LucideIcons.brain, title: l10n.analyticsModelUsage),
         const SizedBox(height: WpSpacing.md),
         if (models.isEmpty)
           const Text(
@@ -868,7 +836,7 @@ class _ModelUsagePanel extends StatelessWidget {
             ),
           )
         else
-          ...models.map((m) => _ModelUsageBar(model: m, isDark: isDark)),
+          ...models.map((m) => _ModelUsageBar(model: m)),
       ],
     );
   }
@@ -888,10 +856,9 @@ class _ModelUsagePanel extends StatelessWidget {
 /// accent: it is the value being read, and letting the category hue mark it
 /// would turn a slot into an importance marker (*The Two Accent, Two Jobs Rule*).
 class _ModelUsageBar extends StatelessWidget {
-  const _ModelUsageBar({required this.model, required this.isDark});
+  const _ModelUsageBar({required this.model});
 
   final _ModelUsage model;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -946,7 +913,7 @@ class _ModelUsageBar extends StatelessWidget {
                   FractionallySizedBox(
                     widthFactor: model.fraction,
                     child: ColoredBox(
-                      color: categorySlotForModel(model.id).color(isDark),
+                      color: categorySlotForModel(model.id).color(),
                     ),
                   ),
                 ],
@@ -991,28 +958,26 @@ class _ModelUsageBar extends StatelessWidget {
 const _durationRampSlot = WpCategorySlot.iris;
 
 class _DurationDistPanel extends StatelessWidget {
-  const _DurationDistPanel({required this.buckets, required this.isDark});
+  const _DurationDistPanel({required this.buckets});
 
   final List<_DurationBucket> buckets;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     // Resolved once here, not per bar: the ramp is one scale, and a bar that
     // asked for its own rung could not tell how many rungs there are.
-    final ramp = _durationRampSlot.ramp(buckets.length, isDark);
+    final ramp = _durationRampSlot.ramp(buckets.length);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _PanelHeader(
           icon: LucideIcons.timer,
           title: l10n.analyticsDurationDistribution,
-          isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.md),
         for (final (i, b) in buckets.indexed)
-          _DurationBar(bucket: b, barColor: ramp[i], isDark: isDark),
+          _DurationBar(bucket: b, barColor: ramp[i]),
       ],
     );
   }
@@ -1023,15 +988,10 @@ class _DurationDistPanel extends StatelessWidget {
 /// [barColor] is handed down rather than chosen here: it is one rung of the
 /// panel's ramp, and a rung only means something next to the others.
 class _DurationBar extends StatelessWidget {
-  const _DurationBar({
-    required this.bucket,
-    required this.barColor,
-    required this.isDark,
-  });
+  const _DurationBar({required this.bucket, required this.barColor});
 
   final _DurationBucket bucket;
   final Color barColor;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -1111,15 +1071,10 @@ class _DurationBar extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CostPanel extends StatelessWidget {
-  const _CostPanel({
-    required this.localSavingsUsd,
-    required this.cloudCostUsd,
-    required this.isDark,
-  });
+  const _CostPanel({required this.localSavingsUsd, required this.cloudCostUsd});
 
   final double localSavingsUsd;
   final double cloudCostUsd;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -1136,13 +1091,11 @@ class _CostPanel extends StatelessWidget {
         _PanelHeader(
           icon: LucideIcons.piggyBank,
           title: l10n.analyticsCostSavings,
-          isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.lg),
 
         // Local savings
         _CostRow(
-          isDark: isDark,
           icon: LucideIcons.shieldCheck,
           iconColor: success,
           title: l10n.analyticsLocalSavings,
@@ -1153,7 +1106,6 @@ class _CostPanel extends StatelessWidget {
 
         // Cloud cost
         _CostRow(
-          isDark: isDark,
           icon: LucideIcons.cloud,
           iconColor: warning,
           title: l10n.analyticsCloudCost,
@@ -1167,7 +1119,6 @@ class _CostPanel extends StatelessWidget {
 
 class _CostRow extends StatelessWidget {
   const _CostRow({
-    required this.isDark,
     required this.icon,
     required this.iconColor,
     required this.title,
@@ -1175,7 +1126,6 @@ class _CostRow extends StatelessWidget {
     required this.valueColor,
   });
 
-  final bool isDark;
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -1243,9 +1193,7 @@ class _CostRow extends StatelessWidget {
 /// the real Inter faces loaded, because the default test font is roughly
 /// twice as wide per glyph and would have condemned a layout that ships fine.
 class _PeriodSelector extends ConsumerWidget {
-  const _PeriodSelector({required this.isDark});
-
-  final bool isDark;
+  const _PeriodSelector();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1304,9 +1252,7 @@ class _PeriodSelector extends ConsumerWidget {
 /// that cannot be undone, so it belongs where nobody reaches it on the way to
 /// something else. Only the period selector moved up; see [_PeriodSelector].
 class _ResetRow extends ConsumerStatefulWidget {
-  const _ResetRow({required this.isDark});
-
-  final bool isDark;
+  const _ResetRow();
 
   @override
   ConsumerState<_ResetRow> createState() => _ResetRowState();
@@ -1315,7 +1261,6 @@ class _ResetRow extends ConsumerStatefulWidget {
 class _ResetRowState extends ConsumerState<_ResetRow> {
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
     final l10n = L10n.of(context);
 
     return Row(
@@ -1329,13 +1274,13 @@ class _ResetRowState extends ConsumerState<_ResetRow> {
           tone: WpButtonTone.danger,
           size: WpButtonSize.dense,
           icon: LucideIcons.trash2,
-          onPressed: () => _confirmReset(context, isDark),
+          onPressed: () => _confirmReset(context),
         ),
       ],
     );
   }
 
-  void _confirmReset(BuildContext context, bool isDark) {
+  void _confirmReset(BuildContext context) {
     final l10n = L10n.of(context);
     showWpConfirmDialog(
       context: context,

@@ -252,7 +252,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     // Persist the selection the moment its download completes — the shell's
     // Next button is generic and must not need to know about engines.
@@ -369,7 +368,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                     isDisabled: !_parakeetEligible,
                     disabledReason:
                         l10n.onboardingModelEngineUnsupportedLanguage,
-                    isDark: isDark,
                     onTap: () => _selectEngine(OnDeviceEngine.parakeet),
                   ),
                 ),
@@ -387,7 +385,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                     isSelected: _selectedEngine == OnDeviceEngine.whisper,
                     isDisabled: false,
                     disabledReason: null,
-                    isDark: isDark,
                     onTap: () => _selectEngine(OnDeviceEngine.whisper),
                   ),
                 ),
@@ -412,7 +409,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                   child: _GpuCpuFallbackNotice(
                     key: kModelStepGpuCpuFallbackKey,
                     message: l10n.onboardingModelGpuCpuFallback,
-                    isDark: isDark,
                   ),
                 ),
               ],
@@ -432,7 +428,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             isDownloading: isDownloading,
             isError: isError,
             isDone: isDone,
-            isDark: isDark,
             accent: accent,
             accentGradient: accentGradient,
             sizeLabel: selectedSizeLabel,
@@ -494,7 +489,6 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     required this.isDownloading,
     required this.isError,
     required this.isDone,
-    required this.isDark,
     required this.accent,
     required this.accentGradient,
     required this.sizeLabel,
@@ -508,7 +502,6 @@ class _ModelStepDownloadStatus extends StatelessWidget {
   final bool isDownloading;
   final bool isError;
   final bool isDone;
-  final bool isDark;
   final Color accent;
   final LinearGradient accentGradient;
   final String sizeLabel;
@@ -521,7 +514,6 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       return _DownloadProgress(
         phase: phase,
         progress: progressPercent / 100.0,
-        isDark: isDark,
         accent: accent,
         l10n: l10n,
       );
@@ -529,7 +521,6 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     if (isError) {
       return _DownloadError(
         message: errorMessage,
-        isDark: isDark,
         l10n: l10n,
         onRetry: onStartDownload,
       );
@@ -607,11 +598,16 @@ class _ModelStepDownloadStatus extends StatelessWidget {
 /// already `textMuted` and landed around 1.8:1 behind it. DESIGN.md forbids
 /// the veil for exactly this reason; the reason line now keeps full strength
 /// and is the most readable thing on a card you cannot choose.
-/// The decorative-glyph wash for [isDark]. A free function rather than one
-/// more `isDark ? … : …` inside [_EngineCardColors.resolve]: that factory is
-/// already at the repo's cyclomatic ceiling, and this pick has nothing to do
-/// with the selected/hovered/disabled state the rest of it resolves.
-Color _decorativeGlyphWash(bool isDark) => WpColors.decorativeGlyphWash;
+/// The decorative-glyph wash. A free function rather than one more lookup
+/// inside [_EngineCardColors.resolve]: that factory is already at the repo's
+/// cyclomatic ceiling, and this pick has nothing to do with the
+/// selected/hovered/disabled state the rest of it resolves.
+///
+/// It read `_decorativeGlyphWash(isDark)` until 2026-08-11, and the reason
+/// given was that it kept `isDark ? … : …` out of the factory. With one
+/// palette there is no ternary left to keep out; what survives is the second
+/// reason, which never depended on the theme pair.
+Color _decorativeGlyphWash() => WpColors.decorativeGlyphWash;
 
 class _EngineCardColors {
   const _EngineCardColors({
@@ -627,7 +623,6 @@ class _EngineCardColors {
   });
 
   factory _EngineCardColors.resolve({
-    required bool isDark,
     required bool isSelected,
     required bool isHovered,
     required bool isTappable,
@@ -662,7 +657,7 @@ class _EngineCardColors {
       // cannot pick gets no wash at all: the same token swap the rest of this
       // class does for the disabled state, rather than a brand-accent graphic
       // behind deliberately muted text.
-      heroWash: isTappable ? _decorativeGlyphWash(isDark) : null,
+      heroWash: isTappable ? _decorativeGlyphWash() : null,
       icon: isTappable ? accent : textMuted,
       label: isTappable ? textPrimary : textSecondary,
       description: isTappable ? textSecondary : textMuted,
@@ -694,7 +689,6 @@ class _EngineCard extends StatefulWidget {
     required this.isSelected,
     required this.isDisabled,
     required this.disabledReason,
-    required this.isDark,
     required this.onTap,
   });
 
@@ -706,7 +700,6 @@ class _EngineCard extends StatefulWidget {
   final bool isSelected;
   final bool isDisabled;
   final String? disabledReason;
-  final bool isDark;
   final VoidCallback onTap;
 
   @override
@@ -737,7 +730,6 @@ class _EngineCardState extends State<_EngineCard> {
   Widget build(BuildContext context) {
     final isTappable = !widget.isDisabled;
     final c = _EngineCardColors.resolve(
-      isDark: widget.isDark,
       isSelected: widget.isSelected,
       isHovered: _hovered,
       isTappable: isTappable,
@@ -1000,14 +992,12 @@ class _DownloadProgress extends StatelessWidget {
   const _DownloadProgress({
     required this.phase,
     required this.progress,
-    required this.isDark,
     required this.accent,
     required this.l10n,
   });
 
   final DownloadPhase phase;
   final double progress;
-  final bool isDark;
   final Color accent;
   final L10n l10n;
 
@@ -1056,13 +1046,11 @@ class _DownloadProgress extends StatelessWidget {
 class _DownloadError extends StatelessWidget {
   const _DownloadError({
     required this.message,
-    required this.isDark,
     required this.l10n,
     required this.onRetry,
   });
 
   final String? message;
-  final bool isDark;
   final L10n l10n;
   final VoidCallback onRetry;
 
@@ -1126,14 +1114,9 @@ class _DownloadError extends StatelessWidget {
 /// cloud option. It only concerns the Whisper branch's compute backend —
 /// Parakeet is always CPU-only, so this doesn't change its speed.
 class _GpuCpuFallbackNotice extends StatelessWidget {
-  const _GpuCpuFallbackNotice({
-    super.key,
-    required this.message,
-    required this.isDark,
-  });
+  const _GpuCpuFallbackNotice({super.key, required this.message});
 
   final String message;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {

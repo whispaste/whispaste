@@ -267,7 +267,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   /// Builds the content area when [groupedHistoryProvider] has data.
   Widget _buildLoadedView(
-    BuildContext context,
     List<DateGroup> groups,
     List<HistoryEntry> filteredEntries,
     HistoryEntry? selectedEntry,
@@ -367,7 +366,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           behavior: HitTestBehavior.translucent,
           child: HistorySplitView(
             groups: sortedGroups,
-            isDark: isDark,
             viewMode: _viewMode,
             selectedEntry: selectedEntry,
             focusedId: _focusedEntryId,
@@ -450,7 +448,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 HistoryMultiSelectBar(
                   selectedCount: _selectedIds.length,
                   totalCount: filteredEntries.length,
-                  isDark: isDark,
                   isTrashView: isTrashView,
                   isArchiveView: isArchiveView,
                   onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
@@ -486,7 +483,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   controller: _searchController,
                   searchFocusNode: _searchFocusNode,
                   activeFilter: activeFilter,
-                  isDark: isDark,
                   onFilterChanged: (f) {
                     ref.read(historyFilterProvider.notifier).set(f);
                     setState(() {
@@ -529,10 +525,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 child: groupedAsync.when(
                   data: (groups) {
                     if (groups.isEmpty) {
-                      return _emptyStateForFilter(isDark, activeFilter);
+                      return _emptyStateForFilter(activeFilter);
                     }
                     return _buildLoadedView(
-                      context,
                       groups,
                       filteredEntries,
                       selectedEntry,
@@ -562,7 +557,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
-  Widget _emptyStateForFilter(bool isDark, HistoryFilter activeFilter) {
+  Widget _emptyStateForFilter(HistoryFilter activeFilter) {
     final l10n = L10n.of(context);
     if (_searchController.text.isNotEmpty) {
       return WpEmptyState(

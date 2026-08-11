@@ -53,27 +53,19 @@ class WpButtonGalleryApp extends StatefulWidget {
 }
 
 class _WpButtonGalleryAppState extends State<WpButtonGalleryApp> {
-  bool _isDark = true;
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WpButton Gallery',
       theme: wpDarkTheme(),
-      home: _GalleryScreen(
-        isDark: _isDark,
-        onThemeChanged: (value) => setState(() => _isDark = value),
-      ),
+      home: const _GalleryScreen(),
     );
   }
 }
 
 class _GalleryScreen extends StatelessWidget {
-  const _GalleryScreen({required this.isDark, required this.onThemeChanged});
-
-  final bool isDark;
-  final ValueChanged<bool> onThemeChanged;
+  const _GalleryScreen();
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +78,7 @@ class _GalleryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Header(isDark: isDark, onThemeChanged: onThemeChanged),
+              const _Header(),
               const SizedBox(height: WpSpacing.xl),
               const _Matrix(size: WpButtonSize.standard),
               const SizedBox(height: WpSpacing.xxl),
@@ -137,10 +129,7 @@ class _GalleryScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.isDark, required this.onThemeChanged});
-
-  final bool isDark;
-  final ValueChanged<bool> onThemeChanged;
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
@@ -154,31 +143,10 @@ class _Header extends StatelessWidget {
             Expanded(
               child: Text('WpButton', style: theme.textTheme.headlineLarge),
             ),
-            // Dogfooding: the gallery's own chrome is built from the component
-            // it shows.
-            Semantics(
-              label: 'Dark',
-              button: true,
-              child: WpButton(
-                label: 'Dark',
-                variant: WpButtonVariant.primary,
-                tone: WpButtonTone.neutral,
-                size: WpButtonSize.dense,
-                onPressed: () => onThemeChanged(true),
-              ),
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            Semantics(
-              label: 'Light',
-              button: true,
-              child: WpButton(
-                label: 'Light',
-                variant: WpButtonVariant.ghost,
-                tone: WpButtonTone.neutral,
-                size: WpButtonSize.dense,
-                onPressed: () => onThemeChanged(false),
-              ),
-            ),
+            // The Dark / Light pair that used to sit here went with the light
+            // stack (2026-08-11). It had already stopped working: the gallery
+            // pins `wpDarkTheme()`, so the flag the buttons flipped was
+            // written and never read.
           ],
         ),
         const SizedBox(height: WpSpacing.xs),

@@ -38,7 +38,6 @@ Widget _panel({
       ? _note().copyWith(deletedAt: Value(DateTime(2026, 4, 15)))
       : _note(),
   tags: const [],
-  isDark: isDark,
   controller: controller,
   focusNode: focusNode,
   onClose: () {},

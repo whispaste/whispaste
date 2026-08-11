@@ -74,7 +74,6 @@ void main() {
           NoteEditorPanel(
             note: _sampleNote(id: 'n1', content: controller.text),
             tags: const [],
-            isDark: true,
             controller: controller,
             focusNode: focusNode,
             onClose: () {},

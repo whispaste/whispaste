@@ -368,7 +368,6 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = widget.l10n;
     final filtered = _filtered;
     final highlight = filtered.isEmpty
@@ -449,18 +448,13 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                         child: _buildSearchField(l10n),
                       ),
                       Expanded(
-                        child: _buildListArea(
-                          isDark,
-                          l10n,
-                          filtered,
-                          highlight,
-                        ),
+                        child: _buildListArea(l10n, filtered, highlight),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: WpSpacing.md,
                         ),
-                        child: _hairline(isDark),
+                        child: _hairline(),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -480,17 +474,12 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                             // unconditional because it always works.
                             if (highlight >= 0) ...[
                               _KeyHint(
-                                isDark: isDark,
                                 keyLabel: '↩',
                                 label: l10n.snippetsPickerInsertAction,
                               ),
                               const SizedBox(width: WpSpacing.md),
                             ],
-                            _KeyHint(
-                              isDark: isDark,
-                              keyLabel: 'esc',
-                              label: l10n.actionCancel,
-                            ),
+                            _KeyHint(keyLabel: 'esc', label: l10n.actionCancel),
                           ],
                         ),
                       ),
@@ -529,21 +518,18 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   /// is `listPadding + index × extent − scrollOffset`, eased between rows —
   /// mouse hover and arrow keys retarget the same glide.
   Widget _buildListArea(
-    bool isDark,
     L10n l10n,
     List<SnippetPickerRenderItem> filtered,
     int highlight,
   ) {
     if (widget.items.isEmpty) {
       return _EmptyState(
-        isDark: isDark,
         icon: LucideIcons.notebookText,
         title: l10n.snippetsEmpty,
       );
     }
     if (filtered.isEmpty) {
       return _EmptyState(
-        isDark: isDark,
         icon: LucideIcons.searchX,
         title: l10n.snippetsNoMatches,
         hint: l10n.snippetsNoMatchesHint,
@@ -599,7 +585,6 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
               // loam-ignore: a11y-interactive-semantics – Semantics lives inside _PickerTile
               return _PickerTile(
                 item: item,
-                isDark: isDark,
                 highlighted: index == highlight,
                 onHover: () => setState(() => _highlight = index),
                 onTap: () => widget.onSelect(item.id),
@@ -611,8 +596,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
     );
   }
 
-  Widget _hairline(bool isDark) =>
-      Container(height: 1, color: WpColors.borderSubtle);
+  Widget _hairline() => Container(height: 1, color: WpColors.borderSubtle);
 }
 
 /// One snippet row: a soft accent icon chip, title + single-line body
@@ -626,14 +610,12 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
 class _PickerTile extends StatelessWidget {
   const _PickerTile({
     required this.item,
-    required this.isDark,
     required this.highlighted,
     required this.onHover,
     required this.onTap,
   });
 
   final SnippetPickerRenderItem item;
-  final bool isDark;
   final bool highlighted;
   final VoidCallback onHover;
   final VoidCallback onTap;
@@ -983,14 +965,8 @@ class _PanelGlassPainter extends CustomPainter {
 /// active search without matches) — a small sibling of the main window's
 /// `WpEmptyState`, sized for a 360-pt floating surface.
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.isDark,
-    required this.icon,
-    required this.title,
-    this.hint,
-  });
+  const _EmptyState({required this.icon, required this.title, this.hint});
 
-  final bool isDark;
   final IconData icon;
   final String title;
   final String? hint;
@@ -1035,13 +1011,8 @@ class _EmptyState extends StatelessWidget {
 
 /// Footer affordance: a small key-cap chip plus a muted action label.
 class _KeyHint extends StatelessWidget {
-  const _KeyHint({
-    required this.isDark,
-    required this.keyLabel,
-    required this.label,
-  });
+  const _KeyHint({required this.keyLabel, required this.label});
 
-  final bool isDark;
   final String keyLabel;
   final String label;
 

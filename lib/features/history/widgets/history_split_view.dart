@@ -23,7 +23,6 @@ class HistorySplitView extends StatelessWidget {
   const HistorySplitView({
     super.key,
     required this.groups,
-    required this.isDark,
     required this.viewMode,
     required this.selectedEntry,
     required this.onEntryTap,
@@ -45,7 +44,6 @@ class HistorySplitView extends StatelessWidget {
   });
 
   final List<DateGroup> groups;
-  final bool isDark;
   final HistoryViewMode viewMode;
   final HistoryEntry? selectedEntry;
   final ValueChanged<HistoryEntry> onEntryTap;
@@ -76,7 +74,6 @@ class HistorySplitView extends StatelessWidget {
         body = HistoryEntryList(
           key: const ValueKey('view-list'),
           groups: groups,
-          isDark: isDark,
           selectedId: selectedId,
           focusedId: focusedId,
           onEntryTap: onEntryTap,
@@ -92,7 +89,6 @@ class HistorySplitView extends StatelessWidget {
         body = HistoryCardView(
           key: const ValueKey('view-cards'),
           groups: groups,
-          isDark: isDark,
           selectedId: selectedId,
           focusedId: focusedId,
           onEntryTap: onEntryTap,
@@ -106,7 +102,6 @@ class HistorySplitView extends StatelessWidget {
         body = HistoryCompactView(
           key: const ValueKey('view-compact'),
           groups: groups,
-          isDark: isDark,
           selectedId: selectedId,
           focusedId: focusedId,
           onEntryTap: onEntryTap,
@@ -130,7 +125,6 @@ class HistorySplitView extends StatelessWidget {
   Widget _buildDetailPanel(BuildContext context, HistoryEntry entry) {
     return HistoryDetailPanel(
       entry: entry,
-      isDark: isDark,
       isTrashView: isTrashView,
       isArchiveView: isArchiveView,
       onClose: onCloseDetail,
@@ -150,7 +144,6 @@ class HistorySplitView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WpSplitView<HistoryEntry>(
-      isDark: isDark,
       selectedItem: selectedEntry,
       idOf: (entry) => entry.id,
       listBuilder: _buildListBody,

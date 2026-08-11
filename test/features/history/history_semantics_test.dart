@@ -62,7 +62,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: entry,
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -90,7 +89,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: entry,
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -118,7 +116,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: entry,
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -146,7 +143,6 @@ void main() {
           HistoryDetailAction(
             icon: LucideIcons.undo2,
             tooltip: 'Restore',
-            isDark: true,
             onTap: () {},
           ),
         ),
@@ -172,7 +168,6 @@ void main() {
           makeTestable(
             HistoryEntryRow(
               entry: _makeEntry(title: 'Quartalsbericht'),
-              isDark: true,
               isSelected: false,
               onTap: () {},
               onCopy: () {},
@@ -206,7 +201,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: _makeEntry(),
-            isDark: true,
             isSelected: isSelected,
             isFocused: isFocused,
             multiSelectMode: multiSelectMode,
@@ -290,7 +284,6 @@ void main() {
             HistoryMultiSelectAction(
               icon: LucideIcons.merge,
               label: 'Merge',
-              isDark: true,
               onTap: () {},
               shortcutHint: 'Ctrl+M',
             ),
@@ -331,7 +324,6 @@ void main() {
             HistorySearchFilterBar(
               controller: controller,
               activeFilter: HistoryFilter.trash,
-              isDark: true,
               onFilterChanged: (_) {},
               onSearchChanged: () {},
               resultCount: 3,
@@ -372,8 +364,8 @@ void main() {
           makeTestable(
             const Column(
               children: [
-                HistoryDateHeader(label: 'Yesterday', isDark: true),
-                HistoryCompactDateHeader(label: 'Today', isDark: true),
+                HistoryDateHeader(label: 'Yesterday'),
+                HistoryCompactDateHeader(label: 'Today'),
               ],
             ),
           ),

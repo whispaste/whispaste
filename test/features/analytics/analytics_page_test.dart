@@ -489,9 +489,7 @@ void main() {
     // The `light` row went with the light stack (2026-08-11): it pumped the
     // same page at `Brightness.light` and asked the duration ramp for its
     // light derivation, neither of which the app can produce any more.
-    for (final (themeName, brightness, isDark) in [
-      ('dark', Brightness.dark, true),
-    ]) {
+    for (final (themeName, brightness) in [('dark', Brightness.dark)]) {
       testWidgets('$themeName: every model bar wears its own slot', (
         tester,
       ) async {
@@ -512,7 +510,7 @@ void main() {
             'whisper-medium',
             'whisper-large-v3-turbo',
           ])
-            categorySlotForModel(id).color(isDark),
+            categorySlotForModel(id).color(),
         ];
         expect(
           expected.toSet(),
@@ -550,7 +548,7 @@ void main() {
         // of the assertion is *which* slot the ramp comes from. It is not the
         // brand accent (Ticket 11, ② = b) and it is not one of the model hues
         // one panel up, and both only hold as long as the source is pinned.
-        final ramp = WpCategorySlot.iris.ramp(5, isDark);
+        final ramp = WpCategorySlot.iris.ramp(5);
         final fills = decorationFills(tester);
         for (final rung in ramp) {
           expect(

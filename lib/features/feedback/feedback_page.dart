@@ -169,19 +169,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
 
     if (_submitted) {
       final isWindows = feedbackPlatformIsWindowsOverride ?? Platform.isWindows;
       return WpPageShell(
-        child: _ThankYouView(
-          isDark: isDark,
-          ts: ts,
-          onReset: _reset,
-          isWindows: isWindows,
-        ),
+        child: _ThankYouView(ts: ts, onReset: _reset, isWindows: isWindows),
       );
     }
 
@@ -279,7 +273,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: WpSpacing.md),
                   _EmojiRatingRow(
                     rating: _rating,
-                    isDark: isDark,
                     onChanged: (v) => setState(() => _rating = v),
                   ),
 
@@ -576,13 +569,11 @@ class _ContactEmailSection extends StatelessWidget {
 
 class _ThankYouView extends StatelessWidget {
   const _ThankYouView({
-    required this.isDark,
     required this.ts,
     required this.onReset,
     required this.isWindows,
   });
 
-  final bool isDark;
   final TextTheme ts;
   final VoidCallback onReset;
   final bool isWindows;
@@ -633,11 +624,7 @@ class _ThankYouView extends StatelessWidget {
                   onPressed: onReset,
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
-                _ReviewSupportCtas(
-                  isDark: isDark,
-                  ts: ts,
-                  isWindows: isWindows,
-                ),
+                _ReviewSupportCtas(ts: ts, isWindows: isWindows),
               ],
             ),
           ),
@@ -655,13 +642,8 @@ class _ThankYouView extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ReviewSupportCtas extends StatelessWidget {
-  const _ReviewSupportCtas({
-    required this.isDark,
-    required this.ts,
-    required this.isWindows,
-  });
+  const _ReviewSupportCtas({required this.ts, required this.isWindows});
 
-  final bool isDark;
   final TextTheme ts;
   final bool isWindows;
 
@@ -706,14 +688,9 @@ class _ReviewSupportCtas extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _EmojiRatingRow extends StatelessWidget {
-  const _EmojiRatingRow({
-    required this.rating,
-    required this.isDark,
-    required this.onChanged,
-  });
+  const _EmojiRatingRow({required this.rating, required this.onChanged});
 
   final int rating;
-  final bool isDark;
   final ValueChanged<int> onChanged;
 
   static const _emojis = ['😟', '😐', '🙂', '😊', '🤩'];
@@ -735,7 +712,6 @@ class _EmojiRatingRow extends StatelessWidget {
             emoji: _emojis[i],
             label: labels[i],
             isSelected: rating == i + 1,
-            isDark: isDark,
             isLast: i == 4,
             onTap: () => onChanged(i + 1),
           ),
@@ -759,7 +735,6 @@ class _EmojiRatingOption extends StatefulWidget {
     required this.emoji,
     required this.label,
     required this.isSelected,
-    required this.isDark,
     required this.isLast,
     required this.onTap,
   });
@@ -767,7 +742,6 @@ class _EmojiRatingOption extends StatefulWidget {
   final String emoji;
   final String label;
   final bool isSelected;
-  final bool isDark;
   final bool isLast;
   final VoidCallback onTap;
 

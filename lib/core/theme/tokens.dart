@@ -93,14 +93,13 @@ abstract final class WpShadows {
   // pearl light surfaces than over the dark navy ones. With no light stack to
   // composite against, both tokens lost their only ground and are deleted
   // rather than left as unreachable constants.
-
-  /// Theme-resolved [subtle]. Retained as the named entry point for a shadow
-  /// that used to vary by theme; there is one stack now, so it resolves to
-  /// [subtle] unconditionally.
-  static List<BoxShadow> subtleFor(bool isDark) => subtle;
-
-  /// Theme-resolved [card]. See [subtleFor] — one stack, one answer.
-  static List<BoxShadow> cardFor(bool isDark) => card;
+  //
+  // Their resolvers `subtleFor(isDark)` and `cardFor(isDark)` are gone too.
+  // Both were kept for one commit as named entry points, on the theory that a
+  // shadow which used to vary by theme should keep somewhere to vary again.
+  // Once the argument came off there was nothing left to keep: each was a
+  // second name for a constant declared a few lines above it, and a second
+  // name is not a seam. Call sites read [subtle] and [card] directly.
 
   static const List<BoxShadow> elevated = [
     BoxShadow(color: Color(0x40000000), blurRadius: 28, offset: Offset(0, 10)),

@@ -806,10 +806,9 @@ void main() {
   const discBottomStopFloor = 1.3;
   const glyphFloor = 3.0;
 
-  for (final (themeName, isDark, plane, surface, surfaceElevated, hover) in [
+  for (final (themeName, plane, surface, surfaceElevated, hover) in [
     (
       'dark',
-      true,
       WpColorsDark.warmSurfaceGradient,
       WpColorsDark.surface,
       WpColorsDark.surfaceElevated,
@@ -817,14 +816,13 @@ void main() {
     ),
     (
       'light',
-      false,
       WpColorsDark.warmSurfaceGradient,
       WpColorsDark.surface,
       WpColorsDark.surfaceElevated,
       WpColorsDark.hover,
     ),
   ]) {
-    final tint = WpAvatarTint.of(isDark);
+    const tint = WpAvatarTint.dark;
 
     /// Every ground an entry avatar is ever painted on.
     final avatarGrounds = <String, Color>{
@@ -840,7 +838,7 @@ void main() {
 
     group('Avatar disc vs. its ground – $themeName theme (≥ $discFloor:1)', () {
       for (final slot in WpCategorySlot.values) {
-        final base = slot.color(isDark);
+        final base = slot.color();
         test(slot.name, () {
           avatarGrounds.forEach((groundName, ground) {
             final top = alphaComposite(tint.fillTop(base), ground);
@@ -875,7 +873,7 @@ void main() {
       // height (≈4 px of the 42 px list avatar) and the glyph, at 44 % of the
       // disc centred in it, never reaches into that band.
       for (final slot in WpCategorySlot.values) {
-        final base = slot.color(isDark);
+        final base = slot.color();
         test(slot.name, () {
           final glyphColor = tint.glyph(base);
           avatarGrounds.forEach((groundName, ground) {
@@ -915,7 +913,7 @@ void main() {
     // -----------------------------------------------------------------------
     group('Avatar gloss – $themeName theme', () {
       for (final slot in WpCategorySlot.values) {
-        final base = slot.color(isDark);
+        final base = slot.color();
         test(slot.name, () {
           avatarGrounds.forEach((groundName, ground) {
             final fill = alphaComposite(tint.fillTop(base), ground);
@@ -994,27 +992,18 @@ void main() {
   // alongside the ramp; that belongs to a palette phase, not to this one.
   // -------------------------------------------------------------------------
 
-  for (final (
-        themeName,
-        isDark,
-        surface,
-        surfaceElevated,
-        accentButtonFill,
-        hover,
-      )
-      in [
-        // The `light` row of this table went with the light stack (2026-08-11).
-        // It gated the same tokens against the same floor with `isDark: false`,
-        // which no longer describes anything the app can render.
-        (
-          'dark',
-          true,
-          WpColorsDark.surface,
-          WpColorsDark.surfaceElevated,
-          WpColorsDark.accentButtonFill,
-          WpColorsDark.hover,
-        ),
-      ]) {
+  for (final (themeName, surface, surfaceElevated, accentButtonFill, hover) in [
+    // The `light` row of this table went with the light stack (2026-08-11).
+    // It gated the same tokens against the same floor with `isDark: false`,
+    // which no longer describes anything the app can render.
+    (
+      'dark',
+      WpColorsDark.surface,
+      WpColorsDark.surfaceElevated,
+      WpColorsDark.accentButtonFill,
+      WpColorsDark.hover,
+    ),
+  ]) {
     group('Tier-performance info line – $themeName theme (≥ 4.5:1)', () {
       final grounds = <String, Color>{
         'surface': surface,
@@ -1035,7 +1024,6 @@ void main() {
       for (final performance in TierPerformance.values) {
         test(performance.name, () {
           final fg = WpTierPerformancePresentation.color(
-            isDark: isDark,
             performance: performance,
           );
           grounds.forEach((groundName, ground) {
@@ -1058,7 +1046,7 @@ void main() {
       // one flat colour, or splits it into a red/amber/green verdict; what
       // follows is those two decisions written as assertions.
       Color of(TierPerformance p) =>
-          WpTierPerformancePresentation.color(isDark: isDark, performance: p);
+          WpTierPerformancePresentation.color(performance: p);
 
       // The three tiers that have actually been measured. `unmeasured` is
       // deliberately not in the chain — see the test below.
@@ -1198,9 +1186,9 @@ void main() {
     });
 
     test('no two slots share a color', () {
-      for (final (themeName, isDark) in [('dark', true), ('light', false)]) {
+      for (final (themeName) in [('dark'), ('light')]) {
         final colors = WpCategorySlot.values
-            .map((s) => s.color(isDark).toARGB32())
+            .map((s) => s.color().toARGB32())
             .toSet();
         expect(
           colors.length,
@@ -1240,10 +1228,7 @@ void main() {
         WpCategorySlot.moss: WpCategoryColorsDark.moss,
         WpCategorySlot.neutral: WpCategoryColorsDark.neutral,
       };
-      for (final (themeName, isDark, expected) in [
-        ('dark', true, dark),
-        ('light', false, light),
-      ]) {
+      for (final (themeName, expected) in [('dark', dark), ('light', light)]) {
         expect(
           expected.keys.toSet(),
           WpCategorySlot.values.toSet(),
@@ -1251,7 +1236,7 @@ void main() {
         );
         expected.forEach((slot, color) {
           expect(
-            slot.color(isDark),
+            slot.color(),
             color,
             reason:
                 '$themeName: ${slot.name} resolves to a color that is not '
@@ -1300,10 +1285,9 @@ void main() {
     });
   });
 
-  for (final (themeName, isDark, accent, grounds) in [
+  for (final (themeName, accent, grounds) in [
     (
       'dark',
-      true,
       WpColorsDark.accent,
       <String, Color>{
         'surface': WpColorsDark.surface,
@@ -1313,7 +1297,6 @@ void main() {
     ),
     (
       'light',
-      false,
       WpColorsDark.accent,
       <String, Color>{
         'surface': WpColorsDark.surface,
@@ -1327,7 +1310,7 @@ void main() {
       () {
         for (final slot in WpCategorySlot.values) {
           test(slot.name, () {
-            final color = slot.color(isDark);
+            final color = slot.color();
             grounds.forEach((groundName, ground) {
               final ratio = contrastRatio(color, ground);
               expect(
@@ -1353,7 +1336,7 @@ void main() {
 
       for (final slot in WpCategorySlot.values) {
         test(slot.name, () {
-          final ratio = contrastRatio(slot.color(isDark), surface);
+          final ratio = contrastRatio(slot.color(), surface);
           expect(
             ratio,
             lessThan(accentRatio),
@@ -1371,10 +1354,10 @@ void main() {
   // allowed to be the most saturated thing on screen (dark 76 %, light 92 %);
   // eight categories at that pitch would turn a list into a fruit salad.
   group('Category slot saturation – ≤ 80%', () {
-    for (final (themeName, isDark) in [('dark', true), ('light', false)]) {
+    for (final (themeName) in [('dark'), ('light')]) {
       for (final slot in WpCategorySlot.values) {
         test('$themeName: ${slot.name}', () {
-          final color = slot.color(isDark);
+          final color = slot.color();
           final sat = hslSaturation(color);
           expect(
             sat,
@@ -1477,10 +1460,9 @@ void main() {
     // costs a little of it, so the floor sits just below the nominal step.
     const rungFloor = 1.20;
 
-    for (final (themeName, isDark, grounds) in [
+    for (final (themeName, grounds) in [
       (
         'dark',
-        true,
         <String, Color>{
           'surface': WpColorsDark.surface,
           'surfaceElevated': WpColorsDark.surfaceElevated,
@@ -1495,11 +1477,11 @@ void main() {
       for (final slot in WpCategorySlot.values) {
         test('$themeName: ${slot.name} — rungs are separable and legible', () {
           for (var steps = 3; steps <= 5; steps++) {
-            final rungs = slot.ramp(steps, isDark);
+            final rungs = slot.ramp(steps);
             expect(rungs, hasLength(steps));
             expect(
               rungs.first,
-              slot.color(isDark),
+              slot.color(),
               reason:
                   '$themeName ${slot.name}: rung 0 is not the slot itself, so '
                   'the ramp no longer starts on the ground it was solved for',
@@ -1549,8 +1531,8 @@ void main() {
     }
 
     test('the 3–5 step range is executable, not advisory', () {
-      expect(() => WpCategorySlot.iris.ramp(2, true), throwsAssertionError);
-      expect(() => WpCategorySlot.iris.ramp(6, true), throwsAssertionError);
+      expect(() => WpCategorySlot.iris.ramp(2), throwsAssertionError);
+      expect(() => WpCategorySlot.iris.ramp(6), throwsAssertionError);
     });
 
     // Ticket 11, ② = (b): cyan stays the accent's alone, so no ordinal ramp may
@@ -1560,22 +1542,20 @@ void main() {
     // category recipe, so the exclusion is structural: a ramp takes a
     // `WpCategorySlot`, and no slot is cyan. This pins that it stays that way.
     test('no ramp can be built out of the accent band', () {
-      for (final isDark in [true, false]) {
-        for (final slot in WpCategorySlot.values) {
-          for (final rung in slot.ramp(5, isDark)) {
-            final hue = HSLColor.fromColor(rung).hue;
-            // Near-achromatic rungs have no hue worth reading — the neutral
-            // slot's far end lands there by design.
-            if (hslSaturation(rung) < 0.10) continue;
-            expect(
-              hue > 165 && hue < 215,
-              isFalse,
-              reason:
-                  '${slot.name} has a rung at ${hue.toStringAsFixed(0)}° — '
-                  'inside the accent\'s reserved 165–215° band, where a graded '
-                  'scale reads as a disabled control',
-            );
-          }
+      for (final slot in WpCategorySlot.values) {
+        for (final rung in slot.ramp(5)) {
+          final hue = HSLColor.fromColor(rung).hue;
+          // Near-achromatic rungs have no hue worth reading — the neutral
+          // slot's far end lands there by design.
+          if (hslSaturation(rung) < 0.10) continue;
+          expect(
+            hue > 165 && hue < 215,
+            isFalse,
+            reason:
+                '${slot.name} has a rung at ${hue.toStringAsFixed(0)}° — '
+                'inside the accent\'s reserved 165–215° band, where a graded '
+                'scale reads as a disabled control',
+          );
         }
       }
     });
@@ -1681,12 +1661,12 @@ void main() {
     // per-identity colour.
     test('the resolver takes no identity, only the wash', () {
       expect(
-        wpDecorativeChromeWash(true),
+        wpDecorativeChromeWash(),
         WpDecorativeColorsDark.chromeWash,
         reason: 'the resolver answers with the decorative wash token',
       );
       expect(
-        wpDecorativeChromeWash(false),
+        wpDecorativeChromeWash(),
         WpDecorativeColorsDark.chromeWash,
         reason: 'there is one wash now, so the flag cannot change the answer',
       );
@@ -1721,7 +1701,7 @@ void main() {
         isEmpty,
         reason:
             'the decorative tokens were read directly instead of through '
-            'wpDecorativeChromeWash(isDark). The resolver is the layer\'s only '
+            'wpDecorativeChromeWash(). The resolver is the layer\'s only '
             'door precisely because it accepts no identity — reaching past it '
             'is how a decoration starts meaning something. Found: $referencing',
       );
@@ -1762,9 +1742,7 @@ void main() {
         // a ≤5 % field at 1.03–1.07:1, the ramp is opaque text at ≥4.5:1.
         // Asserting >45° against every ramp source would fail here, and the
         // failure would be wrong — see *The Categorical vs. Sequential Rule*.
-        final irisHue = HSLColor.fromColor(
-          WpCategorySlot.iris.color(themeName == 'dark'),
-        ).hue;
+        final irisHue = HSLColor.fromColor(WpCategorySlot.iris.color()).hue;
         expect(
           (hue - irisHue).abs(),
           greaterThan(45),
@@ -1786,10 +1764,9 @@ void main() {
   // Deliberately *not* `surfaceElevated`/`surfaceVariant`: those are opaque
   // fills drawn on top of the wash, so a card's own text never sees it.
   // `surface` is in the map because it is the plane's middle stop.
-  for (final (themeName, isDark, accent, wash, grounds) in [
+  for (final (themeName, accent, wash, grounds) in [
     (
       'dark',
-      true,
       WpColorsDark.accent,
       WpDecorativeColorsDark.chromeWash,
       <String, Color>{
@@ -1800,7 +1777,6 @@ void main() {
     ),
     (
       'light',
-      false,
       WpColorsDark.accent,
       WpDecorativeColorsDark.chromeWash,
       <String, Color>{
@@ -1849,7 +1825,7 @@ void main() {
         for (final slot in WpCategorySlot.values) {
           expect(
             washRatio,
-            lessThan(contrastRatio(slot.color(isDark), ground)),
+            lessThan(contrastRatio(slot.color(), ground)),
             reason:
                 '$themeName: the wash is louder than the ${slot.name} slot — '
                 'the nominal layer carries meaning and must out-rank a '

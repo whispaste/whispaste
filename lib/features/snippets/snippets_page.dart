@@ -188,11 +188,10 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       noMatchesHint: l10n.snippetsNoMatchesHint,
       onItemActivate: (s) => _showAddEditDialog(existing: s),
       onItemDelete: _confirmDelete,
-      itemBuilder: (context, s, isDark, isCursor) {
+      itemBuilder: (context, s, isCursor) {
         // loam-ignore: a11y-interactive-semantics – semantics provided in _SnippetTileState.build
         return _SnippetTile(
           snippet: s,
-          isDark: isDark,
           isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: s),
           onDelete: () => _confirmDelete(s),
@@ -487,14 +486,12 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 class _SnippetTile extends StatefulWidget {
   const _SnippetTile({
     required this.snippet,
-    required this.isDark,
     required this.isCursor,
     required this.onTap,
     required this.onDelete,
   });
 
   final SnippetItem snippet;
-  final bool isDark;
 
   /// This row is where the list's arrow cursor currently stands
   /// (`WpSearchableListPage`). Deliberately funnelled into the *same* two
@@ -597,7 +594,6 @@ class _SnippetTileState extends State<_SnippetTile> {
           child: GestureDetector(
             onTap: widget.onTap,
             child: WpListTileSurface(
-              isDark: widget.isDark,
               variant: WpListTileVariant.card,
               isHovered: _isHovered,
               isFocused: _isFocused || widget.isCursor,

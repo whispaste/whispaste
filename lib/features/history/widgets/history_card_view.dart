@@ -22,7 +22,6 @@ class HistoryCardView extends StatelessWidget {
   const HistoryCardView({
     super.key,
     required this.groups,
-    required this.isDark,
     required this.selectedId,
     required this.onEntryTap,
     required this.onCopy,
@@ -34,7 +33,6 @@ class HistoryCardView extends StatelessWidget {
   });
 
   final List<DateGroup> groups;
-  final bool isDark;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
@@ -80,7 +78,6 @@ class HistoryCardView extends StatelessWidget {
             if (item.headerLabel != null) {
               return HistoryDateHeader(
                 label: resolveDateLabel(item.headerLabel!, l10n),
-                isDark: isDark,
               );
             }
             return Wrap(
@@ -93,9 +90,8 @@ class HistoryCardView extends StatelessWidget {
                     width: cardWidth,
                     // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryCardState.build
                     child: HistoryEntryCard(
-                      entry: entry,
-                      isDark: isDark,
-                      // Same overload as the list and compact views
+                      entry:
+                          entry, // Same overload as the list and compact views
                       // (history_list_view.dart:69): outside multi-select
                       // `isSelected` means "open in the detail panel", inside
                       // it means "checked". The card used to ignore the
@@ -136,7 +132,6 @@ class HistoryEntryCard extends StatefulWidget {
   const HistoryEntryCard({
     super.key,
     required this.entry,
-    required this.isDark,
     required this.isSelected,
     required this.onTap,
     required this.onCopy,
@@ -148,7 +143,6 @@ class HistoryEntryCard extends StatefulWidget {
   });
 
   final HistoryEntry entry;
-  final bool isDark;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onCopy;
@@ -203,7 +197,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     Color surfaceElevated,
     Color borderColor,
   })
-  _resolveColors(bool isDark) {
+  _resolveColors() {
     const accent = WpColors.accent;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
@@ -231,9 +225,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
     final l10n = L10n.of(context);
-    final colors = _resolveColors(isDark);
+    final colors = _resolveColors();
     final textPrimary = colors.textPrimary;
     final textSecondary = colors.textSecondary;
     final textMuted = colors.textMuted;
@@ -279,8 +272,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               // card-Stärke lag bei ≈ 1.6:1 gegen die Surface — deutlich
               // sichtbare Dunkelzone um jede gehoverte Kachel).
               boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
-                  ? WpShadows.cardFor(isDark)
-                  : WpShadows.subtleFor(isDark),
+                  ? WpShadows.card
+                  : WpShadows.subtle,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,11 +293,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         ),
                       ),
                     HistoryEntryAvatar(
-                      color: _avatarSlot.color(isDark),
+                      color: _avatarSlot.color(),
                       icon: historyAvatarIcon,
-                      isPinned: widget.entry.pinned,
-                      isDark: isDark,
-                      // Off-scale on purpose: smallest of the three avatar
+                      isPinned: widget
+                          .entry
+                          .pinned, // Off-scale on purpose: smallest of the three avatar
                       // contexts — the card's title row is tight and shares
                       // space with hover actions (see history_list_tile.dart's
                       // 42 for the roomier list row, history_detail_panel.dart's
@@ -323,7 +316,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                               : l10n.historyUntitledRecording,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          isDark: isDark,
                           style: TextStyle(
                             fontSize: WpTypography.subheading,
                             fontWeight: FontWeight.w700,
@@ -385,7 +377,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     text: widget.entry.content,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
-                    isDark: isDark,
                     style: TextStyle(
                       fontSize: WpTypography.body,
                       color: textSecondary,
@@ -424,7 +415,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       const SizedBox(width: WpSpacing.xs),
                       HistoryStatusChip(
                         label: widget.entry.language.toUpperCase(),
-                        isDark: isDark,
                       ),
                     ],
                     const Spacer(),

@@ -97,7 +97,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: _entry(tags: '["work"]'),
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -124,7 +123,6 @@ void main() {
         makeTestable(
           HistoryEntryRow(
             entry: _entry(tags: '["work"]'),
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -155,7 +153,6 @@ void main() {
           Center(
             child: HistoryViewModeToggle(
               viewMode: HistoryViewMode.list,
-              isDark: true,
               onChanged: (mode) => picked = mode,
             ),
           ),
@@ -182,7 +179,6 @@ void main() {
             Center(
               child: HistoryViewModeToggle(
                 viewMode: HistoryViewMode.compact,
-                isDark: true,
                 onChanged: (_) {},
               ),
             ),
@@ -222,7 +218,6 @@ void main() {
             child: HistoryDetailAction(
               icon: LucideIcons.copy,
               tooltip: 'Copy',
-              isDark: true,
               onTap: () => taps++,
             ),
           ),
@@ -250,11 +245,8 @@ void main() {
         makeTestable(
           Builder(
             builder: (context) => TextButton(
-              onPressed: () => showTagManagementDialog(
-                context: context,
-                db: db,
-                isDark: true,
-              ),
+              onPressed: () =>
+                  showTagManagementDialog(context: context, db: db),
               child: const Text('open'),
             ),
           ),

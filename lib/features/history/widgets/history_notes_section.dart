@@ -24,13 +24,8 @@ import 'voice_note_button.dart';
 // ---------------------------------------------------------------------------
 
 class HistoryNotesSection extends ConsumerStatefulWidget {
-  const HistoryNotesSection({
-    super.key,
-    required this.entryId,
-    required this.isDark,
-  });
+  const HistoryNotesSection({super.key, required this.entryId});
   final String entryId;
-  final bool isDark;
 
   @override
   ConsumerState<HistoryNotesSection> createState() =>
@@ -281,7 +276,6 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 note: note,
                 isEditing: _editingNoteId == note.id,
                 editController: _editController,
-                isDark: widget.isDark,
                 accent: accent,
                 textPrimary: textPrimary,
                 textMuted: textMuted,
@@ -310,7 +304,6 @@ class _NoteItem extends StatefulWidget {
     required this.note,
     required this.isEditing,
     required this.editController,
-    required this.isDark,
     required this.accent,
     required this.textPrimary,
     required this.textMuted,
@@ -325,7 +318,6 @@ class _NoteItem extends StatefulWidget {
   final EntryNote note;
   final bool isEditing;
   final TextEditingController editController;
-  final bool isDark;
   final Color accent;
   final Color textPrimary;
   final Color textMuted;

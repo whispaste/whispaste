@@ -24,49 +24,34 @@ void main() {
   group('WpRecordingIndicatorBar.colorFor — token mapping (AC3)', () {
     test('recording phase returns WpColorsDark.error in dark mode', () {
       expect(
-        WpRecordingIndicatorBar.colorFor(
-          RecordingPhase.recording,
-          isDark: true,
-        ),
+        WpRecordingIndicatorBar.colorFor(RecordingPhase.recording),
         WpColorsDark.error,
       );
     });
 
     test('transcribing phase returns WpColorsDark.warning in dark mode', () {
       expect(
-        WpRecordingIndicatorBar.colorFor(
-          RecordingPhase.transcribing,
-          isDark: true,
-        ),
+        WpRecordingIndicatorBar.colorFor(RecordingPhase.transcribing),
         WpColorsDark.warning,
       );
     });
 
     test('recording phase returns WpColorsLight.error in light mode', () {
       expect(
-        WpRecordingIndicatorBar.colorFor(
-          RecordingPhase.recording,
-          isDark: false,
-        ),
+        WpRecordingIndicatorBar.colorFor(RecordingPhase.recording),
         WpColorsDark.error,
       );
     });
 
     test('transcribing phase returns WpColorsLight.warning in light mode', () {
       expect(
-        WpRecordingIndicatorBar.colorFor(
-          RecordingPhase.transcribing,
-          isDark: false,
-        ),
+        WpRecordingIndicatorBar.colorFor(RecordingPhase.transcribing),
         WpColorsDark.warning,
       );
     });
 
     test('no hardcoded 0xFFEF4444 — dark recording uses error token', () {
-      final color = WpRecordingIndicatorBar.colorFor(
-        RecordingPhase.recording,
-        isDark: true,
-      );
+      final color = WpRecordingIndicatorBar.colorFor(RecordingPhase.recording);
       expect(
         color,
         isNot(const Color(0xFFEF4444)),
@@ -77,7 +62,6 @@ void main() {
     test('no hardcoded 0xFFF59E0B — dark transcribing uses warning token', () {
       final color = WpRecordingIndicatorBar.colorFor(
         RecordingPhase.transcribing,
-        isDark: true,
       );
       expect(
         color,

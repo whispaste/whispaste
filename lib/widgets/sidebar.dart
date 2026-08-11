@@ -64,8 +64,6 @@ class WpSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final column = Column(
       children: [
         // Weighted spacers: ~40% above, ~60% below → slightly above center
@@ -77,10 +75,8 @@ class WpSidebar extends StatelessWidget {
             item: item,
             isActive: item.id == activeId,
             onTap: () => onItemTap(item.id),
-            isDark: isDark,
           ),
-          if (dividerAfterIds.contains(item.id))
-            _SidebarGroupDivider(isDark: isDark),
+          if (dividerAfterIds.contains(item.id)) const _SidebarGroupDivider(),
         ],
         const Spacer(flex: 6),
         // Bottom items pinned to bottom
@@ -90,7 +86,6 @@ class WpSidebar extends StatelessWidget {
             item: item,
             isActive: item.id == activeId,
             onTap: () => onItemTap(item.id),
-            isDark: isDark,
           ),
         const SizedBox(height: WpNavRail.bottomInset),
       ],
@@ -156,9 +151,7 @@ class WpSidebar extends StatelessWidget {
 /// hairline rather than a tinted group plate — the rail's vertical budget is
 /// already tight at the enforced minimum window size.
 class _SidebarGroupDivider extends StatelessWidget {
-  const _SidebarGroupDivider({required this.isDark});
-
-  final bool isDark;
+  const _SidebarGroupDivider();
 
   @override
   Widget build(BuildContext context) {
@@ -181,13 +174,11 @@ class _NavItemWidget extends StatefulWidget {
     required this.item,
     required this.isActive,
     required this.onTap,
-    required this.isDark,
   });
 
   final WpNavItem item;
   final bool isActive;
   final VoidCallback onTap;
-  final bool isDark;
 
   @override
   State<_NavItemWidget> createState() => _NavItemWidgetState();

@@ -844,9 +844,14 @@ enum WpCategorySlot {
     moss,
   ];
 
-  /// Resolves this slot against the active theme. The only sanctioned way from
-  /// a slot to a paintable color.
-  Color color(bool isDark) => (WpCategoryColorsDark.slots)[index];
+  /// Resolves this slot to a paintable color — the only sanctioned way from a
+  /// slot to one.
+  ///
+  /// Took an `isDark` flag while the slots were a theme pair. It resolves
+  /// against the one palette now, so the flag is gone rather than ignored: a
+  /// parameter a caller can still pass but that cannot change the answer is a
+  /// standing invitation to thread state that does not exist.
+  Color color() => (WpCategoryColorsDark.slots)[index];
 
   /// *The Tint Ladder Rule*'s 12 % fill rung, in this slot's hue.
   ///
@@ -855,11 +860,11 @@ enum WpCategorySlot {
   /// hue each — nine slots × two rungs × two themes would be 36 constants
   /// restating one number. The ladder's guarantee is that the *weight* is
   /// shared across hues, and that is exactly what these two methods carry.
-  Color chipFill(bool isDark) => color(isDark).withValues(alpha: 0.12);
+  Color chipFill() => color().withValues(alpha: 0.12);
 
   /// *The Tint Ladder Rule*'s 30 % outline rung, in this slot's hue. See
   /// [chipFill].
-  Color chipBorder(bool isDark) => color(isDark).withValues(alpha: 0.30);
+  Color chipBorder() => color().withValues(alpha: 0.30);
 
   /// A [steps]-step **sequential** ramp in this slot's hue — the ordinal half
   /// of *The Categorical vs. Sequential Rule*.
@@ -894,19 +899,16 @@ enum WpCategorySlot {
   /// > further down instead of climbing away from the ground the ramp is
   /// > solved against.
   ///
-  /// [isDark] is retained on the signature for the callers that still thread
-  /// it; it no longer selects anything here.
-  ///
   /// Verified per slot and per step count in
   /// `test/core/theme/wcag_contrast_test.dart`: neighbouring rungs stay ≥ 1.2:1
   /// apart and every rung clears every surface by ≥ 3:1.
-  List<Color> ramp(int steps, bool isDark) {
+  List<Color> ramp(int steps) {
     assert(
       steps >= 3 && steps <= 5,
       'a sequential ramp carries 3–5 steps (The Categorical vs. Sequential '
       'Rule); $steps rungs is a scale the eye can no longer order',
     );
-    final base = color(isDark);
+    final base = color();
     final baseLuminance = base.computeLuminance();
     final r = _srgbToLinear(base.r);
     final g = _srgbToLinear(base.g);
@@ -1213,9 +1215,10 @@ final class WpAvatarTint {
   //
   // The surviving rule is the one that outlived the mirror: the crown is lit
   // from above, whatever the ground.
-
-  /// The disc tint. One theme, one tint — [dark] is the only answer.
-  static WpAvatarTint of(bool isDark) => dark;
+  //
+  // The resolver `of(isDark)` went with it. It had already collapsed to
+  // "answer [dark] to every question", which is not an entry point but a
+  // redirect; call sites name [dark] directly.
 
   /// Lit (top-left) gradient stop for [base], alpha included.
   Color fillTop(Color base) => _shift(
@@ -1354,19 +1357,22 @@ abstract final class WpDecorativeColorsDark {
 
 /// The only sanctioned way to a decorative color.
 ///
-/// It takes `isDark` and **nothing else** — no id, no index, no identity —
-/// which is the executable half of the rule: a call site physically cannot
-/// vary the decorative hue per nav item or per settings section, so the layer
-/// cannot grow into a category scale. That is the mirror image of
+/// It takes **nothing** — no id, no index, no identity — which is the
+/// executable half of the rule: a call site physically cannot vary the
+/// decorative hue per nav item or per settings section, so the layer cannot
+/// grow into a category scale. That is the mirror image of
 /// [categorySlotForModel] and friends, whose *parameter* is the evidence that
-/// a category color means something.
-Color wpDecorativeChromeWash(bool isDark) => WpDecorativeColorsDark.chromeWash;
+/// a category color means something. It used to take `isDark`, the one
+/// argument that named a ground rather than an identity; with one ground left,
+/// the empty parameter list states the rule more plainly than the old
+/// signature did.
+Color wpDecorativeChromeWash() => WpDecorativeColorsDark.chromeWash;
 
 /// The translucent scrim behind a [BackdropFilter]-blurred dialog barrier.
 ///
 /// Needs true black/white rather than a themed surface token — the blur
 /// already carries the surface tint, this only needs to darken/lighten what
 /// shows through it. Was duplicated verbatim across five dialog widgets.
-Color wpDialogBarrierColor(bool isDark) {
+Color wpDialogBarrierColor() {
   return (const Color(0xFF000000)).withValues(alpha: 0.45);
 }

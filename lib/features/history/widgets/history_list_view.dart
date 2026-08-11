@@ -16,7 +16,6 @@ class HistoryEntryList extends StatelessWidget {
   HistoryEntryList({
     super.key,
     required this.groups,
-    required this.isDark,
     required this.selectedId,
     required this.onEntryTap,
     required this.onCopy,
@@ -30,7 +29,6 @@ class HistoryEntryList extends StatelessWidget {
   });
 
   final List<DateGroup> groups;
-  final bool isDark;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
@@ -66,7 +64,6 @@ class HistoryEntryList extends StatelessWidget {
         if (item.headerLabel != null) {
           return HistoryDateHeader(
             label: resolveDateLabel(item.headerLabel!, l10n),
-            isDark: isDark,
           );
         }
         final entry = item.entry!;
@@ -74,7 +71,6 @@ class HistoryEntryList extends StatelessWidget {
         return HistoryEntryRow(
           key: ValueKey(entry.id),
           entry: entry,
-          isDark: isDark,
           isSelected: multiSelectMode
               ? selectedIds.contains(entry.id)
               : entry.id == selectedId,

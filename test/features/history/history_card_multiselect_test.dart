@@ -48,7 +48,6 @@ void main() {
         makeTestable(
           HistoryEntryCard(
             entry: _entry(),
-            isDark: true,
             isSelected: false,
             onTap: () {},
             onCopy: () {},
@@ -67,9 +66,8 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           HistoryEntryCard(
-            entry: _entry(),
-            isDark: true,
-            // The prop is overloaded exactly like the list/compact views: in
+            entry:
+                _entry(), // The prop is overloaded exactly like the list/compact views: in
             // multi-select it means "checked", not "open in the detail panel".
             isSelected: true,
             onTap: () {},
@@ -93,7 +91,6 @@ void main() {
         makeTestable(
           HistoryEntryCard(
             entry: _entry(),
-            isDark: true,
             isSelected: true,
             onTap: () {},
             onCopy: () {},

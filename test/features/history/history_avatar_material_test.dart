@@ -39,10 +39,9 @@ Future<BoxDecoration> _pumpAvatar(
     makeTestable(
       Center(
         child: HistoryEntryAvatar(
-          color: slot.color(isDark),
+          color: slot.color(),
           icon: historyAvatarIcon,
           isPinned: false,
-          isDark: isDark,
         ),
       ),
       brightness: isDark ? Brightness.dark : Brightness.light,

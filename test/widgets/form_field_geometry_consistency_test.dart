@@ -417,10 +417,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const HistoryNotesSection(
-            entryId: 'geometry-test-entry',
-            isDark: true,
-          ),
+          const HistoryNotesSection(entryId: 'geometry-test-entry'),
           locale: const Locale('en'),
         ),
       );

@@ -138,14 +138,11 @@ class _WpStoreThankYouWatcherState
           parent: animation,
           curve: Curves.easeOut,
         );
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return FadeTransition(
           opacity: opacity,
           child: Stack(
             children: [
-              Positioned.fill(
-                child: ColoredBox(color: wpDialogBarrierColor(isDark)),
-              ),
+              Positioned.fill(child: ColoredBox(color: wpDialogBarrierColor())),
               _StoreThankYouDialog(
                 animation: animation,
                 isWindows: _isWindows,

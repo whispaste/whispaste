@@ -109,20 +109,18 @@ class HistoryEntryAvatar extends StatelessWidget {
     required this.color,
     required this.icon,
     required this.isPinned,
-    required this.isDark,
     this.size = 36,
   });
 
   final Color color;
   final IconData icon;
   final bool isPinned;
-  final bool isDark;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     final iconSize = (size * 0.44).roundToDouble();
-    final tint = WpAvatarTint.of(isDark);
+    const tint = WpAvatarTint.dark;
     return SizedBox(
       width: size + 6,
       height: size + 6,
@@ -168,14 +166,9 @@ class HistoryEntryAvatar extends StatelessWidget {
 /// neutral surface fill, not brand color — so it reads as "status" while
 /// duration/word-count stay plain metadata text.
 class HistoryStatusChip extends StatelessWidget {
-  const HistoryStatusChip({
-    super.key,
-    required this.label,
-    required this.isDark,
-  });
+  const HistoryStatusChip({super.key, required this.label});
 
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {

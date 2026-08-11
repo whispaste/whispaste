@@ -49,7 +49,6 @@ class AboutPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
     final langCode = ref.watch(localeProvider).languageCode;
@@ -149,7 +148,6 @@ class AboutPage extends ConsumerWidget {
 
           // ── Support this project ──
           _AboutCard(
-            isDark: isDark,
             title: l10n.aboutSupportTitle,
             children: [
               Text(
@@ -203,7 +201,6 @@ class AboutPage extends ConsumerWidget {
           // — see SPONSORS.md) ──
           if (kSponsors.isNotEmpty) ...[
             _AboutCard(
-              isDark: isDark,
               title: l10n.aboutSponsorsTitle,
               children: [
                 Wrap(
@@ -211,7 +208,7 @@ class AboutPage extends ConsumerWidget {
                   runSpacing: WpSpacing.sm,
                   children: [
                     for (final sponsor in kSponsors)
-                      _SponsorChip(sponsor: sponsor, isDark: isDark),
+                      _SponsorChip(sponsor: sponsor),
                   ],
                 ),
               ],
@@ -221,32 +218,27 @@ class AboutPage extends ConsumerWidget {
 
           // ── Built with ──
           _AboutCard(
-            isDark: isDark,
             title: l10n.aboutBuiltWith,
             children: [
               _BuiltWithRow(
                 icon: LucideIcons.codeXml,
                 title: l10n.aboutFlutterGo,
                 description: l10n.aboutFlutterGoDesc,
-                isDark: isDark,
               ),
               _BuiltWithRow(
                 icon: LucideIcons.mic,
                 title: l10n.aboutWhisper,
                 description: l10n.aboutWhisperDesc,
-                isDark: isDark,
               ),
               _BuiltWithRow(
                 icon: LucideIcons.gauge,
                 title: l10n.aboutParakeet,
                 description: l10n.aboutParakeetDesc,
-                isDark: isDark,
               ),
               _BuiltWithRow(
                 icon: LucideIcons.shield,
                 title: l10n.aboutPrivacyFirst,
                 description: l10n.aboutPrivacyFirstDesc,
-                isDark: isDark,
               ),
             ],
           ),
@@ -254,19 +246,17 @@ class AboutPage extends ConsumerWidget {
 
           // ── Privacy & Data ──
           _AboutCard(
-            isDark: isDark,
             title: l10n.aboutPrivacy,
             children: [
-              _PrivacyPoint(text: l10n.aboutPrivacyLocal, isDark: isDark),
-              _PrivacyPoint(text: l10n.aboutPrivacyCloud, isDark: isDark),
-              _PrivacyPoint(text: l10n.aboutPrivacyNoTracking, isDark: isDark),
+              _PrivacyPoint(text: l10n.aboutPrivacyLocal),
+              _PrivacyPoint(text: l10n.aboutPrivacyCloud),
+              _PrivacyPoint(text: l10n.aboutPrivacyNoTracking),
             ],
           ),
           const SizedBox(height: WpSpacing.lg),
 
           // ── Keyboard shortcuts ──
           _AboutCard(
-            isDark: isDark,
             title: l10n.aboutKeyboardShortcuts,
             children: [
               _ShortcutRow(
@@ -288,7 +278,6 @@ class AboutPage extends ConsumerWidget {
 
           // ── Links ──
           _AboutCard(
-            isDark: isDark,
             title: l10n.aboutLinks,
             children: [
               _LinkRow(
@@ -296,21 +285,18 @@ class AboutPage extends ConsumerWidget {
                 label: l10n.aboutWebsite,
                 url: websiteHomeUrl(langCode),
                 displayUrl: 'whispaste.de',
-                isDark: isDark,
               ),
               _LinkRow(
                 icon: FontAwesomeIcons.github.data,
                 label: l10n.aboutGitHubRepo,
                 url: kGitHubRepoUrl,
                 displayUrl: kGitHubRepoUrl.replaceFirst('https://', ''),
-                isDark: isDark,
               ),
               _LinkRow(
                 icon: LucideIcons.scale,
                 label: l10n.aboutMitLicense,
                 url: '$kGitHubRepoUrl/blob/main/LICENSE',
                 displayUrl: l10n.aboutViewOnGitHub,
-                isDark: isDark,
               ),
               _LinkRow(
                 icon: LucideIcons.fileText,
@@ -319,7 +305,6 @@ class AboutPage extends ConsumerWidget {
                 displayUrl: privacyPolicyUrl(
                   langCode,
                 ).replaceFirst('https://', '').replaceFirst(RegExp(r'/$'), ''),
-                isDark: isDark,
               ),
             ],
           ),
@@ -327,7 +312,6 @@ class AboutPage extends ConsumerWidget {
 
           // ── System diagnostics ──
           _AboutCard(
-            isDark: isDark,
             title: l10n.aboutSystemInfo,
             children: [
               Text(
@@ -379,13 +363,8 @@ class AboutPage extends ConsumerWidget {
 /// The header is a plain [WpSection] — the same one Settings and Analytics
 /// use — so About no longer carries a section head of its own.
 class _AboutCard extends StatelessWidget {
-  const _AboutCard({
-    required this.isDark,
-    required this.title,
-    required this.children,
-  });
+  const _AboutCard({required this.title, required this.children});
 
-  final bool isDark;
   final String title;
   final List<Widget> children;
 
@@ -502,10 +481,9 @@ class _AboutTapTargetState extends State<_AboutTapTarget> {
 /// Displays a single opt-in sponsor entry (see `SPONSORS.md`). Tappable only
 /// when [Sponsor.url] is set.
 class _SponsorChip extends StatelessWidget {
-  const _SponsorChip({required this.sponsor, required this.isDark});
+  const _SponsorChip({required this.sponsor});
 
   final Sponsor sponsor;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -546,12 +524,10 @@ class _BuiltWithRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.description,
-    required this.isDark,
   });
   final IconData icon;
   final String title;
   final String description;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -604,9 +580,8 @@ class _BuiltWithRow extends StatelessWidget {
 // ─── Privacy point ───────────────────────────────────────────────────────────
 
 class _PrivacyPoint extends StatelessWidget {
-  const _PrivacyPoint({required this.text, required this.isDark});
+  const _PrivacyPoint({required this.text});
   final String text;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -684,13 +659,11 @@ class _LinkRow extends StatefulWidget {
     required this.label,
     required this.url,
     required this.displayUrl,
-    required this.isDark,
   });
   final IconData icon;
   final String label;
   final String url;
   final String displayUrl;
-  final bool isDark;
 
   @override
   State<_LinkRow> createState() => _LinkRowState();

@@ -60,7 +60,6 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
     super.key,
     required this.controller,
     required this.activeFilter,
-    required this.isDark,
     required this.onFilterChanged,
     required this.onSearchChanged,
     required this.resultCount,
@@ -76,7 +75,6 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
 
   final TextEditingController controller;
   final HistoryFilter activeFilter;
-  final bool isDark;
   final ValueChanged<HistoryFilter> onFilterChanged;
   final VoidCallback onSearchChanged;
   final int resultCount;
@@ -700,7 +698,7 @@ class _HistorySearchFilterBarState
                   hintText: l10n.historySearchTranscriptions,
                   variant: WpSearchFieldVariant.outlined,
                   onClear: _clearSuggestions,
-                  suffix: _SearchHelpButton(isDark: widget.isDark),
+                  suffix: const _SearchHelpButton(),
                   semanticsLabel: l10n.historySearchFieldLabel,
                 ),
               ),
@@ -766,11 +764,7 @@ class _HistorySearchFilterBarState
               runSpacing: WpSpacing.xxs,
               children: [
                 for (final cmd in activeCommands)
-                  _CommandChip(
-                    label: cmd,
-                    isDark: widget.isDark,
-                    onRemove: () => _removeCommand(cmd),
-                  ),
+                  _CommandChip(label: cmd, onRemove: () => _removeCommand(cmd)),
               ],
             ),
           ],
@@ -957,13 +951,11 @@ class _HistorySearchFilterBarState
                   // Sort order dropdown
                   _SortDropdown(
                     sortOrder: widget.sortOrder,
-                    isDark: widget.isDark,
                     onChanged: widget.onSortOrderChanged,
                   ),
                   // View mode toggle
                   HistoryViewModeToggle(
                     viewMode: widget.viewMode,
-                    isDark: widget.isDark,
                     onChanged: widget.onViewModeChanged,
                   ),
                 ],
@@ -1040,14 +1032,9 @@ class _DismissIconState extends State<_DismissIcon> {
 }
 
 class _CommandChip extends StatelessWidget {
-  const _CommandChip({
-    required this.label,
-    required this.isDark,
-    required this.onRemove,
-  });
+  const _CommandChip({required this.label, required this.onRemove});
 
   final String label;
-  final bool isDark;
   final VoidCallback onRemove;
 
   @override
@@ -1099,7 +1086,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
   const HistoryMultiSelectBar({
     super.key,
     required this.selectedCount,
-    required this.isDark,
     required this.isTrashView,
     required this.isArchiveView,
     required this.onCancelSelection,
@@ -1114,7 +1100,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
   });
 
   final int selectedCount;
-  final bool isDark;
   final bool isTrashView;
   final bool isArchiveView;
   final VoidCallback onCancelSelection;
@@ -1209,7 +1194,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
                         'm',
                         l10n: l10n,
                       ),
-                      isDark: isDark,
                       onTap: onMerge!,
                     ),
                   if (onBatchCopy != null)
@@ -1222,7 +1206,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
                         'c',
                         l10n: l10n,
                       ),
-                      isDark: isDark,
                       onTap: onBatchCopy!,
                     ),
                   if (onExport != null)
@@ -1230,7 +1213,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.download,
                       label: l10n.historyExportAction,
-                      isDark: isDark,
                       onTap: onExport!,
                     ),
                   if (onRestore != null)
@@ -1238,7 +1220,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.undo2,
                       label: l10n.historyRestore,
-                      isDark: isDark,
                       onTap: onRestore!,
                     ),
                   if (onArchive != null)
@@ -1250,7 +1231,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       label: isArchiveView
                           ? l10n.historyUnarchive
                           : l10n.historyArchive,
-                      isDark: isDark,
                       onTap: onArchive!,
                     ),
                   if (onDelete != null)
@@ -1261,7 +1241,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
                           ? l10n.historyDeleteForever
                           : l10n.actionDelete,
                       shortcutHint: hotkeyKeyLabel('delete', l10n: l10n),
-                      isDark: isDark,
                       onTap: onDelete!,
                       isDestructive: true,
                     ),
@@ -1294,7 +1273,6 @@ class HistoryMultiSelectAction extends StatefulWidget {
     super.key,
     required this.icon,
     required this.label,
-    required this.isDark,
     required this.onTap,
     this.shortcutHint,
     this.isDestructive = false,
@@ -1302,7 +1280,6 @@ class HistoryMultiSelectAction extends StatefulWidget {
 
   final IconData icon;
   final String label;
-  final bool isDark;
   final VoidCallback onTap;
   final String? shortcutHint;
   final bool isDestructive;
@@ -1387,12 +1364,10 @@ class HistoryViewModeToggle extends StatelessWidget {
   const HistoryViewModeToggle({
     super.key,
     required this.viewMode,
-    required this.isDark,
     required this.onChanged,
   });
 
   final HistoryViewMode viewMode;
-  final bool isDark;
   final ValueChanged<HistoryViewMode> onChanged;
 
   @override
@@ -1414,7 +1389,6 @@ class HistoryViewModeToggle extends StatelessWidget {
             icon: LucideIcons.list,
             label: L10n.of(context).historyList,
             isActive: viewMode == HistoryViewMode.list,
-            isDark: isDark,
             onTap: () => onChanged(HistoryViewMode.list),
           ),
           // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
@@ -1422,7 +1396,6 @@ class HistoryViewModeToggle extends StatelessWidget {
             icon: LucideIcons.layoutGrid,
             label: L10n.of(context).historyCards,
             isActive: viewMode == HistoryViewMode.cards,
-            isDark: isDark,
             onTap: () => onChanged(HistoryViewMode.cards),
           ),
           // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
@@ -1430,7 +1403,6 @@ class HistoryViewModeToggle extends StatelessWidget {
             icon: LucideIcons.rows3,
             label: L10n.of(context).historyCompact,
             isActive: viewMode == HistoryViewMode.compact,
-            isDark: isDark,
             onTap: () => onChanged(HistoryViewMode.compact),
           ),
         ],
@@ -1444,14 +1416,12 @@ class _HistoryViewModeButton extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.isActive,
-    required this.isDark,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool isActive;
-  final bool isDark;
   final VoidCallback onTap;
 
   @override
@@ -1594,9 +1564,7 @@ class _NewRecordingButton extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _SearchHelpButton extends StatelessWidget {
-  const _SearchHelpButton({required this.isDark});
-
-  final bool isDark;
+  const _SearchHelpButton();
 
   @override
   Widget build(BuildContext context) {
@@ -1649,21 +1617,18 @@ class _SearchHelpButton extends StatelessWidget {
                     icon: LucideIcons.tag,
                     text: l10n.historySearchHelpTags,
                     example: '#meeting',
-                    isDark: isDark,
                   ),
                   const SizedBox(height: WpSpacing.xxs),
                   _HelpRow(
                     icon: LucideIcons.globe,
                     text: l10n.historySearchHelpLang,
                     example: 'lang:en',
-                    isDark: isDark,
                   ),
                   const SizedBox(height: WpSpacing.xxs),
                   _HelpRow(
                     icon: LucideIcons.textSearch,
                     text: l10n.historySearchHelpFreeText,
                     example: '',
-                    isDark: isDark,
                   ),
                 ],
               ),
@@ -1680,13 +1645,11 @@ class _HelpRow extends StatelessWidget {
     required this.icon,
     required this.text,
     required this.example,
-    required this.isDark,
   });
 
   final IconData icon;
   final String text;
   final String example;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -1740,14 +1703,9 @@ class _HelpRow extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _SortDropdown extends StatelessWidget {
-  const _SortDropdown({
-    required this.sortOrder,
-    required this.isDark,
-    required this.onChanged,
-  });
+  const _SortDropdown({required this.sortOrder, required this.onChanged});
 
   final HistorySortOrder sortOrder;
-  final bool isDark;
   final ValueChanged<HistorySortOrder> onChanged;
 
   IconData get _icon {

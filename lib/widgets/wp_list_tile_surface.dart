@@ -82,7 +82,6 @@ enum WpListTileVariant {
 class WpListTileSurface extends StatelessWidget {
   const WpListTileSurface({
     super.key,
-    required this.isDark,
     required this.variant,
     required this.child,
     this.isHovered = false,
@@ -95,7 +94,6 @@ class WpListTileSurface extends StatelessWidget {
          'selection is a panel-variant state.',
        );
 
-  final bool isDark;
   final WpListTileVariant variant;
 
   /// Pointer is over the row.
@@ -241,9 +239,7 @@ class WpListTileSurface extends StatelessWidget {
         // Soft ambient lift on interaction only — the resting row stays flat
         // (density, perf). `subtleTransparent` rather than null: see the
         // library comment's flash-mechanism note.
-        boxShadow: _isActive
-            ? WpShadows.subtleFor(isDark)
-            : WpShadows.subtleTransparent,
+        boxShadow: _isActive ? WpShadows.subtle : WpShadows.subtleTransparent,
       ),
       child: content,
     );

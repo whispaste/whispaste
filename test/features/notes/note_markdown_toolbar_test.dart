@@ -40,7 +40,6 @@ Widget _panel({
 }) => NoteEditorPanel(
   note: _note(),
   tags: const [],
-  isDark: true,
   controller: controller,
   focusNode: focusNode,
   onClose: () {},

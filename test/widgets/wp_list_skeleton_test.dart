@@ -117,7 +117,6 @@ void main() {
         tester,
         HistoryEntryRow(
           entry: _entry(),
-          isDark: true,
           isSelected: false,
           onTap: () {},
           onCopy: () {},
@@ -142,7 +141,6 @@ void main() {
         NotesListTile(
           note: _note(),
           tags: const [],
-          isDark: true,
           isTrashView: false,
           isSelected: false,
           isFocused: false,

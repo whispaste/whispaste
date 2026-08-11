@@ -85,7 +85,6 @@ class _WpPasteCapabilityIndicatorState
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final capState = ref.watch(pasteCapabilityNotifierProvider);
     final cap = capState.capability;
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
@@ -118,7 +117,6 @@ class _WpPasteCapabilityIndicatorState
     final status = _resolveStatus(
       cap,
       l10n,
-      isDark,
       restartIneffective: notifier.restartWasIneffective,
     );
 
@@ -314,8 +312,7 @@ class _WpPasteCapabilityIndicatorState
   /// and red stays reserved for actual paste failures.
   ({IconData icon, Color color, String title, String? subtitle}) _resolveStatus(
     PasteCapability? cap,
-    L10n l10n,
-    bool isDark, {
+    L10n l10n, {
     bool restartIneffective = false,
   }) {
     if (cap == null) {
