@@ -1299,74 +1299,23 @@ final class WpAvatarTint {
 }
 
 // ---------------------------------------------------------------------------
-// Decorative layer — chrome surfaces, no meaning
+// Decorative layer — retracted 2026-08-11
+//
+// `WpDecorativeColorsDark` (*Quartz*, a 314° mauve) and its resolver
+// `wpDecorativeChromeWash()` lived here. The layer's whole job was to make the
+// settings page read as its own plate, and it was already down to that one
+// call site after Ticket 06 took it off the nav rail. The maintainer reported
+// that the plate is exactly the defect: Settings looked unlike every other
+// page, most visibly in the band under the page header. With the wash gone the
+// layer has no surface left, so the tokens are removed rather than kept as an
+// unused hue family a future call site could rediscover.
+//
+// Recorded rather than deleted, per this file's audit convention — the
+// reasoning is written up under *The Decorative Color Rule* in `lib/DESIGN.md`,
+// which keeps the retracted rule with its retraction note. Not to be confused
+// with `decorativeGlyphWash` (accent-tinted, on a single card), which is a
+// different token under a different rule and stays.
 // ---------------------------------------------------------------------------
-
-/// Dark-theme decorative source — *Quartz*, a 314° mauve at ≈52 % saturation.
-///
-/// **Its own layer, and the third hue family outside the accent** (after Pin
-/// Amber and the category slots). It exists to make the settings page read as
-/// its own plate rather than the same flat field as every other page, and it
-/// carries no information whatsoever. See *The Decorative Color Rule* in
-/// `lib/DESIGN.md`, which is what sanctions it (maintainer decision ④ = b,
-/// 2026-08-11).
-///
-/// **Narrowed in Ticket 06 (2026-08-11): the nav rail no longer carries it.**
-/// The rail was the layer's first surface, and the wash's job there was to
-/// make the chrome its own plate — a job [WpColorsDark.frameGradient] now does
-/// itself, chromatically and across all three bars at once. What settles it is
-/// not that the wash became invisible (it would still lift the rail by
-/// ≈1.07:1 on dark) but that it became *wrong*: a flat veil on one strip of a
-/// diagonal ambient cuts a seam down the frame at x = 72 dp, and the frame
-/// has to read as one light source across title bar, rail and status bar.
-/// The prohibition that no bar paints a ground of its own is the same rule
-/// seen from the other side, and it is gated in
-/// `test/widgets/frame_single_paint_test.dart`.
-/// Recorded rather than deleted, per this file's audit convention.
-///
-/// **Never cyan.** Cyan/teal stays the brand accent alone (decision ② = b), so
-/// the decorative layer may not borrow from it — otherwise the one voice the
-/// app has would also be its wallpaper.
-///
-/// **Why hue proximity is not the guarantee.** 314° sits 18° from `orchid`
-/// (296°) and 18° from `plum` (332°), stated rather than argued away: every
-/// gap left on the wheel by the accent band, the status hues and the eight
-/// slots is about that wide. What keeps this layer apart from the nominal one
-/// is *form*, and form is testable — a category slot is an opaque, bounded
-/// mark you are meant to read, while this hue only ever appears as a ≤5 %
-/// field over a whole surface, at a contrast under the 1.5:1 a graphical
-/// object has to clear to register as an object at all. The same argument the
-/// [WpColorsDark.warmSurfaceGradient] comment already makes: what keeps a
-/// large low-chroma field from reading as a second signal is its weight, not
-/// its hue distance.
-abstract final class WpDecorativeColorsDark {
-  /// The single decorative hue. Never painted at full strength — the app only
-  /// ever sees it through [chromeWash].
-  static const Color source = Color(0xFFDA8BC8);
-
-  /// The one decorative fill: [source] at 5 %, flat, over a whole surface.
-  ///
-  /// Below the tint ladder, where *The Decorative Glyph Rule* already puts the
-  /// large-area washes. It used to be split per theme (*The Increment–Decrement
-  /// Rule*), with the light value **measured, not inherited** — a legibility
-  /// budget rather than an optical one set that one, because the wash lies
-  /// under the page ground. Only the dark value survives, and it is the
-  /// optically-set one.
-  static const Color chromeWash = Color(0x0DDA8BC8); // source @ 5%
-}
-
-/// The only sanctioned way to a decorative color.
-///
-/// It takes **nothing** — no id, no index, no identity — which is the
-/// executable half of the rule: a call site physically cannot vary the
-/// decorative hue per nav item or per settings section, so the layer cannot
-/// grow into a category scale. That is the mirror image of
-/// [categorySlotForModel] and friends, whose *parameter* is the evidence that
-/// a category color means something. It used to take `isDark`, the one
-/// argument that named a ground rather than an identity; with one ground left,
-/// the empty parameter list states the rule more plainly than the old
-/// signature did.
-Color wpDecorativeChromeWash() => WpDecorativeColorsDark.chromeWash;
 
 /// The translucent scrim behind a [BackdropFilter]-blurred dialog barrier.
 ///

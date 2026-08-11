@@ -358,20 +358,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // The search field rides the shell's sticky header slot, so it
             // stays visible while the sections below scroll.
             //
-            // The whole page stands on the decorative plate the nav rail also
-            // carries (*The Decorative Color Rule*) — one flat wash over the
-            // page ground, wrapping the shell rather than any section, so the
-            // sticky search strip sits on the same ground as the sections that
-            // scroll under it. Per *section* it would be a category claim,
-            // which stays forbidden; per *page* it is the room this page is.
-            // `DecoratedBox` adds no inset, so the shell's own padding is
-            // still the only thing positioning the content.
-            return DecoratedBox(
-              decoration: BoxDecoration(color: wpDecorativeChromeWash()),
-              child: WpPageShell(
-                header: SettingsSearchField(focusNode: _searchFocusNode),
-                child: scrollContent,
-              ),
+            // No ground of its own. Settings used to wrap the shell in a flat
+            // decorative wash (*The Decorative Color Rule*, retracted
+            // 2026-08-11) to read as its own plate; the plate is now the one
+            // the whole app stands on, so the page returns the bare shell and
+            // lands on `warmSurfaceGradient` like History, Analytics and every
+            // other page. A page that paints its own fill over the content
+            // plane is the same seam Ticket 06 removed from the nav rail, one
+            // layer in.
+            return WpPageShell(
+              header: SettingsSearchField(focusNode: _searchFocusNode),
+              child: scrollContent,
             );
           },
         ),
