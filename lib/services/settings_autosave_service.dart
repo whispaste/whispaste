@@ -1,5 +1,5 @@
 /// Autosicherung — the event-driven automatic backup of the portable
-/// settings bundle (PRD `ui-overhaul`, Ticket 26; decisions E11a–E11d).
+/// settings bundle (Ticket 26; decisions E11a–E11d).
 ///
 /// Two collaborators live here, and neither of them can ever put anything on
 /// screen:

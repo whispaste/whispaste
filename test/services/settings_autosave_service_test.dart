@@ -1,4 +1,4 @@
-/// Tests for the Autosicherung service (Ticket 26 of `ui-overhaul`).
+/// Tests for the Autosicherung service (Ticket 26).
 ///
 /// Three things are load-bearing here and each has its own group:
 ///

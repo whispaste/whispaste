@@ -1,5 +1,5 @@
 /// The one place the Autosicherung feature is allowed to open a dialog
-/// (PRD `ui-overhaul`, Ticket 26).
+/// (Ticket 26).
 ///
 /// Deliberately a separate file from `settings_autosave_service.dart`, which
 /// performs the background runs. H1 of the ticket is that a run must never

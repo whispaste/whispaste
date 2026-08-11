@@ -123,7 +123,7 @@ class AppSettings {
   final SettingsPortabilityPathSettings portabilityPaths;
 
   /// Autosicherung — event-driven automatic backup of the portable bundle
-  /// (Ticket 26 of `ui-overhaul`). Off by default.
+  /// (Ticket 26). Off by default.
   final SettingsAutosaveSettings autosave;
 
   // ---------------------------------------------------------------------------

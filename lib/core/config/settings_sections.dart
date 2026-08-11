@@ -1437,8 +1437,8 @@ class SettingsPortabilityPathSettings {
 // Section 19 — Settings Autosave
 // ===========================================================================
 
-/// Automatic, event-driven backup of the portable settings bundle (PRD
-/// `ui-overhaul`, Ticket 26 — decisions E11a–E11d).
+/// Automatic, event-driven backup of the portable settings bundle
+/// (Ticket 26 — decisions E11a–E11d).
 ///
 /// Every key here is machine-bound or local run state, so all five are on
 /// [settingsPortabilityDenyList]: the folder path and its bookmark describe
