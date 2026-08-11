@@ -37,21 +37,16 @@ String formatHistoryDuration(double durationSec) {
   return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
 }
 
-/// Derives a warm avatar color from the entry's first tag or title.
-Color historyAvatarColor(HistoryEntry entry) {
-  const palette = WpSharedColors.avatarPalette;
-  // Hash from title for consistent color per entry
-  final hash = entry.title.isNotEmpty
-      ? entry.title.codeUnits.fold<int>(0, (a, b) => a + b)
-      : entry.id.codeUnits.fold<int>(0, (a, b) => a + b);
-  return palette[hash % palette.length];
-}
-
 /// A single avatar-icon rule: matches when any [tagKeywords] is found in the
 /// entry's tags OR any [titleKeywords] is found in the entry's title.  Tag and
 /// title keyword lists are kept SEPARATE so each rule can be asymmetric (some
 /// rules deliberately check only tags, others only the title).
+///
+/// [key] identifies the rule to [categorySlotForAvatarRule] and is the reason
+/// the avatar hue means something: it names the *category*, not the entry, so
+/// every meeting is one color because every meeting is one kind of thing.
 typedef _AvatarIconRule = ({
+  String key,
   List<String> tagKeywords,
   List<String> titleKeywords,
   IconData icon,
@@ -60,58 +55,87 @@ typedef _AvatarIconRule = ({
 // Rules evaluated in order; first match wins.  Mapping is asymmetric per rule.
 const _avatarIconRules = <_AvatarIconRule>[
   (
+    key: 'meeting',
     tagKeywords: ['meeting'],
     titleKeywords: ['meeting', 'standup'],
     icon: LucideIcons.users,
   ),
   (
+    key: 'email',
     tagKeywords: ['email'],
     titleKeywords: ['email', 'follow'],
     icon: LucideIcons.mail,
   ),
   (
+    key: 'blog',
     tagKeywords: ['blog', 'writing'],
     titleKeywords: ['blog', 'draft'],
     icon: LucideIcons.penLine,
   ),
   (
+    key: 'personal',
     tagKeywords: ['personal', 'recipe'],
     titleKeywords: [],
     icon: LucideIcons.heart,
   ),
   (
+    key: 'feedback',
     tagKeywords: ['feedback'],
     titleKeywords: ['feedback', 'review'],
     icon: LucideIcons.messageSquare,
   ),
   (
+    key: 'project',
     tagKeywords: ['project'],
     titleKeywords: ['project', 'brief'],
     icon: LucideIcons.folderOpen,
   ),
   (
+    key: 'idea',
     tagKeywords: ['idea', 'team'],
     titleKeywords: [],
     icon: LucideIcons.lightbulb,
   ),
   (
+    key: 'reminder',
     tagKeywords: [],
     titleKeywords: ['reminder', 'todo'],
     icon: LucideIcons.bellRing,
   ),
 ];
 
-/// Icon for the entry avatar — based on content/source hints.
-IconData historyAvatarIcon(HistoryEntry entry) {
+/// The rule an entry falls under, or `null` when none matches.
+_AvatarIconRule? _matchAvatarRule(HistoryEntry entry) {
   final title = entry.title.toLowerCase();
   final tags = entry.tags.toLowerCase();
   for (final rule in _avatarIconRules) {
     final matched =
         rule.tagKeywords.any(tags.contains) ||
         rule.titleKeywords.any(title.contains);
-    if (matched) return rule.icon;
+    if (matched) return rule;
   }
-  return LucideIcons.mic;
+  return null;
+}
+
+/// Icon for the entry avatar — based on content/source hints.
+IconData historyAvatarIcon(HistoryEntry entry) =>
+    _matchAvatarRule(entry)?.icon ?? LucideIcons.mic;
+
+/// Category slot for the entry avatar — the same rule that picks the icon, so
+/// hue and glyph always say the same thing and neither is the sole carrier.
+///
+/// An entry matching no rule is untitled/uncategorised, which in a dictation app
+/// is the *normal* case rather than an edge one: it takes the dedicated
+/// [WpCategorySlot.neutral] and is deliberately kept out of the category hues,
+/// instead of hashing itself into one of them like the incumbent title hash did.
+///
+/// Returns the *slot*, never a [Color]: callers cache this across rebuilds and a
+/// resolved color would survive a runtime theme switch as the old theme's hue.
+WpCategorySlot historyAvatarSlot(HistoryEntry entry) {
+  final rule = _matchAvatarRule(entry);
+  return rule == null
+      ? WpCategorySlot.neutral
+      : categorySlotForAvatarRule(rule.key);
 }
 
 /// Entry avatar — colored circle with icon (Discord/WhatsApp identity).
@@ -122,15 +146,15 @@ IconData historyAvatarIcon(HistoryEntry entry) {
 /// glow-free materiality on top of the flat fill this used to be.
 ///
 /// Every lightness and alpha comes from [WpAvatarTint], and every one of them
-/// is *mirrored* between the themes: the palette hue itself is theme-
-/// independent, so the disc only separates from its ground if the preparation
-/// flips direction — lighter and thin on navy, toward ink and denser on pearl.
-/// The shifts are clamped into a legibility band, so a hue that already sits
-/// near the band edge is held there instead of collapsing into the ground or
-/// into near-black; hues in between keep their own lightness character. Result
-/// is calibrated to keep the disc visible (≥1.5:1 against surface) and the
-/// glyph readable (≥3:1 against the disc) for every palette slot in both
-/// themes — gated in `test/core/theme/wcag_contrast_test.dart`.
+/// is *mirrored* between the themes: the disc is a translucent tint over its
+/// ground, so it only separates if the preparation flips direction — lighter
+/// and thin on navy, toward ink and denser on pearl. The shifts are clamped
+/// into a legibility band, so a hue that already sits near the band edge is
+/// held there instead of collapsing into the ground or into near-black; hues in
+/// between keep their own lightness character. Result is calibrated to keep the
+/// disc visible (≥1.5:1 against surface) and the glyph readable (≥3:1 against
+/// the disc) for every [WpCategorySlot] in both themes — gated in
+/// `test/core/theme/wcag_contrast_test.dart`.
 class HistoryEntryAvatar extends StatelessWidget {
   const HistoryEntryAvatar({
     super.key,

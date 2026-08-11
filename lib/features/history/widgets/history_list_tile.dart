@@ -65,7 +65,10 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   late int _wordCount = _computeWordCount(widget.entry);
   late List<String> _entryTags = _computeEntryTags(widget.entry);
   late IconData _avatarIcon = historyAvatarIcon(widget.entry);
-  late Color _avatarCol = historyAvatarColor(widget.entry);
+  // The *slot*, not its color: this cache outlives a runtime theme switch,
+  // which only `entry` invalidates — a resolved color would keep painting the
+  // old theme's hue until the row happened to get a new entry.
+  late WpCategorySlot _avatarSlot = historyAvatarSlot(widget.entry);
 
   static int _computeWordCount(HistoryEntry entry) {
     return computeWordCountFast(entry.content);
@@ -88,7 +91,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
       _wordCount = _computeWordCount(widget.entry);
       _entryTags = _computeEntryTags(widget.entry);
       _avatarIcon = historyAvatarIcon(widget.entry);
-      _avatarCol = historyAvatarColor(widget.entry);
+      _avatarSlot = historyAvatarSlot(widget.entry);
     }
   }
 
@@ -176,7 +179,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                   ),
                 // Avatar — colored circle with content-type icon
                 HistoryEntryAvatar(
-                  color: _avatarCol,
+                  color: _avatarSlot.color(isDark),
                   icon: _avatarIcon,
                   isPinned: widget.entry.pinned,
                   isDark: isDark,
@@ -463,7 +466,6 @@ class _EntryTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     return Wrap(
       spacing: 4,
@@ -474,7 +476,7 @@ class _EntryTagChips extends StatelessWidget {
           _EntryTagChip(
             tag: tag,
             isDark: isDark,
-            accent: accent,
+            slot: categorySlotForTag(tag),
             onTap: onTagTap == null ? null : () => onTagTap!.call(tag),
           ),
         if (tags.length > 3)
@@ -487,17 +489,23 @@ class _EntryTagChips extends StatelessWidget {
   }
 }
 
+/// A tag chip, tinted in its tag's own category hue.
+///
+/// The hue is carried by the fill and the outline (*The Tint Ladder Rule*'s
+/// 12 % and 30 % rungs) but never by the label: eight hues behind a 10px word
+/// is eight contrast problems, and the tag's name already says which tag it is,
+/// so the color is a second, redundant channel rather than the carrier.
 class _EntryTagChip extends StatefulWidget {
   const _EntryTagChip({
     required this.tag,
     required this.isDark,
-    required this.accent,
+    required this.slot,
     required this.onTap,
   });
 
   final String tag;
   final bool isDark;
-  final Color accent;
+  final WpCategorySlot slot;
   final VoidCallback? onTap;
 
   @override
@@ -523,16 +531,17 @@ class _EntryTagChipState extends State<_EntryTagChip> {
         vertical: 1,
       ),
       decoration: BoxDecoration(
-        color: widget.isDark
-            ? WpColorsDark.accentMiniTagFill
-            : WpColorsLight.accentMiniTagFill,
+        color: widget.slot.chipFill(widget.isDark),
+        border: Border.all(color: widget.slot.chipBorder(widget.isDark)),
         borderRadius: WpRadius.borderSm,
       ),
       child: Text(
         '#${widget.tag}',
         style: TextStyle(
           fontSize: WpTypography.micro,
-          color: widget.accent.withValues(alpha: 0.9),
+          color: widget.isDark
+              ? WpColorsDark.textSecondary
+              : WpColorsLight.textSecondary,
           fontWeight: FontWeight.w500,
         ),
       ),

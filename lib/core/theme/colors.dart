@@ -399,19 +399,6 @@ abstract final class WpColorsLight {
 /// exception to the per-theme token split above, for colors chosen for
 /// user-facing variety/recognition rather than surface hierarchy.
 abstract final class WpSharedColors {
-  /// Warm, distinguishable hues for hashing an identity to a color (history
-  /// entry avatars, by title/id). Order matters — index 0 is the default.
-  static const List<Color> avatarPalette = [
-    Color(0xFF22D3EE), // cyan (default)
-    Color(0xFF8B5CF6), // violet
-    Color(0xFFF59E0B), // amber
-    Color(0xFF10B981), // emerald
-    Color(0xFFF472B6), // pink
-    Color(0xFF3B82F6), // blue
-    Color(0xFFEF4444), // red
-    Color(0xFF14B8A6), // teal
-  ];
-
   /// Pinned/favorited-item accent (star icon, toggle). Amber reads as
   /// "favorite" cross-platform regardless of theme, like a star rating.
   static const Color pinnedAccent = Color(0xFFFFB300); // Colors.amber.shade600
@@ -471,6 +458,19 @@ enum WpCategorySlot {
   Color color(bool isDark) => (isDark
       ? WpCategoryColorsDark.slots
       : WpCategoryColorsLight.slots)[index];
+
+  /// *The Tint Ladder Rule*'s 12 % fill rung, in this slot's hue.
+  ///
+  /// A rung rather than a call-site alpha, but computed rather than declared:
+  /// the ladder's other hues are one token family each because they are one
+  /// hue each — nine slots × two rungs × two themes would be 36 constants
+  /// restating one number. The ladder's guarantee is that the *weight* is
+  /// shared across hues, and that is exactly what these two methods carry.
+  Color chipFill(bool isDark) => color(isDark).withValues(alpha: 0.12);
+
+  /// *The Tint Ladder Rule*'s 30 % outline rung, in this slot's hue. See
+  /// [chipFill].
+  Color chipBorder(bool isDark) => color(isDark).withValues(alpha: 0.30);
 }
 
 /// Dark-theme category slots — one recipe, nine outcomes.
@@ -577,12 +577,34 @@ WpCategorySlot categorySlotForTag(String tagName) =>
 /// hue because they are the same kind of thing, which is precisely what the
 /// incumbent title hash could not express. An entry that matches no rule has no
 /// category and takes [WpCategorySlot.neutral] — it does not hash.
+///
+/// **A table, not a hash.** Unlike models and tags, the avatar rules are a
+/// closed set of eight known keys facing eight slots, so the assignment can be
+/// — and therefore must be — a bijection. A hash cannot promise that over a
+/// small domain, and this one does not: `blog` and `personal` both sum onto
+/// slot 4, which would paint two categories the same hue while `fern` was never
+/// used at all. A key the table does not know still hashes, so a ninth rule
+/// keeps working; it just no longer gets the bijection guarantee.
 WpCategorySlot categorySlotForAvatarRule(String ruleKey) =>
-    _categorySlotForIdentity(ruleKey);
+    _avatarRuleSlots[ruleKey] ?? _categorySlotForIdentity(ruleKey);
 
-/// The one hash behind all three mappers — same shape as the incumbent
-/// `historyAvatarColor` (sum of code units, modulo the slot count) so the
-/// repo keeps a single, recognisable "identity → slot" idiom.
+/// The eight avatar rules of `history_helpers.dart`, one slot each. Hue affinity
+/// is a memory aid, not meaning: the scale is nominal, so any bijection would do.
+const Map<String, WpCategorySlot> _avatarRuleSlots = {
+  'meeting': WpCategorySlot.azure,
+  'email': WpCategorySlot.iris,
+  'blog': WpCategorySlot.ember,
+  'personal': WpCategorySlot.plum,
+  'feedback': WpCategorySlot.orchid,
+  'project': WpCategorySlot.fern,
+  'idea': WpCategorySlot.brass,
+  'reminder': WpCategorySlot.moss,
+};
+
+/// The one hash behind the open-ended mappers — sum of code units, modulo the
+/// slot count — so the repo keeps a single, recognisable "identity → slot"
+/// idiom. Sound for models and user-typed tags, whose domains are open; the
+/// closed set of avatar rules is tabled instead (see [categorySlotForAvatarRule]).
 ///
 /// Distributes over [WpCategorySlot.categories] only; [WpCategorySlot.neutral]
 /// is unreachable from here by design. An empty identity is a caller bug, not a
@@ -595,21 +617,23 @@ WpCategorySlot _categorySlotForIdentity(String identity) {
 
 /// Theme-paired rendering recipe for the history-entry avatar disc.
 ///
-/// [WpSharedColors.avatarPalette] is deliberately theme-*independent*, so the
-/// whole light/dark adaptation has to live in how a palette hue is prepared —
-/// not in the hue itself. Every value below is therefore mirrored rather than
-/// merely scaled: on dark the hue is pushed **toward light** and the fill kept
-/// thin; on light it is pushed **toward ink** and the fill made *denser*, which
-/// is the opposite of the usual "light theme needs less ink" compensation (that
-/// rule exists for tokens whose base color already darkens per theme — this one
-/// does not, so a thinner fill on pearl-white would simply erase the disc).
+/// The base is a [WpCategorySlot] color, so it already darkens per theme — but
+/// the disc is a *translucent* tint over its ground, and a theme pair solved for
+/// equal luminance is not the same thing as a pair solved for equal presence
+/// through 20–36 % alpha. Every value below is therefore still mirrored rather
+/// than merely scaled: on dark the hue is pushed **toward light** and the fill
+/// kept thin; on light it is pushed **toward ink** and the fill made *denser*.
+/// The denser light fill is the opposite of the usual "light theme needs less
+/// ink" compensation, and it is what the measurement asks for: a light slot
+/// clears its pearl ground by ≈4.0:1 where a dark one clears navy by ≈5.8:1, so
+/// equal alpha would leave the light disc the weaker of the two.
 ///
 /// The lightness shifts are clamped into a legibility band. The band is what
-/// keeps the recipe hue-agnostic: a pure shift drives already-dark hues
-/// (emerald, teal) to near-black glyphs on light and washes pale hues out on
-/// dark, so the band caps both ends without flattening the hues that sit in
-/// between. On today's palette the dark bands never bind — they are a guard for
-/// a future palette, not an active correction.
+/// keeps the recipe hue-agnostic: a pure shift drives already-dark hues to
+/// near-black glyphs on light and washes pale hues out on dark, so the band
+/// caps both ends without flattening the hues that sit in between. On today's
+/// slots the light bands hold `fern`, `brass`, `moss` and `ember` — the four
+/// whose light twins already sit low — while the dark bands never bind at all.
 ///
 /// Calibrated against two contrast targets, verified per slot and per theme in
 /// `test/core/theme/wcag_contrast_test.dart`:

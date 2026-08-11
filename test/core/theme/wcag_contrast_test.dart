@@ -80,18 +80,6 @@ Color midpoint(Color a, Color b) => Color.from(
   blue: (a.b + b.b) / 2,
 );
 
-/// Human-readable names for the [WpSharedColors.avatarPalette] slots, in order.
-const List<String> _avatarSlotNames = [
-  'slot 0 cyan',
-  'slot 1 violet',
-  'slot 2 amber',
-  'slot 3 emerald',
-  'slot 4 pink',
-  'slot 5 blue',
-  'slot 6 red',
-  'slot 7 teal',
-];
-
 // ---------------------------------------------------------------------------
 // HSL helpers for saturation audits
 // ---------------------------------------------------------------------------
@@ -543,8 +531,8 @@ void main() {
   // -------------------------------------------------------------------------
   // History-entry avatar ("belichtete Scheibe") — two targets, one calibration
   //
-  // The avatar hues ([WpSharedColors.avatarPalette]) are theme-independent, so
-  // all light/dark adaptation lives in [WpAvatarTint]. Two separate failure
+  // The disc is a translucent tint over its ground, so its presence is not the
+  // slot's own contrast but what [WpAvatarTint] makes of it. Two separate failure
   // modes were reported against the pre-fix renderer and each needs its own
   // gate — they pull against each other on light (a denser disc drags the
   // glyph further toward ink), so they are calibrated together, never one
@@ -594,17 +582,9 @@ void main() {
     final tint = WpAvatarTint.of(isDark);
 
     group('Avatar disc vs. surface – $themeName theme (≥ $discFloor:1)', () {
-      // Guard the positional pairing: [_avatarSlotNames] is indexed against
-      // the palette, so a future palette edit (Phase F) that adds or drops a
-      // slot would otherwise leave every test green while labelling the wrong
-      // hue — a silent mislabel instead of a failure.
-      test('slot names cover the palette', () {
-        expect(_avatarSlotNames.length, WpSharedColors.avatarPalette.length);
-      });
-
-      for (var i = 0; i < WpSharedColors.avatarPalette.length; i++) {
-        final base = WpSharedColors.avatarPalette[i];
-        test(_avatarSlotNames[i], () {
+      for (final slot in WpCategorySlot.values) {
+        final base = slot.color(isDark);
+        test(slot.name, () {
           for (final (groundName, ground) in [
             ('surface', surface),
             ('surfaceElevated', surfaceElevated),
@@ -617,7 +597,7 @@ void main() {
               contrastRatio(disc, ground),
               greaterThanOrEqualTo(discFloor),
               reason:
-                  '$themeName ${_avatarSlotNames[i]}: disc center only '
+                  '$themeName ${slot.name}: disc center only '
                   '${contrastRatio(disc, ground).toStringAsFixed(2)}:1 against '
                   '$groundName — the circle dissolves into the row',
             );
@@ -625,7 +605,7 @@ void main() {
               contrastRatio(bottom, ground),
               greaterThanOrEqualTo(discBottomStopFloor),
               reason:
-                  '$themeName ${_avatarSlotNames[i]}: shaded gradient stop only '
+                  '$themeName ${slot.name}: shaded gradient stop only '
                   '${contrastRatio(bottom, ground).toStringAsFixed(2)}:1 against '
                   '$groundName — the disc fades out at its bottom-right edge',
             );
@@ -635,9 +615,9 @@ void main() {
     });
 
     group('Avatar glyph vs. disc – $themeName theme (≥ $glyphFloor:1)', () {
-      for (var i = 0; i < WpSharedColors.avatarPalette.length; i++) {
-        final base = WpSharedColors.avatarPalette[i];
-        test(_avatarSlotNames[i], () {
+      for (final slot in WpCategorySlot.values) {
+        final base = slot.color(isDark);
+        test(slot.name, () {
           final top = alphaComposite(tint.fillTop(base), surface);
           final bottom = alphaComposite(tint.fillBottom(base), surface);
           final disc = midpoint(top, bottom);
@@ -652,7 +632,7 @@ void main() {
               contrastRatio(glyph, ground),
               greaterThanOrEqualTo(glyphFloor),
               reason:
-                  '$themeName ${_avatarSlotNames[i]}: glyph only '
+                  '$themeName ${slot.name}: glyph only '
                   '${contrastRatio(glyph, ground).toStringAsFixed(2)}:1 against '
                   'the $groundName — the icon is not readable',
             );
@@ -786,25 +766,19 @@ void main() {
   // that floor anyway (≈5.8:1 dark / ≈4.0:1 light against `surface`), so the
   // floor is a guard against future edits, not a value the palette hugs.
   //
-  // GLYPH LEGIBILITY (group (c) of the ticket) is deliberately NOT tested here,
-  // and the omission is the finding rather than a gap. At this ticket's scope
-  // nothing paints a glyph *on* a slot: the slots have no call site at all, and
-  // the contract states them as foreground/graphical marks. The one incumbent
-  // glyph-on-hue recipe, [WpAvatarTint], exists precisely because
-  // [WpSharedColors.avatarPalette] is theme-*independent* — "the whole
-  // light/dark adaptation has to live in how a palette hue is prepared". A
-  // theme-*paired* palette dissolves that premise, so Ticket 13 decides whether
-  // the recipe survives at all; inventing a glyph pairing here would gate a
-  // composition no code performs.
+  // GLYPH LEGIBILITY is gated in the avatar groups above rather than here: the
+  // avatar disc is the one composition that paints a glyph *on* a slot, and it
+  // does so through [WpAvatarTint], so the pairing is measured where it is
+  // actually performed instead of being invented a second time.
   //
-  // Measured hand-off for that decision — today's slots pushed through today's
-  // [WpAvatarTint] against `surface`, against its own floors (disc ≥ 1.5:1,
-  // glyph ≥ 3:1): light clears both (disc 1.53–1.94, glyph 4.99–7.37); dark
-  // does *not*. Dark `iris` reaches only 1.47:1 as a disc, and dark `neutral`
-  // 1.27:1 with a 2.71:1 glyph — the low-chroma fallback is the one that breaks
-  // hardest, because a 20 %-saturation hue at 20–28 % alpha barely departs from
-  // navy. Recalibrating the tint (or replacing it) is Ticket 13's job, and
-  // these are the numbers it starts from.
+  // CORRECTION to Ticket 12's hand-off note, which claimed the slots break the
+  // tint's own floors on dark (`iris` 1.47:1 as a disc, `neutral` 1.27:1 with a
+  // 2.71:1 glyph) and left recalibration to Ticket 13. Re-measured against the
+  // shipped code, every slot clears both floors in both themes with the tint
+  // unchanged — dark discs land at 1.69–1.87:1 and dark glyphs at 4.54–6.08:1,
+  // light at 1.76–1.84:1 and 5.70–7.26:1. The old note appears to have skipped
+  // the recipe's lightness shift; the tint was therefore left as it was, and the
+  // groups above are what holds that.
   // -------------------------------------------------------------------------
 
   const categorySlotFloor = 3.0;
@@ -1044,18 +1018,14 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Migration marker for Ticket 13 — NOT a failing acceptance criterion today.
-  //
-  // Ticket 13 replaces [WpSharedColors.avatarPalette] with the category slots
-  // and requires it to end up with zero call sites. That migration has not
-  // happened yet, so the palette still has exactly one: `history_helpers.dart`.
-  // This test pins that fact. When Ticket 13 lands, it fails — and the fix is
-  // to change the expectation to an empty set (and delete the palette), not to
-  // delete the test. It exists so the migration cannot be declared done while a
-  // second multi-hue system quietly survives somewhere in `lib/`.
+  // Migration marker for Ticket 13 — the palette is gone; nothing may bring a
+  // second multi-hue system back under a familiar name. Ticket 13 replaced
+  // `WpSharedColors.avatarPalette` with the category slots, so the sweep below
+  // now expects zero mentions anywhere in `lib/` — including the declaration,
+  // which no longer exists.
   // -------------------------------------------------------------------------
   group('avatarPalette call sites (Ticket 13 migration marker)', () {
-    test('exactly one, in history_helpers.dart', () {
+    test('none — the palette is gone', () {
       final lib = Directory('lib');
       expect(
         lib.existsSync(),
@@ -1080,16 +1050,15 @@ void main() {
       final referencing = dartFiles
           .where((f) => f.readAsStringSync().contains('avatarPalette'))
           .map((f) => f.path.replaceAll(r'\', '/'))
-          // The declaration itself and its doc comments don't count.
-          .where((p) => p != 'lib/core/theme/colors.dart')
           .toSet();
 
       expect(
         referencing,
-        {'lib/features/history/widgets/history_helpers.dart'},
+        isEmpty,
         reason:
-            'avatarPalette is expected to have exactly one call site until '
-            'Ticket 13 migrates it to WpCategorySlot. Found: $referencing',
+            'avatarPalette was replaced by WpCategorySlot in Ticket 13 and must '
+            'stay gone — a hue set outside the slot governance is a second, '
+            'meaningless color system. Found: $referencing',
       );
     });
   });

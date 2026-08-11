@@ -174,7 +174,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
   // setState — see the identical fix in history_list_tile.dart for why.
   late int _wordCount = _computeWordCount(widget.entry);
   late IconData _avatarIcon = historyAvatarIcon(widget.entry);
-  late Color _avatarCol = historyAvatarColor(widget.entry);
+  // The *slot*, not its color — see the identical note in history_list_tile.dart.
+  late WpCategorySlot _avatarSlot = historyAvatarSlot(widget.entry);
 
   static int _computeWordCount(HistoryEntry entry) {
     return computeWordCountFast(entry.content);
@@ -186,7 +187,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     if (oldWidget.entry != widget.entry) {
       _wordCount = _computeWordCount(widget.entry);
       _avatarIcon = historyAvatarIcon(widget.entry);
-      _avatarCol = historyAvatarColor(widget.entry);
+      _avatarSlot = historyAvatarSlot(widget.entry);
     }
   }
 
@@ -311,7 +312,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         ),
                       ),
                     HistoryEntryAvatar(
-                      color: _avatarCol,
+                      color: _avatarSlot.color(isDark),
                       icon: _avatarIcon,
                       isPinned: widget.entry.pinned,
                       isDark: isDark,
