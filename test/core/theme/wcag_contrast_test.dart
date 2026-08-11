@@ -350,6 +350,29 @@ final _darkPairs = [
     isLargeText: true,
   ),
 
+  // The other direction: the label standing *on* a filled accent button, which
+  // is the pairing every primary CTA in the app resolves to (`onPrimary` in the
+  // Material scheme, `WpButton`'s accent tone). It went ungated until ADR 0013,
+  // and an ungated pairing is one nobody notices breaking: rotating the accent
+  // hue moved this ratio by 4.6 points (7.12:1 → 11.71:1) without a single test
+  // reacting. It happened to move the safe way. Normal-text threshold, because
+  // a button label is body-sized.
+  const _ColorPair(
+    'dark: background on accent (filled button label)',
+    WpColorsDark.background,
+    WpColorsDark.accent,
+  ),
+  const _ColorPair(
+    'dark: textPrimary on active (neutral button label)',
+    WpColorsDark.textPrimary,
+    WpColorsDark.active,
+  ),
+  const _ColorPair(
+    'dark: background on error (danger button label)',
+    WpColorsDark.background,
+    WpColorsDark.error,
+  ),
+
   // Recording accent — the recording/listening family split off from `accent`.
   // Same grounds and the same large-text threshold the accent carries: the
   // split copied the values, so it must inherit the whole guarantee, not just
@@ -2208,8 +2231,18 @@ void main() {
   // -------------------------------------------------------------------------
   // Two accents, two jobs — the accent means "you can act on this", the
   // recording family means "a recording or its transcription is in flight".
-  // Two hues, two jobs, and nothing may present them as competing interactive
-  // treatments of the same thing.
+  // Two jobs, and nothing may present them as competing interactive treatments
+  // of the same thing.
+  //
+  // ~~Two *hues*, two jobs.~~ **The hue-exclusivity clause is retracted (ADR
+  // 0013, 2026-08-11)** — the accent is back in the recording family's cyan,
+  // where it sat, byte-identically, for the app's entire life before Ticket 04
+  // without the two ever being confused. What survives the retraction is
+  // everything this group actually tests: the tokens stay separate, the
+  // recording family stays inside its audited call sites, and no site presents
+  // both as rival brand voices. The discrimination the hue used to carry is
+  // now carried by weight (see the sibling group below) plus context, form and
+  // motion — a waveform animates, an overlay frames, a button does neither.
   //
   // Pinned as a file allowlist rather than as "no file uses both": the status
   // bar legitimately paints both — the transcribing dot is a recording signal,
@@ -2217,12 +2250,162 @@ void main() {
   // mutual-exclusion test would have to be weakened into vacuity to survive
   // that. What is actually checkable is that the recording family stays inside
   // its audited call sites, and that none of those sites also carries a
-  // primary CTA *gradient*, which is where the two read as rival brand voices.
+  // primary CTA *gradient*.
   //
-  // The rule has no name in `lib/DESIGN.md` yet — that file still documents
-  // the superseded single-accent doctrine and is rewritten in a follow-up
-  // ticket — so it is stated here in full rather than cited.
+  // Named in `lib/DESIGN.md` as *The Two Accent, Two Jobs Rule*, carrying the
+  // same retraction note.
   // -------------------------------------------------------------------------
+
+  group('Two accents, one family, separated by weight', () {
+    // The mechanism that replaces the retracted hue gap, and deliberately the
+    // same one the ambient uses against this same signal ("Ambient vs. the
+    // recording signal"): where two things must not be mistaken for each
+    // other, gate the weight between them, not the angle.
+    //
+    // The band is two-sided on purpose. Too close and the split is a
+    // distinction the eye cannot make, which is what the byte-identical
+    // pre-Ticket-04 state was; too far and they stop reading as one family and
+    // the retraction has quietly re-introduced a second brand voice.
+    const familyFloor = 1.12;
+    const familyCeiling = 1.5;
+
+    test('they are one hue family, not two', () {
+      final gap = hueDelta(WpColorsDark.accent, WpColorsDark.recordingAccent);
+      expect(
+        gap,
+        lessThan(5.0),
+        reason:
+            'accent and recordingAccent sit ${gap.toStringAsFixed(1)}° apart. '
+            'ADR 0013 put them back in one family; a visible hue gap between '
+            'them is the exclusivity that ADR retracted, creeping back in',
+      );
+    });
+
+    test('the signal is the heavier of the two', () {
+      final step = contrastRatio(
+        WpColorsDark.accent,
+        WpColorsDark.recordingAccent,
+      );
+
+      expect(
+        relativeLuminance(WpColorsDark.accent),
+        greaterThan(relativeLuminance(WpColorsDark.recordingAccent)),
+        reason:
+            'the recording signal is painted opaque as a shape (waveform, '
+            'dot) and must stay the denser, more urgent of the two; the '
+            'accent is consumed as 5–30 % alpha washes and as label text, '
+            'where luminance is legibility. A signal lighter than the button '
+            'beside it has the emphasis the wrong way round',
+      );
+
+      expect(
+        step,
+        greaterThanOrEqualTo(familyFloor),
+        reason:
+            'accent and recordingAccent step only ${step.toStringAsFixed(3)}:1 '
+            'apart — below the floor at which two cyans standing side by side '
+            '(a button next to a running recording) are separable at all',
+      );
+
+      expect(
+        step,
+        lessThan(familyCeiling),
+        reason:
+            'accent and recordingAccent step ${step.toStringAsFixed(3)}:1 '
+            'apart, at or above the threshold where two fills stop reading as '
+            'one material in two weights and start reading as two different '
+            'colors — which is the hue split ADR 0013 retracted, rebuilt out '
+            'of luminance',
+      );
+    });
+  });
+
+  group('The accent gradients keep their depth', () {
+    // Written because this file did not have it, and the gap cost a round.
+    //
+    // Both ambient gradients have their end-to-end span gated ("the frame is
+    // the livelier ambient"). The accent ramps had nothing equivalent, so when
+    // ADR 0013 rotated the hue and a first pass raised all three stops by one
+    // constant lightness offset, `accentWarmGradient` collapsed from 1.737:1
+    // end to end to 1.207:1 — the bright end had run into the ceiling — and
+    // every test in this file still passed. A flat ramp on the token that
+    // paints primary buttons, the 3 px sidebar bar and the section markers,
+    // shipped during a correction whose whole premise was "this reads flat".
+    //
+    // Floors, not equalities. The property worth defending is that the ramp
+    // does not collapse; pinning today's 1.739:1 exactly would ossify the
+    // palette and fire on every legitimate re-tuning, which is how a gate
+    // teaches people to edit the gate.
+    double spanOf(LinearGradient g) =>
+        contrastRatio(g.colors.first, g.colors.last);
+
+    test('accentWarmGradient is anchored at the flat accent', () {
+      // Load-bearing, not cosmetic: this gradient paints the 3 px sidebar and
+      // section indicator bars, and their ≈7:1 against their grounds is bought
+      // entirely by the first stop being the accent itself. A darker teal
+      // there drops those markers to ≈4:1 app-wide, which no contrast pair in
+      // this file would catch — none of them measure a 3 px bar.
+      expect(
+        WpColorsDark.accentWarmGradient.colors.first,
+        WpColorsDark.accent,
+        reason:
+            'the interactive gradient no longer starts at the flat accent, so '
+            'the thin accent bars it paints have quietly lost their contrast '
+            'against every ground they sit on',
+      );
+    });
+
+    test('the ramps still descend far enough to be seen', () {
+      final warm = spanOf(WpColorsDark.accentWarmGradient);
+      expect(
+        warm,
+        greaterThan(1.5),
+        reason:
+            'accentWarmGradient spans only ${warm.toStringAsFixed(3)}:1 end to '
+            'end. A gradient that flat is a solid fill wearing three stops — '
+            'and it is the primary CTA',
+      );
+
+      final line = spanOf(WpColorsDark.accentGradient);
+      expect(
+        line,
+        greaterThan(1.15),
+        reason:
+            'accentGradient spans only ${line.toStringAsFixed(3)}:1 end to end',
+      );
+    });
+
+    test('it stays the lighter sibling of the recording ramp, stop for stop', () {
+      // Not imposed — it fell out of re-solving the ramp to the old shape, and
+      // it is worth holding because it is what makes the two ramps read as one
+      // material at two weights rather than as two ramps that happen to be
+      // cyan. Same band as the flat tokens, for the same reason.
+      final warm = WpColorsDark.accentWarmGradient.colors;
+      final signal = WpColorsDark.recordingAccentGradient.colors;
+      expect(warm.length, signal.length);
+
+      for (var i = 0; i < warm.length; i++) {
+        final step = contrastRatio(warm[i], signal[i]);
+        expect(
+          relativeLuminance(warm[i]),
+          greaterThan(relativeLuminance(signal[i])),
+          reason:
+              'stop $i of the interactive ramp is no longer lighter than the '
+              'matching stop of the recording ramp — the two ramps have '
+              'crossed, and with them the emphasis',
+        );
+        expect(
+          step,
+          inInclusiveRange(1.12, 1.5),
+          reason:
+              'stop $i sits ${step.toStringAsFixed(3)}:1 from its recording '
+              'counterpart, outside the band the two flat accents hold '
+              '(1.12–1.5:1). The ramps are meant to be siblings by the same '
+              'margin their anchors are',
+        );
+      }
+    });
+  });
 
   group('Two accents, two jobs – token usage', () {
     List<String> dartFilesUnderLib() {
@@ -2458,17 +2641,60 @@ void main() {
               'it falls; one hue at three lightnesses is a tint, not a light',
         );
         for (final hue in hues) {
+          // Widened from 230–305 with ADR 0012 (2026-08-11). Dark's arc now
+          // runs 218–256° (brand navy → violet) and light's still runs
+          // 258–288° on the Ticket-04 violet, because ADR 0012 is scoped to
+          // dark and the light theme is being removed wholesale. The band is
+          // the union, and it is still the assertion it always was: the
+          // ambient lives in the blue-through-magenta half of the wheel and
+          // nowhere else. It excludes every warm hue, and it excludes the
+          // cyan/teal below 210° that belongs to `recordingAccent` alone.
           expect(
             hue,
-            inInclusiveRange(230, 305),
+            inInclusiveRange(210, 300),
             reason:
                 '$themeName: a frame stop sits at ${hue.toStringAsFixed(1)}°, '
-                'off the violet→magenta arc the whole ambient stack walks — '
-                'the frame is the largest surface in the app and a third hue '
+                'off the navy→violet arc the whole ambient stack walks — the '
+                'frame is the largest surface in the app and a third hue '
                 'family there would out-shout both accents (*Two Accent, Two '
                 'Jobs*)',
           );
         }
+      });
+
+      // Rehomed from the deleted `Frame cool-shadow stop` group (ADR 0012).
+      // Both assertions outlived the rule they were written for, because
+      // neither is about the *exception*: they are about the arc's shape.
+      test('the last stop is the deepest, so the arc ends where it ends', () {
+        final luminances = frame.colors.map(relativeLuminance).toList();
+        expect(
+          relativeLuminance(frame.colors.last),
+          luminances.reduce(math.min),
+          reason:
+              '$themeName: the frame\'s last stop is not its deepest. The '
+              'light falls from the top-left, so the corner furthest from it '
+              'has to be the darkest one — and the amplitude gate above '
+              'measures first-against-last, so a brighter tail makes it span '
+              'the wrong pair and report a range the frame does not have',
+        );
+      });
+
+      test('the deepest stop stays atmosphere, never a drawn object', () {
+        final step = contrastRatio(
+          frame.colors.last,
+          frame.colors[frame.colors.length - 2],
+        );
+        expect(
+          step,
+          lessThan(1.5),
+          reason:
+              '$themeName: the deepest frame stop steps '
+              '${step.toStringAsFixed(3)}:1 against the stop before it, at or '
+              'above the threshold this app uses to separate a field from an '
+              'object (*The Decorative Color Rule*). A corner the eye reads as '
+              'a shape is something the user will look for a meaning in, and '
+              'this one has none',
+        );
       });
 
       test(
@@ -2598,9 +2824,26 @@ void main() {
                 'meeting rather than as one plane lying in one room',
           );
 
-          // Chroma has to *fall* across the seam — a surface nearer the light
-          // loses chroma; one that gains it reads as a colored panel laid on
-          // the room, not as part of it.
+          // Chroma has to *match* across the seam, within a two-sided band.
+          //
+          // ~~Chroma has to *fall* across the seam — a surface nearer the
+          // light loses chroma; one that gains it reads as a colored panel
+          // laid on the room.~~ **The direction requirement is retracted
+          // (2026-08-11).** It was asserted at the corner only, and one-sided,
+          // and between those two properties it certified the exact defect it
+          // was written to prevent: the plane satisfied "less chromatic than
+          // the frame" at the corner by 5.6 steps and then drifted to **28
+          // steps** below it along the top edge, where the rail and the
+          // content stopped reading as one surface at all. A rule that is
+          // happy at any distance in one direction cannot police a seam; what
+          // matters is that the two surfaces carry the *same* chroma weight,
+          // and either sign of divergence breaks that equally.
+          //
+          // So the band below is symmetric, and the sweep in the sibling test
+          // enforces it along the whole seam rather than at one corner. The
+          // "one step nearer" reading now rests where it always actually
+          // rested: on the luminance step, which is still gated one-sided
+          // below.
           //
           // Measured in channel spread (max − min, in 8-bit steps) rather
           // than in HSL saturation. **This is a change of metric, not a
@@ -2622,36 +2865,20 @@ void main() {
           final planeSpread = channelSpread(planeStart);
           final frameSpread = channelSpread(frameAtSeam);
           expect(
-            (frameSpread - planeSpread) * 255.0,
-            greaterThan(0.0),
-            reason:
-                '$themeName at $label: the plane carries '
-                '${(planeSpread * 255).toStringAsFixed(1)} 8-bit steps of '
-                'color against the frame\'s '
-                '${(frameSpread * 255).toStringAsFixed(1)} — it is no less '
-                'chromatic than the room it lies in, so it reads as a colored '
-                'panel laid on the frame rather than as part of it',
-          );
-
-          // Direction is not enough. The assertion above is satisfied by a
-          // one-step drop and by a thirty-step cliff alike, and the cliff is
-          // the failure mode a *re-saturated frame* produces if this stop is
-          // left where it was: the plane would still be "less saturated",
-          // just no longer the same material.
-          expect(
-            (frameSpread - planeSpread) * 255.0,
+            ((frameSpread - planeSpread) * 255.0).abs(),
             lessThan(8.0),
             reason:
-                '$themeName at $label: chroma falls by '
+                '$themeName at $label: chroma differs by '
                 '${((frameSpread - planeSpread) * 255).toStringAsFixed(1)} '
                 '8-bit steps across the seam (frame '
                 '${(frameSpread * 255).toStringAsFixed(1)}, plane '
                 '${(planeSpread * 255).toStringAsFixed(1)}). Ticket 07 '
-                'ratified a drop of ~3–4 steps as "the same light, one step '
-                'nearer"; several times that is a chroma cliff at a corner '
-                'that carries no border to explain it, and it is what the '
-                'plane inherits if the frame is re-saturated and this stop is '
-                'not re-solved with it',
+                'ratified a difference of ~3–4 steps as "the same light, one '
+                'step nearer"; several times that is a chroma cliff at a '
+                'corner that carries no border to explain it, in whichever '
+                'direction it runs — a grey plane in a saturated room and a '
+                'saturated panel on a grey room are the same defect seen from '
+                'the two sides',
           );
 
           expect(
@@ -2722,190 +2949,191 @@ void main() {
         //    floor is a decision about `frameGradient`, not a tuning pass on
         //    the plane.
         // ---------------------------------------------------------------
-        test(
-          '$label: perceptible along the whole seam, not just the corner',
-          () {
-            final planeWidth = window.width - WpLayout.sidebarWidth;
-            final planeHeight =
-                window.height -
-                WpLayout.appBarHeight -
-                WpLayout.statusBarHeight;
-            final projection =
-                planeWidth * planeWidth + planeHeight * planeHeight;
+        test('$label: perceptible along the whole seam, not just the corner', () {
+          final planeWidth = window.width - WpLayout.sidebarWidth;
+          final planeHeight =
+              window.height - WpLayout.appBarHeight - WpLayout.statusBarHeight;
+          final projection =
+              planeWidth * planeWidth + planeHeight * planeHeight;
 
-            const samples = 40;
-            var worst = double.infinity;
-            var worstAt = '';
+          const samples = 40;
+          var worst = double.infinity;
+          var worstAt = '';
 
-            for (var i = 0; i <= samples; i++) {
-              final along = i / samples;
-              for (final (edge, dx, dy) in <(String, double, double)>[
-                ('top edge', planeWidth * along, 0.0),
-                ('left edge', 0.0, planeHeight * along),
-              ]) {
-                // The plane's gradient is sampled in the panel's own rect; the
-                // frame's in the window's. Two different projections meeting at
-                // one line is precisely why the seam's step varies along it.
-                final planeHere = gradientColorAt(
-                  plane,
-                  (dx * planeWidth + dy * planeHeight) / projection,
-                );
-                final frameHere = gradientColorAt(
-                  frame,
-                  frameGradientT(
-                    WpLayout.sidebarWidth + dx,
-                    WpLayout.appBarHeight + dy,
-                    window,
-                  ),
-                );
+          for (var i = 0; i <= samples; i++) {
+            final along = i / samples;
+            for (final (edge, dx, dy) in <(String, double, double)>[
+              ('top edge', planeWidth * along, 0.0),
+              ('left edge', 0.0, planeHeight * along),
+            ]) {
+              // The plane's gradient is sampled in the panel's own rect; the
+              // frame's in the window's. Two different projections meeting at
+              // one line is precisely why the seam's step varies along it.
+              final planeHere = gradientColorAt(
+                plane,
+                (dx * planeWidth + dy * planeHeight) / projection,
+              );
+              final frameHere = gradientColorAt(
+                frame,
+                frameGradientT(
+                  WpLayout.sidebarWidth + dx,
+                  WpLayout.appBarHeight + dy,
+                  window,
+                ),
+              );
 
+              expect(
+                relativeLuminance(planeHere),
+                greaterThan(relativeLuminance(frameHere)),
+                reason:
+                    '$themeName at $label: on the $edge the plane falls below '
+                    'the frame beside it — the sheet dips into the room and '
+                    'the seam reverses somewhere along its length, even if '
+                    'the corner still reads correctly',
+              );
+
+              // Chroma tracking, swept — the assertion the corner-only gate
+              // could not make. The rail paints no ground of its own, so
+              // this line is where the frame and the content plane are
+              // literally adjacent, and the defect that reached the
+              // maintainer lived here rather than at the corner: hue and
+              // luminance tracked the whole way while the plane's chroma
+              // slid from 5.6 to 28 steps under the frame's, turning one
+              // lit surface into a vivid rail beside a grey panel.
+              final chromaGap =
+                  (channelSpread(frameHere) - channelSpread(planeHere)) * 255.0;
+              // Dark only, and stated rather than quietly scoped. The
+              // ceiling is an absolute byte count calibrated on the dark
+              // theme, where the two arcs carry 37–61 steps of colour and
+              // eight steps of disagreement is the point at which they stop
+              // looking like one lit surface.
+              //
+              // The pearl theme does not survive it: its frame tops out at
+              // 12.7 steps and its plane at 4.6, an 8.0–8.1 step split at
+              // ~48 % along the top edge — proportionally far worse than the
+              // dark defect this gate was written for. That split is **not**
+              // introduced here; both light values are untouched by this
+              // change and measure the same at HEAD. Correcting it means
+              // re-solving `WpColorsLight`, which this change deliberately
+              // does not touch, so it is recorded as a known gap rather than
+              // hidden by a threshold widened until it passed.
+              if (themeName == 'dark') {
                 expect(
-                  relativeLuminance(planeHere),
-                  greaterThan(relativeLuminance(frameHere)),
+                  chromaGap.abs(),
+                  lessThan(8.0),
                   reason:
-                      '$themeName at $label: on the $edge the plane falls below '
-                      'the frame beside it — the sheet dips into the room and '
-                      'the seam reverses somewhere along its length, even if '
-                      'the corner still reads correctly',
+                      '$themeName at $label: on the $edge, '
+                      '${(along * 100).toStringAsFixed(0)} % along, the frame '
+                      'carries ${(channelSpread(frameHere) * 255).toStringAsFixed(1)} '
+                      '8-bit steps of color and the plane beside it '
+                      '${(channelSpread(planeHere) * 255).toStringAsFixed(1)} '
+                      '— a ${chromaGap.abs().toStringAsFixed(1)}-step split. '
+                      'The two arcs may start together and still drift apart '
+                      'along the seam; where they do, the rail and the content '
+                      'stop reading as one surface however well their hue and '
+                      'luminance still agree',
                 );
+              }
 
-                final step = contrastRatio(planeHere, frameHere);
-                if (step < worst) {
-                  worst = step;
-                  worstAt =
-                      '$edge, ${(along * 100).toStringAsFixed(0)} % along';
-                }
+              final step = contrastRatio(planeHere, frameHere);
+              if (step < worst) {
+                worst = step;
+                worstAt = '$edge, ${(along * 100).toStringAsFixed(0)} % along';
               }
             }
+          }
 
-            expect(
-              worst,
-              greaterThanOrEqualTo(seamFloor),
-              reason:
-                  '$themeName at $label: the seam\'s weakest point steps only '
-                  '${worst.toStringAsFixed(4)}:1 ($worstAt), under the '
-                  '${seamFloor.toStringAsFixed(2)}:1 floor. Direction and '
-                  'continuity are not perceptibility: a seam this shallow is '
-                  'the one the maintainer reported as having "no perceivable '
-                  'transition at all", and it passed every other assertion in '
-                  'this group',
-            );
-          },
-        );
+          expect(
+            worst,
+            greaterThanOrEqualTo(seamFloor),
+            reason:
+                '$themeName at $label: the seam\'s weakest point steps only '
+                '${worst.toStringAsFixed(4)}:1 ($worstAt), under the '
+                '${seamFloor.toStringAsFixed(2)}:1 floor. Direction and '
+                'continuity are not perceptibility: a seam this shallow is '
+                'the one the maintainer reported as having "no perceivable '
+                'transition at all", and it passed every other assertion in '
+                'this group',
+          );
+        });
       }
     });
   }
 
   // -------------------------------------------------------------------------
-  // The cool shadow — the one sanctioned cool note outside `recordingAccent`
-  // (maintainer decision ② = b, 2026-08-11)
+  // Ambient vs. the recording signal (2026-08-11, ADR 0012)
   //
-  // Warm light, cool shadow: the frame's deepest corner falls back toward blue
-  // instead of continuing into magenta. The maintainer wanted the app's
-  // historic cyan identity to show through the violet skin; the *Two Accent,
-  // Two Jobs Rule* reserves the whole cyan/teal family for "a recording is in
-  // flight". This is the narrow opening that satisfies both, and it is narrow
-  // in four measurable directions at once — hue clearance, saturation, weight
-  // and role. Actual teal is *not* reachable this way and is not meant to be:
-  // 45° of clearance from the recording hue is exactly what stops the cool
-  // note at blue.
+  // **This group replaces `Frame cool-shadow stop`, which was deleted with
+  // *The Cool-Shadow Exception* it enforced.** That rule let the frame's
+  // deepest corner fall back toward blue inside an otherwise violet room, and
+  // fenced the opening with 45° of hue clearance from `recordingAccent` plus a
+  // saturation ceiling. ADR 0012 returned the whole dark ambient to the
+  // brand's blue/navy, so the corner is no longer an exception — it is the
+  // rule — and a 45° clearance is not merely unnecessary but structurally
+  // unsatisfiable: the ambient now *lives* 28–31° from the recording hue.
   //
-  // The 45° is the app's own "mistakable for a brand voice" radius, already
-  // spent twice: the accent is held 45° off Quartz, and `azure` is kept out of
-  // the ramp for sitting *inside* it. Measured per theme, because
-  // `recordingAccent` is a theme pair (189.5° dark / 195.9° light) and the
-  // clearance is owed to the hue the user actually sees.
+  // Deleting a gate without replacing it would leave *Two Accent, Two Jobs*
+  // with no executable defence on the ambient at all, so the doctrine moves to
+  // the axis that actually carries it. **Weight, not hue distance, is what
+  // separates a room from a signal.** The recording accent is a small, bright,
+  // bordered mark that appears and disappears; the ambient is a large,
+  // borderless, motionless field that is always there. The measurable form of
+  // that difference is luminance, and the app has the evidence: it shipped a
+  // navy ambient under a cyan accent for its entire life before Ticket 04, at
+  // roughly this separation, and no one confused the two.
+  //
+  // Dark only, and *The Theme-Pair Rule* asks for the reason. On dark both the
+  // ambient and the signal are coloured light on black and luminance is the
+  // only thing between them. On pearl the ambient *is* the paper (Y ≈ 0.85)
+  // and the signal is ink on it, so figure/ground already separates them and a
+  // luminance floor measured in the same direction would be meaningless.
   // -------------------------------------------------------------------------
 
-  for (final (themeName, frame, recordingAccent, saturationCeiling) in [
-    // The ceiling is the category layer's own saturation, the app's ratified
-    // level for "perceptible, never a signal" — 52 % dark / 58 % light. The
-    // recording accent itself runs at 77 % / 92 %.
-    ('dark', WpColorsDark.frameGradient, WpColorsDark.recordingAccent, 0.52),
-    ('light', WpColorsLight.frameGradient, WpColorsLight.recordingAccent, 0.58),
-  ]) {
-    group('Frame cool-shadow stop – $themeName theme', () {
-      final shadow = frame.colors.last;
-      final magenta = frame.colors[frame.colors.length - 2];
+  group('Ambient vs. the recording signal – dark theme', () {
+    // Measured 7.44:1 at the closest stop (the content plane's violet pole).
+    // The floor is set below that with room for a re-tune, and far above the
+    // ~3:1 at which a field starts competing with a mark for attention.
+    const weightFloor = 6.0;
 
-      test('it is a shadow, not a highlight', () {
-        final luminances = frame.colors.map(relativeLuminance).toList();
-        expect(
-          relativeLuminance(shadow),
-          luminances.reduce(math.min),
-          reason:
-              '$themeName: the cool stop is not the deepest one. It is only '
-              'allowed to exist as the corner furthest from the light — a '
-              'cool *highlight* is a second light source, and a second cool '
-              'light source is the recording signal wearing the room as a '
-              'costume',
-        );
-      });
+    final stops = <String, Color>{
+      for (var i = 0; i < WpColorsDark.frameGradient.colors.length; i++)
+        'frameGradient stop $i': WpColorsDark.frameGradient.colors[i],
+      for (var i = 0; i < WpColorsDark.warmSurfaceGradient.colors.length; i++)
+        'warmSurfaceGradient stop $i':
+            WpColorsDark.warmSurfaceGradient.colors[i],
+    };
 
-      test('it turns back toward blue rather than on into magenta', () {
-        final turn = preciseHsl(magenta).hue - preciseHsl(shadow).hue;
-        expect(
-          turn,
-          greaterThanOrEqualTo(30.0),
-          reason:
-              '$themeName: the deepest stop sits at '
-              '${preciseHsl(shadow).hue.toStringAsFixed(1)}° against '
-              '${preciseHsl(magenta).hue.toStringAsFixed(1)}° at the stop '
-              'before it, i.e. it only turns ${turn.toStringAsFixed(1)}°. '
-              'Under 30° there is no cool note left — the arc simply ends '
-              'where it ended before, and the exception has stopped buying '
-              'anything',
-        );
-      });
+    test('the sweep found every ambient stop', () {
+      expect(
+        stops.length,
+        greaterThanOrEqualTo(7),
+        reason:
+            'only ${stops.length} ambient stops were collected — the check '
+            'below would pass near-vacuously',
+      );
+    });
 
-      test('it clears the recording accent by the app\'s 45°', () {
-        final gap = hueDelta(shadow, recordingAccent);
+    stops.forEach((name, color) {
+      test('$name is nowhere near the signal in weight', () {
+        final ratio = contrastRatio(color, WpColorsDark.recordingAccent);
         expect(
-          gap,
-          greaterThan(45.0),
+          ratio,
+          greaterThanOrEqualTo(weightFloor),
           reason:
-              '$themeName: the cool stop sits '
-              '${gap.toStringAsFixed(1)}° from recordingAccent '
-              '(${preciseHsl(recordingAccent).hue.toStringAsFixed(1)}°). '
-              'Inside 45° the app treats a hue as mistakable for the voice it '
-              'belongs to — the same radius that holds the accent off Quartz '
-              'and keeps `azure` out of the ramps. Closing it is not a tuning '
-              'decision; it retires the exclusivity half of *Two Accent, Two '
-              'Jobs* and needs the maintainer, not a re-measurement',
-        );
-      });
-
-      test('it stays under signal saturation', () {
-        final sat = preciseHsl(shadow).saturation;
-        expect(
-          sat,
-          lessThanOrEqualTo(saturationCeiling),
-          reason:
-              '$themeName: the cool stop is '
-              '${(sat * 100).toStringAsFixed(1)} % saturated, over the '
-              '${(saturationCeiling * 100).round()} % the category layer '
-              'settles at for "perceptible, never a signal". Hue distance '
-              'alone does not keep a cool field out of the recording family\'s '
-              'territory — a *saturated* cool corner reads as a state '
-              'whatever its exact hue',
-        );
-      });
-
-      test('it stays atmosphere, never a drawn object', () {
-        final step = contrastRatio(shadow, magenta);
-        expect(
-          step,
-          lessThan(1.5),
-          reason:
-              '$themeName: the cool stop steps ${step.toStringAsFixed(3)}:1 '
-              'against the stop before it, at or above the threshold this app '
-              'uses to separate a field from an object (*The Decorative Color '
-              'Rule*). A corner the eye reads as a shape is something the user '
-              'will look for a meaning in, and this one has none',
+              'dark: $name '
+              '(#${color.toARGB32().toRadixString(16).padLeft(8, '0')}, '
+              '${hueDelta(color, WpColorsDark.recordingAccent).toStringAsFixed(1)}° '
+              'from recordingAccent) stands only '
+              '${ratio.toStringAsFixed(2)}:1 off it. The ambient is allowed to '
+              'share the recording hue\'s neighbourhood precisely because it '
+              'never approaches its weight; an ambient that brightens toward '
+              'the signal takes back the exclusivity half of *Two Accent, Two '
+              'Jobs* through the back door, and that needs the maintainer and '
+              'a new ADR, not a re-measurement',
         );
       });
     });
-  }
+  });
 
   // -------------------------------------------------------------------------
   // The nav rail's icon chips (2026-08-11)

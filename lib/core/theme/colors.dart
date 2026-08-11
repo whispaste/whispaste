@@ -1,13 +1,37 @@
 /// WhisPaste color palette — dark & light theme color definitions.
 ///
-/// Quiet, chromatic material. **Two accents, two jobs**: a violet-magenta
-/// family (`accent` and its ladder) means "you can act on this", and a
-/// cyan/teal family (`recordingAccent`) means "a recording or its
-/// transcription is in flight" — nothing else is allowed a saturated voice.
-/// The single sanctioned cool note outside that family is the deepest stop of
-/// `frameGradient`: a shadow, 50° clear of the recording hue, under the
-/// category layer's saturation ceiling, carrying no meaning at all (*The
-/// Cool-Shadow Exception*, `lib/DESIGN.md`).
+/// Quiet, chromatic material. **Two accents, two jobs**: `accent` and its
+/// ladder mean "you can act on this", `recordingAccent` means "a recording or
+/// its transcription is in flight" — nothing else is allowed a saturated voice.
+/// The two are one cyan family separated by *weight*, not by hue; the older
+/// "each job owns its own hue" clause is retracted (ADR 0013 — see *The Two
+/// Accent, Two Jobs Rule* in `lib/DESIGN.md` for the retraction note).
+///
+/// **The ambient is not a third voice, it is the room** (ADR 0012,
+/// 2026-08-11). Frame, content plane and the whole opaque surface stack live
+/// in the brand's blue/navy family (~218–226°), the hue the app icon, the
+/// websites and every pre-Ticket-04 build already carried. Ticket 04 had moved
+/// the ambient onto a violet pole together with the accent; neither half of
+/// that move survives (ADR 0012 returned the ground, ADR 0013 the accent).
+/// Violet stays as the sparing "here and there", outside both accents: the
+/// far, deepest end of both ambient arcs, where it is a flush rather than a
+/// ground, and the lavender cast of the frost fills.
+///
+/// The blue is the *hue* of the pre-Ticket-04 palette but deliberately not its
+/// *bytes*. Restoring those verbatim also restored the flat, pre-"coloured
+/// glass" ground that Tickets 04–07 existed to leave behind, so every ambient
+/// and surface value here is re-solved at raised chroma with its luminance held
+/// constant: the numbers the gates measure are unchanged, the colour the eye
+/// sees is roughly twice as saturated.
+///
+/// What keeps a blue ambient from reading as the cyan recording signal is
+/// **weight, not hue distance**. The frame's first stop sits 28° from
+/// `recordingAccent` — inside any hue radius one could name — and is in no
+/// danger of being mistaken for it, because every ambient stop is ≥ 7:1 darker
+/// than the signal and carries no edge, no motion and no shape. That is the
+/// gate (`Ambient vs. the recording signal`, `wcag_contrast_test.dart`), and it
+/// replaced *The Cool-Shadow Exception*, whose 45° clearance was retracted with
+/// the violet ground it was invented to survive.
 ///
 /// Depth is *precomposited frost*, not a compositor effect: tinted translucent
 /// card fills (`cardFill`, `cardFillElevated`) painted over one chromatic
@@ -42,38 +66,54 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 // ---------------------------------------------------------------------------
-// Dark Theme Colors (Primary) — rich saturated violet-navy tones, unified
+// Dark Theme Colors (Primary) — rich saturated blue-navy tones, unified
 // ---------------------------------------------------------------------------
 abstract final class WpColorsDark {
   /// Window frame — close to surface for unified monochrome feel.
   ///
-  /// The whole opaque stack below turned from blue-navy (~223°) to
-  /// violet-navy (~253°) with the accent, so the ambient shares the accent's
-  /// hue family instead of sitting across the wheel from it. **Chroma and hue
-  /// only** — every one of these keeps its previous HSL lightness to the
-  /// decimal, which is what holds *Frame–content unity* (≤ 4 % gap) without
-  /// touching that gate's threshold.
-  static const Color background = Color(0xFF130F20);
+  /// **Back in the brand's blue-navy (~222–226°)** — ADR 0012. Ticket 04 had
+  /// rotated this whole stack to violet-navy (~253°) so the ambient would share
+  /// the accent's hue family; the maintainer's course correction returns the
+  /// *ground* to the hue the app icon and the websites carry (ADR 0013 then
+  /// sent the accent back to cyan as well).
+  ///
+  /// **Chroma is deliberately not the pre-Ticket-04 value.** Rotating the hue
+  /// back is only half the correction: restoring the old *bytes* would restore
+  /// the flat, pre-"coloured glass" ground this palette spent Tickets 04–07
+  /// getting away from, and it read as exactly that — a ground so grey the rail
+  /// and the content plane beside it looked like two different materials. So
+  /// the hue is the old one and the saturation is new: 58–61 % against the old
+  /// 29–36 %, which roughly doubles the byte spread of every rung (17→31 on
+  /// [background] through 41→83 on [active]).
+  ///
+  /// The lift costs nothing that is gated. Each rung was re-solved at its
+  /// **luminance held constant** — saturation up, HSL lightness raised to
+  /// compensate — so text AA (15.73:1 / 8.65:1 / 6.02:1), the category-slot
+  /// ordering (5.83:1) and *Frame–content unity* (2.75 % gap, ceiling 4 %) all
+  /// come out bit-for-bit unchanged. Only chroma moved, which is the one thing
+  /// the correction was about. Same method as the frame arc below: hold what is
+  /// measured, move what is seen.
+  static const Color background = Color(0xFF0B122A);
 
   /// Content surfaces — minimal step up from frame (≈ 2% lightness delta)
-  static const Color surface = Color(0xFF191429);
+  static const Color surface = Color(0xFF0D1936);
 
-  /// Elevated panels, cards — richer violet tint
-  static const Color surfaceElevated = Color(0xFF211B36);
+  /// Elevated panels, cards — richer navy tint
+  static const Color surfaceElevated = Color(0xFF122247);
 
   /// Variant surface for alternate rows, secondary panels
-  static const Color surfaceVariant = Color(0xFF292340);
+  static const Color surfaceVariant = Color(0xFF162A57);
 
   /// Hover and press rungs of the same stack. Moved with the surfaces on
-  /// purpose: a hover that stayed blue-navy under a violet-navy card would
-  /// introduce a hue shift *on interaction*, which is the one thing a hover
-  /// state must not do.
-  static const Color hover = Color(0xFF282140);
+  /// purpose, in both directions: a hover left behind at the surfaces' old hue
+  /// would introduce a hue shift *on interaction*, which is the one thing a
+  /// hover state must not do.
+  static const Color hover = Color(0xFF152856);
 
   /// Transparent version of hover for smooth AnimatedContainer transitions
   /// (prevents dark flash when interpolating from transparent to hover)
-  static const Color hoverTransparent = Color(0x00282140);
-  static const Color active = Color(0xFF322952);
+  static const Color hoverTransparent = Color(0x00152856);
+  static const Color active = Color(0xFF1B306E);
 
   /// Hairline borders — white at 11.8 % / 18.8 %, both a step *above* their
   /// light twins (7.8 % / 14.1 %). Not an oversight: see
@@ -90,44 +130,55 @@ abstract final class WpColorsDark {
   static const Color textSecondary = Color(0xFFABB8CC);
   static const Color textMuted = Color(0xFF8A99B2);
 
-  /// The one generic interaction color — a vivid violet, 258°/92 %.
+  /// The one generic interaction color — the brand's cyan, 189°/81 %.
   ///
   /// Everything the user can act on carries this and only this: filled and
-  /// outlined buttons, focus rings, selected rows, active toggles, links. Cyan
-  /// no longer means "clickable" anywhere; it means [recordingAccent] and
-  /// nothing else — two accent families, two exclusive jobs, no element may
-  /// reach for the other one to look important. (The rule has no name in
-  /// `lib/DESIGN.md` yet; that file still documents the superseded
-  /// single-accent doctrine and is rewritten in a follow-up ticket.)
+  /// outlined buttons, focus rings, selected rows, active toggles, links.
   ///
-  /// The lightness is not a taste call. `WpCategorySlot` tops out at 6.01:1
-  /// against [surface], and the accent has to stay *louder* than the loudest
-  /// category — so this value is solved for 6.88:1, comfortably above it. The
-  /// hue has a ceiling too: the decorative wash sits at 314°, and the palette
-  /// owes it 45° of clearance, which puts the flat accent at 258° and leaves
-  /// magenta to the far stop of [accentWarmGradient].
-  static const Color accent = Color(0xFFAF8EFA);
-  static const Color accentHover = Color(0xFFCEBAFC);
+  /// **Back from violet** — ADR 0013. Ticket 04 had moved this to a vivid
+  /// violet and made hue the discriminator against [recordingAccent]; the
+  /// maintainer read a wall-to-wall violet as generic AI-generated SaaS rather
+  /// than as this app's identity. The history settles it: before Ticket 04 the
+  /// generic accent and the recording signal were the *same byte value*
+  /// (`0xFF3CCBE6`) and shipped that way for the app's whole life without ever
+  /// being confused. Hue exclusivity was a Ticket-04 artefact, not brand core.
+  ///
+  /// So the two tokens are one family again, and they separate by **weight,
+  /// not hue** — the same mechanism the ambient uses against the same signal.
+  /// This value sits 0.69° from [recordingAccent] in hue and 1.221:1 above it
+  /// in contrast: unmistakably one family, still measurably two steps. The
+  /// direction is functional rather than decorative. This token is consumed as
+  /// thin alpha washes (5–30 %, the ladder below) and as label/icon text, where
+  /// luminance *is* legibility and a darker cyan at 6 % over the ground would
+  /// vanish; [recordingAccent] is painted opaque as a shape (waveform, dot),
+  /// where the deeper, denser value reads as the more urgent of the two — which
+  /// is the right way round for a status signal standing next to a button.
+  ///
+  /// The lightness is not a taste call either. `WpCategorySlot` tops out at
+  /// 5.83:1 against [surface] and the accent has to stay *louder* than the
+  /// loudest category; this value measures 10.98:1, comfortably above it.
+  static const Color accent = Color(0xFF6FDDF0);
+  static const Color accentHover = Color(0xFFA7EAF6);
 
   /// Flat accent surface tint, 16.5 % — deliberately *above* its light twin
   /// (11 %). See [WpColorsLight.accentSubtle] for the increment/decrement
   /// reasoning shared by every structural translucent in this file.
-  static const Color accentSubtle = Color(0x2AAF8EFA);
+  static const Color accentSubtle = Color(0x2A6FDDF0);
 
   /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
   /// the *value*, used inside components that get reused as nested instances.
   /// Prefer them over inline `colour.withValues(...)` for component
   /// fills/borders.
-  static const Color accentChipFill = Color(0x1AAF8EFA); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2EAF8EFA); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1FAF8EFA); // accent @ 12%
-  static const Color accentBorder30 = Color(0x4DAF8EFA); // accent @ 30%
-  static const Color accentButtonFill = Color(0x14AF8EFA); // accent @ 8%
-  static const Color accentActiveFill = Color(0x1FAF8EFA); // accent @ 12%
-  static const Color accentBadgeFill = Color(0x26AF8EFA); // accent @ 15%
-  static const Color accentBorder20 = Color(0x33AF8EFA); // accent @ 20%
-  static const Color accentRowHover = Color(0x0FAF8EFA); // accent @ 6%
-  static const Color surfaceChipFill = Color(0x80191429); // surface @ 50%
+  static const Color accentChipFill = Color(0x1A6FDDF0); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2E6FDDF0); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1F6FDDF0); // accent @ 12%
+  static const Color accentBorder30 = Color(0x4D6FDDF0); // accent @ 30%
+  static const Color accentButtonFill = Color(0x146FDDF0); // accent @ 8%
+  static const Color accentActiveFill = Color(0x1F6FDDF0); // accent @ 12%
+  static const Color accentBadgeFill = Color(0x266FDDF0); // accent @ 15%
+  static const Color accentBorder20 = Color(0x336FDDF0); // accent @ 20%
+  static const Color accentRowHover = Color(0x0F6FDDF0); // accent @ 6%
+  static const Color surfaceChipFill = Color(0x800D1936); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
 
   /// Precomposited frost — the card material, base and elevated rung.
@@ -137,6 +188,23 @@ abstract final class WpColorsDark {
   /// in the token by design: a white alpha would wash the ambient's color out
   /// and the card would read grey, which is precisely the failure this
   /// material replaces.
+  ///
+  /// **The tint stayed lavender when the ambient went back to navy** (ADR
+  /// 0012) — measured, not defaulted. At these alphas over the plane the
+  /// composite rotates by only a couple of degrees and *loses* saturation, i.e.
+  /// it does what *Tinted-Never-Grey* asks of a frost — carry the ground's hue
+  /// forward instead of replacing it — and stays inside the 3° the seam gate
+  /// calls "the same hue". A card here reads navy.
+  ///
+  /// **Re-derived, not inherited, when the accent went back to cyan** (ADR
+  /// 0013). The old justification was that the lavender is "the whisper of the
+  /// accent on the card"; with a cyan accent that reading is gone, and an
+  /// inherited tint would have been a leftover. It is kept on a new argument:
+  /// violet is now a sanctioned exception *outside* both accents, and a frost
+  /// at 3–5 % effective alpha is exactly the "here and there" register that
+  /// exception is for. It is also the palette's only counter-warmth — ground,
+  /// accent and signal are all cool now, and a cool-tinted frost (tested at
+  /// #9FC4E8) makes the cards recede into the plane instead of sitting on it.
   ///
   /// The alphas are solved, not chosen: composited over *both* extremes of the
   /// ambient gradient, body text still clears 4.5:1 and [accent] still clears
@@ -152,7 +220,7 @@ abstract final class WpColorsDark {
   /// seam broke it; that thinness was the latent bug, the lift only exposed it.
   ///
   /// **The budget this leaves is the part to read before Ticket 08 spends it.**
-  /// The two levels now lift 1.050:1 and 1.076:1 above the plane, where they
+  /// The two levels now lift 1.048:1 and 1.075:1 above the plane, where they
   /// once spanned to ≈1.25:1 — the plane rose, the 4.5:1 ceiling did not, and
   /// what got compressed is the *distance between the two levels*. Dark's
   /// second card level can therefore no longer be bought with fill brightness:
@@ -182,7 +250,7 @@ abstract final class WpColorsDark {
   /// Wash for a large decorative background glyph — its own category, *below*
   /// the 6/12/30% tint ladder above. See [WpColorsLight.decorativeGlyphWash]
   /// for why the two themes carry different alphas.
-  static const Color decorativeGlyphWash = Color(0x0DAF8EFA); // accent @ 5%
+  static const Color decorativeGlyphWash = Color(0x0D6FDDF0); // accent @ 5%
 
   /// Saturated status colors — rich and warm
   static const Color success = Color(0xFF36D98B);
@@ -228,19 +296,26 @@ abstract final class WpColorsDark {
   /// would have to be judged against a moving target. If it ever reads heavy
   /// on light, that is a maintainer call with the ring on screen, not a
   /// derivation from the rule.
-  static const Color accentLocatorRing = Color(0x8CAF8EFA); // accent @ 55%
+  static const Color accentLocatorRing = Color(0x8C6FDDF0); // accent @ 55%
 
   /// Recording/listening family — the one meaning cyan keeps.
   ///
-  /// Split off from [accent] so the palette can say two different things with
-  /// two different hues: [accent] means "you can act on this", these mean "a
-  /// recording or its transcription is in flight" (audio-level bars, the
-  /// transcribing rung of the status chip, the onboarding sandbox's live
-  /// border). The values below were copied byte-for-byte off the accent family
-  /// while it was still cyan — deliberately *literals*, not aliases. The
-  /// generic family has since moved to violet and these stayed exactly where
-  /// they were, which is what the literals were for; an alias would have
-  /// dragged them along.
+  /// Split off from [accent] so the palette can say two different things:
+  /// [accent] means "you can act on this", these mean "a recording or its
+  /// transcription is in flight" (audio-level bars, the transcribing rung of
+  /// the status chip, the onboarding sandbox's live border). The values below
+  /// were copied byte-for-byte off the accent family while it was still cyan —
+  /// deliberately *literals*, not aliases — and they have not moved since, which
+  /// is what the literals were for.
+  ///
+  /// **The two jobs are no longer two hues** (ADR 0013). Ticket 04 briefly made
+  /// hue the discriminator by sending [accent] to violet; that clause is
+  /// retracted and both tokens are cyan again, as they were for the app's whole
+  /// life before Ticket 04 — when they were in fact the *same byte value* and
+  /// never once confused. What separates them now is weight (1.221:1, this the
+  /// heavier of the two) plus context, form and motion: a waveform animates, an
+  /// overlay frames, a button does neither. This token deliberately stayed put
+  /// while [accent] moved, so the split's audit table below still holds.
   ///
   /// Every call site is classified in the split's audit table; anything that
   /// is merely tappable, selected, hovered or focused stays on [accent], and
@@ -255,8 +330,8 @@ abstract final class WpColorsDark {
   /// today (the overlay owns that job and keeps its own spec), so this is the
   /// family's reserved home rather than a live call site.
   // loam-ignore: unused-public-exports – the recording family's reserved
-  // gradient home; the generic accentWarmGradient has moved to violet and
-  // this is the only place the cyan ramp still exists.
+  // gradient home; accentWarmGradient carries the lighter sibling of this
+  // same cyan ramp (ADR 0013), so this stays the recording family's own copy.
   static const LinearGradient recordingAccentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -295,17 +370,17 @@ abstract final class WpColorsDark {
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF241C40), Color(0xFF191429)],
+    colors: [Color(0xFF14244F), Color(0xFF0D1936)],
   );
 
   /// The ambient the content plane is painted on, and the ground every card
-  /// fill is gated against — a cool violet top-left, the [surface] anchor in
-  /// the middle, and a magenta pole bottom-right that sheds saturation as it
-  /// turns. Opaque tonal steps (no alpha glow): neighbouring stops sit 1.07:1
+  /// fill is gated against — brand navy top-left, a quiet indigo trough in the
+  /// middle, and a violet pole bottom-right that keeps its tint as it turns.
+  /// Opaque tonal steps (no alpha glow): neighbouring stops sit 1.07:1 / 1.09:1
   /// apart in relative luminance, so the panel reads as chromatic
   /// *temperature* under flat light, never as a lit edge.
   ///
-  /// Measured: 253° / 254° / 291°, saturation 54 % → 25 % → 16 % — the first
+  /// Measured: **220° / 234° / 255°, saturation 54 % → 33 % → 30 %** — the first
   /// stop answers to the frame beneath it (see below), the other two to the
   /// opaque tonal stack. ~~The middle stop *is* [surface] and moves with it.~~
   /// **Retracted 2026-08-11 (seam re-solve, below):** the middle stop no
@@ -315,21 +390,44 @@ abstract final class WpColorsDark {
   /// `snippet_picker_render_entrypoint.dart`, `screenshot_shell.dart`) and
   /// [surface] is the flat token for opaque panels; lifting the ambient does
   /// not lift the panel stack, and the two are free to disagree.
-  /// What keeps the magenta pole from
-  /// reading as a second signal is that saturation floor — under a quarter of
-  /// the accent's — not hue distance; it deliberately sits on the same
-  /// violet-magenta arc the accent gradient walks, because one atmosphere is
-  /// the point.
+  /// What keeps the violet pole from
+  /// reading as a second signal is its weight — 30 % saturation at Y 0.023,
+  /// a third of the accent's chroma and a twentieth of its luminance — not hue
+  /// distance; it deliberately reaches the arc the accent gradient walks,
+  /// because one atmosphere is the point.
+  ///
+  /// **Hue arc re-derived for ADR 0012 (2026-08-11), luminance untouched.** The
+  /// plane used to run 253° → 254° → 291°: a violet sheet ending on a warm
+  /// magenta pole. Over the brand navy the ground returned to, that pole read
+  /// as dirty brown-grey rather than as a warm counter-note, so the arc now
+  /// runs **navy → indigo → violet** and the violet lands where it is
+  /// *brightest* (the pole is the plane's most luminous stop) instead of where
+  /// it is muddiest. That is ADR 0012's "violet here and there" made visible:
+  /// blue carries the plane, violet finishes it.
+  ///
+  /// The rotation preserved **every stop's relative luminance to five decimals**
+  /// (0.02113 / 0.01683 / 0.02312 → 0.02116 / 0.01679 / 0.02311, the residue
+  /// being 8-bit quantisation). That is deliberate and it is what made this a
+  /// hue change rather than a re-solve of the whole system: the seam's swept
+  /// minimum, the card-fill ladder, [WpAvatarTint]'s disc clearance and every
+  /// text-AA gate over this plane are luminance-only and did not move.
+  ///
+  /// The pole gained chroma in the turn — 15.6 % → 30.2 %. It had been pinned
+  /// one tenth of a point above the 15 % ambient floor by the +12 lift
+  /// (see below); at 255° that constraint simply stops binding, because the
+  /// floor's `1 − |2L − 1|` divisor is no longer fighting a nearly-neutral
+  /// magenta. The pole is now tinted with room to spare rather than by a
+  /// hair's breadth.
   ///
   /// **The first stop is the seam** (Ticket 07). It is not a free color: it is
   /// painted at the plane's own top-left corner, at
   /// (`WpLayout.sidebarWidth`, `WpLayout.appBarHeight`) = (72, 64) of a
   /// [frameGradient] that spans the whole window, and it has to read there as
   /// the same light one step nearer — **identical hue, lower chroma, more
-  /// light**. Against the frame under it (#1A0B50 at the 1100 × 750 the app
-  /// opens at, 252.83° / 74.9 % / Y 0.01151) this stop lands at 252.92° /
-  /// 53.7 % / Y 0.02113: hue 0.09° off, chroma 3.6 8-bit steps down, luminance
-  /// 1.175:1 up. *(Ticket 07 first shipped this stop at Y 0.01241 = 1.034:1;
+  /// light**. Against the frame under it (#05183F at the 1100 × 750 the app
+  /// opens at, 220.11° / 84.4 % / Y 0.01066) this stop lands at 220.38° /
+  /// 54.2 % / Y 0.02116: hue 0.27° off, chroma 5.7 8-bit steps down, luminance
+  /// 1.173:1 up. *(Ticket 07 first shipped this stop at Y 0.01241 = 1.034:1;
   /// see the perceptibility re-solve below for why that number moved and the
   /// hue/chroma ones did not.)*
   ///
@@ -345,15 +443,15 @@ abstract final class WpColorsDark {
   /// **Why a constant and not a measurement.** The seam sits close enough to
   /// the frame gradient's origin (t ≈ 0.021–0.095 for every window from the
   /// enforced minimum to 4K) that the frame's color there moves by one to
-  /// three 8-bit steps across that entire range — 1.15° of hue on dark. A
+  /// three 8-bit steps across that entire range — 1.8° of hue on dark. A
   /// `LayoutBuilder` would buy less than the quantisation of its own
   /// neighbourhood, so this stays a token like every other gradient here, and
   /// the `Frame → content-plane seam` group in `wcag_contrast_test.dart`
   /// walks the whole resize range to prove the constant holds at all of it.
   ///
-  /// The seam lift is why end to end this now spans 1.028:1 rather than the
+  /// The seam lift is why end to end this now spans 1.027:1 rather than the
   /// 1.02:1 of Ticket 06 — the first stop rose toward the last. The plane's
-  /// widest stop pair is the middle stop against the magenta pole, 1.094:1.
+  /// widest stop pair is the middle stop against the violet pole, 1.094:1.
   ///
   /// **Perceptibility re-solve (2026-08-11) — the whole plane moved, +12 8-bit
   /// steps on every channel of every stop.** Ticket 07's criteria gated the
@@ -372,31 +470,36 @@ abstract final class WpColorsDark {
   ///
   /// Why a uniform additive offset rather than a re-pick: adding the same
   /// constant to all three channels leaves every pairwise channel difference
-  /// intact, so hue and channel spread are preserved *exactly* — 252.92° /
-  /// 254.29° / 291.43°, bit for bit what Ticket 07 ratified — while lightness
-  /// rises and HSL saturation falls. Every one of Ticket 07's invariants is
-  /// therefore not merely still satisfied but numerically unchanged: the hue
-  /// gap at the seam is the same 0.09–1.46° across the resize sweep, and the
-  /// chroma drop the same 2.5–6.0 steps. Only the thing that was broken moved.
+  /// intact, so hue and channel spread were preserved *exactly* while lightness
+  /// rose and HSL saturation fell. Every one of Ticket 07's invariants was
+  /// therefore not merely still satisfied but numerically unchanged. Only the
+  /// thing that was broken moved. *(The stop values that lift produced were
+  /// themselves rotated by ADR 0012, above; the technique is recorded because
+  /// it is the reason the seam survived a lift, and the luminance-preserving
+  /// rotation that followed is its counterpart in the other axis.)*
   ///
-  /// Now: seam minimum **1.150:1 (ΔL\* 6.3)** along the whole edge at every
-  /// window from the enforced minimum to 4K, 1.175:1 at the corner, 1.275:1 at
-  /// its far end — thirteen times the ΔL\* of the step it replaces. For scale,
+  /// Now: seam minimum **1.151:1 (ΔL\* 6.3)** along the whole edge at every
+  /// window from the enforced minimum to 4K, 1.173:1 at the corner — thirteen
+  /// times the ΔL\* of the step it replaces. The seam's hue gap runs
+  /// 0.27–1.82° across the resize sweep and its chroma drop 5.2–5.9 steps,
+  /// both inside the gate's 3° / 8-step bounds. For scale,
   /// the nav rail's approved icon chips read ≈1.24:1 (ΔL\* 8.7) at rest — but a
   /// chip is 38 px and this edge is the height of the window, and a luminance
   /// step over a long border is the easiest case there is to detect, so parity
   /// in ratio was never the target.
   ///
-  /// **What caps it: the magenta pole's saturation floor.** At +12 the third
+  /// ~~**What caps it: the magenta pole's saturation floor.** At +12 the third
   /// stop reads 15.6 % against the ambient floor of 15 %; +13 would fall
-  /// under. The number is an artefact of *measuring* rather than a loss of
-  /// tint — that stop's channel spread is **14.0 8-bit steps at every lift**,
-  /// unchanged, and HSL saturation falls only because its `1 − |2L − 1|`
-  /// divisor grows as a stop lightens. Restoring headroom by scaling the
-  /// pole's chroma ×1.5 was tried and rejected: it drives the plane's
-  /// amplitude to 0.058 against the frame's 0.096 and breaks *The Two
-  /// Ambients Rule*'s frame > 2 × plane gate (0.028 here), and it drags the
-  /// stop's hue 5.4°.
+  /// under.~~ **Retracted 2026-08-11 (ADR 0012).** That cap was a property of
+  /// the magenta pole, not of the lift: at 291° a nearly-neutral stop is
+  /// measured against a `1 − |2L − 1|` divisor that grows as it lightens, so
+  /// HSL saturation fell to the floor while the stop's channel spread — 14.0
+  /// 8-bit steps — never moved. The pole is violet now, at 30.2 %, and the
+  /// lift has no saturation cap left to argue with. What still holds from that
+  /// analysis is the *other* bound it found: scaling the pole's chroma freely
+  /// drives the plane's amplitude toward the frame's and breaks *The Two
+  /// Ambients Rule*'s frame > 2 × plane gate. It is honoured here with margin
+  /// (plane 0.027, frame 0.098).
   ///
   /// **What deliberately does not cap it: the card fills above.** An earlier
   /// pass stopped at +8 to preserve brightness headroom for [cardFill] /
@@ -405,10 +508,38 @@ abstract final class WpColorsDark {
   /// any widget yet, so a defect the maintainer can see was being throttled to
   /// protect an unspent budget. The fills follow the plane instead; see their
   /// own doc comment for the ladder that cost.
+  ///
+  /// **The chroma is solved against the frame, not chosen.** The rail paints no
+  /// ground of its own (see `WpSidebar`), so the window's most conspicuous edge
+  /// is this plane meeting [frameGradient] down x = 72 and across y = 64. An
+  /// earlier pass gated that seam at a single point and let the two arcs drift
+  /// apart everywhere else: hue tracked to within 1.8° and luminance to within
+  /// a steady 1.16:1, but the plane's chroma collapsed from 5.6 steps below the
+  /// frame at the corner to **28 steps below** along the top edge. Same colour,
+  /// same light, one surface vivid and its neighbour grey — which is precisely
+  /// how the maintainer described it: the sidebar and the content did not look
+  /// like one plane.
+  ///
+  /// These three stops are re-solved so the chroma *tracks* instead. Each keeps
+  /// its hue and its luminance to the byte (saturation up, HSL lightness
+  /// re-solved to hold Y), so every luminance-based seam gate is unchanged;
+  /// what moves is the spread, from 52/29/32 steps to 60/60/50 — the middle
+  /// stop, the plane's dead spot, doubles. Swept along the whole seam across
+  /// all six gated window sizes the difference to the frame now stays inside
+  /// **±4.0 steps**. The band is deliberately two-sided: the failure was
+  /// divergence in *either* direction, and a one-sided "plane must be calmer"
+  /// rule is what let a 28-step gap pass in the first place.
+  ///
+  /// The third stop is the one that looks under-solved and is not. On a 16:10
+  /// window the seam only reaches t ≈ 0.70 and the stop could carry 63 steps;
+  /// on an ultrawide it reaches far enough that the frame's own fourth stop
+  /// (37 steps) is what the plane has to track, and a richer pole there
+  /// re-opens the split at the far end of the top edge. It is solved for the
+  /// widest gated window, not the default one.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF2A1C5D), Color(0xFF252035), Color(0xFF322634)],
+    colors: [Color(0xFF13274F), Color(0xFF171D53), Color(0xFF2E2153)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -424,36 +555,58 @@ abstract final class WpColorsDark {
   /// the second (deepest at the far bottom-right, the corner furthest from the
   /// light).
   ///
-  /// **Where it turned.** It used to be a two-stop vertical ramp at 225° —
-  /// blue-navy, left behind when the opaque stack turned violet with the
-  /// accent, and 29° off the ambient everything else stands on. Ticket 06 put
-  /// it on the violet→magenta arc at 251° / 266° / 295° and 47 % / 45 % / 38 %
-  /// saturation; that read as *correct but timid*, so the chroma was re-solved
-  /// upward at unchanged luminance (maintainer decision, 2026-08-11 — "the
-  /// existing WhisPaste, seen through coloured glass"). Measured now:
-  /// **251° / 268° / 296° / 240°, saturation 75 % / 74 % / 69 % / 50 %** — the
-  /// same arc, roughly 1.6× the chroma, plus the cool shadow stop below.
+  /// **Where it turned, and where it turned back.** It used to be a two-stop
+  /// vertical ramp at 225°. Ticket 06 put it on a violet→magenta arc at
+  /// 251° / 268° / 296° / 240° and re-solved its chroma upward at unchanged
+  /// luminance (maintainer decision, 2026-08-11 — "the existing WhisPaste, seen
+  /// through coloured glass"). **ADR 0012 then returned the hue family to the
+  /// brand's blue/navy while keeping every bit of that material quality.**
+  /// Measured now: **218° / 230° / 245° / 256°, saturation 85 % / 81 % / 76 % /
+  /// 65 %** — a navy→violet arc, still roughly 1.6× the pre-Ticket-06 chroma,
+  /// with the violet where the room is deepest.
   ///
-  /// **The fourth stop is a cool shadow, and it is the one sanctioned cool
-  /// note in the app** (maintainer decision ② = b, 2026-08-11). Warm light,
-  /// cool shadow: the corner furthest from the light falls back toward blue
-  /// instead of continuing into magenta. It carries **no meaning and no
-  /// interaction** — see *The Cool-Shadow Exception* in `lib/DESIGN.md` — and
-  /// it is held clear of [recordingAccent] by 50.5° of hue (the app's 45°
-  /// "mistakable for a brand voice" radius plus margin) and by a saturation
-  /// ceiling of 52 %, the category layer's "perceptible, never a signal"
-  /// level. 240° is as cool as that clearance allows; actual teal is not
-  /// available to an ambient, because teal *is* the recording signal.
+  /// **Why the saturation numbers went *up* while the room got calmer.**
+  /// Chroma is compared here in channel spread (max − min, in 8-bit steps), the
+  /// metric this file uses wherever lightness differs; HSL points are not
+  /// comparable across hues at a fixed luminance. The violet arc carried
+  /// 72 / 52 / 31 / 28 steps. This one carries **57 / 61 / 56 / 37** at 10
+  /// points more HSL saturation, because the blue corner of sRGB is simply
+  /// darker per unit chroma: holding Ticket 06's luminance means a blue cannot
+  /// reach a violet's byte count at any saturation. The higher percentages buy
+  /// back most of the difference, they do not add loudness.
+  ///
+  /// **The fourth stop is no longer an exception.** ~~It is a cool shadow, held
+  /// clear of [recordingAccent] by 50.5° of hue and a 52 % saturation
+  /// ceiling.~~ *Retracted 2026-08-11 with ADR 0012* — that stop existed to
+  /// smuggle the brand's blue into a violet room, and the room is the brand's
+  /// blue now, so the carve-out has nothing left to carve. It keeps its place
+  /// as the arc's deepest continuation and its only remaining obligations are
+  /// the ones every ambient stop has: it must be the *deepest* stop (the
+  /// amplitude gate measures first-against-last and would span the wrong pair
+  /// otherwise) and it must stay under 1.5:1 against its neighbour, the
+  /// threshold at which atmosphere becomes a drawn object. It sits at 1.018:1.
+  /// Four stops rather than three because the visible frame is an L of three
+  /// strips that between them walk the whole ramp, and the arc needs room to
+  /// turn twice.
+  ///
+  /// **Why a blue ambient is not a second cyan signal.** The first stop sits
+  /// 28.4° from [recordingAccent] — inside the 45° radius the retracted rule
+  /// used. Hue distance was never what separated them: this is a large,
+  /// borderless, motionless field at Y 0.011, and the signal is a small bright
+  /// mark at Y 0.476. Every ambient stop clears it by ≥ 7.4:1 in luminance, and
+  /// that ratio is the gate (`Ambient vs. the recording signal`). The app
+  /// shipped navy-ambient with a cyan accent for its entire life before Ticket
+  /// 04 and no one mistook one for the other.
   ///
   /// **Why it may be the louder of the two ambients.** End to end it spans
-  /// 1.10:1 where the content plane spans 1.010:1 — the deliberate role
+  /// 1.098:1 where the content plane spans 1.027:1 — the deliberate role
   /// reversal of Ticket 06. The frame is the room; the content plane is the
   /// sheet lying in it, and a sheet that patterned itself as strongly as the
   /// room would compete with what is printed on it. Both halves are gated in
   /// `wcag_contrast_test.dart`.
   ///
   /// **Why it stays darker than the content plane.** Mean relative luminance
-  /// 0.0080 against the plane's 0.0114 — so the plane still reads as raised,
+  /// 0.0081 against the plane's 0.0204 — so the plane still reads as raised,
   /// which on dark is the *only* depth source there is (no card shadow token
   /// exists here). Livening the frame therefore happens by chroma alone, never
   /// by brightening it past the thing it carries: every stop keeps the
@@ -462,31 +615,57 @@ abstract final class WpColorsDark {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF190C54),
-      Color(0xFF21093D),
-      Color(0xFF240726),
-      Color(0xFF0E0E2A),
+      Color(0xFF051A3E),
+      Color(0xFF071144),
+      Color(0xFF0E0941),
+      Color(0xFF140A2F),
     ],
     stops: [0.0, 0.42, 0.74, 1.0],
   );
 
-  /// Top accent line gradient
+  /// Top accent line gradient — anchored at [accent], falling 1.247:1.
+  ///
+  /// That span is the pre-Ticket-04 ramp's, re-solved rather than lifted, for
+  /// the reason spelled out on [accentWarmGradient].
+  ///
+  /// **Nothing paints it today.** No widget reads this token; the onboarding
+  /// steps that look like they do build their own local ramps in local
+  /// variables that happen to share the name. It is kept because it is public
+  /// API and because a two-stop accent ramp is the obvious thing for the next
+  /// caller to reach for — but it is carried forward on the same arithmetic as
+  /// its used sibling rather than left to rot at a stale hue.
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFFAF8EFA), Color(0xFFA467F4)],
+    colors: [Color(0xFF6FDDF0), Color(0xFF4AC7EA)],
   );
 
-  /// The interactive gradient — violet to magenta, rich and saturated.
+  /// The interactive gradient — cyan descending into teal, rich and saturated.
   ///
-  /// Anchored at [accent] and drifting 258° → 271° → 285° while descending in
-  /// lightness, i.e. the same shape the cyan→teal ramp had, re-solved on the
-  /// violet arc. Anchoring at the flat accent rather than at a darker violet
-  /// is deliberate: this gradient also paints the 3 px sidebar and section
-  /// indicator bars, and a dark first stop would drop those from ≈7:1 to ≈4:1
-  /// against their grounds app-wide.
+  /// Back on the brand arc with [accent] (ADR 0013). Ticket 04's violet→magenta
+  /// ramp is retired and this is the pre-Ticket-04 cyan ramp — but re-solved,
+  /// not lifted. A first pass raised all three stops by one constant lightness
+  /// offset, which is what a hue rotation must *not* do: the bright end ran into
+  /// the ceiling and the arc collapsed from 1.737:1 end to end to 1.207:1. In a
+  /// palette being corrected for reading flat, on the token that paints primary
+  /// buttons, that is the defect wearing the fix's clothes.
+  ///
+  /// So the *shape* is what carries over, and the numbers are re-derived under
+  /// it. Stop 0 is [accent] exactly; stops 1–2 keep the old ramp's hue and
+  /// saturation and have their lightness solved to reproduce the old ramp's
+  /// internal contrasts (1.231:1, then 1.411:1 — 1.739:1 overall against the
+  /// original 1.737:1). The pleasing part fell out rather than being aimed at:
+  /// every stop lands 1.22:1 over the matching stop of
+  /// [recordingAccentGradient], the same constant that separates the two flat
+  /// tokens. The gradients are siblings by the identical margin their anchors
+  /// are, without that having been imposed stop by stop.
+  ///
+  /// Anchoring at the flat accent rather than at a darker teal is deliberate and
+  /// unchanged: this gradient also paints the 3 px sidebar and section indicator
+  /// bars, and a dark first stop would drop those from ≈7:1 to ≈4:1 against
+  /// their grounds app-wide.
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFAF8EFA), Color(0xFFAB63EE), Color(0xFFB348D7)],
+    colors: [Color(0xFF6FDDF0), Color(0xFF1ACBE9), Color(0xFF0BAACC)],
   );
 
   /// Nav-rail icon chip, resting — the rail's icons stand on **material**, not
@@ -530,22 +709,33 @@ abstract final class WpColorsDark {
     stops: [0.0, 0.1, 1.0],
   );
 
-  /// Nav-rail active chip — the same tile in the accent's hue: 36 % accent at
-  /// the top falling to 25 % at the bottom, under a 56 % [accentHover] gloss.
+  /// Nav-rail active chip — the same tile in the accent's hue: 22 % accent at
+  /// the top falling to 15 % at the bottom, under a 34 % [accentHover] gloss.
   ///
-  /// **Re-solved upward with the chip (2026-08-11).** It used to be 20 % → 12 %
+  /// **Re-solved upward with the chip (Ticket 07).** It used to be 20 % → 12 %
   /// (mean 16 %, matching the flat [accentSubtle] it replaced), calibrated
   /// against *bare frame*. Its ground is now [navChipGradient], so the same
   /// alphas would have bought a 1.09:1 step where the old one bought 1.5:1 —
-  /// the state would have survived the audit and lost its voice. At 36/25 it
-  /// stands 1.40:1 over the resting tile and 1.72:1 over the frame.
+  /// the state would have survived the audit and lost its voice. Ticket 07
+  /// solved that at **1.40:1 over the resting tile**, and that ratio, not the
+  /// alphas that produced it, is what this token owes.
+  ///
+  /// **Re-solved again for the cyan accent (ADR 0013), downward this time.**
+  /// Cyan is far more luminous than the violet it replaces (Y 0.614 against
+  /// 0.354), so carrying Ticket 07's 56/36/25 alphas across unchanged pushed
+  /// the marker to 2.27:1 over its resting sibling — a 62 % overshoot of a
+  /// deliberately solved value, arrived at by nobody's decision. All three
+  /// alphas are therefore scaled by one factor (0.608), which preserves the
+  /// gloss-to-fill structure while restoring the ratio: 1.40:1 over the resting
+  /// tile, 1.90:1 over the frame. *The One Highlight Per State Rule* asks the
+  /// marker to be unmistakable, not maximal.
   ///
   /// Still deliberately *not* [accentWarmGradient]: that one is opaque, and an
   /// opaque accent fill would swallow the tile's ground rather than tint it.
   static const LinearGradient navPillActiveGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x8FCEBAFC), Color(0x5CAF8EFA), Color(0x40AF8EFA)],
+    colors: [Color(0x57A7EAF6), Color(0x386FDDF0), Color(0x276FDDF0)],
     stops: [0.0, 0.1, 1.0],
   );
 }
@@ -840,9 +1030,15 @@ abstract final class WpColorsLight {
   );
 
   /// The light twin of [WpColorsDark.frameGradient] — same diagonal, same
-  /// top-left light source, same violet→magenta arc plus the same cool shadow
-  /// stop (measured 258° / 268° / 288° / 247°), at a fraction of its
-  /// amplitude.
+  /// top-left light source, four stops on the same arc (measured 258° / 268° /
+  /// 288° / 247°), at a fraction of its amplitude.
+  ///
+  /// **Left on the Ticket-04 violet arc on purpose.** ADR 0012 returned the
+  /// *dark* ambient to the brand's blue/navy and is explicitly scoped to dark
+  /// only, because the light theme is being removed wholesale by a parallel
+  /// ticket. These stops therefore no longer twin their dark counterparts in
+  /// hue, only in shape — a temporary, documented break of *The Theme-Pair
+  /// Rule* that resolves when the theme goes.
   ///
   /// Same correction, too: the old stops sat at 212–215°, pearl-*blue*, left
   /// behind by the violet turn and 45° off the pearl everything else stands
@@ -866,11 +1062,12 @@ abstract final class WpColorsLight {
   /// Mean relative luminance 0.847 against the content plane's 0.900: on
   /// pearl, raised means brighter, so the plane again sits above its room.
   ///
-  /// **The fourth stop is the cool shadow** — see [WpColorsDark.frameGradient]
-  /// for the whole argument. On pearl it clears this theme's
-  /// [recordingAccent] (196°) by 50.8° and stays at 56 % saturation, under the
-  /// light category layer's 58 %. It reads more plainly here than on dark,
-  /// where the same corner sits near black.
+  /// ~~**The fourth stop is the cool shadow**, clearing this theme's
+  /// [recordingAccent] (196°) by 50.8° at 56 % saturation.~~ *Retracted
+  /// 2026-08-11 with ADR 0012* — see [WpColorsDark.frameGradient] for why the
+  /// carve-out dissolved. The stop and its value stay exactly where they are;
+  /// it is now simply the arc's deepest continuation, and it reads more plainly
+  /// here than on dark, where the same corner sits near black.
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,

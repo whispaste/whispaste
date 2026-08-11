@@ -4,12 +4,18 @@ import 'package:whispaste/core/theme/colors.dart';
 
 void main() {
   group('WpColorsDark', () {
-    test('background is warm slate-blue (opaque, dark)', () {
+    test('background is a deep, tinted navy (opaque, dark)', () {
       expect(WpColorsDark.background.a, 1.0);
-      // Dark background should be dark (low RGB values)
+      // Dark, but *chromatic* dark. The blue channel deliberately no longer
+      // fits under the old flat 0.15 ceiling: that ceiling described the
+      // pre-Ticket-04 ground, and holding it would have re-imposed exactly the
+      // near-neutral slate the "coloured glass" work exists to replace. What
+      // has to stay true is that the ground reads as dark and as blue.
       expect(WpColorsDark.background.r, lessThan(0.15));
       expect(WpColorsDark.background.g, lessThan(0.15));
-      expect(WpColorsDark.background.b, lessThan(0.15));
+      expect(WpColorsDark.background.b, lessThan(0.35));
+      expect(WpColorsDark.background.b, greaterThan(WpColorsDark.background.g));
+      expect(WpColorsDark.background.g, greaterThan(WpColorsDark.background.r));
     });
 
     test('key surface colors are defined and non-null', () {
@@ -24,18 +30,25 @@ void main() {
       expect(WpColorsDark.textPrimary, isNot(WpColorsDark.textMuted));
     });
 
-    test('accent color is violet', () {
-      // The generic interaction accent is a light violet: blue leads, red
-      // follows, green trails. Cyan (green ≈ blue, both high) would fail here,
-      // which is the point — cyan means `recordingAccent` now.
-      expect(WpColorsDark.accent.b, greaterThan(WpColorsDark.accent.r));
-      expect(WpColorsDark.accent.r, greaterThan(WpColorsDark.accent.g));
+    test('accent color is cyan', () {
+      // ~~The generic interaction accent is a light violet.~~ *Retracted with
+      // ADR 0013* — Ticket 04's violet is gone and the generic accent is back
+      // in the brand's cyan, where it sat for the app's whole life before that
+      // ticket. Cyan reads as green ≈ blue, both high, red trailing.
+      expect(WpColorsDark.accent.g, greaterThan(0.7));
       expect(WpColorsDark.accent.b, greaterThan(0.7));
+      expect(WpColorsDark.accent.g, greaterThan(WpColorsDark.accent.r));
     });
 
-    test('the recording accent is still cyan and no longer the accent', () {
+    test('the recording accent is the same family, separated by weight', () {
       expect(WpColorsDark.recordingAccent.g, greaterThan(0.7));
       expect(WpColorsDark.recordingAccent.b, greaterThan(0.7));
+
+      // Still two tokens, and still never the same value — but the separation
+      // is no longer a hue gap (ADR 0013 retracted that clause). They are one
+      // cyan family that differs in *weight*; the measured gate for that lives
+      // in `wcag_contrast_test.dart` ("Two accents, one family, separated by
+      // weight"), which has the luminance and hue helpers.
       expect(WpColorsDark.recordingAccent, isNot(WpColorsDark.accent));
     });
 
@@ -146,7 +159,9 @@ void main() {
     });
 
     test('accent colors differ between dark and light', () {
-      // Dark uses a light violet, light a deeper one at the same hue.
+      // Dark is back on the brand cyan (ADR 0013); the light theme still
+      // carries Ticket 04's deep violet and is out of scope for that ADR,
+      // which applies to the dark theme only.
       expect(WpColorsDark.accent, isNot(WpColorsLight.accent));
     });
   });
