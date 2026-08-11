@@ -320,8 +320,8 @@ abstract final class WpColorsDark {
   /// the same light one step nearer — **identical hue, lower chroma, more
   /// light**. Against the frame under it (#1A0B50 at the 1100 × 750 the app
   /// opens at, 252.83° / 74.9 % / Y 0.01151) this stop lands at 252.92° /
-  /// 57.5 % / Y 0.01787: hue 0.09° off, chroma 3.6 8-bit steps down, luminance
-  /// 1.121:1 up. *(Ticket 07 first shipped this stop at Y 0.01241 = 1.034:1;
+  /// 53.7 % / Y 0.02113: hue 0.09° off, chroma 3.6 8-bit steps down, luminance
+  /// 1.175:1 up. *(Ticket 07 first shipped this stop at Y 0.01241 = 1.034:1;
   /// see the perceptibility re-solve below for why that number moved and the
   /// hue/chroma ones did not.)*
   ///
@@ -343,11 +343,11 @@ abstract final class WpColorsDark {
   /// the `Frame → content-plane seam` group in `wcag_contrast_test.dart`
   /// walks the whole resize range to prove the constant holds at all of it.
   ///
-  /// The seam lift is why end to end this now spans 1.022:1 rather than the
+  /// The seam lift is why end to end this now spans 1.028:1 rather than the
   /// 1.02:1 of Ticket 06 — the first stop rose toward the last. The plane's
-  /// widest stop pair is the middle stop against the magenta pole, 1.088:1.
+  /// widest stop pair is the middle stop against the magenta pole, 1.094:1.
   ///
-  /// **Perceptibility re-solve (2026-08-11) — the whole plane moved, +8 8-bit
+  /// **Perceptibility re-solve (2026-08-11) — the whole plane moved, +12 8-bit
   /// steps on every channel of every stop.** Ticket 07's criteria gated the
   /// seam's *direction* (chroma falls, lightness rises) and its *continuity*
   /// (no chroma cliff) but never its *magnitude*, and the seam that satisfied
@@ -396,7 +396,7 @@ abstract final class WpColorsDark {
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF261859), Color(0xFF211C31), Color(0xFF2E2230)],
+    colors: [Color(0xFF2A1C5D), Color(0xFF252035), Color(0xFF322634)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -1283,6 +1283,21 @@ WpCategorySlot _categorySlotForIdentity(String identity) {
 ///
 /// Both targets pull against each other on light (a denser disc drags the glyph
 /// further toward ink), which is why they are calibrated together.
+///
+/// **The disc is the nav rail's chip material, on a circle (2026-08-11).** The
+/// maintainer asked for the rail's icon chips on the entry avatars, so the
+/// recipe grew the one thing it was missing: a *precomposited* crown on the
+/// first [glossStop] of a vertical ramp ([gloss], [discGradient]) instead of a
+/// flat two-stop diagonal fill. Nothing about the calibration above moved —
+/// [fillTop], [fillBottom], [edge] and [glyph] are the same colors at the same
+/// alphas, the crown sits above them, and the disc's own numbers are therefore
+/// unchanged by construction. What did change is *where they are measured*:
+/// the row the avatar sits in paints no fill of its own, so the ground is the
+/// content plane ([WpColorsDark.warmSurfaceGradient]), not the flat `surface`
+/// token the gate used to stand in for it. On dark that plane is the brighter
+/// and therefore tighter ground, and the disc clears it with margin (worst
+/// slot `fern`, 1.62:1 against the plane's brightest stop vs. 1.68:1 against
+/// flat `surface`).
 final class WpAvatarTint {
   const WpAvatarTint._({
     required this.fillTopAlpha,
@@ -1296,6 +1311,8 @@ final class WpAvatarTint {
     required this.glyphLightnessShift,
     required this.glyphLightnessMin,
     required this.glyphLightnessMax,
+    required this.glossLightness,
+    required this.glossAlpha,
   });
 
   /// Alpha of the lit (top-left) gradient stop.
@@ -1334,6 +1351,31 @@ final class WpAvatarTint {
   final double glyphLightnessMin;
   final double glyphLightnessMax;
 
+  /// HSL lightness of the crown's source hue — **absolute, not a delta**.
+  ///
+  /// Deliberately not another shift stacked on [topStopLightnessDelta]: the
+  /// fill's shifts run through a legibility band, and a third delta would
+  /// simply be clamped away for the slots that already sit at the band edge.
+  /// The crown would then exist on some hues and not on others, which is a
+  /// per-slot difference in a material whose hue is supposed to mean nothing.
+  /// An absolute lightness is clamp-proof — every slot gets the same crown,
+  /// only in its own hue.
+  ///
+  /// It carries the slot's hue rather than being white for the reason this
+  /// file's header states about every other fill: a neutral alpha over a
+  /// chromatic ground desaturates it, which is exactly how the abandoned
+  /// painted-glass prototype came out grey.
+  final double glossLightness;
+
+  /// Alpha at which the crown is laid over the lit stop before the two are
+  /// composited into [gloss]. The single dial for how wet the disc looks.
+  final double glossAlpha;
+
+  /// Where the crown ends, as a fraction of the disc's height — the same first
+  /// tenth the nav-rail chips give their gloss, so the two materials catch the
+  /// light at the same place.
+  static const double glossStop = 0.1;
+
   /// Dark theme: thin fill, hue pushed lighter, glyph lighter still.
   static const WpAvatarTint dark = WpAvatarTint._(
     fillTopAlpha: 0.28,
@@ -1347,10 +1389,20 @@ final class WpAvatarTint {
     glyphLightnessShift: 0.20,
     glyphLightnessMin: 0.55,
     glyphLightnessMax: 0.92,
+    glossLightness: 0.90,
+    glossAlpha: 0.20,
   );
 
   /// Light theme: denser fill (not thinner), hue pushed toward ink, glyph
   /// darker still — every sign mirrored against [dark].
+  ///
+  /// The crown is the one value that is **not** mirrored, and that is the
+  /// point rather than an oversight: "lit" means lit in both themes. Pearl's
+  /// disc is ink *under* its ground, so a crown mirrored into a shadow would
+  /// light the disc from below — the exact failure the nav chip's own gloss
+  /// gate names. Light pays for it with a paler source (0.97 vs. 0.90) and
+  /// slightly more of it (24 % vs. 20 %), because the crown has to climb from
+  /// an inked fill toward pearl rather than from a thin tint toward navy.
   static const WpAvatarTint light = WpAvatarTint._(
     fillTopAlpha: 0.36,
     fillBottomAlpha: 0.26,
@@ -1363,6 +1415,8 @@ final class WpAvatarTint {
     glyphLightnessShift: -0.36,
     glyphLightnessMin: 0.14,
     glyphLightnessMax: 0.34,
+    glossLightness: 0.97,
+    glossAlpha: 0.24,
   );
 
   static WpAvatarTint of(bool isDark) => isDark ? dark : light;
@@ -1389,6 +1443,50 @@ final class WpAvatarTint {
     glyphLightnessMin,
     glyphLightnessMax,
   ).withValues(alpha: glyphAlpha);
+
+  /// The lit crown — [fillTop] with the highlight **already composited in**,
+  /// so it can be a gradient stop rather than a second layer painted over the
+  /// disc.
+  ///
+  /// Source-over in premultiplied alpha, which is what makes this a
+  /// precomposite and not a lerp: the result is always *denser* than the fill
+  /// it covers (`α_out = α_gloss + α_fill·(1 − α_gloss)`), the way a real
+  /// second coat of anything is. A `Color.lerp` toward the highlight would
+  /// have kept the fill's alpha and only shifted its hue, which is a thinner
+  /// paint pretending to be a thicker one.
+  ///
+  /// Same trick, same reason as [WpColorsDark.navChipGradient]'s first stop:
+  /// Flutter cannot pair a non-uniform `Border` with a shape, so a lit top
+  /// edge has to be baked into the fill.
+  Color gloss(Color base) {
+    final fill = fillTop(base);
+    final crown = HSLColor.fromColor(
+      base,
+    ).withLightness(glossLightness).toColor();
+    final outAlpha = glossAlpha + fill.a * (1 - glossAlpha);
+    double channel(double c, double f) =>
+        (c * glossAlpha + f * fill.a * (1 - glossAlpha)) / outAlpha;
+    return Color.from(
+      alpha: outAlpha,
+      red: channel(crown.r, fill.r),
+      green: channel(crown.g, fill.g),
+      blue: channel(crown.b, fill.b),
+    );
+  }
+
+  /// The whole disc as one gradient — crown, lit stop, shaded stop.
+  ///
+  /// Vertical rather than the diagonal this used to be, because the crown only
+  /// works on the axis it is lit from: over a circle, the first tenth of a
+  /// top-left→bottom-right ramp is a corner the shape barely occupies, while
+  /// the first tenth of a vertical one is the cap the light would actually
+  /// catch. The nav chips are lit on the same axis for the same reason.
+  LinearGradient discGradient(Color base) => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [gloss(base), fillTop(base), fillBottom(base)],
+    stops: const [0.0, glossStop, 1.0],
+  );
 
   Color _fillBase(Color base) =>
       _shift(base, fillLightnessShift, fillLightnessMin, fillLightnessMax);

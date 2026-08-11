@@ -760,24 +760,66 @@ void main() {
   // one is a new decision, not a re-reading of this comment.
   // -------------------------------------------------------------------------
 
+  // GROUNDS — re-derived 2026-08-11, when the chip material was ported onto
+  // the disc.
+  //
+  // > **Retracted: "against `surface` / `surfaceElevated`".** Those two flat
+  // > tokens used to be the whole ground set here, and for the card view they
+  // > still are — `HistoryEntryCard` really does paint an opaque
+  // > `surfaceElevated` under its avatar. But the *list* row is the avatar's
+  // > primary home and it paints no fill at rest at all
+  // > (`WpListTileSurface._fill()` returns `hoverTransparent`), so the disc
+  // > there sits directly on the content plane, and so does the detail-panel
+  // > header. The plane is the tighter ground on dark — its brightest stop is
+  // > brighter than either flat token — so the old gate was measuring the
+  // > easier case and calling it the worst one. Recorded rather than swapped
+  // > silently: the flat tokens were a reasonable stand-in while the plane was
+  // > nearly flat itself, and Ticket 07's seam lift is what ended that.
+  //
+  // The plane's stops are read off the token rather than pinned, so this gate
+  // follows the ambient wherever it is next tuned instead of going stale
+  // against a hard-coded hex.
   const discFloor = 1.5;
   const discBottomStopFloor = 1.3;
   const glyphFloor = 3.0;
 
-  for (final (themeName, isDark, surface, surfaceElevated) in [
-    ('dark', true, WpColorsDark.surface, WpColorsDark.surfaceElevated),
-    ('light', false, WpColorsLight.surface, WpColorsLight.surfaceElevated),
+  for (final (themeName, isDark, plane, surface, surfaceElevated, hover) in [
+    (
+      'dark',
+      true,
+      WpColorsDark.warmSurfaceGradient,
+      WpColorsDark.surface,
+      WpColorsDark.surfaceElevated,
+      WpColorsDark.hover,
+    ),
+    (
+      'light',
+      false,
+      WpColorsLight.warmSurfaceGradient,
+      WpColorsLight.surface,
+      WpColorsLight.surfaceElevated,
+      WpColorsLight.hover,
+    ),
   ]) {
     final tint = WpAvatarTint.of(isDark);
 
-    group('Avatar disc vs. surface – $themeName theme (≥ $discFloor:1)', () {
+    /// Every ground an entry avatar is ever painted on.
+    final avatarGrounds = <String, Color>{
+      for (var i = 0; i < plane.colors.length; i++)
+        'content plane stop $i': plane.colors[i],
+      // The list row's hover/focus fill is opaque, so it replaces the plane
+      // under the avatar rather than tinting it.
+      'hovered row': alphaComposite(hover, plane.colors.first),
+      'surface': surface,
+      // The card view is the one call site with a real opaque fill under it.
+      'surfaceElevated': surfaceElevated,
+    };
+
+    group('Avatar disc vs. its ground – $themeName theme (≥ $discFloor:1)', () {
       for (final slot in WpCategorySlot.values) {
         final base = slot.color(isDark);
         test(slot.name, () {
-          for (final (groundName, ground) in [
-            ('surface', surface),
-            ('surfaceElevated', surfaceElevated),
-          ]) {
+          avatarGrounds.forEach((groundName, ground) {
             final top = alphaComposite(tint.fillTop(base), ground);
             final bottom = alphaComposite(tint.fillBottom(base), ground);
             final disc = midpoint(top, bottom);
@@ -796,36 +838,102 @@ void main() {
               reason:
                   '$themeName ${slot.name}: shaded gradient stop only '
                   '${contrastRatio(bottom, ground).toStringAsFixed(2)}:1 against '
-                  '$groundName — the disc fades out at its bottom-right edge',
+                  '$groundName — the disc fades out at its lower edge',
             );
-          }
+          });
         });
       }
     });
 
     group('Avatar glyph vs. disc – $themeName theme (≥ $glyphFloor:1)', () {
+      // Measured against the disc *body*, not against the crown — the same
+      // modeling choice the nav chip's group makes, and for the same reason:
+      // the crown covers the first `WpAvatarTint.glossStop` of the disc's
+      // height (≈4 px of the 42 px list avatar) and the glyph, at 44 % of the
+      // disc centred in it, never reaches into that band.
       for (final slot in WpCategorySlot.values) {
         final base = slot.color(isDark);
         test(slot.name, () {
-          final top = alphaComposite(tint.fillTop(base), surface);
-          final bottom = alphaComposite(tint.fillBottom(base), surface);
-          final disc = midpoint(top, bottom);
           final glyphColor = tint.glyph(base);
+          avatarGrounds.forEach((groundName, ground) {
+            final top = alphaComposite(tint.fillTop(base), ground);
+            final bottom = alphaComposite(tint.fillBottom(base), ground);
+            final disc = midpoint(top, bottom);
 
-          for (final (groundName, ground) in [
-            ('disc center', disc),
-            ('lit top stop', top),
-          ]) {
-            final glyph = alphaComposite(glyphColor, ground);
+            for (final (spotName, spot) in [
+              ('disc center', disc),
+              ('lit top stop', top),
+            ]) {
+              final glyph = alphaComposite(glyphColor, spot);
+              expect(
+                contrastRatio(glyph, spot),
+                greaterThanOrEqualTo(glyphFloor),
+                reason:
+                    '$themeName ${slot.name}: glyph only '
+                    '${contrastRatio(glyph, spot).toStringAsFixed(2)}:1 against '
+                    'the $spotName on $groundName — the icon is not readable',
+              );
+            }
+          });
+        });
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // The crown (2026-08-11) — the disc's half of the nav chip's gloss gate.
+    //
+    // Three ways a precomposited highlight goes wrong, one assertion each:
+    // it can be darker than the fill (a shadow along the top edge, i.e. the
+    // disc lit from below); it can be strong enough to read as a second shape
+    // drawn on the disc rather than as light falling on it; or — the failure
+    // that is specific to a *bounded* object, and which the rail's rectangular
+    // tile cannot have — it can climb so close to the ground that the disc's
+    // top rim dissolves and the circle looks bitten.
+    // -----------------------------------------------------------------------
+    group('Avatar gloss – $themeName theme', () {
+      for (final slot in WpCategorySlot.values) {
+        final base = slot.color(isDark);
+        test(slot.name, () {
+          avatarGrounds.forEach((groundName, ground) {
+            final fill = alphaComposite(tint.fillTop(base), ground);
+            final gloss = alphaComposite(tint.gloss(base), ground);
+
             expect(
-              contrastRatio(glyph, ground),
-              greaterThanOrEqualTo(glyphFloor),
+              relativeLuminance(gloss),
+              greaterThan(relativeLuminance(fill)),
               reason:
-                  '$themeName ${slot.name}: glyph only '
-                  '${contrastRatio(glyph, ground).toStringAsFixed(2)}:1 against '
-                  'the $groundName — the icon is not readable',
+                  '$themeName ${slot.name} on $groundName: the crown is darker '
+                  'than the lit stop under it — that is the disc lit from '
+                  'below. "Lit" means lit in both themes; the light theme '
+                  'mirrors every other value in this recipe and deliberately '
+                  'not this one',
             );
-          }
+
+            final step = contrastRatio(gloss, fill);
+            expect(
+              step,
+              lessThan(3.0),
+              reason:
+                  '$themeName ${slot.name} on $groundName: the crown steps '
+                  '${step.toStringAsFixed(2)}:1 over its fill, at the contrast '
+                  'an *object* owes (WCAG 1.4.11) — a band that strong stops '
+                  'reading as light on the disc and starts reading as a second '
+                  'element drawn on it. Same ceiling as the nav chip\'s gloss',
+            );
+
+            final crownVsGround = contrastRatio(gloss, ground);
+            expect(
+              crownVsGround,
+              greaterThanOrEqualTo(discFloor),
+              reason:
+                  '$themeName ${slot.name} on $groundName: the crown holds '
+                  'only ${crownVsGround.toStringAsFixed(2)}:1 against the '
+                  'ground, under the $discFloor:1 the disc owes as a graphical '
+                  'object. The crown is part of the disc, not a hole in it — '
+                  'below this floor the circle loses its top rim and reads as '
+                  'a crescent',
+            );
+          });
         });
       }
     });

@@ -67,21 +67,42 @@ WpCategorySlot historyAvatarSlot(HistoryEntry entry) =>
 
 /// Entry avatar — colored circle with the microphone glyph every entry shares.
 ///
-/// "Belichtete Scheibe": a lightness-shifted fill gradient (same hue, the lit
-/// stop offset by [WpAvatarTint.topStopLightnessDelta]) plus a 1px hue-tinted
-/// edge border and a soft, theme-resolved `WpShadows.subtleFor` lift —
-/// glow-free materiality on top of the flat fill this used to be.
+/// "Belichtete Scheibe", now made of the same material as the nav rail's icon
+/// chips: [WpAvatarTint.discGradient] is a three-stop vertical ramp whose first
+/// tenth is a *precomposited* crown over a lit stop falling to a shaded one,
+/// plus a 1px hue-tinted rim. The gloss is baked into the gradient rather than
+/// painted as a second layer for the reason the chips already give — Flutter
+/// cannot pair a non-uniform `Border` with a shape — and it is what turns a
+/// tinted circle into something that looks lit rather than filled.
+///
+/// **Depth has one source per theme** (*The Depth-Source Rule*): the offset
+/// shadow is light-only. Dark takes its depth from the disc's brightness delta
+/// against the plane and from the crown; a black shadow on a near-black ground
+/// is mud, not lift. Pearl keeps `WpShadows.subtleLight`, because there is
+/// almost no room above the plane for a fill to carry objecthood on its own.
 ///
 /// Every lightness and alpha comes from [WpAvatarTint], and every one of them
-/// is *mirrored* between the themes: the disc is a translucent tint over its
-/// ground, so it only separates if the preparation flips direction — lighter
-/// and thin on navy, toward ink and denser on pearl. The shifts are clamped
-/// into a legibility band, so a hue that already sits near the band edge is
-/// held there instead of collapsing into the ground or into near-black; hues in
-/// between keep their own lightness character. Result is calibrated to keep the
-/// disc visible (≥1.5:1 against surface) and the glyph readable (≥3:1 against
-/// the disc) for every [WpCategorySlot] in both themes — gated in
-/// `test/core/theme/wcag_contrast_test.dart`.
+/// is *mirrored* between the themes — except the crown, which is lit in both
+/// (see the token). The disc is a translucent tint over its ground, so it only
+/// separates if the preparation flips direction: lighter and thin on navy,
+/// toward ink and denser on pearl. The shifts are clamped into a legibility
+/// band, so a hue that already sits near the band edge is held there instead of
+/// collapsing into the ground or into near-black; hues in between keep their
+/// own lightness character. Calibrated to keep the disc visible (≥1.5:1) and
+/// the glyph readable (≥3:1 against the disc) for every [WpCategorySlot] in
+/// both themes, measured on the ground the row actually stands on — the content
+/// plane, not the flat `surface` token — and gated in
+/// `test/core/theme/wcag_contrast_test.dart`. The material itself (stops, axis,
+/// shape, which theme gets the shadow) is gated in
+/// `test/features/history/history_avatar_material_test.dart`.
+///
+/// > **Retracted 2026-08-11 — "a soft, theme-resolved `WpShadows.subtleFor`
+/// > lift".** The disc used to carry `subtleFor(isDark)`, i.e. a shadow in
+/// > *both* themes. That predates the sharpening of *The Depth-Source Rule*
+/// > into "one source per theme" and was simply left behind when the nav chips
+/// > adopted `isDark ? null : subtleLight`. Recorded rather than overwritten
+/// > because the flat-disc pass that introduced it argued explicitly for the
+/// > shadow, and a claim that quietly disappears cannot be audited.
 class HistoryEntryAvatar extends StatelessWidget {
   const HistoryEntryAvatar({
     super.key,
@@ -116,14 +137,11 @@ class HistoryEntryAvatar extends StatelessWidget {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [tint.fillTop(color), tint.fillBottom(color)],
-                ),
+                gradient: tint.discGradient(color),
                 shape: BoxShape.circle,
                 border: Border.all(color: tint.edge(color), width: 1),
-                boxShadow: WpShadows.subtleFor(isDark),
+                // One depth source per theme — see this class's docs.
+                boxShadow: isDark ? null : WpShadows.subtleLight,
               ),
               child: Icon(icon, size: iconSize, color: tint.glyph(color)),
             ),
