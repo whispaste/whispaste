@@ -900,7 +900,7 @@ class _ModelUsagePanel extends StatelessWidget {
 /// Which hue a model gets is decided in `colors.dart` and keyed on the raw id,
 /// never picked here — see [categorySlotForModel]. The percentage stays on the
 /// accent: it is the value being read, and letting the category hue mark it
-/// would turn a slot into an importance marker (*The Single Accent Rule*).
+/// would turn a slot into an importance marker (*The Two Accent, Two Jobs Rule*).
 class _ModelUsageBar extends StatelessWidget {
   const _ModelUsageBar({required this.model, required this.isDark});
 
