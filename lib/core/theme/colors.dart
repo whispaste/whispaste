@@ -890,6 +890,82 @@ final class WpAvatarTint {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Decorative layer — chrome surfaces, no meaning
+// ---------------------------------------------------------------------------
+
+/// Dark-theme decorative source — *Quartz*, a 314° mauve at ≈52 % saturation.
+///
+/// **Its own layer, and the third hue family outside the accent** (after Pin
+/// Amber and the category slots). It exists to make the app's *chrome* — the
+/// nav rail, the settings ground — a distinguishable plate rather than the
+/// same flat field as the content, and it carries no information whatsoever.
+/// See *The Decorative Color Rule* in `lib/DESIGN.md`, which is what sanctions
+/// it (maintainer decision ④ = b, 2026-08-11).
+///
+/// **Never cyan.** Cyan/teal stays the brand accent alone (decision ② = b), so
+/// the decorative layer may not borrow from it — otherwise the one voice the
+/// app has would also be its wallpaper.
+///
+/// **Why hue proximity is not the guarantee.** 314° sits 18° from `orchid`
+/// (296°) and 18° from `plum` (332°), stated rather than argued away: every
+/// gap left on the wheel by the accent band, the status hues and the eight
+/// slots is about that wide. What keeps this layer apart from the nominal one
+/// is *form*, and form is testable — a category slot is an opaque, bounded
+/// mark you are meant to read, while this hue only ever appears as a ≤5 %
+/// field over a whole surface, at a contrast under the 1.5:1 a graphical
+/// object has to clear to register as an object at all. The same argument the
+/// [WpColorsDark.warmSurfaceGradient] comment already makes: what keeps a
+/// large low-chroma field from reading as a second signal is its weight, not
+/// its hue distance.
+abstract final class WpDecorativeColorsDark {
+  /// The single decorative hue. Never painted at full strength — the app only
+  /// ever sees it through [chromeWash].
+  static const Color source = Color(0xFFDA8BC8);
+
+  /// The one decorative fill: [source] at 5 %, flat, over a whole surface.
+  ///
+  /// Below the tint ladder, where *The Decorative Glyph Rule* already puts the
+  /// large-area washes, and per theme like everything down there (*The
+  /// Increment–Decrement Rule*) — but the light value is **measured, not
+  /// inherited**; see [WpDecorativeColorsLight.chromeWash].
+  static const Color chromeWash = Color(0x0DDA8BC8); // source @ 5%
+}
+
+/// Light-theme decorative source — the pearl-ground twin of
+/// [WpDecorativeColorsDark], same 314° hue at ≈58 % saturation with its
+/// lightness re-solved toward ink so the wash lands *darker* than its ground.
+abstract final class WpDecorativeColorsLight {
+  static const Color source = Color(0xFFA12B86);
+
+  /// [source] at 2 % — a third of the dark twin's presence, and the one value
+  /// in this file that a *legibility* budget sets rather than an optical one.
+  ///
+  /// The chrome wash lies under the page ground, which is where a settings row
+  /// puts its `textMuted` subtitle. On the pearl frame that pairing starts at
+  /// 4.69:1 — 0.19 over AA — so every point the wash darkens the ground comes
+  /// straight out of that margin: at the glyph rule's 3 % it lands on 4.48:1
+  /// and the decoration has cost legibility, which is the one thing it may
+  /// never do. 2 % holds 4.56:1. On dark the same text starts at 6.19:1 and
+  /// has room to spare, so that side is optically tuned as usual.
+  ///
+  /// The per-theme direction is still *The Increment–Decrement Rule*'s — light
+  /// under dark — the size of the step is simply not free here.
+  static const Color chromeWash = Color(0x05A12B86); // source @ 2%
+}
+
+/// The only sanctioned way to a decorative color.
+///
+/// It takes `isDark` and **nothing else** — no id, no index, no identity —
+/// which is the executable half of the rule: a call site physically cannot
+/// vary the decorative hue per nav item or per settings section, so the layer
+/// cannot grow into a category scale. That is the mirror image of
+/// [categorySlotForModel] and friends, whose *parameter* is the evidence that
+/// a category color means something.
+Color wpDecorativeChromeWash(bool isDark) => isDark
+    ? WpDecorativeColorsDark.chromeWash
+    : WpDecorativeColorsLight.chromeWash;
+
 /// The translucent scrim behind a [BackdropFilter]-blurred dialog barrier.
 ///
 /// Needs true black/white rather than a themed surface token — the blur

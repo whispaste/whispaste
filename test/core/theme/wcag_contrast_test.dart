@@ -1263,4 +1263,269 @@ void main() {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Decorative layer (Ticket 16, maintainer decision ④ = b)
+  //
+  // The category groups above assert *floors* — a category mark has to be seen
+  // (≥ 3:1) and read. The decorative layer is governed in the opposite
+  // direction: it owes a *ceiling*, because a decoration that can be read is a
+  // signal, and a signal that means nothing is the defect this layer was
+  // opened under the condition of avoiding.
+  // -------------------------------------------------------------------------
+
+  // The floor `WpAvatarTint`'s disc has to clear to register as a graphical
+  // object (WCAG 1.4.11) — reused here as the ceiling the wash must stay
+  // *under*. One number, two directions: above it a shape is an object the
+  // user can read, below it a field is atmosphere.
+  const decorativeCeiling = 1.5;
+
+  group('Decorative chrome wash – structure', () {
+    test('the wash is the source hue at alpha only', () {
+      for (final (themeName, source, wash) in [
+        (
+          'dark',
+          WpDecorativeColorsDark.source,
+          WpDecorativeColorsDark.chromeWash,
+        ),
+        (
+          'light',
+          WpDecorativeColorsLight.source,
+          WpDecorativeColorsLight.chromeWash,
+        ),
+      ]) {
+        expect(
+          wash.toARGB32() & 0x00FFFFFF,
+          source.toARGB32() & 0x00FFFFFF,
+          reason:
+              '$themeName: the wash carries RGB the source does not — the '
+              'decorative layer is one hue whose only free dimension is alpha, '
+              'which is what makes it unable to encode a per-entry difference',
+        );
+        expect(
+          wash.a,
+          lessThan(source.a),
+          reason: '$themeName: the wash must be translucent, not the raw hue',
+        );
+      }
+    });
+
+    test('the resolver takes no identity, only the theme', () {
+      expect(
+        wpDecorativeChromeWash(true),
+        WpDecorativeColorsDark.chromeWash,
+        reason: 'dark resolves to the dark wash',
+      );
+      expect(
+        wpDecorativeChromeWash(false),
+        WpDecorativeColorsLight.chromeWash,
+        reason: 'light resolves to the light wash',
+      );
+      expect(
+        wpDecorativeChromeWash(true),
+        isNot(wpDecorativeChromeWash(false)),
+        reason: 'the decorative layer is a theme pair like everything else',
+      );
+    });
+
+    test('call sites reach the wash through the resolver, never the tokens', () {
+      final lib = Directory('lib');
+      final dartFiles = lib
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList();
+      expect(
+        dartFiles.length,
+        greaterThan(100),
+        reason:
+            'the sweep found only ${dartFiles.length} Dart files under lib/ — '
+            'an empty result below would pass vacuously',
+      );
+
+      final referencing = dartFiles
+          .map((f) => f.path.replaceAll(r'\', '/'))
+          .where((path) => path != 'lib/core/theme/colors.dart')
+          .where(
+            (path) =>
+                File(path).readAsStringSync().contains('WpDecorativeColors'),
+          )
+          .toSet();
+
+      expect(
+        referencing,
+        isEmpty,
+        reason:
+            'the decorative tokens were read directly instead of through '
+            'wpDecorativeChromeWash(isDark). The resolver is the layer\'s only '
+            'door precisely because it accepts no identity — reaching past it '
+            'is how a decoration starts meaning something. Found: $referencing',
+      );
+    });
+
+    test('the decorative hue is not the accent and not the ramp source', () {
+      for (final (themeName, source, accent) in [
+        ('dark', WpDecorativeColorsDark.source, WpColorsDark.accent),
+        ('light', WpDecorativeColorsLight.source, WpColorsLight.accent),
+      ]) {
+        final hue = HSLColor.fromColor(source).hue;
+        expect(
+          hue,
+          isNot(inInclusiveRange(165, 215)),
+          reason:
+              '$themeName: the decorative hue landed at '
+              '${hue.toStringAsFixed(1)}°, inside the 165–215° cyan/teal band '
+              'reserved for the brand accent (decision ② = b)',
+        );
+        expect(
+          (hue - HSLColor.fromColor(accent).hue).abs(),
+          greaterThan(45),
+          reason:
+              '$themeName: the decorative hue sits within 45° of the accent — '
+              'decoration must not be mistakable for the one voice',
+        );
+
+        // Ticket 14 sources the analytics duration ramp from `iris`. A
+        // decorative wash that reads as a paler iris would put the ordinal
+        // scale's hue on the chrome around it.
+        final irisHue = HSLColor.fromColor(
+          WpCategorySlot.iris.color(themeName == 'dark'),
+        ).hue;
+        expect(
+          (hue - irisHue).abs(),
+          greaterThan(45),
+          reason:
+              '$themeName: the decorative hue sits within 45° of the `iris` '
+              'ramp source (Ticket 14) — one hue, two layers',
+        );
+      }
+    });
+  });
+
+  // The grounds the wash is actually painted on — the window frame, which is
+  // what shows through the nav rail and the settings page. Deliberately *not*
+  // `surface`/`surfaceElevated`/`surfaceVariant`: those are opaque fills drawn
+  // on top of the wash, so a card's own text never sees it.
+  for (final (themeName, isDark, accent, wash, grounds) in [
+    (
+      'dark',
+      true,
+      WpColorsDark.accent,
+      WpDecorativeColorsDark.chromeWash,
+      <String, Color>{
+        'background': WpColorsDark.background,
+        'frameGradient.top': WpColorsDark.frameGradient.colors.first,
+        'frameGradient.bottom': WpColorsDark.frameGradient.colors.last,
+      },
+    ),
+    (
+      'light',
+      false,
+      WpColorsLight.accent,
+      WpDecorativeColorsLight.chromeWash,
+      <String, Color>{
+        'background': WpColorsLight.background,
+        'frameGradient.top': WpColorsLight.frameGradient.colors.first,
+        'frameGradient.bottom': WpColorsLight.frameGradient.colors.last,
+      },
+    ),
+  ]) {
+    group('Decorative wash stays under the object threshold – $themeName theme '
+        '(< $decorativeCeiling:1)', () {
+      grounds.forEach((groundName, ground) {
+        test(groundName, () {
+          final washed = alphaComposite(wash, ground);
+          final ratio = contrastRatio(washed, ground);
+          expect(
+            ratio,
+            lessThan(decorativeCeiling),
+            reason:
+                '$themeName: the wash lifts $groundName by '
+                '${ratio.toStringAsFixed(3)}:1 — at or above '
+                '$decorativeCeiling:1 it reads as a graphical object, and an '
+                'object that means nothing is exactly what the decorative '
+                'layer may not become',
+          );
+          expect(
+            ratio,
+            greaterThan(1.0),
+            reason:
+                '$themeName: the wash leaves $groundName untouched — a '
+                'decoration nobody can see is not quiet, it is absent',
+          );
+        });
+      });
+
+      test('quieter than the accent and than every category slot', () {
+        final ground = grounds['background']!;
+        final washRatio = contrastRatio(alphaComposite(wash, ground), ground);
+        expect(
+          washRatio,
+          lessThan(contrastRatio(accent, ground)),
+          reason:
+              '$themeName: decoration must sit below the brand voice — the '
+              'same ladder the category layer already stands on',
+        );
+        for (final slot in WpCategorySlot.values) {
+          expect(
+            washRatio,
+            lessThan(contrastRatio(slot.color(isDark), ground)),
+            reason:
+                '$themeName: the wash is louder than the ${slot.name} slot — '
+                'the nominal layer carries meaning and must out-rank a '
+                'decoration on every surface they share',
+          );
+        }
+      });
+
+      test('body text keeps AA over the washed ground', () {
+        final texts = <String, Color>{
+          'textPrimary': isDark
+              ? WpColorsDark.textPrimary
+              : WpColorsLight.textPrimary,
+          'textSecondary': isDark
+              ? WpColorsDark.textSecondary
+              : WpColorsLight.textSecondary,
+          'textMuted': isDark
+              ? WpColorsDark.textMuted
+              : WpColorsLight.textMuted,
+        };
+        grounds.forEach((groundName, ground) {
+          final washed = alphaComposite(wash, ground);
+          texts.forEach((textName, text) {
+            final ratio = contrastRatio(text, washed);
+            expect(
+              ratio,
+              greaterThanOrEqualTo(4.5),
+              reason:
+                  '$themeName: $textName over washed $groundName is only '
+                  '${ratio.toStringAsFixed(2)}:1 — decoration never costs '
+                  'legibility',
+            );
+          });
+        });
+      });
+    });
+  }
+
+  // Parity with the category layer's ceiling: the decorative source is not the
+  // accent and may not reach for the accent's pitch either.
+  group('Decorative source saturation – ≤ 80%', () {
+    for (final (themeName, source) in [
+      ('dark', WpDecorativeColorsDark.source),
+      ('light', WpDecorativeColorsLight.source),
+    ]) {
+      test(themeName, () {
+        final sat = hslSaturation(source);
+        expect(
+          sat,
+          lessThanOrEqualTo(0.80),
+          reason:
+              '$themeName: the decorative source is '
+              '${(sat * 100).toStringAsFixed(0)} % saturated — over the 80 % '
+              'ceiling the whole palette outside the accent stands under',
+        );
+      });
+    }
+  });
 }
