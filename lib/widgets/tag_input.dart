@@ -274,6 +274,7 @@ class WpTagInputState extends State<WpTagInput> {
                   textMuted: textMuted,
                   accent: accent,
                   borderCol: borderCol,
+                  l10n: l10n,
                 )
               else
                 // loam-ignore: a11y-interactive-semantics – semantics provided in _AddTagTrigger.build
@@ -333,6 +334,7 @@ class WpTagInputState extends State<WpTagInput> {
     required Color textMuted,
     required Color accent,
     required Color borderCol,
+    required L10n l10n,
   }) {
     final hasText = _controller.text.trim().isNotEmpty;
     return ConstrainedBox(
@@ -352,14 +354,24 @@ class WpTagInputState extends State<WpTagInput> {
             vertical: WpSpacing.xxs + 2,
           ),
           suffixIcon: hasText
-              ? GestureDetector(
-                  onTap: () => _submit(_controller.text),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: WpSpacing.xxs),
-                    child: Icon(
-                      LucideIcons.cornerDownLeft,
-                      size: 14,
-                      color: textMuted,
+              ? Semantics(
+                  button: true,
+                  label: l10n.notesAddTag,
+                  child: Tooltip(
+                    message: l10n.notesAddTag,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => _submit(_controller.text),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: WpSpacing.xxs),
+                          child: Icon(
+                            LucideIcons.cornerDownLeft,
+                            size: 14,
+                            color: textMuted,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 )
