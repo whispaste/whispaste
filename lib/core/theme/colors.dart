@@ -142,8 +142,24 @@ abstract final class WpColorsDark {
   /// ambient gradient, body text still clears 4.5:1 and [accent] still clears
   /// 3:1 as a graphical object. Anything heavier eats the accent's headroom on
   /// the card.
-  static const Color cardFill = Color(0x14A190D5); // frost tint @ 8%
-  static const Color cardFillElevated = Color(0x24A190D5); // frost tint @ 14%
+  ///
+  /// **Re-solved 2026-08-11 — 8 % / 14 % retracted, not merely re-tuned.** The
+  /// seam fix lifted [warmSurfaceGradient]'s brightest stop from Y 0.01452 to
+  /// 0.01938, and these alphas composite over exactly that stop. At the old
+  /// values `textMuted` fell to 4.40:1 and 3.95:1 — under 4.5:1, so the ladder
+  /// had to come down with the sheet it sits on, not the threshold. The margin
+  /// before the lift was already thin (4.61:1), which is why *any* perceptible
+  /// seam broke it; that thinness was the latent bug, the lift only exposed it.
+  ///
+  /// **The budget this leaves is the part to read before Ticket 08 spends it.**
+  /// The two levels now lift 1.103:1 and 1.131:1 above the plane, where they
+  /// once spanned to ≈1.25:1 — the plane rose, the 4.5:1 ceiling did not, and
+  /// what got compressed is the *distance between the two levels* (1.75× of
+  /// alpha became 1.25×). Dark's second card level can therefore no longer be
+  /// bought with fill brightness. Buy it with chroma and [cardEdgeHighlight]
+  /// instead, or the elevated card will read as the same surface twice.
+  static const Color cardFill = Color(0x10A190D5); // frost tint @ 6.3%
+  static const Color cardFillElevated = Color(0x14A190D5); // frost tint @ 7.8%
 
   /// The card's static 1px top edge — a lit rim, not a light source.
   ///
@@ -281,10 +297,17 @@ abstract final class WpColorsDark {
   /// apart in relative luminance, so the panel reads as chromatic
   /// *temperature* under flat light, never as a lit edge.
   ///
-  /// Measured: 253° / 254° / 291°, saturation 67 % → 34 % → 21 % — the first
+  /// Measured: 253° / 254° / 291°, saturation 54 % → 25 % → 16 % — the first
   /// stop answers to the frame beneath it (see below), the other two to the
-  /// opaque tonal stack. The middle
-  /// stop *is* [surface] and moves with it. What keeps the magenta pole from
+  /// opaque tonal stack. ~~The middle stop *is* [surface] and moves with it.~~
+  /// **Retracted 2026-08-11 (seam re-solve, below):** the middle stop no
+  /// longer equals [surface]. That it did was a coincidence of tuning, not a
+  /// derivation — the same coincidence the light twin already retracted. The
+  /// plane is painted at three call sites only (`app.dart`,
+  /// `snippet_picker_render_entrypoint.dart`, `screenshot_shell.dart`) and
+  /// [surface] is the flat token for opaque panels; lifting the ambient does
+  /// not lift the panel stack, and the two are free to disagree.
+  /// What keeps the magenta pole from
   /// reading as a second signal is that saturation floor — under a quarter of
   /// the accent's — not hue distance; it deliberately sits on the same
   /// violet-magenta arc the accent gradient walks, because one atmosphere is
@@ -297,8 +320,10 @@ abstract final class WpColorsDark {
   /// the same light one step nearer — **identical hue, lower chroma, more
   /// light**. Against the frame under it (#1A0B50 at the 1100 × 750 the app
   /// opens at, 252.83° / 74.9 % / Y 0.01151) this stop lands at 252.92° /
-  /// 67.0 % / Y 0.01241: hue 0.09° off, chroma 7.9 points down, luminance
-  /// 1.034:1 up.
+  /// 57.5 % / Y 0.01787: hue 0.09° off, chroma 3.6 8-bit steps down, luminance
+  /// 1.121:1 up. *(Ticket 07 first shipped this stop at Y 0.01241 = 1.034:1;
+  /// see the perceptibility re-solve below for why that number moved and the
+  /// hue/chroma ones did not.)*
   ///
   /// **Re-solved with the frame's chroma, not merely re-measured.** It sat at
   /// 41.5 % while the frame beneath it sat at 46.8 % — a 5.4-point drop, about
@@ -318,14 +343,60 @@ abstract final class WpColorsDark {
   /// the `Frame → content-plane seam` group in `wcag_contrast_test.dart`
   /// walks the whole resize range to prove the constant holds at all of it.
   ///
-  /// The seam lift is why end to end this now spans 1.010:1 rather than the
+  /// The seam lift is why end to end this now spans 1.022:1 rather than the
   /// 1.02:1 of Ticket 06 — the first stop rose toward the last. The plane's
-  /// actual range is unchanged: its widest stop pair is still the middle stop
-  /// against the magenta pole, 1.07:1.
+  /// widest stop pair is the middle stop against the magenta pole, 1.088:1.
+  ///
+  /// **Perceptibility re-solve (2026-08-11) — the whole plane moved, +8 8-bit
+  /// steps on every channel of every stop.** Ticket 07's criteria gated the
+  /// seam's *direction* (chroma falls, lightness rises) and its *continuity*
+  /// (no chroma cliff) but never its *magnitude*, and the seam that satisfied
+  /// them was invisible: the maintainer reported no perceivable transition at
+  /// all. Measured, he was right — 1.034:1 at the corner is ΔL\* 0.47, at or
+  /// under the just-noticeable difference, so the gate was passing on a step
+  /// the eye cannot resolve.
+  ///
+  /// Worse, the corner was not the seam's worst point. The seam is an *edge
+  /// with length*: along the top edge the plane's own gradient parameter
+  /// sweeps toward its darkest middle stop while the frame above it brightens,
+  /// and the step collapsed to **1.009:1** mid-edge. Sampling only the corner
+  /// is what let that through, and the gate now sweeps both edges.
+  ///
+  /// Why a uniform additive offset rather than a re-pick: adding the same
+  /// constant to all three channels leaves every pairwise channel difference
+  /// intact, so hue and channel spread are preserved *exactly* — 252.92° /
+  /// 254.29° / 291.43°, bit for bit what Ticket 07 ratified — while lightness
+  /// rises and HSL saturation falls. Every one of Ticket 07's invariants is
+  /// therefore not merely still satisfied but numerically unchanged: the hue
+  /// gap at the seam is the same 0.09–1.46° across the resize sweep, and the
+  /// chroma drop the same 2.5–6.0 steps. Only the thing that was broken moved.
+  ///
+  /// Now: seam minimum **1.097:1 (ΔL\* 4.4)** along the whole edge at every
+  /// window from the enforced minimum to 4K, 1.121:1 at the corner, 1.211:1 at
+  /// its far end. That is nine times the ΔL\* of the step it replaces. For
+  /// scale, the nav rail's approved icon chips read ≈1.24:1 (ΔL\* 8.7) at rest
+  /// — but a chip is 38 px and this edge is the height of the window, and a
+  /// luminance step over a long border is the easiest case there is to detect,
+  /// so parity in ratio was never the target.
+  ///
+  /// **What caps it: the card fills above, not the seam itself.** Lifting the
+  /// sheet raises the floor every card on it composites over, and [cardFill] /
+  /// [cardFillElevated] are gated at 4.5:1 for `textMuted` over the plane's
+  /// brightest stop. Past +8 those two can no longer lift as far above the
+  /// plane as the plane lifts above the frame — the card would read flatter
+  /// than the sheet's own edge, which inverts the depth hierarchy. +8 is the
+  /// largest lift that keeps *card above plane ≥ plane above frame* true
+  /// (1.131:1 against 1.097:1). Two further ceilings sit just past it and are
+  /// recorded so nobody re-derives them: the magenta pole desaturates on paper
+  /// as it lightens (HSL's `1 − |2L − 1|` divisor grows), reaching the 15 %
+  /// ambient floor at ≈+12 — it holds 17.1 % here; and restoring that headroom
+  /// by scaling the pole's chroma ×1.5 was tried and rejected, because it
+  /// drives the plane's amplitude to 0.058 against the frame's 0.096 and
+  /// breaks *The Two Ambients Rule*'s frame > 2 × plane gate (0.022 here).
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E1051), Color(0xFF191429), Color(0xFF261A28)],
+    colors: [Color(0xFF261859), Color(0xFF211C31), Color(0xFF2E2230)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -690,8 +761,10 @@ abstract final class WpColorsLight {
   /// **The first stop is the seam** — see the dark twin for the full argument;
   /// this is its pearl solution. Against the frame at (72, 64) (#F5F1FC at
   /// the 1100 × 750 the app opens at, 259.92° / 61.2 % / Y 0.89504) it lands
-  /// at 260.0° / 42.9 % / Y 0.92044: hue 0.05° off, chroma 18.3 points down,
-  /// luminance 1.029:1 up. The residual hue gap is a *floor*, not a tolerance
+  /// at 260.0° / Y 0.95481: hue 0.05° off, chroma 4.5 8-bit steps down,
+  /// luminance 1.065:1 up. *(Ticket 07 first shipped this stop at Y 0.92044 =
+  /// 1.029:1; see the perceptibility re-solve below.)* The residual hue gap is
+  /// a *floor*, not a tolerance
   /// — at L ≈ 97 % a single 8-bit step is worth several degrees of hue, the
   /// same quantisation ceiling [frameGradient] argues for its own stops.
   ///
@@ -709,11 +782,43 @@ abstract final class WpColorsLight {
   /// to the opaque tonal stack, and the two have drifted apart accordingly —
   /// two 8-bit steps of blue and one of red since the frame's chroma rose. The
   /// dark twin still anchors on [surface] — at its *middle* stop, where
-  /// nothing reads it against the frame.
+  /// nothing reads it against the frame. ~~*(dark anchor)*~~ **Retracted
+  /// 2026-08-11:** the dark twin has since dropped that anchor too, for the
+  /// same reason this one did. See [WpColorsDark.warmSurfaceGradient].
+  ///
+  /// **Perceptibility re-solve (2026-08-11) — +4 8-bit steps on every channel,
+  /// and this plane is now at its physical ceiling.** The dark twin carries the
+  /// full argument: Ticket 07 gated the seam's direction and continuity but
+  /// never its magnitude, and the result was invisible — 1.029:1 is ΔL\* 0.94,
+  /// under the just-noticeable difference. Same uniform additive offset, so
+  /// hue (260.0° / 255.0° / 285.0°) and channel spread survive bit for bit and
+  /// every Ticket 07 invariant is numerically unchanged.
+  ///
+  /// Unlike dark, pearl cannot be lifted to a comfortable value, and it is
+  /// worth being exact about why rather than filing the shortfall as a weaker
+  /// choice. The first stop is now **#FBF9FF — its blue channel is clipped at
+  /// 0xFF**. There is no further step in this direction. The seam reads
+  /// **1.060:1 minimum (ΔL\* 2.3)** along the edge, 1.065:1 at the corner:
+  /// 2.5 × the old step, and the most this plane can give while the frame
+  /// stays where it is. Even a literally white plane would only reach 1.113:1,
+  /// because the frame at the seam sits at Y ≈ 0.894 — the ceiling is the
+  /// *frame's* brightness, and the frame's own deepest stop is pinned 0.007
+  /// above the luminance at which [textMuted] loses AA on it. **Going past
+  /// ≈1.06:1 on pearl is a decision about [frameGradient], not a tuning pass
+  /// on this token**, and it is deliberately left open rather than taken here.
+  ///
+  /// Two things that do *not* work, tried and measured, so they are not
+  /// re-tried: buying luminance by narrowing the plane's channel spread (at
+  /// 4–6 bytes one LSB is worth ~10–15° of hue, so the seam's 3° hue tolerance
+  /// blows out to 9°, 20°, 41°, and then to a fully achromatic stop), and
+  /// reading the chroma direction in HSL saturation (see the seam group in
+  /// `wcag_contrast_test.dart`: as these stops approach white the divisor
+  /// `1 − |2L − 1|` collapses and HSL saturation *rises* to 100 % on a stop
+  /// carrying six bytes of color, while the frame beneath it carries eleven).
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF7F5FB), Color(0xFFF3F2F6), Color(0xFFF4F1F5)],
+    colors: [Color(0xFFFBF9FF), Color(0xFFF7F6FA), Color(0xFFF8F5F9)],
     stops: [0.0, 0.5, 1.0],
   );
 

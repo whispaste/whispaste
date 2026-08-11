@@ -2442,19 +2442,30 @@ void main() {
   // not.
   // -------------------------------------------------------------------------
 
-  for (final (themeName, frame, plane, hueTolerance) in [
+  for (final (themeName, frame, plane, hueTolerance, seamFloor) in [
     // Tolerance is the measured worst case plus headroom, not a fence around
     // today's numbers: the sweep peaks at 1.46° on dark and 1.37° on light,
     // and the *pre-Ticket-07* stops missed by 4.24° / 4.35°, so a regression
     // to them trips this. Light cannot reach 0° at all — at L ≈ 97 % an 8-bit
     // step is worth several degrees of hue, the same quantisation argument
     // `WpColorsLight.frameGradient` already makes for its own stops.
-    ('dark', WpColorsDark.frameGradient, WpColorsDark.warmSurfaceGradient, 3.0),
+    //
+    // The fourth number is the seam's **minimum perceptible step**, swept
+    // along the seam's whole length. See the group's third test for where the
+    // two values come from and why they differ by so much.
+    (
+      'dark',
+      WpColorsDark.frameGradient,
+      WpColorsDark.warmSurfaceGradient,
+      3.0,
+      1.08,
+    ),
     (
       'light',
       WpColorsLight.frameGradient,
       WpColorsLight.warmSurfaceGradient,
       3.0,
+      1.05,
     ),
   ]) {
     group('Frame → content-plane seam – $themeName theme', () {
@@ -2479,26 +2490,46 @@ void main() {
                 'meeting rather than as one plane lying in one room',
           );
 
+          // Chroma has to *fall* across the seam — a surface nearer the light
+          // loses chroma; one that gains it reads as a colored panel laid on
+          // the room, not as part of it.
+          //
+          // Measured in channel spread (max − min, in 8-bit steps) rather
+          // than in HSL saturation. **This is a change of metric, not a
+          // relaxed threshold** (2026-08-11), and it is the metric this file
+          // already argues for two paragraphs down and in every other cross-
+          // theme chroma gate here: HSL's 1 − |2L − 1| divisor is ≈0.33 on
+          // dark and ≈0.06 on pearl, so points of saturation are not
+          // comparable across the seam, and bytes of color are.
+          //
+          // The seam re-solve made that difference load-bearing instead of
+          // academic. The light plane now sits at #FBF9FF, close enough to
+          // white that its divisor collapses and HSL reports **100 %**
+          // saturation for a stop carrying six bytes of color — while the
+          // frame beneath it, reported at ~53 %, carries eleven. Read in
+          // points, the pearl seam looks like a chroma *rise*; read in bytes,
+          // chroma falls by the same 4.2–4.7 steps it fell by before, because
+          // the additive lift did not touch a single channel difference. The
+          // eye agrees with the bytes.
+          final planeSpread = channelSpread(planeStart);
+          final frameSpread = channelSpread(frameAtSeam);
           expect(
-            preciseHsl(planeStart).saturation,
-            lessThan(preciseHsl(frameAtSeam).saturation),
+            (frameSpread - planeSpread) * 255.0,
+            greaterThan(0.0),
             reason:
-                '$themeName at $label: the plane is no less saturated than '
-                'the frame beneath it — a surface nearer the light loses '
-                'chroma; one that gains it reads as a colored panel laid on '
-                'the room, not as part of it',
+                '$themeName at $label: the plane carries '
+                '${(planeSpread * 255).toStringAsFixed(1)} 8-bit steps of '
+                'color against the frame\'s '
+                '${(frameSpread * 255).toStringAsFixed(1)} — it is no less '
+                'chromatic than the room it lies in, so it reads as a colored '
+                'panel laid on the frame rather than as part of it',
           );
 
           // Direction is not enough. The assertion above is satisfied by a
           // one-step drop and by a thirty-step cliff alike, and the cliff is
           // the failure mode a *re-saturated frame* produces if this stop is
           // left where it was: the plane would still be "less saturated",
-          // just no longer the same material. Measured as channel spread
-          // (max − min) rather than HSL saturation because the divisor
-          // 1 − |2L − 1| explodes at both ambients' lightnesses, so points of
-          // saturation are not comparable between them — bytes are.
-          final planeSpread = channelSpread(planeStart);
-          final frameSpread = channelSpread(frameAtSeam);
+          // just no longer the same material.
           expect(
             (frameSpread - planeSpread) * 255.0,
             lessThan(8.0),
@@ -2548,6 +2579,111 @@ void main() {
                 'whole weight is this step and it may not turn into a line',
           );
         });
+
+        // ---------------------------------------------------------------
+        // The magnitude gate (added 2026-08-11, after the maintainer
+        // reported no perceivable transition at all)
+        //
+        // Ticket 07 gated the seam's *direction* and its *continuity* and
+        // never its *magnitude*: the assertions above are all satisfied by a
+        // step of 1.011:1, which is what shipped, and which is ΔL* 0.5 — at
+        // or below the just-noticeable difference. The gate was passing on a
+        // step the eye cannot resolve. `greaterThan(1.01)` above is a
+        // has-any-step check and is deliberately left where it is; this is
+        // the has-*enough*-step check.
+        //
+        // Two modelling points, both learned from the failure:
+        //
+        // 1. **The corner is not the worst point.** The seam is an edge with
+        //    length. Along the top edge the plane's own gradient parameter
+        //    sweeps toward its darkest middle stop while the frame above it
+        //    brightens, and the pre-fix step fell from 1.031:1 at the corner
+        //    to **1.009:1** mid-edge. A floor measured at the corner alone
+        //    would have left exactly the reported failure mode passing, so
+        //    this walks both edges of the plane rect at every window size.
+        //
+        // 2. **The two floors are not a mirrored pair** (*The Theme-Pair
+        //    Rule* asks for a reason, and this is it). Dark measures 1.150:1
+        //    minimum (ΔL* 6.3) and is floored at 1.10. Pearl measures
+        //    1.060:1 (ΔL* 2.3) and is floored at 1.05 — not a weaker choice
+        //    but the ceiling: the light plane's first stop is #FBF9FF with
+        //    its blue channel clipped at 0xFF, and even a literally white
+        //    plane would only reach 1.113:1 there, because the frame under
+        //    the seam sits at Y ≈ 0.894 and its own deepest stop is pinned
+        //    0.007 above where `textMuted` loses AA on it. Raising the pearl
+        //    floor is a decision about `frameGradient`, not a tuning pass on
+        //    the plane.
+        // ---------------------------------------------------------------
+        test(
+          '$label: perceptible along the whole seam, not just the corner',
+          () {
+            final planeWidth = window.width - WpLayout.sidebarWidth;
+            final planeHeight =
+                window.height -
+                WpLayout.appBarHeight -
+                WpLayout.statusBarHeight;
+            final projection =
+                planeWidth * planeWidth + planeHeight * planeHeight;
+
+            const samples = 40;
+            var worst = double.infinity;
+            var worstAt = '';
+
+            for (var i = 0; i <= samples; i++) {
+              final along = i / samples;
+              for (final (edge, dx, dy) in <(String, double, double)>[
+                ('top edge', planeWidth * along, 0.0),
+                ('left edge', 0.0, planeHeight * along),
+              ]) {
+                // The plane's gradient is sampled in the panel's own rect; the
+                // frame's in the window's. Two different projections meeting at
+                // one line is precisely why the seam's step varies along it.
+                final planeHere = gradientColorAt(
+                  plane,
+                  (dx * planeWidth + dy * planeHeight) / projection,
+                );
+                final frameHere = gradientColorAt(
+                  frame,
+                  frameGradientT(
+                    WpLayout.sidebarWidth + dx,
+                    WpLayout.appBarHeight + dy,
+                    window,
+                  ),
+                );
+
+                expect(
+                  relativeLuminance(planeHere),
+                  greaterThan(relativeLuminance(frameHere)),
+                  reason:
+                      '$themeName at $label: on the $edge the plane falls below '
+                      'the frame beside it — the sheet dips into the room and '
+                      'the seam reverses somewhere along its length, even if '
+                      'the corner still reads correctly',
+                );
+
+                final step = contrastRatio(planeHere, frameHere);
+                if (step < worst) {
+                  worst = step;
+                  worstAt =
+                      '$edge, ${(along * 100).toStringAsFixed(0)} % along';
+                }
+              }
+            }
+
+            expect(
+              worst,
+              greaterThanOrEqualTo(seamFloor),
+              reason:
+                  '$themeName at $label: the seam\'s weakest point steps only '
+                  '${worst.toStringAsFixed(4)}:1 ($worstAt), under the '
+                  '${seamFloor.toStringAsFixed(2)}:1 floor. Direction and '
+                  'continuity are not perceptibility: a seam this shallow is '
+                  'the one the maintainer reported as having "no perceivable '
+                  'transition at all", and it passed every other assertion in '
+                  'this group',
+            );
+          },
+        );
       }
     });
   }
