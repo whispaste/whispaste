@@ -605,7 +605,7 @@ abstract final class WpColorsLight {
   /// range by descending into shadow; on pearl the same move descends into
   /// [textMuted]'s AA margin. `textMuted` needs a ground at relative luminance
   /// ≥ 0.798 to hold 4.5:1, and the frame is exactly where the status bar and
-  /// the settings rows put it. The darkest stop lands at 0.819 (4.61:1) and
+  /// the nav rail's inactive icons put it. The darkest stop lands at 0.819 (4.61:1) and
   /// the range is bought at the bright end instead — 1.10:1 end to end against
   /// the content plane's 1.03:1, so the frame is still the livelier of the two
   /// ambients, by the same margin ratio as on dark. That is *The

@@ -2282,7 +2282,7 @@ void main() {
               reason:
                   '$themeName: $textName on frame stop $i is only '
                   '${ratio.toStringAsFixed(2)}:1 — the frame carries the title '
-                  'bar, the status-bar chips and the settings rows, so range '
+                  'bar, the status-bar chips and the nav rail icons, so range '
                   'in the ambient is bought out of a legibility budget and may '
                   'not overdraw it',
             );
