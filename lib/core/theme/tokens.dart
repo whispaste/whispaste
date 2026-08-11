@@ -1,12 +1,22 @@
 /// WhisPaste design tokens — Single Source of Truth for all visual styling.
 ///
-/// Premium design: clean depth via layered surfaces, crisp shadows, tonal
-/// gradients, and warm materiality. Restraint means no glow and a single
-/// brand accent (cyan/teal) — not bare/flat; warm, soft-shadowed depth is
-/// equally premium. "Single accent" is about the *brand voice*: the pin marker
-/// and the category slots (`WpCategorySlot`) carry hues of their own, but they
-/// state what something *is*, never that it is important. See *The Single
-/// Accent Rule* and *The Categorical vs. Sequential Rule* in `lib/DESIGN.md`.
+/// Premium design: clean depth via layered surfaces, tinted material, tonal
+/// gradients. Restraint means no glow and exactly two accents with two jobs —
+/// violet-magenta for "you can act on this", cyan/teal for "a recording is in
+/// flight" — not bare/flat; soft, tinted depth is equally premium. The two
+/// accents are the *brand voice*: the pin marker and the category slots
+/// (`WpCategorySlot`) carry hues of their own, but they state what something
+/// *is*, never that it is important. See *The Categorical vs. Sequential Rule*
+/// in `lib/DESIGN.md` for that last distinction.
+///
+/// The two-accent split and the one-depth-source-per-theme split are both new
+/// with this token set and are stated here rather than cited: `lib/DESIGN.md`
+/// still documents the superseded single-accent doctrine and is rewritten in a
+/// follow-up ticket. Two accents, two exclusive jobs: violet-magenta means "you
+/// can act on this", cyan/teal means "a recording is in flight" — no element
+/// may reach for the other family to look important. One depth source per
+/// theme: light uses a soft, wide, tinted shadow ([WpShadows.cardTintedLight]),
+/// dark uses the brightness delta between its fills and gets no shadow at all.
 library;
 
 import 'package:flutter/material.dart';
@@ -102,7 +112,33 @@ abstract final class WpShadows {
     BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
-  /// Warm inner shadow for glass panels — subtle top-light illusion
+  /// The light theme's one card shadow: soft, wide, violet-tinted, offset.
+  ///
+  /// Mirrors `WpColorsLight.cardShadowLight` (kept as a literal here so the
+  /// primitive layer stays free of a dependency on the color layer; a test
+  /// pins the two together). **Light-theme only, by refusal rather than by
+  /// omission** — on the dark theme depth comes from the brightness delta
+  /// between the card fills, and a shadow on near-black adds mud, not depth.
+  ///
+  /// The geometry carries the whole argument: a *glow* is a colored shadow at
+  /// offset 0 and stays forbidden; a *shadow* is offset + wide blur + low
+  /// alpha, and a shadow may be tinted. (The distinction is not yet a named
+  /// rule in `lib/DESIGN.md`; it is audited executably in
+  /// `test/core/theme/wcag_contrast_test.dart` instead.)
+  static const List<BoxShadow> cardTintedLight = [
+    BoxShadow(color: Color(0x14281446), blurRadius: 35, offset: Offset(0, 10)),
+  ];
+
+  /// Warm inner top-light illusion — the only `BlurStyle.inner` entry here.
+  ///
+  /// **No call sites.** It was cut for `WpGlassPanel`, which is deleted; it
+  /// survives as the shape an inner edge highlight takes, and as the one
+  /// worked example the offset audit in
+  /// `test/core/theme/wcag_contrast_test.dart` has to reason about — an inner
+  /// shadow is the only kind that may legitimately approach offset zero. Its
+  /// offset is `(0, 1)`, so it clears that audit on its own merits and needs
+  /// no allowlist entry. Delete it the moment a real inner highlight lands
+  /// with real values.
   static const List<BoxShadow> glassInner = [
     BoxShadow(
       color: Color(0x0AFFFFFF),

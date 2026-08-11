@@ -1,40 +1,75 @@
 /// WhisPaste color palette — dark & light theme color definitions.
 ///
-/// Calm, quiet palette with warm materiality: deep rich surfaces with a
-/// single cyan accent, opaque dual-tone gradients for chromatic depth (see
-/// `warmSurfaceGradient`), soft glass hints and crisp borders. No harsh
-/// glow anywhere — depth comes from layered surfaces, tonal temperature
-/// shifts, and soft shadows, never from alpha-blended light.
+/// Quiet, chromatic material. **Two accents, two jobs**: a violet-magenta
+/// family (`accent` and its ladder) means "you can act on this", and a
+/// cyan/teal family (`recordingAccent`) means "a recording or its
+/// transcription is in flight" — nothing else is allowed a saturated voice.
+///
+/// Depth is *precomposited frost*, not a compositor effect: tinted translucent
+/// card fills (`cardFill`, `cardFillElevated`) painted over one chromatic
+/// ambient gradient (`warmSurfaceGradient`), plus a static 1px top-edge
+/// highlight. Every fill carries its hue in the token — a neutral white/black
+/// alpha over a chromatic ground desaturates it, which is exactly how the
+/// earlier painted-glass attempt read grey. There is no `BackdropFilter` in
+/// the app outside the modal dialog-barrier family (`dialog.dart`,
+/// `export_format_picker.dart`, `hotkey_recorder.dart` — three call sites of
+/// the same transient full-screen effect, which already has a Windows
+/// fallback).
+///
+/// Depth comes from **one source per theme**: on dark from the brightness
+/// delta between fills (no card shadow token exists here at all), on light
+/// from a single soft, wide, violet-tinted shadow (`cardShadowLight`). A glow
+/// — a colored shadow at offset 0 — is not a depth source and stays out.
+///
+/// **Theme asymmetry, sanctioned here.** The light stack's chroma is capped
+/// well below the dark stack's — not for taste, but because rotating a pearl
+/// toward violet drains the green channel that carries 71.5 % of relative
+/// luminance, and `textMuted` runs out of AA headroom before the dark side
+/// notices anything. That is the *Increment–Decrement Rule*'s closing clause in
+/// `lib/DESIGN.md` — "a new theme asymmetry is allowed, but it argues for
+/// itself at the token" — and the argument sits at [WpColorsLight.background].
+///
+/// The two-accent and one-depth-source splits are stated in this file rather
+/// than cited: `lib/DESIGN.md` still carries the superseded single-accent
+/// doctrine and is rewritten in a follow-up ticket.
 library;
 
-import 'dart:io' show Platform;
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
-import 'tokens.dart';
-
 // ---------------------------------------------------------------------------
-// Dark Theme Colors (Primary) — rich saturated navy tones, warm & unified
+// Dark Theme Colors (Primary) — rich saturated violet-navy tones, unified
 // ---------------------------------------------------------------------------
 abstract final class WpColorsDark {
-  /// Window frame — close to surface for unified monochrome feel
-  static const Color background = Color(0xFF0F1320);
+  /// Window frame — close to surface for unified monochrome feel.
+  ///
+  /// The whole opaque stack below turned from blue-navy (~223°) to
+  /// violet-navy (~253°) with the accent, so the ambient shares the accent's
+  /// hue family instead of sitting across the wheel from it. **Chroma and hue
+  /// only** — every one of these keeps its previous HSL lightness to the
+  /// decimal, which is what holds *Frame–content unity* (≤ 4 % gap) without
+  /// touching that gate's threshold.
+  static const Color background = Color(0xFF130F20);
 
   /// Content surfaces — minimal step up from frame (≈ 2% lightness delta)
-  static const Color surface = Color(0xFF141A29);
+  static const Color surface = Color(0xFF191429);
 
-  /// Elevated panels, cards — richer blue tint
-  static const Color surfaceElevated = Color(0xFF1B2336);
+  /// Elevated panels, cards — richer violet tint
+  static const Color surfaceElevated = Color(0xFF211B36);
 
   /// Variant surface for alternate rows, secondary panels
-  static const Color surfaceVariant = Color(0xFF232C40);
-  static const Color hover = Color(0xFF212A40);
+  static const Color surfaceVariant = Color(0xFF292340);
+
+  /// Hover and press rungs of the same stack. Moved with the surfaces on
+  /// purpose: a hover that stayed blue-navy under a violet-navy card would
+  /// introduce a hue shift *on interaction*, which is the one thing a hover
+  /// state must not do.
+  static const Color hover = Color(0xFF282140);
 
   /// Transparent version of hover for smooth AnimatedContainer transitions
   /// (prevents dark flash when interpolating from transparent to hover)
-  static const Color hoverTransparent = Color(0x00212A40);
-  static const Color active = Color(0xFF293352);
+  static const Color hoverTransparent = Color(0x00282140);
+  static const Color active = Color(0xFF322952);
 
   /// Hairline borders — white at 11.8 % / 18.8 %, both a step *above* their
   /// light twins (7.8 % / 14.1 %). Not an oversight: see
@@ -42,40 +77,84 @@ abstract final class WpColorsDark {
   static const Color borderSubtle = Color(0x1EFFFFFF);
   static const Color borderDefault = Color(0x30FFFFFF);
 
+  /// Hairline of an *active* card tile — see [WpColorsLight.cardActiveBorder]
+  /// for why this pair carries the same alpha byte in both themes.
+  static const Color cardActiveBorder = Color(0x24FFFFFF);
+
   /// Text — readable, not overly bright to avoid harshness
   static const Color textPrimary = Color(0xFFF0F4FA);
   static const Color textSecondary = Color(0xFFABB8CC);
   static const Color textMuted = Color(0xFF8A99B2);
 
-  /// Vibrant cyan accent — highly saturated
-  static const Color accent = Color(0xFF3CCBE6);
-  static const Color accentHover = Color(0xFF66DBEE);
+  /// The one generic interaction color — a vivid violet, 258°/92 %.
+  ///
+  /// Everything the user can act on carries this and only this: filled and
+  /// outlined buttons, focus rings, selected rows, active toggles, links. Cyan
+  /// no longer means "clickable" anywhere; it means [recordingAccent] and
+  /// nothing else — two accent families, two exclusive jobs, no element may
+  /// reach for the other one to look important. (The rule has no name in
+  /// `lib/DESIGN.md` yet; that file still documents the superseded
+  /// single-accent doctrine and is rewritten in a follow-up ticket.)
+  ///
+  /// The lightness is not a taste call. `WpCategorySlot` tops out at 6.01:1
+  /// against [surface], and the accent has to stay *louder* than the loudest
+  /// category — so this value is solved for 6.88:1, comfortably above it. The
+  /// hue has a ceiling too: the decorative wash sits at 314°, and the palette
+  /// owes it 45° of clearance, which puts the flat accent at 258° and leaves
+  /// magenta to the far stop of [accentWarmGradient].
+  static const Color accent = Color(0xFFAF8EFA);
+  static const Color accentHover = Color(0xFFCEBAFC);
 
   /// Flat accent surface tint, 16.5 % — deliberately *above* its light twin
   /// (11 %). See [WpColorsLight.accentSubtle] for the increment/decrement
   /// reasoning shared by every structural translucent in this file.
-  static const Color accentSubtle = Color(0x2A3CCBE6);
+  static const Color accentSubtle = Color(0x2AAF8EFA);
 
   /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
   /// the *value*, used inside components that get reused as nested instances.
   /// Prefer them over inline `colour.withValues(...)` for component
   /// fills/borders.
-  static const Color accentChipFill = Color(0x1A3CCBE6); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2E3CCBE6); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1F3CCBE6); // accent @ 12%
-  static const Color accentBorder30 = Color(0x4D3CCBE6); // accent @ 30%
-  static const Color accentButtonFill = Color(0x143CCBE6); // accent @ 8%
-  static const Color accentActiveFill = Color(0x1F3CCBE6); // accent @ 12%
-  static const Color accentBadgeFill = Color(0x263CCBE6); // accent @ 15%
-  static const Color accentBorder20 = Color(0x333CCBE6); // accent @ 20%
-  static const Color accentRowHover = Color(0x0F3CCBE6); // accent @ 6%
-  static const Color surfaceChipFill = Color(0x80141A29); // surface @ 50%
+  static const Color accentChipFill = Color(0x1AAF8EFA); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2EAF8EFA); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1FAF8EFA); // accent @ 12%
+  static const Color accentBorder30 = Color(0x4DAF8EFA); // accent @ 30%
+  static const Color accentButtonFill = Color(0x14AF8EFA); // accent @ 8%
+  static const Color accentActiveFill = Color(0x1FAF8EFA); // accent @ 12%
+  static const Color accentBadgeFill = Color(0x26AF8EFA); // accent @ 15%
+  static const Color accentBorder20 = Color(0x33AF8EFA); // accent @ 20%
+  static const Color accentRowHover = Color(0x0FAF8EFA); // accent @ 6%
+  static const Color surfaceChipFill = Color(0x80191429); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
+
+  /// Precomposited frost — the card material, base and elevated rung.
+  ///
+  /// A violet-lavender tint at 8 % / 14 %, painted over the ambient
+  /// [warmSurfaceGradient] rather than blurred out of it. The tint hue lives
+  /// in the token by design: a white alpha would wash the ambient's color out
+  /// and the card would read grey, which is precisely the failure this
+  /// material replaces.
+  ///
+  /// The alphas are solved, not chosen: composited over *both* extremes of the
+  /// ambient gradient, body text still clears 4.5:1 and [accent] still clears
+  /// 3:1 as a graphical object. Anything heavier eats the accent's headroom on
+  /// the card.
+  static const Color cardFill = Color(0x14A190D5); // frost tint @ 8%
+  static const Color cardFillElevated = Color(0x24A190D5); // frost tint @ 14%
+
+  /// The card's static 1px top edge — a lit rim, not a light source.
+  ///
+  /// It lifts the fill it sits on by ≈1.41:1, under the 1.5:1 threshold at
+  /// which a surface treatment starts reading as a drawn object. Static: no
+  /// animation, no hover response, no gradient. Dark carries no card *shadow*
+  /// token at all — on this ground depth comes from the brightness delta
+  /// between [cardFill] and [cardFillElevated], and a shadow on near-black
+  /// would only add mud. One depth source per theme — see the library header.
+  static const Color cardEdgeHighlight = Color(0x24D7C8F9);
 
   /// Wash for a large decorative background glyph — its own category, *below*
   /// the 6/12/30% tint ladder above. See [WpColorsLight.decorativeGlyphWash]
   /// for why the two themes carry different alphas.
-  static const Color decorativeGlyphWash = Color(0x0D3CCBE6); // accent @ 5%
+  static const Color decorativeGlyphWash = Color(0x0DAF8EFA); // accent @ 5%
 
   /// Saturated status colors — rich and warm
   static const Color success = Color(0xFF36D98B);
@@ -121,7 +200,7 @@ abstract final class WpColorsDark {
   /// would have to be judged against a moving target. If it ever reads heavy
   /// on light, that is a maintainer call with the ring on screen, not a
   /// derivation from the rule.
-  static const Color accentLocatorRing = Color(0x8C3CCBE6); // accent @ 55%
+  static const Color accentLocatorRing = Color(0x8CAF8EFA); // accent @ 55%
 
   /// Recording/listening family — the one meaning cyan keeps.
   ///
@@ -129,10 +208,11 @@ abstract final class WpColorsDark {
   /// two different hues: [accent] means "you can act on this", these mean "a
   /// recording or its transcription is in flight" (audio-level bars, the
   /// transcribing rung of the status chip, the onboarding sandbox's live
-  /// border). The values below are copied byte-for-byte from [accent] and
-  /// [accentWarmGradient] — deliberately *literals*, not aliases: when the
-  /// generic family moves off cyan, the recording family must stay where it
-  /// is, and an alias would drag it along.
+  /// border). The values below were copied byte-for-byte off the accent family
+  /// while it was still cyan — deliberately *literals*, not aliases. The
+  /// generic family has since moved to violet and these stayed exactly where
+  /// they were, which is what the literals were for; an alias would have
+  /// dragged them along.
   ///
   /// Every call site is classified in the split's audit table; anything that
   /// is merely tappable, selected, hovered or focused stays on [accent], and
@@ -146,9 +226,9 @@ abstract final class WpColorsDark {
   /// [accentWarmGradient]. No main-app surface paints a recording gradient
   /// today (the overlay owns that job and keeps its own spec), so this is the
   /// family's reserved home rather than a live call site.
-  // loam-ignore: unused-public-exports – required by Ticket 02 AC even
-  // without a live call site, so the recording family's gradient home
-  // exists before Ticket 04 repoints the generic accentWarmGradient.
+  // loam-ignore: unused-public-exports – the recording family's reserved
+  // gradient home; the generic accentWarmGradient has moved to violet and
+  // this is the only place the cyan ramp still exists.
   static const LinearGradient recordingAccentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -190,25 +270,27 @@ abstract final class WpColorsDark {
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1C2640), Color(0xFF141A29)],
+    colors: [Color(0xFF241C40), Color(0xFF191429)],
   );
 
-  /// Dual-tone temperature wash — a cool navy top-left, the neutral `surface`
-  /// anchor in the middle, and a bottom-right that turns ~34° toward violet
-  /// while shedding saturation. Opaque tonal steps (no alpha glow): the three
-  /// stops sit 1.08:1 apart in relative luminance, so the content panel reads
-  /// as chromatic *temperature* under flat light, never as a lit edge.
+  /// The ambient the content plane is painted on, and the ground every card
+  /// fill is gated against — a cool violet top-left, the [surface] anchor in
+  /// the middle, and a magenta pole bottom-right that sheds saturation as it
+  /// turns. Opaque tonal steps (no alpha glow): neighbouring stops sit 1.05:1
+  /// and 1.07:1 apart in relative luminance (1.02:1 end to end), so the panel
+  /// reads as chromatic *temperature* under
+  /// flat light, never as a lit edge.
   ///
-  /// Measured, because the earlier note here was not: the stops are 225° /
-  /// 223° / 257°, so the "warm" pole is violet rather than the rose-coral it
-  /// was described as, it is no split-complement of `accent` (~190°), and it
-  /// lands within a degree of the avatar palette's violet rather than clear of
-  /// every avatar hue. What keeps it from reading as a second signal is its
-  /// saturation floor — 21%, under half the accent's — not any hue distance.
+  /// Measured: 249° / 254° / 291°, saturation 43 % → 34 % → 21 %. The middle
+  /// stop *is* [surface] and moves with it. What keeps the magenta pole from
+  /// reading as a second signal is that saturation floor — under a quarter of
+  /// the accent's — not hue distance; it deliberately sits on the same
+  /// violet-magenta arc the accent gradient walks, because one atmosphere is
+  /// the point.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF17203A), Color(0xFF141A29), Color(0xFF1E1A28)],
+    colors: [Color(0xFF1C173A), Color(0xFF191429), Color(0xFF261A28)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -221,14 +303,21 @@ abstract final class WpColorsDark {
 
   /// Top accent line gradient
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFF3CCBE6), Color(0xFF1AB5E0)],
+    colors: [Color(0xFFAF8EFA), Color(0xFFA467F4)],
   );
 
-  /// Warm accent gradient — cyan to teal, rich and saturated
+  /// The interactive gradient — violet to magenta, rich and saturated.
+  ///
+  /// Anchored at [accent] and drifting 258° → 271° → 285° while descending in
+  /// lightness, i.e. the same shape the cyan→teal ramp had, re-solved on the
+  /// violet arc. Anchoring at the flat accent rather than at a darker violet
+  /// is deliberate: this gradient also paints the 3 px sidebar and section
+  /// indicator bars, and a dark first stop would drop those from ≈7:1 to ≈4:1
+  /// against their grounds app-wide.
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF3CCBE6), Color(0xFF14B8D4), Color(0xFF0A99B8)],
+    colors: [Color(0xFFAF8EFA), Color(0xFFAB63EE), Color(0xFFB348D7)],
   );
 
   /// Nav-rail active pill — a *tonal* top-lit gradient on the existing accent,
@@ -242,37 +331,51 @@ abstract final class WpColorsDark {
   static const LinearGradient navPillActiveGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x333CCBE6), Color(0x1F3CCBE6)],
+    colors: [Color(0x33AF8EFA), Color(0x1FAF8EFA)],
   );
-
-  /// Glass tint — semi-transparent overlay for frosted panels
-  static const Color glassTint = Color(0x18FFFFFF);
-
-  /// Glass border — bright edge on frosted surfaces
-  static const Color glassBorder = Color(0x24FFFFFF);
 }
 
 // ---------------------------------------------------------------------------
 // Light Theme Colors
 // ---------------------------------------------------------------------------
 abstract final class WpColorsLight {
-  /// Window frame — pearl-blue tint for brand identity; analogous to Dark's deep navy
-  static const Color background = Color(0xFFE8EFF8);
+  /// Window frame — pearl-violet tint for brand identity; the light twin of
+  /// Dark's deep violet-navy.
+  ///
+  /// Same operation as [WpColorsDark.background]: hue turned from ~214° to
+  /// ~260° at unchanged HSL lightness, so *Frame–content unity* (≤ 5 % gap on
+  /// light) holds by construction rather than by re-tuning the gate.
+  ///
+  /// The chroma of the whole light stack is *capped*, not chosen: rotating a
+  /// pearl from blue toward violet moves weight out of the green channel, and
+  /// green carries 71.5 % of relative luminance. At the old saturations the
+  /// violet pearls dropped [textMuted] below AA on three grounds. So every
+  /// light surface sits as close to the ratified 15 % tint floor as the gates
+  /// allow — the cap is [textMuted]'s AA headroom on pearl, not taste. Dark
+  /// has no such cap and keeps its full chroma. That asymmetry is what *The
+  /// Increment–Decrement Rule* in `lib/DESIGN.md` closes with — "a new theme
+  /// asymmetry is allowed, but it argues for itself at the token" — and this
+  /// paragraph is the argument.
+  static const Color background = Color(0xFFEFEDF3);
 
-  /// Content surfaces — cool pearl-white with visible cyan tint (not sterile white)
-  static const Color surface = Color(0xFFF2F6FC);
+  /// Content surfaces — cool pearl-white with a visible violet tint (not
+  /// sterile white)
+  static const Color surface = Color(0xFFF6F5F9);
 
   /// Elevated panels, cards — lighter than surface, still clearly tinted
-  static const Color surfaceElevated = Color(0xFFF7FAFD);
+  static const Color surfaceElevated = Color(0xFFFAF9FB);
 
   /// Variant surface for alternate rows, secondary panels
-  static const Color surfaceVariant = Color(0xFFEBF1F8);
-  static const Color hover = Color(0xFFE3EBF5);
+  static const Color surfaceVariant = Color(0xFFF1EFF4);
+
+  /// Hover and press rungs — see [WpColorsDark.hover] for why they move with
+  /// the surfaces instead of staying behind on the old hue.
+  static const Color hover = Color(0xFFEBE8F0);
 
   /// Transparent version of hover for smooth AnimatedContainer transitions
   /// (prevents flash when interpolating from transparent to hover)
-  static const Color hoverTransparent = Color(0x00E3EBF5);
-  static const Color active = Color(0xFFD5DFEE);
+  static const Color hoverTransparent = Color(0x00EBE8F0);
+  static const Color active = Color(0xFFE0DCE7);
 
   /// Hairline borders — navy-ink at 7.8 % / 14.1 %, a step *under* dark's
   /// 11.8 % / 18.8 %. Same reason as [accentSubtle] below, and the reason is
@@ -283,15 +386,35 @@ abstract final class WpColorsLight {
   static const Color borderSubtle = Color(0x140F172A);
   static const Color borderDefault = Color(0x24131F32);
 
+  /// Hairline of an *active* card tile — the one border pair that carries the
+  /// same alpha byte (14.1 %) in both themes instead of stepping dark above
+  /// light. An active card already sits on the lifted `hover` fill, so its
+  /// hairline only has to separate two surfaces that already differ; the
+  /// increment dark normally needs is bought by the fill underneath it.
+  ///
+  /// Replaces the former `glassBorder`, which survived the deleted glass
+  /// family on dark only and left this call site pairing a glass token against
+  /// an ink one. Values are unchanged in both themes — this is a rename into
+  /// a proper theme pair, not a re-tune.
+  static const Color cardActiveBorder = Color(0x24131F32);
+
   /// Strong text contrast for light theme
   static const Color textPrimary = Color(0xFF101828);
   static const Color textSecondary = Color(0xFF44556E);
   static const Color textMuted = Color(0xFF5B697E);
 
-  /// Deep teal accent — analogous to Dark's #3CCBE6, darkened for WCAG AA on
-  /// light (≥5.4:1 against both `surface` and `background`; the previous
-  /// #0887A8 only reached ≈3.6-3.8:1, under the 4.5:1 AA floor for normal text).
-  static const Color accent = Color(0xFF06678A);
+  /// Deep violet accent — the same 258° hue as Dark's #AF8EFA, darkened for
+  /// WCAG AA on pearl (5.84:1 against `surface`, 5.46:1 against `background`).
+  ///
+  /// Solved for *relative-luminance parity* with the teal it replaces
+  /// (Y ≈ 0.1157, byte-identical in effect): every light tint rung, the
+  /// nav pill's 14/8 % pair and [decorativeGlyphWash] were calibrated against
+  /// that luminance, so the whole light ladder keeps its optical weight
+  /// without a single alpha being re-tuned. Dark cannot have that parity — the
+  /// old cyan sat at Y ≈ 0.49 and matching it would have forced a near-white
+  /// lavender — so the dark ladder resolves a little quieter than before. That
+  /// is a deliberate consequence, not an oversight.
+  static const Color accent = Color(0xFF6B35E9);
 
   /// Flat accent surface tint, 11 % — a step under dark's 16.5 %, and the
   /// canonical statement of why every *structural* translucent in this file
@@ -312,25 +435,59 @@ abstract final class WpColorsLight {
   /// "hover" and 30 % is "outline" whatever the hue, whatever the theme — and
   /// re-tuning them per theme would break the guarantee that a destructive
   /// control's states carry exactly the weight of an accent one's.
-  static const Color accentSubtle = Color(0x1C06678A); // accent @ 11%
+  static const Color accentSubtle = Color(0x1C6B35E9); // accent @ 11%
 
   /// Instance-safe tint tokens — see [WpColorsDark.accentChipFill] for rationale.
-  static const Color accentChipFill = Color(0x1A06678A); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2E06678A); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1F06678A); // accent @ 12%
-  static const Color accentBorder30 = Color(0x4D06678A); // accent @ 30%
-  static const Color accentButtonFill = Color(0x1406678A); // accent @ 8%
-  static const Color accentActiveFill = Color(0x1F06678A); // accent @ 12%
-  static const Color accentBadgeFill = Color(0x2606678A); // accent @ 15%
-  static const Color accentBorder20 = Color(0x3306678A); // accent @ 20%
-  static const Color accentRowHover = Color(0x0F06678A); // accent @ 6%
-  static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
+  static const Color accentChipFill = Color(0x1A6B35E9); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2E6B35E9); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1F6B35E9); // accent @ 12%
+  static const Color accentBorder30 = Color(0x4D6B35E9); // accent @ 30%
+  static const Color accentButtonFill = Color(0x146B35E9); // accent @ 8%
+  static const Color accentActiveFill = Color(0x1F6B35E9); // accent @ 12%
+  static const Color accentBadgeFill = Color(0x266B35E9); // accent @ 15%
+  static const Color accentBorder20 = Color(0x336B35E9); // accent @ 20%
+  static const Color accentRowHover = Color(0x0F6B35E9); // accent @ 6%
+  static const Color surfaceChipFill = Color(0x80F6F5F9); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
+
+  /// Precomposited frost — see [WpColorsDark.cardFill] for the material.
+  ///
+  /// The light twin runs the *other* direction, as the ground demands: on
+  /// pearl a card is a lift toward white, not toward the accent, so the tint
+  /// is a violet-white rather than a lavender. It still carries hue in the
+  /// value (#FAF7FF / #FDFAFF, never `0x..FFFFFF`) — a plain white alpha here
+  /// would bleach the ambient's violet out of the card and leave the same grey
+  /// the dark theme was failing at.
+  ///
+  /// The alphas run *higher* than dark's 8/14 %, which is not a violation of
+  /// *The Increment–Decrement Rule* but its consequence: these are not tints
+  /// laid over a ground to tint it, they are the card's own body, and on pearl
+  /// the card's body is nearly the ground's own value.
+  static const Color cardFill = Color(0xCCFAF7FF); // frost tint @ 80%
+  static const Color cardFillElevated = Color(0xE6FDFAFF); // frost tint @ 90%
+
+  /// The card's static 1px top edge — see [WpColorsDark.cardEdgeHighlight].
+  /// Lifts its fill by ≈1.02:1 here; on pearl there is barely any room above
+  /// the card left, which is exactly why light gets a shadow and dark does not.
+  static const Color cardEdgeHighlight = Color(0xCCFFFCFF);
+
+  /// The light theme's one depth source: a soft, wide, violet-tinted shadow
+  /// (≈`0 10px 35px rgba(40,20,70,0.08)`, wired up as
+  /// `WpShadows.cardTintedLight`).
+  ///
+  /// Tinted, not neutral black — a black shadow under a violet card greys the
+  /// pearl around it, which is the same failure mode as a white-alpha fill,
+  /// one layer down. **Deliberately has no dark counterpart**: on near-black
+  /// a shadow adds mud instead of depth, so dark reads its depth off the
+  /// brightness delta between the card fills. A `WpColorsDark.cardShadow` is
+  /// not missing here — it is refused. One depth source per theme; the split
+  /// is stated in the library header, not yet named in `lib/DESIGN.md`.
+  static const Color cardShadowLight = Color(0x14281446);
 
   /// Transient settings-search locator ring — see
   /// [WpColorsDark.accentLocatorRing], including why this one alpha is *not*
   /// tuned down for light the way the structural tints are.
-  static const Color accentLocatorRing = Color(0x8C06678A); // accent @ 55%
+  static const Color accentLocatorRing = Color(0x8C6B35E9); // accent @ 55%
 
   /// Recording/listening family — see [WpColorsDark.recordingAccent] for the
   /// split's rationale. Same deal on light: byte-for-byte copies of [accent]
@@ -362,7 +519,7 @@ abstract final class WpColorsLight {
   /// light eat most of the difference. Equal alphas therefore read unequal —
   /// light visibly stronger — which is exactly what the model step showed.
   /// Both values still sit clearly under the ladder's 6% floor.
-  static const Color decorativeGlyphWash = Color(0x0806678A); // accent @ 3%
+  static const Color decorativeGlyphWash = Color(0x086B35E9); // accent @ 3%
 
   /// Danger/off-brand-neutral tint ladder — see [WpColorsDark.errorRowHover]
   /// for rationale.
@@ -382,24 +539,28 @@ abstract final class WpColorsLight {
   static const Color successActiveFill = Color(0x1F05875C); // success @ 12%
   static const Color warningActiveFill = Color(0x1FC97A06); // warning @ 12%
 
-  /// Premium pearl-blue card gradient — subtle diagonal wash
+  /// Premium pearl-violet card gradient — subtle diagonal wash
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF5F9FD), Color(0xFFEDF3FA)],
+    colors: [Color(0xFFF8F7FB), Color(0xFFF3F1F6)],
   );
 
-  /// Dual-tone temperature wash — cool pearl top-left, neutral anchor,
-  /// near-neutral pearl bottom-right. Mirrors [WpColorsDark.warmSurfaceGradient]
-  /// in shape only: R/G/B stay within a few points of each other at every
-  /// stop, so the drift reads as a tonal-luminance shift, not a color cast —
-  /// neither a yellow/beige pole (B as channel minimum) nor a rose/magenta
-  /// pole (G as channel minimum) survives here. Drift stays shallow,
-  /// luminance flat: opaque tonal steps, no alpha glow.
+  /// The light ambient — the [surface] anchor as its *first* stop (dark anchors
+  /// on its middle one; on pearl the cool pole is the surface itself), a
+  /// slightly deeper violet mid-stop, a pearl-magenta pole bottom-right.
+  /// Mirrors [WpColorsDark.warmSurfaceGradient] in shape and in the direction
+  /// of its hue arc — measured 255° → 255° → 285°, i.e. the violet end is flat
+  /// where dark's still turns, because at this lightness 8-bit quantisation
+  /// swallows a few degrees of hue — at a fraction of its amplitude: luminance
+  /// stays
+  /// within 1.03:1 across all three stops, so the drift reads as a temperature
+  /// shift on pearl rather than a color cast. Opaque tonal steps, no alpha
+  /// glow. This is the ground every light card fill is gated against.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF2F7FC), Color(0xFFEFF3F9), Color(0xFFF1F1F5)],
+    colors: [Color(0xFFF6F5F9), Color(0xFFF3F2F6), Color(0xFFF4F1F5)],
     stops: [0.0, 0.5, 1.0],
   );
 
@@ -411,30 +572,30 @@ abstract final class WpColorsLight {
     stops: [0.0, 0.48, 1.0],
   );
 
-  /// Warm accent gradient — teal to deep teal, consistent with accent
+  /// The interactive gradient — violet to magenta, the light twin of
+  /// [WpColorsDark.accentWarmGradient]: same 258° → 271° → 285° arc, each stop
+  /// solved back toward the relative luminance its teal predecessor carried
+  /// (old 0.1157 / 0.1460 / 0.0945 → new 0.1156 / 0.1429 / 0.0968 — the first
+  /// stop is parity, the other two land within ~2 %, which is where the hue
+  /// arc and 8-bit quantisation leave them). Buttons and indicator bars
+  /// therefore keep their weight on pearl.
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF06678A), Color(0xFF0E7490), Color(0xFF155E75)],
+    colors: [Color(0xFF6B35E9), Color(0xFF8F3CDD), Color(0xFF882AA7)],
   );
 
   /// Nav-rail active pill — see [WpColorsDark.navPillActiveGradient].
   ///
   /// Light keeps its own, lower alpha pair (14 % → 8 %, mean 11 %) rather than
-  /// reusing the dark stops: the deep-teal accent on a near-white pearl
-  /// surface reads heavier per unit alpha than cyan on navy does. The mean
-  /// again matches the flat [accentSubtle] (11 %) it replaces.
+  /// reusing the dark stops: the deep accent on a near-white pearl surface
+  /// reads heavier per unit alpha than the light violet on violet-navy does.
+  /// The mean again matches the flat [accentSubtle] (11 %) it replaces.
   static const LinearGradient navPillActiveGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x2406678A), Color(0x1406678A)],
+    colors: [Color(0x246B35E9), Color(0x146B35E9)],
   );
-
-  /// Glass tint — soft white overlay for light frosted panels
-  static const Color glassTint = Color(0x80FFFFFF);
-
-  /// Glass border — bright edge on frosted surfaces
-  static const Color glassBorder = Color(0x40FFFFFF);
 
   /// Watermark line color — very faint slate tint for subtle topographic depth.
   static const Color watermark = Color(0x0A243B53);
@@ -639,10 +800,10 @@ double _linearToSrgb(double c) =>
 /// than its ground, on pearl its light twin resolves *toward ink*, same hue,
 /// same saturation, luminance re-solved against the other ground.
 ///
-/// **Excluded hue bands, on purpose.** Cyan/teal 165–215° belongs to the brand
-/// accent alone (*The Single Accent Rule*); ~30–55° is Pin Amber and `warning`;
-/// ~350–15° is `error`; ~145–165° is `success`. A category may not borrow a hue
-/// that already means something else in this app.
+/// **Excluded hue bands, on purpose.** Cyan/teal 165–215° belongs to the
+/// recording family alone; ~30–55° is Pin Amber and
+/// `warning`; ~350–15° is `error`; ~145–165° is `success`. A category may not
+/// borrow a hue that already means something else in this app.
 abstract final class WpCategoryColorsDark {
   static const Color iris = Color(0xFFA486D9); // 262° violet
   static const Color ember = Color(0xFFCB855B); // 22° terracotta
@@ -1022,76 +1183,4 @@ Color wpDecorativeChromeWash(bool isDark) => isDark
 Color wpDialogBarrierColor(bool isDark) {
   return (isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF))
       .withValues(alpha: isDark ? 0.45 : 0.35);
-}
-
-/// Creates a frosted-glass [BoxDecoration] suitable for cards and panels.
-///
-/// Subtle, not heavy — just enough to hint at depth and translucency.
-/// Use with [ClipRRect] + [BackdropFilter] for the full glass effect.
-BoxDecoration wpGlassDecoration({
-  required bool isDark,
-  BorderRadius? borderRadius,
-  double borderOpacity = 1.0,
-}) {
-  return BoxDecoration(
-    color: isDark ? WpColorsDark.glassTint : WpColorsLight.glassTint,
-    borderRadius: borderRadius ?? WpRadius.borderMd,
-    border: Border.all(
-      color: (isDark ? WpColorsDark.glassBorder : WpColorsLight.glassBorder)
-          .withValues(alpha: borderOpacity * (isDark ? 0.094 : 0.251)),
-    ),
-  );
-}
-
-/// A widget that applies a subtle frosted-glass effect to its child.
-///
-/// Wraps content in [ClipRRect] + [BackdropFilter] with a translucent tint.
-/// The blur is deliberately light (sigmaX/Y = 12) for a premium, soft look.
-class WpGlassPanel extends StatelessWidget {
-  const WpGlassPanel({
-    super.key,
-    required this.child,
-    this.borderRadius,
-    this.padding,
-    this.blurSigma = 12.0,
-  });
-
-  final Widget child;
-  final BorderRadius? borderRadius;
-  final EdgeInsets? padding;
-  final double blurSigma;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final br = borderRadius ?? WpRadius.borderMd;
-
-    // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
-    // broken, so fall back to a solid opaque panel fill.
-    final bool useBlur = !Platform.isWindows;
-
-    final decoration = useBlur
-        ? wpGlassDecoration(isDark: isDark, borderRadius: br)
-        : wpGlassDecoration(isDark: isDark, borderRadius: br).copyWith(
-            color: isDark
-                ? WpColorsDark.surfaceElevated
-                : WpColorsLight.surfaceElevated,
-          );
-
-    final content = Container(
-      decoration: decoration,
-      padding: padding,
-      child: child,
-    );
-
-    return ClipRRect(
-      borderRadius: br,
-      child: useBlur
-          ? BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-              child: content,
-            )
-          : content,
-    );
-  }
 }

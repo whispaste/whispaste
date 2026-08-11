@@ -165,8 +165,8 @@ class WpListTileSurface extends StatelessWidget {
         return Border.all(
           color: _isActive
               ? (isDark
-                    ? WpColorsDark.glassBorder
-                    : WpColorsLight.borderDefault)
+                    ? WpColorsDark.cardActiveBorder
+                    : WpColorsLight.cardActiveBorder)
               : (isDark
                     ? WpColorsDark.borderSubtle
                     : WpColorsLight.borderSubtle),

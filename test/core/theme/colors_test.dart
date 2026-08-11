@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
-import 'package:whispaste/core/theme/tokens.dart';
 
 void main() {
   group('WpColorsDark', () {
@@ -25,10 +24,19 @@ void main() {
       expect(WpColorsDark.textPrimary, isNot(WpColorsDark.textMuted));
     });
 
-    test('accent color is cyan', () {
-      // Accent should be bright cyan — high green+blue, low red
-      expect(WpColorsDark.accent.g, greaterThan(0.7));
+    test('accent color is violet', () {
+      // The generic interaction accent is a light violet: blue leads, red
+      // follows, green trails. Cyan (green ≈ blue, both high) would fail here,
+      // which is the point — cyan means `recordingAccent` now.
+      expect(WpColorsDark.accent.b, greaterThan(WpColorsDark.accent.r));
+      expect(WpColorsDark.accent.r, greaterThan(WpColorsDark.accent.g));
       expect(WpColorsDark.accent.b, greaterThan(0.7));
+    });
+
+    test('the recording accent is still cyan and no longer the accent', () {
+      expect(WpColorsDark.recordingAccent.g, greaterThan(0.7));
+      expect(WpColorsDark.recordingAccent.b, greaterThan(0.7));
+      expect(WpColorsDark.recordingAccent, isNot(WpColorsDark.accent));
     });
 
     test('semantic colors (success, warning, error) are distinct', () {
@@ -37,11 +45,16 @@ void main() {
       expect(WpColorsDark.success, isNot(WpColorsDark.error));
     });
 
-    test('glass tokens exist for frosted UI', () {
-      expect(WpColorsDark.glassTint, isNotNull);
-      expect(WpColorsDark.glassBorder, isNotNull);
-      // Glass tint should be semi-transparent
-      expect(WpColorsDark.glassTint.a, lessThan(1.0));
+    test('card material tokens exist and are translucent', () {
+      expect(WpColorsDark.cardFill.a, lessThan(1.0));
+      expect(WpColorsDark.cardFillElevated.a, lessThan(1.0));
+      expect(WpColorsDark.cardEdgeHighlight.a, lessThan(1.0));
+      // The elevated rung is the heavier one — that difference is the dark
+      // theme's entire depth source.
+      expect(
+        WpColorsDark.cardFillElevated.a,
+        greaterThan(WpColorsDark.cardFill.a),
+      );
     });
 
     test('surfaceGradient returns a valid two-stop gradient', () {
@@ -88,9 +101,11 @@ void main() {
       expect(WpColorsLight.textPrimary, isNot(WpColorsLight.textMuted));
     });
 
-    test('accent color is teal', () {
-      // Light accent is a deeper teal — lower RGB than dark accent
+    test('accent color is a deep violet', () {
+      // Same hue family as dark, darkened for AA on pearl.
       expect(WpColorsLight.accent.a, 1.0);
+      expect(WpColorsLight.accent.b, greaterThan(WpColorsLight.accent.r));
+      expect(WpColorsLight.accent.r, greaterThan(WpColorsLight.accent.g));
       expect(WpColorsLight.accent, isNot(WpColorsDark.accent));
     });
 
@@ -100,9 +115,11 @@ void main() {
       expect(WpColorsLight.success, isNot(WpColorsLight.error));
     });
 
-    test('glass tokens exist for frosted UI', () {
-      expect(WpColorsLight.glassTint, isNotNull);
-      expect(WpColorsLight.glassBorder, isNotNull);
+    test('card material tokens exist, including the light-only shadow', () {
+      expect(WpColorsLight.cardFill.a, lessThan(1.0));
+      expect(WpColorsLight.cardFillElevated.a, lessThan(1.0));
+      expect(WpColorsLight.cardEdgeHighlight.a, lessThan(1.0));
+      expect(WpColorsLight.cardShadowLight.a, lessThan(1.0));
     });
 
     test('surfaceGradient returns a valid two-stop gradient', () {
@@ -129,35 +146,8 @@ void main() {
     });
 
     test('accent colors differ between dark and light', () {
-      // Dark uses bright cyan, light uses deeper teal
+      // Dark uses a light violet, light a deeper one at the same hue.
       expect(WpColorsDark.accent, isNot(WpColorsLight.accent));
-    });
-  });
-
-  group('wpGlassDecoration', () {
-    test('dark variant returns a BoxDecoration with glass tint', () {
-      final decoration = wpGlassDecoration(isDark: true);
-      expect(decoration, isA<BoxDecoration>());
-      expect(decoration.color, WpColorsDark.glassTint);
-      expect(decoration.border, isNotNull);
-      expect(decoration.borderRadius, isNotNull);
-    });
-
-    test('light variant returns a BoxDecoration with glass tint', () {
-      final decoration = wpGlassDecoration(isDark: false);
-      expect(decoration, isA<BoxDecoration>());
-      expect(decoration.color, WpColorsLight.glassTint);
-    });
-
-    test('respects custom borderRadius', () {
-      final br = BorderRadius.circular(20);
-      final decoration = wpGlassDecoration(isDark: true, borderRadius: br);
-      expect(decoration.borderRadius, br);
-    });
-
-    test('default borderRadius is WpRadius.md', () {
-      final decoration = wpGlassDecoration(isDark: true);
-      expect(decoration.borderRadius, WpRadius.borderMd);
     });
   });
 }

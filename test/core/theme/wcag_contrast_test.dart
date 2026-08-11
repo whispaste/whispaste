@@ -18,9 +18,10 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:flutter/painting.dart' show HSLColor;
+import 'package:flutter/painting.dart' show BoxShadow, HSLColor, LinearGradient;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/core/theme/tokens.dart' show WpShadows;
 import 'package:whispaste/services/model_download_service.dart'
     show TierPerformance, sttModels;
 import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart'
@@ -72,6 +73,27 @@ Color alphaComposite(Color fg, Color bg) {
     green: fg.g * a + bg.g * (1 - a),
     blue: fg.b * a + bg.b * (1 - a),
   );
+}
+
+/// The lightest and the darkest stop of a gradient, by relative luminance.
+///
+/// Picked by measurement rather than by stop index on purpose: which end of an
+/// ambient gradient is the bright one is a tuning decision that later tickets
+/// still move, and a hard-coded `colors.first`/`colors.last` would silently
+/// start gating the wrong extreme when it does.
+({Color lightest, Color darkest}) gradientExtremes(LinearGradient gradient) {
+  final sorted = [...gradient.colors]
+    ..sort((a, b) => relativeLuminance(a).compareTo(relativeLuminance(b)));
+  return (lightest: sorted.last, darkest: sorted.first);
+}
+
+/// True when a color carries no hue at all — R, G and B identical, i.e. a
+/// neutral white/grey/black that only varies in alpha.
+bool isAchromatic(Color c) {
+  final r = (c.r * 255).round();
+  final g = (c.g * 255).round();
+  final b = (c.b * 255).round();
+  return r == g && g == b;
 }
 
 /// Midpoint of two opaque colors — the center of a two-stop linear gradient.
@@ -1632,6 +1654,478 @@ void main() {
               '$themeName: the decorative source is '
               '${(sat * 100).toStringAsFixed(0)} % saturated — over the 80 % '
               'ceiling the whole palette outside the accent stands under',
+        );
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Frost material (Ticket 04) — the executable half of the material rules
+  //
+  // The redesign drops `BackdropFilter` entirely and *precomposites* the frost
+  // instead: a tinted translucent fill painted over one chromatic ambient
+  // gradient. That only works if the fill is gated where it is actually
+  // painted, so the gates below composite each card fill onto the ambient it
+  // sits on before measuring anything.
+  //
+  // Which ambient: `warmSurfaceGradient`, deliberately **not** `frameGradient`.
+  // The frame's richer values arrive in the frame follow-up ticket, and gating
+  // this ticket's material against a token another ticket is about to retune
+  // would pin one deliverable to another one's moving target. The warm surface
+  // gradient is the content plane cards live in and is settled here.
+  // -------------------------------------------------------------------------
+
+  for (final (themeName, ambient, fills, texts, accent) in [
+    (
+      'dark',
+      WpColorsDark.warmSurfaceGradient,
+      <String, Color>{
+        'cardFill': WpColorsDark.cardFill,
+        'cardFillElevated': WpColorsDark.cardFillElevated,
+      },
+      <String, Color>{
+        'textPrimary': WpColorsDark.textPrimary,
+        'textSecondary': WpColorsDark.textSecondary,
+        'textMuted': WpColorsDark.textMuted,
+      },
+      WpColorsDark.accent,
+    ),
+    (
+      'light',
+      WpColorsLight.warmSurfaceGradient,
+      <String, Color>{
+        'cardFill': WpColorsLight.cardFill,
+        'cardFillElevated': WpColorsLight.cardFillElevated,
+      },
+      <String, Color>{
+        'textPrimary': WpColorsLight.textPrimary,
+        'textSecondary': WpColorsLight.textSecondary,
+        'textMuted': WpColorsLight.textMuted,
+      },
+      WpColorsLight.accent,
+    ),
+  ]) {
+    final extremes = gradientExtremes(ambient);
+    final grounds = <String, Color>{
+      'ambient.lightest': extremes.lightest,
+      'ambient.darkest': extremes.darkest,
+    };
+
+    group('Card fill over the ambient extremes – $themeName theme', () {
+      fills.forEach((fillName, fill) {
+        test(fillName, () {
+          grounds.forEach((groundName, ground) {
+            final composited = alphaComposite(fill, ground);
+
+            // Body text on the card: WCAG 1.4.3, the full 4.5:1.
+            texts.forEach((textName, text) {
+              final ratio = contrastRatio(text, composited);
+              expect(
+                ratio,
+                greaterThanOrEqualTo(4.5),
+                reason:
+                    '$themeName $fillName over $groundName: $textName reaches '
+                    'only ${ratio.toStringAsFixed(2)}:1 — a card fill that '
+                    'costs legibility at one end of the ambient is not a card '
+                    'fill, it is a gradient bug waiting for a wide window',
+              );
+            });
+
+            // The accent as a graphical object on the card: WCAG 1.4.11, 3:1.
+            final accentRatio = contrastRatio(accent, composited);
+            expect(
+              accentRatio,
+              greaterThanOrEqualTo(3.0),
+              reason:
+                  '$themeName $fillName over $groundName: the accent reaches '
+                  'only ${accentRatio.toStringAsFixed(2)}:1 — an interactive '
+                  'mark on a card owes 3:1 (WCAG 1.4.11)',
+            );
+          });
+        });
+      });
+    });
+  }
+
+  // Tinted-never-grey, the half a machine can check: a fill may not be a
+  // neutral white/black alpha. (Stated here, not cited — `lib/DESIGN.md` gets
+  // the named rule in a follow-up ticket.) This is the direct correction of
+  // the "painted glass reads grey" failure — a white-alpha fill over a
+  // chromatic ground *desaturates* it, which is exactly how the frost lost its
+  // color.
+  //
+  // Scoped to fills on purpose. Hairlines and borders (`borderSubtle`,
+  // `borderDefault`, `cardActiveBorder`, `watermark`) are neutral by design
+  // and are a different question; the rule as written names surfaces.
+  group('Card material – every fill carries hue', () {
+    final fills = <String, Color>{
+      'dark: cardFill': WpColorsDark.cardFill,
+      'dark: cardFillElevated': WpColorsDark.cardFillElevated,
+      'light: cardFill': WpColorsLight.cardFill,
+      'light: cardFillElevated': WpColorsLight.cardFillElevated,
+    };
+
+    fills.forEach((name, fill) {
+      test(name, () {
+        expect(
+          isAchromatic(fill),
+          isFalse,
+          reason:
+              '$name is a neutral white/black alpha '
+              '(#${fill.toARGB32().toRadixString(16).padLeft(8, '0')}) — the '
+              'hue has to live in the token, not in whatever happens to be '
+              'underneath it',
+        );
+        expect(
+          fill.a,
+          lessThan(1.0),
+          reason:
+              '$name is opaque — a precomposited frost is translucent by '
+              'definition; an opaque fill cuts the card out of its ambient',
+        );
+      });
+    });
+  });
+
+  // The static 1px top edge: a highlight, not a light source. It has to lift
+  // the fill it sits on (otherwise it is a shadow) and stay under the same
+  // 1.5:1 object threshold the decorative wash is held to (otherwise it reads
+  // as a drawn line the user is meant to interpret).
+  for (final (themeName, ambient, elevatedFill, edge) in [
+    (
+      'dark',
+      WpColorsDark.warmSurfaceGradient,
+      WpColorsDark.cardFillElevated,
+      WpColorsDark.cardEdgeHighlight,
+    ),
+    (
+      'light',
+      WpColorsLight.warmSurfaceGradient,
+      WpColorsLight.cardFillElevated,
+      WpColorsLight.cardEdgeHighlight,
+    ),
+  ]) {
+    group('Card edge highlight – $themeName theme', () {
+      final extremes = gradientExtremes(ambient);
+
+      test('translucent and hue-bearing', () {
+        expect(
+          edge.a,
+          lessThan(1.0),
+          reason: '$themeName: the edge highlight must be translucent',
+        );
+        expect(
+          isAchromatic(edge),
+          isFalse,
+          reason:
+              '$themeName: the edge highlight is a neutral white alpha — same '
+              'rule as the fills, same reason',
+        );
+      });
+
+      for (final (groundName, ground) in [
+        ('ambient.lightest', extremes.lightest),
+        ('ambient.darkest', extremes.darkest),
+      ]) {
+        test('lifts the card and stays quiet on $groundName', () {
+          final card = alphaComposite(elevatedFill, ground);
+          final lit = alphaComposite(edge, card);
+
+          expect(
+            relativeLuminance(lit),
+            greaterThan(relativeLuminance(card)),
+            reason:
+                '$themeName: the top edge darkens its card on $groundName — a '
+                'highlight that subtracts light is a shadow with the wrong '
+                'name',
+          );
+          final ratio = contrastRatio(lit, card);
+          expect(
+            ratio,
+            lessThan(1.5),
+            reason:
+                '$themeName: the top edge lifts its card by '
+                '${ratio.toStringAsFixed(3)}:1 on $groundName — at or above '
+                '1.5:1 it reads as a graphical object (same ceiling the '
+                'decorative wash stands under), and the material is supposed '
+                'to be felt, not read',
+          );
+        });
+      }
+    });
+  }
+
+  // One depth source per theme: dark gets its depth from the brightness delta
+  // between fills and owns *no* card shadow token; light gets exactly one soft,
+  // wide, violet-tinted shadow. The dark half of that is a deliberate absence,
+  // which a test cannot assert directly (a missing member is a compile error,
+  // not a failure) — what is assertable is that the one shadow that does exist
+  // is the light one, is tinted, and is wired to the light token.
+  group('Card shadow – light theme only, tinted, offset', () {
+    test('the shadow token is a tinted ink, not neutral black', () {
+      const shadow = WpColorsLight.cardShadowLight;
+      expect(
+        isAchromatic(shadow),
+        isFalse,
+        reason:
+            'the light card shadow is neutral black at alpha — a tinted '
+            'shadow is what keeps the light theme from going grey under its '
+            'own cards',
+      );
+      expect(
+        shadow.a,
+        lessThan(0.2),
+        reason:
+            'the light card shadow is heavier than 20 % — one soft wide '
+            'shadow, not a drop shadow',
+      );
+      expect(
+        relativeLuminance(shadow),
+        lessThan(relativeLuminance(WpColorsLight.background)),
+        reason: 'a shadow darker than its ground, or it is not a shadow',
+      );
+    });
+
+    test('WpShadows.cardTintedLight is that token', () {
+      expect(
+        WpShadows.cardTintedLight.single.color,
+        WpColorsLight.cardShadowLight,
+        reason:
+            'the shadow list and the color token drifted apart — the token is '
+            'the single source, the list is its wiring',
+      );
+      expect(
+        WpShadows.cardTintedLight.single.blurRadius,
+        greaterThanOrEqualTo(24.0),
+        reason: 'soft and wide — a tight blur would read as a drop shadow',
+      );
+    });
+  });
+
+  // One depth source per theme, the executable half: a *glow* is a colored
+  // shadow at offset zero and stays forbidden; a *shadow* is offset + wide
+  // blur + low alpha and is allowed, tinted included. (Not yet a named rule in
+  // `lib/DESIGN.md` — that file is rewritten in a follow-up ticket — so the
+  // rule is stated here rather than cited.)
+  //
+  // The allowlist is *empty today, by measurement*: no shadow in tokens.dart
+  // paints at offset zero, `glassInner` included (it sits at `(0, 1)`). Adding
+  // a name here therefore means editing this line in the same commit as the
+  // glow and having to argue for it; the only argument that works is a genuine
+  // inner edge highlight.
+  group('BoxShadow offset audit (one depth source per theme)', () {
+    const zeroOffsetAllowlist = <String>{};
+
+    const audited = <String, List<BoxShadow>>{
+      'subtle': WpShadows.subtle,
+      'subtleTransparent': WpShadows.subtleTransparent,
+      'card': WpShadows.card,
+      'subtleLight': WpShadows.subtleLight,
+      'cardLight': WpShadows.cardLight,
+      'elevated': WpShadows.elevated,
+      'glassInner': WpShadows.glassInner,
+      'cardTintedLight': WpShadows.cardTintedLight,
+    };
+
+    test('the audit covers every shadow token in tokens.dart', () {
+      final source = File('lib/core/theme/tokens.dart').readAsStringSync();
+      final declared = RegExp(
+        r'static const List<BoxShadow>\s+(\w+)',
+      ).allMatches(source).map((m) => m.group(1)!).toSet();
+
+      expect(
+        declared.length,
+        greaterThan(4),
+        reason:
+            'the parse found only ${declared.length} shadow lists in '
+            'tokens.dart — the audit below would pass vacuously',
+      );
+      expect(
+        declared,
+        audited.keys.toSet(),
+        reason:
+            'a shadow token was added or renamed without being audited '
+            'for offset (a glow is a colored shadow at offset zero)',
+      );
+    });
+
+    audited.forEach((name, shadows) {
+      test(name, () {
+        for (var i = 0; i < shadows.length; i++) {
+          final shadow = shadows[i];
+          if (shadow.offset.dy != 0 || shadow.offset.dx != 0) continue;
+          expect(
+            zeroOffsetAllowlist,
+            contains(name),
+            reason:
+                '$name[$i] paints at offset zero — a colored shadow with no '
+                'offset is a glow, and glow is what this palette replaced '
+                'with layered material. Add it to the inner-highlight '
+                'allowlist only if it really is an inner edge.',
+          );
+        }
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Two accents, two jobs — the accent means "you can act on this", the
+  // recording family means "a recording or its transcription is in flight".
+  // Two hues, two jobs, and nothing may present them as competing interactive
+  // treatments of the same thing.
+  //
+  // Pinned as a file allowlist rather than as "no file uses both": the status
+  // bar legitimately paints both — the transcribing dot is a recording signal,
+  // the chip's own borders and icons are generic interaction — and a naive
+  // mutual-exclusion test would have to be weakened into vacuity to survive
+  // that. What is actually checkable is that the recording family stays inside
+  // its audited call sites, and that none of those sites also carries a
+  // primary CTA *gradient*, which is where the two read as rival brand voices.
+  //
+  // The rule has no name in `lib/DESIGN.md` yet — that file still documents
+  // the superseded single-accent doctrine and is rewritten in a follow-up
+  // ticket — so it is stated here in full rather than cited.
+  // -------------------------------------------------------------------------
+
+  group('Two accents, two jobs – token usage', () {
+    List<String> dartFilesUnderLib() {
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .map((f) => f.path.replaceAll(r'\', '/'))
+          .toList();
+      expect(
+        files.length,
+        greaterThan(100),
+        reason:
+            'the sweep found only ${files.length} Dart files under lib/ — an '
+            'empty result below would pass vacuously',
+      );
+      return files;
+    }
+
+    test('the recording family stays inside its audited call sites', () {
+      const audited = {
+        'lib/core/theme/colors.dart', // the definition site
+        'lib/widgets/waveform.dart', // audio-level bars
+        'lib/widgets/status_bar.dart', // the transcribing dot
+        'lib/features/onboarding/steps/test_recording_step.dart', // sandbox
+      };
+
+      final referencing = dartFilesUnderLib()
+          .where((p) => File(p).readAsStringSync().contains('recordingAccent'))
+          .toSet();
+
+      expect(
+        referencing,
+        audited,
+        reason:
+            'the recording accent left (or lost) its audited call sites. It '
+            'means one thing — a recording or its transcription is in flight '
+            '— and every new home for it is a classification decision, not a '
+            'color choice.',
+      );
+    });
+
+    test('no recording surface also paints a loud generic CTA gradient', () {
+      // The flat tokens are deliberately *not* mutually exclusive: the status
+      // bar paints `recordingAccent` for the transcribing dot and `accent` for
+      // its own borders and icons, and that is correct — one says "a recording
+      // is in flight", the other says "you can act on this". What must not
+      // happen is a recording surface *also* carrying a primary CTA gradient,
+      // because two saturated gradient families on one surface is exactly the
+      // "which color means clickable?" guessing game the split ends.
+      const loudGenericGradients = [
+        'accentGradient',
+        'accentWarmGradient',
+        'navPillActiveGradient',
+      ];
+
+      final recordingFamilyFiles = dartFilesUnderLib()
+          .where((p) => p != 'lib/core/theme/colors.dart')
+          .where((p) => File(p).readAsStringSync().contains('recordingAccent'))
+          .toSet();
+
+      expect(
+        recordingFamilyFiles,
+        isNotEmpty,
+        reason:
+            'no file outside colors.dart references the recording family — '
+            'the offender scan below would pass vacuously',
+      );
+
+      final offenders = <String, List<String>>{};
+      for (final path in recordingFamilyFiles) {
+        final src = File(path).readAsStringSync();
+        final found = loudGenericGradients.where(src.contains).toList();
+        if (found.isNotEmpty) offenders[path] = found;
+      }
+
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'a recording surface also paints a primary CTA gradient: '
+            '$offenders. Flat generic-accent tokens are fine there; a loud '
+            'gradient makes the two families read as rival brand voices.',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Tinted-never-grey, the ambient half: the frame and the content plane are
+  // *tinted* material, not neutral grey. Same 15 % rung the opaque surfaces
+  // already stand on above — one floor for the whole ambient stack rather than
+  // a second, differently-argued number.
+  //
+  // Non-vacuous by construction: the tightest stop today is the light warm
+  // gradient's near-neutral pole at ~17 %, i.e. two points of headroom. Pulling
+  // any ambient stop toward grey trips this immediately.
+  // -------------------------------------------------------------------------
+
+  group('Ambient saturation floor (≥ 15% tint)', () {
+    const floor = 0.15;
+
+    // Every ambient stop expressed as the same `_SaturationCheck` the opaque
+    // surfaces above use, so the ambient half of the rule is asserted by the
+    // same loop rather than by a second implementation of it.
+    final checks = <_SaturationCheck>[
+      for (final (themeName, gradientName, gradient) in [
+        ('dark', 'frameGradient', WpColorsDark.frameGradient),
+        ('dark', 'warmSurfaceGradient', WpColorsDark.warmSurfaceGradient),
+        ('light', 'frameGradient', WpColorsLight.frameGradient),
+        ('light', 'warmSurfaceGradient', WpColorsLight.warmSurfaceGradient),
+      ])
+        for (var i = 0; i < gradient.colors.length; i++)
+          _SaturationCheck(
+            '$themeName: $gradientName stop $i',
+            gradient.colors[i],
+            floor,
+          ),
+    ];
+
+    test('the sweep found every ambient stop', () {
+      expect(
+        checks.length,
+        greaterThanOrEqualTo(10),
+        reason:
+            'only ${checks.length} ambient stops were collected — the audit '
+            'below would pass near-vacuously',
+      );
+    });
+
+    for (final check in checks) {
+      test(check.name, () {
+        final sat = hslSaturation(check.color);
+        expect(
+          sat,
+          greaterThanOrEqualTo(check.minSaturation),
+          reason:
+              '${check.name} is ${(sat * 100).toStringAsFixed(1)} % saturated '
+              '(#${check.color.toARGB32().toRadixString(16).padLeft(8, '0')}) '
+              '— under the ${(check.minSaturation * 100).round()} % floor the '
+              'ambient stops being material and starts being grey',
         );
       });
     }
