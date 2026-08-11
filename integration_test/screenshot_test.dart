@@ -1,7 +1,7 @@
 /// Integration-test screenshot engine for WhisPaste.
 ///
 /// Runs against a real Windows desktop window, capturing the FULL app chrome
-/// (sidebar, title bar, status bar, frame gradient, watermark) as transparent
+/// (sidebar, title bar, status bar, frame gradient) as transparent
 /// PNGs with rounded corners — ready for store listings and website gallery.
 ///
 /// Run:
@@ -45,7 +45,6 @@ import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
-import 'package:whispaste/widgets/frame_watermark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
 import 'package:whispaste/widgets/status_bar.dart';
@@ -235,7 +234,7 @@ Widget _buildScreenshotApp({
 /// Replicates the full app chrome layout from `_AppShell` (lib/app.dart)
 /// without [WpServiceBootstrap] or [WpRecordingBehavior].
 ///
-/// Uses the REAL extracted widgets (sidebar, title bar, status bar, watermark,
+/// Uses the REAL extracted widgets (sidebar, title bar, status bar,
 /// recording indicator bar, settings button) to prevent screenshot drift.
 class _ScreenshotShell extends StatelessWidget {
   const _ScreenshotShell({
@@ -282,8 +281,6 @@ class _ScreenshotShell extends StatelessWidget {
               ),
               child: const SizedBox.expand(),
             ),
-            // Watermark pattern
-            Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
             // Main layout — mirrors _AppShell exactly
             Column(
               children: [

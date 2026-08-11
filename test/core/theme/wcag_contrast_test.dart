@@ -18,7 +18,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:flutter/painting.dart' show BoxShadow, HSLColor, LinearGradient;
+import 'package:flutter/painting.dart'
+    show Alignment, BoxShadow, HSLColor, LinearGradient;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/tokens.dart' show WpShadows;
@@ -1524,10 +1525,16 @@ void main() {
     });
   });
 
-  // The grounds the wash is actually painted on — the window frame, which is
-  // what shows through the nav rail and the settings page. Deliberately *not*
-  // `surface`/`surfaceElevated`/`surfaceVariant`: those are opaque fills drawn
-  // on top of the wash, so a card's own text never sees it.
+  // The ground the wash is actually painted on — **the content plane**, since
+  // Ticket 06 narrowed the layer to the settings page alone and the settings
+  // wash wraps the page shell, i.e. sits inside the rounded content panel.
+  // Until then the rail carried it too and these grounds were the frame's;
+  // they moved with the call site rather than being widened to cover both, so
+  // the gate keeps measuring the wash where it is, not where it once was.
+  //
+  // Deliberately *not* `surfaceElevated`/`surfaceVariant`: those are opaque
+  // fills drawn on top of the wash, so a card's own text never sees it.
+  // `surface` is in the map because it is the plane's middle stop.
   for (final (themeName, isDark, accent, wash, grounds) in [
     (
       'dark',
@@ -1535,9 +1542,9 @@ void main() {
       WpColorsDark.accent,
       WpDecorativeColorsDark.chromeWash,
       <String, Color>{
-        'background': WpColorsDark.background,
-        'frameGradient.top': WpColorsDark.frameGradient.colors.first,
-        'frameGradient.bottom': WpColorsDark.frameGradient.colors.last,
+        'surface': WpColorsDark.surface,
+        for (var i = 0; i < WpColorsDark.warmSurfaceGradient.colors.length; i++)
+          'warmSurfaceGradient.$i': WpColorsDark.warmSurfaceGradient.colors[i],
       },
     ),
     (
@@ -1546,9 +1553,13 @@ void main() {
       WpColorsLight.accent,
       WpDecorativeColorsLight.chromeWash,
       <String, Color>{
-        'background': WpColorsLight.background,
-        'frameGradient.top': WpColorsLight.frameGradient.colors.first,
-        'frameGradient.bottom': WpColorsLight.frameGradient.colors.last,
+        'surface': WpColorsLight.surface,
+        for (
+          var i = 0;
+          i < WpColorsLight.warmSurfaceGradient.colors.length;
+          i++
+        )
+          'warmSurfaceGradient.$i': WpColorsLight.warmSurfaceGradient.colors[i],
       },
     ),
   ]) {
@@ -1579,7 +1590,7 @@ void main() {
       });
 
       test('quieter than the accent and than every category slot', () {
-        final ground = grounds['background']!;
+        final ground = grounds['surface']!;
         final washRatio = contrastRatio(alphaComposite(wash, ground), ground);
         expect(
           washRatio,
@@ -1660,11 +1671,10 @@ void main() {
   // painted, so the gates below composite each card fill onto the ambient it
   // sits on before measuring anything.
   //
-  // Which ambient: `warmSurfaceGradient`, deliberately **not** `frameGradient`.
-  // The frame's richer values arrive in the frame follow-up ticket, and gating
-  // this ticket's material against a token another ticket is about to retune
-  // would pin one deliverable to another one's moving target. The warm surface
-  // gradient is the content plane cards live in and is settled here.
+  // Which ambient: `warmSurfaceGradient`, deliberately **not** `frameGradient`
+  // — not because the frame was unsettled (Ticket 06 has since retuned it),
+  // but because that is where cards actually stand. Nothing on the frame is a
+  // card; the frame carries bar text and chips, gated in its own group below.
   // -------------------------------------------------------------------------
 
   for (final (themeName, ambient, fills, texts, accent) in [
@@ -1747,8 +1757,8 @@ void main() {
   // color.
   //
   // Scoped to fills on purpose. Hairlines and borders (`borderSubtle`,
-  // `borderDefault`, `cardActiveBorder`, `watermark`) are neutral by design
-  // and are a different question; the rule as written names surfaces.
+  // `borderDefault`, `cardActiveBorder`) are neutral by design and are a
+  // different question; the rule as written names surfaces.
   group('Card material – every fill carries hue', () {
     final fills = <String, Color>{
       'dark: cardFill': WpColorsDark.cardFill,
@@ -2122,4 +2132,163 @@ void main() {
       });
     }
   });
+
+  // -------------------------------------------------------------------------
+  // The frame is a lit room (Ticket 06)
+  //
+  // The frame gradient is the app's loudest ambient: title bar, nav rail and
+  // status bar are all painted from it, at one place, and it has to read as
+  // one light source falling across the three of them. The saturation floor
+  // above already says the stops are tinted; this group says the *shape* is a
+  // light — multi-stop, diagonal, walking a hue arc — and that the content
+  // plane stays the quieter of the two ambients, which is the half of the
+  // reading a later ticket's seam depends on.
+  //
+  // Each assertion is the executable form of one acceptance criterion, not a
+  // fence around the numbers that happen to be in the file today: the margins
+  // are stated wide enough that a re-tune stays free and a *reversal* trips.
+  // -------------------------------------------------------------------------
+
+  for (final (themeName, frame, content, texts) in [
+    (
+      'dark',
+      WpColorsDark.frameGradient,
+      WpColorsDark.warmSurfaceGradient,
+      <String, Color>{
+        'textPrimary': WpColorsDark.textPrimary,
+        'textSecondary': WpColorsDark.textSecondary,
+        'textMuted': WpColorsDark.textMuted,
+      },
+    ),
+    (
+      'light',
+      WpColorsLight.frameGradient,
+      WpColorsLight.warmSurfaceGradient,
+      <String, Color>{
+        'textPrimary': WpColorsLight.textPrimary,
+        'textSecondary': WpColorsLight.textSecondary,
+        'textMuted': WpColorsLight.textMuted,
+      },
+    ),
+  ]) {
+    group('Frame ambient – $themeName theme', () {
+      double meanLuminance(LinearGradient g) =>
+          g.colors.map((c) => c.computeLuminance()).reduce((a, b) => a + b) /
+          g.colors.length;
+
+      // Contrast-ratio-minus-one, i.e. the part of a ratio that is *range*.
+      // Ratios sit just above 1.0 for both ambients, and comparing them
+      // directly would compare two numbers that are 97 % the constant 1.
+      double amplitude(LinearGradient g) =>
+          contrastRatio(g.colors.first, g.colors.last) - 1.0;
+
+      test('multi-stop', () {
+        expect(
+          frame.colors.length,
+          greaterThanOrEqualTo(3),
+          reason:
+              '$themeName: a two-stop frame is a wash, not a room — the light '
+              'needs a stop to turn at, or the diagonal reads as a flat tilt',
+        );
+      });
+
+      test('diagonal, on the same axis as the content plane', () {
+        expect(
+          (frame.begin, frame.end),
+          (Alignment.topLeft, Alignment.bottomRight),
+          reason:
+              '$themeName: the frame ambient is not diagonal top-left → '
+              'bottom-right',
+        );
+        expect(
+          (frame.begin, frame.end),
+          (content.begin, content.end),
+          reason:
+              '$themeName: frame and content plane disagree about where the '
+              'light comes from — two rooms, not one',
+        );
+      });
+
+      test('walks a hue arc, and stays on the ambient one', () {
+        final hues = frame.colors
+            .map((c) => HSLColor.fromColor(c).hue)
+            .toList();
+        final span = hues.reduce(math.max) - hues.reduce(math.min);
+        expect(
+          span,
+          greaterThanOrEqualTo(20),
+          reason:
+              '$themeName: the frame stops span only '
+              '${span.toStringAsFixed(1)}° of hue — a colored ambient turns as '
+              'it falls; one hue at three lightnesses is a tint, not a light',
+        );
+        for (final hue in hues) {
+          expect(
+            hue,
+            inInclusiveRange(230, 305),
+            reason:
+                '$themeName: a frame stop sits at ${hue.toStringAsFixed(1)}°, '
+                'off the violet→magenta arc the whole ambient stack walks — '
+                'the frame is the largest surface in the app and a third hue '
+                'family there would out-shout both accents (*Two Accent, Two '
+                'Jobs*)',
+          );
+        }
+      });
+
+      test(
+        'the frame is the livelier ambient, the content plane the quieter',
+        () {
+          expect(
+            amplitude(frame),
+            greaterThan(2 * amplitude(content)),
+            reason:
+                '$themeName: the frame spans '
+                '${(1 + amplitude(frame)).toStringAsFixed(3)}:1 end to end and '
+                'the content plane ${(1 + amplitude(content)).toStringAsFixed(3)}'
+                ':1 — the frame is the room and has to carry the light; a '
+                'content plane that patterns itself as strongly competes with '
+                'what is printed on it',
+          );
+        },
+      );
+
+      test('the content plane stands above its room', () {
+        final frameMean = meanLuminance(frame);
+        final contentMean = meanLuminance(content);
+        expect(
+          contentMean,
+          greaterThan(frameMean),
+          reason:
+              '$themeName: the content plane (mean relative luminance '
+              '${contentMean.toStringAsFixed(4)}) is no longer brighter than '
+              'the frame (${frameMean.toStringAsFixed(4)}). On dark the '
+              'brightness delta between planes is the only depth source there '
+              'is, and on light the raised thing is the brighter one too — '
+              'livening the frame may not go so far that the panel it carries '
+              'reads as recessed',
+        );
+      });
+
+      // The frame is not a card ground: what stands on it is bar text and
+      // chip labels, and it is also the whole ground of the preflight screen.
+      texts.forEach((textName, text) {
+        test('$textName keeps AA on every frame stop', () {
+          for (var i = 0; i < frame.colors.length; i++) {
+            final ratio = contrastRatio(text, frame.colors[i]);
+            expect(
+              ratio,
+              greaterThanOrEqualTo(4.5),
+              reason:
+                  '$themeName: $textName on frame stop $i is only '
+                  '${ratio.toStringAsFixed(2)}:1 — the frame carries the title '
+                  'bar, the status-bar chips and the settings rows, so range '
+                  'in the ambient is bought out of a legibility budget and may '
+                  'not overdraw it',
+            );
+          }
+        });
+      });
+    });
+  }
 }

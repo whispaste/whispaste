@@ -263,9 +263,6 @@ abstract final class WpColorsDark {
   static const Color errorRed = Color(0xFFDC2626);
   static const Color errorRedHover = Color(0xFFB91C1C);
 
-  /// Watermark line color — ~3% white for subtle topographic depth.
-  static const Color watermark = Color(0x08FFFFFF);
-
   /// Visible gradient for premium card/container backgrounds
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -294,11 +291,43 @@ abstract final class WpColorsDark {
     stops: [0.0, 0.5, 1.0],
   );
 
-  /// Frame gradient — nearly flat, matching background for unified look
+  /// The window frame — title bar, nav rail and status bar read as **one**
+  /// light source falling from the top-left, not as a flat neutral hull.
+  ///
+  /// Diagonal on purpose, and on the *same* axis as
+  /// [warmSurfaceGradient]: the frame and the content plane have to agree
+  /// where the light comes from, or the seam between them reads as two rooms.
+  /// The visible frame is an L of three strips, and this axis is what makes
+  /// them one surface — the rail and the title bar both walk the first half of
+  /// the ramp (bright at the top-left corner they share), the status bar walks
+  /// the second (deepest at the far bottom-right, the corner furthest from the
+  /// light).
+  ///
+  /// **Where it turned.** It used to be a two-stop vertical ramp at 225° —
+  /// blue-navy, left behind when the opaque stack turned violet with the
+  /// accent, and 29° off the ambient everything else stands on. Measured now:
+  /// 251° / 266° / 295°, the same violet→magenta arc [warmSurfaceGradient]
+  /// walks, so this introduces no hue family; saturation 47 % → 45 % → 38 %.
+  ///
+  /// **Why it may be the louder of the two ambients.** End to end it spans
+  /// 1.14:1 where the content plane spans 1.02:1 — the deliberate role
+  /// reversal of Ticket 06. The frame is the room; the content plane is the
+  /// sheet lying in it, and a sheet that patterned itself as strongly as the
+  /// room would compete with what is printed on it. Both halves are gated in
+  /// `wcag_contrast_test.dart`.
+  ///
+  /// **Why it stays darker than the content plane.** Mean relative luminance
+  /// 0.0077 against the plane's 0.0111, and every stop sits at or below the
+  /// plane's at the same diagonal position — so the plane still reads as
+  /// raised, which on dark is the *only* depth source there is (no card shadow
+  /// token exists here). Livening the frame therefore had to happen by chroma
+  /// and by amplitude, never by brightening it past the thing it carries.
+  /// Opaque tonal steps, no alpha glow.
   static const LinearGradient frameGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF141928), Color(0xFF121726)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1D163D), Color(0xFF1A0F28), Color(0xFF150A16)],
+    stops: [0.0, 0.5, 1.0],
   );
 
   /// Top accent line gradient
@@ -564,12 +593,32 @@ abstract final class WpColorsLight {
     stops: [0.0, 0.5, 1.0],
   );
 
-  /// Frame gradient — matches background pearl-blue, subtle depth
+  /// The light twin of [WpColorsDark.frameGradient] — same diagonal, same
+  /// top-left light source, same violet→magenta arc (measured 257° / 267° /
+  /// 288°), at a third of its amplitude.
+  ///
+  /// Same correction, too: the old stops sat at 212–215°, pearl-*blue*, left
+  /// behind by the violet turn and 45° off the pearl everything else stands
+  /// on.
+  ///
+  /// **Why the amplitude is a third, not a taste.** The dark twin gains its
+  /// range by descending into shadow; on pearl the same move descends into
+  /// [textMuted]'s AA margin. `textMuted` needs a ground at relative luminance
+  /// ≥ 0.798 to hold 4.5:1, and the frame is exactly where the status bar and
+  /// the settings rows put it. The darkest stop lands at 0.819 (4.61:1) and
+  /// the range is bought at the bright end instead — 1.10:1 end to end against
+  /// the content plane's 1.03:1, so the frame is still the livelier of the two
+  /// ambients, by the same margin ratio as on dark. That is *The
+  /// Increment–Decrement Rule*'s sanctioned asymmetry arguing for itself at
+  /// the token, exactly as [background] does.
+  ///
+  /// Mean relative luminance 0.861 against the content plane's 0.899: on
+  /// pearl, raised means brighter, so the plane again sits above its room.
   static const LinearGradient frameGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFEAF1F9), Color(0xFFE6EDF7), Color(0xFFE5ECF6)],
-    stops: [0.0, 0.48, 1.0],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF5F3FA), Color(0xFFF1EDF6), Color(0xFFEFE7F1)],
+    stops: [0.0, 0.5, 1.0],
   );
 
   /// The interactive gradient — violet to magenta, the light twin of
@@ -596,9 +645,6 @@ abstract final class WpColorsLight {
     end: Alignment.bottomCenter,
     colors: [Color(0x246B35E9), Color(0x146B35E9)],
   );
-
-  /// Watermark line color — very faint slate tint for subtle topographic depth.
-  static const Color watermark = Color(0x0A243B53);
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,11 +1127,23 @@ final class WpAvatarTint {
 /// Dark-theme decorative source — *Quartz*, a 314° mauve at ≈52 % saturation.
 ///
 /// **Its own layer, and the third hue family outside the accent** (after Pin
-/// Amber and the category slots). It exists to make the app's *chrome* — the
-/// nav rail, the settings ground — a distinguishable plate rather than the
-/// same flat field as the content, and it carries no information whatsoever.
-/// See *The Decorative Color Rule* in `lib/DESIGN.md`, which is what sanctions
-/// it (maintainer decision ④ = b, 2026-08-11).
+/// Amber and the category slots). It exists to make the settings page read as
+/// its own plate rather than the same flat field as every other page, and it
+/// carries no information whatsoever. See *The Decorative Color Rule* in
+/// `lib/DESIGN.md`, which is what sanctions it (maintainer decision ④ = b,
+/// 2026-08-11).
+///
+/// **Narrowed in Ticket 06 (2026-08-11): the nav rail no longer carries it.**
+/// The rail was the layer's first surface, and the wash's job there was to
+/// make the chrome its own plate — a job [WpColorsDark.frameGradient] now does
+/// itself, chromatically and across all three bars at once. What settles it is
+/// not that the wash became invisible (it still lifts the rail by ≈1.08:1 on
+/// dark) but that it became *wrong*: a flat veil on one strip of a diagonal
+/// ambient cuts a seam down the frame at x = 72 dp, and the frame has to read
+/// as one light source across title bar, rail and status bar. The prohibition
+/// that no bar paints a ground of its own is the same rule seen from the other
+/// side, and it is gated in `test/widgets/frame_single_paint_test.dart`.
+/// Recorded rather than deleted, per this file's audit convention.
 ///
 /// **Never cyan.** Cyan/teal stays the brand accent alone (decision ② = b), so
 /// the decorative layer may not borrow from it — otherwise the one voice the
@@ -1126,12 +1184,19 @@ abstract final class WpDecorativeColorsLight {
   /// in this file that a *legibility* budget sets rather than an optical one.
   ///
   /// The chrome wash lies under the page ground, which is where a settings row
-  /// puts its `textMuted` subtitle. On the pearl frame that pairing starts at
-  /// 4.69:1 — 0.19 over AA — so every point the wash darkens the ground comes
-  /// straight out of that margin: at the glyph rule's 3 % it lands on 4.48:1
-  /// and the decoration has cost legibility, which is the one thing it may
-  /// never do. 2 % holds 4.56:1. On dark the same text starts at 6.19:1 and
-  /// has room to spare, so that side is optically tuned as usual.
+  /// puts its `textMuted` subtitle. The pairing starts at 4.98:1 on the
+  /// content plane — 0.48 over AA — and every point the wash darkens the
+  /// ground comes straight out of that margin; 2 % holds 4.83:1. On dark the
+  /// same text has room to spare and is optically tuned as usual.
+  ///
+  /// **The margin used to be 0.19, not 0.48** (4.69:1 on the pearl *frame*,
+  /// where 3 % already cost AA and settled this number). Ticket 06 moved the
+  /// wash's only remaining ground from the frame to the content plane by
+  /// dropping the nav rail's use of it, which is why the numbers above are
+  /// larger than the argument that first chose 2 %. The value is left where it
+  /// stands rather than re-opened: that ticket narrows *where* the decoration
+  /// applies, not how loud it is, and 2 % is the value the layer was ratified
+  /// at.
   ///
   /// The per-theme direction is still *The Increment–Decrement Rule*'s — light
   /// under dark — the size of the step is simply not free here.

@@ -21,7 +21,6 @@ import 'core/theme/colors.dart';
 import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/status_bar.dart';
-import 'widgets/frame_watermark.dart';
 import 'widgets/recording_indicator_bar.dart';
 import 'widgets/title_bar.dart';
 import 'core/platform/desktop_window_geometry.dart';
@@ -1068,7 +1067,15 @@ class _AppShellState extends ConsumerState<_AppShell>
                   backgroundColor: Colors.transparent,
                   body: Stack(
                     children: [
-                      // Frame background — gradient for premium unified feel
+                      // The frame — one diagonal ambient for title bar, nav
+                      // rail and status bar together, painted here and
+                      // nowhere else. None of the three bars carries a ground
+                      // of its own (gated in frame_single_paint_test.dart):
+                      // a flat fill on one strip would cut a seam across a
+                      // gradient that has to read as a single light source.
+                      // Any future depth belongs *inside* this DecoratedBox,
+                      // never as a second layer above it — see *The
+                      // One-Atmosphere Rule*.
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: isDark
@@ -1077,8 +1084,6 @@ class _AppShellState extends ConsumerState<_AppShell>
                         ),
                         child: const SizedBox.expand(),
                       ),
-                      // Subtle topographic watermark pattern (both themes)
-                      Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
                       // Main layout
                       Column(
                         children: [
@@ -1386,9 +1391,4 @@ class _ThemeToggle extends ConsumerWidget {
 /// Thin animated bar at the top of the content panel.
 ///
 /// Re-exported from [WpRecordingIndicatorBar] (lib/widgets/recording_indicator_bar.dart).
-/// Kept as a comment anchor for git-blame readability.
-
-/// Subtle topographic contour watermark painted on the frame.
-///
-/// Re-exported from [WpFrameWatermark] (lib/widgets/frame_watermark.dart).
 /// Kept as a comment anchor for git-blame readability.

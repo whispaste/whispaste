@@ -17,7 +17,6 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/brand_wordmark.dart';
-import 'package:whispaste/widgets/frame_watermark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
 import 'package:whispaste/widgets/status_bar.dart';
@@ -26,7 +25,7 @@ import 'package:whispaste/widgets/status_bar.dart';
 ///
 /// Renders the complete WhisPaste UI frame matching the live [_AppShell]
 /// layout:
-/// - Gradient frame background + topographic watermark
+/// - Diagonal gradient frame background (one ambient, one paint point)
 /// - Title bar (platform-aware: macOS traffic-light area / Windows controls)
 /// - Left navigation sidebar with [activePageId] highlighted
 /// - Right content panel with rounded top-left/bottom-left corners,
@@ -75,7 +74,6 @@ class WpScreenshotShell extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
