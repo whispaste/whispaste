@@ -173,7 +173,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
   // Memoized once per `entry` change, not recomputed on every hover
   // setState — see the identical fix in history_list_tile.dart for why.
   late int _wordCount = _computeWordCount(widget.entry);
-  late IconData _avatarIcon = historyAvatarIcon(widget.entry);
   // The *slot*, not its color — see the identical note in history_list_tile.dart.
   late WpCategorySlot _avatarSlot = historyAvatarSlot(widget.entry);
 
@@ -186,7 +185,6 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.entry != widget.entry) {
       _wordCount = _computeWordCount(widget.entry);
-      _avatarIcon = historyAvatarIcon(widget.entry);
       _avatarSlot = historyAvatarSlot(widget.entry);
     }
   }
@@ -313,7 +311,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       ),
                     HistoryEntryAvatar(
                       color: _avatarSlot.color(isDark),
-                      icon: _avatarIcon,
+                      icon: historyAvatarIcon,
                       isPinned: widget.entry.pinned,
                       isDark: isDark,
                       // Off-scale on purpose: smallest of the three avatar

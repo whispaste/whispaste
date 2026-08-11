@@ -37,108 +37,35 @@ String formatHistoryDuration(double durationSec) {
   return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
 }
 
-/// A single avatar-icon rule: matches when any [tagKeywords] is found in the
-/// entry's tags OR any [titleKeywords] is found in the entry's title.  Tag and
-/// title keyword lists are kept SEPARATE so each rule can be asymmetric (some
-/// rules deliberately check only tags, others only the title).
+/// The one glyph every entry avatar wears.
 ///
-/// [key] identifies the rule to [categorySlotForAvatarRule] and is the reason
-/// the avatar hue means something: it names the *category*, not the entry, so
-/// every meeting is one color because every meeting is one kind of thing.
-typedef _AvatarIconRule = ({
-  String key,
-  List<String> tagKeywords,
-  List<String> titleKeywords,
-  IconData icon,
-});
+/// It is a constant rather than a per-entry lookup because the app classifies
+/// nothing: an entry is always the same kind of thing, a dictation transcript,
+/// so the icon can only ever say that. Keeping it here rather than inlining
+/// `LucideIcons.mic` at each avatar keeps that claim in one place — change it
+/// once and every list row, card and detail header follows.
+const IconData historyAvatarIcon = LucideIcons.mic;
 
-// Rules evaluated in order; first match wins.  Mapping is asymmetric per rule.
-const _avatarIconRules = <_AvatarIconRule>[
-  (
-    key: 'meeting',
-    tagKeywords: ['meeting'],
-    titleKeywords: ['meeting', 'standup'],
-    icon: LucideIcons.users,
-  ),
-  (
-    key: 'email',
-    tagKeywords: ['email'],
-    titleKeywords: ['email', 'follow'],
-    icon: LucideIcons.mail,
-  ),
-  (
-    key: 'blog',
-    tagKeywords: ['blog', 'writing'],
-    titleKeywords: ['blog', 'draft'],
-    icon: LucideIcons.penLine,
-  ),
-  (
-    key: 'personal',
-    tagKeywords: ['personal', 'recipe'],
-    titleKeywords: [],
-    icon: LucideIcons.heart,
-  ),
-  (
-    key: 'feedback',
-    tagKeywords: ['feedback'],
-    titleKeywords: ['feedback', 'review'],
-    icon: LucideIcons.messageSquare,
-  ),
-  (
-    key: 'project',
-    tagKeywords: ['project'],
-    titleKeywords: ['project', 'brief'],
-    icon: LucideIcons.folderOpen,
-  ),
-  (
-    key: 'idea',
-    tagKeywords: ['idea', 'team'],
-    titleKeywords: [],
-    icon: LucideIcons.lightbulb,
-  ),
-  (
-    key: 'reminder',
-    tagKeywords: [],
-    titleKeywords: ['reminder', 'todo'],
-    icon: LucideIcons.bellRing,
-  ),
-];
-
-/// The rule an entry falls under, or `null` when none matches.
-_AvatarIconRule? _matchAvatarRule(HistoryEntry entry) {
-  final title = entry.title.toLowerCase();
-  final tags = entry.tags.toLowerCase();
-  for (final rule in _avatarIconRules) {
-    final matched =
-        rule.tagKeywords.any(tags.contains) ||
-        rule.titleKeywords.any(title.contains);
-    if (matched) return rule;
-  }
-  return null;
-}
-
-/// Icon for the entry avatar — based on content/source hints.
-IconData historyAvatarIcon(HistoryEntry entry) =>
-    _matchAvatarRule(entry)?.icon ?? LucideIcons.mic;
-
-/// Category slot for the entry avatar — the same rule that picks the icon, so
-/// hue and glyph always say the same thing and neither is the sole carrier.
+/// Decorative color slot for the entry avatar — a plain read of the slot the
+/// entry was handed once, at creation, and has carried ever since.
 ///
-/// An entry matching no rule is untitled/uncategorised, which in a dictation app
-/// is the *normal* case rather than an edge one: it takes the dedicated
-/// [WpCategorySlot.neutral] and is deliberately kept out of the category hues,
-/// instead of hashing itself into one of them like the incumbent title hash did.
+/// The hue means **nothing**. It is rotation, not category: the app does not
+/// classify what was dictated — every entry is the same kind of thing, a
+/// dictation transcript — and the color exists only so a long list stays
+/// scannable. Reading the persisted column rather than deriving anything from
+/// the content is what keeps a color stable across restarts and stops it from
+/// sliding to the next hue whenever the title is edited.
+///
+/// Indexes [WpCategorySlot.categories], the same eight-slot space the write
+/// path rolls into — never [WpCategorySlot.values], whose ninth entry is the
+/// [WpCategorySlot.neutral] fallback grey and no part of the rotation.
 ///
 /// Returns the *slot*, never a [Color]: callers cache this across rebuilds and a
 /// resolved color would survive a runtime theme switch as the old theme's hue.
-WpCategorySlot historyAvatarSlot(HistoryEntry entry) {
-  final rule = _matchAvatarRule(entry);
-  return rule == null
-      ? WpCategorySlot.neutral
-      : categorySlotForAvatarRule(rule.key);
-}
+WpCategorySlot historyAvatarSlot(HistoryEntry entry) =>
+    WpCategorySlot.categories[entry.colorSlot];
 
-/// Entry avatar — colored circle with icon (Discord/WhatsApp identity).
+/// Entry avatar — colored circle with the microphone glyph every entry shares.
 ///
 /// "Belichtete Scheibe": a lightness-shifted fill gradient (same hue, the lit
 /// stop offset by [WpAvatarTint.topStopLightnessDelta]) plus a 1px hue-tinted

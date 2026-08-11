@@ -1020,11 +1020,7 @@ void main() {
         'zzzzzzzz',
       ];
       for (final id in identities) {
-        for (final slot in [
-          categorySlotForModel(id),
-          categorySlotForTag(id),
-          categorySlotForAvatarRule(id),
-        ]) {
+        for (final slot in [categorySlotForModel(id), categorySlotForTag(id)]) {
           expect(
             slot,
             isNot(WpCategorySlot.neutral),
@@ -1042,10 +1038,6 @@ void main() {
         categorySlotForModel('whisper-medium'),
       );
       expect(categorySlotForTag('Meeting '), categorySlotForTag('meeting'));
-      expect(
-        categorySlotForAvatarRule('email'),
-        categorySlotForAvatarRule('email'),
-      );
     });
   });
 
@@ -1145,8 +1137,8 @@ void main() {
   // The shipped model ids are a closed set, so the mapping owes a bijection —
   // and the sum-of-code-units hash cannot give one here: `whisper-small` (1352)
   // and `whisper-medium` (1456) are both ≡ 0 mod 8 and would paint the two
-  // most-used models the same hue. Same defect, same remedy as the avatar rules
-  // in Ticket 13.
+  // most-used models the same hue — hence a table, with the hash left as the
+  // fallback for an id the table has not met.
   // -------------------------------------------------------------------------
 
   group('Model slot table', () {

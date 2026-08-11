@@ -622,13 +622,19 @@ abstract final class WpSharedColors {
 /// hues plus one dedicated [neutral] fallback.
 ///
 /// **The contract.** A category color is never picked at a call site. A widget
-/// asks [categorySlotForModel], [categorySlotForTag] or
-/// [categorySlotForAvatarRule] for a slot, or reaches for [neutral] when the
-/// thing it paints has no category at all — and only then resolves the slot to
-/// a [Color] through [color]. The indirection *is* the feature: it makes a hue
-/// a statement about the data rather than decoration, and it is the thing a
-/// later reader can grep to find out what a color means. Painting one of the
-/// constants below directly is the same defect as hand-rolling an alpha.
+/// asks [categorySlotForModel] or [categorySlotForTag] for a slot, or reaches
+/// for [neutral] when the thing it paints has no category at all — and only
+/// then resolves the slot to a [Color] through [color]. The indirection *is*
+/// the feature: it makes a hue a statement about the data rather than
+/// decoration, and it is the thing a later reader can grep to find out what a
+/// color means. Painting one of the constants below directly is the same defect
+/// as hand-rolling an alpha.
+///
+/// **The one sanctioned decorative user** is the history-entry avatar, which
+/// indexes [categories] with the slot persisted on the entry. It is bounded the
+/// same way: no call site picks the hue there either, and the hue claims no
+/// meaning at all — see `historyAvatarSlot` and *The Categorical vs. Sequential
+/// Rule* in `lib/DESIGN.md`.
 ///
 /// **Why a slot and not a [Color].** The slot is theme-independent, the color
 /// is not. Anything that caches an identity's color must cache the *slot* and
@@ -869,7 +875,8 @@ abstract final class WpCategoryColorsLight {
 /// Stable across restarts and across model-list edits: the identity is the id,
 /// never the list position, so adding a model never re-colors the others.
 ///
-/// **A table, not a hash**, for the same reason as [categorySlotForAvatarRule]:
+/// **A table, not a hash**, because the domain is closed and small enough that a
+/// bijection is both possible and owed:
 /// the shipped ids are a small closed set, and the sum-of-code-units hash is not
 /// injective over it — `whisper-small` and `whisper-medium` both sum onto slot 0
 /// and would paint the two most-used models the same hue. An id the table does
@@ -905,44 +912,12 @@ const Map<String, WpCategorySlot> _modelSlots = {
 WpCategorySlot categorySlotForTag(String tagName) =>
     _categorySlotForIdentity(tagName.trim().toLowerCase());
 
-/// Deterministic slot for an avatar rule, keyed by the rule's own identifier
-/// (the keyword family that matched, e.g. `'meeting'` or `'email'`).
-///
-/// The *rule* is the identity, not the entry: two meeting entries get the same
-/// hue because they are the same kind of thing, which is precisely what the
-/// incumbent title hash could not express. An entry that matches no rule has no
-/// category and takes [WpCategorySlot.neutral] — it does not hash.
-///
-/// **A table, not a hash.** Unlike models and tags, the avatar rules are a
-/// closed set of eight known keys facing eight slots, so the assignment can be
-/// — and therefore must be — a bijection. A hash cannot promise that over a
-/// small domain, and this one does not: `blog` and `personal` both sum onto
-/// slot 4, which would paint two categories the same hue while `fern` was never
-/// used at all. A key the table does not know still hashes, so a ninth rule
-/// keeps working; it just no longer gets the bijection guarantee.
-WpCategorySlot categorySlotForAvatarRule(String ruleKey) =>
-    _avatarRuleSlots[ruleKey] ?? _categorySlotForIdentity(ruleKey);
-
-/// The eight avatar rules of `history_helpers.dart`, one slot each. Hue affinity
-/// is a memory aid, not meaning: the scale is nominal, so any bijection would do.
-const Map<String, WpCategorySlot> _avatarRuleSlots = {
-  'meeting': WpCategorySlot.azure,
-  'email': WpCategorySlot.iris,
-  'blog': WpCategorySlot.ember,
-  'personal': WpCategorySlot.plum,
-  'feedback': WpCategorySlot.orchid,
-  'project': WpCategorySlot.fern,
-  'idea': WpCategorySlot.brass,
-  'reminder': WpCategorySlot.moss,
-};
-
 /// The one hash behind the mappers — sum of code units, modulo the slot count —
 /// so the repo keeps a single, recognisable "identity → slot" idiom. Sound for
-/// user-typed tags, whose domain is genuinely open; the closed sets (avatar
-/// rules, model ids) are tabled instead, because over a small domain the hash
-/// collides and a bijection is both possible and owed. See
-/// [categorySlotForAvatarRule] and [categorySlotForModel] — for those two the
-/// hash is only the fallback for a key the table has not met.
+/// user-typed tags, whose domain is genuinely open; the closed set of shipped
+/// model ids is tabled instead, because over a small domain the hash collides
+/// and a bijection is both possible and owed. See [categorySlotForModel] —
+/// there the hash is only the fallback for an id the table has not met.
 ///
 /// Distributes over [WpCategorySlot.categories] only; [WpCategorySlot.neutral]
 /// is unreachable from here by design. An empty identity is a caller bug, not a

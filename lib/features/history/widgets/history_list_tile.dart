@@ -60,14 +60,15 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   // Memoized once per `entry` change (initState + didUpdateWidget), not
   // recomputed on every build — hover toggles this row's own `setState` on
   // every mouse enter/exit without a new `entry`, and re-running the JSON
-  // decode + regex split + keyword scan below on each of those was
-  // measurable overhead while scrolling/hovering a long history list.
+  // decode + regex split below on each of those was measurable overhead
+  // while scrolling/hovering a long history list.
   late int _wordCount = _computeWordCount(widget.entry);
   late List<String> _entryTags = _computeEntryTags(widget.entry);
-  late IconData _avatarIcon = historyAvatarIcon(widget.entry);
-  // The *slot*, not its color: this cache outlives a runtime theme switch,
-  // which only `entry` invalidates — a resolved color would keep painting the
-  // old theme's hue until the row happened to get a new entry.
+  // Held for a different reason than the two above — a list index costs
+  // nothing to repeat. What this field buys is the *slot* rather than its
+  // color: the cache outlives a runtime theme switch, which only `entry`
+  // invalidates, so a resolved color would keep painting the old theme's hue
+  // until the row happened to get a new entry.
   late WpCategorySlot _avatarSlot = historyAvatarSlot(widget.entry);
 
   static int _computeWordCount(HistoryEntry entry) {
@@ -90,7 +91,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     if (oldWidget.entry != widget.entry) {
       _wordCount = _computeWordCount(widget.entry);
       _entryTags = _computeEntryTags(widget.entry);
-      _avatarIcon = historyAvatarIcon(widget.entry);
       _avatarSlot = historyAvatarSlot(widget.entry);
     }
   }
@@ -177,10 +177,12 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                       isDark: isDark,
                     ),
                   ),
-                // Avatar — colored circle with content-type icon
+                // Avatar — colored circle, one shared glyph: the app
+                // classifies nothing, so the icon says only "dictation
+                // transcript" and the hue is decoration.
                 HistoryEntryAvatar(
                   color: _avatarSlot.color(isDark),
-                  icon: _avatarIcon,
+                  icon: historyAvatarIcon,
                   isPinned: widget.entry.pinned,
                   isDark: isDark,
                   // Off-scale on purpose: largest of the three avatar

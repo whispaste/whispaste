@@ -615,7 +615,7 @@ class _DetailPanelHeader extends StatelessWidget {
           children: [
             HistoryEntryAvatar(
               color: avatarCol,
-              icon: historyAvatarIcon(entry),
+              icon: historyAvatarIcon,
               isPinned: entry.pinned,
               isDark: isDark,
               // Off-scale on purpose (explicit default): mid-sized between
