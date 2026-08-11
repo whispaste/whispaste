@@ -145,30 +145,38 @@ abstract final class WpColorsDark {
   ///
   /// **Re-solved 2026-08-11 — 8 % / 14 % retracted, not merely re-tuned.** The
   /// seam fix lifted [warmSurfaceGradient]'s brightest stop from Y 0.01452 to
-  /// 0.01938, and these alphas composite over exactly that stop. At the old
+  /// 0.02312, and these alphas composite over exactly that stop. At the old
   /// values `textMuted` fell to 4.40:1 and 3.95:1 — under 4.5:1, so the ladder
   /// had to come down with the sheet it sits on, not the threshold. The margin
   /// before the lift was already thin (4.61:1), which is why *any* perceptible
   /// seam broke it; that thinness was the latent bug, the lift only exposed it.
   ///
   /// **The budget this leaves is the part to read before Ticket 08 spends it.**
-  /// The two levels now lift 1.103:1 and 1.131:1 above the plane, where they
+  /// The two levels now lift 1.050:1 and 1.076:1 above the plane, where they
   /// once spanned to ≈1.25:1 — the plane rose, the 4.5:1 ceiling did not, and
-  /// what got compressed is the *distance between the two levels* (1.75× of
-  /// alpha became 1.25×). Dark's second card level can therefore no longer be
-  /// bought with fill brightness. Buy it with chroma and [cardEdgeHighlight]
-  /// instead, or the elevated card will read as the same surface twice.
-  static const Color cardFill = Color(0x10A190D5); // frost tint @ 6.3%
-  static const Color cardFillElevated = Color(0x14A190D5); // frost tint @ 7.8%
+  /// what got compressed is the *distance between the two levels*. Dark's
+  /// second card level can therefore no longer be bought with fill brightness:
+  /// there is roughly a quarter of the luminance room there used to be. Buy it
+  /// with chroma and [cardEdgeHighlight] instead, or the elevated card will
+  /// read as the same surface twice. Neither token is painted by any widget
+  /// today, so this is a budget note for Ticket 08, not a visual change.
+  static const Color cardFill = Color(0x08A190D5); // frost tint @ 3.1%
+  static const Color cardFillElevated = Color(0x0CA190D5); // frost tint @ 4.7%
 
   /// The card's static 1px top edge — a lit rim, not a light source.
   ///
   /// It lifts the fill it sits on by ≈1.41:1, under the 1.5:1 threshold at
   /// which a surface treatment starts reading as a drawn object. Static: no
   /// animation, no hover response, no gradient. Dark carries no card *shadow*
-  /// token at all — on this ground depth comes from the brightness delta
-  /// between [cardFill] and [cardFillElevated], and a shadow on near-black
-  /// would only add mud. One depth source per theme — see the library header.
+  /// token at all — a shadow on near-black would only add mud. One depth
+  /// source per theme — see the library header.
+  ///
+  /// *Retracted 2026-08-11:* this comment used to name "the brightness delta
+  /// between [cardFill] and [cardFillElevated]" as where dark's depth comes
+  /// from. After the seam fix raised the content plane, that delta is about a
+  /// quarter of what it was and can no longer carry two card levels on its
+  /// own. On dark this rim is now the *primary* separator between them, not a
+  /// finishing touch on top of a brightness step.
   static const Color cardEdgeHighlight = Color(0x24D7C8F9);
 
   /// Wash for a large decorative background glyph — its own category, *below*
@@ -371,28 +379,32 @@ abstract final class WpColorsDark {
   /// gap at the seam is the same 0.09–1.46° across the resize sweep, and the
   /// chroma drop the same 2.5–6.0 steps. Only the thing that was broken moved.
   ///
-  /// Now: seam minimum **1.097:1 (ΔL\* 4.4)** along the whole edge at every
-  /// window from the enforced minimum to 4K, 1.121:1 at the corner, 1.211:1 at
-  /// its far end. That is nine times the ΔL\* of the step it replaces. For
-  /// scale, the nav rail's approved icon chips read ≈1.24:1 (ΔL\* 8.7) at rest
-  /// — but a chip is 38 px and this edge is the height of the window, and a
-  /// luminance step over a long border is the easiest case there is to detect,
-  /// so parity in ratio was never the target.
+  /// Now: seam minimum **1.150:1 (ΔL\* 6.3)** along the whole edge at every
+  /// window from the enforced minimum to 4K, 1.175:1 at the corner, 1.275:1 at
+  /// its far end — thirteen times the ΔL\* of the step it replaces. For scale,
+  /// the nav rail's approved icon chips read ≈1.24:1 (ΔL\* 8.7) at rest — but a
+  /// chip is 38 px and this edge is the height of the window, and a luminance
+  /// step over a long border is the easiest case there is to detect, so parity
+  /// in ratio was never the target.
   ///
-  /// **What caps it: the card fills above, not the seam itself.** Lifting the
-  /// sheet raises the floor every card on it composites over, and [cardFill] /
-  /// [cardFillElevated] are gated at 4.5:1 for `textMuted` over the plane's
-  /// brightest stop. Past +8 those two can no longer lift as far above the
-  /// plane as the plane lifts above the frame — the card would read flatter
-  /// than the sheet's own edge, which inverts the depth hierarchy. +8 is the
-  /// largest lift that keeps *card above plane ≥ plane above frame* true
-  /// (1.131:1 against 1.097:1). Two further ceilings sit just past it and are
-  /// recorded so nobody re-derives them: the magenta pole desaturates on paper
-  /// as it lightens (HSL's `1 − |2L − 1|` divisor grows), reaching the 15 %
-  /// ambient floor at ≈+12 — it holds 17.1 % here; and restoring that headroom
-  /// by scaling the pole's chroma ×1.5 was tried and rejected, because it
-  /// drives the plane's amplitude to 0.058 against the frame's 0.096 and
-  /// breaks *The Two Ambients Rule*'s frame > 2 × plane gate (0.022 here).
+  /// **What caps it: the magenta pole's saturation floor.** At +12 the third
+  /// stop reads 15.6 % against the ambient floor of 15 %; +13 would fall
+  /// under. The number is an artefact of *measuring* rather than a loss of
+  /// tint — that stop's channel spread is **14.0 8-bit steps at every lift**,
+  /// unchanged, and HSL saturation falls only because its `1 − |2L − 1|`
+  /// divisor grows as a stop lightens. Restoring headroom by scaling the
+  /// pole's chroma ×1.5 was tried and rejected: it drives the plane's
+  /// amplitude to 0.058 against the frame's 0.096 and breaks *The Two
+  /// Ambients Rule*'s frame > 2 × plane gate (0.028 here), and it drags the
+  /// stop's hue 5.4°.
+  ///
+  /// **What deliberately does not cap it: the card fills above.** An earlier
+  /// pass stopped at +8 to preserve brightness headroom for [cardFill] /
+  /// [cardFillElevated], which composite over this plane at a fixed 4.5:1
+  /// floor. That was the wrong priority order — neither token is painted by
+  /// any widget yet, so a defect the maintainer can see was being throttled to
+  /// protect an unspent budget. The fills follow the plane instead; see their
+  /// own doc comment for the ladder that cost.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -796,8 +808,13 @@ abstract final class WpColorsLight {
   ///
   /// Unlike dark, pearl cannot be lifted to a comfortable value, and it is
   /// worth being exact about why rather than filing the shortfall as a weaker
-  /// choice. The first stop is now **#FBF9FF — its blue channel is clipped at
-  /// 0xFF**. There is no further step in this direction. The seam reads
+  /// choice. The first stop is now **#FBF9FF, and its blue channel landed on
+  /// 0xFF exactly** (0xFB + 4). That is what makes +4 the ceiling and not a
+  /// taste call: one more step would clip that channel alone, and a *clipped*
+  /// offset is no longer a uniform one — the moment blue stops moving with
+  /// red and green, the pairwise channel differences change and this token
+  /// loses the very hue-and-spread preservation the whole method rests on.
+  /// The lift stops where the arithmetic stops being lossless. The seam reads
   /// **1.060:1 minimum (ΔL\* 2.3)** along the edge, 1.065:1 at the corner:
   /// 2.5 × the old step, and the most this plane can give while the frame
   /// stays where it is. Even a literally white plane would only reach 1.113:1,

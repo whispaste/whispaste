@@ -2566,7 +2566,7 @@ void main() {
       WpColorsDark.frameGradient,
       WpColorsDark.warmSurfaceGradient,
       3.0,
-      1.08,
+      1.13,
     ),
     (
       'light',
