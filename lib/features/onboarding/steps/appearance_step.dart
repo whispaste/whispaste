@@ -174,10 +174,10 @@ class _ThemeSwatchState extends State<_ThemeSwatch> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const border = WpColorsDark.borderSubtle;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
+    const accent = WpColors.accent;
+    const border = WpColors.borderSubtle;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
 
     return MergeSemantics(
       child: Semantics(
@@ -292,17 +292,16 @@ class _MiniaturePalette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = dark ? WpColorsDark.background : WpColorsDark.background;
-    final panel = dark ? WpColorsDark.surface : WpColorsDark.surface;
-    final bar = (dark ? WpColorsDark.textMuted : WpColorsDark.textMuted)
-        .withValues(alpha: 0.45);
-    final accent = dark ? WpColorsDark.accent : WpColorsDark.accent;
+    final background = dark ? WpColors.background : WpColors.background;
+    final panel = dark ? WpColors.surface : WpColors.surface;
+    final bar = (dark ? WpColors.textMuted : WpColors.textMuted).withValues(
+      alpha: 0.45,
+    );
+    final accent = dark ? WpColors.accent : WpColors.accent;
     // Surface and background sit deliberately close together in both
     // palettes, so at this size the sidebar would otherwise be invisible and
     // the miniature would read as bars floating on a colour field.
-    final divider = dark
-        ? WpColorsDark.borderDefault
-        : WpColorsDark.borderDefault;
+    final divider = dark ? WpColors.borderDefault : WpColors.borderDefault;
 
     return ColoredBox(
       color: background,

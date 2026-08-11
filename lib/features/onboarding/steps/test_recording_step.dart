@@ -118,12 +118,12 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         (phase == RecordingPhase.recording ||
             phase == RecordingPhase.transcribing);
 
-    const textSecondary = WpColorsDark.textSecondary;
-    const textMuted = WpColorsDark.textMuted;
+    const textSecondary = WpColors.textSecondary;
+    const textMuted = WpColors.textMuted;
     // Recording family: this colour has exactly one job below — the live
     // border of the sandbox field while the test recording runs.
-    const recordingAccent = WpColorsDark.recordingAccent;
-    const success = WpColorsDark.success;
+    const recordingAccent = WpColors.recordingAccent;
+    const success = WpColors.success;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -436,10 +436,10 @@ class _SandboxField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
-    const error = WpColorsDark.error;
-    const borderDefault = WpColorsDark.borderDefault;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+    const error = WpColors.error;
+    const borderDefault = WpColors.borderDefault;
 
     final borderColor = isRecording ? recordingAccent : borderDefault;
 

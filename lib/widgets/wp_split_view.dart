@@ -300,8 +300,8 @@ class _SplitViewDivider extends StatelessWidget {
               width: isDragging ? 3.0 : visualWidth,
               decoration: BoxDecoration(
                 color: isDragging
-                    ? (WpColorsDark.accent.withValues(alpha: 0.5))
-                    : (WpColorsDark.borderSubtle),
+                    ? (WpColors.accent.withValues(alpha: 0.5))
+                    : (WpColors.borderSubtle),
                 borderRadius: BorderRadius.circular(1.5),
               ),
             ),

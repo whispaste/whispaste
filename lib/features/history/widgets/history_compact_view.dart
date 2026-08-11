@@ -129,19 +129,19 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
-    const accent = WpColorsDark.accent;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+    const accent = WpColors.accent;
 
     final Color bg;
     if (widget.isSelected) {
-      bg = WpColorsDark.accentSubtle;
+      bg = WpColors.accentSubtle;
     } else if (widget.isFocused) {
-      bg = WpColorsDark.hover;
+      bg = WpColors.hover;
     } else if (_isHovered) {
-      bg = WpColorsDark.hover;
+      bg = WpColors.hover;
     } else {
-      bg = WpColorsDark.hoverTransparent;
+      bg = WpColors.hoverTransparent;
     }
 
     final l10n = L10n.of(context);

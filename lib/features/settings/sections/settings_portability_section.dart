@@ -425,8 +425,8 @@ class SettingsPortabilitySection extends ConsumerWidget {
                             size: WpIconSize.sm,
                             color:
                                 Theme.of(context).brightness == Brightness.dark
-                                ? WpColorsDark.textMuted
-                                : WpColorsDark.textMuted,
+                                ? WpColors.textMuted
+                                : WpColors.textMuted,
                           ),
                           // The tooltip does double duty: it names the
                           // icon-only affordance (all three languages) and
@@ -473,7 +473,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    const muted = WpColorsDark.textMuted;
+    const muted = WpColors.textMuted;
 
     final autosave =
         ref.watch(settingsProvider).value?.autosave ??
@@ -622,7 +622,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
           message,
           key: const ValueKey(kPortabilityAutosaveStatusKey),
           style: tt.bodySmall?.copyWith(
-            color: failed ? (WpColorsDark.warning) : (WpColorsDark.textMuted),
+            color: failed ? (WpColors.warning) : (WpColors.textMuted),
           ),
           // Two lines, unlike every other text in this section: the
           // timestamp sits at the *end* of the sentence ("Letzter Versuch
@@ -652,8 +652,8 @@ class SettingsPortabilitySection extends ConsumerWidget {
   Widget _locationDisplay(BuildContext context, WidgetRef ref, bool forExport) {
     final l10n = L10n.of(context);
     final tt = Theme.of(context).textTheme;
-    const muted = WpColorsDark.textMuted;
-    const primary = WpColorsDark.textPrimary;
+    const muted = WpColors.textMuted;
+    const primary = WpColors.textPrimary;
 
     // Read for display only — never `resolvePath()`, which would open the
     // native file dialog while merely rendering the settings page. Watched

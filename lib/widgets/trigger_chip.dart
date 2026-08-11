@@ -17,14 +17,14 @@ class WpTriggerChip extends StatelessWidget {
         vertical: WpSpacing.xxs / 2,
       ),
       decoration: BoxDecoration(
-        color: WpColorsDark.accentChipFill,
+        color: WpColors.accentChipFill,
         borderRadius: BorderRadius.circular(WpRadius.full),
-        border: Border.all(color: WpColorsDark.accentBorder20),
+        border: Border.all(color: WpColors.accentBorder20),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: WpColorsDark.accent,
+          color: WpColors.accent,
           fontWeight: FontWeight.w600,
           fontSize: WpTypography.small,
         ),

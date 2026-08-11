@@ -303,9 +303,9 @@ class _ReplacementsToggleCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(WpSpacing.xxs),
         decoration: BoxDecoration(
-          color: WpColorsDark.surfaceElevated,
+          color: WpColors.surfaceElevated,
           borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColorsDark.borderSubtle),
+          border: Border.all(color: WpColors.borderSubtle),
         ),
         child: SettingRow(
           icon: LucideIcons.replace,
@@ -424,7 +424,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
     final l10n = L10n.of(context);
 
     return WpFormDialogShell(
@@ -644,7 +644,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                   const Icon(
                     LucideIcons.arrowRightLeft,
                     size: WpIconSize.sm,
-                    color: WpColorsDark.accent,
+                    color: WpColors.accent,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   // Trigger phrases — one chip per phrase, wrapping onto
@@ -663,7 +663,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                   const Icon(
                     LucideIcons.arrowRight,
                     size: WpIconSize.xs,
-                    color: WpColorsDark.textMuted,
+                    color: WpColors.textMuted,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   // Replacement
@@ -671,7 +671,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                     child: Text(
                       '"${widget.replacement.replacement}"',
                       style: const TextStyle(
-                        color: WpColorsDark.textSecondary,
+                        color: WpColors.textSecondary,
                         fontSize: WpTypography.body,
                       ),
                       // `maxLines` is load-bearing, not cosmetic: without a

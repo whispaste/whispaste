@@ -31,9 +31,9 @@ class ReadyStep extends ConsumerWidget {
     final status = ref.watch(hotkeyRegistrationStatusProvider);
     final l10n = L10n.of(context);
 
-    const accent = WpColorsDark.accent;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColors.accent;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
 
     // The completion CTA (owned by the onboarding shell) is gated on a healthy
     // hotkey registration; this content mirrors that gate with a short
@@ -87,7 +87,7 @@ class ReadyStep extends ConsumerWidget {
             style: const TextStyle(
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
-              color: WpColorsDark.error,
+              color: WpColors.error,
             ),
           ),
           const SizedBox(height: WpSpacing.xs),

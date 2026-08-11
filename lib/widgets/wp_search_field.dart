@@ -551,21 +551,21 @@ class _WpSearchFieldPalette {
   final Color accent;
 
   static const _dark = _WpSearchFieldPalette(
-    surface: WpColorsDark.surfaceVariant,
-    mutedFill: WpColorsDark.surfaceMutedFill,
-    border: WpColorsDark.borderSubtle,
-    textPrimary: WpColorsDark.textPrimary,
-    textMuted: WpColorsDark.textMuted,
-    accent: WpColorsDark.accent,
+    surface: WpColors.surfaceVariant,
+    mutedFill: WpColors.surfaceMutedFill,
+    border: WpColors.borderSubtle,
+    textPrimary: WpColors.textPrimary,
+    textMuted: WpColors.textMuted,
+    accent: WpColors.accent,
   );
 
   static const _light = _WpSearchFieldPalette(
-    surface: WpColorsDark.surfaceVariant,
-    mutedFill: WpColorsDark.surfaceMutedFill,
-    border: WpColorsDark.borderSubtle,
-    textPrimary: WpColorsDark.textPrimary,
-    textMuted: WpColorsDark.textMuted,
-    accent: WpColorsDark.accent,
+    surface: WpColors.surfaceVariant,
+    mutedFill: WpColors.surfaceMutedFill,
+    border: WpColors.borderSubtle,
+    textPrimary: WpColors.textPrimary,
+    textMuted: WpColors.textMuted,
+    accent: WpColors.accent,
   );
 
   static _WpSearchFieldPalette of(Brightness brightness) =>

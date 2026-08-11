@@ -51,8 +51,8 @@ class OnboardingPageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
@@ -196,8 +196,8 @@ class OnboardingSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),

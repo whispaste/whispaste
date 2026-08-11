@@ -128,12 +128,12 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final notes = ref.watch(entryNotesProvider(widget.entryId));
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
-    const textMuted = WpColorsDark.textMuted;
-    const accent = WpColorsDark.accent;
-    const borderColor = WpColorsDark.borderSubtle;
-    const surfaceElevated = WpColorsDark.surfaceElevated;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
+    const textMuted = WpColors.textMuted;
+    const accent = WpColors.accent;
+    const borderColor = WpColors.borderSubtle;
+    const surfaceElevated = WpColors.surfaceElevated;
 
     return notes.when(
       loading: () => const SizedBox.shrink(),
@@ -362,7 +362,7 @@ class _NoteItemState extends State<_NoteItem> {
 
   @override
   Widget build(BuildContext context) {
-    const hoverBg = WpColorsDark.surfaceVariant;
+    const hoverBg = WpColors.surfaceVariant;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),

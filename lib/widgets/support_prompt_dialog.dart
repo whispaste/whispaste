@@ -184,9 +184,9 @@ class _SupportPromptDialog extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 380),
             padding: const EdgeInsets.all(WpSpacing.lg),
             decoration: BoxDecoration(
-              color: WpColorsDark.surfaceElevated,
+              color: WpColors.surfaceElevated,
               borderRadius: WpRadius.borderLg,
-              border: Border.all(color: WpColorsDark.borderSubtle),
+              border: Border.all(color: WpColors.borderSubtle),
               boxShadow: WpShadows.elevated,
             ),
             child: Column(
@@ -202,7 +202,7 @@ class _SupportPromptDialog extends StatelessWidget {
                 Text(
                   description,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: WpColorsDark.textSecondary,
+                    color: WpColors.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),

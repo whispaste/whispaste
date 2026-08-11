@@ -85,8 +85,8 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
   Widget build(BuildContext context) {
     if (_seen != false) return const SizedBox.shrink();
 
-    const textMuted = WpColorsDark.textMuted;
-    const accent = WpColorsDark.accent;
+    const textMuted = WpColors.textMuted;
+    const accent = WpColors.accent;
 
     return Padding(
       padding: const EdgeInsets.only(top: WpSpacing.xxs),

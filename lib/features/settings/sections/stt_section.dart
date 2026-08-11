@@ -163,7 +163,7 @@ class _SpeechRecognitionSectionState
                 l10n.settingsSttEngineSubtitle,
                 style: Theme.of(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: WpColorsDark.textMuted),
+                ).textTheme.bodySmall?.copyWith(color: WpColors.textMuted),
               ),
             ),
             const SizedBox(height: WpSpacing.xs),
@@ -527,7 +527,7 @@ class _ParakeetModelRow extends ConsumerWidget {
                 dl.errorMessage!,
                 style: const TextStyle(
                   fontSize: WpTypography.caption,
-                  color: WpColorsDark.error,
+                  color: WpColors.error,
                 ),
               ),
             ),
@@ -638,7 +638,7 @@ class _CustomVocabularyFieldState
                         l10n.settingsCustomVocabularyHint,
                         style: const TextStyle(
                           fontSize: WpTypography.small,
-                          color: WpColorsDark.textMuted,
+                          color: WpColors.textMuted,
                         ),
                       ),
                     ),

@@ -406,7 +406,7 @@ class _SttChipState extends State<_SttChip> {
           vertical: WpSpacing.xxs,
         ),
         decoration: BoxDecoration(
-          color: WpColorsDark.surfaceChipFill,
+          color: WpColors.surfaceChipFill,
           borderRadius: WpRadius.borderFull,
         ),
         child: Row(
@@ -471,7 +471,7 @@ class _SttChipState extends State<_SttChip> {
     // Active recording phases take priority over STT subprocess state.
     switch (widget.recordingPhase) {
       case RecordingPhase.recording:
-        return (WpColorsDark.error, widget.l10n.statusBarRecording, true);
+        return (WpColors.error, widget.l10n.statusBarRecording, true);
       case RecordingPhase.transcribing:
         return (
           // Recording family: this rung reads a `RecordingPhase`, so it is the
@@ -479,14 +479,14 @@ class _SttChipState extends State<_SttChip> {
           // The `SttServerState.starting` rung below looks the same today but
           // reads a different enum (subprocess boot, no recording running) and
           // therefore stays on the generic accent.
-          WpColorsDark.recordingAccent,
+          WpColors.recordingAccent,
           widget.l10n.statusBarTranscribing,
           true,
         );
       case RecordingPhase.done:
-        return (WpColorsDark.success, widget.l10n.statusBarDone, false);
+        return (WpColors.success, widget.l10n.statusBarDone, false);
       case RecordingPhase.error:
-        return (WpColorsDark.error, widget.l10n.sttStatusError, false);
+        return (WpColors.error, widget.l10n.sttStatusError, false);
       case RecordingPhase.idle:
         // Fall through to STT subprocess state below.
         break;
@@ -495,18 +495,18 @@ class _SttChipState extends State<_SttChip> {
     // Idle — show STT subprocess state.
     return switch (widget.state) {
       SttServerState.stopped => (
-        WpColorsDark.textMuted,
+        WpColors.textMuted,
         widget.l10n.sttStatusStandby,
         false,
       ),
-      SttServerState.starting => (WpColorsDark.accent, _startingLabel(), true),
+      SttServerState.starting => (WpColors.accent, _startingLabel(), true),
       SttServerState.ready => (
-        WpColorsDark.success,
+        WpColors.success,
         widget.l10n.sttStatusReady,
         false,
       ),
       SttServerState.error => (
-        WpColorsDark.error,
+        WpColors.error,
         widget.l10n.sttStatusError,
         false,
       ),
@@ -574,7 +574,7 @@ class _StatusChipState extends State<_StatusChip> {
           vertical: WpSpacing.xxs,
         ),
         decoration: BoxDecoration(
-          color: WpColorsDark.surfaceChipFill,
+          color: WpColors.surfaceChipFill,
           borderRadius: WpRadius.borderFull,
         ),
         child: Row(
@@ -674,7 +674,7 @@ class _AfterActionChip extends StatelessWidget {
       tooltip: l10n.settingsAfterTranscription,
       position: PopupMenuPosition.over,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-      color: WpColorsDark.surfaceElevated,
+      color: WpColors.surfaceElevated,
       itemBuilder: (_) => [
         // Auto-paste-requiring actions aren't offered at all when the build
         // can't perform them (MAS sandbox) — see the matching comment on
@@ -698,7 +698,7 @@ class _AfterActionChip extends StatelessWidget {
           vertical: WpSpacing.xxs,
         ),
         decoration: BoxDecoration(
-          color: WpColorsDark.surfaceChipFill,
+          color: WpColors.surfaceChipFill,
           borderRadius: WpRadius.borderFull,
         ),
         child: Row(
@@ -802,7 +802,7 @@ class _MicrophoneChip extends StatelessWidget {
       tooltip: l10n.settingsMicrophone,
       position: PopupMenuPosition.over,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-      color: WpColorsDark.surfaceElevated,
+      color: WpColors.surfaceElevated,
       itemBuilder: (_) => [
         for (final option in options)
           PopupMenuItem<String>(
@@ -820,7 +820,7 @@ class _MicrophoneChip extends StatelessWidget {
           vertical: WpSpacing.xxs,
         ),
         decoration: BoxDecoration(
-          color: WpColorsDark.surfaceChipFill,
+          color: WpColors.surfaceChipFill,
           borderRadius: WpRadius.borderFull,
         ),
         child: Row(
@@ -942,7 +942,7 @@ class _AutoPasteOffHintChipState extends State<_AutoPasteOffHintChip> {
     final l10n = widget.l10n;
     final onTap = widget.onTap;
     final onDismiss = widget.onDismiss;
-    const accent = WpColorsDark.accent;
+    const accent = WpColors.accent;
 
     // No `label:` — it used to repeat the tooltip string verbatim, so the
     // chip stated the same fact three times in a row: once as the wrapper
@@ -965,11 +965,11 @@ class _AutoPasteOffHintChipState extends State<_AutoPasteOffHintChip> {
             vertical: WpSpacing.xxs,
           ),
           decoration: BoxDecoration(
-            color: WpColorsDark.surfaceChipFill,
+            color: WpColors.surfaceChipFill,
             borderRadius: WpRadius.borderFull,
             // The tint ladder's outline rung, not a hand-mixed 40 %: this is a
             // resting 1 px chip border, which is exactly what 30 % is for.
-            border: Border.all(color: WpColorsDark.accentBorder30),
+            border: Border.all(color: WpColors.accentBorder30),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

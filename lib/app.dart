@@ -1039,7 +1039,7 @@ class _AppShellState extends ConsumerState<_AppShell>
 
     // Content panel uses a warm gradient for depth (both themes)
     const contentDecoration = BoxDecoration(
-      gradient: WpColorsDark.warmSurfaceGradient,
+      gradient: WpColors.warmSurfaceGradient,
       borderRadius: contentRadius,
     );
 
@@ -1075,7 +1075,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                       // One-Atmosphere Rule*.
                       const DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: WpColorsDark.frameGradient,
+                          gradient: WpColors.frameGradient,
                         ),
                         child: SizedBox.expand(),
                       ),
@@ -1343,7 +1343,7 @@ class _ThemeToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    const mutedColor = WpColorsDark.textMuted;
+    const mutedColor = WpColors.textMuted;
     return Semantics(
       label: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
       button: true,

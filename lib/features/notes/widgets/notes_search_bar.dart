@@ -45,7 +45,7 @@ class NotesSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
 
     return Padding(
       // Same side inset as every other list area's search bar (History,

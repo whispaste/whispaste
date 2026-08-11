@@ -252,19 +252,19 @@ class _ToastCard extends StatelessWidget {
 
   (IconData, Color) _iconAndColor() {
     return switch (type) {
-      WpToastType.success => (LucideIcons.circleCheck, WpColorsDark.success),
-      WpToastType.error => (LucideIcons.circleAlert, WpColorsDark.error),
-      WpToastType.warning => (LucideIcons.triangleAlert, WpColorsDark.warning),
-      WpToastType.info => (LucideIcons.info, WpColorsDark.accent),
+      WpToastType.success => (LucideIcons.circleCheck, WpColors.success),
+      WpToastType.error => (LucideIcons.circleAlert, WpColors.error),
+      WpToastType.warning => (LucideIcons.triangleAlert, WpColors.warning),
+      WpToastType.info => (LucideIcons.info, WpColors.accent),
     };
   }
 
   @override
   Widget build(BuildContext context) {
     final (icon, color) = _iconAndColor();
-    const surfaceBg = WpColorsDark.surfaceElevated;
-    const textPrimary = WpColorsDark.textPrimary;
-    const borderColor = WpColorsDark.borderDefault;
+    const surfaceBg = WpColors.surfaceElevated;
+    const textPrimary = WpColors.textPrimary;
+    const borderColor = WpColors.borderDefault;
 
     return Semantics(
       // Not a liveRegion: WpToast.show() already calls sendAnnouncement()
@@ -365,7 +365,7 @@ class _ToastCard extends StatelessWidget {
                     child: Icon(
                       LucideIcons.x,
                       size: 14,
-                      color: WpColorsDark.textMuted,
+                      color: WpColors.textMuted,
                     ),
                   ),
                 ),

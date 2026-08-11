@@ -295,10 +295,10 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use the theme's danger/error semantic so the box clearly reads as a
     // blocker — matches the rest of WhisPaste's destructive surfaces.
-    const dangerColor = WpColorsDark.error;
+    const dangerColor = WpColors.error;
     final bgColor = dangerColor.withValues(alpha: 0.12);
     final borderColor = dangerColor.withValues(alpha: 0.40);
-    const textPrimary = WpColorsDark.textPrimary;
+    const textPrimary = WpColors.textPrimary;
 
     return Container(
       width: double.infinity,

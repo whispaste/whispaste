@@ -208,7 +208,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   Text(
                     l10n.feedbackSubtitle,
                     style: ts.bodyMedium?.copyWith(
-                      color: WpColorsDark.textSecondary,
+                      color: WpColors.textSecondary,
                     ),
                   ),
 
@@ -360,7 +360,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       const Icon(
                         LucideIcons.lock,
                         size: WpIconSize.xs,
-                        color: WpColorsDark.textMuted,
+                        color: WpColors.textMuted,
                       ),
                       const SizedBox(width: WpSpacing.xxs),
                       Flexible(
@@ -368,7 +368,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                           l10n.feedbackPrivacyNote,
                           textAlign: TextAlign.center,
                           style: ts.bodySmall?.copyWith(
-                            color: WpColorsDark.textMuted,
+                            color: WpColors.textMuted,
                           ),
                         ),
                       ),
@@ -526,7 +526,7 @@ class _ContactEmailSection extends StatelessWidget {
         const SizedBox(height: WpSpacing.xs),
         Text(
           l10n.feedbackContactEmailExplanation,
-          style: ts.bodySmall?.copyWith(color: WpColorsDark.textSecondary),
+          style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
         ),
         const SizedBox(height: WpSpacing.sm),
         WpTextField(
@@ -556,7 +556,7 @@ class _ContactEmailSection extends StatelessWidget {
           const SizedBox(height: WpSpacing.xs),
           Text(
             l10n.feedbackContactLanguageHint,
-            style: ts.bodySmall?.copyWith(color: WpColorsDark.textSecondary),
+            style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
           ),
           const SizedBox(height: WpSpacing.sm),
           WpLanguageSelector(
@@ -606,14 +606,14 @@ class _ThankYouView extends StatelessWidget {
                   width: 72,
                   height: 72,
                   decoration: const BoxDecoration(
-                    color: WpColorsDark.accentSubtle,
+                    color: WpColors.accentSubtle,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
                   child: const Icon(
                     LucideIcons.heart,
                     size: WpIconSize.xl,
-                    color: WpColorsDark.accent,
+                    color: WpColors.accent,
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxl),
@@ -622,9 +622,7 @@ class _ThankYouView extends StatelessWidget {
                 Text(
                   l10n.feedbackThankYouMessage,
                   textAlign: TextAlign.center,
-                  style: ts.bodyMedium?.copyWith(
-                    color: WpColorsDark.textSecondary,
-                  ),
+                  style: ts.bodyMedium?.copyWith(color: WpColors.textSecondary),
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
                 // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
@@ -678,7 +676,7 @@ class _ReviewSupportCtas extends StatelessWidget {
         Text(
           l10n.reviewSupportSubtitle,
           textAlign: TextAlign.center,
-          style: ts.bodySmall?.copyWith(color: WpColorsDark.textSecondary),
+          style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
         ),
         const SizedBox(height: WpSpacing.md),
         // Windows has a store listing → offer the Store-Review deep-link as the
@@ -788,8 +786,8 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
 
   @override
   Widget build(BuildContext context) {
-    const accentSubtle = WpColorsDark.accentSubtle;
-    const surfaceVariant = WpColorsDark.surfaceVariant;
+    const accentSubtle = WpColors.accentSubtle;
+    const surfaceVariant = WpColors.surfaceVariant;
 
     final tile = AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),
@@ -803,7 +801,7 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
           // the one place on this page where picking something drew a
           // different outline than picking something one section above it.
           color: widget.isSelected
-              ? (WpColorsDark.accentBorder30)
+              ? (WpColors.accentBorder30)
               : Colors.transparent,
         ),
       ),
@@ -833,8 +831,8 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
               fontSize: WpTypography.micro,
               fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
               color: widget.isSelected
-                  ? (WpColorsDark.textPrimary)
-                  : (WpColorsDark.textMuted),
+                  ? (WpColors.textPrimary)
+                  : (WpColors.textMuted),
             ),
           ),
         ],

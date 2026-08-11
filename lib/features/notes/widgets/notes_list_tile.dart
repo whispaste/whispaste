@@ -127,9 +127,9 @@ class _NotesListTileState extends State<NotesListTile> {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
 
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
-    const textMuted = WpColorsDark.textMuted;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
+    const textMuted = WpColors.textMuted;
 
     final title = _title ?? l10n.notesUntitled;
 
@@ -290,8 +290,8 @@ class _NoteTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColors.accent;
+    const textMuted = WpColors.textMuted;
     return Wrap(
       spacing: 4,
       runSpacing: 2,
@@ -332,7 +332,7 @@ class _NoteTagChip extends StatelessWidget {
         vertical: 1,
       ),
       decoration: BoxDecoration(
-        color: WpColorsDark.accentMiniTagFill,
+        color: WpColors.accentMiniTagFill,
         borderRadius: WpRadius.borderSm,
       ),
       child: Text(

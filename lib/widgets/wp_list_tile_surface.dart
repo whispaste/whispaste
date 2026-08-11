@@ -139,17 +139,15 @@ class WpListTileSurface extends StatelessWidget {
   Color _fill() {
     switch (variant) {
       case WpListTileVariant.card:
-        return _isActive
-            ? (WpColorsDark.hover)
-            : (WpColorsDark.surfaceElevated);
+        return _isActive ? (WpColors.hover) : (WpColors.surfaceElevated);
       case WpListTileVariant.panel:
         if (isSelected) {
-          return WpColorsDark.accentSubtle;
+          return WpColors.accentSubtle;
         }
         if (isFocused || isHovered) {
-          return WpColorsDark.hover;
+          return WpColors.hover;
         }
-        return WpColorsDark.hoverTransparent;
+        return WpColors.hoverTransparent;
     }
   }
 
@@ -158,12 +156,12 @@ class WpListTileSurface extends StatelessWidget {
       case WpListTileVariant.card:
         return Border.all(
           color: _isActive
-              ? (WpColorsDark.cardActiveBorder)
-              : (WpColorsDark.borderSubtle),
+              ? (WpColors.cardActiveBorder)
+              : (WpColors.borderSubtle),
           width: borderWidth,
         );
       case WpListTileVariant.panel:
-        const accent = WpColorsDark.accent;
+        const accent = WpColors.accent;
         if (isSelected) {
           // Light-theme ink is deliberately reduced (history polish pass,
           // 2026-07-28): the light accent #06678A is itself dark

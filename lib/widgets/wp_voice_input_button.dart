@@ -70,9 +70,9 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
 
   _VoicePhase _phase = _VoicePhase.idle;
 
-  Color get _accent => WpColorsDark.accent;
-  Color get _textMuted => WpColorsDark.textMuted;
-  Color get _error => WpColorsDark.error;
+  Color get _accent => WpColors.accent;
+  Color get _textMuted => WpColors.textMuted;
+  Color get _error => WpColors.error;
 
   bool get _isBusy => _phase != _VoicePhase.idle;
 

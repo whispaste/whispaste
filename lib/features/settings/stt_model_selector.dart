@@ -258,12 +258,12 @@ class _TierRowState extends State<_TierRow> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const accentButtonFill = WpColorsDark.accentButtonFill;
-    const accentBorder30 = WpColorsDark.accentBorder30;
-    const textMuted = WpColorsDark.textMuted;
-    const hoverBg = WpColorsDark.hover;
-    const success = WpColorsDark.success;
+    const accent = WpColors.accent;
+    const accentButtonFill = WpColors.accentButtonFill;
+    const accentBorder30 = WpColors.accentBorder30;
+    const textMuted = WpColors.textMuted;
+    const hoverBg = WpColors.hover;
+    const success = WpColors.success;
 
     // Performance info is only shown on the current tier
     final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
@@ -392,11 +392,11 @@ class _TierRowState extends State<_TierRow> {
           return _ActionChip(
             label: widget.l10n.actionDelete,
             icon: LucideIcons.trash2,
-            color: WpColorsDark.error,
+            color: WpColors.error,
             onTap: widget.onDelete,
           );
         }
-        const success = WpColorsDark.success;
+        const success = WpColors.success;
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -435,7 +435,7 @@ class _TierRowState extends State<_TierRow> {
       return _ActionChip(
         label: widget.l10n.actionDelete,
         icon: LucideIcons.trash2,
-        color: WpColorsDark.error,
+        color: WpColors.error,
         onTap: widget.onDelete,
       );
     }
@@ -483,8 +483,8 @@ class _TierRowInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
     final bestModel = bestModelForTier(tier);
 
     return Column(
@@ -695,7 +695,7 @@ class _DownloadProgressInfo extends StatelessWidget {
                 ? null // indeterminate for verification/extraction
                 : downloadState.progressPercent / 100,
             minHeight: 3,
-            backgroundColor: WpColorsDark.borderSubtle,
+            backgroundColor: WpColors.borderSubtle,
             valueColor: AlwaysStoppedAnimation(accent),
           ),
         ),
@@ -705,7 +705,7 @@ class _DownloadProgressInfo extends StatelessWidget {
           _statusText(),
           style: const TextStyle(
             fontSize: WpTypography.caption,
-            color: WpColorsDark.textMuted,
+            color: WpColors.textMuted,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -851,15 +851,15 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const errorColor = WpColorsDark.error;
+    const errorColor = WpColors.error;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
       padding: const EdgeInsets.all(WpSpacing.sm),
       decoration: BoxDecoration(
-        color: WpColorsDark.errorButtonFill,
+        color: WpColors.errorButtonFill,
         borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(color: WpColorsDark.errorBorder20),
+        border: Border.all(color: WpColors.errorBorder20),
       ),
       child: Row(
         children: [

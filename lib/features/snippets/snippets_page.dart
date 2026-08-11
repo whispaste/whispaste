@@ -327,9 +327,9 @@ class _SnippetPickerTriggerFieldState
       child: Container(
         padding: const EdgeInsets.all(WpSpacing.xxs),
         decoration: BoxDecoration(
-          color: WpColorsDark.surfaceElevated,
+          color: WpColors.surfaceElevated,
           borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColorsDark.borderSubtle),
+          border: Border.all(color: WpColors.borderSubtle),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,14 +360,14 @@ class _SnippetPickerTriggerFieldState
                     const Icon(
                       LucideIcons.triangleAlert,
                       size: WpIconSize.xs,
-                      color: WpColorsDark.warning,
+                      color: WpColors.warning,
                     ),
                     const SizedBox(width: WpSpacing.xs),
                     Expanded(
                       child: Text(
                         l10n.snippetsPickerTriggerEmptyListHint,
                         style: const TextStyle(
-                          color: WpColorsDark.warning,
+                          color: WpColors.warning,
                           fontSize: WpTypography.small,
                           height: 1.4,
                         ),
@@ -618,7 +618,7 @@ class _SnippetTileState extends State<_SnippetTile> {
                   const Icon(
                     LucideIcons.notebookText,
                     size: WpIconSize.sm,
-                    color: WpColorsDark.accent,
+                    color: WpColors.accent,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   Expanded(
@@ -628,7 +628,7 @@ class _SnippetTileState extends State<_SnippetTile> {
                         Text(
                           widget.snippet.title,
                           style: const TextStyle(
-                            color: WpColorsDark.textPrimary,
+                            color: WpColors.textPrimary,
                             fontSize: WpTypography.body,
                             fontWeight: FontWeight.w500,
                           ),
@@ -639,7 +639,7 @@ class _SnippetTileState extends State<_SnippetTile> {
                         Text(
                           _bodyPreview,
                           style: const TextStyle(
-                            color: WpColorsDark.textMuted,
+                            color: WpColors.textMuted,
                             fontSize: WpTypography.small,
                           ),
                           maxLines: 2,

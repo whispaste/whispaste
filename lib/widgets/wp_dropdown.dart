@@ -338,27 +338,27 @@ class _WpDropdownPalette {
   final Color hoverWash;
 
   static const _dark = _WpDropdownPalette(
-    surface: WpColorsDark.surfaceVariant,
-    border: WpColorsDark.borderSubtle,
-    textPrimary: WpColorsDark.textPrimary,
-    textSecondary: WpColorsDark.textSecondary,
-    textMuted: WpColorsDark.textMuted,
-    accent: WpColorsDark.accent,
-    menuSurface: WpColorsDark.surfaceElevated,
-    focusWash: WpColorsDark.accentActiveFill,
-    hoverWash: WpColorsDark.accentRowHover,
+    surface: WpColors.surfaceVariant,
+    border: WpColors.borderSubtle,
+    textPrimary: WpColors.textPrimary,
+    textSecondary: WpColors.textSecondary,
+    textMuted: WpColors.textMuted,
+    accent: WpColors.accent,
+    menuSurface: WpColors.surfaceElevated,
+    focusWash: WpColors.accentActiveFill,
+    hoverWash: WpColors.accentRowHover,
   );
 
   static const _light = _WpDropdownPalette(
-    surface: WpColorsDark.surfaceVariant,
-    border: WpColorsDark.borderSubtle,
-    textPrimary: WpColorsDark.textPrimary,
-    textSecondary: WpColorsDark.textSecondary,
-    textMuted: WpColorsDark.textMuted,
-    accent: WpColorsDark.accent,
-    menuSurface: WpColorsDark.surfaceElevated,
-    focusWash: WpColorsDark.accentActiveFill,
-    hoverWash: WpColorsDark.accentRowHover,
+    surface: WpColors.surfaceVariant,
+    border: WpColors.borderSubtle,
+    textPrimary: WpColors.textPrimary,
+    textSecondary: WpColors.textSecondary,
+    textMuted: WpColors.textMuted,
+    accent: WpColors.accent,
+    menuSurface: WpColors.surfaceElevated,
+    focusWash: WpColors.accentActiveFill,
+    hoverWash: WpColors.accentRowHover,
   );
 
   static _WpDropdownPalette of(Brightness brightness) =>

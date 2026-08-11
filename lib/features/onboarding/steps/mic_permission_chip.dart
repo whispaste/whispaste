@@ -99,10 +99,10 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
     final l10n = L10n.of(context);
     final status = ref.watch(micPermissionNotifierProvider).status;
 
-    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.55);
-    const hover = WpColorsDark.hover;
-    const border = WpColorsDark.borderSubtle;
-    const textPrimary = WpColorsDark.textPrimary;
+    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.55);
+    const hover = WpColors.hover;
+    const border = WpColors.borderSubtle;
+    const textPrimary = WpColors.textPrimary;
 
     // Status is carried by the tinted leading glyph and the copy — the pill
     // itself stays neutral (same quiet register as the Auto-Paste indicator).
@@ -110,19 +110,19 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
       MicPermissionStatus.granted => (
         l10n.onboardingMicChipReady,
         LucideIcons.circleCheck,
-        WpColorsDark.success,
+        WpColors.success,
       ),
       MicPermissionStatus.denied => (
         l10n.onboardingMicChipAction,
         LucideIcons.shieldAlert,
-        WpColorsDark.warning,
+        WpColors.warning,
       ),
       // unknown & requesting both read "pending": a fresh install has simply
       // not been asked yet and must never claim "action needed".
       MicPermissionStatus.unknown || MicPermissionStatus.requesting => (
         l10n.onboardingMicChipPending,
         status == MicPermissionStatus.requesting ? null : LucideIcons.mic,
-        WpColorsDark.accent,
+        WpColors.accent,
       ),
     };
 

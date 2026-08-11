@@ -52,15 +52,11 @@ class WpEmptyState extends StatelessWidget {
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: WpColorsDark.accentChipFill,
+                  color: WpColors.accentChipFill,
                   shape: BoxShape.circle,
-                  border: Border.all(color: WpColorsDark.accentBorder20),
+                  border: Border.all(color: WpColors.accentBorder20),
                 ),
-                child: Icon(
-                  icon,
-                  size: WpIconSize.xl,
-                  color: WpColorsDark.accent,
-                ),
+                child: Icon(icon, size: WpIconSize.xl, color: WpColors.accent),
               ),
               const SizedBox(height: WpSpacing.xl),
               Text(

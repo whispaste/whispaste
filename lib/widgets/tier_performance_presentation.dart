@@ -107,7 +107,7 @@ abstract final class WpTierPerformancePresentation {
       TierPerformance.fast => rungs[_tierRampTextRung],
       TierPerformance.moderate => rungs[_tierRampTextRung + 1],
       TierPerformance.slow => rungs[_tierRampTextRung + 2],
-      TierPerformance.unmeasured => WpColorsDark.textMuted,
+      TierPerformance.unmeasured => WpColors.textMuted,
     };
   }
 

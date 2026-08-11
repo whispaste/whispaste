@@ -142,11 +142,11 @@ class _WpRowActionState extends State<WpRowAction> {
     if (widget.activeColor != null) {
       iconColor = widget.activeColor!;
     } else if (widget.isDestructive && _isHovered) {
-      iconColor = WpColorsDark.error;
+      iconColor = WpColors.error;
     } else if (_isHovered) {
-      iconColor = WpColorsDark.textPrimary;
+      iconColor = WpColors.textPrimary;
     } else {
-      iconColor = WpColorsDark.textMuted;
+      iconColor = WpColors.textMuted;
     }
 
     return Semantics(
@@ -184,8 +184,8 @@ class _WpRowActionState extends State<WpRowAction> {
                   padding: EdgeInsets.all(widget.dense ? 6 : 10),
                   decoration: BoxDecoration(
                     color: _isHovered
-                        ? (WpColorsDark.active)
-                        : (WpColorsDark.hoverTransparent),
+                        ? (WpColors.active)
+                        : (WpColors.hoverTransparent),
                     borderRadius: WpRadius.borderSm,
                   ),
                   child: widget.faIcon != null

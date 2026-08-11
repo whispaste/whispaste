@@ -419,7 +419,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: WpTypography.small,
-                    color: WpColorsDark.textMuted,
+                    color: WpColors.textMuted,
                   ),
                 ),
               ),

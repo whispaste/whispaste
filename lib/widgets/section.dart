@@ -143,7 +143,7 @@ class _SectionHeader extends StatelessWidget {
               height: 18,
               margin: const EdgeInsets.only(right: _accentBarGutter),
               decoration: BoxDecoration(
-                gradient: WpColorsDark.accentWarmGradient,
+                gradient: WpColors.accentWarmGradient,
                 borderRadius: WpRadius.borderFull,
               ),
             ),

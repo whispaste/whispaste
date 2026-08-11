@@ -33,12 +33,12 @@ class WpPasteCapabilityRestartBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    const accent = WpColorsDark.accent;
-    const fill = WpColorsDark.accentButtonFill;
-    const border = WpColorsDark.accentBorder20;
-    const badgeFill = WpColorsDark.accentChipFill;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
+    const accent = WpColors.accent;
+    const fill = WpColors.accentButtonFill;
+    const border = WpColors.accentBorder20;
+    const badgeFill = WpColors.accentChipFill;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
 
     return Container(
       width: double.infinity,

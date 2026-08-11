@@ -187,10 +187,10 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColorsDark.accent;
-    const textMuted = WpColorsDark.textMuted;
-    const surface = WpColorsDark.surfaceElevated;
-    const borderCol = WpColorsDark.borderDefault;
+    const accent = WpColors.accent;
+    const textMuted = WpColors.textMuted;
+    const surface = WpColors.surfaceElevated;
+    const borderCol = WpColors.borderDefault;
 
     // Read current matches from the provider (populated after debounce)
     final matches = ref.watch(settingsSearchMatchesProvider);
@@ -289,7 +289,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                             // The ladder's keyboard-focus rung (12 %), not a
                             // hand-mixed alpha of the same value.
                             color: isHighlighted
-                                ? (WpColorsDark.accentActiveFill)
+                                ? (WpColors.accentActiveFill)
                                 : null,
                             padding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.md,
@@ -313,7 +313,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                                     style: const TextStyle(
                                       fontSize: WpTypography.body,
                                       fontWeight: FontWeight.w500,
-                                      color: WpColorsDark.textPrimary,
+                                      color: WpColors.textPrimary,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

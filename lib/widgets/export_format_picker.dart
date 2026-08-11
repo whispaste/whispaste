@@ -107,7 +107,7 @@ class _PickerBarrier extends StatelessWidget {
     final bool useBlur = !Platform.isWindows;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final barrierColor = WpColorsDark.background.withValues(alpha: 0.92);
+    final barrierColor = WpColors.background.withValues(alpha: 0.92);
 
     return FadeTransition(
       opacity: opacity,
@@ -234,9 +234,9 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
               constraints: const BoxConstraints(maxWidth: 420),
               padding: const EdgeInsets.all(WpSpacing.lg),
               decoration: BoxDecoration(
-                color: WpColorsDark.surfaceElevated,
+                color: WpColors.surfaceElevated,
                 borderRadius: WpRadius.borderLg,
-                border: Border.all(color: WpColorsDark.borderSubtle),
+                border: Border.all(color: WpColors.borderSubtle),
                 boxShadow: WpShadows.elevated,
               ),
               child: Column(
@@ -296,9 +296,9 @@ class _FormatOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    const highlightColor = WpColorsDark.surfaceVariant;
+    const highlightColor = WpColors.surfaceVariant;
 
-    const mutedText = WpColorsDark.textMuted;
+    const mutedText = WpColors.textMuted;
 
     // Same construction as the snippet picker, and for the same two reasons.
     // House idiom (`section.dart`): MergeSemantics + a *label-less*

@@ -936,9 +936,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         hotkeyStatus != HotkeyRegistrationStatus.conflict &&
         (testRecordingSucceeded || micBypassed);
 
-    const background = WpColorsDark.background;
-    const textMuted = WpColorsDark.textMuted;
-    const accentGradient = WpColorsDark.accentWarmGradient;
+    const background = WpColors.background;
+    const textMuted = WpColors.textMuted;
+    const accentGradient = WpColors.accentWarmGradient;
 
     return BlockSemantics(
       // The whole surface doubles as a window drag area: the title bar is
@@ -1124,8 +1124,8 @@ class _StepperDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const muted = WpColorsDark.textMuted;
+    const accent = WpColors.accent;
+    const muted = WpColors.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

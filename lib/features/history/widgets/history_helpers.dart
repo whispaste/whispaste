@@ -179,8 +179,8 @@ class HistoryStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const fill = WpColorsDark.surfaceMutedFill;
-    const text = WpColorsDark.textSecondary;
+    const fill = WpColors.surfaceMutedFill;
+    const text = WpColors.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xxs,

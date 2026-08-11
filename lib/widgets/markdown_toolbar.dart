@@ -208,8 +208,8 @@ class WpMarkdownToolbar extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
     );
-    const mutedColor = WpColorsDark.textMuted;
-    const accent = WpColorsDark.accent;
+    const mutedColor = WpColors.textMuted;
+    const accent = WpColors.accent;
     final divColor = mutedColor.withValues(alpha: 0.2);
 
     return Container(
@@ -218,7 +218,7 @@ class WpMarkdownToolbar extends StatelessWidget {
         vertical: WpSpacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: (WpColorsDark.surfaceVariant).withValues(alpha: 0.6),
+        color: (WpColors.surfaceVariant).withValues(alpha: 0.6),
         borderRadius: WpRadius.borderSm,
       ),
       child: SingleChildScrollView(

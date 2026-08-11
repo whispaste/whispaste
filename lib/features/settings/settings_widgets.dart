@@ -83,7 +83,7 @@ class _SettingRowState extends State<SettingRow> {
 
     // Subtitle style: use the theme bodySmall token but substitute textMuted
     // for slightly softer contrast (both textMuted and cs.secondary pass WCAG AA).
-    final subtitleStyle = tt.bodySmall?.copyWith(color: WpColorsDark.textMuted);
+    final subtitleStyle = tt.bodySmall?.copyWith(color: WpColors.textMuted);
 
     // The label and hint stay on the wrapper, but the rendered title and
     // subtitle are excluded from the semantics tree below (see the
@@ -119,8 +119,8 @@ class _SettingRowState extends State<SettingRow> {
             ),
             decoration: BoxDecoration(
               color: _isHovered
-                  ? (WpColorsDark.hover)
-                  : (WpColorsDark.hoverTransparent),
+                  ? (WpColors.hover)
+                  : (WpColors.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
             child: Row(
@@ -198,7 +198,7 @@ class HotkeyDisplay extends StatelessWidget {
                 style: TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w500,
-                  color: WpColorsDark.textMuted,
+                  color: WpColors.textMuted,
                 ),
               ),
             ),
@@ -215,9 +215,9 @@ class HotkeyDisplay extends StatelessWidget {
               vertical: WpSpacing.xxs,
             ),
             decoration: BoxDecoration(
-              color: WpColorsDark.surfaceVariant,
+              color: WpColors.surfaceVariant,
               borderRadius: WpRadius.borderSm,
-              border: Border.all(color: WpColorsDark.borderSubtle),
+              border: Border.all(color: WpColors.borderSubtle),
             ),
             // `widthFactor: 1` so the cap centres its glyph in the taller box
             // without also claiming the width the row has left over.
@@ -229,7 +229,7 @@ class HotkeyDisplay extends StatelessWidget {
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   fontFeatures: [FontFeature.tabularFigures()],
-                  color: WpColorsDark.textPrimary,
+                  color: WpColors.textPrimary,
                 ),
               ),
             ),
@@ -301,7 +301,7 @@ Widget settingsSlider({
   required ValueChanged<double> onChanged,
   ValueChanged<double>? onChangeEnd,
 }) {
-  const accent = WpColorsDark.accent;
+  const accent = WpColors.accent;
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -310,7 +310,7 @@ Widget settingsSlider({
         child: SliderTheme(
           data: SliderThemeData(
             activeTrackColor: accent,
-            inactiveTrackColor: WpColorsDark.surfaceVariant,
+            inactiveTrackColor: WpColors.surfaceVariant,
             thumbColor: accent,
             overlayColor: accent.withValues(alpha: 0.12),
             trackHeight: 3,
@@ -336,7 +336,7 @@ Widget settingsSlider({
           style: const TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w500,
-            color: WpColorsDark.textSecondary,
+            color: WpColors.textSecondary,
             fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
@@ -405,7 +405,7 @@ Widget settingsApiKeyField({
           icon: Icon(
             obscure ? LucideIcons.eye : LucideIcons.eyeOff,
             size: WpIconSize.sm,
-            color: WpColorsDark.textMuted,
+            color: WpColors.textMuted,
           ),
           onPressed: onToggle,
           tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
@@ -449,7 +449,7 @@ Widget settingsTextField({
 Widget settingsSectionDivider(BuildContext context) {
   return const Padding(
     padding: EdgeInsets.symmetric(vertical: WpSpacing.xs),
-    child: Divider(color: WpColorsDark.borderSubtle),
+    child: Divider(color: WpColors.borderSubtle),
   );
 }
 
@@ -458,7 +458,7 @@ Widget settingsSectionDivider(BuildContext context) {
 /// conditionally-shown size/preview rows) — a tighter, lower-profile sibling
 /// of [settingsSectionDivider], which separates whole top-level sections.
 Widget settingsInlineDivider(BuildContext context) {
-  return const Divider(height: 1, color: WpColorsDark.borderSubtle);
+  return const Divider(height: 1, color: WpColors.borderSubtle);
 }
 
 // ---------------------------------------------------------------------------
@@ -497,8 +497,8 @@ Widget settingsInlineNotice({
     vertical: WpSpacing.xs,
   ),
 }) {
-  const warning = WpColorsDark.warning;
-  const textPrimary = WpColorsDark.textPrimary;
+  const warning = WpColors.warning;
+  const textPrimary = WpColors.textPrimary;
 
   return Container(
     margin: margin,

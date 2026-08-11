@@ -420,7 +420,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                   // top of it.
                   const DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: WpColorsDark.warmSurfaceGradient,
+                      gradient: WpColors.warmSurfaceGradient,
                     ),
                   ),
                   // The overlay's glass light: sheen, Fresnel band,
@@ -432,7 +432,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                         painter: _PanelGlassPainter(
                           phase: _driftController.value,
                           radius: WpRadius.xl,
-                          borderColor: WpColorsDark.accentBorder20,
+                          borderColor: WpColors.accentBorder20,
                         ),
                       ),
                     ),
@@ -559,9 +559,9 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
               curve: Curves.easeOutCubic,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: WpColorsDark.accentActiveFill,
+                  color: WpColors.accentActiveFill,
                   borderRadius: WpRadius.borderMd,
-                  border: Border.all(color: WpColorsDark.accentBorder20),
+                  border: Border.all(color: WpColors.accentBorder20),
                 ),
               ),
               builder: (context, animIndex, capsule) => AnimatedBuilder(
@@ -612,7 +612,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   }
 
   Widget _hairline(bool isDark) =>
-      Container(height: 1, color: WpColorsDark.borderSubtle);
+      Container(height: 1, color: WpColors.borderSubtle);
 }
 
 /// One snippet row: a soft accent icon chip, title + single-line body
@@ -650,7 +650,7 @@ class _PickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
     // House idiom for a composed control (`section.dart`,
     // `mic_permission_chip.dart`): MergeSemantics + a *label-less*
     // Semantics. An explicit `label: item.title` here does not replace the
@@ -687,13 +687,13 @@ class _PickerTile extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: WpColorsDark.accentChipFill,
+                      color: WpColors.accentChipFill,
                       borderRadius: WpRadius.borderSm,
                     ),
                     child: const Icon(
                       LucideIcons.notebookText,
                       size: WpIconSize.sm,
-                      color: WpColorsDark.accent,
+                      color: WpColors.accent,
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
@@ -706,7 +706,7 @@ class _PickerTile extends StatelessWidget {
                         Text(
                           item.title,
                           style: const TextStyle(
-                            color: WpColorsDark.textPrimary,
+                            color: WpColors.textPrimary,
                             fontSize: WpTypography.body,
                             fontWeight: FontWeight.w500,
                             height: _lineHeight,
@@ -997,7 +997,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(WpSpacing.xl),
@@ -1010,7 +1010,7 @@ class _EmptyState extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: WpColorsDark.textSecondary,
+                color: WpColors.textSecondary,
                 fontSize: WpTypography.body,
                 fontWeight: FontWeight.w500,
               ),
@@ -1047,21 +1047,21 @@ class _KeyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
-            color: WpColorsDark.surfaceMutedFill,
+            color: WpColors.surfaceMutedFill,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: WpColorsDark.borderSubtle),
+            border: Border.all(color: WpColors.borderSubtle),
           ),
           child: Text(
             keyLabel,
             style: const TextStyle(
-              color: WpColorsDark.textSecondary,
+              color: WpColors.textSecondary,
               fontSize: WpTypography.micro,
               fontWeight: FontWeight.w500,
             ),

@@ -19,7 +19,7 @@ class HistoryDateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = WpColorsDark.textMuted;
+    const color = WpColors.textMuted;
 
     // Ruhiger als der frühere Doppellinien-Trenner: ein linksbündiges
     // Text-Label, wie HistoryCompactDateHeader es bereits macht — weniger
@@ -79,7 +79,7 @@ class HistoryCompactDateHeader extends StatelessWidget {
             fontSize: WpTypography.micro,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
-            color: WpColorsDark.textMuted,
+            color: WpColors.textMuted,
           ),
         ),
       ),

@@ -86,7 +86,7 @@ class AboutPage extends ConsumerWidget {
           Center(
             child: Text(
               l10n.aboutTagline,
-              style: ts.bodyMedium?.copyWith(color: WpColorsDark.textSecondary),
+              style: ts.bodyMedium?.copyWith(color: WpColors.textSecondary),
             ),
           ),
           const SizedBox(height: WpSpacing.lg),
@@ -155,7 +155,7 @@ class AboutPage extends ConsumerWidget {
               Text(
                 l10n.aboutSupportDescription,
                 style: const TextStyle(
-                  color: WpColorsDark.textSecondary,
+                  color: WpColors.textSecondary,
                   fontSize: WpTypography.body,
                   height: 1.5,
                 ),
@@ -333,7 +333,7 @@ class AboutPage extends ConsumerWidget {
               Text(
                 l10n.aboutSystemInfoDesc,
                 style: const TextStyle(
-                  color: WpColorsDark.textSecondary,
+                  color: WpColors.textSecondary,
                   fontSize: WpTypography.body,
                 ),
               ),
@@ -350,7 +350,7 @@ class AboutPage extends ConsumerWidget {
           Center(
             child: Text(
               l10n.aboutMadeWith,
-              style: ts.bodySmall?.copyWith(color: WpColorsDark.textMuted),
+              style: ts.bodySmall?.copyWith(color: WpColors.textMuted),
             ),
           ),
           const SizedBox(height: WpSpacing.xs),
@@ -358,7 +358,7 @@ class AboutPage extends ConsumerWidget {
             child: Text(
               l10n.aboutOpenSource,
               style: ts.bodySmall?.copyWith(
-                color: WpColorsDark.textMuted,
+                color: WpColors.textMuted,
                 fontSize: WpTypography.caption,
               ),
             ),
@@ -395,9 +395,9 @@ class _AboutCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(WpSpacing.lg),
       decoration: BoxDecoration(
-        color: WpColorsDark.surfaceElevated,
+        color: WpColors.surfaceElevated,
         borderRadius: WpRadius.borderLg,
-        border: Border.all(color: WpColorsDark.borderSubtle),
+        border: Border.all(color: WpColors.borderSubtle),
       ),
       // The card already pads itself — the section only supplies the header.
       child: WpSection(
@@ -509,8 +509,8 @@ class _SponsorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const borderColor = WpColorsDark.borderSubtle;
-    const textColor = WpColorsDark.textPrimary;
+    const borderColor = WpColors.borderSubtle;
+    const textColor = WpColors.textPrimary;
 
     final chip = Container(
       padding: const EdgeInsets.symmetric(
@@ -564,11 +564,11 @@ class _BuiltWithRow extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: WpColorsDark.accentSubtle,
+              color: WpColors.accentSubtle,
               borderRadius: WpRadius.borderSm,
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: WpIconSize.sm, color: WpColorsDark.accent),
+            child: Icon(icon, size: WpIconSize.sm, color: WpColors.accent),
           ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
@@ -580,14 +580,14 @@ class _BuiltWithRow extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: WpTypography.subheading,
                     fontWeight: FontWeight.w600,
-                    color: WpColorsDark.textPrimary,
+                    color: WpColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
                   style: const TextStyle(
-                    color: WpColorsDark.textSecondary,
+                    color: WpColors.textSecondary,
                     fontSize: WpTypography.body,
                     height: 1.4,
                   ),
@@ -622,7 +622,7 @@ class _PrivacyPoint extends StatelessWidget {
             child: Icon(
               LucideIcons.check,
               size: WpIconSize.xs,
-              color: WpColorsDark.success,
+              color: WpColors.success,
             ),
           ),
           const SizedBox(width: WpSpacing.sm),
@@ -630,7 +630,7 @@ class _PrivacyPoint extends StatelessWidget {
             child: Text(
               text,
               style: const TextStyle(
-                color: WpColorsDark.textSecondary,
+                color: WpColors.textSecondary,
                 fontSize: WpTypography.body,
                 height: 1.5,
               ),
@@ -722,18 +722,12 @@ class _LinkRowState extends State<_LinkRow> {
             vertical: WpSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: _isHovered
-                ? (WpColorsDark.hover)
-                : (WpColorsDark.hoverTransparent),
+            color: _isHovered ? (WpColors.hover) : (WpColors.hoverTransparent),
             borderRadius: WpRadius.borderSm,
           ),
           child: Row(
             children: [
-              Icon(
-                widget.icon,
-                size: WpIconSize.sm,
-                color: WpColorsDark.textMuted,
-              ),
+              Icon(widget.icon, size: WpIconSize.sm, color: WpColors.textMuted),
               const SizedBox(width: WpSpacing.sm),
               Expanded(
                 child: Text(
@@ -746,7 +740,7 @@ class _LinkRowState extends State<_LinkRow> {
                   widget.displayUrl,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: WpColorsDark.textMuted,
+                    color: WpColors.textMuted,
                     fontSize: WpTypography.small,
                   ),
                 ),
@@ -755,7 +749,7 @@ class _LinkRowState extends State<_LinkRow> {
               const Icon(
                 LucideIcons.externalLink,
                 size: WpIconSize.xs,
-                color: WpColorsDark.textMuted,
+                color: WpColors.textMuted,
               ),
             ],
           ),

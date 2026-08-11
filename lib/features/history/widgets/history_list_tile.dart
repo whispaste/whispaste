@@ -250,8 +250,8 @@ class _EntryRowContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,8 +382,8 @@ class _EntryMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
-    const textSecondary = WpColorsDark.textSecondary;
+    const textMuted = WpColors.textMuted;
+    const textSecondary = WpColors.textSecondary;
     return Row(
       children: [
         const Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
@@ -464,7 +464,7 @@ class _EntryTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
     return Wrap(
       spacing: 4,
       runSpacing: 2,
@@ -540,7 +540,7 @@ class _EntryTagChipState extends State<_EntryTagChip> {
         '#${widget.tag}',
         style: const TextStyle(
           fontSize: WpTypography.micro,
-          color: WpColorsDark.textSecondary,
+          color: WpColors.textSecondary,
           fontWeight: FontWeight.w500,
         ),
       ),

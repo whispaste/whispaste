@@ -233,11 +233,11 @@ class WpTagInputState extends State<WpTagInput> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
-    const surfaceEl = WpColorsDark.surfaceElevated;
-    const borderCol = WpColorsDark.borderSubtle;
+    const accent = WpColors.accent;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+    const surfaceEl = WpColors.surfaceElevated;
+    const borderCol = WpColors.borderSubtle;
     final l10n = L10n.of(context);
 
     // Collapse tags when not editing.
@@ -425,9 +425,9 @@ class _TagChipState extends State<_TagChip> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const chipFill = WpColorsDark.accentChipFill;
-    const chipFillHover = WpColorsDark.accentChipFillHover;
+    const accent = WpColors.accent;
+    const chipFill = WpColors.accentChipFill;
+    const chipFillHover = WpColors.accentChipFillHover;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -503,7 +503,7 @@ class _OverflowChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
 
     // Keep an explicit label here and exclude the visible text instead (the
     // `SettingRow` shape rather than the `MergeSemantics` one): "+12" is a
@@ -562,8 +562,8 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColorsDark.accent;
-    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColors.accent;
+    const textMuted = WpColors.textMuted;
 
     // Two shapes in one control, so the semantics has to branch with it.
     // With a label the trigger renders that same string as `Text`, so the
@@ -652,9 +652,9 @@ class _SuggestionTileState extends State<_SuggestionTile> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const accent = WpColorsDark.accent;
-    const hoverBg = WpColorsDark.hover;
+    const textPrimary = WpColors.textPrimary;
+    const accent = WpColors.accent;
+    const hoverBg = WpColors.hover;
 
     // House idiom (`section.dart`): MergeSemantics + a *label-less*
     // Semantics — a `label:` is prepended to the subtree's text, not a
@@ -758,9 +758,9 @@ class _CreateTagTileState extends State<_CreateTagTile> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const accent = WpColorsDark.accent;
-    const hoverBg = WpColorsDark.hover;
+    const textPrimary = WpColors.textPrimary;
+    const accent = WpColors.accent;
+    const hoverBg = WpColors.hover;
 
     // Same construction and same reasoning as `_SuggestionRow` above: the
     // create-row is the last stop of the very same arrow-key walk

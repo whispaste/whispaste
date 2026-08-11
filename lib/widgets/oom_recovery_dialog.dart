@@ -60,11 +60,11 @@ class _OomRecoveryDialog extends StatelessWidget {
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
 
-    const surface = WpColorsDark.surfaceElevated;
-    const border = WpColorsDark.borderDefault;
-    const titleColor = WpColorsDark.textPrimary;
-    const bodyColor = WpColorsDark.textSecondary;
-    const warningColor = WpColorsDark.warning;
+    const surface = WpColors.surfaceElevated;
+    const border = WpColors.borderDefault;
+    const titleColor = WpColors.textPrimary;
+    const bodyColor = WpColors.textSecondary;
+    const warningColor = WpColors.warning;
 
     return Center(
       child: SlideTransition(

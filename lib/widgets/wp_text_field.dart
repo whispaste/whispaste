@@ -474,19 +474,19 @@ class _WpTextFieldPalette {
   final Color accent;
 
   static const _dark = _WpTextFieldPalette(
-    surface: WpColorsDark.surfaceVariant,
-    border: WpColorsDark.borderSubtle,
-    textPrimary: WpColorsDark.textPrimary,
-    textMuted: WpColorsDark.textMuted,
-    accent: WpColorsDark.accent,
+    surface: WpColors.surfaceVariant,
+    border: WpColors.borderSubtle,
+    textPrimary: WpColors.textPrimary,
+    textMuted: WpColors.textMuted,
+    accent: WpColors.accent,
   );
 
   static const _light = _WpTextFieldPalette(
-    surface: WpColorsDark.surfaceVariant,
-    border: WpColorsDark.borderSubtle,
-    textPrimary: WpColorsDark.textPrimary,
-    textMuted: WpColorsDark.textMuted,
-    accent: WpColorsDark.accent,
+    surface: WpColors.surfaceVariant,
+    border: WpColors.borderSubtle,
+    textPrimary: WpColors.textPrimary,
+    textMuted: WpColors.textMuted,
+    accent: WpColors.accent,
   );
 
   static _WpTextFieldPalette of(Brightness brightness) =>

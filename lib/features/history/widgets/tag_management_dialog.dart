@@ -121,10 +121,10 @@ class _TagManagementContentState extends State<_TagManagementContent> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColorsDark.accent;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
-    const borderColor = WpColorsDark.borderSubtle;
+    const accent = WpColors.accent;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+    const borderColor = WpColors.borderSubtle;
 
     final unusedCount = _tags.where((t) => t.$2 == 0).length;
 
@@ -139,7 +139,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
             child: Material(
-              color: WpColorsDark.surfaceElevated,
+              color: WpColors.surfaceElevated,
               borderRadius: BorderRadius.circular(WpRadius.lg),
               elevation: 8,
               child: Column(
@@ -309,16 +309,16 @@ class _TagRowState extends State<_TagRow> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColorsDark.accent;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
+    const accent = WpColors.accent;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-        color: _hovered ? (WpColorsDark.accentRowHover) : Colors.transparent,
+        color: _hovered ? (WpColors.accentRowHover) : Colors.transparent,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.lg,
           vertical: WpSpacing.xs,
@@ -354,7 +354,7 @@ class _TagRowState extends State<_TagRow> {
                 icon: const Icon(
                   LucideIcons.trash2,
                   size: 14,
-                  color: WpColorsDark.error,
+                  color: WpColors.error,
                 ),
                 onPressed: widget.onDelete,
                 tooltip: l10n.actionDelete,

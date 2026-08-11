@@ -248,7 +248,7 @@ class _StableRevertHintNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const warning = WpColorsDark.warning;
+    const warning = WpColors.warning;
 
     return settingsInlineNotice(
       context: context,

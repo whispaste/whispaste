@@ -114,8 +114,8 @@ class _WpWaveformState extends State<WpWaveform>
   Widget build(BuildContext context) {
     // Recording family, not the generic accent: these bars only ever move
     // while audio is coming in.
-    final activeColor = widget.color ?? (WpColorsDark.recordingAccent);
-    final idleColor = widget.inactiveColor ?? (WpColorsDark.surfaceVariant);
+    final activeColor = widget.color ?? (WpColors.recordingAccent);
+    final idleColor = widget.inactiveColor ?? (WpColors.surfaceVariant);
 
     // ⚡ Bolt: Added RepaintBoundary to isolate continuous waveform repaints
     // from invalidating the rest of the widget tree.

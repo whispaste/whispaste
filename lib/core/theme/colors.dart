@@ -71,6 +71,29 @@ library;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+/// The palette the app paints from. One name, one implementation behind it.
+///
+/// Production code reaches its colours through `WpColors` and never names a
+/// concrete palette, so "which palette is this build painted from?" has exactly
+/// one answer and exactly one place to change it. [WpColorsDark] keeps its own
+/// name because it describes what it *is* — a dark palette — rather than the
+/// job it currently holds. Tests are the deliberate exception: a test that pins
+/// a property of the dark palette *as such* should say so.
+///
+/// **What this seam can and cannot do.** It is a naming seam, not a runtime
+/// switch. Pointing it at another palette would repaint the app, but it cannot
+/// by itself bring back a *user-selectable* theme: a live theme has to be read
+/// per build from something the widget tree can watch, and a type alias is
+/// resolved at compile time. Re-introducing one therefore means moving these
+/// call sites onto an instance — and the point of the alias is that this is a
+/// rename of one identifier rather than an excavation of the roughly nine
+/// hundred `isDark` branches that used to be threaded through the tree.
+///
+/// Nothing further is promised here. No second palette is sketched in, and no
+/// plugin layer stands ready for one, because there is no second theme to
+/// justify the shape it would have to take.
+typedef WpColors = WpColorsDark;
+
 // ---------------------------------------------------------------------------
 // Dark Theme Colors (Primary) — rich saturated blue-navy tones, unified
 // ---------------------------------------------------------------------------

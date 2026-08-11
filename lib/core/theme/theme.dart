@@ -13,21 +13,21 @@ import 'tokens.dart';
 ThemeData wpDarkTheme() {
   const colorScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: WpColorsDark.accent,
-    onPrimary: WpColorsDark.background,
-    primaryContainer: WpColorsDark.accentSubtle,
-    onPrimaryContainer: WpColorsDark.accent,
-    secondary: WpColorsDark.textSecondary,
-    onSecondary: WpColorsDark.background,
-    secondaryContainer: WpColorsDark.surfaceVariant,
-    onSecondaryContainer: WpColorsDark.textPrimary,
-    surface: WpColorsDark.surface,
-    onSurface: WpColorsDark.textPrimary,
-    surfaceContainerHighest: WpColorsDark.surfaceVariant,
-    error: WpColorsDark.error,
-    onError: WpColorsDark.background,
-    outline: WpColorsDark.borderDefault,
-    outlineVariant: WpColorsDark.borderSubtle,
+    primary: WpColors.accent,
+    onPrimary: WpColors.background,
+    primaryContainer: WpColors.accentSubtle,
+    onPrimaryContainer: WpColors.accent,
+    secondary: WpColors.textSecondary,
+    onSecondary: WpColors.background,
+    secondaryContainer: WpColors.surfaceVariant,
+    onSecondaryContainer: WpColors.textPrimary,
+    surface: WpColors.surface,
+    onSurface: WpColors.textPrimary,
+    surfaceContainerHighest: WpColors.surfaceVariant,
+    error: WpColors.error,
+    onError: WpColors.background,
+    outline: WpColors.borderDefault,
+    outlineVariant: WpColors.borderSubtle,
     shadow: Color(0xFF000000),
   );
 
@@ -38,21 +38,21 @@ ThemeData wpDarkTheme() {
 ThemeData wpLightTheme() {
   const colorScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: WpColorsDark.accent,
+    primary: WpColors.accent,
     onPrimary: Colors.white,
-    primaryContainer: WpColorsDark.accentSubtle,
-    onPrimaryContainer: WpColorsDark.accent,
-    secondary: WpColorsDark.textSecondary,
+    primaryContainer: WpColors.accentSubtle,
+    onPrimaryContainer: WpColors.accent,
+    secondary: WpColors.textSecondary,
     onSecondary: Colors.white,
-    secondaryContainer: WpColorsDark.surfaceVariant,
-    onSecondaryContainer: WpColorsDark.textPrimary,
-    surface: WpColorsDark.surface,
-    onSurface: WpColorsDark.textPrimary,
-    surfaceContainerHighest: WpColorsDark.surfaceVariant,
-    error: WpColorsDark.error,
+    secondaryContainer: WpColors.surfaceVariant,
+    onSecondaryContainer: WpColors.textPrimary,
+    surface: WpColors.surface,
+    onSurface: WpColors.textPrimary,
+    surfaceContainerHighest: WpColors.surfaceVariant,
+    error: WpColors.error,
     onError: Colors.white,
-    outline: WpColorsDark.borderDefault,
-    outlineVariant: WpColorsDark.borderSubtle,
+    outline: WpColors.borderDefault,
+    outlineVariant: WpColors.borderSubtle,
     shadow: Color(0x1A000000),
   );
 
@@ -60,7 +60,7 @@ ThemeData wpLightTheme() {
 }
 
 ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
-  const bg = WpColorsDark.background;
+  const bg = WpColors.background;
   // Build textTheme first so component themes can reference it (e.g. snackBar).
   final textTheme = _textTheme(colorScheme);
 
@@ -91,7 +91,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Cards
     cardTheme: CardThemeData(
-      color: WpColorsDark.surfaceElevated,
+      color: WpColors.surfaceElevated,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: WpRadius.borderMd,
@@ -206,7 +206,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Input fields
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: WpColorsDark.surfaceVariant,
+      fillColor: WpColors.surfaceVariant,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.sm,
@@ -224,7 +224,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
       ),
       hintStyle: const TextStyle(
-        color: WpColorsDark.textMuted,
+        color: WpColors.textMuted,
         fontSize: WpTypography.body,
       ),
     ),
@@ -233,7 +233,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return colorScheme.primary;
-        return WpColorsDark.textMuted;
+        return WpColors.textMuted;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -253,12 +253,12 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Tooltip
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: WpColorsDark.surfaceElevated,
+        color: WpColors.surfaceElevated,
         borderRadius: WpRadius.borderSm,
-        border: Border.all(color: WpColorsDark.borderDefault),
+        border: Border.all(color: WpColors.borderDefault),
       ),
       textStyle: const TextStyle(
-        color: WpColorsDark.textPrimary,
+        color: WpColors.textPrimary,
         fontSize: WpTypography.small,
         fontWeight: FontWeight.w500,
       ),
@@ -272,7 +272,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Scrollbar
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStateProperty.all(
-        (WpColorsDark.textMuted).withValues(alpha: 0.3),
+        (WpColors.textMuted).withValues(alpha: 0.3),
       ),
       radius: const Radius.circular(WpRadius.full),
       thickness: WidgetStateProperty.resolveWith((states) {
@@ -283,7 +283,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Snackbar
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: WpColorsDark.surfaceElevated,
+      backgroundColor: WpColors.surfaceElevated,
       contentTextStyle: textTheme.labelMedium?.copyWith(
         color: colorScheme.onSurface,
       ),
@@ -294,7 +294,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Dialog
     dialogTheme: DialogThemeData(
-      backgroundColor: WpColorsDark.surfaceElevated,
+      backgroundColor: WpColors.surfaceElevated,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
       elevation: 8,
       titleTextStyle: TextStyle(

@@ -149,7 +149,7 @@ class _WpDialogBarrier extends StatelessWidget {
     final bool useBlur = !Platform.isWindows;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final barrierColor = WpColorsDark.background.withValues(alpha: 0.92);
+    final barrierColor = WpColors.background.withValues(alpha: 0.92);
 
     return FadeTransition(
       opacity: opacity,
@@ -221,9 +221,9 @@ class _WpDialogSurface extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: width, maxHeight: maxHeight),
             padding: const EdgeInsets.all(WpSpacing.lg),
             decoration: BoxDecoration(
-              color: WpColorsDark.surfaceElevated,
+              color: WpColors.surfaceElevated,
               borderRadius: WpRadius.borderLg,
-              border: Border.all(color: WpColorsDark.borderSubtle),
+              border: Border.all(color: WpColors.borderSubtle),
               boxShadow: WpShadows.elevated,
             ),
             child: AnimatedSize(
@@ -334,7 +334,7 @@ class WpFormDialogShell extends StatelessWidget {
           Text(
             subtitle,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: WpColorsDark.textMuted,
+              color: WpColors.textMuted,
             ),
           ),
           const SizedBox(height: WpSpacing.lg),

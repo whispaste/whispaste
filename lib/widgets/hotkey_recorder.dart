@@ -465,11 +465,11 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const bg = WpColorsDark.surfaceElevated;
-    const border = WpColorsDark.borderDefault;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
-    const accent = WpColorsDark.accent;
+    const bg = WpColors.surfaceElevated;
+    const border = WpColors.borderDefault;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+    const accent = WpColors.accent;
     final l10n = L10n.of(context);
 
     // Modifier chips, derived from the canonical storage tokens at render time
@@ -571,7 +571,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
                     l10n.settingsHotkeyRecorderInvalidKey,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: WpColorsDark.warning,
+                      color: WpColors.warning,
                       fontSize: WpTypography.caption,
                     ),
                   ),
@@ -682,7 +682,7 @@ class _KeyComboDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColorsDark.textMuted;
+    const textMuted = WpColors.textMuted;
 
     // Nothing recorded yet — show placeholder
     if (modifiers.isEmpty && keyLabel.isEmpty) {
@@ -743,10 +743,10 @@ class _KeyCap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = WpColorsDark.surfaceVariant;
-    const borderColor = WpColorsDark.borderSubtle;
-    const textColor = WpColorsDark.textPrimary;
-    const accentColor = WpColorsDark.accent;
+    const bgColor = WpColors.surfaceVariant;
+    const borderColor = WpColors.borderSubtle;
+    const textColor = WpColors.textPrimary;
+    const accentColor = WpColors.accent;
 
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),
@@ -756,7 +756,7 @@ class _KeyCap extends StatelessWidget {
         vertical: WpSpacing.xxs + 2,
       ),
       decoration: BoxDecoration(
-        color: isPrimary ? (WpColorsDark.active) : bgColor,
+        color: isPrimary ? (WpColors.active) : bgColor,
         borderRadius: BorderRadius.circular(WpRadius.sm),
         border: Border.all(
           color: isPrimary ? accentColor.withValues(alpha: 0.4) : borderColor,
@@ -794,7 +794,7 @@ class _PlusSeparator extends StatelessWidget {
         style: TextStyle(
           fontSize: WpTypography.subheading,
           fontWeight: FontWeight.w600,
-          color: WpColorsDark.textMuted,
+          color: WpColors.textMuted,
         ),
       ),
     );
@@ -829,7 +829,7 @@ class _ConflictWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const warningColor = WpColorsDark.warning;
+    const warningColor = WpColors.warning;
     final warningBg = warningColor.withValues(alpha: 0.12);
     final warningBorder = warningColor.withValues(alpha: 0.35);
 

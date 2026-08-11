@@ -38,8 +38,8 @@ class WpRowCheckbox extends StatelessWidget {
       child: Checkbox(
         value: value,
         onChanged: (_) => onChanged(),
-        activeColor: WpColorsDark.accent,
-        side: const BorderSide(color: WpColorsDark.textMuted),
+        activeColor: WpColors.accent,
+        side: const BorderSide(color: WpColors.textMuted),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
       ),

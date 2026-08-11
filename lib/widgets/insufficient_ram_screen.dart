@@ -40,7 +40,7 @@ class WpInsufficientRamScreen extends StatelessWidget {
     final l10n = L10n.of(context);
 
     return DecoratedBox(
-      decoration: const BoxDecoration(gradient: WpColorsDark.frameGradient),
+      decoration: const BoxDecoration(gradient: WpColors.frameGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
@@ -80,7 +80,7 @@ class _ErrorCard extends StatelessWidget {
           style: const TextStyle(
             fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
-            color: WpColorsDark.textPrimary,
+            color: WpColors.textPrimary,
             height: 1.2,
           ),
         ),
@@ -98,7 +98,7 @@ class _ErrorCard extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: WpTypography.subheading,
-            color: WpColorsDark.textSecondary,
+            color: WpColors.textSecondary,
             height: 1.55,
           ),
         ),
@@ -130,7 +130,7 @@ class _AppIcon extends StatelessWidget {
       errorBuilder: (_, e, s) => const SizedBox(
         width: 80,
         height: 80,
-        child: Icon(LucideIcons.mic, size: 48, color: WpColorsDark.textPrimary),
+        child: Icon(LucideIcons.mic, size: 48, color: WpColors.textPrimary),
       ),
     );
   }
@@ -149,9 +149,9 @@ class _WarningBadge extends StatelessWidget {
         vertical: WpSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: WpColorsDark.warningOrangeBadgeFill,
+        color: WpColors.warningOrangeBadgeFill,
         borderRadius: WpRadius.borderFull,
-        border: Border.all(color: WpColorsDark.warningOrangeBadgeBorder),
+        border: Border.all(color: WpColors.warningOrangeBadgeBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -159,7 +159,7 @@ class _WarningBadge extends StatelessWidget {
           const Icon(
             LucideIcons.triangleAlert,
             size: 15,
-            color: WpColorsDark.warningOrange,
+            color: WpColors.warningOrange,
           ),
           const SizedBox(width: WpSpacing.xs),
           Text(
@@ -167,7 +167,7 @@ class _WarningBadge extends StatelessWidget {
             style: const TextStyle(
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
-              color: WpColorsDark.warningOrange,
+              color: WpColors.warningOrange,
               letterSpacing: 0.5,
             ),
           ),
@@ -198,9 +198,9 @@ class _RamSummaryRow extends StatelessWidget {
         vertical: WpSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: WpColorsDark.surfaceVariant,
+        color: WpColors.surfaceVariant,
         borderRadius: WpRadius.borderMd,
-        border: Border.all(color: WpColorsDark.borderSubtle),
+        border: Border.all(color: WpColors.borderSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -208,20 +208,20 @@ class _RamSummaryRow extends StatelessWidget {
           _RamChip(
             label: yourSystemLabel,
             value: '${detectedGb.toStringAsFixed(1)} GB',
-            valueColor: WpColorsDark.warningOrange,
+            valueColor: WpColors.warningOrange,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
             child: Container(
               width: 1,
               height: 28,
-              color: WpColorsDark.borderSubtle,
+              color: WpColors.borderSubtle,
             ),
           ),
           _RamChip(
             label: requiredLabel,
             value: '$requiredGb GB',
-            valueColor: WpColorsDark.textPrimary,
+            valueColor: WpColors.textPrimary,
           ),
         ],
       ),
@@ -249,7 +249,7 @@ class _RamChip extends StatelessWidget {
           label,
           style: const TextStyle(
             fontSize: WpTypography.caption,
-            color: WpColorsDark.textSecondary,
+            color: WpColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -293,9 +293,7 @@ class _QuitButtonState extends State<_QuitButton> {
           child: AnimatedContainer(
             duration: WpMotion.durationFor(context, WpMotion.fast),
             decoration: BoxDecoration(
-              color: _hovered
-                  ? WpColorsDark.errorRedHover
-                  : WpColorsDark.errorRed,
+              color: _hovered ? WpColors.errorRedHover : WpColors.errorRed,
               borderRadius: WpRadius.borderMd,
               boxShadow: WpShadows.elevated,
             ),
@@ -360,13 +358,11 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
             duration: WpMotion.durationFor(context, WpMotion.fast),
             style: TextStyle(
               fontSize: WpTypography.body,
-              color: _hovered
-                  ? WpColorsDark.textPrimary
-                  : WpColorsDark.textSecondary,
+              color: _hovered ? WpColors.textPrimary : WpColors.textSecondary,
               decoration: TextDecoration.underline,
               decorationColor: _hovered
-                  ? WpColorsDark.textPrimary
-                  : WpColorsDark.textSecondary,
+                  ? WpColors.textPrimary
+                  : WpColors.textSecondary,
             ),
             child: Text(widget.label),
           ),

@@ -125,9 +125,9 @@ class _WpPasteCapabilityIndicatorState
     // Neutral card + tinted icon badge: status is carried by the badge and
     // the copy, not by flooding the whole surface with a status colour —
     // matches the onboarding cards and the quiet macOS-Settings register.
-    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.5);
-    const border = WpColorsDark.borderSubtle;
-    const textSecondary = WpColorsDark.textSecondary;
+    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
+    const border = WpColors.borderSubtle;
+    const textSecondary = WpColors.textSecondary;
 
     return Container(
       width: double.infinity,
@@ -321,7 +321,7 @@ class _WpPasteCapabilityIndicatorState
     if (cap == null) {
       return (
         icon: LucideIcons.loaderCircle,
-        color: WpColorsDark.accent,
+        color: WpColors.accent,
         title: l10n.pasteCapabilityCheckTitle,
         subtitle: null,
       );
@@ -329,13 +329,13 @@ class _WpPasteCapabilityIndicatorState
     return switch (cap.status) {
       PasteCapabilityStatus.ready => (
         icon: LucideIcons.circleCheck,
-        color: WpColorsDark.success,
+        color: WpColors.success,
         title: l10n.pasteCapabilityReady,
         subtitle: l10n.pasteCapabilityReadySubtitle,
       ),
       PasteCapabilityStatus.permissionMissing => (
         icon: LucideIcons.shieldAlert,
-        color: WpColorsDark.warning,
+        color: WpColors.warning,
         // After a grant-driven restart that still reads missing, drop the
         // first-contact "not yet allowed / why" copy (which reads as "you
         // never did anything" and re-confuses) for an honest "the restart
@@ -349,7 +349,7 @@ class _WpPasteCapabilityIndicatorState
       ),
       PasteCapabilityStatus.unsupported => (
         icon: LucideIcons.info,
-        color: WpColorsDark.textMuted,
+        color: WpColors.textMuted,
         title: l10n.pasteCapabilityUnsupported,
         subtitle: null,
       ),

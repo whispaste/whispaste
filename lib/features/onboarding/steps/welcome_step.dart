@@ -190,7 +190,7 @@ class WelcomeStep extends ConsumerWidget {
           )
         : const <String>[];
 
-    const textSecondary = WpColorsDark.textSecondary;
+    const textSecondary = WpColors.textSecondary;
 
     void selectLocale(String locale) {
       HapticFeedback.selectionClick();
@@ -377,12 +377,12 @@ class _RevisionNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    const accent = WpColorsDark.accent;
-    const fill = WpColorsDark.accentButtonFill;
-    const border = WpColorsDark.accentBorder20;
-    const badgeFill = WpColorsDark.accentChipFill;
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
+    const accent = WpColors.accent;
+    const fill = WpColors.accentButtonFill;
+    const border = WpColors.accentBorder20;
+    const badgeFill = WpColors.accentChipFill;
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
 
     return Container(
       key: kOnboardingRevisionNoticeKey,
@@ -612,10 +612,10 @@ class _BeatListTileState extends State<_BeatListTile> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColorsDark.textPrimary;
-    const textSecondary = WpColorsDark.textSecondary;
-    const textMuted = WpColorsDark.textMuted;
-    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.5);
+    const textPrimary = WpColors.textPrimary;
+    const textSecondary = WpColors.textSecondary;
+    const textMuted = WpColors.textMuted;
+    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
 
     // MergeSemantics + a plain Semantics wrapper, not
     // `Semantics(excludeSemantics: true)`: excluding the subtree also discards
@@ -733,8 +733,8 @@ class _BeatMediaPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = (WpColorsDark.surfaceVariant).withValues(alpha: 0.5);
-    const glyphWash = WpColorsDark.decorativeGlyphWash;
+    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
+    const glyphWash = WpColors.decorativeGlyphWash;
 
     // The empty stage, designed as one.
     //

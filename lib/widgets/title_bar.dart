@@ -91,9 +91,9 @@ class _WindowButtonState extends State<_WindowButton> {
 
   @override
   Widget build(BuildContext context) {
-    const mutedColor = WpColorsDark.textMuted;
-    const hoverBg = WpColorsDark.hover;
-    const hoverFg = WpColorsDark.textSecondary;
+    const mutedColor = WpColors.textMuted;
+    const hoverBg = WpColors.hover;
+    const hoverFg = WpColors.textSecondary;
 
     return Semantics(
       label: widget.semanticLabel,
@@ -110,7 +110,7 @@ class _WindowButtonState extends State<_WindowButton> {
             width: 40,
             height: 32,
             decoration: BoxDecoration(
-              color: _isHovered ? hoverBg : (WpColorsDark.hoverTransparent),
+              color: _isHovered ? hoverBg : (WpColors.hoverTransparent),
               borderRadius: BorderRadius.circular(WpRadius.sm),
             ),
             alignment: Alignment.center,
@@ -149,9 +149,9 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
 
   @override
   Widget build(BuildContext context) {
-    const mutedColor = WpColorsDark.textMuted;
-    const hoverBg = WpColorsDark.hover;
-    const hoverFg = WpColorsDark.textSecondary;
+    const mutedColor = WpColors.textMuted;
+    const hoverBg = WpColors.hover;
+    const hoverFg = WpColors.textSecondary;
 
     return Semantics(
       label: _isMaximized ? 'Restore window' : 'Maximize window',
@@ -175,7 +175,7 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
             width: 40,
             height: 32,
             decoration: BoxDecoration(
-              color: _isHovered ? hoverBg : (WpColorsDark.hoverTransparent),
+              color: _isHovered ? hoverBg : (WpColors.hoverTransparent),
               borderRadius: BorderRadius.circular(WpRadius.sm),
             ),
             alignment: Alignment.center,

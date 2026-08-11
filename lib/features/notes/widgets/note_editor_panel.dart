@@ -68,13 +68,13 @@ class NoteEditorPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textPrimary = WpColorsDark.textPrimary;
-    const textMuted = WpColorsDark.textMuted;
-    const errorColor = WpColorsDark.error;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+    const errorColor = WpColors.error;
     final isTrashed = note.deletedAt != null;
 
     return DecoratedBox(
-      decoration: const BoxDecoration(gradient: WpColorsDark.surfaceGradient),
+      decoration: const BoxDecoration(gradient: WpColors.surfaceGradient),
       child: Column(
         children: [
           // ── Toolbar row ──
@@ -293,7 +293,7 @@ class NoteEditorPanel extends StatelessWidget {
           Container(
             height: 1,
             margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-            color: WpColorsDark.borderSubtle,
+            color: WpColors.borderSubtle,
           ),
           // ── Formatting toolbar ──
           // Its own row under the divider, permanently — Notes has no read

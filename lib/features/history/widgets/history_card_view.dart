@@ -204,18 +204,18 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     Color borderColor,
   })
   _resolveColors(bool isDark) {
-    const accent = WpColorsDark.accent;
+    const accent = WpColors.accent;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
         : widget.isFocused
         ? accent.withValues(alpha: 0.4)
-        : (WpColorsDark.borderSubtle);
-    const restingSurface = WpColorsDark.surfaceElevated;
+        : (WpColors.borderSubtle);
+    const restingSurface = WpColors.surfaceElevated;
     return (
       accent: accent,
-      textPrimary: WpColorsDark.textPrimary,
-      textSecondary: WpColorsDark.textSecondary,
-      textMuted: WpColorsDark.textMuted,
+      textPrimary: WpColors.textPrimary,
+      textSecondary: WpColors.textSecondary,
+      textMuted: WpColors.textMuted,
       // Selected cards get the same accent wash the list tile paints
       // (history_list_tile.dart:114) — composited over the card's own
       // elevated fill rather than replacing it, so the grid keeps its
@@ -223,7 +223,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
       // hairline border, which is far too quiet to scan a 4-column grid
       // for "what did Ctrl+A just check?".
       surfaceElevated: widget.isSelected
-          ? Color.alphaBlend(WpColorsDark.accentSubtle, restingSurface)
+          ? Color.alphaBlend(WpColors.accentSubtle, restingSurface)
           : restingSurface,
       borderColor: borderColor,
     );

@@ -170,7 +170,7 @@ class _SidebarGroupDivider extends StatelessWidget {
         // `borderDefault`, not `borderSubtle`: at 36 px wide and 1 px tall
         // between two icon groups, the subtle tone read as a rendering
         // artifact rather than as a deliberate break.
-        color: WpColorsDark.borderDefault,
+        color: WpColors.borderDefault,
       ),
     );
   }
@@ -226,9 +226,9 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
     final Color iconColor;
 
     if (widget.isActive || _isHovered) {
-      iconColor = WpColorsDark.textPrimary;
+      iconColor = WpColors.textPrimary;
     } else {
-      iconColor = WpColorsDark.textSecondary;
+      iconColor = WpColors.textSecondary;
     }
 
     // Everything the chip fills is routed through the *gradient* channel,
@@ -239,20 +239,20 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
     // identical stops, which also keeps `LinearGradient.lerp` on its cheap
     // same-shape path.
     final Gradient pillGradient = widget.isActive
-        ? (WpColorsDark.navPillActiveGradient)
+        ? (WpColors.navPillActiveGradient)
         : _isHovered
-        ? (WpColorsDark.navChipGradientHover)
-        : (WpColorsDark.navChipGradient);
+        ? (WpColors.navChipGradientHover)
+        : (WpColors.navChipGradient);
 
     // The resting hairline: `borderSubtle` on dark, `borderDefault` on light.
     // Not a copy-paste slip — on pearl the tile has only ≈1.03:1 of fill lift
     // to work with, so the hairline is carrying objecthood there, the same
     // reason `_SidebarGroupDivider` below takes the default weight.
     final Color chipBorder = widget.isActive
-        ? (WpColorsDark.accentBorder20)
-        : (WpColorsDark.borderSubtle);
+        ? (WpColors.accentBorder20)
+        : (WpColors.borderSubtle);
 
-    const Color accent = WpColorsDark.accent;
+    const Color accent = WpColors.accent;
     final String? badgeHint = widget.item.badgeHint;
     // The dot is decorative — it carries no semantics of its own, so the
     // reason it appeared has to travel in the label the item already has.
@@ -303,7 +303,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                             width: WpNavRail.indicatorWidth,
                             height: WpNavRail.indicatorHeight,
                             decoration: const BoxDecoration(
-                              gradient: WpColorsDark.accentWarmGradient,
+                              gradient: WpColors.accentWarmGradient,
                               // Directional, like the `start: 0` above it:
                               // the bar is flush with the window edge and
                               // rounds on its *inner* side. With the plain
