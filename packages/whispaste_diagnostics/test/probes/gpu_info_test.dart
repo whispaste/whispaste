@@ -3,6 +3,9 @@
 /// Tests the pure-Dart GPU detection types and binary compatibility logic.
 library;
 
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:test/test.dart';
 import 'package:whispaste_diagnostics/src/probes/gpu_info.dart';
 
@@ -249,6 +252,46 @@ void main() {
         ),
         isNull,
       );
+    });
+  });
+
+  group('macOS detection — arch must not depend on a subprocess', () {
+    // Skipped off actual macOS: `_detectMacOS()` short-circuits on
+    // `Platform.isWindows` never being true here, but the vendor branch
+    // this guards is macOS-only logic and only meaningful when the test
+    // host really is macOS.
+    final onMacOS = Platform.isMacOS;
+
+    tearDown(() {
+      setProcessRunnerForTesting(null);
+      clearGpuCache();
+    });
+
+    test('every subprocess call failing does not misreport Apple Silicon as '
+        'Intel', () async {
+      if (!onMacOS) {
+        markTestSkipped('macOS-only');
+        return;
+      }
+      if (Abi.current() != Abi.macosArm64) {
+        markTestSkipped('Apple-Silicon-only (host is Intel Mac)');
+        return;
+      }
+
+      // Simulate the fork()+exec() hazard `_runProcessGuarded` guards
+      // against (see its doc comment): every subprocess call — including
+      // `uname -m` — fails. Detection must still recognize Apple Silicon
+      // via Abi.current(), never falling through to the Intel/Vulkan
+      // path below (no Vulkan whisper-server variant exists on macOS, so
+      // that path fails to load on every session).
+      setProcessRunnerForTesting((executable, arguments) async {
+        throw ProcessException(executable, arguments, 'simulated failure');
+      });
+
+      final gpu = await detectGpuMacOSForTesting();
+
+      expect(gpu.vendor, GpuVendor.apple);
+      expect(gpu.optimalBackend, 'metal');
     });
   });
 }

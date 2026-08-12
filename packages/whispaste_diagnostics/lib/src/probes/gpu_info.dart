@@ -11,6 +11,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -63,9 +64,15 @@ Future<ProcessResult> _runProcessGuarded(
   List<String> arguments, {
   Duration timeout = const Duration(seconds: 5),
 }) {
-  return Isolate.run(
-    () => Process.run(executable, arguments),
-  ).timeout(timeout);
+  if (!identical(_processRunner, _defaultProcessRunner)) {
+    // Test seam active (setProcessRunnerForTesting): call the fake runner
+    // directly instead of routing through Isolate.run — a closure over
+    // test-local state (e.g. a fake that throws or blocks) isn't safely
+    // sendable across an isolate boundary, and tests don't need the real
+    // fork()-hang protection anyway.
+    return _processRunner(executable, arguments).timeout(timeout);
+  }
+  return Isolate.run(() => Process.run(executable, arguments)).timeout(timeout);
 }
 
 /// Per-probe timeout for the parallel Windows GPU detection probes
@@ -329,6 +336,15 @@ void clearGpuCache() {
 /// — callers may invoke this repeatedly without `clearGpuCache()`.
 @visibleForTesting
 Future<GpuInfo> detectGpuWindowsForTesting() => _detectWindows();
+
+/// Runs the macOS GPU-detection path regardless of the host platform.
+///
+/// Intended for tests that want to exercise the Apple-Silicon-vs-Intel
+/// branch with a controlled [ProcessRunner] (see
+/// [setProcessRunnerForTesting]). The result is **not** cached — callers may
+/// invoke this repeatedly without [clearGpuCache].
+@visibleForTesting
+Future<GpuInfo> detectGpuMacOSForTesting() => _detectMacOS();
 
 // ---------------------------------------------------------------------------
 // Asset pattern mapping
@@ -991,27 +1007,31 @@ Future<_GpuParsed?> _powershellGetGpus() async {
 // ---------------------------------------------------------------------------
 
 Future<GpuInfo> _detectMacOS() async {
-  // Check for Apple Silicon (ARM64).
-  try {
-    final uname = await _runProcessGuarded('uname', ['-m']);
-    if (uname.stdout.toString().trim() == 'arm64') {
-      String chipName = 'Apple Silicon';
-      try {
-        final sysctl = await _runProcessGuarded('sysctl', [
-          '-n',
-          'machdep.cpu.brand_string',
-        ]);
-        final brand = sysctl.stdout.toString().trim();
-        if (brand.isNotEmpty) chipName = brand;
-      } catch (_) {}
+  // Apple Silicon vs Intel: decided via Abi.current(), not `uname -m`.
+  // Abi.current() is synchronous and spawns no subprocess, so the
+  // fork()+exec() hazard _runProcessGuarded otherwise guards against (see
+  // its doc comment) can no longer time out `uname` and silently misroute
+  // an Apple Silicon Mac onto the Intel/Vulkan path below — no Vulkan
+  // whisper-server variant exists on macOS, so that path's load fails on
+  // every session, invisibly pinning STT to CPU regardless of the user's
+  // GPU-acceleration setting.
+  if (Abi.current() == Abi.macosArm64) {
+    String chipName = 'Apple Silicon';
+    try {
+      final sysctl = await _runProcessGuarded('sysctl', [
+        '-n',
+        'machdep.cpu.brand_string',
+      ]);
+      final brand = sysctl.stdout.toString().trim();
+      if (brand.isNotEmpty) chipName = brand;
+    } catch (_) {}
 
-      return GpuInfo(
-        vendor: GpuVendor.apple,
-        name: chipName,
-        vramMB: await _macUnifiedMemoryMB(),
-      );
-    }
-  } catch (_) {}
+    return GpuInfo(
+      vendor: GpuVendor.apple,
+      name: chipName,
+      vramMB: await _macUnifiedMemoryMB(),
+    );
+  }
 
   // Intel Mac — check for discrete GPU.
   try {
@@ -1078,7 +1098,10 @@ Future<int?> detectRamMB() async {
 
 Future<int?> _unixRamMB() async {
   if (Platform.isMacOS) {
-    final r = await _runProcessGuarded('/usr/sbin/sysctl', ['-n', 'hw.memsize']);
+    final r = await _runProcessGuarded('/usr/sbin/sysctl', [
+      '-n',
+      'hw.memsize',
+    ]);
     if (r.exitCode != 0) return null;
     return parseSysctlMemsizeMb(r.stdout.toString());
   } else {
