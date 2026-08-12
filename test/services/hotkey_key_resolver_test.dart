@@ -331,6 +331,50 @@ void main() {
       );
       expect(canonicalRecordableKey(event), isNull);
     });
+
+    // DE (QWERTZ) swaps the Y and Z physical positions relative to US
+    // QWERTY. `LogicalKeyboardKey.keyY`/`.keyZ` are layout-aware — Flutter
+    // reports the character the active layout produces — but `hotkey_manager`
+    // registers against `LogicalKeyboardKey.physicalKey`, a *fixed*,
+    // layout-independent ANSI/US position (see the platform-interface
+    // package: `HotKey.physicalKey` and `.keyCode` sent to the native
+    // registrar). So on a DE keyboard, a stored key of `LogicalKeyboardKey
+    // .keyY` always registers against the US-ANSI-Y physical key, which is
+    // the DE keyboard's Z key. Unlike Ö/Ä (0xF6/0xE4 — not independently
+    // `isRecordableKey`), a *plain* logical letter like `keyY` IS always
+    // independently recordable, so without physical-first priority these
+    // cases never reach the physical-fallback branch at all — this pair
+    // pins the ordering fix, not just the fallback's existence.
+    test(
+      'DE-layout key labelled Y (physical position of US Z) → keyZ, '
+      'not keyY',
+      () {
+        // What Flutter reports when a DE-layout user presses the key printed
+        // "Y" on their keyboard: the character/logical key matches the DE
+        // label (keyY), but the hardware position is the US-ANSI Z key.
+        const event = KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyZ,
+          logicalKey: LogicalKeyboardKey.keyY,
+          timeStamp: Duration.zero,
+          character: 'y',
+        );
+        expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyZ);
+      },
+    );
+
+    test(
+      'DE-layout key labelled Z (physical position of US Y) → keyY, '
+      'not keyZ',
+      () {
+        const event = KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyY,
+          logicalKey: LogicalKeyboardKey.keyZ,
+          timeStamp: Duration.zero,
+          character: 'z',
+        );
+        expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyY);
+      },
+    );
   });
 
   group('labelForKey — round-trips', () {

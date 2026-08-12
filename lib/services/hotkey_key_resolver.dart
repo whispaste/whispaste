@@ -248,22 +248,26 @@ bool isRecordableKey(LogicalKeyboardKey key) {
 /// persisted as the storage key, or `null` if no recordable key can be
 /// derived.
 ///
-/// First tries [event.logicalKey] directly — fast path for the canonical
-/// keys (A–Z, 0–9, F1–F12, arrows, named, punctuation on a US layout).
-///
-/// If the logical key is non-canonical (e.g. `Ö` = `LogicalKeyboardKey(0xF6)`
-/// on a DE layout), falls back to the **physical position**: the same key
-/// on a US layout would produce `LogicalKeyboardKey.semicolon`, which IS
-/// recordable. This lets users bind layout-dependent keys (umlauts, accented
-/// chars, layout-specific punctuation) — the registrar wires them to the
-/// stable physical position, so the binding survives layout changes.
+/// Tries the **physical position** first via [_physicalToLogical]: the
+/// registrar (`hotkey_manager`) always converts a stored [LogicalKeyboardKey]
+/// back to Flutter's fixed, layout-independent `.physicalKey` before handing
+/// it to the OS, so the physical position is what actually ends up
+/// registered — not the character the active layout happens to produce
+/// there. This matters even when the logical key is itself independently
+/// recordable: on a DE (QWERTZ) keyboard, the key labelled `Y` reports
+/// `LogicalKeyboardKey.keyY` (Flutter's logical key IS layout-aware and
+/// follows the label) but sits at the physical position US-QWERTY calls `Z`
+/// — storing `keyY` would register the *other* physical key. Falls back to
+/// [event.logicalKey] only for keys [_physicalToLogical] does not cover
+/// (arrows, named keys, F-keys, media keys — layout-invariant, so no
+/// correction is needed there).
 LogicalKeyboardKey? canonicalRecordableKey(KeyEvent event) {
-  if (isRecordableKey(event.logicalKey)) {
-    return event.logicalKey;
-  }
   final mapped = _physicalToLogical[event.physicalKey];
   if (mapped != null && isRecordableKey(mapped)) {
     return mapped;
+  }
+  if (isRecordableKey(event.logicalKey)) {
+    return event.logicalKey;
   }
   return null;
 }
