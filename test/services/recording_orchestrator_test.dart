@@ -2805,6 +2805,61 @@ void main() {
       final rows = await db.select(db.entryAttachments).get();
       expect(rows, hasLength(20));
     });
+
+    test('DB insert failure after the move does not leave an orphaned WAV '
+        'in the retained-audio directory', () async {
+      final throwingDb = _ThrowingInsertAudioAttachmentDb();
+      final c2 = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(throwingDb.close);
+            return throwingDb;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(
+              const AppSettings(
+                stt: SttSettings(model: 'whisper-small', language: 'English'),
+                afterTranscriptionSection: AfterTranscriptionSettings(
+                  afterTranscription: 'nothing',
+                ),
+                onboarding: OnboardingSettings(onboardingCompleted: true),
+                privacy: PrivacySettings(retainRecentAudio: true),
+              ),
+            ),
+          ),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({'whisper-small'}),
+          ),
+        ],
+      );
+      addTearDown(c2.dispose);
+
+      await c2.read(settingsProvider.future);
+      final orch = c2.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      c2.read(recordingProvider.notifier).startRecording();
+
+      final retainedDir = Directory(retainedAudioDir());
+      final before = retainedDir.existsSync()
+          ? retainedDir.listSync().map((f) => f.path).toSet()
+          : <String>{};
+
+      await orch.stopRecording();
+
+      // The failed insert must not leave a new, untracked file behind —
+      // whatever was there before this run must be exactly what's there
+      // after, regardless of what earlier tests in this group left over.
+      final after = retainedDir.existsSync()
+          ? retainedDir.listSync().map((f) => f.path).toSet()
+          : <String>{};
+      expect(after, before);
+    });
   });
 
   // =========================================================================
@@ -3699,6 +3754,23 @@ void main() {
       },
     );
   });
+}
+
+// ---------------------------------------------------------------------------
+// Additional fake: DB whose insertAudioAttachment always fails, to verify
+// _retainRecentAudio doesn't orphan the already-moved WAV on that failure.
+// ---------------------------------------------------------------------------
+
+class _ThrowingInsertAudioAttachmentDb extends HistoryDatabase {
+  _ThrowingInsertAudioAttachmentDb()
+    : super.forTesting(NativeDatabase.memory());
+
+  @override
+  Future<void> insertAudioAttachment({
+    required String entryId,
+    required String filePath,
+    required int sizeBytes,
+  }) => throw Exception('simulated insert failure');
 }
 
 // ---------------------------------------------------------------------------

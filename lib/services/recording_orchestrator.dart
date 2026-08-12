@@ -1552,20 +1552,32 @@ class RecordingOrchestrator extends Notifier<void> {
         await source.delete();
       }
 
-      final sizeBytes = await dest.length();
-      final db = ref.read(historyDatabaseProvider);
-      await db.insertAudioAttachment(
-        entryId: entryId,
-        filePath: dest.path,
-        sizeBytes: sizeBytes,
-      );
+      try {
+        final sizeBytes = await dest.length();
+        final db = ref.read(historyDatabaseProvider);
+        await db.insertAudioAttachment(
+          entryId: entryId,
+          filePath: dest.path,
+          sizeBytes: sizeBytes,
+        );
 
-      final evicted = await db.enforceAudioAttachmentCap();
-      for (final path in evicted) {
-        await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+        final evicted = await db.enforceAudioAttachmentCap();
+        for (final path in evicted) {
+          await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+        }
+
+        _log.info('Retained WAV for entry $entryId at ${dest.path}');
+      } on Exception {
+        // The row insert (source of truth for rotation) failed — without
+        // it enforceAudioAttachmentCap can never see or evict this file,
+        // so it would otherwise leak in retainedAudioDir forever.
+        try {
+          await dest.delete();
+        } on Exception catch (cleanupError) {
+          _log.warning('Failed to clean up orphaned WAV: $cleanupError');
+        }
+        rethrow;
       }
-
-      _log.info('Retained WAV for entry $entryId at ${dest.path}');
     } on Exception catch (e) {
       _log.warning('Failed to retain recent audio: $e');
     }
