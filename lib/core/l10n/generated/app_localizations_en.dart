@@ -1875,6 +1875,10 @@ class L10nEn extends L10n {
       'Please download a speech model in Settings first.';
 
   @override
+  String get infoPipelineBusy =>
+      'WhisPaste is still busy with the previous recording.';
+
+  @override
   String get infoSnippetPickerEmpty =>
       'Trigger word recognized, but you have no snippets yet — the text was inserted as usual.';
 

@@ -89,6 +89,12 @@ class RecordingOrchestrator extends Notifier<void> {
   /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
   bool _stopInFlight = false;
 
+  /// Throttle for the "pipeline busy" hint — a held or mashed hotkey hits the
+  /// abort branches several times per second, and a toast per press would be
+  /// worse than the silence it replaces.
+  static const _busyHintThrottle = Duration(seconds: 3);
+  DateTime? _lastBusyHintAt;
+
   /// Pending hotkey-press t₀ for the hotkey→text end-to-end latency KPI
   /// (issue 07-latenz-kpi-erfassung — local-only, never sent as telemetry).
   ///
@@ -263,6 +269,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
       _log.debug('startRecording ignored — already in flight');
+      _hintPipelineBusy();
       return;
     }
     _startInFlight = true;
@@ -288,6 +295,7 @@ class RecordingOrchestrator extends Notifier<void> {
     if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
       _log.debug('startRecording aborted — phase not idle after lock acquired');
       _startInFlight = false;
+      _hintPipelineBusy();
       return;
     }
 
@@ -1152,6 +1160,22 @@ class RecordingOrchestrator extends Notifier<void> {
   /// the error phase. Returns `true` if the failure was handled softly
   /// (recording stays idle, info notification sent), `false` if it's a hard
   /// error that should use the normal error flow.
+  /// Surfaces a swallowed hotkey press instead of dropping it silently.
+  ///
+  /// Both abort branches in [startRecording] used to return without any user
+  /// feedback whatsoever. During a slow first transcription that window can
+  /// last tens of seconds (a captured session: presses at 14:19:05, :19, :52
+  /// and :53 all aborted, none of them visible anywhere), and an app that
+  /// answers a hotkey with nothing at all is indistinguishable from a broken
+  /// one. Throttled via [_busyHintThrottle] so mashing doesn't become spam.
+  void _hintPipelineBusy() {
+    final now = DateTime.now();
+    final last = _lastBusyHintAt;
+    if (last != null && now.difference(last) < _busyHintThrottle) return;
+    _lastBusyHintAt = now;
+    ref.read(recordingInfoProvider.notifier).show('info_pipeline_busy');
+  }
+
   bool _handleSoftPreflight(String errorCode) {
     switch (errorCode) {
       case 'stt_model_not_found':

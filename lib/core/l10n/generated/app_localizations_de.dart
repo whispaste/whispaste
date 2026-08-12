@@ -1893,6 +1893,10 @@ class L10nDe extends L10n {
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
 
   @override
+  String get infoPipelineBusy =>
+      'WhisPaste ist noch mit der vorherigen Aufnahme beschäftigt.';
+
+  @override
   String get infoSnippetPickerEmpty =>
       'Trigger-Wort erkannt, aber du hast noch keine Snippets — der Text wurde ganz normal eingefügt.';
 

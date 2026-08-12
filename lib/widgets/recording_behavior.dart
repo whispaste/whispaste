@@ -112,6 +112,7 @@ String localizeRecordingError(L10n l10n, String errorCode) {
 String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
   'info_engine_downloading' => l10n.infoEngineDownloading,
   'info_model_missing' => l10n.infoModelMissing,
+  'info_pipeline_busy' => l10n.infoPipelineBusy,
   'info_stt_cuda_oom_model' => l10n.infoSttCudaOomFallbackModel,
   'info_stt_cuda_oom_cpu' => l10n.infoSttCudaOomFallbackCpu,
   'info_snippet_picker_empty' => l10n.infoSnippetPickerEmpty,

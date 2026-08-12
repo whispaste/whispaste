@@ -3423,6 +3423,12 @@ abstract class L10n {
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
 
+  /// No description provided for @infoPipelineBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste is still busy with the previous recording.'**
+  String get infoPipelineBusy;
+
   /// No description provided for @infoSnippetPickerEmpty.
   ///
   /// In en, this message translates to:

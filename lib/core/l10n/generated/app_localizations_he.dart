@@ -1850,6 +1850,9 @@ class L10nHe extends L10n {
   String get infoModelMissing => 'הורד קודם מודל דיבור בהגדרות.';
 
   @override
+  String get infoPipelineBusy => 'WhisPaste עדיין עסוק בהקלטה הקודמת.';
+
+  @override
   String get infoSnippetPickerEmpty =>
       'מילת ההפעלה זוהתה, אבל אין לך עדיין קטעים — הטקסט הודבק כרגיל.';
 

@@ -49,6 +49,29 @@ class SoundFeedbackService extends Notifier<void> {
 
   Future<void> playError() => _play('error.wav', _settings.sound.errorSound);
 
+  /// Boots the audio engine and preloads the cues ahead of the first cue.
+  ///
+  /// Without this the entire native SoLoud init lands on the first [_play]
+  /// call — which is the record-start cue, i.e. squarely inside the
+  /// hotkey→overlay path. A captured cold start paid 1005 ms of UI-thread
+  /// jank and a 1226 ms hotkey→overlay there (budget: 33 ms), once per
+  /// session, right when the user first reaches for the app.
+  ///
+  /// Skipped entirely when the user has muted or disabled every cue, so this
+  /// never starts a native audio engine nobody asked for.
+  Future<void> prewarm() async {
+    final s = _settings;
+    if (s.soundVolume <= 0) return;
+    final anyCueEnabled =
+        s.recordStartSound ||
+        s.recordStopSound ||
+        s.transcriptionCompleteSound ||
+        s.durationWarningSound ||
+        s.sound.errorSound;
+    if (!anyCueEnabled) return;
+    await _ensureInit();
+  }
+
   /// Play a preview of the start sound at the given [volume] (0–100).
   /// Used by the settings UI to preview volume changes.
   Future<void> playVolumePreview(double volume) async {

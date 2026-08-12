@@ -598,6 +598,7 @@
 
   "infoEngineDownloading": "Sprachdienst wird vorbereitet. Bitte warte einen Moment.",
   "infoModelMissing": "Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.",
+  "infoPipelineBusy": "WhisPaste ist noch mit der vorherigen Aufnahme beschäftigt.",
   "infoSnippetPickerEmpty": "Trigger-Wort erkannt, aber du hast noch keine Snippets — der Text wurde ganz normal eingefügt.",
   "infoSnippetPickerEmptyAction": "Snippets öffnen",
   "oomRecoveryTitle": "Aufnahme fehlgeschlagen: GPU-Speicherproblem",

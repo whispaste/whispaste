@@ -40,6 +40,7 @@ import 'services/hardware_info_service.dart' as hw;
 import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
+import 'services/sound_feedback_service.dart';
 import 'services/stt/whisper/gpu_load_crash_guard.dart';
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
@@ -398,6 +399,13 @@ void _scheduleStartupSideEffects(
     final db = container.read(historyDatabaseProvider);
     unawaited(db.purgeTrash(days: settings.historyAutoTrashDays));
   }
+
+  // Boot the audio engine off the hotkey path. Delayed so the native init
+  // lands after the first frames rather than competing with them — see
+  // SoundFeedbackService.prewarm for the measured cost of not doing this.
+  Future<void>.delayed(const Duration(seconds: 2), () {
+    unawaited(container.read(soundFeedbackProvider.notifier).prewarm());
+  });
 
   // Not externally managed — store and package-manager (Homebrew Cask,
   // Scoop) builds have no self-updater at all, see isExternallyManaged.

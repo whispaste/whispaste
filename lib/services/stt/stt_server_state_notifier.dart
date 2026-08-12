@@ -175,6 +175,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   @visibleForTesting
   static Duration stuckGuardTimeout = const Duration(minutes: 5);
 
+  /// Quiet period the dictation pipeline must hold before a deferred
+  /// benchmark ([_scheduleBenchmark]) claims the worker, so a rapid follow-up
+  /// dictation still wins the queue. Mutable + [visibleForTesting] so tests
+  /// don't have to wait it out in real time.
+  @visibleForTesting
+  static Duration benchmarkIdleDelay = const Duration(seconds: 2);
+
   /// Upper bound on automatic retries of a transient transcription failure
   /// before the error is surfaced (CONTEXT.md §3.3 — "bis zu 3 Wiederholungen").
   static const int _maxTranscribeRetries = 3;
@@ -189,6 +196,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   static const _promptExpiry = Duration(minutes: 10);
   bool _idleExtended = false;
   bool _isRecordingActive = false;
+
+  /// Post-load benchmark waiting for the dictation pipeline to go quiet —
+  /// see [_scheduleBenchmark]. Null when nothing is pending.
+  String? _pendingBenchmarkModelId;
+  Timer? _benchmarkDeferTimer;
+
+  /// Number of [transcribeBytes] calls currently holding the worker. Covers
+  /// the request paths that never touch [notifyRecordingStarted] (voice
+  /// notes, re-transcription from the history), which [_isRecordingActive]
+  /// alone would miss.
+  int _transcribeInFlight = 0;
   Completer<void>? _startCompleter;
   final Set<String> _modelLoadFailedIds = {};
   Timer? _modelChangeDebounce;
@@ -210,6 +228,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _idleTimer = null;
       _modelChangeDebounce?.cancel();
       _modelChangeDebounce = null;
+      _benchmarkDeferTimer?.cancel();
+      _benchmarkDeferTimer = null;
+      _pendingBenchmarkModelId = null;
       unawaited(_engine?.unload() ?? Future<void>.value());
       _activeModel = null;
       _lastPrompt = null;
@@ -328,11 +349,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _isRecordingActive = false;
     _idleExtended = false;
     _resetIdleTimer(extendAfterTranscription: true);
+    _rearmPendingBenchmark();
   }
 
   void notifyRecordingStopped() {
     _isRecordingActive = false;
     _resetIdleTimer();
+    _rearmPendingBenchmark();
   }
 
   Future<String> transcribe(String wavFilePath, {String? language}) async {
@@ -347,7 +370,21 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     if (!state.isReady) {
       throw StateError('STT server is not running');
     }
+    // Claims the worker for the *whole* request, not just the engine call:
+    // a deferred benchmark ([_scheduleBenchmark]) must not slip into the gap
+    // between pre-flight validation and the inference it is about to enqueue.
+    _transcribeInFlight++;
+    try {
+      return await _transcribeBytesInner(wavBytes, language: language);
+    } finally {
+      _transcribeInFlight--;
+    }
+  }
 
+  Future<String> _transcribeBytesInner(
+    List<int> wavBytes, {
+    String? language,
+  }) async {
     _resetIdleTimer();
     final lang = language ?? 'auto';
 
@@ -485,6 +522,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _idleTimer = null;
     _modelChangeDebounce?.cancel();
     _modelChangeDebounce = null;
+    // A benchmark still waiting for a quiet pipeline belongs to the engine
+    // that is going away — dropping it here keeps a model switch from
+    // benchmarking the old model against the new one's context.
+    _benchmarkDeferTimer?.cancel();
+    _benchmarkDeferTimer = null;
+    _pendingBenchmarkModelId = null;
     _activeModel = null;
     _lastPrompt = null;
     _lastPromptTime = null;
@@ -879,6 +922,44 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// Queues the post-load benchmark, but lets the dictation pipeline go first.
+  ///
+  /// The whisper worker handles one request at a time and knows no priorities,
+  /// so a benchmark inference fired while the user is already dictating puts
+  /// their real transcription behind 3 s of synthetic audio. On a cold Metal
+  /// context that cost 16 s in a captured session (hotkey at 14:19:05,
+  /// transcript only at 14:19:37) — which reads as "the app stopped
+  /// responding", not as "a benchmark is running".
+  void _scheduleBenchmark(String modelId) {
+    _pendingBenchmarkModelId = modelId;
+    _maybeRunPendingBenchmark();
+  }
+
+  /// Runs the pending benchmark if nothing else needs the worker; otherwise
+  /// leaves it pending for [_rearmPendingBenchmark] to retry.
+  void _maybeRunPendingBenchmark() {
+    final modelId = _pendingBenchmarkModelId;
+    if (modelId == null) return;
+    if (_isRecordingActive || _transcribeInFlight > 0) {
+      _log.debug('Benchmark deferred — dictation pipeline busy');
+      return;
+    }
+    _pendingBenchmarkModelId = null;
+    unawaited(_runBenchmark(modelId));
+  }
+
+  /// Retries a deferred benchmark once the pipeline has been quiet for
+  /// [benchmarkIdleDelay]. Re-armed on every notification, so a burst of
+  /// dictations keeps pushing the benchmark out rather than racing them.
+  void _rearmPendingBenchmark() {
+    if (_pendingBenchmarkModelId == null) return;
+    _benchmarkDeferTimer?.cancel();
+    _benchmarkDeferTimer = Timer(
+      benchmarkIdleDelay,
+      _maybeRunPendingBenchmark,
+    );
+  }
+
   Future<void> _storeBenchmarkResult(String modelId, double rtf) async {
     try {
       final tier = tierForModel(modelId);
@@ -1103,7 +1184,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       crashGuard.resetCrashStreak();
       gpuAttemptPending = false;
     }
-    unawaited(_runBenchmark(modelId));
+    _scheduleBenchmark(modelId);
 
     _transition(
       SttStatus(

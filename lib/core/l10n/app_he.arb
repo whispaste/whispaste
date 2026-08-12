@@ -634,6 +634,7 @@
   "settingsAdvancedModelManagement": "ניהול מודלים מתקדם",
   "infoEngineDownloading": "מנוע הדיבור בהכנה. המתן רגע.",
   "infoModelMissing": "הורד קודם מודל דיבור בהגדרות.",
+  "infoPipelineBusy": "WhisPaste עדיין עסוק בהקלטה הקודמת.",
   "infoSnippetPickerEmpty": "מילת ההפעלה זוהתה, אבל אין לך עדיין קטעים — הטקסט הודבק כרגיל.",
   "infoSnippetPickerEmptyAction": "פתח קטעים",
   "oomRecoveryTitle": "ההקלטה נכשלה: בעיית זיכרון GPU",
