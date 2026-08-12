@@ -7,10 +7,12 @@
 /// rather than failing. Real cross-platform bundling is Issue 11.
 library;
 
+import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
 
 /// Walks up from the test cwd to the repo root (the dir holding
@@ -188,6 +190,68 @@ void main() {
 
     test('defaultWhisperVadModelPath is absolute', () {
       expect(p.isAbsolute(defaultWhisperVadModelPath()), isTrue);
+    });
+  });
+
+  // Confirms `_confirmBackend`'s ggml device-registry probe against a real
+  // bundled dylib (2026-08-12, GPU→CPU silent-fallback investigation):
+  // `WhisperEngineStatus.backend` used to echo back whichever backend was
+  // requested at construction, even when ggml silently fell back to CPU
+  // inside `whisper_init_from_file_with_params` without throwing. Uses the
+  // app's own already-built Debug dylib (gitignored, host-local) instead of
+  // a full model load — SKIPS gracefully if it hasn't been built.
+  group('confirmBackendForTesting — real device registry', () {
+    String? debugDylibPath() {
+      var dir = Directory.current;
+      for (var i = 0; i < 8; i++) {
+        final candidate = p.join(
+          dir.path,
+          'build',
+          'macos',
+          'Build',
+          'Products',
+          'Debug',
+          'WhisPaste.app',
+          'Contents',
+          'Frameworks',
+          'libwhisper.dylib',
+        );
+        if (File(candidate).existsSync()) return candidate;
+        final parent = dir.parent;
+        if (parent.path == dir.path) break;
+        dir = parent;
+      }
+      return null;
+    }
+
+    test('a GPU-capable Mac confirms the requested Metal backend', () {
+      if (!Platform.isMacOS) {
+        markTestSkipped('macOS-only (Metal)');
+        return;
+      }
+      final path = debugDylibPath();
+      if (path == null) {
+        markTestSkipped('local Debug app build not found — run a Debug build');
+        return;
+      }
+      final dylib = ffi.DynamicLibrary.open(path);
+      expect(
+        confirmBackendForTesting(dylib, path, WhisperBackend.metal),
+        WhisperBackend.metal,
+      );
+    });
+
+    test('CPU is never downgraded (no registry probe needed)', () {
+      final path = debugDylibPath();
+      if (path == null) {
+        markTestSkipped('local Debug app build not found — run a Debug build');
+        return;
+      }
+      final dylib = ffi.DynamicLibrary.open(path);
+      expect(
+        confirmBackendForTesting(dylib, path, WhisperBackend.cpu),
+        WhisperBackend.cpu,
+      );
     });
   });
 

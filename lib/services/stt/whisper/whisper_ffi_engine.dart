@@ -29,6 +29,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 
 import '../../../core/logging/app_logger.dart';
@@ -162,10 +163,16 @@ class WhisperSegment {
 class WhisperFfiEngine implements WhisperEngine {
   WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
     : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
-      _backend = backend ?? WhisperBackend.cpu;
+      _backend = backend ?? WhisperBackend.cpu,
+      _confirmedBackend = backend ?? WhisperBackend.cpu;
 
   final String _libraryPath;
   final WhisperBackend _backend;
+
+  /// [_backend] as actually confirmed against ggml's device registry by
+  /// [_confirmBackend] — see its doc comment. Equals [_backend] until the
+  /// first [load] call.
+  WhisperBackend _confirmedBackend;
 
   WhisperBindings? _bindings;
   ffi.Pointer<whisper_context>? _ctx;
@@ -201,7 +208,7 @@ class WhisperFfiEngine implements WhisperEngine {
   @override
   WhisperEngineStatus get status => WhisperEngineStatus(
     isLoaded: _ctx != null,
-    backend: _backend,
+    backend: _confirmedBackend,
     errorMessage: _errorMessage,
   );
 
@@ -224,11 +231,12 @@ class WhisperFfiEngine implements WhisperEngine {
       _ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
       _ensureBackendsLoaded(dylib, _libraryPath);
+      _confirmedBackend = _confirmBackend(dylib, _backend);
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       _ensureLogCallbackRegistered(bindings);
       _resolveSegmentTimestampLookups(dylib);
       final cparams = bindings.whisper_context_default_params();
-      cparams.use_gpu = _backend != WhisperBackend.cpu;
+      cparams.use_gpu = _confirmedBackend != WhisperBackend.cpu;
       final pathC = modelPath.toNativeUtf8();
       try {
         final ctx = bindings.whisper_init_from_file_with_params(
@@ -323,6 +331,7 @@ class WhisperFfiEngine implements WhisperEngine {
   ) {
     if (_backendsLoaded) return;
     void Function()? loadAll;
+    var resolved = dylib;
     try {
       loadAll = dylib.lookupFunction<ffi.Void Function(), void Function()>(
         'ggml_backend_load_all',
@@ -334,12 +343,88 @@ class WhisperFfiEngine implements WhisperEngine {
       final ggmlPath = p.join(p.dirname(libraryPath), ggmlName);
       if (!File(ggmlPath).existsSync()) return;
       final ggml = ffi.DynamicLibrary.open(ggmlPath);
+      resolved = ggml;
       loadAll = ggml.lookupFunction<ffi.Void Function(), void Function()>(
         'ggml_backend_load_all',
       );
     }
     loadAll();
+    _resolvedGgmlLibrary = resolved;
     _backendsLoaded = true;
+  }
+
+  /// The library [_ensureBackendsLoaded] actually found `ggml_backend_load_all`
+  /// in — `dylib` itself, or the separate `libggml`/`ggml.dll` fallback next to
+  /// it. [_confirmBackend] probes this same library for the device-registry
+  /// symbols, since a split-library bundle (observed on Windows: `ggml.dll`
+  /// exports the registry API, `ggml-base.dll` only lower-level accessors —
+  /// see this class's file doc comment) may not export them from `dylib`.
+  static ffi.DynamicLibrary? _resolvedGgmlLibrary;
+
+  /// `ggml_backend_dev_type`'s GPU-classifying values (`ggml-backend.h`'s
+  /// `enum ggml_backend_dev_type`, confirmed against the bundled macOS
+  /// dylib: `MTL0`→1, `BLAS`→3, `CPU`→0). CPU and ACCEL (e.g. Apple's BLAS
+  /// backend) are deliberately excluded — an ACCEL device alongside CPU-only
+  /// does not mean GPU acceleration is happening.
+  static const _ggmlBackendDeviceTypeGpu = 1;
+  static const _ggmlBackendDeviceTypeIgpu = 2;
+
+  /// Confirms [requested] against ggml's own device registry, downgrading to
+  /// [WhisperBackend.cpu] when no matching device is actually registered.
+  ///
+  /// `cparams.use_gpu = true` is not a guarantee: whisper.cpp/ggml can
+  /// silently fall back to CPU inside `whisper_init_from_file_with_params`
+  /// itself (no compatible GPU device registered on this machine, a driver
+  /// that fails GPU backend init, ...) without throwing — so trusting the
+  /// pre-load [requested] value (as this engine did before) can report a GPU
+  /// backend the load never actually used. Missing registry symbols (older
+  /// bundled lib) degrade to trusting [requested] unchanged, matching
+  /// [_resolveSegmentTimestampLookups]'s degrade-gracefully contract — this
+  /// is a confirmation layer, not a hard requirement.
+  static WhisperBackend _confirmBackend(
+    ffi.DynamicLibrary dylib,
+    WhisperBackend requested,
+  ) {
+    if (requested == WhisperBackend.cpu) return WhisperBackend.cpu;
+    final candidates = <ffi.DynamicLibrary>[
+      dylib,
+      if (_resolvedGgmlLibrary != null &&
+          !identical(_resolvedGgmlLibrary, dylib))
+        _resolvedGgmlLibrary!,
+    ];
+    for (final lib in candidates) {
+      try {
+        final devCount = lib
+            .lookupFunction<ffi.Size Function(), int Function()>(
+              'ggml_backend_dev_count',
+            );
+        final devGet = lib
+            .lookupFunction<
+              ffi.Pointer<ffi.Void> Function(ffi.Size),
+              ffi.Pointer<ffi.Void> Function(int)
+            >('ggml_backend_dev_get');
+        final devType = lib
+            .lookupFunction<
+              ffi.Int32 Function(ffi.Pointer<ffi.Void>),
+              int Function(ffi.Pointer<ffi.Void>)
+            >('ggml_backend_dev_type');
+        for (var i = 0; i < devCount(); i++) {
+          final type = devType(devGet(i));
+          if (type == _ggmlBackendDeviceTypeGpu ||
+              type == _ggmlBackendDeviceTypeIgpu) {
+            return requested;
+          }
+        }
+        _log.warning(
+          'Requested $requested but no GPU device is registered in the '
+          'ggml backend registry — downgrading to CPU',
+        );
+        return WhisperBackend.cpu;
+      } on ArgumentError {
+        continue;
+      }
+    }
+    return requested;
   }
 
   /// Best-effort lookup of `whisper_full_get_segment_t0/t1`, used only by
@@ -657,4 +742,22 @@ class WhisperFfiEngine implements WhisperEngine {
     final cores = Platform.numberOfProcessors;
     return (cores - 1).clamp(2, 8);
   }
+}
+
+/// Test-only entry point for [WhisperFfiEngine._confirmBackend] — probes the
+/// real ggml device registry in [dylib] (having first ensured its backends
+/// are registered, mirroring [WhisperFfiEngine.load]'s own sequencing)
+/// without needing a full model load. Lets tests exercise the actual
+/// registry-probing logic against a real bundled dylib (e.g. the app's own
+/// already-built `libwhisper.dylib`) without the multi-gigabyte production
+/// model or the gitignored durchstich fixtures this file's other tests skip
+/// without.
+@visibleForTesting
+WhisperBackend confirmBackendForTesting(
+  ffi.DynamicLibrary dylib,
+  String libraryPath,
+  WhisperBackend requested,
+) {
+  WhisperFfiEngine._ensureBackendsLoaded(dylib, libraryPath);
+  return WhisperFfiEngine._confirmBackend(dylib, requested);
 }

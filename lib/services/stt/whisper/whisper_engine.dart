@@ -89,7 +89,9 @@ class WhisperEngineStatus {
   /// Whether a model is loaded and the engine can [WhisperEngine.transcribe].
   final bool isLoaded;
 
-  /// The compute backend in use (Default/CPU in this slice — see Issue 04).
+  /// The compute backend actually in use, confirmed against ggml's device
+  /// registry post-load where the bundled library exports it (see
+  /// `WhisperFfiEngine._confirmBackend`) — not merely the pre-load request.
   final WhisperBackend backend;
 
   /// The last load/transcribe failure, or `null` if none.
