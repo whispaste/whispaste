@@ -366,19 +366,16 @@ void main() {
       );
     });
 
-    test(
-      'default key is layout-invariant (regression: Y/Z swap on QWERTZ made '
-      'the shipped default show one key but register the other physical '
-      'position — see hotkey_key_resolver.dart canonicalRecordableKey)',
-      () {
-        final defaults = AppSettings.defaults;
+    test('default key is layout-invariant (regression: Y/Z swap on QWERTZ made '
+        'the shipped default show one key but register the other physical '
+        'position — see hotkey_key_resolver.dart canonicalRecordableKey)', () {
+      final defaults = AppSettings.defaults;
 
-        expect(
-          defaults.quickNoteHotkey.quickNoteHotkeyKey,
-          isNot(anyOf('Y', 'Z')),
-        );
-      },
-    );
+      expect(
+        defaults.quickNoteHotkey.quickNoteHotkeyKey,
+        isNot(anyOf('Y', 'Z')),
+      );
+    });
 
     test(
       'missing storage keys fall back to defaults (no migration needed)',

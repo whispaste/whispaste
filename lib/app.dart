@@ -28,6 +28,7 @@ import 'core/platform/window_position_clamp.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
+import 'features/history/data/providers.dart' show groupedHistoryProvider;
 import 'features/notes/notes_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
@@ -271,6 +272,18 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// mounted in the background. Closed in [dispose].
   ProviderSubscription<PasteCapabilityState>? _restartWatchSub;
 
+  /// Keeps the history provider chain (`filteredHistoryProvider` →
+  /// `groupedHistoryProvider`) recomputing while the Notes page is showing
+  /// and History has no listener of its own — otherwise entries saved during
+  /// that time (e.g. several quick-note dictations) pile up as unflushed
+  /// invalidations, and HistoryPage's first `ref.watch` on remount has to
+  /// catch them all up synchronously mid-build, which Riverpod schedules via
+  /// a `setState()` on `UncontrolledProviderScope` that Flutter rejects
+  /// because that widget isn't part of the in-progress build — crashing (and,
+  /// with a debugger attached, freezing) the Notizen→Verlauf switch. Closed
+  /// in [dispose].
+  ProviderSubscription<Object?>? _historyWarmupSub;
+
   /// Autosicherung (Ticket 26). Lives here rather than in the settings
   /// section that switches it on, because two of its three triggers — a
   /// replacement, a snippet — happen on pages of their own, and because a
@@ -327,6 +340,7 @@ class _AppShellState extends ConsumerState<_AppShell>
         unawaited(_restoreRegularWindowGeometry(settings));
       });
     }
+    _historyWarmupSub = ref.listenManual(groupedHistoryProvider, (_, _) {});
 
     // Observe app lifecycle (background/suspend) so session-aggregated
     // telemetry is flushed even when the window-close path is skipped
@@ -840,6 +854,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     WidgetsBinding.instance.removeObserver(this);
     _windowSaveTimer?.cancel();
     _restartWatchSub?.close();
+    _historyWarmupSub?.close();
     _autosaveScheduler?.dispose();
     for (final subscription in _autosaveSubs) {
       subscription.close();
