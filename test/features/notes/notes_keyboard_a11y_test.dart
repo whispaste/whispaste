@@ -14,6 +14,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
+import 'package:whispaste/widgets/find_replace_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -292,6 +293,49 @@ void main() {
       await _settle(tester);
 
       expect(find.byType(NoteEditorPanel), findsNothing);
+    });
+
+    // …but not while the find bar has it. Same key, two owners: the bar's
+    // FocusNode.onKeyEvent gets first crack, ahead of this page's handler.
+    // The test above is what makes this one meaningful — closing the editor is
+    // the documented behaviour, so "the bar is gone" would pass either way.
+    testWidgets('Escape closes the find bar and leaves the editor open', (
+      tester,
+    ) async {
+      final notes = [_sampleNote(id: 'n1', content: 'First note')];
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+
+      await tester.tap(find.text('First note'));
+      await _settle(tester);
+
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await _settle(tester);
+      expect(find.byType(WpFindReplaceBar), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceFindLabel).first);
+      await _settle(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await _settle(tester);
+
+      expect(find.byType(WpFindReplaceBar), findsNothing);
+      expect(
+        find.byType(NoteEditorPanel),
+        findsOneWidget,
+        reason:
+            'Escape fell through to the page handler and closed the editor '
+            'instead of just the find bar',
+      );
     });
   });
 

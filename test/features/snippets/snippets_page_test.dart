@@ -18,6 +18,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import 'package:whispaste/widgets/find_replace_bar.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
@@ -127,6 +128,51 @@ void main() {
 
       expect(find.text('final final'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    // The third host, and the one where losing the Escape race costs work: a
+    // modal route treats Escape as "dismiss", and the dialog by then holds a
+    // prompt template the user has been typing into an 18-line field. As in
+    // History, "the find bar closed" proves nothing on its own — a popped
+    // dialog closes it too. The body text still being there is the assertion.
+    testWidgets('Escape closes the find bar without discarding the draft', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'a template worth keeping',
+      );
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await tester.pumpAndSettle();
+      expect(find.byType(WpFindReplaceBar), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceFindLabel).first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.bySemanticsLabel(l10n.findReplaceFindLabel).first,
+        'template',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WpFindReplaceBar), findsNothing);
+      expect(
+        find.text('a template worth keeping'),
+        findsOneWidget,
+        reason:
+            'Escape reached the modal route and popped the dialog, taking the '
+            'unsaved snippet body with it',
+      );
     });
 
     testWidgets('the dialog stays whole at a 2x system text size', (
