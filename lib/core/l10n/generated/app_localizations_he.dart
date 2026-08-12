@@ -3409,4 +3409,42 @@ class L10nHe extends L10n {
 
   @override
   String get markdownToolbarCode => 'קוד';
+
+  @override
+  String get findReplaceToggle => 'חיפוש והחלפה בטקסט הזה';
+
+  @override
+  String get findReplaceFindLabel => 'חיפוש בטקסט הזה';
+
+  @override
+  String get findReplaceFindHint => 'חיפוש…';
+
+  @override
+  String get findReplaceReplaceLabel => 'החלפת התוצאות ב';
+
+  @override
+  String get findReplaceReplaceHint => 'החלפה ב…';
+
+  @override
+  String get findReplaceNext => 'התוצאה הבאה';
+
+  @override
+  String get findReplacePrevious => 'התוצאה הקודמת';
+
+  @override
+  String get findReplaceReplaceAction => 'החלפת התוצאה הזו';
+
+  @override
+  String get findReplaceReplaceAllAction => 'החלפת כל התוצאות';
+
+  @override
+  String get findReplaceClose => 'סגירת חיפוש והחלפה';
+
+  @override
+  String get findReplaceNoMatches => 'אין תוצאות';
+
+  @override
+  String findReplaceMatchCount(int current, int total) {
+    return '$current מתוך $total';
+  }
 }

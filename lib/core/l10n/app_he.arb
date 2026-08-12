@@ -1202,5 +1202,24 @@
   },
   "markdownToolbarNumberedList": "רשימה ממוספרת",
   "markdownToolbarQuote": "ציטוט",
-  "markdownToolbarCode": "קוד"
+  "markdownToolbarCode": "קוד",
+
+  "findReplaceToggle": "חיפוש והחלפה בטקסט הזה",
+  "findReplaceFindLabel": "חיפוש בטקסט הזה",
+  "findReplaceFindHint": "חיפוש…",
+  "findReplaceReplaceLabel": "החלפת התוצאות ב",
+  "findReplaceReplaceHint": "החלפה ב…",
+  "findReplaceNext": "התוצאה הבאה",
+  "findReplacePrevious": "התוצאה הקודמת",
+  "findReplaceReplaceAction": "החלפת התוצאה הזו",
+  "findReplaceReplaceAllAction": "החלפת כל התוצאות",
+  "findReplaceClose": "סגירת חיפוש והחלפה",
+  "findReplaceNoMatches": "אין תוצאות",
+  "findReplaceMatchCount": "{current} מתוך {total}",
+  "@findReplaceMatchCount": {
+    "placeholders": {
+      "current": { "type": "int", "example": "3" },
+      "total": { "type": "int", "example": "12" }
+    }
+  }
 }

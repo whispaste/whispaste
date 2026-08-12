@@ -14,6 +14,7 @@ import '../../services/notes/notes_exporter.dart' as notes_exporter;
 import '../../services/recording_orchestrator.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/find_replace.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/wp_list_skeleton.dart';
@@ -70,7 +71,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// Editor controller + focus node live HERE, not in [NoteEditorPanel] —
   /// the panel rebuilds on every stream emit, and panel-owned controllers
   /// would lose cursor position and IME state on each rebuild.
-  final TextEditingController _editorController = TextEditingController();
+  ///
+  /// A [WpFindHighlightController] so the editor toolbar's find bar can tint
+  /// its hits — a [TextField] only paints a *selection* while focused, and
+  /// while a query is being typed the focus is in the find field.
+  final WpFindHighlightController _editorController =
+      WpFindHighlightController();
   final FocusNode _editorFocusNode = FocusNode();
 
   /// Asks the editor's body field to jump to the end of the note. A signal
@@ -100,6 +106,10 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// programmatically on note switch — without it, the swap itself would
   /// schedule a bogus autosave for the newly selected note.
   bool _syncingEditor = false;
+
+  /// Last body text handed to [_autosave] — see [_onEditorChanged] for why a
+  /// notification is not by itself proof that anything was typed.
+  String? _lastScheduledContent;
 
   @override
   void initState() {
@@ -166,7 +176,15 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     if (_syncingEditor) return;
     final id = _selectedNoteId;
     if (id == null) return;
-    _autosave.schedule(id, _editorController.text);
+    final text = _editorController.text;
+    // A controller notifies for more than typed characters: a caret move, and
+    // — since the find bar arrived — a change of which matches are
+    // highlighted. Scheduling those would write the note back unchanged and
+    // bump its `updatedAt`, reordering the list under a user who only opened
+    // find-and-replace and looked at it.
+    if (text == _lastScheduledContent) return;
+    _lastScheduledContent = text;
+    _autosave.schedule(id, text);
   }
 
   /// Flushes on blur (window loses focus, user clicks elsewhere without
@@ -190,6 +208,13 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     _editorController.selection = TextSelection.collapsed(
       offset: normalized.length,
     );
+    // The swap is the new baseline for [_onEditorChanged]: without this, the
+    // first real keystroke after switching *back* to a note whose text the
+    // user had already scheduled would compare against the wrong note's text.
+    _lastScheduledContent = normalized;
+    // A find bar left open on the previous note has no business tinting this
+    // one's text at the old offsets.
+    _editorController.clearFindHighlight();
     _syncingEditor = false;
   }
 

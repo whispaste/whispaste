@@ -6101,6 +6101,78 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Code'**
   String get markdownToolbarCode;
+
+  /// No description provided for @findReplaceToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Find and replace in this text'**
+  String get findReplaceToggle;
+
+  /// No description provided for @findReplaceFindLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Find in this text'**
+  String get findReplaceFindLabel;
+
+  /// No description provided for @findReplaceFindHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Find…'**
+  String get findReplaceFindHint;
+
+  /// No description provided for @findReplaceReplaceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace matches with'**
+  String get findReplaceReplaceLabel;
+
+  /// No description provided for @findReplaceReplaceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace with…'**
+  String get findReplaceReplaceHint;
+
+  /// No description provided for @findReplaceNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next match'**
+  String get findReplaceNext;
+
+  /// No description provided for @findReplacePrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous match'**
+  String get findReplacePrevious;
+
+  /// No description provided for @findReplaceReplaceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace this match'**
+  String get findReplaceReplaceAction;
+
+  /// No description provided for @findReplaceReplaceAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace all matches'**
+  String get findReplaceReplaceAllAction;
+
+  /// No description provided for @findReplaceClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close find and replace'**
+  String get findReplaceClose;
+
+  /// No description provided for @findReplaceNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get findReplaceNoMatches;
+
+  /// No description provided for @findReplaceMatchCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} of {total}'**
+  String findReplaceMatchCount(int current, int total);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

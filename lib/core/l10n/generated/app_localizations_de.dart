@@ -3491,4 +3491,42 @@ class L10nDe extends L10n {
 
   @override
   String get markdownToolbarCode => 'Code';
+
+  @override
+  String get findReplaceToggle => 'In diesem Text suchen und ersetzen';
+
+  @override
+  String get findReplaceFindLabel => 'In diesem Text suchen';
+
+  @override
+  String get findReplaceFindHint => 'Suchen…';
+
+  @override
+  String get findReplaceReplaceLabel => 'Treffer ersetzen durch';
+
+  @override
+  String get findReplaceReplaceHint => 'Ersetzen durch…';
+
+  @override
+  String get findReplaceNext => 'Nächster Treffer';
+
+  @override
+  String get findReplacePrevious => 'Vorheriger Treffer';
+
+  @override
+  String get findReplaceReplaceAction => 'Diesen Treffer ersetzen';
+
+  @override
+  String get findReplaceReplaceAllAction => 'Alle Treffer ersetzen';
+
+  @override
+  String get findReplaceClose => 'Suchen und Ersetzen schließen';
+
+  @override
+  String get findReplaceNoMatches => 'Keine Treffer';
+
+  @override
+  String findReplaceMatchCount(int current, int total) {
+    return '$current von $total';
+  }
 }

@@ -19,6 +19,7 @@ import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
 import '../../../widgets/dialog.dart';
+import '../../../widgets/find_replace.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
@@ -116,7 +117,12 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   @override
   void initState() {
     super.initState();
-    _transcriptController = TextEditingController(text: widget.entry.content);
+    // Highlight-capable so the toolbar's find bar can tint its hits: a
+    // TextField only paints a *selection* while focused, and while the user is
+    // typing a query the focus is in the find field, not here.
+    _transcriptController = WpFindHighlightController(
+      text: widget.entry.content,
+    );
     _titleController = TextEditingController(text: widget.entry.title);
     // Auto-focus panel so its shortcuts AND ancestor list shortcuts both work.
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'find_replace_bar.dart';
 
 /// The markdown formatting actions themselves — the one place that knows how
 /// bold, italic, a heading, a list, a quote or code are applied to a
@@ -181,15 +182,29 @@ class WpMarkdownFormatting {
   }
 }
 
-/// Lightweight markdown formatting toolbar for text editing.
+/// Markdown formatting toolbar for text editing, plus find-and-replace.
 ///
-/// Buttons only — every one of them calls the matching method on
+/// Every formatting button calls the matching method on
 /// [WpMarkdownFormatting], which is also what the keyboard shortcuts call, so
 /// the tooltip that promises `Ctrl+B` and the key that answers it can no
-/// longer disagree. Horizontally scrollable, because at the 280 dp the detail
-/// panels render down to, seven buttons do not fit and the panel must not be
-/// the thing that scrolls.
-class WpMarkdownToolbar extends StatelessWidget {
+/// longer disagree. The button row is horizontally scrollable, because at the
+/// 280 dp the detail panels render down to, eight buttons do not fit and the
+/// panel must not be the thing that scrolls.
+///
+/// ## Why find-and-replace lives here
+///
+/// It is the one widget History's transcript editor, the Notes editor and the
+/// Snippet dialog already share, so hanging the bar off it lights the feature
+/// up on all three at once and keeps a single copy of the interaction. The bar
+/// itself is [WpFindReplaceBar]; this widget only owns whether it is open.
+///
+/// Deliberately **not** bound to `Ctrl/Cmd+F`: that combination is already the
+/// "focus the list search field" shortcut on the History and the Notes page
+/// (`history_page.dart`, `notes_page.dart`), and quietly changing what it does
+/// while a caret sits in the editor would break a shortcut people already use
+/// to filter their list. The toggle button and `Escape`-to-close are the whole
+/// keyboard story until that conflict is resolved on purpose.
+class WpMarkdownToolbar extends StatefulWidget {
   const WpMarkdownToolbar({
     super.key,
     required this.controller,
@@ -198,6 +213,62 @@ class WpMarkdownToolbar extends StatelessWidget {
 
   final TextEditingController controller;
   final FocusNode focusNode;
+
+  @override
+  State<WpMarkdownToolbar> createState() => _WpMarkdownToolbarState();
+}
+
+class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
+  bool _findOpen = false;
+
+  void _toggleFind() => setState(() => _findOpen = !_findOpen);
+
+  void _closeFind() {
+    if (!_findOpen) return;
+    setState(() => _findOpen = false);
+    widget.focusNode.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The button row keeps shrink-wrapping (and left-aligning) exactly as it
+    // did; the column around it is what the find bar can stretch across, so
+    // its two fields get a bounded width on a panel that is otherwise happy to
+    // hand out an unbounded one.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: _ButtonRow(
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            findOpen: _findOpen,
+            onToggleFind: _toggleFind,
+          ),
+        ),
+        if (_findOpen) ...[
+          const SizedBox(height: WpSpacing.xs),
+          WpFindReplaceBar(controller: widget.controller, onClose: _closeFind),
+        ],
+      ],
+    );
+  }
+}
+
+class _ButtonRow extends StatelessWidget {
+  const _ButtonRow({
+    required this.controller,
+    required this.focusNode,
+    required this.findOpen,
+    required this.onToggleFind,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool findOpen;
+  final VoidCallback onToggleFind;
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +369,21 @@ class WpMarkdownToolbar extends StatelessWidget {
               muted: mutedColor,
               onTap: format.code,
             ),
+            Container(
+              width: 1,
+              height: 16,
+              margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+              color: divColor,
+            ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
+            _ToolbarButton(
+              icon: LucideIcons.textSearch,
+              tooltip: l10n.findReplaceToggle,
+              accent: accent,
+              muted: mutedColor,
+              isActive: findOpen,
+              onTap: onToggleFind,
+            ),
           ],
         ),
       ),
@@ -312,6 +398,7 @@ class _ToolbarButton extends StatefulWidget {
     required this.accent,
     required this.muted,
     required this.onTap,
+    this.isActive = false,
   });
 
   final IconData icon;
@@ -319,6 +406,10 @@ class _ToolbarButton extends StatefulWidget {
   final Color accent;
   final Color muted;
   final VoidCallback onTap;
+
+  /// Sticky pressed state — only the find toggle has one, because only it
+  /// opens something that stays open. The formatting buttons act and are done.
+  final bool isActive;
 
   @override
   State<_ToolbarButton> createState() => _ToolbarButtonState();
@@ -329,9 +420,11 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
 
   @override
   Widget build(BuildContext context) {
+    final highlighted = _hovered || widget.isActive;
     return Semantics(
       label: widget.tooltip,
       button: true,
+      toggled: widget.isActive ? true : null,
       child: Tooltip(
         message: widget.tooltip,
         waitDuration: const Duration(milliseconds: 400),
@@ -345,7 +438,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
               duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               padding: const EdgeInsets.all(WpSpacing.xs),
               decoration: BoxDecoration(
-                color: _hovered
+                color: highlighted
                     ? widget.accent.withValues(alpha: 0.12)
                     : Colors.transparent,
                 borderRadius: WpRadius.borderSm,
@@ -353,7 +446,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
               child: Icon(
                 widget.icon,
                 size: 14,
-                color: _hovered ? widget.accent : widget.muted,
+                color: highlighted ? widget.accent : widget.muted,
               ),
             ),
           ),

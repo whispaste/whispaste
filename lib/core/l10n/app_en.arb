@@ -1367,5 +1367,24 @@
   },
   "markdownToolbarNumberedList": "Numbered list",
   "markdownToolbarQuote": "Quote",
-  "markdownToolbarCode": "Code"
+  "markdownToolbarCode": "Code",
+
+  "findReplaceToggle": "Find and replace in this text",
+  "findReplaceFindLabel": "Find in this text",
+  "findReplaceFindHint": "Find…",
+  "findReplaceReplaceLabel": "Replace matches with",
+  "findReplaceReplaceHint": "Replace with…",
+  "findReplaceNext": "Next match",
+  "findReplacePrevious": "Previous match",
+  "findReplaceReplaceAction": "Replace this match",
+  "findReplaceReplaceAllAction": "Replace all matches",
+  "findReplaceClose": "Close find and replace",
+  "findReplaceNoMatches": "No matches",
+  "findReplaceMatchCount": "{current} of {total}",
+  "@findReplaceMatchCount": {
+    "placeholders": {
+      "current": { "type": "int", "example": "3" },
+      "total": { "type": "int", "example": "12" }
+    }
+  }
 }

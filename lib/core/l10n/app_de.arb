@@ -1193,5 +1193,24 @@
   },
   "markdownToolbarNumberedList": "Nummerierte Liste",
   "markdownToolbarQuote": "Zitat",
-  "markdownToolbarCode": "Code"
+  "markdownToolbarCode": "Code",
+
+  "findReplaceToggle": "In diesem Text suchen und ersetzen",
+  "findReplaceFindLabel": "In diesem Text suchen",
+  "findReplaceFindHint": "Suchen…",
+  "findReplaceReplaceLabel": "Treffer ersetzen durch",
+  "findReplaceReplaceHint": "Ersetzen durch…",
+  "findReplaceNext": "Nächster Treffer",
+  "findReplacePrevious": "Vorheriger Treffer",
+  "findReplaceReplaceAction": "Diesen Treffer ersetzen",
+  "findReplaceReplaceAllAction": "Alle Treffer ersetzen",
+  "findReplaceClose": "Suchen und Ersetzen schließen",
+  "findReplaceNoMatches": "Keine Treffer",
+  "findReplaceMatchCount": "{current} von {total}",
+  "@findReplaceMatchCount": {
+    "placeholders": {
+      "current": { "type": "int", "example": "3" },
+      "total": { "type": "int", "example": "12" }
+    }
+  }
 }

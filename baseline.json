@@ -59,25 +59,25 @@
       "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1625, lib/core/data/database.dart:2259"
     },
     {
-      "fingerprint": "8e06faf589dc1013",
+      "fingerprint": "267713415a1ac12a",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 133,
-      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:315"
+      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:340"
     },
     {
-      "fingerprint": "8f579366052fed5d",
+      "fingerprint": "bdb6241dd2630386",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
       "line": 85,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:85, lib/features/snippets/snippets_page.dart:63"
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:85, lib/features/snippets/snippets_page.dart:65"
     },
     {
-      "fingerprint": "0d447fec8877d595",
+      "fingerprint": "49a4e607a17ee3b5",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
       "line": 125,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:125, lib/features/snippets/snippets_page.dart:103"
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:125, lib/features/snippets/snippets_page.dart:105"
     },
     {
       "fingerprint": "bc2554a1bedc4b79",
