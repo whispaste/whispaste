@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -331,6 +333,61 @@ void main() {
         expect(result.windowMaximized, true);
       },
     );
+
+    test(
+      'a copyWith call that only touches an unrelated field keeps quickNoteHotkey',
+      () {
+        const settings = AppSettings(
+          quickNoteHotkey: QuickNoteHotkeySettings(
+            quickNoteHotkeyEnabled: true,
+            quickNoteHotkeyKey: 'Y',
+            quickNoteHotkeyModifiers: 'ctrl+shift',
+          ),
+        );
+
+        final result = settings.copyWith(windowMaximized: true);
+
+        expect(result.quickNoteHotkey.quickNoteHotkeyEnabled, true);
+        expect(result.quickNoteHotkey.quickNoteHotkeyKey, 'Y');
+        expect(result.windowMaximized, true);
+      },
+    );
+  });
+
+  group('quickNoteHotkey settings (ticket 20)', () {
+    test('defaults: disabled, key Y, platform-aware modifiers', () {
+      final defaults = AppSettings.defaults;
+
+      expect(defaults.quickNoteHotkey.quickNoteHotkeyEnabled, false);
+      expect(defaults.quickNoteHotkey.quickNoteHotkeyKey, 'Y');
+      expect(
+        defaults.quickNoteHotkey.quickNoteHotkeyModifiers,
+        Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+      );
+    });
+
+    test(
+      'missing storage keys fall back to defaults (no migration needed)',
+      () {
+        final settings = AppSettings.fromStorageMap(const {});
+
+        expect(settings.quickNoteHotkey, QuickNoteHotkeySettings.defaults);
+      },
+    );
+
+    test('round-trips through toStorageMap/fromStorageMap', () {
+      const original = QuickNoteHotkeySettings(
+        quickNoteHotkeyEnabled: true,
+        quickNoteHotkeyKey: 'N',
+        quickNoteHotkeyKeyDisplay: 'N',
+        quickNoteHotkeyModifiers: 'meta+shift',
+      );
+      const settings = AppSettings(quickNoteHotkey: original);
+
+      final restored = AppSettings.fromStorageMap(settings.toStorageMap());
+
+      expect(restored.quickNoteHotkey, original);
+    });
   });
 
   group('sound mute migration (issue 12)', () {

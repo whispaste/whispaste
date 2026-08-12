@@ -146,6 +146,12 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'overlay_size',
   'overlay_start_position',
   'push_to_talk',
+  // Ticket 20: second, independently configurable hotkey — same portability
+  // rationale as the existing 'hotkey_*' keys above.
+  'quick_note_hotkey_enabled',
+  'quick_note_hotkey_key',
+  'quick_note_hotkey_key_display',
+  'quick_note_hotkey_modifiers',
   'record_start_sound',
   'record_stop_sound',
   'share_usage_stats',

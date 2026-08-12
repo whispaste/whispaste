@@ -12,6 +12,7 @@ import '../core/navigation/page_state.dart'
     show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
+import '../core/recording/recording_state.dart' show RecordingTarget;
 import '../services/autostart_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
@@ -41,6 +42,12 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   /// `hotkey-modifier-storage-fix` PRD).
   late final RecordingTriggerHandler _triggerHandler;
 
+  /// Trigger handler for the quick-note hotkey (ticket 20). Same class, same
+  /// held-for-lifetime rule as [_triggerHandler] — a second instance rather
+  /// than a shared one, since each hotkey needs its own PTT/toggle mode
+  /// (this action is always toggle-only) and its own recording target.
+  late final RecordingTriggerHandler _quickNoteTriggerHandler;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +71,24 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     );
     hotkeySvc.onHotkeyPressed = _triggerHandler.onKeyDown;
     hotkeySvc.onHotkeyReleased = _triggerHandler.onKeyUp;
+
+    // ── Quick-note trigger handler (ticket 20) — toggle-only, no PTT ──
+    _quickNoteTriggerHandler = RecordingTriggerHandler(
+      startRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .startRecording(target: RecordingTarget.quickNote),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .toggleRecording(target: RecordingTarget.quickNote),
+      // Hardcoded false: the quick-note hotkey never wires a keyUpHandler
+      // (see HotkeyService.updateQuickNoteHotkey), so onKeyUp never fires
+      // for it anyway — this just documents the invariant at the call site.
+      pushToTalkEnabled: () => false,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+    );
+    hotkeySvc.onQuickNoteHotkeyPressed = _quickNoteTriggerHandler.onKeyDown;
 
     // ── Tray callbacks — stateless closures, safe to wire once ──
     final tray = ref.read(trayServiceProvider.notifier);

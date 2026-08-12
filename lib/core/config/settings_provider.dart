@@ -55,6 +55,7 @@ class AppSettings {
     this.updates = const UpdateSettings(),
     this.history = const HistorySettings(),
     this.hotkey = const HotkeySettings(),
+    this.quickNoteHotkey = const QuickNoteHotkeySettings(),
     this.windowPosition = const WindowPositionSettings(),
     this.onboarding = const OnboardingSettings(),
     this.benchmark = const BenchmarkSettings(),
@@ -105,6 +106,9 @@ class AppSettings {
 
   /// Hotkey settings.
   final HotkeySettings hotkey;
+
+  /// Quick-note hotkey settings (second, independently configurable hotkey).
+  final QuickNoteHotkeySettings quickNoteHotkey;
 
   /// Window & overlay position settings.
   final WindowPositionSettings windowPosition;
@@ -364,6 +368,7 @@ class AppSettings {
   /// On macOS the default hotkey uses ⌘+Shift (meta) instead of Ctrl+Shift.
   static final AppSettings defaults = AppSettings(
     hotkey: buildDefaultHotkeySettings(),
+    quickNoteHotkey: buildDefaultQuickNoteHotkeySettings(),
   );
 
   /// Creates settings from persisted key-value storage.
@@ -382,6 +387,7 @@ class AppSettings {
       updates: UpdateSettings.fromMap(values),
       history: HistorySettings.fromMap(values),
       hotkey: HotkeySettings.fromMap(values),
+      quickNoteHotkey: QuickNoteHotkeySettings.fromMap(values),
       windowPosition: WindowPositionSettings.fromMap(values),
       onboarding: OnboardingSettings.fromMap(values),
       benchmark: BenchmarkSettings.fromMap(values),
@@ -443,6 +449,7 @@ class AppSettings {
     ...updates.toMap(),
     ...history.toMap(),
     ...hotkey.toMap(),
+    ...quickNoteHotkey.toMap(),
     ...windowPosition.toMap(),
     ...onboarding.toMap(),
     ...benchmark.toMap(),
@@ -463,6 +470,10 @@ class AppSettings {
   ///   stt: settings.stt.copyWith(model: 'whisper-large-v3-turbo'),
   /// );
   /// ```
+  // loam-ignore: complexity-hotspots – mechanical field ?? this.field chain,
+  // one branch per settings section; splitting it would break the
+  // section-based copy API's single-call shape without reducing real
+  // complexity.
   AppSettings copyWithSections({
     InterfaceSettings? interface_,
     AudioInputSettings? audioInput,
@@ -477,6 +488,7 @@ class AppSettings {
     UpdateSettings? updates,
     HistorySettings? history,
     HotkeySettings? hotkey,
+    QuickNoteHotkeySettings? quickNoteHotkey,
     WindowPositionSettings? windowPosition,
     OnboardingSettings? onboarding,
     BenchmarkSettings? benchmark,
@@ -499,6 +511,7 @@ class AppSettings {
       updates: updates ?? this.updates,
       history: history ?? this.history,
       hotkey: hotkey ?? this.hotkey,
+      quickNoteHotkey: quickNoteHotkey ?? this.quickNoteHotkey,
       windowPosition: windowPosition ?? this.windowPosition,
       onboarding: onboarding ?? this.onboarding,
       benchmark: benchmark ?? this.benchmark,
@@ -676,6 +689,9 @@ class AppSettings {
       // reset the autosave configuration with it.
       portabilityPaths: portabilityPaths,
       autosave: autosave,
+      // Same pass-through requirement as above — quickNoteHotkey has no
+      // legacy top-level parameter either.
+      quickNoteHotkey: quickNoteHotkey,
     );
   }
 
@@ -697,6 +713,7 @@ class AppSettings {
           updates == other.updates &&
           history == other.history &&
           hotkey == other.hotkey &&
+          quickNoteHotkey == other.quickNoteHotkey &&
           windowPosition == other.windowPosition &&
           onboarding == other.onboarding &&
           benchmark == other.benchmark &&
@@ -719,6 +736,7 @@ class AppSettings {
     updates,
     history,
     hotkey,
+    quickNoteHotkey,
     windowPosition,
     onboarding,
     benchmark,

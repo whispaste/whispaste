@@ -4,6 +4,7 @@
 library;
 
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
@@ -28,6 +29,13 @@ class FakeHotKeyRegistrar implements HotKeyRegistrar {
   /// Last keyUp handler passed to [register].
   HotKeyHandler? capturedKeyUpHandler;
 
+  /// Handlers captured per logical key (by [LogicalKeyboardKey.keyId]),
+  /// letting a test drive two independently-registered actions (e.g. the
+  /// global and quick-note hotkeys) separately, since [capturedKeyDownHandler]
+  /// only ever holds the most recent registration's handler.
+  final Map<int, HotKeyHandler> keyDownHandlersByKeyId = {};
+  final Map<int, HotKeyHandler> keyUpHandlersByKeyId = {};
+
   /// If non-null, [register] throws this object the first time it is called.
   Object? throwOnFirstRegister;
 
@@ -48,6 +56,12 @@ class FakeHotKeyRegistrar implements HotKeyRegistrar {
     }
     capturedKeyDownHandler = keyDownHandler;
     capturedKeyUpHandler = keyUpHandler;
+    if (keyDownHandler != null) {
+      keyDownHandlersByKeyId[hotKey.logicalKey.keyId] = keyDownHandler;
+    }
+    if (keyUpHandler != null) {
+      keyUpHandlersByKeyId[hotKey.logicalKey.keyId] = keyUpHandler;
+    }
     registered.add(hotKey);
   }
 
@@ -681,5 +695,261 @@ void main() {
         expect(presses, 1, reason: 'held key must not flip start/stop');
       },
     );
+  });
+
+  group('HotkeyService — quick-note action (ticket 20)', () {
+    test('registers independently of the global hotkey', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+
+      expect(registrar.registered, hasLength(2));
+      expect(
+        registrar.registered.map((k) => k.logicalKey),
+        containsAll([LogicalKeyboardKey.keyD, LogicalKeyboardKey.keyY]),
+      );
+    });
+
+    test(
+      'changing the quick-note combo does not re-register the global hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyN);
+
+        // The global combo must never have been unregistered.
+        expect(
+          registrar.unregistered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+          ),
+          isFalse,
+        );
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+          ),
+          isTrue,
+        );
+        // Only the new quick-note combo remains registered.
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyN,
+          ),
+          isTrue,
+        );
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyY,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'changing the global combo does not re-register the quick-note hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateHotkey(key: LogicalKeyboardKey.keyE);
+
+        expect(
+          registrar.unregistered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyY,
+          ),
+          isFalse,
+        );
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyY,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'a failed quick-note registration reports conflict without a safe-default fallback',
+      () async {
+        final registrar = FakeHotKeyRegistrar()
+          ..throwOnFirstRegister = TypeError();
+        final service = _makeService(registrar);
+
+        await expectLater(
+          service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY),
+          completes,
+        );
+
+        // No Space (safe-default) must ever be registered for this action.
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.space,
+          ),
+          isFalse,
+          reason: 'ticket 20 forbids a safe-default fallback for this action',
+        );
+        expect(registrar.registered, isEmpty);
+      },
+    );
+
+    test(
+      'a failed quick-note registration does not affect the already-registered global hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        registrar.throwOnFirstRegister = TypeError();
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+          ),
+          isTrue,
+          reason: 'global hotkey must remain registered and untouched',
+        );
+      },
+    );
+
+    test(
+      'a failed global registration (safe-default fallback) does not affect an already-registered quick-note hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+        registrar.throwOnFirstRegister = TypeError();
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyY,
+          ),
+          isTrue,
+          reason: 'quick-note hotkey must remain registered and untouched',
+        );
+      },
+    );
+
+    test(
+      'no keyUpHandler is registered for the quick-note action even when '
+      'the registrar supports keyUp (toggle-only, no push-to-talk)',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+        final service = _makeService(registrar);
+
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+
+        expect(registrar.capturedKeyUpHandler, isNull);
+      },
+    );
+
+    test(
+      'quick-note registration does not start the shared keyboard-up monitor',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+
+        expect(
+          monitor.started,
+          isEmpty,
+          reason:
+              'the monitor is a single shared native channel — starting it '
+              'for the toggle-only quick-note action would steal the '
+              "global hotkey's release watch",
+        );
+      },
+    );
+
+    test(
+      'quick-note key-down fires onQuickNoteHotkeyPressed exactly once per press',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var presses = 0;
+        service.onQuickNoteHotkeyPressed = () => presses++;
+
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+
+        expect(presses, 1);
+      },
+    );
+
+    test(
+      'auto-repeat suppression is independent per action — holding the '
+      'quick-note key does not suppress the global hotkey and vice versa',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var globalPresses = 0;
+        var quickNotePresses = 0;
+        service.onHotkeyPressed = () => globalPresses++;
+        service.onQuickNoteHotkeyPressed = () => quickNotePresses++;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyY);
+
+        final globalDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyD.keyId]!;
+        final quickNoteDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyY.keyId]!;
+        final globalHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+        );
+        final quickNoteHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyY,
+        );
+
+        // Hold the global key: repeated key-downs collapse to a single press.
+        globalDown(globalHotKey);
+        globalDown(globalHotKey);
+        expect(globalPresses, 1);
+
+        // A fresh press of the quick-note key must fire immediately — the
+        // held global key's auto-repeat window must not bleed into it.
+        quickNoteDown(quickNoteHotKey);
+        expect(quickNotePresses, 1);
+      },
+    );
+  });
+
+  group('quickNoteHotkeyRegistrationStatusProvider', () {
+    test('starts unknown and reflects .set() calls independently', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(quickNoteHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+
+      container
+          .read(quickNoteHotkeyRegistrationStatusProvider.notifier)
+          .set(HotkeyRegistrationStatus.conflict);
+
+      expect(
+        container.read(quickNoteHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.conflict,
+      );
+      // Independent of the existing (global) status provider.
+      expect(
+        container.read(hotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+    });
   });
 }

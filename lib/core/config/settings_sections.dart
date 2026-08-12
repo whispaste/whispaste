@@ -1000,6 +1000,108 @@ class HotkeySettings {
 }
 
 // ===========================================================================
+// Section 13b — Quick-note hotkey
+// ===========================================================================
+
+/// Settings for the second, independently configurable global hotkey that
+/// starts a recording targeting a quick note (ticket 20). Mirrors
+/// [HotkeySettings] in shape; kept as its own section (rather than extending
+/// [HotkeySettings]) so the existing hotkey's storage keys, defaults and
+/// tests stay untouched.
+class QuickNoteHotkeySettings {
+  const QuickNoteHotkeySettings({
+    this.quickNoteHotkeyEnabled = false,
+    this.quickNoteHotkeyKey = 'Y',
+    this.quickNoteHotkeyKeyDisplay = '',
+    this.quickNoteHotkeyModifiers = 'ctrl+shift',
+  });
+
+  /// Off by default — an existing user must opt in, never gets a system-wide
+  /// shortcut silently claimed by an update.
+  final bool quickNoteHotkeyEnabled;
+
+  /// Canonical storage token for the non-modifier key, as consumed by
+  /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
+  final String quickNoteHotkeyKey;
+
+  /// User-visible label for [quickNoteHotkeyKey] (see
+  /// [HotkeySettings.hotkeyKeyDisplay]).
+  final String quickNoteHotkeyKeyDisplay;
+
+  final String quickNoteHotkeyModifiers;
+
+  static const QuickNoteHotkeySettings defaults = QuickNoteHotkeySettings();
+
+  factory QuickNoteHotkeySettings.fromMap(Map<String, String> v) =>
+      QuickNoteHotkeySettings(
+        quickNoteHotkeyEnabled: _readBool(
+          v,
+          'quick_note_hotkey_enabled',
+          defaults.quickNoteHotkeyEnabled,
+        ),
+        quickNoteHotkeyKey:
+            v['quick_note_hotkey_key'] ?? defaults.quickNoteHotkeyKey,
+        quickNoteHotkeyKeyDisplay:
+            v['quick_note_hotkey_key_display'] ??
+            defaults.quickNoteHotkeyKeyDisplay,
+        quickNoteHotkeyModifiers:
+            v['quick_note_hotkey_modifiers'] ??
+            defaults.quickNoteHotkeyModifiers,
+      );
+
+  Map<String, String> toMap() => {
+    'quick_note_hotkey_enabled': '$quickNoteHotkeyEnabled',
+    'quick_note_hotkey_key': quickNoteHotkeyKey,
+    'quick_note_hotkey_key_display': quickNoteHotkeyKeyDisplay,
+    'quick_note_hotkey_modifiers': quickNoteHotkeyModifiers,
+  };
+
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the SttSettings comment above and the ~15
+  // other section classes below); it is established repo-wide boilerplate,
+  // not accidental duplication.
+  // loam-ignore: unused-public-exports – copyWith kept for parity with every
+  // other settings-section class's fromMap/toMap/copyWith/==/hashCode shape;
+  // not called directly today because AppSettings.copyWithSections replaces
+  // whole sections instead, same as the other section classes.
+  QuickNoteHotkeySettings copyWith({
+    bool? quickNoteHotkeyEnabled,
+    String? quickNoteHotkeyKey,
+    String? quickNoteHotkeyKeyDisplay,
+    String? quickNoteHotkeyModifiers,
+  }) => QuickNoteHotkeySettings(
+    quickNoteHotkeyEnabled:
+        quickNoteHotkeyEnabled ?? this.quickNoteHotkeyEnabled,
+    quickNoteHotkeyKey: quickNoteHotkeyKey ?? this.quickNoteHotkeyKey,
+    quickNoteHotkeyKeyDisplay:
+        quickNoteHotkeyKeyDisplay ?? this.quickNoteHotkeyKeyDisplay,
+    quickNoteHotkeyModifiers:
+        quickNoteHotkeyModifiers ?? this.quickNoteHotkeyModifiers,
+  );
+
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file
+  // (see the copyWith comment above), not accidental duplication.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QuickNoteHotkeySettings &&
+          quickNoteHotkeyEnabled == other.quickNoteHotkeyEnabled &&
+          quickNoteHotkeyKey == other.quickNoteHotkeyKey &&
+          quickNoteHotkeyKeyDisplay == other.quickNoteHotkeyKeyDisplay &&
+          quickNoteHotkeyModifiers == other.quickNoteHotkeyModifiers;
+
+  @override
+  int get hashCode => Object.hash(
+    quickNoteHotkeyEnabled,
+    quickNoteHotkeyKey,
+    quickNoteHotkeyKeyDisplay,
+    quickNoteHotkeyModifiers,
+  );
+}
+
+// ===========================================================================
 // Section 14 — Window Positions
 // ===========================================================================
 
@@ -1533,3 +1635,10 @@ class SettingsAutosaveSettings {
 HotkeySettings buildDefaultHotkeySettings() => HotkeySettings(
   hotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
 );
+
+/// Build a [QuickNoteHotkeySettings] with the platform-correct default
+/// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+Y` combination.
+QuickNoteHotkeySettings buildDefaultQuickNoteHotkeySettings() =>
+    QuickNoteHotkeySettings(
+      quickNoteHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+    );

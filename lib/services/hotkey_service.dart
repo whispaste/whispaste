@@ -104,6 +104,26 @@ final hotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatus
     >(HotkeyRegistrationStatusController.new);
 
+/// Notifier holding the [HotkeyRegistrationStatus] for the quick-note hotkey
+/// (ticket 20) — kept fully separate from [hotkeyRegistrationStatusProvider]
+/// so a conflict on one action never surfaces as a conflict on the other.
+class QuickNoteHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the quick-note [HotkeyRegistrationStatus] state.
+final quickNoteHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      QuickNoteHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(QuickNoteHotkeyRegistrationStatusController.new);
+
 // ---------------------------------------------------------------------------
 // Safe-default hotkey
 // ---------------------------------------------------------------------------
@@ -124,6 +144,26 @@ String get safeDefaultHotKeyLabel =>
     Platform.isMacOS ? 'Cmd+Shift+Space' : 'Ctrl+Shift+Space';
 
 // ---------------------------------------------------------------------------
+// Per-action state
+// ---------------------------------------------------------------------------
+
+/// Registration + held-key state for a single hotkey action. See
+/// [HotkeyService._stateFor].
+class _ActionHotkeyState {
+  HotKey? registeredHotKey;
+
+  /// Whether the action's key is currently considered held down. Set on an
+  /// accepted key-down, cleared on key-up (macOS) or once the auto-repeat
+  /// window lapses (Windows/Linux, which have no key-up). Used to swallow OS
+  /// key-repeat so a held key triggers exactly once.
+  bool keyHeld = false;
+
+  /// Timestamp of the most recent key-down event (accepted OR suppressed),
+  /// used to bridge the auto-repeat stream on platforms without key-up.
+  DateTime? lastKeyDownAt;
+}
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
@@ -138,6 +178,15 @@ String get safeDefaultHotKeyLabel =>
 /// can display a localised toast prompting the user to re-bind.
 class HotkeyService extends Notifier<void> {
   static final _log = AppLogger('HotkeyService');
+
+  /// Action identifier for the original, push-to-talk-capable hotkey.
+  static const _globalActionId = 'global';
+
+  /// Action identifier for the second, toggle-only quick-note hotkey
+  /// (ticket 20). Kept as a plain string identifier — not a hardcoded second
+  /// field per piece of state — so a third action (ticket 26) reuses
+  /// [_stateFor] without another round of this refactor.
+  static const _quickNoteActionId = 'quickNote';
 
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
@@ -154,6 +203,12 @@ class HotkeyService extends Notifier<void> {
   /// that prompts the user to re-bind their shortcut in Settings.
   VoidCallback? onRegistrationFailed;
 
+  /// Callback fired when the quick-note hotkey is pressed (key-down).
+  ///
+  /// Toggle-only — there is no matching "released" callback because this
+  /// action never offers push-to-talk (ticket 20).
+  VoidCallback? onQuickNoteHotkeyPressed;
+
   /// Whether the current platform can deliver key-up events for global hotkeys.
   ///
   /// macOS gets key-up from the registrar; Windows gets it from the RawInput
@@ -161,18 +216,17 @@ class HotkeyService extends Notifier<void> {
   /// available — this is the capability flag the settings toggle reads.
   bool get supportsKeyUp => _registrar.supportsKeyUp || _monitor.supportsKeyUp;
 
-  HotKey? _registeredHotKey;
   bool _initialized = false;
+  bool _quickNoteInitialized = false;
 
-  /// Whether the hotkey is currently considered held down. Set on an accepted
-  /// key-down, cleared on key-up (macOS) or once the auto-repeat window lapses
-  /// (Windows/Linux, which have no key-up). Used to swallow OS key-repeat so a
-  /// held key triggers exactly once.
-  bool _keyHeld = false;
+  /// Per-action registration + held-key state, keyed by action id (see
+  /// [_globalActionId], [_quickNoteActionId]). A held key on one action must
+  /// never suppress auto-repeat on another, so each action gets its own
+  /// bucket rather than sharing the old single set of instance fields.
+  final Map<String, _ActionHotkeyState> _actionStates = {};
 
-  /// Timestamp of the most recent key-down event (accepted OR suppressed), used
-  /// to bridge the auto-repeat stream on platforms without key-up.
-  DateTime? _lastKeyDownAt;
+  _ActionHotkeyState _stateFor(String actionId) =>
+      _actionStates.putIfAbsent(actionId, _ActionHotkeyState.new);
 
   /// Pluggable registrar — defaults to the package singleton; override in
   /// tests by calling [injectRegistrar].
@@ -196,22 +250,39 @@ class HotkeyService extends Notifier<void> {
   void build() {
     if (!_isDesktop) return;
 
-    _monitor.onKeyUp = () => _handleKeyUp('Global');
+    _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
 
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final previous = prev?.value;
       final current = next.value;
       if (current == null || previous == null) return;
-      final changed =
+
+      final globalChanged =
           previous.hotkeyKey != current.hotkeyKey ||
           previous.hotkeyModifiers != current.hotkeyModifiers ||
           previous.hotkeyEnabled != current.hotkeyEnabled;
-      if (changed) {
+      if (globalChanged) {
         if (current.hotkeyEnabled) {
           unawaited(_registerFromSettings(current));
         } else {
-          unawaited(_unregister());
+          unawaited(_unregisterAction(_globalActionId, stopMonitor: true));
           _log.info('Global hotkey disabled by user');
+        }
+      }
+
+      final quickNoteChanged =
+          previous.quickNoteHotkey.quickNoteHotkeyKey !=
+              current.quickNoteHotkey.quickNoteHotkeyKey ||
+          previous.quickNoteHotkey.quickNoteHotkeyModifiers !=
+              current.quickNoteHotkey.quickNoteHotkeyModifiers ||
+          previous.quickNoteHotkey.quickNoteHotkeyEnabled !=
+              current.quickNoteHotkey.quickNoteHotkeyEnabled;
+      if (quickNoteChanged) {
+        if (current.quickNoteHotkey.quickNoteHotkeyEnabled) {
+          unawaited(_registerQuickNoteFromSettings(current));
+        } else {
+          unawaited(_unregisterAction(_quickNoteActionId, stopMonitor: false));
+          _log.info('Quick-note hotkey disabled by user');
         }
       }
     });
@@ -220,6 +291,9 @@ class HotkeyService extends Notifier<void> {
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       if (settings.hotkeyEnabled) {
         await _registerFromSettings(settings);
+      }
+      if (settings.quickNoteHotkey.quickNoteHotkeyEnabled) {
+        await _registerQuickNoteFromSettings(settings);
       }
     });
     ref.onDispose(_destroy);
@@ -232,7 +306,7 @@ class HotkeyService extends Notifier<void> {
   @visibleForTesting
   void injectMonitor(KeyboardUpMonitor monitor) {
     _monitor = monitor;
-    _monitor.onKeyUp = () => _handleKeyUp('Global');
+    _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
   }
 
   /// Injects a custom [HotKeyRegistrar] for unit testing.
@@ -253,23 +327,24 @@ class HotkeyService extends Notifier<void> {
     List<HotKeyModifier> modifiers = const [],
   }) async {
     if (!_isDesktop) return;
-    await _unregister();
+    await _unregisterAction(_globalActionId, stopMonitor: true);
 
-    _registeredHotKey = HotKey(key: key, modifiers: modifiers);
+    final hotKey = HotKey(key: key, modifiers: modifiers);
+    _stateFor(_globalActionId).registeredHotKey = hotKey;
 
     try {
       await _registrar.register(
-        _registeredHotKey!,
-        keyDownHandler: (_) => _handleKeyDown('Global'),
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(_globalActionId, 'Global'),
         keyUpHandler: _registrar.supportsKeyUp
-            ? (_) => _handleKeyUp('Global')
+            ? (_) => _handleKeyUp(_globalActionId, 'Global')
             : null,
       );
       _log.info('Hotkey registered successfully');
       _setStatus(HotkeyRegistrationStatus.success);
       // Start the RawInput key-up monitor for the same combo (Windows; no-op
       // elsewhere) so push-to-talk has a release event (#39).
-      await _monitor.start(_registeredHotKey!);
+      await _monitor.start(hotKey);
     } on Object catch (e, st) {
       // Catch Object (not just Exception) so TypeError from hotkey_manager
       // is handled gracefully.
@@ -290,6 +365,47 @@ class HotkeyService extends Notifier<void> {
         'Falling back to safe-default hotkey ($safeDefaultHotKeyLabel): $e\n$st',
       );
       await _registerSafeDefault();
+    }
+  }
+
+  /// Re-registers the quick-note hotkey (ticket 20) with a new combination.
+  ///
+  /// Unlike [updateHotkey], a failed registration does **not** fall back to
+  /// a safe-default combination — the action simply stays unregistered and
+  /// reports [HotkeyRegistrationStatus.conflict]. An unexpectedly-claimed
+  /// fallback key that types into a note is worse than a hotkey that does
+  /// nothing, and the feature has a full-fledged alternative path (the
+  /// Notes area itself).
+  Future<void> updateQuickNoteHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) async {
+    if (!_isDesktop) return;
+    await _unregisterAction(_quickNoteActionId, stopMonitor: false);
+
+    final hotKey = HotKey(key: key, modifiers: modifiers);
+    _stateFor(_quickNoteActionId).registeredHotKey = hotKey;
+
+    try {
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(_quickNoteActionId, 'QuickNote'),
+        // Toggle-only — no push-to-talk for this action, so no keyUpHandler
+        // is ever wired, regardless of registrar capability.
+      );
+      _log.info('Quick-note hotkey registered successfully');
+      _setQuickNoteStatus(HotkeyRegistrationStatus.success);
+      // No monitor.start() — the monitor is a single shared native channel
+      // (Windows RawInput) and this toggle-only action never needs key-up.
+      // Starting it here would steal the global hotkey's release watch.
+    } on Object catch (e) {
+      _setQuickNoteStatus(HotkeyRegistrationStatus.conflict);
+      _stateFor(_quickNoteActionId).registeredHotKey = null;
+      final keyCode = key.keyId.toRadixString(16);
+      _log.warning(
+        'Failed to register quick-note hotkey (key=0x$keyCode): $e '
+        '— staying unregistered, no safe-default fallback',
+      );
     }
   }
 
@@ -340,6 +456,29 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Sibling of [_registerFromSettings] for the quick-note action. No
+  /// ArgumentError/safe-default handling is needed here (unlike the global
+  /// path): this is a brand-new settings key, so there is no legacy DB with a
+  /// pre-fix corrupted `quick_note_hotkey_key` to self-heal, and ticket 20
+  /// explicitly forbids a safe-default fallback for this action anyway.
+  Future<void> _registerQuickNoteFromSettings(AppSettings settings) async {
+    final quickNote = settings.quickNoteHotkey;
+    try {
+      await updateQuickNoteHotkey(
+        key: resolveKey(quickNote.quickNoteHotkeyKey),
+        modifiers: resolveModifiers(quickNote.quickNoteHotkeyModifiers),
+      );
+      _quickNoteInitialized = true;
+      _log.info(
+        'Quick-note hotkey synced from settings: '
+        '${formatHotkeyShortcut(quickNote.quickNoteHotkeyModifiers, quickNote.quickNoteHotkeyKey)}',
+      );
+    } on Object catch (e) {
+      _setQuickNoteStatus(HotkeyRegistrationStatus.conflict);
+      _log.warning('Failed to register quick-note hotkey: $e');
+    }
+  }
+
   /// Writes [status] to [hotkeyRegistrationStatusProvider] if a Riverpod ref
   /// is available (i.e. the service was created via the provider, not via a
   /// bare `HotkeyService()` constructor in a unit test).
@@ -352,6 +491,17 @@ class HotkeyService extends Notifier<void> {
       ref.read(hotkeyRegistrationStatusProvider.notifier).set(status);
     } on Object catch (e) {
       _log.debug('Hotkey status update skipped (standalone test instance): $e');
+    }
+  }
+
+  /// Quick-note sibling of [_setStatus] — same standalone-test guard.
+  void _setQuickNoteStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref.read(quickNoteHotkeyRegistrationStatusProvider.notifier).set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Quick-note hotkey status update skipped (standalone test instance): $e',
+      );
     }
   }
 
@@ -375,15 +525,18 @@ class HotkeyService extends Notifier<void> {
   }
 
   /// Registers the safe-default hotkey and fires [onRegistrationFailed].
+  ///
+  /// Only ever used for the global action — the quick-note action never
+  /// falls back (see [updateQuickNoteHotkey]).
   Future<void> _registerSafeDefault() async {
     final fallback = safeDefaultHotKey;
-    _registeredHotKey = fallback;
+    _stateFor(_globalActionId).registeredHotKey = fallback;
     try {
       await _registrar.register(
         fallback,
-        keyDownHandler: (_) => _handleKeyDown('Safe-default'),
+        keyDownHandler: (_) => _handleKeyDown(_globalActionId, 'Safe-default'),
         keyUpHandler: _registrar.supportsKeyUp
-            ? (_) => _handleKeyUp('Safe-default')
+            ? (_) => _handleKeyUp(_globalActionId, 'Safe-default')
             : null,
       );
       _log.info(
@@ -396,75 +549,112 @@ class HotkeyService extends Notifier<void> {
       // Even the fallback failed — log and leave the service in a non-crashing
       // degraded state.
       _log.error('Safe-default hotkey also failed to register: $e');
-      _registeredHotKey = null;
+      _stateFor(_globalActionId).registeredHotKey = null;
     }
   }
 
   /// Handles a hotkey key-down, swallowing OS auto-repeat so a held key fires
-  /// exactly once.
+  /// exactly once. State is tracked per [actionId] (see [_stateFor]) so a
+  /// held key on one action never suppresses auto-repeat on another.
   ///
-  /// On macOS (key-up available) a held key is detected directly via [_keyHeld],
-  /// cleared on key-up. On Windows/Linux (no key-up) the [_autoRepeatWindow]
-  /// sliding window — refreshed on every key-down including suppressed repeats —
-  /// bridges the repeat stream; a genuine re-press lands after a longer gap and
-  /// is honoured. Without this, holding the key in toggle mode rapidly flips
-  /// start/stop and wedges the recording state.
-  void _handleKeyDown(String label) {
+  /// On macOS (key-up available) a held key is detected directly via
+  /// `keyHeld`, cleared on key-up. On Windows/Linux (no key-up) the
+  /// [_autoRepeatWindow] sliding window — refreshed on every key-down
+  /// including suppressed repeats — bridges the repeat stream; a genuine
+  /// re-press lands after a longer gap and is honoured. Without this, holding
+  /// the key in toggle mode rapidly flips start/stop and wedges the
+  /// recording state.
+  void _handleKeyDown(String actionId, String label) {
+    final state = _stateFor(actionId);
     final now = DateTime.now();
-    final last = _lastKeyDownAt;
-    _lastKeyDownAt = now;
+    final last = state.lastKeyDownAt;
+    state.lastKeyDownAt = now;
     final isAutoRepeat =
-        _keyHeld && last != null && now.difference(last) < _autoRepeatWindow;
+        state.keyHeld &&
+        last != null &&
+        now.difference(last) < _autoRepeatWindow;
     if (isAutoRepeat) {
-      _log.debug('Hotkey auto-repeat ignored (key held)');
+      _log.debug('$label hotkey auto-repeat ignored (key held)');
       return;
     }
-    _keyHeld = true;
+    state.keyHeld = true;
     _log.info('$label hotkey pressed');
-    // Stamp t₀ for hotkey→overlay latency BEFORE dispatching so the mark
-    // captures the earliest possible Dart-layer moment of this event.
-    // Counterpart: PerfMarkers.markOverlayShown() in FloatingOverlayService.
-    PerfMarkers.instance.markHotkeyPressed();
-    onHotkeyPressed?.call();
-    // Arm the RawInput release-watch (Windows): RegisterHotKey hides the hotkey
-    // key's DOWN from RawInput, so the native monitor snapshots the held key
-    // now and reports its release. No-op on other platforms (#39).
-    unawaited(_monitor.armRelease());
+    if (actionId == _globalActionId) {
+      // Stamp t₀ for hotkey→overlay latency BEFORE dispatching so the mark
+      // captures the earliest possible Dart-layer moment of this event.
+      // Counterpart: PerfMarkers.markOverlayShown() in FloatingOverlayService.
+      PerfMarkers.instance.markHotkeyPressed();
+      onHotkeyPressed?.call();
+      // Arm the RawInput release-watch (Windows): RegisterHotKey hides the
+      // hotkey key's DOWN from RawInput, so the native monitor snapshots the
+      // held key now and reports its release. No-op on other platforms (#39).
+      // Only the global action uses the shared monitor.
+      unawaited(_monitor.armRelease());
+    } else if (actionId == _quickNoteActionId) {
+      // Same t₀ stamp as the global action — the quick-note action also
+      // drives the recording overlay (FloatingOverlayService is not
+      // target-aware), so it needs a fresh mark for the same
+      // markOverlayShown() counterpart to report a meaningful latency
+      // instead of a stale/null value from an earlier global press.
+      PerfMarkers.instance.markHotkeyPressed();
+      onQuickNoteHotkeyPressed?.call();
+    }
   }
 
-  /// Handles a hotkey key-up (macOS only). Clears the held state so the next
-  /// press is honoured immediately, and forwards to [onHotkeyReleased].
-  void _handleKeyUp(String label) {
+  /// Handles a hotkey key-up (macOS only; global action only — the
+  /// quick-note action never wires a keyUpHandler). Clears the held state so
+  /// the next press is honoured immediately, and forwards to
+  /// [onHotkeyReleased].
+  void _handleKeyUp(String actionId, String label) {
+    final state = _stateFor(actionId);
     // Ignore a key-up with no matching key-down. The Windows RawInput monitor
     // (#39) observes the bare watched key globally, so it can see the key
     // released without modifiers — a case where RegisterHotKey never fired a
     // down. Without this guard a stray up would drive onHotkeyReleased (and the
     // push-to-talk trigger handler, which assumes a preceding press) spuriously.
-    if (!_keyHeld) return;
-    _keyHeld = false;
+    if (!state.keyHeld) return;
+    state.keyHeld = false;
     _log.info('$label hotkey released');
-    onHotkeyReleased?.call();
+    if (actionId == _globalActionId) {
+      onHotkeyReleased?.call();
+    }
   }
 
-  Future<void> _unregister() async {
-    if (_registeredHotKey != null) {
+  /// Unregisters [actionId]'s hotkey and resets its held-key state. The
+  /// shared [_monitor] is only ever touched for the global action
+  /// ([stopMonitor]) — the quick-note action never starts it, so stopping it
+  /// on that action's behalf would wrongly cut off the global hotkey's
+  /// release watch.
+  Future<void> _unregisterAction(
+    String actionId, {
+    required bool stopMonitor,
+  }) async {
+    final state = _stateFor(actionId);
+    if (state.registeredHotKey != null) {
       try {
-        await _registrar.unregister(_registeredHotKey!);
+        await _registrar.unregister(state.registeredHotKey!);
       } on Object catch (e) {
         _log.debug('Hotkey unregister failed during cleanup (non-fatal): $e');
       }
-      _registeredHotKey = null;
+      state.registeredHotKey = null;
     }
-    await _monitor.stop();
+    if (stopMonitor) {
+      await _monitor.stop();
+    }
     // Reset auto-repeat state so a fresh registration starts clean.
-    _keyHeld = false;
-    _lastKeyDownAt = null;
+    state.keyHeld = false;
+    state.lastKeyDownAt = null;
   }
 
   Future<void> _destroy() async {
-    if (!_initialized) return;
-    await _unregister();
-    _log.info('Global hotkey unregistered');
+    if (_initialized) {
+      await _unregisterAction(_globalActionId, stopMonitor: true);
+      _log.info('Global hotkey unregistered');
+    }
+    if (_quickNoteInitialized) {
+      await _unregisterAction(_quickNoteActionId, stopMonitor: false);
+      _log.info('Quick-note hotkey unregistered');
+    }
   }
 
   static bool get _isDesktop =>
