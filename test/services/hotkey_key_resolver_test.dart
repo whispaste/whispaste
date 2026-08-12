@@ -345,36 +345,30 @@ void main() {
     // independently recordable, so without physical-first priority these
     // cases never reach the physical-fallback branch at all — this pair
     // pins the ordering fix, not just the fallback's existence.
-    test(
-      'DE-layout key labelled Y (physical position of US Z) → keyZ, '
-      'not keyY',
-      () {
-        // What Flutter reports when a DE-layout user presses the key printed
-        // "Y" on their keyboard: the character/logical key matches the DE
-        // label (keyY), but the hardware position is the US-ANSI Z key.
-        const event = KeyDownEvent(
-          physicalKey: PhysicalKeyboardKey.keyZ,
-          logicalKey: LogicalKeyboardKey.keyY,
-          timeStamp: Duration.zero,
-          character: 'y',
-        );
-        expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyZ);
-      },
-    );
+    test('DE-layout key labelled Y (physical position of US Z) → keyZ, '
+        'not keyY', () {
+      // What Flutter reports when a DE-layout user presses the key printed
+      // "Y" on their keyboard: the character/logical key matches the DE
+      // label (keyY), but the hardware position is the US-ANSI Z key.
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.keyZ,
+        logicalKey: LogicalKeyboardKey.keyY,
+        timeStamp: Duration.zero,
+        character: 'y',
+      );
+      expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyZ);
+    });
 
-    test(
-      'DE-layout key labelled Z (physical position of US Y) → keyY, '
-      'not keyZ',
-      () {
-        const event = KeyDownEvent(
-          physicalKey: PhysicalKeyboardKey.keyY,
-          logicalKey: LogicalKeyboardKey.keyZ,
-          timeStamp: Duration.zero,
-          character: 'z',
-        );
-        expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyY);
-      },
-    );
+    test('DE-layout key labelled Z (physical position of US Y) → keyY, '
+        'not keyZ', () {
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.keyY,
+        logicalKey: LogicalKeyboardKey.keyZ,
+        timeStamp: Duration.zero,
+        character: 'z',
+      );
+      expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyY);
+    });
   });
 
   group('labelForKey — round-trips', () {
