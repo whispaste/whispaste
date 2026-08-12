@@ -177,6 +177,24 @@ enum WpTextFieldVariant {
 }
 
 // ---------------------------------------------------------------------------
+// Scroll-to-end signal
+// ---------------------------------------------------------------------------
+
+/// One-way request to a [WpTextField]: "show the end of your content".
+///
+/// Exists so a call site can ask without owning the field's scroll position.
+/// A caller-owned [ScrollController] cannot do the job here: the Notes split
+/// view cross-fades between two editor panels, so for the length of that fade
+/// two fields are mounted, and a single controller attached to both trips
+/// Flutter's one-position assertion. Any number of fields may listen; each
+/// scrolls its own.
+class WpScrollToEndSignal extends ChangeNotifier {
+  /// Requests the jump. Safe to call when no field is listening — the request
+  /// is simply dropped, it is not queued.
+  void fire() => notifyListeners();
+}
+
+// ---------------------------------------------------------------------------
 // Field
 // ---------------------------------------------------------------------------
 
@@ -198,6 +216,7 @@ class WpTextField extends StatefulWidget {
     this.autocorrect = true,
     this.maxLength,
     this.suffix,
+    this.scrollToEnd,
   }) : assert(
          minLines == null && maxLines == null ||
              variant == WpTextFieldVariant.form ||
@@ -265,6 +284,20 @@ class WpTextField extends StatefulWidget {
   /// button could straddle it.
   final Widget? suffix;
 
+  /// Ask-don't-tell scroll seam: every time this notifies, the field jumps to
+  /// the end of its content. Only meaningful on a variant that scrolls at all
+  /// ([WpTextFieldVariant.bare] — the Notes editor, which owns its surface),
+  /// where the Notizen area uses it to reveal a just-appended quick-note
+  /// transcript.
+  ///
+  /// A signal rather than a caller-owned [ScrollController] on purpose: the
+  /// notes split view cross-fades between two editor panels, so for the
+  /// length of that fade *two* fields exist, and one controller attached to
+  /// both is an assertion error. Each field keeps its own controller and only
+  /// listens for the request. Omitted, the field behaves exactly as before —
+  /// no controller of its own, Flutter's internal one.
+  final Listenable? scrollToEnd;
+
   /// The text style [variant] renders at, so a read-only view of the same
   /// text can match it exactly. See the library docs.
   static TextStyle styleFor(
@@ -280,6 +313,10 @@ class _WpTextFieldState extends State<WpTextField> {
   FocusNode? _ownedNode;
   FocusNode get _focusNode => widget.focusNode ?? _ownedNode!;
 
+  /// Created only when someone actually asks the field to scroll — every
+  /// other call site keeps Flutter's internal controller, unchanged.
+  ScrollController? _scrollController;
+
   /// Mirror of the one thing the box's appearance depends on. Tracked here so
   /// the field redraws its own stroke — call sites shouldn't have to rebuild
   /// it to keep it honest.
@@ -293,11 +330,22 @@ class _WpTextFieldState extends State<WpTextField> {
     }
     _hasFocus = _focusNode.hasFocus;
     _focusNode.addListener(_onFocusChanged);
+    if (widget.scrollToEnd != null) {
+      _scrollController = ScrollController();
+      widget.scrollToEnd!.addListener(_jumpToEnd);
+    }
   }
 
   @override
   void didUpdateWidget(WpTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollToEnd != widget.scrollToEnd) {
+      oldWidget.scrollToEnd?.removeListener(_jumpToEnd);
+      widget.scrollToEnd?.addListener(_jumpToEnd);
+      // Kept once created: handing the field back Flutter's internal
+      // controller mid-life would buy nothing and lose the scroll offset.
+      if (widget.scrollToEnd != null) _scrollController ??= ScrollController();
+    }
     if (oldWidget.focusNode != widget.focusNode) {
       (oldWidget.focusNode ?? _ownedNode)?.removeListener(_onFocusChanged);
       if (widget.focusNode != null) {
@@ -313,9 +361,24 @@ class _WpTextFieldState extends State<WpTextField> {
 
   @override
   void dispose() {
+    widget.scrollToEnd?.removeListener(_jumpToEnd);
+    _scrollController?.dispose();
     _focusNode.removeListener(_onFocusChanged);
     _ownedNode?.dispose();
     super.dispose();
+  }
+
+  /// Post-frame, because `maxScrollExtent` is only known once the (usually
+  /// just-changed) text has been laid out — which is also what makes this
+  /// correct at enlarged system text sizes: the extent is the measured
+  /// height, not an estimate. `jumpTo`, not `animateTo`: the point is that
+  /// the end is visible on arrival, not that a movement is shown.
+  void _jumpToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final controller = _scrollController;
+      if (!mounted || controller == null || !controller.hasClients) return;
+      controller.jumpTo(controller.position.maxScrollExtent);
+    });
   }
 
   void _onFocusChanged() {
@@ -339,6 +402,7 @@ class _WpTextFieldState extends State<WpTextField> {
     Widget field = TextField(
       controller: widget.controller,
       focusNode: _focusNode,
+      scrollController: _scrollController,
       autofocus: widget.autofocus,
       minLines: spec.linesFromCallSite ? widget.minLines : null,
       maxLines: spec.fillsItsBox ? null : maxLines,

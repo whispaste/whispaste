@@ -36,6 +36,7 @@ class NoteEditorPanel extends StatelessWidget {
     required this.tags,
     required this.controller,
     required this.focusNode,
+    this.scrollEditorToEnd,
     required this.onClose,
     required this.onToggleFavorite,
     required this.onQuickNoteSet,
@@ -55,6 +56,13 @@ class NoteEditorPanel extends StatelessWidget {
   final List<Tag> tags;
   final TextEditingController controller;
   final FocusNode focusNode;
+
+  /// Fires when the body field should jump to the end of the note — after a
+  /// quick-note append, so the freshly appended text is what is visible
+  /// (Ticket 21). Owned by `_NotesPageState` like the two above, and optional
+  /// so the panel stays constructible without one (several widget tests build
+  /// it directly).
+  final Listenable? scrollEditorToEnd;
   final VoidCallback onClose;
   final VoidCallback onToggleFavorite;
 
@@ -432,6 +440,7 @@ class NoteEditorPanel extends StatelessWidget {
               child: WpTextField(
                 controller: controller,
                 focusNode: focusNode,
+                scrollToEnd: scrollEditorToEnd,
                 variant: WpTextFieldVariant.bare,
                 hintText: l10n.notesEditorPlaceholder,
               ),

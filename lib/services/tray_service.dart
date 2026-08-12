@@ -16,12 +16,12 @@ import 'package:window_manager/window_manager.dart';
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
-import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
 import 'audio_service.dart';
 import 'graceful_shutdown.dart';
 import 'microphone_selection_service.dart';
 import 'tray_mic_menu.dart';
+import 'window_activation.dart';
 
 // ---------------------------------------------------------------------------
 // Service
@@ -325,16 +325,10 @@ class TrayService extends Notifier<void> implements TrayListener {
     return null;
   }
 
-  Future<void> _showWindow() async {
-    try {
-      // On macOS, restore Dock presence before showing the window.
-      await MacOSLifecycleChannel.setRegular();
-      await windowManager.show();
-      await windowManager.focus();
-    } on Exception catch (e) {
-      _log.warning('Failed to show window: $e');
-    }
-  }
+  /// Shows/restores the main window through the shared helper — the identical
+  /// sequence (macOS Dock presence, show, focus) this method used to inline,
+  /// now also used by the quick-note path (see `window_activation.dart`).
+  Future<void> _showWindow() => ref.read(windowActivatorProvider)();
 
   Future<void> _quit() async {
     // Stop the on-device STT engine and WAIT for native teardown (plus DB

@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -128,6 +129,21 @@ class RecordingOrchestrator extends Notifier<void> {
   /// append goes straight to the database, which is the only behaviour this
   /// ticket (19) implements; Ticket 21 adds the registration.
   bool Function(String noteId, String newContent)? quickNoteLiveEditorOverride;
+
+  /// Registrable pre-hook, awaited at the very start of a quick-note append —
+  /// **before** the note is read back from the database.
+  ///
+  /// The note editor persists through a 400 ms debounced autosave, so the
+  /// row this method reads is stale for as long as the user's last keystrokes
+  /// are still pending. Appending onto that stale content and handing the
+  /// result to [quickNoteLiveEditorOverride] would silently discard those
+  /// keystrokes. `NotesPage` therefore registers its autosave flush here:
+  /// once it has run, the database row is current, and the appended content
+  /// contains the typed text as well as the transcript.
+  ///
+  /// `null` (the default) means "nothing to flush" — every non-editor caller
+  /// is unaffected.
+  Future<void> Function()? quickNoteEditorFlush;
 
   /// Fires after a quick-note append completes, naming the target note —
   /// the externally-observable completion hook Ticket 21 hangs its window/
@@ -1679,7 +1695,17 @@ class RecordingOrchestrator extends Notifier<void> {
   /// first. Prefers [quickNoteLiveEditorOverride] over the direct database
   /// write when one is registered and handles the append (see its doc
   /// comment); always fires [onQuickNoteAppended] on success.
+  ///
+  /// Awaits [quickNoteEditorFlush] first so the note is read back *after* a
+  /// live editor has persisted its pending keystrokes — see that field.
+  @visibleForTesting
+  Future<void> appendToQuickNote(String transcript) =>
+      _appendToQuickNote(transcript);
+
   Future<void> _appendToQuickNote(String transcript) async {
+    // Must stay ahead of the read below: it is what makes the row current.
+    await quickNoteEditorFlush?.call();
+
     final db = ref.read(historyDatabaseProvider);
     var note = await db.getQuickNote();
     if (note == null) {

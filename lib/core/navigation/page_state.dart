@@ -63,3 +63,30 @@ final settingsHighlightTargetProvider =
     NotifierProvider<SettingsHighlightTargetNotifier, String?>(
       SettingsHighlightTargetNotifier.new,
     );
+
+// ---------------------------------------------------------------------------
+// Notes editor-target provider
+// ---------------------------------------------------------------------------
+
+/// Optional note id the Notizen area should open in its editor after
+/// navigating there — the notes-side twin of [settingsScrollTargetProvider]
+/// (a note id instead of a section key).
+///
+/// Set before calling [activePageProvider.notifier].setPage('notes');
+/// `NotesPage` consumes it on mount and via `ref.listen`, and **clears it
+/// synchronously as it reads it**. Clearing matters twice over: a later
+/// manual visit to the Notizen area must not jump to the note again, and
+/// re-setting the same id (two quick-note runs against the same note) would
+/// otherwise be a silent no-op — a `Notifier` skips notification when the new
+/// state equals the old one.
+class NotesEditorTargetNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? noteId) => state = noteId;
+}
+
+final notesEditorTargetProvider =
+    NotifierProvider<NotesEditorTargetNotifier, String?>(
+      NotesEditorTargetNotifier.new,
+    );

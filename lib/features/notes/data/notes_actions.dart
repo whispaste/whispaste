@@ -18,6 +18,12 @@ class NotesActions {
 
   Future<Note> create() => _db.createNote();
 
+  /// One-shot read of a single note — the deep-link case (open exactly this
+  /// note), where the id is known but the note may not be in the currently
+  /// streamed list at all (wrong filter, list not emitted yet). Returns
+  /// `null` when the note no longer exists.
+  Future<Note?> getNote(String noteId) => _db.getNote(noteId);
+
   Future<void> save(String noteId, String content) =>
       _db.updateNoteContent(noteId, content);
 

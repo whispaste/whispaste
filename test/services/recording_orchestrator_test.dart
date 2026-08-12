@@ -2255,6 +2255,133 @@ void main() {
       },
     );
 
+    test('a failed run never fires onQuickNoteAppended — an empty transcript '
+        'appends nothing, so nothing may react to it', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = '';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      var fired = false;
+      orch.onQuickNoteAppended = (_) => fired = true;
+
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+      expect(fired, isFalse);
+      expect((await db.getNote(note.id))?.content, isEmpty);
+    });
+
+    test('quickNoteEditorFlush runs BEFORE the note is read back, so content '
+        'the editor had not persisted yet is part of the append', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'Saved');
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'Appended';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      final order = <String>[];
+      // Stands in for NotesPage's autosave flush: it writes the keystrokes
+      // that were still pending. If it ran after the read below, the append
+      // would be built on 'Saved' and those keystrokes would be gone.
+      orch.quickNoteEditorFlush = () async {
+        order.add('flush');
+        await db.updateNoteContent(note.id, 'Saved plus unsaved keystrokes');
+      };
+      orch.quickNoteLiveEditorOverride = (noteId, newContent) {
+        order.add('override:$newContent');
+        return false;
+      };
+      orch.onQuickNoteAppended = (_) => order.add('appended');
+
+      await orch.stopRecording();
+
+      expect(order, [
+        'flush',
+        'override:Saved plus unsaved keystrokes\n\nAppended',
+        'appended',
+      ]);
+      expect(
+        (await db.getNote(note.id))?.content,
+        'Saved plus unsaved keystrokes\n\nAppended',
+      );
+    });
+
+    test('two appends in a row keep both texts when the override re-schedules '
+        'its content for the next flush', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'Start');
+      await db.setQuickNote(note.id);
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      // Miniature of the editor: a live buffer plus a pending (debounced)
+      // write that only lands on flush — exactly NotesPage's arrangement.
+      var editorText = 'Start';
+      String? pending;
+      orch.quickNoteEditorFlush = () async {
+        final content = pending;
+        pending = null;
+        if (content != null) await db.updateNoteContent(note.id, content);
+      };
+      orch.quickNoteLiveEditorOverride = (noteId, newContent) {
+        editorText = newContent;
+        pending = newContent;
+        return true;
+      };
+
+      fakeStt.transcriptToReturn = 'First';
+      await orch.stopRecording();
+
+      // Second run back to back — the phase is still lingering in `done`,
+      // so drive it the way a real re-trigger does (preempting reset)
+      // instead of forcing the phase again.
+      container.read(recordingProvider.notifier).reset();
+      container.read(recordingProvider.notifier).startRecording();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+      fakeStt.transcriptToReturn = 'Second';
+      await orch.stopRecording();
+
+      expect(editorText, 'Start\n\nFirst\n\nSecond');
+      // The database is one flush behind by design (the editor owns the
+      // write); the second run's flush persisted the first append.
+      expect((await db.getNote(note.id))?.content, 'Start\n\nFirst');
+    });
+
+    test('an override that declines a foreign note id still leaves the append '
+        'in the database', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'Target');
+      await db.setQuickNote(note.id);
+      fakeStt.transcriptToReturn = 'Appended';
+
+      final orch = await startRecordingPhase();
+      container
+          .read(recordingTargetProvider.notifier)
+          .set(RecordingTarget.quickNote);
+
+      // What NotesPage's override does when a *different* note is open.
+      const openNoteId = 'some-other-note';
+      orch.quickNoteLiveEditorOverride = (noteId, _) => noteId == openNoteId;
+
+      await orch.stopRecording();
+
+      expect((await db.getNote(note.id))?.content, 'Target\n\nAppended');
+    });
+
     test('strips punctuation identically to the clipboard path — the appended '
         'text is the same finalText both paths would receive', () async {
       container.dispose();

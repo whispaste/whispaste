@@ -8,13 +8,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/navigation/page_state.dart' show notesEditorTargetProvider;
 import '../../core/utils/focus_helpers.dart';
 import '../../services/notes/notes_exporter.dart' as notes_exporter;
+import '../../services/recording_orchestrator.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/wp_list_skeleton.dart';
+import '../../widgets/wp_text_field.dart';
 import 'data/note_autosave.dart';
 import 'data/note_title.dart';
 import 'data/notes_actions.dart';
@@ -69,6 +72,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// would lose cursor position and IME state on each rebuild.
   final TextEditingController _editorController = TextEditingController();
   final FocusNode _editorFocusNode = FocusNode();
+
+  /// Asks the editor's body field to jump to the end of the note. A signal
+  /// rather than a [ScrollController] owned here: the split view cross-fades
+  /// between two editor panels, and one controller attached to both fields
+  /// at once is an assertion error — see [WpTextField.scrollToEnd].
+  final WpScrollToEndSignal _scrollEditorToEndSignal = WpScrollToEndSignal();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final FocusNode _listFocusNode = FocusNode();
@@ -77,6 +86,10 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// `ref` after the widget is unmounted.
   late final NotesActions _actions;
   late final NoteAutosave _autosave;
+
+  /// Same reason, for the two quick-note hooks this page registers on the
+  /// orchestrator — [dispose] must be able to unregister them without `ref`.
+  RecordingOrchestrator? _orchestrator;
 
   String? _selectedNoteId;
 
@@ -95,13 +108,32 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     _autosave = NoteAutosave(onSave: _actions.save);
     _editorController.addListener(_onEditorChanged);
     _editorFocusNode.addListener(_onEditorFocusChanged);
+    // Quick-note takeover, registered for exactly as long as this area is on
+    // screen (see the two handlers). Leaving the area, switching notes and
+    // closing the editor all resolve through the note-id check inside
+    // [_quickNoteLiveOverride] and this pair of initState/dispose lines.
+    _orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+    _orchestrator!
+      ..quickNoteLiveEditorOverride = _quickNoteLiveOverride
+      ..quickNoteEditorFlush = _autosave.flush;
     // One-time safety-net sweep: drop stale empty notes left behind by a
     // previous session (fire-and-forget; the stream provider picks it up).
     unawaited(_actions.purgeEmpty());
+    // Deep link from a quick-note append that navigated here — the target is
+    // already set when this page mounts, so `ref.listen` in build() would
+    // never see it change. Post-frame so the editor exists to scroll.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumeEditorTarget();
+    });
   }
 
   @override
   void dispose() {
+    // Unregister first: an append arriving mid-teardown must fall through to
+    // the direct database write, not into a controller that is about to go.
+    _orchestrator
+      ?..quickNoteLiveEditorOverride = null
+      ..quickNoteEditorFlush = null;
     final lastId = _selectedNoteId;
     final lastContent = _editorController.text;
     // Empty-discard on page teardown: flush the pending autosave, then
@@ -123,6 +155,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     // that the chain above is concurrently disposing.
     _editorFocusNode.removeListener(_onEditorFocusChanged);
     _editorFocusNode.dispose();
+    _scrollEditorToEndSignal.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _listFocusNode.dispose();
@@ -172,6 +205,97 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     if (previousId != null && previousContent.trim().isEmpty) {
       await _actions.discardIfBlank(previousId);
     }
+  }
+
+  // ── Quick-note takeover (Ticket 21) ──────────────────────────────────────
+
+  /// Applies a quick-note append to the *live* editor instead of letting the
+  /// orchestrator write it to the database.
+  ///
+  /// Claims the append only when the target note is the one currently open —
+  /// no separate "is this the quick note?" question is needed, because the
+  /// orchestrator only ever calls this with the actual target id. With a
+  /// different note open (or none), returning `false` sends the append down
+  /// the direct-write path, which is right: the editor is showing something
+  /// else and nothing on screen would be overwritten.
+  ///
+  /// Re-schedules the merged content on the autosave afterwards. Skipping the
+  /// database write means the row is now behind the controller; the next
+  /// [NoteAutosave.flush] — including the one the *next* quick-note run
+  /// triggers through `quickNoteEditorFlush` — is what closes that gap. Drop
+  /// the re-schedule and a second append reads the pre-append row and loses
+  /// the first one.
+  bool _quickNoteLiveOverride(String noteId, String newContent) {
+    if (!mounted || _selectedNoteId != noteId) return false;
+    _setEditorText(newContent);
+    _autosave.schedule(noteId, newContent);
+    _scrollEditorToEnd();
+    return true;
+  }
+
+  /// Reads and immediately clears the deep-link target, then opens it.
+  ///
+  /// Clearing synchronously (before the `await` chain in
+  /// [_openQuickNoteTarget]) is what lets a second append to the *same* note
+  /// register at all — a `Notifier` set to its current value notifies nobody
+  /// — and it is what keeps a later manual visit to this area from jumping to
+  /// the note again.
+  void _consumeEditorTarget() {
+    if (!mounted) return;
+    final targetId = ref.read(notesEditorTargetProvider);
+    if (targetId == null) return;
+    ref.read(notesEditorTargetProvider.notifier).set(null);
+    unawaited(_openQuickNoteTarget(targetId));
+  }
+
+  /// Opens [targetId] in the editor, scrolled to the end.
+  ///
+  /// The already-open case only scrolls: [_quickNoteLiveOverride] has already
+  /// put the appended text in the controller and deliberately left the
+  /// database row behind, so re-reading the note here would overwrite the
+  /// fresh text with the stale row.
+  Future<void> _openQuickNoteTarget(String targetId) async {
+    if (_selectedNoteId == targetId) {
+      _scrollEditorToEnd();
+      return;
+    }
+    await _leaveCurrentNote();
+    if (!mounted) return;
+    // Coming from the trash view, land in the normal notes view. Drops the
+    // selection with it, exactly like _setFilter: carrying a trashed note
+    // across the filter boundary would show a note that isn't in the list.
+    if (ref.read(notesFilterProvider) == NotesFilter.trash) {
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+      ref.read(notesFilterProvider.notifier).set(NotesFilter.active);
+    }
+    // Read straight from the database, not from the streamed list: the note
+    // may have been created by this very append and not have reached the
+    // stream yet.
+    final note = await _actions.getNote(targetId);
+    if (!mounted || note == null) return;
+    setState(() {
+      _selectedNoteId = note.id;
+      _focusedNoteId = note.id;
+    });
+    _setEditorText(note.content);
+    _scrollEditorToEnd();
+  }
+
+  /// Asks the editor to reveal the end of the note, so the just-appended text
+  /// is the part on screen. The field does the actual jump after the next
+  /// layout — see [WpTextField.scrollToEnd].
+  ///
+  /// Fired twice on purpose: the editor may legitimately not be in the tree
+  /// yet on the first attempt (the notes stream has not emitted the —
+  /// possibly brand-new — note, so the split view renders no panel), and a
+  /// field that mounts in between catches the second one. Jumping twice is a
+  /// no-op; beyond that the request is dropped rather than retried forever.
+  void _scrollEditorToEnd() {
+    _scrollEditorToEndSignal.fire();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollEditorToEndSignal.fire();
+    });
   }
 
   Future<void> _selectNote(Note note) async {
@@ -429,6 +553,13 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    // Deep link arriving while this area is already on screen (the normal
+    // case from the second quick-note run on). The initState post-frame above
+    // covers the other half: a target set before this page mounted.
+    ref.listen<String?>(notesEditorTargetProvider, (_, target) {
+      if (target == null) return;
+      _consumeEditorTarget();
+    });
     final filter = ref.watch(notesFilterProvider);
     final isTrash = filter == NotesFilter.trash;
     // Kept solely for the error-retry invalidate below — the list itself
@@ -648,6 +779,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           selectedNoteTags: selectedNoteTags,
           editorController: _editorController,
           editorFocusNode: _editorFocusNode,
+          scrollEditorToEnd: _scrollEditorToEndSignal,
           onNoteTap: _selectNote,
           onCloseEditor: _closeEditor,
           onFavoriteToggle: _toggleFavorite,

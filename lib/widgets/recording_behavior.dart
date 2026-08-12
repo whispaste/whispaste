@@ -15,7 +15,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/navigation/page_state.dart'
-    show activePageProvider, settingsScrollTargetProvider;
+    show
+        activePageProvider,
+        notesEditorTargetProvider,
+        settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
@@ -29,6 +32,7 @@ import '../services/sound_feedback_service.dart';
 import '../services/stt/recovery_toast_notifier.dart';
 import '../services/stt/stt_bundle.dart';
 import '../services/tray_service.dart';
+import '../services/window_activation.dart';
 import 'oom_recovery_dialog.dart';
 import 'toast.dart';
 
@@ -137,9 +141,19 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
   DateTime? _doneEnteredAt;
   bool _oomDialogOpen = false;
 
+  /// Cached so [dispose] never touches `ref` (Riverpod forbids `ref` access
+  /// after deactivation) — same defensive pattern as `TestRecordingStep`.
+  RecordingOrchestrator? _orchestrator;
+
   @override
   void initState() {
     super.initState();
+    // Quick-note completion → window forward, Notizen area, target note.
+    // Registered here rather than in `NotesPage` because the reaction has to
+    // work while the Notizen area is *not* on screen, which is the normal
+    // case for a hotkey pressed in another app.
+    _orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+    _orchestrator!.onQuickNoteAppended = _onQuickNoteAppended;
     // Watchdog: detect and auto-recover if state stuck in "done" for >15s.
     _watchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _checkStuckDone();
@@ -165,10 +179,14 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
 
   @override
   void dispose() {
+    _orchestrator?.onQuickNoteAppended = null;
     _doneResetTimer?.cancel();
     _watchdogTimer?.cancel();
     super.dispose();
   }
+
+  void _onQuickNoteAppended(String noteId) =>
+      openQuickNoteInEditor(ref, noteId);
 
   void _checkStuckDone() {
     try {
@@ -498,6 +516,30 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
 
   Future<void> _openMicrophoneSettings() =>
       ref.read(micPermissionNotifierProvider.notifier).openSystemSettings();
+}
+
+// ---------------------------------------------------------------------------
+// Quick-note completion reaction — a free function rather than a private
+// method so it can be exercised against real providers through a two-line
+// `Consumer` harness, without bootstrapping the whole [WpRecordingBehavior]
+// (same testability motive as the injected seams on the toast helpers below).
+// ---------------------------------------------------------------------------
+
+/// Reacts to a finished quick-note append: brings the window forward, aims
+/// the Notizen area at [noteId] and switches to it.
+///
+/// Only ever reached from the quick-note path — the ordinary dictation target
+/// (main hotkey, tray, shelf button, floating button) has no equivalent hook
+/// and keeps its current, jump-free behaviour. The window activation is
+/// fire-and-forget: navigation must not wait on a platform channel, and a
+/// failed activation is logged inside [activateWindow], never thrown.
+///
+/// The target is set *before* the page switch, so a `NotesPage` that mounts as
+/// a result already finds it during its first frame.
+void openQuickNoteInEditor(WidgetRef ref, String noteId) {
+  unawaited(ref.read(windowActivatorProvider)());
+  ref.read(notesEditorTargetProvider.notifier).set(noteId);
+  ref.read(activePageProvider.notifier).setPage('notes');
 }
 
 // ---------------------------------------------------------------------------

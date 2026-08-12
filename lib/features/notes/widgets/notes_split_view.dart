@@ -24,6 +24,7 @@ class NotesSplitView extends StatelessWidget {
     required this.selectedNoteTags,
     required this.editorController,
     required this.editorFocusNode,
+    this.scrollEditorToEnd,
     required this.onNoteTap,
     required this.onCloseEditor,
     required this.onFavoriteToggle,
@@ -60,6 +61,10 @@ class NotesSplitView extends StatelessWidget {
   /// state survive rebuilds triggered by the notes stream.
   final TextEditingController editorController;
   final FocusNode editorFocusNode;
+
+  /// Fires when the editor's body field should jump to the end of the note —
+  /// owned by `_NotesPageState` too. See [NoteEditorPanel.scrollEditorToEnd].
+  final Listenable? scrollEditorToEnd;
   final ValueChanged<Note> onNoteTap;
   final VoidCallback onCloseEditor;
   final ValueChanged<Note> onFavoriteToggle;
@@ -109,6 +114,7 @@ class NotesSplitView extends StatelessWidget {
       tags: selectedNoteTags,
       controller: editorController,
       focusNode: editorFocusNode,
+      scrollEditorToEnd: scrollEditorToEnd,
       onClose: onCloseEditor,
       onToggleFavorite: () => onFavoriteToggle(note),
       onQuickNoteSet: () => onQuickNoteSet(note),

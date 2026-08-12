@@ -52,11 +52,11 @@
       "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1596, lib/core/data/database.dart:2230"
     },
     {
-      "fingerprint": "461c551ce0997843",
+      "fingerprint": "8e06faf589dc1013",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 133,
-      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:191"
+      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:315"
     },
     {
       "fingerprint": "855358159d3b21e5",
