@@ -2757,6 +2757,20 @@ class L10nDe extends L10n {
   String get overlayProcessingCloud => 'Cloud';
 
   @override
+  String get overlayRecordingQuickNote => 'Aufnahme für Notiz';
+
+  @override
+  String get overlayTargetQuickNote => 'Notiz';
+
+  @override
+  String overlayRecordingTargetTimer(String elapsed, String target) {
+    return '$elapsed · $target';
+  }
+
+  @override
+  String get overlayDoneQuickNote => 'An Notiz angehängt';
+
+  @override
   String get floatingButtonHide => 'Ausblenden';
 
   @override

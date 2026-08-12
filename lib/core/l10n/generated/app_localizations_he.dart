@@ -2692,6 +2692,20 @@ class L10nHe extends L10n {
   String get overlayProcessingCloud => 'ענן';
 
   @override
+  String get overlayRecordingQuickNote => 'מקליט לפתק';
+
+  @override
+  String get overlayTargetQuickNote => 'פתק';
+
+  @override
+  String overlayRecordingTargetTimer(String elapsed, String target) {
+    return '$elapsed · $target';
+  }
+
+  @override
+  String get overlayDoneQuickNote => 'נוסף לפתק';
+
+  @override
   String get floatingButtonHide => 'הסתר';
 
   @override

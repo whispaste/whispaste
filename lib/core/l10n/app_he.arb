@@ -922,6 +922,16 @@
   },
   "overlayProcessingLocal": "מקומי",
   "overlayProcessingCloud": "ענן",
+  "overlayRecordingQuickNote": "מקליט לפתק",
+  "overlayTargetQuickNote": "פתק",
+  "overlayRecordingTargetTimer": "{elapsed} · {target}",
+  "@overlayRecordingTargetTimer": {
+    "placeholders": {
+      "elapsed": { "type": "String" },
+      "target": { "type": "String" }
+    }
+  },
+  "overlayDoneQuickNote": "נוסף לפתק",
   "floatingButtonHide": "הסתר",
   "floatingButtonQuit": "צא",
   "a11yRecordingButton": "כפתור הקלטה",

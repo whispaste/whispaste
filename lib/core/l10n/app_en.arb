@@ -1027,6 +1027,30 @@
   },
   "overlayProcessingLocal": "Local",
   "overlayProcessingCloud": "Cloud",
+  "overlayRecordingQuickNote": "Recording to note",
+  "@overlayRecordingQuickNote": {
+    "description": "Overlay label while a recording whose text goes to the quick note runs (announced by screen readers)"
+  },
+  "overlayTargetQuickNote": "Note",
+  "@overlayTargetQuickNote": {
+    "description": "Very short target name shown in the recording overlay so the user sees the text is going to the quick note, not the clipboard"
+  },
+  "overlayRecordingTargetTimer": "{elapsed} · {target}",
+  "@overlayRecordingTargetTimer": {
+    "description": "Overlay recording line combining the elapsed time with the target name",
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayDoneQuickNote": "Added to note",
+  "@overlayDoneQuickNote": {
+    "description": "Overlay completion message when the text was appended to the quick note — nothing was copied or pasted"
+  },
   "floatingButtonHide": "Hide",
   "floatingButtonQuit": "Quit",
   "a11yRecordingButton": "Recording button",

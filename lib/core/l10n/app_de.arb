@@ -895,6 +895,20 @@
   },
   "overlayProcessingLocal": "Lokal",
   "overlayProcessingCloud": "Cloud",
+  "overlayRecordingQuickNote": "Aufnahme für Notiz",
+  "overlayTargetQuickNote": "Notiz",
+  "overlayRecordingTargetTimer": "{elapsed} · {target}",
+  "@overlayRecordingTargetTimer": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayDoneQuickNote": "An Notiz angehängt",
   "floatingButtonHide": "Ausblenden",
   "floatingButtonQuit": "Beenden",
   "a11yRecordingButton": "Aufnahmeknopf",

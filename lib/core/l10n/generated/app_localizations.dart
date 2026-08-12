@@ -4848,6 +4848,30 @@ abstract class L10n {
   /// **'Cloud'**
   String get overlayProcessingCloud;
 
+  /// Overlay label while a recording whose text goes to the quick note runs (announced by screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Recording to note'**
+  String get overlayRecordingQuickNote;
+
+  /// Very short target name shown in the recording overlay so the user sees the text is going to the quick note, not the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get overlayTargetQuickNote;
+
+  /// Overlay recording line combining the elapsed time with the target name
+  ///
+  /// In en, this message translates to:
+  /// **'{elapsed} · {target}'**
+  String overlayRecordingTargetTimer(String elapsed, String target);
+
+  /// Overlay completion message when the text was appended to the quick note — nothing was copied or pasted
+  ///
+  /// In en, this message translates to:
+  /// **'Added to note'**
+  String get overlayDoneQuickNote;
+
   /// No description provided for @floatingButtonHide.
   ///
   /// In en, this message translates to:

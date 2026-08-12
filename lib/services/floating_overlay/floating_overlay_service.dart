@@ -360,6 +360,11 @@ class FloatingOverlayService
     final elapsed = ref.read(recordingElapsedProvider);
     final recording = ref.read(recordingProvider);
     final isLocal = s.sttProviderType.isLocal;
+    // Ziel des LAUFENDEN Vorgangs (Ticket 25). Wird zu jedem Aufnahmestart
+    // gesetzt und nie zurückgesetzt — deshalb hier bei jedem Schnappschuss neu
+    // lesen statt zu merken, damit der nächste Vorgang nie das Ziel des
+    // vorigen erbt.
+    final target = ref.read(recordingTargetProvider);
 
     double progress = 0.0;
     if (phase == RecordingPhase.recording && s.maxRecordDuration > 0) {
@@ -371,16 +376,18 @@ class FloatingOverlayService
       visible: true,
       state: _mapPhase(phase),
       size: sizeVariant,
-      label: _labelFor(phase, l10n),
-      elapsed: phase == RecordingPhase.recording ? _formatElapsed(elapsed) : '',
-      hint: _hintFor(phase, s, l10n),
+      label: _labelFor(phase, l10n, target),
+      elapsed: phase == RecordingPhase.recording
+          ? _recordingTextFor(elapsed, sizeVariant, target, l10n)
+          : '',
+      hint: _hintFor(phase, s, l10n, target),
       transcript: recording.transcript,
       errorMessage: recording.errorMessage != null && l10n != null
           ? localizeRecordingError(l10n, recording.errorMessage!)
           : recording.errorMessage,
       privacyMode: isLocal ? 'local' : 'cloud',
       doneMessage: phase == RecordingPhase.done && l10n != null
-          ? doneMessageFor(s.afterTranscription, l10n)
+          ? doneMessageFor(s.afterTranscription, l10n, target: target)
           : null,
       progress: progress,
     );
@@ -614,23 +621,87 @@ class FloatingOverlayService
     RecordingPhase.error => OverlayVisualState.error,
   };
 
-  String _labelFor(RecordingPhase phase, L10n? l10n) => switch (phase) {
-    RecordingPhase.recording => l10n?.overlayRecording ?? 'Recording',
-    RecordingPhase.transcribing => l10n?.overlayTranscribing ?? 'Transcribing…',
-    RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
-    RecordingPhase.error => l10n?.overlayError ?? 'Error',
-    RecordingPhase.idle => '',
-  };
+  /// Haupttext je Phase. Bei laufender Aufnahme in die Schnellnotiz benennt er
+  /// das Ziel: gemalt wird er in dieser Phase zwar nicht (dort zeigt die Pille
+  /// den Zeitzähler), aber die Bildschirmleseansage der Overlay-Schale spricht
+  /// genau dieses Feld beim Zustandswechsel aus.
+  String _labelFor(RecordingPhase phase, L10n? l10n, RecordingTarget target) =>
+      switch (phase) {
+        RecordingPhase.recording =>
+          target == RecordingTarget.quickNote
+              ? (l10n?.overlayRecordingQuickNote ?? 'Recording to note')
+              : (l10n?.overlayRecording ?? 'Recording'),
+        RecordingPhase.transcribing =>
+          l10n?.overlayTranscribing ?? 'Transcribing…',
+        RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
+        RecordingPhase.error => l10n?.overlayError ?? 'Error',
+        RecordingPhase.idle => '',
+      };
 
-  String _hintFor(RecordingPhase phase, AppSettings s, L10n? l10n) {
-    if (phase == RecordingPhase.recording && s.hotkeyEnabled) {
-      final hotkey = formatHotkeyShortcut(
-        s.hotkeyModifiers,
-        s.hotkeyKey,
-        l10n: l10n,
-        displayOverride: s.hotkey.hotkeyKeyDisplay,
-      );
-      return l10n?.overlayKeyboardHint(hotkey) ?? 'Press $hotkey to stop';
+  /// Sichtbarer Text der Pille während der Aufnahme.
+  ///
+  /// Bei Ziel Zwischenablage ist das unverändert der reine Zeitzähler. Bei
+  /// Ziel Schnellnotiz tritt der Zielname hinzu — das ist die einzige Stelle,
+  /// an der die Zielangabe während der Aufnahme tatsächlich auf dem Schirm
+  /// landet. Größenabhängig, weil der Text der Wellenform ihren Platz nimmt:
+  ///
+  /// - normal: Zeitzähler + Ziel („0:05 · Notiz") — dort ist Platz für beides.
+  /// - kompakt: nur das Ziel; Zeitzähler + Ziel würde die Wellenform auf ein
+  ///   Drittel ihrer Breite drücken, und die Zielangabe ist in diesem Moment
+  ///   die wichtigere Auskunft (der laufende Vorgang ist über Punkt,
+  ///   Wellenform und Zeitleiste weiterhin erkennbar).
+  /// - mini: ebenfalls nur das Ziel. Die mini-Pille malt überhaupt keinen
+  ///   Text (sie ist wellenform-only), die Zielangabe erreicht dort also
+  ///   niemanden — dieselbe dokumentierte Grenze wie heute schon bei
+  ///   „Kopiert"/„Eingefügt". Irreführend wird sie dadurch nie.
+  String _recordingTextFor(
+    Duration elapsed,
+    OverlaySizeVariant size,
+    RecordingTarget target,
+    L10n? l10n,
+  ) {
+    final timer = _formatElapsed(elapsed);
+    if (target != RecordingTarget.quickNote) return timer;
+    final targetName = l10n?.overlayTargetQuickNote ?? 'Note';
+    return switch (size) {
+      OverlaySizeVariant.normal =>
+        l10n?.overlayRecordingTargetTimer(timer, targetName) ??
+            '$timer · $targetName',
+      OverlaySizeVariant.compact || OverlaySizeVariant.mini => targetName,
+    };
+  }
+
+  String _hintFor(
+    RecordingPhase phase,
+    AppSettings s,
+    L10n? l10n,
+    RecordingTarget target,
+  ) {
+    if (phase == RecordingPhase.recording) {
+      // Der Hinweis muss die Kombination nennen, mit der der Nutzer DIESEN
+      // Vorgang gestartet hat — bei einer Schnellnotiz-Aufnahme ist das der
+      // Schnellnotiz-Hotkey, nicht der Haupt-Hotkey.
+      final quickNote = target == RecordingTarget.quickNote;
+      final enabled = quickNote
+          ? s.quickNoteHotkey.quickNoteHotkeyEnabled
+          : s.hotkeyEnabled;
+      if (enabled) {
+        final hotkey = quickNote
+            ? formatHotkeyShortcut(
+                s.quickNoteHotkey.quickNoteHotkeyModifiers,
+                s.quickNoteHotkey.quickNoteHotkeyKey,
+                l10n: l10n,
+                displayOverride: s.quickNoteHotkey.quickNoteHotkeyKeyDisplay,
+              )
+            : formatHotkeyShortcut(
+                s.hotkeyModifiers,
+                s.hotkeyKey,
+                l10n: l10n,
+                displayOverride: s.hotkey.hotkeyKeyDisplay,
+              );
+        return l10n?.overlayKeyboardHint(hotkey) ?? 'Press $hotkey to stop';
+      }
+      return '';
     }
     if (phase == RecordingPhase.transcribing) {
       final isLocal = s.sttProviderType.isLocal;

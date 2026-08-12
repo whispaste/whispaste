@@ -2,6 +2,7 @@
 library;
 
 import '../l10n/generated/app_localizations.dart';
+import 'recording_state.dart' show RecordingTarget;
 import '../../services/model_download_service.dart';
 import '../../services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelId;
@@ -10,7 +11,19 @@ import '../../services/stt_parakeet/parakeet_model_registry.dart'
 ///
 /// Extracted from RecordingPill so it can be reused by the floating overlay
 /// service without depending on the widget layer.
-String doneMessageFor(String? afterAction, L10n l10n) {
+///
+/// [target] überstimmt die Ableitung aus [afterAction]: bei
+/// [RecordingTarget.quickNote] wird nichts kopiert und nichts eingefügt — der
+/// Text hängt an der Schnellnotiz. Die Auto-Einfügen-Einstellung sagt über
+/// diesen Vorgang also gar nichts aus (Ticket 25). Voreinstellung ist
+/// [RecordingTarget.clipboard], damit alle bisherigen Aufrufer unverändert
+/// bleiben.
+String doneMessageFor(
+  String? afterAction,
+  L10n l10n, {
+  RecordingTarget target = RecordingTarget.clipboard,
+}) {
+  if (target == RecordingTarget.quickNote) return l10n.overlayDoneQuickNote;
   return switch (afterAction) {
     'paste' => l10n.overlayDonePasted,
     'copy_and_paste' || 'clipboard_and_paste' => l10n.overlayDoneBoth,
