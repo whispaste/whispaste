@@ -12,7 +12,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
@@ -202,8 +201,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
     final libraryAutoGain = !useUserGain;
 
-    // Generate a temp file path for the WAV.
-    final tempDir = await getTemporaryDirectory();
+    // Generate a temp file path for the WAV. Directory.systemTemp (not
+    // path_provider's getTemporaryDirectory) deliberately — the latter's
+    // macOS backend resolves via package:objective_c FFI bindings to
+    // Foundation, which can lose a symbol-resolution race
+    // (OBJC_CLASS_$_NSArray dlsym failure) when called from a fire-and-forget
+    // Future this early in startup (see cleanupStaleFiles below, the actual
+    // first-observed crash site). Directory.systemTemp is pure dart:io and
+    // resolves to the same per-user temp dir on macOS (TMPDIR).
+    final tempDir = Directory.systemTemp;
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final wavPath = p.join(tempDir.path, 'whispaste_$timestamp.wav');
 
@@ -581,7 +587,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     Duration maxAge = const Duration(minutes: 5),
   }) async {
     try {
-      final tempDir = await getTemporaryDirectory();
+      final tempDir = Directory.systemTemp;
       final now = DateTime.now();
       var cleaned = 0;
       var freedBytes = 0;
