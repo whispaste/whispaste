@@ -512,7 +512,11 @@ void main() {
           ),
         ),
       );
-      // Pump to mid-crossfade (< stateTransitionDuration = 150 ms).
+      // Pump to mid-crossfade. `recording → transcribing` runs for the
+      // release-out window (OverlayDesignSpec.arc.releaseOutDuration) rather
+      // than the generic stateTransitionDuration, so the decaying waveform the
+      // service is still feeding stays painted for the whole decay
+      // (overlay_release_out_test.dart).
       await tester.pump(const Duration(milliseconds: 50));
 
       // During crossfade: 3 CustomPaint layers.
@@ -525,7 +529,10 @@ void main() {
       );
 
       // Advance past full crossfade + setState drain.
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(
+        OverlayDesignSpec.arc.releaseOutDuration +
+            const Duration(milliseconds: 50),
+      );
       await tester.pump();
 
       // Steady state again: one CustomPaint.

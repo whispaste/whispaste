@@ -385,16 +385,10 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         oldWidget.snapshot.visible) {
       // Crossfade: content-only opacity fade (skipped under reduced-motion).
       if (!_reducedMotion) {
-        // The transition INTO an end state (done/error) runs slightly longer
-        // than the generic crossfade so the stroke-first status-icon draw-on
-        // (driven off this controller's fraction) has room to land — the
-        // done check is the product's pay-off moment (impeccable pass).
-        final toEndState =
-            widget.snapshot.state == OverlayVisualState.done ||
-            widget.snapshot.state == OverlayVisualState.error;
-        _stateTransition.duration = toEndState
-            ? OverlayDesignSpec.arc.statusRevealDuration
-            : OverlayDesignSpec.arc.stateTransitionDuration;
+        _stateTransition.duration = _crossfadeDuration(
+          oldWidget.snapshot.state,
+          widget.snapshot.state,
+        );
         setState(() {
           _outgoing = oldWidget.snapshot;
         });
@@ -425,6 +419,40 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         _glass.value = 0.0;
       }
     }
+  }
+
+  /// Duration of the content crossfade for the state change [from] → [to].
+  ///
+  /// Three cases, each with its own reason to differ from the generic
+  /// [OverlayArcMotion.stateTransitionDuration]:
+  ///
+  /// - **into done/error**: runs slightly longer so the stroke-first
+  ///   status-icon draw-on (driven off this controller's fraction) has room to
+  ///   land — the done check is the product's pay-off moment (impeccable pass).
+  /// - **recording → transcribing** (the release-out): the service keeps
+  ///   feeding the pipeline decaying samples for
+  ///   [OverlayDesignSpec.waveformReleaseOutMs], and the outgoing (recording)
+  ///   crossfade layer is the ONLY layer that paints live waveform bars
+  ///   ([painterFor] gates them on the painted snapshot's own state; the
+  ///   transcribing painter draws the flat rest waveform). With the generic
+  ///   150 ms crossfade that layer vanished halfway through the decay and the
+  ///   waveform snapped flat mid-motion — the "stops abruptly" report, loudest
+  ///   on the mini overlay where the waveform is the only moving content.
+  ///   Matching the crossfade to the release-out window lets the decay play
+  ///   out and still lands on the very same resting frame.
+  /// - everything else: the generic calm crossfade.
+  static Duration _crossfadeDuration(
+    OverlayVisualState from,
+    OverlayVisualState to,
+  ) {
+    if (to == OverlayVisualState.done || to == OverlayVisualState.error) {
+      return OverlayDesignSpec.arc.statusRevealDuration;
+    }
+    if (from == OverlayVisualState.recording &&
+        to == OverlayVisualState.transcribing) {
+      return OverlayDesignSpec.arc.releaseOutDuration;
+    }
+    return OverlayDesignSpec.arc.stateTransitionDuration;
   }
 
   /// Snaps the pill width to the current snapshot state's target immediately

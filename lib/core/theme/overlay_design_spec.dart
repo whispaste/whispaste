@@ -592,8 +592,20 @@ class OverlayArcMotion {
     required this.appearScale,
     required this.stateTransitionDuration,
     required this.stateTransitionCurve,
+    required this.releaseOutDuration,
     this.statusRevealDuration = const Duration(milliseconds: 280),
   });
+
+  /// Duration of the crossfade OUT of the recording state into transcribing.
+  ///
+  /// Longer than the generic [stateTransitionDuration] on purpose: the
+  /// service feeds the waveform pipeline decaying samples for
+  /// [OverlayDesignSpec.waveformReleaseOutMs] after that transition, and the
+  /// outgoing (recording) crossfade layer is what paints them. A shorter
+  /// crossfade drops that layer mid-decay and hands over to the flat rest
+  /// waveform — the abrupt waveform stop reported on the mini overlay. Keep
+  /// this equal to the release-out window.
+  final Duration releaseOutDuration;
 
   /// Duration of the crossfade INTO the done/error end states (impeccable
   /// pass). The generic 150 ms crossfade left the done check — the emotional
@@ -1207,6 +1219,19 @@ abstract final class OverlayDesignSpec {
   /// `0.06`).
   static const double waveformRestLevel = 0.06;
 
+  /// Length of the waveform release-out that follows `recording →
+  /// transcribing`, in milliseconds.
+  ///
+  /// Single source of truth for the two halves that have to agree on it:
+  /// `FloatingOverlayService.releaseOutDurationMs` keeps ticking the pipeline
+  /// with silence for exactly this long (so the bars decay instead of
+  /// freezing), and [OverlayArcMotion.releaseOutDuration] keeps the content
+  /// crossfade — the only path through which those decaying bars reach the
+  /// canvas — alive for the same span. When the two drifted apart the
+  /// waveform visibly snapped to the flat [waveformRestLevel] frame halfway
+  /// through the decay.
+  static const int waveformReleaseOutMs = 300;
+
   // -- Font weights (theme-wide, not scaled) ---------------------------------
 
   /// Recording timer weight (bold).
@@ -1358,6 +1383,7 @@ abstract final class OverlayDesignSpec {
     appearScale: 0.88,
     stateTransitionDuration: Duration(milliseconds: 150),
     stateTransitionCurve: Curves.easeOut,
+    releaseOutDuration: Duration(milliseconds: waveformReleaseOutMs),
   );
 
   // -- Vibrancy --------------------------------------------------------------

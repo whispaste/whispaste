@@ -13,7 +13,8 @@ import '../../core/platform/display_bounds.dart';
 import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
-import '../../core/theme/overlay_design_spec.dart' show OverlaySizeVariant;
+import '../../core/theme/overlay_design_spec.dart'
+    show OverlayArcMotion, OverlayDesignSpec, OverlaySizeVariant;
 import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
@@ -41,7 +42,12 @@ const Duration _kTickPeriod = Duration(milliseconds: 33);
 /// gracefully toward the rest floor instead of freezing at the snapshot
 /// moment. After the window elapses the animation timer stops and the last
 /// snapshot remains frozen on screen.
-const int releaseOutDurationMs = 300;
+///
+/// Read from the spec, not spelled out again here: the overlay view's content
+/// crossfade ([OverlayArcMotion.releaseOutDuration]) has to cover exactly this
+/// window — it is what actually paints the decaying bars — and a private copy
+/// of the number is how the two drifted apart in the first place.
+const int releaseOutDurationMs = OverlayDesignSpec.waveformReleaseOutMs;
 
 /// Fixed auto-hide delay after the overlay enters the done state.
 const Duration kOverlayAutoHideDelay = Duration(seconds: 2);
