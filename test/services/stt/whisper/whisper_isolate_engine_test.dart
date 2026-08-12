@@ -101,6 +101,39 @@ void main() {
         expect(engine.status.isLoaded, isTrue);
       });
 
+      test('unload() called while a transcribe is in flight does not wait for '
+          'it to finish (regression: SIGTERM arriving during post-load '
+          'warmup/benchmark inference pegged the app at ~100% CPU for up to '
+          '10s before exiting, because unload() waited for a worker ack that '
+          'could not arrive until that inference finished — the worker '
+          'processes messages strictly one at a time, so a fixed unload() '
+          'must return before the earlier-queued transcribe result is even '
+          'delivered)', () async {
+        final engine = WhisperIsolateEngine(libraryPath: dylibPath);
+        addTearDown(engine.shutdown);
+
+        await engine.load(modelPath: modelPath!);
+        final wavBytes = File(speechWavPath!).readAsBytesSync();
+        // Not awaited — mirrors _warmupInference/_runBenchmark firing a
+        // transcribe() and SIGTERM landing on the worker mid-inference.
+        var transcribeCompleted = false;
+        final transcribeFuture = engine
+            .transcribe(wavBytes, language: 'en')
+            .whenComplete(() => transcribeCompleted = true);
+
+        await engine.unload();
+
+        // Ordering guarantee, not a timing race: the worker's message
+        // queue delivers the transcribe's result before it can even look
+        // at the (later-queued) unload request, so a still-waiting
+        // unload() could never observe this as false — only a fixed
+        // unload() that skips the wait can return this early.
+        expect(transcribeCompleted, isFalse);
+        expect(engine.status.isLoaded, isFalse);
+
+        await transcribeFuture;
+      }, timeout: const Timeout(Duration(minutes: 2)));
+
       test(
         'unload() left unawaited, then load() again, still reloads for real '
         '(regression: a model switch mid-session left the engine claiming '

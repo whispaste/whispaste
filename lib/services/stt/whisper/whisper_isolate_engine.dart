@@ -324,6 +324,29 @@ class WhisperIsolateEngine implements WhisperEngine {
       _isLoaded = false;
       return;
     }
+    // _whisperIsolateMain processes messages strictly one at a time (see its
+    // `processing` chain), so if a _LoadRequest or _TranscribeRequest (the
+    // post-load warmup/benchmark calls in SttServerStateNotifier._start also
+    // go through this same queue) is still in flight, the _UnloadAck for the
+    // request sent below cannot arrive until that synchronous, blocking
+    // native FFI call returns — which can take many seconds (cold-start
+    // warmup + benchmark). Waiting for it here would peg the app at
+    // near-100% CPU for the whole gap for no benefit: the same message queue
+    // still guarantees this _UnloadRequest is handled (and whisper_free()
+    // runs) strictly before any request sent after it — including a
+    // subsequent load() from a model switch (see the "reload for real" test
+    // below) — so skipping the wait never risks a stale/leaked native
+    // context. For the app-quit caller (`runGracefulEngineShutdown`) there's
+    // a second reason it's safe: the whole OS process exits right after this
+    // returns anyway, tearing down whatever native/Metal state the in-flight
+    // call still holds — confirmed safe by repro (SIGTERM during
+    // load/warmup, followed by exit(0) once the previous 10s timeout gave up
+    // waiting, never aborted; this just reaches the same safe exit sooner
+    // instead of burning CPU for the rest of the timeout).
+    final loadCompleter = _loadCompleter;
+    final workerBusy =
+        (loadCompleter != null && !loadCompleter.isCompleted) ||
+        _pending.isNotEmpty;
     // Waits for the worker's _UnloadAck (native whisper_free() actually
     // ran) instead of firing-and-forgetting — otherwise a caller that
     // proceeds immediately (e.g. app quit → windowManager.destroy()) can
@@ -337,6 +360,10 @@ class WhisperIsolateEngine implements WhisperEngine {
       _workerPort!.send(const _UnloadRequest());
     } catch (e) {
       _log.warning('Failed to signal worker unload: $e');
+      _isLoaded = false;
+      return;
+    }
+    if (workerBusy) {
       _isLoaded = false;
       return;
     }
