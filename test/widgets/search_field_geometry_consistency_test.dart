@@ -28,7 +28,7 @@
 /// have no neighbour and took the whole content column (980 dp at the default
 /// 1100 dp window), Notes and Replacements/Snippets were ~200 dp narrower
 /// because an Add button was subtracted from the same row — one control, two
-/// readings of how padded it is. `WpSearchField.maxWidth` ends that, so width
+/// readings of how padded it is. `WpLayout.searchFieldMaxWidth` ends that, so width
 /// is now pinned alongside everything else.
 ///
 /// It is pinned at *two* window sizes on purpose, because the cap and the
@@ -148,6 +148,7 @@ Widget _searchableList() => WpSearchableListPage<String>(
   asyncAll: const AsyncValue.data(['item']),
   searchMatches: (item, query) => true,
   searchHint: 'Search',
+  searchFieldLabel: 'Search items',
   addLabel: 'Add',
   onAdd: () {},
   onRetry: () {},
@@ -257,7 +258,7 @@ void main() {
       tester,
     ) async {
       // The default 1100 dp window: every row has more than
-      // `WpSearchField.maxWidth` to give, so the cap — not the neighbour —
+      // `WpLayout.searchFieldMaxWidth` to give, so the cap — not the neighbour —
       // decides everywhere and width can be pinned like every other value.
       await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -281,9 +282,9 @@ void main() {
 
       expect(
         reference.boxWidth,
-        WpSearchField.maxWidth,
+        WpLayout.searchFieldMaxWidth,
         reason:
-            'the one width is WpSearchField.maxWidth itself — if this is the '
+            'the one width is WpLayout.searchFieldMaxWidth itself — if this is the '
             'full content column again, the cap stopped being applied',
       );
     });
@@ -303,7 +304,7 @@ void main() {
       for (final entry in measured.entries) {
         expect(
           entry.value.boxWidth,
-          lessThanOrEqualTo(WpSearchField.maxWidth),
+          lessThanOrEqualTo(WpLayout.searchFieldMaxWidth),
           reason:
               '"${entry.key}" is wider than the cap at $at — no area may go '
               'back to taking the whole row',
@@ -312,7 +313,7 @@ void main() {
       for (final area in const ['settings', 'history']) {
         expect(
           measured[area]!.boxWidth,
-          WpSearchField.maxWidth,
+          WpLayout.searchFieldMaxWidth,
           reason:
               '"$area" has no toolbar neighbour, so nothing may keep it from '
               'reaching the cap even at the minimum window',
