@@ -88,20 +88,25 @@ if [ ! -d "\$SRC" ] || [ ! -f "\$SRC/Contents/Info.plist" ]; then
   exit 13
 fi
 
-# 4. Stage + atomic swap as a self-contained inner script with concrete paths,
-#    so it runs identically whether direct or under one admin prompt.
+# 4. Stage + atomic swap as a self-contained inner script, parameterized via
+#    positional arguments so it runs identically whether direct or under one admin
+#    prompt, and avoids command injection from path string interpolation.
 STAGE="\${TARGET}.wp-new-\$\$"
 BACKUP="\${TARGET}.wp-old-\$\$"
 INNER="\$(mktemp /tmp/wp-swap.XXXXXX)"
-cat >"\$INNER" <<WPINNER
+cat >"\$INNER" <<'WPINNER'
 #!/bin/sh
 set -e
-rm -rf "\$STAGE" "\$BACKUP"
-/usr/bin/ditto "\$SRC" "\$STAGE"
-/usr/bin/xattr -dr com.apple.quarantine "\$STAGE" 2>/dev/null || true
-mv "\$TARGET" "\$BACKUP"
-mv "\$STAGE" "\$TARGET"
-rm -rf "\$BACKUP"
+INNER_SRC="\$1"
+INNER_STAGE="\$2"
+INNER_TARGET="\$3"
+INNER_BACKUP="\$4"
+rm -rf "\$INNER_STAGE" "\$INNER_BACKUP"
+/usr/bin/ditto "\$INNER_SRC" "\$INNER_STAGE"
+/usr/bin/xattr -dr com.apple.quarantine "\$INNER_STAGE" 2>/dev/null || true
+mv "\$INNER_TARGET" "\$INNER_BACKUP"
+mv "\$INNER_STAGE" "\$INNER_TARGET"
+rm -rf "\$INNER_BACKUP"
 WPINNER
 chmod +x "\$INNER"
 
@@ -111,12 +116,12 @@ chmod +x "\$INNER"
 PARENT_DIR="\$(dirname "\$TARGET")"
 if [ -w "\$PARENT_DIR" ] && { [ ! -e "\$TARGET" ] || [ -w "\$TARGET" ]; }; then
   echo "[wp-update] writable target — direct swap"
-  if ! /bin/sh "\$INNER"; then
+  if ! /bin/sh "\$INNER" "\$SRC" "\$STAGE" "\$TARGET" "\$BACKUP"; then
     echo "[wp-update] ERROR: swap failed"; detach; rm -f "\$INNER"; exit 14
   fi
 else
   echo "[wp-update] non-writable target — escalating via admin prompt"
-  if ! /usr/bin/osascript -e "do shell script \\"/bin/sh \$INNER\\" with administrator privileges"; then
+  if ! /usr/bin/osascript -e "on run argv" -e "do shell script \\"/bin/sh \\" & quoted form of item 1 of argv & \\" \\" & quoted form of item 2 of argv & \\" \\" & quoted form of item 3 of argv & \\" \\" & quoted form of item 4 of argv & \\" \\" & quoted form of item 5 of argv with administrator privileges" -e "end run" "\$INNER" "\$SRC" "\$STAGE" "\$TARGET" "\$BACKUP"; then
     echo "[wp-update] ERROR: escalation declined/failed — install untouched"
     detach; rm -f "\$INNER"; exit 15
   fi
