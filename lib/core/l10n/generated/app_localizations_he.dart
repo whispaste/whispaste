@@ -1361,6 +1361,23 @@ class L10nHe extends L10n {
       'מילת ההפעלה מוגדרת, אבל אין עדיין קטעים — הכתבה שלה תודבק כטקסט רגיל עד שתוסיף את הקטע הראשון.';
 
   @override
+  String get snippetsPickerHotkeyLabel => 'קיצור לבוחר';
+
+  @override
+  String get snippetsPickerHotkeySubtitle =>
+      'פותח את הבוחר מיד — הדרך השנייה לאותו חלון.';
+
+  @override
+  String get snippetsPickerHotkeyOff => 'הקיצור לבוחר כבוי.';
+
+  @override
+  String get snippetsPickerHotkeyEnable => 'הפעלת הקיצור';
+
+  @override
+  String get snippetsPickerUnavailable =>
+      'בוחר הקטעים עדיין אינו זמין בפלטפורמה הזו.';
+
+  @override
   String get snippetsPickerSemanticsLabel => 'בוחר הקטעים';
 
   @override
@@ -2336,6 +2353,28 @@ class L10nHe extends L10n {
   @override
   String get settingsQuickNoteHotkeyInactive =>
       'לא ניתן היה לרשום את הצירוף הזה — הקיצור לפתק מהיר אינו פעיל כרגע. בחר צירוף אחר.';
+
+  @override
+  String get settingsHotkeyActionSnippetPicker => 'בוחר הקטעים';
+
+  @override
+  String get settingsSnippetPickerHotkeyEnabled => 'קיצור לבוחר הקטעים';
+
+  @override
+  String get settingsSnippetPickerHotkeyHint =>
+      'פותח את בוחר הקטעים מיד — בלי הקלטה ובלי מילת ההפעלה המדוברת.';
+
+  @override
+  String get settingsSnippetPickerCurrentHotkey => 'צירוף מקשים';
+
+  @override
+  String settingsSnippetPickerHotkeyCollision(String action) {
+    return 'הצירוף הזה כבר משמש עבור \"$action\". בחר צירוף אחר.';
+  }
+
+  @override
+  String get settingsSnippetPickerHotkeyInactive =>
+      'לא ניתן היה לרשום את הצירוף הזה — הקיצור לבוחר הקטעים אינו פעיל כרגע. בחר צירוף אחר.';
 
   @override
   String get settingsMaxRecordDuration => 'משך הקלטה מקסימלי';

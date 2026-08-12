@@ -10,6 +10,7 @@ import '../../../core/config/settings_sections.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../settings/hotkey_flow.dart';
 import '../../settings/quick_note_hotkey_flow.dart';
 import '../../settings/settings_widgets.dart';
 import '../../../widgets/wp_button.dart';
@@ -42,16 +43,8 @@ class QuickNoteHotkeyLine extends ConsumerStatefulWidget {
       _QuickNoteHotkeyLineState();
 }
 
-class _QuickNoteHotkeyLineState extends ConsumerState<QuickNoteHotkeyLine> {
-  /// Name der Aktion, die die zuletzt gewählte Kombination schon belegt —
-  /// `null`, solange nichts kollidiert.
-  ///
-  /// Zustand und keine Momentan-Meldung (Toast): der Nutzer muss den Dialog
-  /// erneut öffnen, um den Fehler zu beheben, und eine Meldung, die
-  /// währenddessen verschwindet, hilft ihm dabei nicht. Dieselbe Entscheidung
-  /// wie in den Einstellungen.
-  String? _collidingAction;
-
+class _QuickNoteHotkeyLineState extends ConsumerState<QuickNoteHotkeyLine>
+    with HotkeyCollisionNotice {
   final _comboFocusNode = FocusNode(debugLabel: 'QuickNoteHotkeyCombo');
 
   @override
@@ -60,18 +53,9 @@ class _QuickNoteHotkeyLineState extends ConsumerState<QuickNoteHotkeyLine> {
     super.dispose();
   }
 
-  Future<void> _record(AppSettings settings) async {
-    final result = await recordQuickNoteHotkey(
-      context: context,
-      ref: ref,
-      settings: settings,
-    );
-    if (!mounted) return;
-    // Abbruch lässt eine stehende Meldung stehen — sie gehört zur Kombination,
-    // die sie ausgelöst hat, und die ist unverändert.
-    if (result.change == QuickNoteHotkeyChange.cancelled) return;
-    setState(() => _collidingAction = result.collidingActionLabel);
-  }
+  Future<void> _record(AppSettings settings) => recordAndReport(
+    () => recordQuickNoteHotkey(context: context, ref: ref, settings: settings),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -135,9 +119,9 @@ class _QuickNoteHotkeyLineState extends ConsumerState<QuickNoteHotkeyLine> {
                       ),
                     ],
             ),
-            if (_collidingAction != null)
+            if (collidingAction != null)
               _CollisionNotice(
-                text: l10n.settingsQuickNoteHotkeyCollision(_collidingAction!),
+                text: l10n.settingsQuickNoteHotkeyCollision(collidingAction!),
               ),
           ],
         ),

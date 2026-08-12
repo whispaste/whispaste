@@ -429,6 +429,11 @@
   "snippetsPickerTriggerSubtitle": "Sprich nur dieses Wort, um den Snippet-Picker zu öffnen. Leer lassen, um den Picker auszuschalten.",
   "snippetsPickerTriggerHint": "z. B. Snippet",
   "snippetsPickerTriggerEmptyListHint": "Das Trigger-Wort ist gesetzt, aber es gibt noch keine Snippets — diktierst du es, wird es als normaler Text eingefügt, bis du dein erstes Snippet anlegst.",
+  "snippetsPickerHotkeyLabel": "Hotkey für den Picker",
+  "snippetsPickerHotkeySubtitle": "Öffnet den Picker sofort — der zweite Weg zum selben Panel.",
+  "snippetsPickerHotkeyOff": "Der Hotkey für den Picker ist ausgeschaltet.",
+  "snippetsPickerHotkeyEnable": "Hotkey einschalten",
+  "snippetsPickerUnavailable": "Der Snippet-Picker ist auf dieser Plattform noch nicht verfügbar.",
   "snippetsPickerSemanticsLabel": "Snippet-Picker",
   "snippetsPickerInsertAction": "Einfügen",
 
@@ -771,6 +776,18 @@
     }
   },
   "settingsQuickNoteHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Schnellnotiz-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.",
+
+  "settingsHotkeyActionSnippetPicker": "Snippet-Picker",
+  "settingsSnippetPickerHotkeyEnabled": "Snippet-Picker-Hotkey",
+  "settingsSnippetPickerHotkeyHint": "Öffnet den Snippet-Picker sofort — ohne Aufnahme und ohne das gesprochene Trigger-Wort.",
+  "settingsSnippetPickerCurrentHotkey": "Kombination",
+  "settingsSnippetPickerHotkeyCollision": "Diese Kombination ist schon für „{action}“ vergeben. Wähl eine andere.",
+  "@settingsSnippetPickerHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSnippetPickerHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Snippet-Picker-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.",
 
   "settingsMaxRecordDuration": "Maximale Aufnahmedauer",
   "settingsMaxRecordDurationSubtitle": "Automatischer Sicherheitsstopp nach dieser Zeit",

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -158,6 +159,12 @@ class WpSearchableListPage<T> extends StatefulWidget {
 /// measurements, so they move when the rows do — `wp_list_skeleton_test.dart`
 /// is where that gets caught.
 const _searchableListSkeletonRowHeight = 71.0;
+
+/// Height the page keeps for its own body when an oversized header would
+/// otherwise take everything: the search toolbar plus roughly one row, at
+/// text scale 1.0. Scaled with the system font size at the point of use —
+/// see [_WpSearchableListPageState._cappedHeader].
+const _searchableListBodyReserve = 130.0;
 
 // ---------------------------------------------------------------------------
 // The keyboard cursor
@@ -589,15 +596,58 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
           padding: EdgeInsets.zero,
           child: (widget.header == null && subtitleLine == null)
               ? body
-              : Column(
-                  children: [
-                    ?subtitleLine,
-                    ?widget.header,
-                    Expanded(child: body),
-                  ],
+              : LayoutBuilder(
+                  // Von *außen* gemessen: ein Column-Kind ohne Flex bekommt in
+                  // der Hauptachse unbegrenzte Constraints und weiß deshalb
+                  // selbst nicht, wie viel Platz die Seite überhaupt hat.
+                  builder: (context, constraints) => Column(
+                    children: [
+                      ?subtitleLine,
+                      if (widget.header case final header?)
+                        _cappedHeader(header, constraints.maxHeight),
+                      Expanded(child: body),
+                    ],
+                  ),
                 ),
         ),
       ),
+    );
+  }
+
+  /// Keeps [header] from ever eating the list below it.
+  ///
+  /// The header is the one child of this page that is *not* flexible, so a
+  /// header taller than the window leaves the list exactly zero pixels —
+  /// which is not a cosmetic overflow but a page whose entire content is
+  /// gone. Reachable in practice since the Snippets header carries two
+  /// settings (ticket 27): measured at accessibility text size 2.0 in an
+  /// 800×600 window it overshot by 43 px, and every further step of the
+  /// system font size makes it worse.
+  ///
+  /// Above the cap the header scrolls inside its own share instead. A second
+  /// scroll area is not free, but it only ever appears where the alternative
+  /// is a blank page — at every ordinary text size the header is far shorter
+  /// than the cap and this wrapper changes nothing (the scroll view takes its
+  /// child's height while it fits).
+  ///
+  /// The cap is „everything except what the list needs to exist": the search
+  /// toolbar plus one row, scaled with the system font size, because that is
+  /// what grows underneath the header in the first place. A fixed fraction
+  /// does not work in both directions — a third of the window clips the
+  /// Snippets header at normal text size, and half of it still buries the
+  /// toolbar at 2.5.
+  Widget _cappedHeader(Widget header, double availableHeight) {
+    if (!availableHeight.isFinite) return header;
+    final reserved = MediaQuery.textScalerOf(
+      context,
+    ).scale(_searchableListBodyReserve);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        // Nie unter ein Viertel der Seite: lieber ein knapper, scrollender
+        // Kopfbereich als einer, der auf eine Zeile zusammenfällt.
+        maxHeight: math.max(availableHeight - reserved, availableHeight / 4),
+      ),
+      child: SingleChildScrollView(child: header),
     );
   }
 }

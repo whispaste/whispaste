@@ -1009,6 +1009,15 @@ void main() {
     testWidgets('a change made in the notes editor shows up in Settings', (
       tester,
     ) async {
+      // Höheres Testfenster, seit die Einstellungs-Sektion einen dritten
+      // Hotkey-Eintrag trägt (Ticket 27): beide Oberflächen stehen hier
+      // untereinander, und der Notiz-Editor darunter wäre sonst außerhalb des
+      // Fensters — in der App scrollt die Seite, `tap` scrollt nicht.
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(bothSurfaces(_hotkeyOn));
       await tester.pumpAndSettle();
 

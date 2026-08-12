@@ -549,6 +549,11 @@
   "snippetsPickerTriggerSubtitle": "Speak only this word to open the snippet picker. Leave empty to turn the picker off.",
   "snippetsPickerTriggerHint": "e.g. snippet",
   "snippetsPickerTriggerEmptyListHint": "The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.",
+  "snippetsPickerHotkeyLabel": "Picker hotkey",
+  "snippetsPickerHotkeySubtitle": "Opens the picker straight away — the second way to the same panel.",
+  "snippetsPickerHotkeyOff": "The picker hotkey is switched off.",
+  "snippetsPickerHotkeyEnable": "Turn hotkey on",
+  "snippetsPickerUnavailable": "The snippet picker is not available on this platform yet.",
   "snippetsPickerSemanticsLabel": "Snippet picker",
   "snippetsPickerInsertAction": "Insert",
 
@@ -908,6 +913,18 @@
     }
   },
   "settingsQuickNoteHotkeyInactive": "This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.",
+
+  "settingsHotkeyActionSnippetPicker": "Snippet picker",
+  "settingsSnippetPickerHotkeyEnabled": "Snippet-picker hotkey",
+  "settingsSnippetPickerHotkeyHint": "Opens the snippet picker straight away — no recording, and without the spoken trigger word.",
+  "settingsSnippetPickerCurrentHotkey": "Combination",
+  "settingsSnippetPickerHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsSnippetPickerHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSnippetPickerHotkeyInactive": "This combination could not be registered — the snippet-picker hotkey is currently not active. Pick a different combination.",
 
   "settingsMaxRecordDuration": "Max Recording Duration",
   "settingsMaxRecordDurationSubtitle": "Automatic safety stop after this time",

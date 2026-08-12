@@ -21,14 +21,17 @@ import '../../../services/hotkey_service.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paste_policy.dart';
 import '../../../services/paste/paster.dart';
+import '../../../services/snippet_picker/snippet_picker_controller.dart';
 import '../../../services/sound_feedback_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/paste_capability_indicator.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
+import '../hotkey_flow.dart';
 import '../quick_note_hotkey_flow.dart';
 import '../settings_widgets.dart';
+import '../snippet_picker_hotkey_flow.dart';
 
 // ---------------------------------------------------------------------------
 // Keyboard Shortcut section
@@ -118,6 +121,11 @@ class KeyboardShortcutSection extends ConsumerWidget {
           // den Schnellnotiz-Block andocken, für den sie gar nicht gilt (der
           // ist Toggle-only).
           _QuickNoteHotkeyBlock(settings: settings),
+          // Dritter Eintrag, dem Haupt-Hotkey genauso nachgeordnet wie der
+          // Schnellnotiz-Block darüber — und unter ihm, weil die beiden
+          // optionalen Hotkeys in der Reihenfolge stehen, in der sie
+          // entstanden sind (Ticket 23, dann 27).
+          _SnippetPickerHotkeyBlock(settings: settings),
         ],
       ),
     );
@@ -151,32 +159,20 @@ class _QuickNoteHotkeyBlock extends ConsumerStatefulWidget {
       _QuickNoteHotkeyBlockState();
 }
 
-class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
-  /// Name der Aktion, die die zuletzt gewählte Kombination schon belegt —
-  /// `null`, solange nichts kollidiert.
-  ///
-  /// Bewusst Zustand und keine Momentan-Meldung (Toast/Snackbar): der Nutzer
-  /// muss den Aufzeichnungs-Dialog erneut öffnen, um den Fehler zu beheben,
-  /// und eine Meldung, die währenddessen verschwindet, hilft ihm dabei nicht.
-  String? _collidingAction;
-
+class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock>
+    with HotkeyCollisionNotice {
   /// Öffnet den gemeinsamen Belegungs-Weg und zeigt an, was er ergeben hat.
   ///
   /// Dialog, Kollisionsprüfung und Speichern liegen in
   /// [recordQuickNoteHotkey] — dieselbe Funktion, die die Notizen-Seite
   /// aufruft (Ticket 24). Hier bleibt nur die Darstellung des Ergebnisses.
-  Future<void> _record() async {
-    final result = await recordQuickNoteHotkey(
+  Future<void> _record() => recordAndReport(
+    () => recordQuickNoteHotkey(
       context: context,
       ref: ref,
       settings: widget.settings,
-    );
-    if (!mounted) return;
-    // Abbruch lässt eine stehende Meldung stehen: sie gehört zur Kombination,
-    // die sie ausgelöst hat, und die ist unverändert.
-    if (result.change == QuickNoteHotkeyChange.cancelled) return;
-    setState(() => _collidingAction = result.collidingActionLabel);
-  }
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -237,7 +233,7 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
                     onChanged: (v) {
                       // Eine Kollisions-Meldung gehört zur Kombination, die
                       // sie ausgelöst hat; beim Umschalten ist sie erledigt.
-                      setState(() => _collidingAction = null);
+                      clearHotkeyCollision();
                       unawaited(setQuickNoteHotkeyEnabled(ref, enabled: v));
                     },
                   ),
@@ -252,24 +248,29 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
                     excluding: !enabled,
                     child: IgnorePointer(
                       ignoring: !enabled,
-                      child: _QuickNoteComboLine(
-                        quickNote: quickNote,
-                        onChange: _record,
+                      child: HotkeyComboLine(
+                        key: const Key('quickNoteHotkeyComboLine'),
+                        label: l10n.settingsQuickNoteCurrentHotkey,
+                        hotkeyKey: quickNote.quickNoteHotkeyKey,
+                        hotkeyModifiers: quickNote.quickNoteHotkeyModifiers,
+                        hotkeyKeyDisplay: quickNote.quickNoteHotkeyKeyDisplay,
+                        changeButtonKey: const Key('quickNoteHotkeyChange'),
+                        onChange: () => unawaited(_record()),
                       ),
                     ),
                   ),
                 ),
-                if (_collidingAction != null)
-                  _QuickNoteNotice(
+                if (collidingAction != null)
+                  _HotkeyNotice(
                     noticeKey: const Key('quickNoteHotkeyCollisionNotice'),
                     icon: LucideIcons.circleAlert,
                     color: WpColors.error,
                     text: l10n.settingsQuickNoteHotkeyCollision(
-                      _collidingAction!,
+                      collidingAction!,
                     ),
                   ),
                 if (registrationFailed)
-                  _QuickNoteNotice(
+                  _HotkeyNotice(
                     noticeKey: const Key('quickNoteHotkeyInactiveNotice'),
                     icon: LucideIcons.triangleAlert,
                     color: WpColors.warning,
@@ -289,52 +290,169 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
   }
 }
 
-/// Die Kombinations-Zeile des Schnellnotiz-Hotkeys.
-///
-/// [Wrap] statt [Row]: bei vergrößerter Systemschrift rutschen Tastenkappen
-/// und „Ändern"-Button in die nächste Zeile, statt rechts abgeschnitten zu
-/// werden.
-class _QuickNoteComboLine extends StatelessWidget {
-  const _QuickNoteComboLine({required this.quickNote, required this.onChange});
+// ---------------------------------------------------------------------------
+// Snippet-picker hotkey block (subordinate to the main hotkey)
+// ---------------------------------------------------------------------------
 
-  final QuickNoteHotkeySettings quickNote;
-  final Future<void> Function() onChange;
+/// Der dritte Hotkey: öffnet den Snippet-Picker direkt — ohne Aufnahme und
+/// ohne das gesprochene Trigger-Wort.
+///
+/// Sichtbar nachgeordnet wie der Schnellnotiz-Block darüber (Haarlinie,
+/// Einrückung, ruhige Kombinations-Zeile statt rechtsbündigem
+/// `trailing`-Slot); die Begründung dafür steht dort und gilt hier
+/// unverändert.
+///
+/// **Plattform-Ehrlichkeit** (Ticket 27): wo es keinen nativen Picker gibt,
+/// steht statt des Umschalters ein Satz, der das sagt. Ein einschaltbarer
+/// Hotkey, der nichts öffnen kann, wäre die schlechtere Leerstelle — und die
+/// Auskunft, ob es ihn gibt, kommt aus [snippetPickerAvailabilityProvider],
+/// derselben Quelle, aus der auch die Snippets-Seite sie liest.
+class _SnippetPickerHotkeyBlock extends ConsumerStatefulWidget {
+  const _SnippetPickerHotkeyBlock({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  ConsumerState<_SnippetPickerHotkeyBlock> createState() =>
+      _SnippetPickerHotkeyBlockState();
+}
+
+class _SnippetPickerHotkeyBlockState
+    extends ConsumerState<_SnippetPickerHotkeyBlock>
+    with HotkeyCollisionNotice {
+  Future<void> _record() => recordAndReport(
+    () => recordSnippetPickerHotkey(
+      context: context,
+      ref: ref,
+      settings: widget.settings,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final tt = Theme.of(context).textTheme;
+    final snippetPicker = widget.settings.snippetPickerHotkey;
+    final available = ref.watch(snippetPickerAvailabilityProvider);
+    final enabled = snippetPicker.snippetPickerHotkeyEnabled;
+
+    // `enabled &&` wie beim Schnellnotiz-Hotkey: der Registrierungs-Status ist
+    // ein In-Memory-Wert, den nur Registrierungs-Versuche schreiben, und ein
+    // gerade abgeschalteter Hotkey darf sich nicht als „nicht aktiv"
+    // beschweren.
+    final registrationFailed =
+        enabled &&
+        ref.watch(snippetPickerHotkeyRegistrationStatusProvider) ==
+            HotkeyRegistrationStatus.conflict;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        kSettingRowInset,
-        WpSpacing.xxs,
-        kSettingRowInset,
-        WpSpacing.xs,
-      ),
-      child: Wrap(
-        spacing: WpSpacing.sm,
-        runSpacing: WpSpacing.xs,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.settingsQuickNoteCurrentHotkey,
-            style: tt.bodySmall?.copyWith(color: WpColors.textMuted),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: kSettingRowInset),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: WpColors.borderSubtle,
+            ),
           ),
-          HotkeyDisplay(
-            hotkeyKey: quickNote.quickNoteHotkeyKey,
-            hotkeyModifiers: quickNote.quickNoteHotkeyModifiers,
-            hotkeyKeyDisplay: quickNote.quickNoteHotkeyKeyDisplay,
-          ),
-          WpButton(
-            label: l10n.settingsChangeHotkey,
-            variant: WpButtonVariant.secondary,
-            onPressed: () => unawaited(onChange()),
+          const SizedBox(height: WpSpacing.xs),
+          Padding(
+            // `EdgeInsetsDirectional` wie oben: die Einrückung trägt die
+            // Unterordnung und muss deshalb der Leserichtung folgen.
+            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: available
+                  ? _configurable(
+                      l10n,
+                      snippetPicker,
+                      enabled,
+                      registrationFailed,
+                    )
+                  : [
+                      SettingRow(
+                        key: const Key('snippetPickerHotkeyUnavailable'),
+                        icon: LucideIcons.notebookText,
+                        label: l10n.settingsSnippetPickerHotkeyEnabled,
+                        // Derselbe Satz wie auf der Snippets-Seite: es ist
+                        // dieselbe Auskunft, und zwei Formulierungen wären
+                        // zwei Behauptungen.
+                        subtitle: l10n.snippetsPickerUnavailable,
+                        // Kein Umschalter — genau das ist die Aussage.
+                        trailing: const SizedBox.shrink(),
+                      ),
+                    ],
+            ),
           ),
         ],
       ),
     );
   }
+
+  List<Widget> _configurable(
+    L10n l10n,
+    SnippetPickerHotkeySettings snippetPicker,
+    bool enabled,
+    bool registrationFailed,
+  ) => [
+    SettingRow(
+      icon: LucideIcons.notebookText,
+      label: l10n.settingsSnippetPickerHotkeyEnabled,
+      // Sagt, was der Hotkey öffnet — und dass er das ohne das gesprochene
+      // Trigger-Wort tut, das auf der Snippets-Seite daneben steht.
+      subtitle: l10n.settingsSnippetPickerHotkeyHint,
+      semanticToggledValue: enabled,
+      trailing: settingsToggle(
+        key: const Key('snippetPickerHotkeyToggle'),
+        value: enabled,
+        onChanged: (v) {
+          // Eine Kollisions-Meldung gehört zur Kombination, die sie ausgelöst
+          // hat; beim Umschalten ist sie erledigt.
+          clearHotkeyCollision();
+          unawaited(setSnippetPickerHotkeyEnabled(ref, enabled: v));
+        },
+      ),
+    ),
+    AnimatedOpacity(
+      opacity: enabled ? 1.0 : 0.4,
+      duration: WpMotion.durationFor(context, WpMotion.normal),
+      // Abgeblendet heißt: weder mit der Maus noch mit der Tabulatortaste
+      // erreichbar. Beides gehört zusammen.
+      child: ExcludeFocus(
+        excluding: !enabled,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: HotkeyComboLine(
+            key: const Key('snippetPickerHotkeyComboLine'),
+            label: l10n.settingsSnippetPickerCurrentHotkey,
+            hotkeyKey: snippetPicker.snippetPickerHotkeyKey,
+            hotkeyModifiers: snippetPicker.snippetPickerHotkeyModifiers,
+            hotkeyKeyDisplay: snippetPicker.snippetPickerHotkeyKeyDisplay,
+            changeButtonKey: const Key('snippetPickerHotkeyChange'),
+            onChange: () => unawaited(_record()),
+          ),
+        ),
+      ),
+    ),
+    if (collidingAction != null)
+      _HotkeyNotice(
+        noticeKey: const Key('snippetPickerHotkeyCollisionNotice'),
+        icon: LucideIcons.circleAlert,
+        color: WpColors.error,
+        text: l10n.settingsSnippetPickerHotkeyCollision(collidingAction!),
+      ),
+    if (registrationFailed)
+      _HotkeyNotice(
+        noticeKey: const Key('snippetPickerHotkeyInactiveNotice'),
+        icon: LucideIcons.triangleAlert,
+        color: WpColors.warning,
+        // Nennt wie beim Schnellnotiz-Hotkey bewusst keine
+        // Ersatzkombination — es gibt keine.
+        text: l10n.settingsSnippetPickerHotkeyInactive,
+      ),
+  ];
 }
 
 /// Unaufdringlicher Inline-Hinweis unter der Kombinations-Zeile.
@@ -344,8 +462,8 @@ class _QuickNoteComboLine extends StatelessWidget {
 /// das zentrale Element eines Dialogs, hier eine Fußnote an einer von vielen
 /// Einstellungszeilen. Ein Kasten in der Einstellungsspalte zöge mehr
 /// Aufmerksamkeit auf sich als der Hotkey selbst.
-class _QuickNoteNotice extends StatelessWidget {
-  const _QuickNoteNotice({
+class _HotkeyNotice extends StatelessWidget {
+  const _HotkeyNotice({
     required this.noticeKey,
     required this.icon,
     required this.color,

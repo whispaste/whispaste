@@ -1374,6 +1374,23 @@ class L10nEn extends L10n {
       'The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.';
 
   @override
+  String get snippetsPickerHotkeyLabel => 'Picker hotkey';
+
+  @override
+  String get snippetsPickerHotkeySubtitle =>
+      'Opens the picker straight away — the second way to the same panel.';
+
+  @override
+  String get snippetsPickerHotkeyOff => 'The picker hotkey is switched off.';
+
+  @override
+  String get snippetsPickerHotkeyEnable => 'Turn hotkey on';
+
+  @override
+  String get snippetsPickerUnavailable =>
+      'The snippet picker is not available on this platform yet.';
+
+  @override
   String get snippetsPickerSemanticsLabel => 'Snippet picker';
 
   @override
@@ -2378,6 +2395,28 @@ class L10nEn extends L10n {
   @override
   String get settingsQuickNoteHotkeyInactive =>
       'This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.';
+
+  @override
+  String get settingsHotkeyActionSnippetPicker => 'Snippet picker';
+
+  @override
+  String get settingsSnippetPickerHotkeyEnabled => 'Snippet-picker hotkey';
+
+  @override
+  String get settingsSnippetPickerHotkeyHint =>
+      'Opens the snippet picker straight away — no recording, and without the spoken trigger word.';
+
+  @override
+  String get settingsSnippetPickerCurrentHotkey => 'Combination';
+
+  @override
+  String settingsSnippetPickerHotkeyCollision(String action) {
+    return 'This combination is already used for \"$action\". Pick a different one.';
+  }
+
+  @override
+  String get settingsSnippetPickerHotkeyInactive =>
+      'This combination could not be registered — the snippet-picker hotkey is currently not active. Pick a different combination.';
 
   @override
   String get settingsMaxRecordDuration => 'Max Recording Duration';

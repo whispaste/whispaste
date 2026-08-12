@@ -2499,6 +2499,36 @@ abstract class L10n {
   /// **'The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.'**
   String get snippetsPickerTriggerEmptyListHint;
 
+  /// No description provided for @snippetsPickerHotkeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Picker hotkey'**
+  String get snippetsPickerHotkeyLabel;
+
+  /// No description provided for @snippetsPickerHotkeySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens the picker straight away — the second way to the same panel.'**
+  String get snippetsPickerHotkeySubtitle;
+
+  /// No description provided for @snippetsPickerHotkeyOff.
+  ///
+  /// In en, this message translates to:
+  /// **'The picker hotkey is switched off.'**
+  String get snippetsPickerHotkeyOff;
+
+  /// No description provided for @snippetsPickerHotkeyEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn hotkey on'**
+  String get snippetsPickerHotkeyEnable;
+
+  /// No description provided for @snippetsPickerUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The snippet picker is not available on this platform yet.'**
+  String get snippetsPickerUnavailable;
+
   /// No description provided for @snippetsPickerSemanticsLabel.
   ///
   /// In en, this message translates to:
@@ -4226,6 +4256,42 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.'**
   String get settingsQuickNoteHotkeyInactive;
+
+  /// No description provided for @settingsHotkeyActionSnippetPicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet picker'**
+  String get settingsHotkeyActionSnippetPicker;
+
+  /// No description provided for @settingsSnippetPickerHotkeyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet-picker hotkey'**
+  String get settingsSnippetPickerHotkeyEnabled;
+
+  /// No description provided for @settingsSnippetPickerHotkeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens the snippet picker straight away — no recording, and without the spoken trigger word.'**
+  String get settingsSnippetPickerHotkeyHint;
+
+  /// No description provided for @settingsSnippetPickerCurrentHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Combination'**
+  String get settingsSnippetPickerCurrentHotkey;
+
+  /// No description provided for @settingsSnippetPickerHotkeyCollision.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination is already used for \"{action}\". Pick a different one.'**
+  String settingsSnippetPickerHotkeyCollision(String action);
+
+  /// No description provided for @settingsSnippetPickerHotkeyInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination could not be registered — the snippet-picker hotkey is currently not active. Pick a different combination.'**
+  String get settingsSnippetPickerHotkeyInactive;
 
   /// No description provided for @settingsMaxRecordDuration.
   ///

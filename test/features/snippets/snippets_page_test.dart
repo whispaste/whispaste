@@ -16,6 +16,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/telemetry_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
@@ -23,11 +24,16 @@ import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
 
-/// The page header renders a macOS-only picker-trigger [TextField] ahead of
-/// the search field (see `Platform.isMacOS` in `SnippetsPage`'s header) —
-/// shifts every subsequent `find.byType(TextField).at(N)` index by one on
-/// macOS relative to Windows/Linux.
-final _fieldOffset = Platform.isMacOS ? 1 : 0;
+/// The page header renders the picker-trigger [TextField] ahead of the search
+/// field wherever the Snippet-Picker exists at all — shifts every subsequent
+/// `find.byType(TextField).at(N)` index by one relative to a platform without
+/// a picker.
+///
+/// Read from the same availability answer the page reads
+/// ([snippetPickerAvailableOnPlatform]) rather than from `Platform` directly:
+/// a test that *injects* unavailability must not keep counting a field that
+/// is no longer rendered.
+final _fieldOffset = snippetPickerAvailableOnPlatform ? 1 : 0;
 
 /// Sends the platform's "new item" chord — Cmd on macOS, Ctrl elsewhere,
 /// exactly as `WpSearchableListPage` binds it.
@@ -416,6 +422,230 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Picker-Hotkey auf der Seite — zweite Aufrufstelle, eine Wahrheit (Ticket 27)
+  // ---------------------------------------------------------------------------
+
+  group('SnippetsPage — Picker-Hotkey', () {
+    Widget subject({AppSettings? settings, bool available = true}) =>
+        makeTestable(
+          const SnippetsPage(),
+          locale: const Locale('en'),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(settings ?? const AppSettings()),
+            ),
+            // Dieselbe eine Verfügbarkeits-Aussage, die auch die
+            // Einstellungs-Zeile liest — hier gestellt, damit beide Zweige
+            // unabhängig vom Rechner prüfbar sind, auf dem der Test läuft.
+            snippetPickerAvailabilityProvider.overrideWithValue(available),
+          ],
+        );
+
+    const enabledHotkey = AppSettings(
+      snippetPickerHotkey: SnippetPickerHotkeySettings(
+        snippetPickerHotkeyEnabled: true,
+        snippetPickerHotkeyKey: ';',
+        snippetPickerHotkeyKeyDisplay: 'Ö',
+        snippetPickerHotkeyModifiers: 'ctrl+alt',
+      ),
+    );
+
+    testWidgets('shows the combination next to the spoken trigger word', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject(settings: enabledHotkey));
+      await tester.pumpAndSettle();
+
+      // Beide Auslösewege in Sichtweite: das gesprochene Trigger-Wort und die
+      // Tastenkombination stehen in derselben Kopfkarte.
+      expect(find.text(l10n.snippetsPickerTriggerLabel), findsOneWidget);
+      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsOneWidget);
+      // Anzeige-Taste, nicht Speicher-Token — dieselbe Darstellungsform wie
+      // in den Einstellungen.
+      expect(find.text('Ö'), findsOneWidget);
+      expect(find.text(';'), findsNothing);
+    });
+
+    testWidgets('the combination is per page, not per snippet', (tester) async {
+      await tester.pumpWidget(subject(settings: enabledHotkey));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      );
+      await container.read(snippetsProvider.notifier).add('Signature', 'Best');
+      await container.read(snippetsProvider.notifier).add('Address', 'Street');
+      await tester.pumpAndSettle();
+
+      // Der Hotkey gehört dem Picker, nicht dem einzelnen Snippet — sonst
+      // stünde er zweimal in der Liste.
+      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsOneWidget);
+      expect(
+        find.byKey(const Key('snippetsPickerHotkeyChange')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('changing it here opens the same recorder dialog and writes '
+        'the same single stored state', (tester) async {
+      await tester.pumpWidget(subject(settings: enabledHotkey));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('snippetsPickerHotkeyChange')));
+      await tester.pumpAndSettle();
+      // Derselbe Dialog wie in den Einstellungen — kein zweiter.
+      expect(find.text(l10n.settingsHotkeyRecorderTitle), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.pumpAndSettle();
+
+      final saved = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      ).read(settingsProvider).value!.snippetPickerHotkey;
+      expect(saved.snippetPickerHotkeyKey, 'K');
+      expect(saved.snippetPickerHotkeyModifiers, 'ctrl+alt');
+      // Die Seite zeigt sofort, was gespeichert wurde: ein zweiter Zustand
+      // fiele genau hier auf.
+      expect(find.text('K'), findsOneWidget);
+    });
+
+    testWidgets('a combination already used by another WhisPaste hotkey is '
+        'refused here too', (tester) async {
+      await tester.pumpWidget(
+        subject(
+          settings: const AppSettings(
+            hotkey: HotkeySettings(
+              hotkeyEnabled: true,
+              hotkeyKey: 'D',
+              hotkeyModifiers: 'ctrl+shift',
+            ),
+            snippetPickerHotkey: SnippetPickerHotkeySettings(
+              snippetPickerHotkeyEnabled: true,
+              snippetPickerHotkeyKey: 'E',
+              snippetPickerHotkeyModifiers: 'ctrl+alt',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('snippetsPickerHotkeyChange')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      );
+      expect(
+        container
+            .read(settingsProvider)
+            .value!
+            .snippetPickerHotkey
+            .snippetPickerHotkeyKey,
+        'E',
+        reason: 'the collision check is the settings one, not a second copy',
+      );
+      expect(
+        find.byKey(const Key('snippetsPickerHotkeyCollisionNotice')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          l10n.settingsSnippetPickerHotkeyCollision(
+            l10n.settingsHotkeyActionRecording,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a switched-off hotkey says so and can be switched on from '
+        'here', (tester) async {
+      await tester.pumpWidget(subject());
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsPickerHotkeyOff), findsOneWidget);
+      expect(find.byKey(const Key('snippetsPickerHotkeyChange')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('snippetsPickerHotkeyEnable')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      );
+      expect(
+        container
+            .read(settingsProvider)
+            .value!
+            .snippetPickerHotkey
+            .snippetPickerHotkeyEnabled,
+        isTrue,
+      );
+      // Und die Zeile zeigt danach die Kombination, ohne dass jemand die Seite
+      // verlassen musste.
+      expect(find.text(l10n.snippetsPickerHotkeyOff), findsNothing);
+      expect(
+        find.byKey(const Key('snippetsPickerHotkeyChange')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('where the platform has no picker, the page says so and offers '
+        'neither trigger word nor hotkey', (tester) async {
+      await tester.pumpWidget(
+        subject(settings: enabledHotkey, available: false),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('snippetsPickerUnavailable')),
+        findsOneWidget,
+      );
+      // Derselbe Satz wie in den Einstellungen — eine Auskunft, ein Wortlaut.
+      expect(find.text(l10n.snippetsPickerUnavailable), findsOneWidget);
+      expect(find.text(l10n.snippetsPickerTriggerLabel), findsNothing);
+      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsNothing);
+      expect(find.byKey(const Key('snippetsPickerHotkeyChange')), findsNothing);
+      expect(find.byKey(const Key('snippetsPickerHotkeyEnable')), findsNothing);
+    });
+
+    testWidgets('the combination survives an accessibility text size without '
+        'clipping', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(2.0)),
+            child: SnippetsPage(),
+          ),
+          locale: const Locale('en'),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(enabledHotkey),
+            ),
+            snippetPickerAvailabilityProvider.overrideWithValue(true),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const Key('snippetsPickerHotkeyComboLine')),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -31,13 +31,6 @@
       "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1058, lib/core/config/settings_sections.dart:1157"
     },
     {
-      "fingerprint": "29ba1c20cdb28f11",
-      "ruleId": "unused-public-exports",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1186,
-      "message": "unused public method `copyWith`"
-    },
-    {
       "fingerprint": "0d2039e204345146",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
@@ -73,18 +66,18 @@
       "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:315"
     },
     {
-      "fingerprint": "855358159d3b21e5",
+      "fingerprint": "8f579366052fed5d",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
       "line": 85,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:85, lib/features/snippets/snippets_page.dart:61"
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:85, lib/features/snippets/snippets_page.dart:63"
     },
     {
-      "fingerprint": "54761673d0c0a850",
+      "fingerprint": "0d447fec8877d595",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
       "line": 125,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:125, lib/features/snippets/snippets_page.dart:101"
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:125, lib/features/snippets/snippets_page.dart:103"
     },
     {
       "fingerprint": "bc2554a1bedc4b79",

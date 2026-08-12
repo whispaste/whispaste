@@ -55,7 +55,11 @@ Widget _makeSection({required bool supportsKeyUp}) {
   final fakeSvc = _fakeHotkeyService(supportsKeyUp: supportsKeyUp);
 
   return makeTestable(
-    const KeyboardShortcutSection(),
+    // Scrollbar gepumpt, weil die Sektion seit dem dritten Hotkey (Ticket 27)
+    // höher ist als die 800×600-Testfläche und ein RenderFlex-Overflow den
+    // Test scheitern ließe. In der App steht sie ohnehin in der scrollenden
+    // Einstellungsseite — geprüft wird hier der Schalter, nicht die Höhe.
+    const SingleChildScrollView(child: KeyboardShortcutSection()),
     overrides: [hotkeyServiceProvider.overrideWith(() => fakeSvc)],
   );
 }

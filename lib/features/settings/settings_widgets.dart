@@ -8,6 +8,7 @@ import '../../core/config/settings_labels.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_button.dart';
 import '../../widgets/wp_dropdown.dart';
 import '../../widgets/wp_text_field.dart';
 
@@ -253,6 +254,88 @@ class HotkeyDisplay extends StatelessWidget {
             children: caps,
           )
         : Row(mainAxisSize: MainAxisSize.min, children: caps);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HotkeyComboLine — „Kombination: [Strg][Umschalt][E] (Ändern)"
+// ---------------------------------------------------------------------------
+
+/// Die Kombinations-Zeile eines nachgeordneten Hotkeys: Beschriftung,
+/// Tastenkappen, Ändern-Schaltfläche.
+///
+/// Steht als eigene Zeile *unter* ihrer [SettingRow] statt in deren
+/// `trailing`-Slot, und als [Wrap] statt [Row] — beides aus demselben Grund:
+/// der `trailing`-Slot bekommt in der Zeile unbegrenzte Breite, weshalb die
+/// Kombinations-Anzeige des Haupt-Hotkeys ab Textskalierung 1.5 nachweislich
+/// rechts überläuft. Ein [Wrap] kann das strukturell nicht.
+///
+/// Geteilt, seit es drei Hotkeys gibt (Ticket 27): der Schnellnotiz-Block, der
+/// Snippet-Picker-Block und die Snippets-Seite zeigen dieselbe Sache und
+/// sollen sie nicht dreimal unterschiedlich zeigen.
+class HotkeyComboLine extends StatelessWidget {
+  const HotkeyComboLine({
+    super.key,
+    required this.label,
+    required this.hotkeyKey,
+    required this.hotkeyModifiers,
+    required this.hotkeyKeyDisplay,
+    required this.onChange,
+    this.changeButtonKey,
+    this.padding = const EdgeInsets.fromLTRB(
+      kSettingRowInset,
+      WpSpacing.xxs,
+      kSettingRowInset,
+      WpSpacing.xs,
+    ),
+  });
+
+  /// Vorangestellte Beschriftung, z. B. „Kombination".
+  final String label;
+
+  final String hotkeyKey;
+  final String hotkeyModifiers;
+  final String hotkeyKeyDisplay;
+
+  /// Öffnet den Aufzeichnungs-Dialog. Der Aufrufer bringt den Weg mit — diese
+  /// Zeile kennt weder Kollisionsprüfung noch Speichern.
+  final VoidCallback onChange;
+
+  /// Nur zum Auffinden in Tests: mehrere Kombinations-Zeilen in einer Sektion
+  /// tragen dieselbe Beschriftung und wären sonst nur über ihren Index
+  /// unterscheidbar.
+  final Key? changeButtonKey;
+
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: padding,
+      child: Wrap(
+        spacing: WpSpacing.sm,
+        runSpacing: WpSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(label, style: tt.bodySmall?.copyWith(color: WpColors.textMuted)),
+          HotkeyDisplay(
+            hotkeyKey: hotkeyKey,
+            hotkeyModifiers: hotkeyModifiers,
+            hotkeyKeyDisplay: hotkeyKeyDisplay,
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            key: changeButtonKey,
+            label: l10n.settingsChangeHotkey,
+            variant: WpButtonVariant.secondary,
+            onPressed: onChange,
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -22,6 +22,19 @@ export 'snippet_picker_controller_interface.dart';
 /// which point this is the one place to update.
 bool get snippetPickerAvailableOnPlatform => Platform.isMacOS;
 
+/// [snippetPickerAvailableOnPlatform] as a provider — the same answer, reached
+/// the way the UI reaches everything else.
+///
+/// Exists because the getter reads `Platform` directly and a widget test can
+/// therefore only ever see the host it runs on: the „nicht verfügbar"-Zweig of
+/// the settings row and the Snippets page (ticket 27) would have no test at
+/// all on a macOS machine. Deliberately delegating rather than re-deriving —
+/// tickets 29/30 still flip exactly one line, and an override in a test is a
+/// stand-in for a different platform, not a second stored truth.
+final snippetPickerAvailabilityProvider = Provider<bool>(
+  (ref) => snippetPickerAvailableOnPlatform,
+);
+
 /// Creates the platform-specific [SnippetPickerController], or `null` if
 /// the current platform is unsupported (see [snippetPickerAvailableOnPlatform]).
 SnippetPickerController? createSnippetPickerController() {

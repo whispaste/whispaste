@@ -1386,6 +1386,24 @@ class L10nDe extends L10n {
       'Das Trigger-Wort ist gesetzt, aber es gibt noch keine Snippets — diktierst du es, wird es als normaler Text eingefügt, bis du dein erstes Snippet anlegst.';
 
   @override
+  String get snippetsPickerHotkeyLabel => 'Hotkey für den Picker';
+
+  @override
+  String get snippetsPickerHotkeySubtitle =>
+      'Öffnet den Picker sofort — der zweite Weg zum selben Panel.';
+
+  @override
+  String get snippetsPickerHotkeyOff =>
+      'Der Hotkey für den Picker ist ausgeschaltet.';
+
+  @override
+  String get snippetsPickerHotkeyEnable => 'Hotkey einschalten';
+
+  @override
+  String get snippetsPickerUnavailable =>
+      'Der Snippet-Picker ist auf dieser Plattform noch nicht verfügbar.';
+
+  @override
   String get snippetsPickerSemanticsLabel => 'Snippet-Picker';
 
   @override
@@ -2397,6 +2415,28 @@ class L10nDe extends L10n {
   @override
   String get settingsQuickNoteHotkeyInactive =>
       'Diese Kombination ließ sich nicht registrieren — der Schnellnotiz-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.';
+
+  @override
+  String get settingsHotkeyActionSnippetPicker => 'Snippet-Picker';
+
+  @override
+  String get settingsSnippetPickerHotkeyEnabled => 'Snippet-Picker-Hotkey';
+
+  @override
+  String get settingsSnippetPickerHotkeyHint =>
+      'Öffnet den Snippet-Picker sofort — ohne Aufnahme und ohne das gesprochene Trigger-Wort.';
+
+  @override
+  String get settingsSnippetPickerCurrentHotkey => 'Kombination';
+
+  @override
+  String settingsSnippetPickerHotkeyCollision(String action) {
+    return 'Diese Kombination ist schon für „$action“ vergeben. Wähl eine andere.';
+  }
+
+  @override
+  String get settingsSnippetPickerHotkeyInactive =>
+      'Diese Kombination ließ sich nicht registrieren — der Snippet-Picker-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.';
 
   @override
   String get settingsMaxRecordDuration => 'Maximale Aufnahmedauer';

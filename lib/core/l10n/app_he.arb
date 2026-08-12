@@ -473,6 +473,11 @@
   "snippetsPickerTriggerSubtitle": "אמור רק את המילה הזו כדי לפתוח את בוחר הקטעים. השאר ריק כדי לכבות את הבוחר.",
   "snippetsPickerTriggerHint": "לדוגמה: קטע",
   "snippetsPickerTriggerEmptyListHint": "מילת ההפעלה מוגדרת, אבל אין עדיין קטעים — הכתבה שלה תודבק כטקסט רגיל עד שתוסיף את הקטע הראשון.",
+  "snippetsPickerHotkeyLabel": "קיצור לבוחר",
+  "snippetsPickerHotkeySubtitle": "פותח את הבוחר מיד — הדרך השנייה לאותו חלון.",
+  "snippetsPickerHotkeyOff": "הקיצור לבוחר כבוי.",
+  "snippetsPickerHotkeyEnable": "הפעלת הקיצור",
+  "snippetsPickerUnavailable": "בוחר הקטעים עדיין אינו זמין בפלטפורמה הזו.",
   "snippetsPickerSemanticsLabel": "בוחר הקטעים",
   "snippetsPickerInsertAction": "הוסף",
 
@@ -797,6 +802,18 @@
     }
   },
   "settingsQuickNoteHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לפתק מהיר אינו פעיל כרגע. בחר צירוף אחר.",
+
+  "settingsHotkeyActionSnippetPicker": "בוחר הקטעים",
+  "settingsSnippetPickerHotkeyEnabled": "קיצור לבוחר הקטעים",
+  "settingsSnippetPickerHotkeyHint": "פותח את בוחר הקטעים מיד — בלי הקלטה ובלי מילת ההפעלה המדוברת.",
+  "settingsSnippetPickerCurrentHotkey": "צירוף מקשים",
+  "settingsSnippetPickerHotkeyCollision": "הצירוף הזה כבר משמש עבור \"{action}\". בחר צירוף אחר.",
+  "@settingsSnippetPickerHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSnippetPickerHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לבוחר הקטעים אינו פעיל כרגע. בחר צירוף אחר.",
   "hotkeyRegistrationFailed": "רישום קיצור הדרך נכשל, הגדר מחדש את הקיצור בהגדרות.",
   "hotkeyRegistrationFailedDefaultActive": "רישום קיצור הדרך נכשל, Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.",
   "hotkeyConflictWarning": "קיצור דרך זה שמור על ידי {platform} ({note}) ועלול לא לפעול.",
