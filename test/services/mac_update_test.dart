@@ -62,12 +62,12 @@ void main() {
       final s = build();
       // ditto stages a copy, then two renames move it into place atomically.
       expect(s, contains('/usr/bin/ditto'));
-      expect(s, contains('mv "\$TARGET" "\$BACKUP"'));
-      expect(s, contains('mv "\$STAGE" "\$TARGET"'));
+      expect(s, contains('mv "\$INNER_TARGET" "\$INNER_BACKUP"'));
+      expect(s, contains('mv "\$INNER_STAGE" "\$INNER_TARGET"'));
     });
 
     test('strips quarantine from the staged bundle', () {
-      expect(build(), contains('/usr/bin/xattr -dr com.apple.quarantine'));
+      expect(build(), contains('/usr/bin/xattr -dr com.apple.quarantine "\$INNER_STAGE"'));
     });
 
     test('escalates once via osascript when the target is not writable', () {
