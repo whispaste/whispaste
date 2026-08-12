@@ -6,22 +6,36 @@
       "fingerprint": "c01c5e0a3f3b3a8a",
       "ruleId": "complexity-hotspots",
       "filePath": "lib/core/config/settings_provider.dart",
-      "line": 477,
-      "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=21, cognitive=20 (cyclomatic 21 > 20)"
+      "line": 485,
+      "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=22, cognitive=21 (cyclomatic 22 > 20)"
     },
     {
-      "fingerprint": "8b4994f0a4170148",
+      "fingerprint": "a77b861f68ae918a",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 391,
-      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:391, lib/core/config/settings_sections.dart:1184"
+      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:391, lib/core/config/settings_sections.dart:1285"
     },
     {
-      "fingerprint": "4201e2f833006a17",
+      "fingerprint": "82e2ee494cf0fbda",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 407,
-      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1197"
+      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1298"
+    },
+    {
+      "fingerprint": "c8ac77839561313c",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1035,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1035, lib/core/config/settings_sections.dart:1134"
+    },
+    {
+      "fingerprint": "29ba1c20cdb28f11",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1163,
+      "message": "unused public method `copyWith`"
     },
     {
       "fingerprint": "b3d4f1236a7e8421",
@@ -78,6 +92,20 @@
       "filePath": "lib/services/history/history_exporter.dart",
       "line": 159,
       "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
+    },
+    {
+      "fingerprint": "788b1de15a43115e",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/services/hotkey_service.dart",
+      "line": 436,
+      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:436, lib/services/hotkey_service.dart:477"
+    },
+    {
+      "fingerprint": "04f9846953938c39",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/services/hotkey_service.dart",
+      "line": 560,
+      "message": "2 occurrences of duplicated block (87 tokens): lib/services/hotkey_service.dart:560, lib/services/hotkey_service.dart:582"
     }
   ]
 }

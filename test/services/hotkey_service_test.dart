@@ -952,4 +952,236 @@ void main() {
       );
     });
   });
+
+  group('HotkeyService — snippet-picker action (ticket 26)', () {
+    test(
+      'registers independently of the global and quick-note hotkeys',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyN);
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+
+        expect(registrar.registered, hasLength(3));
+        expect(
+          registrar.registered.map((k) => k.logicalKey),
+          containsAll([
+            LogicalKeyboardKey.keyD,
+            LogicalKeyboardKey.keyN,
+            LogicalKeyboardKey.keyE,
+          ]),
+        );
+      },
+    );
+
+    test(
+      'changing the snippet-picker combo does not re-register the other two hotkeys',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyN);
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyF);
+
+        expect(
+          registrar.unregistered.any(
+            (k) =>
+                k.logicalKey == LogicalKeyboardKey.keyD ||
+                k.logicalKey == LogicalKeyboardKey.keyN,
+          ),
+          isFalse,
+        );
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyF,
+          ),
+          isTrue,
+        );
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyE,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a failed snippet-picker registration reports conflict without a safe-default fallback',
+      () async {
+        final registrar = FakeHotKeyRegistrar()
+          ..throwOnFirstRegister = TypeError();
+        final service = _makeService(registrar);
+
+        await expectLater(
+          service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE),
+          completes,
+        );
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.space,
+          ),
+          isFalse,
+          reason: 'ticket 26 forbids a safe-default fallback for this action',
+        );
+        expect(registrar.registered, isEmpty);
+      },
+    );
+
+    test(
+      'a failed snippet-picker registration does not affect the already-registered global or quick-note hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyN);
+        registrar.throwOnFirstRegister = TypeError();
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+          ),
+          isTrue,
+        );
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyN,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'a failed global registration (safe-default fallback) does not affect an already-registered snippet-picker hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+        registrar.throwOnFirstRegister = TypeError();
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyE,
+          ),
+          isTrue,
+          reason: 'snippet-picker hotkey must remain registered and untouched',
+        );
+      },
+    );
+
+    test(
+      'no keyUpHandler is registered for the snippet-picker action even when '
+      'the registrar supports keyUp (one-shot, no push-to-talk)',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+        final service = _makeService(registrar);
+
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+
+        expect(registrar.capturedKeyUpHandler, isNull);
+      },
+    );
+
+    test(
+      'snippet-picker registration does not start the shared keyboard-up monitor',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+
+        expect(monitor.started, isEmpty);
+      },
+    );
+
+    test(
+      'snippet-picker key-down fires onSnippetPickerHotkeyPressed exactly once per press',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var presses = 0;
+        service.onSnippetPickerHotkeyPressed = () => presses++;
+
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+
+        expect(presses, 1);
+      },
+    );
+
+    test(
+      'auto-repeat suppression is independent of the other two actions',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var globalPresses = 0;
+        var snippetPickerPresses = 0;
+        service.onHotkeyPressed = () => globalPresses++;
+        service.onSnippetPickerHotkeyPressed = () => snippetPickerPresses++;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+
+        final globalDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyD.keyId]!;
+        final snippetPickerDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyE.keyId]!;
+        final globalHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+        );
+        final snippetPickerHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyE,
+        );
+
+        globalDown(globalHotKey);
+        globalDown(globalHotKey);
+        expect(globalPresses, 1);
+
+        snippetPickerDown(snippetPickerHotKey);
+        expect(snippetPickerPresses, 1);
+      },
+    );
+  });
+
+  group('snippetPickerHotkeyRegistrationStatusProvider', () {
+    test('starts unknown and reflects .set() calls independently', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(snippetPickerHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+
+      container
+          .read(snippetPickerHotkeyRegistrationStatusProvider.notifier)
+          .set(HotkeyRegistrationStatus.conflict);
+
+      expect(
+        container.read(snippetPickerHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.conflict,
+      );
+      // Independent of the other two status providers.
+      expect(
+        container.read(hotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+      expect(
+        container.read(quickNoteHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+    });
+  });
 }

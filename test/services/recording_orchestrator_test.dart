@@ -915,6 +915,238 @@ void main() {
   });
 
   // =========================================================================
+  // Snippet-Picker hotkey (ticket 26) — opens the panel directly by hotkey,
+  // WITHOUT starting a recording, STT run, or history entry.
+  // =========================================================================
+
+  group('Snippet-Picker hotkey (ticket 26)', () {
+    late FakeSnippetPickerController fakeSnippetPicker;
+
+    ProviderContainer buildSnippetPickerHotkeyContainer(AppSettings settings) {
+      return ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          snippetPickerControllerProvider.overrideWithValue(fakeSnippetPicker),
+        ],
+      );
+    }
+
+    setUp(() {
+      fakeSnippetPicker = FakeSnippetPickerController();
+      container.dispose();
+      container = buildSnippetPickerHotkeyContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+    });
+
+    /// Reads the orchestrator notifier and lets its pre-warm `build()`
+    /// microtask settle — same idiom as [startRecordingPhase] above, minus
+    /// the phase transition (the hotkey path must never touch it).
+    Future<RecordingOrchestrator> readOrchestrator() async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      return orch;
+    }
+
+    test('opens the panel with all snippets, capturing the paste target '
+        'exactly once, without starting any recording', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+      final orch = await readOrchestrator();
+
+      await orch.openSnippetPickerViaHotkey();
+
+      expect(fakeSnippetPicker.showCalls, hasLength(1));
+      expect(fakeDesktopPaste.captureCalls, 1);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(fakeAudio.startCallCount, 0);
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test(
+      'selecting a snippet afterward does not re-capture the paste target',
+      () async {
+        await container.read(settingsProvider.future);
+        await db.upsertSnippet(
+          id: 's1',
+          title: 'Greeting',
+          body: 'Hello there!',
+          createdAt: DateTime.now(),
+        );
+        final orch = await readOrchestrator();
+
+        await orch.openSnippetPickerViaHotkey();
+        fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(fakeDesktopPaste.captureCalls, 1);
+        expect(fakeDesktopPaste.typeCalls, 1);
+        expect(fakeDesktopPaste.lastTypedText, 'Hello there!');
+      },
+    );
+
+    test(
+      'a running recording suppresses the hotkey without aborting it',
+      () async {
+        await container.read(settingsProvider.future);
+        await db.upsertSnippet(
+          id: 's1',
+          title: 'Greeting',
+          body: 'Hello there!',
+          createdAt: DateTime.now(),
+        );
+        final orch = await readOrchestrator();
+        container.read(recordingProvider.notifier).startRecording();
+
+        await orch.openSnippetPickerViaHotkey();
+
+        expect(fakeSnippetPicker.showCalls, isEmpty);
+        expect(fakeDesktopPaste.captureCalls, 0);
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+      },
+    );
+
+    test('a repeated press does not reopen an already-open panel', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+      final orch = await readOrchestrator();
+
+      await orch.openSnippetPickerViaHotkey();
+      await orch.openSnippetPickerViaHotkey();
+
+      expect(fakeSnippetPicker.showCalls, hasLength(1));
+      expect(fakeDesktopPaste.captureCalls, 1);
+    });
+
+    test('a cancelled panel allows the next press to open it again', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+      final orch = await readOrchestrator();
+
+      await orch.openSnippetPickerViaHotkey();
+      fakeSnippetPicker.fireEvent(const SnippetPickerCancelled());
+      await Future<void>.delayed(Duration.zero);
+      await orch.openSnippetPickerViaHotkey();
+
+      expect(fakeSnippetPicker.showCalls, hasLength(2));
+    });
+
+    test('an empty snippet list reports the same info signal as the voice '
+        'path, without falling back to any pipeline', () async {
+      await container.read(settingsProvider.future);
+      final orch = await readOrchestrator();
+
+      await orch.openSnippetPickerViaHotkey();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+      expect(
+        container.read(recordingInfoProvider),
+        'info_snippet_picker_empty',
+      );
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('on a platform without a native picker, the hotkey does nothing '
+        'harmful', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+      // snippetPickerAvailableOnPlatform is hardcoded to Platform.isMacOS
+      // and can't be faked from a test; overriding the controller provider
+      // to null instead reaches the same `unavailable` outcome one level
+      // down — SnippetPickerService.show() sees a null controller exactly
+      // like createSnippetPickerController() would return on Windows/Linux.
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(
+              const AppSettings(
+                stt: SttSettings(model: 'whisper-small', language: 'English'),
+                afterTranscriptionSection: AfterTranscriptionSettings(
+                  afterTranscription: 'nothing',
+                ),
+                onboarding: OnboardingSettings(onboardingCompleted: true),
+              ),
+            ),
+          ),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          snippetPickerControllerProvider.overrideWithValue(null),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      final orch = await readOrchestrator();
+
+      await expectLater(orch.openSnippetPickerViaHotkey(), completes);
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(fakeAudio.startCallCount, 0);
+      expect(await db.allEntries(), isEmpty);
+    });
+  });
+
+  // =========================================================================
   // Error during STT start
   // =========================================================================
 

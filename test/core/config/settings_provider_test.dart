@@ -352,6 +352,25 @@ void main() {
         expect(result.windowMaximized, true);
       },
     );
+
+    test(
+      'a copyWith call that only touches an unrelated field keeps snippetPickerHotkey',
+      () {
+        const settings = AppSettings(
+          snippetPickerHotkey: SnippetPickerHotkeySettings(
+            snippetPickerHotkeyEnabled: true,
+            snippetPickerHotkeyKey: 'E',
+            snippetPickerHotkeyModifiers: 'ctrl+shift',
+          ),
+        );
+
+        final result = settings.copyWith(windowMaximized: true);
+
+        expect(result.snippetPickerHotkey.snippetPickerHotkeyEnabled, true);
+        expect(result.snippetPickerHotkey.snippetPickerHotkeyKey, 'E');
+        expect(result.windowMaximized, true);
+      },
+    );
   });
 
   group('quickNoteHotkey settings (ticket 20)', () {
@@ -399,6 +418,61 @@ void main() {
 
       expect(restored.quickNoteHotkey, original);
     });
+  });
+
+  group('snippetPickerHotkey settings (ticket 26)', () {
+    test('defaults: disabled, key E, platform-aware modifiers', () {
+      final defaults = AppSettings.defaults;
+
+      expect(defaults.snippetPickerHotkey.snippetPickerHotkeyEnabled, false);
+      expect(defaults.snippetPickerHotkey.snippetPickerHotkeyKey, 'E');
+      expect(
+        defaults.snippetPickerHotkey.snippetPickerHotkeyModifiers,
+        Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+      );
+    });
+
+    test(
+      'missing storage keys fall back to defaults (no migration needed)',
+      () {
+        final settings = AppSettings.fromStorageMap(const {});
+
+        expect(
+          settings.snippetPickerHotkey,
+          SnippetPickerHotkeySettings.defaults,
+        );
+      },
+    );
+
+    test('round-trips through toStorageMap/fromStorageMap', () {
+      const original = SnippetPickerHotkeySettings(
+        snippetPickerHotkeyEnabled: true,
+        snippetPickerHotkeyKey: 'E',
+        snippetPickerHotkeyKeyDisplay: 'E',
+        snippetPickerHotkeyModifiers: 'meta+shift',
+      );
+      const settings = AppSettings(snippetPickerHotkey: original);
+
+      final restored = AppSettings.fromStorageMap(settings.toStorageMap());
+
+      expect(restored.snippetPickerHotkey, original);
+    });
+
+    test(
+      'does not affect quickNoteHotkey or the global hotkey when set independently',
+      () {
+        const settings = AppSettings(
+          snippetPickerHotkey: SnippetPickerHotkeySettings(
+            snippetPickerHotkeyEnabled: true,
+            snippetPickerHotkeyKey: 'E',
+            snippetPickerHotkeyModifiers: 'ctrl+shift',
+          ),
+        );
+
+        expect(settings.quickNoteHotkey, QuickNoteHotkeySettings.defaults);
+        expect(settings.hotkey, HotkeySettings.defaults);
+      },
+    );
   });
 
   group('sound mute migration (issue 12)', () {

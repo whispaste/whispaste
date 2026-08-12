@@ -22,7 +22,6 @@ import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
-import '../features/snippets/snippets_page.dart' show SnippetItem;
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
@@ -32,6 +31,8 @@ import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'store_thank_you_service.dart';
+import 'snippet_picker/snippet_picker_controller.dart'
+    show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
 import 'snippet_picker/snippet_picker_service.dart';
 import 'sound_feedback_service.dart';
@@ -1372,40 +1373,63 @@ class RecordingOrchestrator extends Notifier<void> {
   ) async {
     final trigger = settings.behavior.snippetPickerTrigger;
     if (!snippetPickerTriggerMatches(trigger, transcript)) return false;
-    try {
-      final db = ref.read(historyDatabaseProvider);
-      final snippetRows = await db.readAllSnippets();
-      final items = [
-        for (final row in snippetRows)
-          SnippetItem(id: row.id, title: row.title, body: row.body),
-      ];
+    final result = await openSnippetPicker(ref, sid);
+    // Only `shown` consumes the dictation; `emptyList`/`unavailable` fall
+    // back to the normal pipeline (saved + pasted as usual) — the info
+    // signal for `emptyList` is already handled inside [openSnippetPicker].
+    return result == SnippetPickerShowResult.shown;
+  }
 
-      final result = await ref
-          .read(snippetPickerServiceProvider.notifier)
-          .show(items: items);
-      switch (result) {
-        case SnippetPickerShowResult.shown:
-          _log.info('[$sid] Snippet-Picker opened (trigger="$trigger")');
-          return true;
-        case SnippetPickerShowResult.emptyList:
-          // Trigger matched but there is nothing to pick from. The transcript
-          // falls through to the normal pipeline (saved + pasted as usual) —
-          // without this info signal that fallback is indistinguishable from
-          // "the trigger didn't work" for the user.
-          _log.info(
-            '[$sid] Snippet-Picker trigger matched but no snippets exist — '
-            'falling back to the normal pipeline',
-          );
-          ref
-              .read(recordingInfoProvider.notifier)
-              .show('info_snippet_picker_empty');
-          return false;
-        case SnippetPickerShowResult.unavailable:
-          return false;
-      }
-    } on Exception catch (e) {
-      _log.warning('[$sid] Snippet-Picker dispatch failed: $e');
-      return false;
+  /// In-flight guard for [openSnippetPickerViaHotkey] — set synchronously
+  /// before the first `await`, so a second hotkey press landing in the gap
+  /// between the busy/already-open checks and [SnippetPickerService.show]
+  /// actually flipping `isOpen` (paste-target priming is async and sits in
+  /// between) can never open a second panel. Mirrors [_startInFlight]'s
+  /// reentrancy-lock idiom.
+  bool _snippetPickerHotkeyInFlight = false;
+
+  /// Opens the Snippet-Picker panel from the systemwide Snippet-Picker
+  /// hotkey (ticket 26) — functionally identical to what the spoken trigger
+  /// word does via [_tryDispatchSnippetPicker]/[openSnippetPicker], except
+  /// **without starting any recording, STT run, or history entry**: this is
+  /// a one-shot UI action, not a dictation, so it never touches
+  /// [RecordingPhase], the microphone, or the overlay.
+  ///
+  /// Captures the paste target exactly once, right here, before the panel
+  /// opens — mirroring [startRecording]'s `paster.prime()` call — because
+  /// [SnippetPickerService] itself never primes (see its class doc, updated
+  /// for this caller). At key-down the foreign app is still frontmost, so
+  /// this is the only correct moment to capture; capturing again on
+  /// selection would hit WhisPaste's own window instead.
+  ///
+  /// Ignored (logged, not silently swallowed) while a recording is in
+  /// progress — the two paths would otherwise race for focus and the paste
+  /// target — and while the panel is already open.
+  Future<void> openSnippetPickerViaHotkey() async {
+    if (_snippetPickerHotkeyInFlight) {
+      _log.debug('Snippet-Picker hotkey ignored (already opening)');
+      return;
+    }
+    if (!snippetPickerAvailableOnPlatform) {
+      _log.info('Snippet-Picker hotkey ignored: unavailable on this platform');
+      return;
+    }
+    final phase = ref.read(recordingProvider).phase;
+    if (phase == RecordingPhase.recording ||
+        phase == RecordingPhase.transcribing) {
+      _log.info('Snippet-Picker hotkey ignored: recording in progress');
+      return;
+    }
+    if (ref.read(snippetPickerServiceProvider.notifier).isOpen) {
+      _log.debug('Snippet-Picker hotkey ignored: panel already open');
+      return;
+    }
+    _snippetPickerHotkeyInFlight = true;
+    try {
+      await ref.read(pasterProvider)?.prime();
+      await openSnippetPicker(ref, 'snippet-hotkey');
+    } finally {
+      _snippetPickerHotkeyInFlight = false;
     }
   }
 

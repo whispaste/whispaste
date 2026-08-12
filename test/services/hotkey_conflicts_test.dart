@@ -356,4 +356,147 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Ticket 26 — Snippet-Picker hotkey default (Ctrl+Shift+E / Cmd+Shift+E)
+  //
+  // Full copies of the three platform lists as they stood when this default
+  // was chosen — reconstructed locally (mirroring the coverage groups above)
+  // so the check runs identically regardless of the test-runner OS. If the
+  // production lists later grow a `ctrl+shift`/`meta+shift` + `E` entry,
+  // these tests fail loudly rather than the conflict going unnoticed.
+  // ---------------------------------------------------------------------------
+
+  group('Ticket 26 — Snippet-Picker hotkey default is conflict-free', () {
+    const macConflicts = <ConflictEntry>[
+      ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Spotlight'),
+      ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'App Switcher'),
+      ConflictEntry(modifiers: 'meta', key: 'Q', note: 'Quit App'),
+      ConflictEntry(modifiers: 'meta', key: 'W', note: 'Close Window'),
+      ConflictEntry(modifiers: 'meta', key: 'H', note: 'Hide App'),
+      ConflictEntry(modifiers: 'meta', key: 'M', note: 'Minimize Window'),
+      ConflictEntry(modifiers: 'meta', key: '`', note: 'Cycle Windows'),
+      ConflictEntry(
+        modifiers: 'meta+shift',
+        key: '3',
+        note: 'Screenshot (full screen)',
+      ),
+      ConflictEntry(
+        modifiers: 'meta+shift',
+        key: '4',
+        note: 'Screenshot (selection)',
+      ),
+      ConflictEntry(
+        modifiers: 'meta+shift',
+        key: '5',
+        note: 'Screenshot/Screen Recording',
+      ),
+      ConflictEntry(
+        modifiers: 'ctrl+meta',
+        key: 'Space',
+        note: 'Emoji & Symbols picker',
+      ),
+      ConflictEntry(
+        modifiers: 'meta+option',
+        key: 'Esc',
+        note: 'Force Quit dialog',
+      ),
+    ];
+
+    const windowsConflicts = <ConflictEntry>[
+      ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock workstation'),
+      ConflictEntry(modifiers: 'meta', key: 'D', note: 'Show/Hide Desktop'),
+      ConflictEntry(modifiers: 'meta', key: 'E', note: 'File Explorer'),
+      ConflictEntry(modifiers: 'meta', key: 'R', note: 'Run dialog'),
+      ConflictEntry(modifiers: 'meta', key: 'I', note: 'Settings'),
+      ConflictEntry(modifiers: 'meta', key: 'S', note: 'Search'),
+      ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'Task View'),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'Space',
+        note: 'Input language switch',
+      ),
+      ConflictEntry(modifiers: 'meta', key: '↑', note: 'Maximize window'),
+      ConflictEntry(modifiers: 'meta', key: '↓', note: 'Minimize window'),
+      ConflictEntry(modifiers: 'meta', key: '←', note: 'Snap window left'),
+      ConflictEntry(modifiers: 'meta', key: '→', note: 'Snap window right'),
+      ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
+      ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
+      ConflictEntry(
+        modifiers: 'ctrl+alt',
+        key: 'Delete',
+        note: 'Security options / Task Manager',
+      ),
+      ConflictEntry(modifiers: 'ctrl+shift', key: 'Esc', note: 'Task Manager'),
+    ];
+
+    const linuxConflicts = <ConflictEntry>[
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'L',
+        note: 'Lock screen (GNOME/KDE)',
+      ),
+      ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
+      ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
+      ConflictEntry(modifiers: 'alt', key: 'F2', note: 'Run dialog (KDE)'),
+      ConflictEntry(
+        modifiers: 'ctrl+alt',
+        key: 'Delete',
+        note: 'System logout/shutdown dialog',
+      ),
+      ConflictEntry(
+        modifiers: 'ctrl+alt',
+        key: 'T',
+        note: 'Open terminal (GNOME/KDE default)',
+      ),
+      ConflictEntry(
+        modifiers: 'ctrl+alt',
+        key: 'L',
+        note: 'Lock screen (GNOME)',
+      ),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'Space',
+        note: 'Activity overview (KDE)',
+      ),
+    ];
+
+    test('Ctrl+Shift+E has no system conflict on Windows/Linux', () {
+      expect(
+        findConflict('ctrl+shift', 'E', conflicts: windowsConflicts),
+        isNull,
+      );
+      expect(
+        findConflict('ctrl+shift', 'E', conflicts: linuxConflicts),
+        isNull,
+      );
+    });
+
+    test('Cmd+Shift+E has no system conflict on macOS', () {
+      expect(findConflict('meta+shift', 'E', conflicts: macConflicts), isNull);
+    });
+
+    test('does not collide with the global or quick-note hotkey defaults', () {
+      const global = HotkeyBinding(
+        actionId: 'global',
+        actionLabel: 'Aufnahme',
+        key: 'D',
+        modifiers: 'ctrl+shift',
+      );
+      const quickNote = HotkeyBinding(
+        actionId: 'quickNote',
+        actionLabel: 'Schnellnotiz',
+        key: 'N',
+        modifiers: 'ctrl+shift',
+      );
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+shift',
+          key: 'E',
+          bindings: const [global, quickNote],
+        ),
+        isNull,
+      );
+    });
+  });
 }

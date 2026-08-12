@@ -90,6 +90,13 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     );
     hotkeySvc.onQuickNoteHotkeyPressed = _quickNoteTriggerHandler.onKeyDown;
 
+    // ── Snippet-Picker hotkey (ticket 26) — one-shot, no recording, so no
+    // RecordingTriggerHandler needed: just a direct closure into the
+    // orchestrator's dedicated method. ──
+    hotkeySvc.onSnippetPickerHotkeyPressed = () => ref
+        .read(recordingOrchestratorProvider.notifier)
+        .openSnippetPickerViaHotkey();
+
     // ── Tray callbacks — stateless closures, safe to wire once ──
     final tray = ref.read(trayServiceProvider.notifier);
     tray.onToggleRecording = () {

@@ -56,6 +56,7 @@ class AppSettings {
     this.history = const HistorySettings(),
     this.hotkey = const HotkeySettings(),
     this.quickNoteHotkey = const QuickNoteHotkeySettings(),
+    this.snippetPickerHotkey = const SnippetPickerHotkeySettings(),
     this.windowPosition = const WindowPositionSettings(),
     this.onboarding = const OnboardingSettings(),
     this.benchmark = const BenchmarkSettings(),
@@ -109,6 +110,10 @@ class AppSettings {
 
   /// Quick-note hotkey settings (second, independently configurable hotkey).
   final QuickNoteHotkeySettings quickNoteHotkey;
+
+  /// Snippet-Picker hotkey settings (third, independently configurable
+  /// hotkey — opens the Snippet-Picker panel directly, ticket 26).
+  final SnippetPickerHotkeySettings snippetPickerHotkey;
 
   /// Window & overlay position settings.
   final WindowPositionSettings windowPosition;
@@ -369,6 +374,7 @@ class AppSettings {
   static final AppSettings defaults = AppSettings(
     hotkey: buildDefaultHotkeySettings(),
     quickNoteHotkey: buildDefaultQuickNoteHotkeySettings(),
+    snippetPickerHotkey: buildDefaultSnippetPickerHotkeySettings(),
   );
 
   /// Creates settings from persisted key-value storage.
@@ -388,6 +394,7 @@ class AppSettings {
       history: HistorySettings.fromMap(values),
       hotkey: HotkeySettings.fromMap(values),
       quickNoteHotkey: QuickNoteHotkeySettings.fromMap(values),
+      snippetPickerHotkey: SnippetPickerHotkeySettings.fromMap(values),
       windowPosition: WindowPositionSettings.fromMap(values),
       onboarding: OnboardingSettings.fromMap(values),
       benchmark: BenchmarkSettings.fromMap(values),
@@ -450,6 +457,7 @@ class AppSettings {
     ...history.toMap(),
     ...hotkey.toMap(),
     ...quickNoteHotkey.toMap(),
+    ...snippetPickerHotkey.toMap(),
     ...windowPosition.toMap(),
     ...onboarding.toMap(),
     ...benchmark.toMap(),
@@ -489,6 +497,7 @@ class AppSettings {
     HistorySettings? history,
     HotkeySettings? hotkey,
     QuickNoteHotkeySettings? quickNoteHotkey,
+    SnippetPickerHotkeySettings? snippetPickerHotkey,
     WindowPositionSettings? windowPosition,
     OnboardingSettings? onboarding,
     BenchmarkSettings? benchmark,
@@ -512,6 +521,7 @@ class AppSettings {
       history: history ?? this.history,
       hotkey: hotkey ?? this.hotkey,
       quickNoteHotkey: quickNoteHotkey ?? this.quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey ?? this.snippetPickerHotkey,
       windowPosition: windowPosition ?? this.windowPosition,
       onboarding: onboarding ?? this.onboarding,
       benchmark: benchmark ?? this.benchmark,
@@ -689,9 +699,10 @@ class AppSettings {
       // reset the autosave configuration with it.
       portabilityPaths: portabilityPaths,
       autosave: autosave,
-      // Same pass-through requirement as above — quickNoteHotkey has no
-      // legacy top-level parameter either.
+      // Same pass-through requirement as above — quickNoteHotkey/
+      // snippetPickerHotkey have no legacy top-level parameter either.
       quickNoteHotkey: quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey,
     );
   }
 
@@ -714,6 +725,7 @@ class AppSettings {
           history == other.history &&
           hotkey == other.hotkey &&
           quickNoteHotkey == other.quickNoteHotkey &&
+          snippetPickerHotkey == other.snippetPickerHotkey &&
           windowPosition == other.windowPosition &&
           onboarding == other.onboarding &&
           benchmark == other.benchmark &&
@@ -721,8 +733,12 @@ class AppSettings {
           portabilityPaths == other.portabilityPaths &&
           autosave == other.autosave;
 
+  // Object.hash() caps at 20 positional arguments; this aggregate now has
+  // 21 sections, so hashAll's list form (no arg-count limit) is required —
+  // switching it here rather than only at the moment of overflow keeps this
+  // list's order trivially diffable against the field list above.
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     interface_,
     audioInput,
     recordingSafety,
@@ -737,13 +753,14 @@ class AppSettings {
     history,
     hotkey,
     quickNoteHotkey,
+    snippetPickerHotkey,
     windowPosition,
     onboarding,
     benchmark,
     privacy,
     portabilityPaths,
     autosave,
-  );
+  ]);
 }
 
 String _settingModelFromConfig(String modelId) {

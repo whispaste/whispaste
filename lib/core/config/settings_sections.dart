@@ -1098,6 +1098,107 @@ class QuickNoteHotkeySettings {
 }
 
 // ===========================================================================
+// Section 13c — Snippet-Picker hotkey
+// ===========================================================================
+
+/// Settings for the third, independently configurable global hotkey that
+/// opens the Snippet-Picker panel directly, without a recording (ticket 26).
+/// Mirrors [QuickNoteHotkeySettings] in shape; kept as its own section (same
+/// rationale as 13b) so the other two hotkeys' storage keys, defaults and
+/// tests stay untouched.
+class SnippetPickerHotkeySettings {
+  const SnippetPickerHotkeySettings({
+    this.snippetPickerHotkeyEnabled = false,
+    this.snippetPickerHotkeyKey = 'E',
+    this.snippetPickerHotkeyKeyDisplay = '',
+    this.snippetPickerHotkeyModifiers = 'ctrl+shift',
+  });
+
+  /// Off by default — an existing user must opt in, never gets a system-wide
+  /// shortcut silently claimed by an update.
+  final bool snippetPickerHotkeyEnabled;
+
+  /// Canonical storage token for the non-modifier key, as consumed by
+  /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
+  final String snippetPickerHotkeyKey;
+
+  /// User-visible label for [snippetPickerHotkeyKey] (see
+  /// [HotkeySettings.hotkeyKeyDisplay]).
+  final String snippetPickerHotkeyKeyDisplay;
+
+  final String snippetPickerHotkeyModifiers;
+
+  static const SnippetPickerHotkeySettings defaults =
+      SnippetPickerHotkeySettings();
+
+  factory SnippetPickerHotkeySettings.fromMap(Map<String, String> v) =>
+      SnippetPickerHotkeySettings(
+        snippetPickerHotkeyEnabled: _readBool(
+          v,
+          'snippet_picker_hotkey_enabled',
+          defaults.snippetPickerHotkeyEnabled,
+        ),
+        snippetPickerHotkeyKey:
+            v['snippet_picker_hotkey_key'] ?? defaults.snippetPickerHotkeyKey,
+        snippetPickerHotkeyKeyDisplay:
+            v['snippet_picker_hotkey_key_display'] ??
+            defaults.snippetPickerHotkeyKeyDisplay,
+        snippetPickerHotkeyModifiers:
+            v['snippet_picker_hotkey_modifiers'] ??
+            defaults.snippetPickerHotkeyModifiers,
+      );
+
+  Map<String, String> toMap() => {
+    'snippet_picker_hotkey_enabled': '$snippetPickerHotkeyEnabled',
+    'snippet_picker_hotkey_key': snippetPickerHotkeyKey,
+    'snippet_picker_hotkey_key_display': snippetPickerHotkeyKeyDisplay,
+    'snippet_picker_hotkey_modifiers': snippetPickerHotkeyModifiers,
+  };
+
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the SttSettings comment above and the ~15
+  // other section classes below); it is established repo-wide boilerplate,
+  // not accidental duplication.
+  SnippetPickerHotkeySettings copyWith({
+    bool? snippetPickerHotkeyEnabled,
+    String? snippetPickerHotkeyKey,
+    String? snippetPickerHotkeyKeyDisplay,
+    String? snippetPickerHotkeyModifiers,
+  }) => SnippetPickerHotkeySettings(
+    snippetPickerHotkeyEnabled:
+        snippetPickerHotkeyEnabled ?? this.snippetPickerHotkeyEnabled,
+    snippetPickerHotkeyKey:
+        snippetPickerHotkeyKey ?? this.snippetPickerHotkeyKey,
+    snippetPickerHotkeyKeyDisplay:
+        snippetPickerHotkeyKeyDisplay ?? this.snippetPickerHotkeyKeyDisplay,
+    snippetPickerHotkeyModifiers:
+        snippetPickerHotkeyModifiers ?? this.snippetPickerHotkeyModifiers,
+  );
+
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file
+  // (see the copyWith comment above), not accidental duplication.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SnippetPickerHotkeySettings &&
+          snippetPickerHotkeyEnabled == other.snippetPickerHotkeyEnabled &&
+          snippetPickerHotkeyKey == other.snippetPickerHotkeyKey &&
+          snippetPickerHotkeyKeyDisplay ==
+              other.snippetPickerHotkeyKeyDisplay &&
+          snippetPickerHotkeyModifiers == other.snippetPickerHotkeyModifiers;
+
+  @override
+  int get hashCode => Object.hash(
+    snippetPickerHotkeyEnabled,
+    snippetPickerHotkeyKey,
+    snippetPickerHotkeyKeyDisplay,
+    snippetPickerHotkeyModifiers,
+  );
+}
+
+// ===========================================================================
 // Section 14 — Window Positions
 // ===========================================================================
 
@@ -1637,4 +1738,14 @@ HotkeySettings buildDefaultHotkeySettings() => HotkeySettings(
 QuickNoteHotkeySettings buildDefaultQuickNoteHotkeySettings() =>
     QuickNoteHotkeySettings(
       quickNoteHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+    );
+
+/// Build a [SnippetPickerHotkeySettings] with the platform-correct default
+/// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+E` combination
+/// (ticket 26).
+SnippetPickerHotkeySettings buildDefaultSnippetPickerHotkeySettings() =>
+    SnippetPickerHotkeySettings(
+      snippetPickerHotkeyModifiers: Platform.isMacOS
+          ? 'meta+shift'
+          : 'ctrl+shift',
     );

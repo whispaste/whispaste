@@ -47,7 +47,11 @@ enum SnippetPickerShowResult {
 /// a stale target or, worse, clear it outright (native `captureTarget()`
 /// clears the stored target whenever WhisPaste itself is frontmost, which it
 /// is while this panel holds keyboard focus for search). This is the
-/// mechanism behind ticket 06's "never triggers a re-capture" AC.
+/// mechanism behind ticket 06's "never triggers a re-capture" AC. The voice
+/// path primes at `startRecording()`; the systemwide Snippet-Picker hotkey
+/// (ticket 26, `RecordingOrchestrator.openSnippetPickerViaHotkey`) primes at
+/// key-down, before calling [show] — this class must stay uninvolved in
+/// priming for either caller.
 class SnippetPickerService
     extends
         FloatingPlatformServiceBase<
@@ -59,6 +63,14 @@ class SnippetPickerService
   /// round-tripping the body through the native event.
   Map<String, SnippetItem> _shown = const {};
 
+  bool _isOpen = false;
+
+  /// Whether the panel is currently open (a [show] call succeeded and
+  /// neither a selection nor a cancellation event has arrived yet). Read by
+  /// [RecordingOrchestrator.openSnippetPickerViaHotkey] (ticket 26) to avoid
+  /// opening a second panel on a repeated hotkey press.
+  bool get isOpen => _isOpen;
+
   @override
   SnippetPickerController? createController() =>
       ref.read(snippetPickerControllerProvider);
@@ -68,15 +80,19 @@ class SnippetPickerService
       controller.events;
 
   @override
-  Future<void> disposeController(SnippetPickerController controller) =>
-      controller.dispose();
+  Future<void> disposeController(SnippetPickerController controller) {
+    _isOpen = false;
+    return controller.dispose();
+  }
 
   @override
   void onEvent(SnippetPickerEvent event) {
     switch (event) {
       case SnippetPickerItemSelected(:final id):
+        _isOpen = false;
         unawaited(_insert(id));
       case SnippetPickerCancelled():
+        _isOpen = false;
         _log.debug('Snippet-Picker cancelled without a selection');
       case SnippetPickerRenderEngineDiagnostic(:final message, :final isError):
         if (isError) {
@@ -112,6 +128,7 @@ class SnippetPickerService
           {'id': item.id, 'title': item.title, 'body': item.body},
       ],
     );
+    _isOpen = true;
     return SnippetPickerShowResult.shown;
   }
 

@@ -124,6 +124,27 @@ final quickNoteHotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatus
     >(QuickNoteHotkeyRegistrationStatusController.new);
 
+/// Notifier holding the [HotkeyRegistrationStatus] for the Snippet-Picker
+/// hotkey (ticket 26) — kept fully separate from the other two status
+/// providers so a conflict on one action never surfaces as a conflict on
+/// another.
+class SnippetPickerHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the Snippet-Picker [HotkeyRegistrationStatus] state.
+final snippetPickerHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      SnippetPickerHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(SnippetPickerHotkeyRegistrationStatusController.new);
+
 // ---------------------------------------------------------------------------
 // Safe-default hotkey
 // ---------------------------------------------------------------------------
@@ -188,6 +209,11 @@ class HotkeyService extends Notifier<void> {
   /// [_stateFor] without another round of this refactor.
   static const _quickNoteActionId = 'quickNote';
 
+  /// Action identifier for the third, toggle-only Snippet-Picker hotkey
+  /// (ticket 26) — reuses [_stateFor] exactly as [_quickNoteActionId] does,
+  /// per its own doc comment above.
+  static const _snippetPickerActionId = 'snippetPicker';
+
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
 
@@ -209,6 +235,12 @@ class HotkeyService extends Notifier<void> {
   /// action never offers push-to-talk (ticket 20).
   VoidCallback? onQuickNoteHotkeyPressed;
 
+  /// Callback fired when the Snippet-Picker hotkey is pressed (key-down).
+  ///
+  /// One-shot — opens the panel directly, no recording involved, so there is
+  /// no "released" callback either (ticket 26).
+  VoidCallback? onSnippetPickerHotkeyPressed;
+
   /// Whether the current platform can deliver key-up events for global hotkeys.
   ///
   /// macOS gets key-up from the registrar; Windows gets it from the RawInput
@@ -218,6 +250,7 @@ class HotkeyService extends Notifier<void> {
 
   bool _initialized = false;
   bool _quickNoteInitialized = false;
+  bool _snippetPickerInitialized = false;
 
   /// Per-action registration + held-key state, keyed by action id (see
   /// [_globalActionId], [_quickNoteActionId]). A held key on one action must
@@ -285,6 +318,24 @@ class HotkeyService extends Notifier<void> {
           _log.info('Quick-note hotkey disabled by user');
         }
       }
+
+      final snippetPickerChanged =
+          previous.snippetPickerHotkey.snippetPickerHotkeyKey !=
+              current.snippetPickerHotkey.snippetPickerHotkeyKey ||
+          previous.snippetPickerHotkey.snippetPickerHotkeyModifiers !=
+              current.snippetPickerHotkey.snippetPickerHotkeyModifiers ||
+          previous.snippetPickerHotkey.snippetPickerHotkeyEnabled !=
+              current.snippetPickerHotkey.snippetPickerHotkeyEnabled;
+      if (snippetPickerChanged) {
+        if (current.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
+          unawaited(_registerSnippetPickerFromSettings(current));
+        } else {
+          unawaited(
+            _unregisterAction(_snippetPickerActionId, stopMonitor: false),
+          );
+          _log.info('Snippet-Picker hotkey disabled by user');
+        }
+      }
     });
 
     Future.microtask(() async {
@@ -294,6 +345,9 @@ class HotkeyService extends Notifier<void> {
       }
       if (settings.quickNoteHotkey.quickNoteHotkeyEnabled) {
         await _registerQuickNoteFromSettings(settings);
+      }
+      if (settings.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
+        await _registerSnippetPickerFromSettings(settings);
       }
     });
     ref.onDispose(_destroy);
@@ -409,6 +463,48 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Re-registers the Snippet-Picker hotkey (ticket 26) with a new
+  /// combination.
+  ///
+  /// Same no-safe-default-fallback contract as [updateQuickNoteHotkey] and
+  /// for the same reason: an unexpectedly-claimed fallback key opening the
+  /// picker (or worse, typing into whatever has focus) is worse than a key
+  /// that does nothing, and the picker has a full-fledged alternative path
+  /// (the spoken trigger word).
+  Future<void> updateSnippetPickerHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) async {
+    if (!_isDesktop) return;
+    await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
+
+    final hotKey = HotKey(key: key, modifiers: modifiers);
+    _stateFor(_snippetPickerActionId).registeredHotKey = hotKey;
+
+    try {
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) =>
+            _handleKeyDown(_snippetPickerActionId, 'SnippetPicker'),
+        // Toggle-only/one-shot — no push-to-talk for this action, so no
+        // keyUpHandler is ever wired, regardless of registrar capability.
+      );
+      _log.info('Snippet-Picker hotkey registered successfully');
+      _setSnippetPickerStatus(HotkeyRegistrationStatus.success);
+      // No monitor.start() — same reasoning as updateQuickNoteHotkey: the
+      // shared monitor is a single native channel and this action never
+      // needs key-up.
+    } on Object catch (e) {
+      _setSnippetPickerStatus(HotkeyRegistrationStatus.conflict);
+      _stateFor(_snippetPickerActionId).registeredHotKey = null;
+      final keyCode = key.keyId.toRadixString(16);
+      _log.warning(
+        'Failed to register Snippet-Picker hotkey (key=0x$keyCode): $e '
+        '— staying unregistered, no safe-default fallback',
+      );
+    }
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
   Future<void> _registerFromSettings(AppSettings settings) async {
@@ -479,6 +575,28 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Sibling of [_registerFromSettings]/[_registerQuickNoteFromSettings] for
+  /// the Snippet-Picker action (ticket 26). Same reasoning as the quick-note
+  /// sibling: brand-new settings key, no legacy corrupted value to self-heal,
+  /// and no safe-default fallback for this action either.
+  Future<void> _registerSnippetPickerFromSettings(AppSettings settings) async {
+    final snippetPicker = settings.snippetPickerHotkey;
+    try {
+      await updateSnippetPickerHotkey(
+        key: resolveKey(snippetPicker.snippetPickerHotkeyKey),
+        modifiers: resolveModifiers(snippetPicker.snippetPickerHotkeyModifiers),
+      );
+      _snippetPickerInitialized = true;
+      _log.info(
+        'Snippet-Picker hotkey synced from settings: '
+        '${formatHotkeyShortcut(snippetPicker.snippetPickerHotkeyModifiers, snippetPicker.snippetPickerHotkeyKey)}',
+      );
+    } on Object catch (e) {
+      _setSnippetPickerStatus(HotkeyRegistrationStatus.conflict);
+      _log.warning('Failed to register Snippet-Picker hotkey: $e');
+    }
+  }
+
   /// Writes [status] to [hotkeyRegistrationStatusProvider] if a Riverpod ref
   /// is available (i.e. the service was created via the provider, not via a
   /// bare `HotkeyService()` constructor in a unit test).
@@ -501,6 +619,19 @@ class HotkeyService extends Notifier<void> {
     } on Object catch (e) {
       _log.debug(
         'Quick-note hotkey status update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Snippet-Picker sibling of [_setStatus] — same standalone-test guard.
+  void _setSnippetPickerStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref
+          .read(snippetPickerHotkeyRegistrationStatusProvider.notifier)
+          .set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Snippet-Picker hotkey status update skipped (standalone test instance): $e',
       );
     }
   }
@@ -598,6 +729,11 @@ class HotkeyService extends Notifier<void> {
       // instead of a stale/null value from an earlier global press.
       PerfMarkers.instance.markHotkeyPressed();
       onQuickNoteHotkeyPressed?.call();
+    } else if (actionId == _snippetPickerActionId) {
+      // No perf mark here — this action never drives the recording overlay
+      // (it doesn't start a recording at all, ticket 26), so the
+      // hotkey→overlay latency marker doesn't apply.
+      onSnippetPickerHotkeyPressed?.call();
     }
   }
 
@@ -654,6 +790,10 @@ class HotkeyService extends Notifier<void> {
     if (_quickNoteInitialized) {
       await _unregisterAction(_quickNoteActionId, stopMonitor: false);
       _log.info('Quick-note hotkey unregistered');
+    }
+    if (_snippetPickerInitialized) {
+      await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
+      _log.info('Snippet-Picker hotkey unregistered');
     }
   }
 

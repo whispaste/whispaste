@@ -158,6 +158,13 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'show_floating_button',
   'show_notifications',
   'show_overlay',
+  // Ticket 26: third, independently configurable hotkey (opens the
+  // Snippet-Picker panel) — same portability rationale as 'hotkey_*'/
+  // 'quick_note_hotkey_*' above.
+  'snippet_picker_hotkey_enabled',
+  'snippet_picker_hotkey_key',
+  'snippet_picker_hotkey_key_display',
+  'snippet_picker_hotkey_modifiers',
   'snippet_picker_trigger',
   'sound_volume',
   'start_minimized',
