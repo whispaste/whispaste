@@ -28,7 +28,12 @@ import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paste_failure_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/path_service.dart'
-    show sttDirOverride, sttDir, sttModelPath;
+    show
+        sttDirOverride,
+        sttDir,
+        sttModelPath,
+        retainedAudioDirOverride,
+        retainedAudioDir;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
@@ -492,6 +497,8 @@ void main() {
     // Isolate preflight checks from the real filesystem by pointing
     // sttDir at an empty scratch directory — no server binary exists here.
     sttDirOverride = _scratchDir.path;
+    retainedAudioDirOverride =
+        '${_scratchDir.path}${Platform.pathSeparator}retained-audio';
 
     // Create a fake WAV file the orchestrator can read.
     wavFile = createFakeWav(
@@ -535,6 +542,7 @@ void main() {
 
   tearDown(() {
     sttDirOverride = null;
+    retainedAudioDirOverride = null;
     container.dispose();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
@@ -2724,6 +2732,78 @@ void main() {
       final state = container.read(recordingProvider);
       expect(state.phase, RecordingPhase.error);
       expect(state.errorMessage, 'wav_file_empty');
+    });
+  });
+
+  // =========================================================================
+  // Recent-audio retention (privacy.retainRecentAudio)
+  // =========================================================================
+
+  group('Recent-audio retention (privacy.retainRecentAudio)', () {
+    Future<RecordingOrchestrator> startWithRetention() async {
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          privacy: PrivacySettings(retainRecentAudio: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      return startRecordingPhase();
+    }
+
+    test('moves the WAV into the retained-audio directory and links it to '
+        'the entry', () async {
+      final orch = await startWithRetention();
+      final originalPath = wavFile.absolute.path;
+
+      await orch.stopRecording();
+
+      // The file was moved, not copied — nothing left at the original
+      // temp path.
+      expect(File(originalPath).existsSync(), isFalse);
+
+      final rows = await db.select(db.entryAttachments).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.mimeType, 'audio/wav');
+      final attachedFile = File(rows.single.filepath);
+      expect(attachedFile.parent.path, retainedAudioDir());
+      expect(attachedFile.existsSync(), isTrue);
+    });
+
+    test('disabled by default — no attachment row is created, WAV is not '
+        'moved into the retained-audio directory', () async {
+      // Reuses the default container from setUp (retainRecentAudio: false).
+      final orch = await startRecordingPhase();
+      final originalPath = wavFile.absolute.path;
+
+      await orch.stopRecording();
+
+      expect(File(originalPath).existsSync(), isTrue);
+      expect(await db.select(db.entryAttachments).get(), isEmpty);
+    });
+
+    test('rotation: after 21 retained recordings, only the 20 most recent '
+        'attachment rows survive', () async {
+      var orch = await startWithRetention();
+      await orch.stopRecording();
+
+      for (var i = 0; i < 20; i++) {
+        wavFile = createFakeWav('retain_follow_$i.wav');
+        fakeAudio.wavPathToReturn = wavFile.absolute.path;
+        fakeStt.transcriptToReturn = 'clip $i';
+        container.read(recordingProvider.notifier).reset();
+        orch = container.read(recordingOrchestratorProvider.notifier);
+        container.read(recordingProvider.notifier).startRecording();
+        await orch.stopRecording();
+      }
+
+      final rows = await db.select(db.entryAttachments).get();
+      expect(rows, hasLength(20));
     });
   });
 

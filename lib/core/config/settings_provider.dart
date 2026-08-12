@@ -600,6 +600,7 @@ class AppSettings {
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
     bool? shareUsageStats,
+    bool? retainRecentAudio,
   }) {
     return AppSettings(
       interface_: interface_.copyWith(
@@ -688,7 +689,10 @@ class AppSettings {
         benchmarkHardwareId: benchmarkHardwareId,
         benchmarkTimestamp: benchmarkTimestamp,
       ),
-      privacy: privacy.copyWith(shareUsageStats: shareUsageStats),
+      privacy: privacy.copyWith(
+        shareUsageStats: shareUsageStats,
+        retainRecentAudio: retainRecentAudio,
+      ),
       // Neither section has a legacy top-level parameter in this API, so
       // both are pure pass-throughs — but they have to be *written*: this
       // return builds a fresh `AppSettings(...)`, and an omitted section

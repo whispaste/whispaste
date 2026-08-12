@@ -1106,6 +1106,8 @@
   "settingsPrivacySubtitle": "Control what data WhisPaste shares",
   "settingsShareUsageStats": "Share anonymous usage statistics",
   "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers, help us understand how WhisPaste is used",
+  "settingsRetainRecentAudio": "Keep recent recordings",
+  "settingsRetainRecentAudioSubtitle": "Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically",
 
   "storeThankYouTitle": "תודה על תמיכתך!",
   "storeThankYouBody": "אנחנו שמחים שאתה איתנו. אם WhisPaste עוזר לך בעבודה, דירוג קצר יעשה עבורנו הבדל גדול.",

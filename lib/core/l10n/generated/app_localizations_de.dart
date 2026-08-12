@@ -3288,6 +3288,13 @@ class L10nDe extends L10n {
       'Cookiefrei und ohne Identifikatoren, hilf uns zu verstehen, wie WhisPaste genutzt wird';
 
   @override
+  String get settingsRetainRecentAudio => 'Letzte Aufnahmen aufbewahren';
+
+  @override
+  String get settingsRetainRecentAudioSubtitle =>
+      'Audio der letzten 20 Diktate lokal aufbewahren, zum Debuggen oder um ein früheres Transkript wiederherzustellen; ältere Aufnahmen werden automatisch gelöscht';
+
+  @override
   String get storeThankYouTitle => 'Danke für deine Unterstützung!';
 
   @override

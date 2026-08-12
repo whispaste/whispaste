@@ -16,6 +16,12 @@ import 'package:path/path.dart' as p;
 @visibleForTesting
 String? sttDirOverride;
 
+/// Override the retained-audio directory for testing. When non-null,
+/// [retainedAudioDir] returns this value instead of the real AppData path,
+/// isolating tests from the host file system.
+@visibleForTesting
+String? retainedAudioDirOverride;
+
 // ---------------------------------------------------------------------------
 // Model ID → GGML filename lookup
 // ---------------------------------------------------------------------------
@@ -86,6 +92,13 @@ String appDataDir() {
 
 /// Directory containing STT model files and whisper-server.
 String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
+
+/// Directory holding recent retained dictation WAVs (rotating cap enforced
+/// by the app layer). Deliberately outside the system temp directory — the
+/// app's startup cleanup sweeps `whispaste_*.wav` files there, which would
+/// silently defeat retention.
+String retainedAudioDir() =>
+    retainedAudioDirOverride ?? p.join(appDataDir(), 'recordings');
 
 /// Full path to the whisper-server executable.
 ///

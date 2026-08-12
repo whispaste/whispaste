@@ -3259,6 +3259,13 @@ class L10nEn extends L10n {
       'Sent cookieless and without any identifiers, help us understand how WhisPaste is used';
 
   @override
+  String get settingsRetainRecentAudio => 'Keep recent recordings';
+
+  @override
+  String get settingsRetainRecentAudioSubtitle =>
+      'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically';
+
+  @override
   String get storeThankYouTitle => 'Thanks for your support!';
 
   @override

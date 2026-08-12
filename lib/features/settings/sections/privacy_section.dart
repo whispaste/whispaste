@@ -82,6 +82,20 @@ class PrivacySection extends ConsumerWidget {
               },
             ),
           ),
+          SettingRow(
+            icon: LucideIcons.fileAudio,
+            label: l10n.settingsRetainRecentAudio,
+            subtitle: l10n.settingsRetainRecentAudioSubtitle,
+            semanticToggledValue: settings.privacy.retainRecentAudio,
+            trailing: settingsToggle(
+              value: settings.privacy.retainRecentAudio,
+              onChanged: (v) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(retainRecentAudio: v));
+              },
+            ),
+          ),
         ],
       ),
     );

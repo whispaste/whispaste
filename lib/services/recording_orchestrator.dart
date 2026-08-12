@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 import '../core/config/build_config.dart';
 import '../core/config/settings_enums.dart';
@@ -1484,9 +1485,13 @@ class RecordingOrchestrator extends Notifier<void> {
       // session can pull the exact audio Whisper received for this
       // transcript. Best-effort — a failure here must not fail the save
       // that already succeeded above. No-op for a quick note: there is no
-      // history entry to link the audio to.
+      // history entry to link the audio to. Takes priority over the
+      // user-facing retention setting below — a live diagnosis session
+      // wants every WAV kept in place, uncapped, not rotated away.
       if (kRetainDebugAudio && !isQuickNote) {
         await _linkDebugAudioAttachment(saved.entryId, wavPath);
+      } else if (settings.privacy.retainRecentAudio && !isQuickNote) {
+        await _retainRecentAudio(saved.entryId, wavPath);
       }
 
       // Refresh analytics dashboard so counters update immediately.
@@ -1500,7 +1505,7 @@ class RecordingOrchestrator extends Notifier<void> {
   }
 
   /// Debug-only helper for [_saveToHistory]: records [wavPath]'s size and
-  /// links it to [entryId] via [HistoryDatabase.insertDebugAudioAttachment].
+  /// links it to [entryId] via [HistoryDatabase.insertAudioAttachment].
   /// Swallows its own errors — a missing/unreadable WAV must not fail the
   /// already-successful history save.
   Future<void> _linkDebugAudioAttachment(String entryId, String wavPath) async {
@@ -1510,7 +1515,7 @@ class RecordingOrchestrator extends Notifier<void> {
       final sizeBytes = await file.length();
       await ref
           .read(historyDatabaseProvider)
-          .insertDebugAudioAttachment(
+          .insertAudioAttachment(
             entryId: entryId,
             filePath: wavPath,
             sizeBytes: sizeBytes,
@@ -1518,6 +1523,51 @@ class RecordingOrchestrator extends Notifier<void> {
       _log.info('kRetainDebugAudio: linked $wavPath to entry $entryId');
     } on Exception catch (e) {
       _log.warning('kRetainDebugAudio: failed to link WAV attachment: $e');
+    }
+  }
+
+  /// User-facing counterpart to [_linkDebugAudioAttachment]: moves the WAV
+  /// out of the volatile capture directory into [retainedAudioDir] (so
+  /// `AudioService.cleanupStaleFiles`'s startup sweep can't delete it),
+  /// links it to [entryId], then enforces the rotating cap so at most the
+  /// 20 most recent retained WAVs survive. Best-effort — a failure here
+  /// must not fail the save that already succeeded above. No-op for a
+  /// quick note: there is no history entry to link the audio to.
+  Future<void> _retainRecentAudio(String entryId, String wavPath) async {
+    try {
+      final source = File(wavPath);
+      if (!await source.exists()) return;
+
+      final dir = Directory(retainedAudioDir());
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final destPath = p.join(dir.path, p.basename(wavPath));
+
+      File dest;
+      try {
+        dest = await source.rename(destPath);
+      } on FileSystemException {
+        // Capture dir and app-data dir can be on different filesystems
+        // (e.g. temp on a RAM disk) — rename() can't cross that boundary.
+        dest = await source.copy(destPath);
+        await source.delete();
+      }
+
+      final sizeBytes = await dest.length();
+      final db = ref.read(historyDatabaseProvider);
+      await db.insertAudioAttachment(
+        entryId: entryId,
+        filePath: dest.path,
+        sizeBytes: sizeBytes,
+      );
+
+      final evicted = await db.enforceAudioAttachmentCap();
+      for (final path in evicted) {
+        await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+      }
+
+      _log.info('Retained WAV for entry $entryId at ${dest.path}');
+    } on Exception catch (e) {
+      _log.warning('Failed to retain recent audio: $e');
     }
   }
 

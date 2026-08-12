@@ -5754,6 +5754,18 @@ abstract class L10n {
   /// **'Sent cookieless and without any identifiers, help us understand how WhisPaste is used'**
   String get settingsShareUsageStatsSubtitle;
 
+  /// No description provided for @settingsRetainRecentAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep recent recordings'**
+  String get settingsRetainRecentAudio;
+
+  /// No description provided for @settingsRetainRecentAudioSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically'**
+  String get settingsRetainRecentAudioSubtitle;
+
   /// No description provided for @storeThankYouTitle.
   ///
   /// In en, this message translates to:

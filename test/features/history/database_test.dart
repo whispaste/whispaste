@@ -136,6 +136,111 @@ void main() {
     });
   });
 
+  group('Audio attachments (retention feature)', () {
+    Future<void> insertEntry(String id, DateTime timestamp) => db.upsertEntry(
+      HistoryEntriesCompanion.insert(id: id, timestamp: timestamp),
+    );
+
+    test('insertAudioAttachment links a WAV to its entry', () async {
+      await insertEntry('entry-1', DateTime(2025, 1, 15));
+
+      await db.insertAudioAttachment(
+        entryId: 'entry-1',
+        filePath: '/some/path/whispaste_1.wav',
+        sizeBytes: 1234,
+      );
+
+      final rows = await db.select(db.entryAttachments).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.entryId, 'entry-1');
+      expect(rows.single.filepath, '/some/path/whispaste_1.wav');
+      expect(rows.single.mimeType, 'audio/wav');
+      expect(rows.single.sizeBytes, 1234);
+    });
+
+    test(
+      'enforceAudioAttachmentCap is a no-op when at or under the cap',
+      () async {
+        // Direct inserts with explicit unique ids, not
+        // insertAudioAttachment's millisecond-derived id — a tight loop can
+        // call it faster than 1ms apart, colliding ids and silently
+        // upserting one row over another.
+        for (var i = 0; i < 20; i++) {
+          await insertEntry('entry-$i', DateTime(2025, 1, 1));
+          await db
+              .into(db.entryAttachments)
+              .insert(
+                EntryAttachmentsCompanion.insert(
+                  id: 'wav-$i',
+                  entryId: 'entry-$i',
+                  filename: 'wav-$i.wav',
+                  filepath: '/wav-$i.wav',
+                  mimeType: const Value('audio/wav'),
+                  createdAt: DateTime(2025, 1, 1, 0, 0, i),
+                ),
+              );
+        }
+
+        final evicted = await db.enforceAudioAttachmentCap(max: 20);
+
+        expect(evicted, isEmpty);
+        expect(await db.select(db.entryAttachments).get(), hasLength(20));
+      },
+    );
+
+    test('enforceAudioAttachmentCap evicts the oldest rows beyond the cap, '
+        'returning their filepaths', () async {
+      // Insert directly (bypassing insertAudioAttachment's
+      // DateTime.now() stamp) with explicit, second-spaced createdAt
+      // values — the createdAt column round-trips at 1-second
+      // resolution, so relying on real wall-clock delays between calls
+      // would make this test either flaky or slow.
+      for (var i = 0; i < 22; i++) {
+        await insertEntry('entry-$i', DateTime(2025, 1, 1));
+        await db
+            .into(db.entryAttachments)
+            .insert(
+              EntryAttachmentsCompanion.insert(
+                id: 'wav-$i',
+                entryId: 'entry-$i',
+                filename: 'wav-$i.wav',
+                filepath: '/wav-$i.wav',
+                mimeType: const Value('audio/wav'),
+                createdAt: DateTime(2025, 1, 1, 0, 0, i),
+              ),
+            );
+      }
+
+      final evicted = await db.enforceAudioAttachmentCap(max: 20);
+
+      expect(evicted, unorderedEquals(['/wav-0.wav', '/wav-1.wav']));
+      final remaining = await db.select(db.entryAttachments).get();
+      expect(remaining, hasLength(20));
+      expect(remaining.map((r) => r.filepath), isNot(contains('/wav-0.wav')));
+    });
+
+    test('enforceAudioAttachmentCap ignores non-audio attachments', () async {
+      await insertEntry('entry-1', DateTime(2025, 1, 15));
+      await db
+          .into(db.entryAttachments)
+          .insert(
+            EntryAttachmentsCompanion.insert(
+              id: 'screenshot-1',
+              entryId: 'entry-1',
+              filename: 'shot.png',
+              filepath: '/shot.png',
+              mimeType: const Value('image/png'),
+              createdAt: DateTime(2025, 1, 1),
+            ),
+          );
+
+      final evicted = await db.enforceAudioAttachmentCap(max: 0);
+
+      expect(evicted, isEmpty);
+      expect(await db.select(db.entryAttachments).get(), hasLength(1));
+    });
+  });
+
   group('Decorative color slot (Ticket 03, visual-refresh-2026)', () {
     test('insertHistoryEntry assigns a slot in the 8-category range', () async {
       await db.insertHistoryEntry(

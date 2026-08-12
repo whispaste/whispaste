@@ -1097,6 +1097,8 @@
   "settingsPrivacySubtitle": "Lege fest, welche Daten WhisPaste teilt",
   "settingsShareUsageStats": "Anonyme Nutzungsstatistiken senden",
   "settingsShareUsageStatsSubtitle": "Cookiefrei und ohne Identifikatoren, hilf uns zu verstehen, wie WhisPaste genutzt wird",
+  "settingsRetainRecentAudio": "Letzte Aufnahmen aufbewahren",
+  "settingsRetainRecentAudioSubtitle": "Audio der letzten 20 Diktate lokal aufbewahren, zum Debuggen oder um ein früheres Transkript wiederherzustellen; ältere Aufnahmen werden automatisch gelöscht",
 
   "storeThankYouTitle": "Danke für deine Unterstützung!",
   "storeThankYouBody": "Wir freuen uns sehr, dass du dabei bist. Wenn dir WhisPaste im Alltag hilft, würde uns eine kurze Bewertung sehr freuen.",

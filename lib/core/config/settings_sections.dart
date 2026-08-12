@@ -1532,9 +1532,22 @@ class PrivacySettings {
   // stats default ON, with DSGVO Art. 6 (1) (f) as the legal basis. Consistent
   // with the default-on Sentry crash reporter; a discrete Datenschutz toggle
   // lets users opt out.
-  const PrivacySettings({this.shareUsageStats = true});
+  //
+  // retainRecentAudio defaults OFF, the opposite polarity — this is an
+  // opt-in exception to the app's "no durable audio" default (CONTEXT.md
+  // §6.5), so the safe default keeps that principle intact until a user
+  // deliberately turns it on.
+  const PrivacySettings({
+    this.shareUsageStats = true,
+    this.retainRecentAudio = false,
+  });
 
   final bool shareUsageStats;
+
+  /// Keeps the WAV of each dictation (rotating cap: the 20 most recent) in
+  /// a persistent app-data directory instead of deleting it after
+  /// transcription — for debugging and for restoring past dictations.
+  final bool retainRecentAudio;
 
   static const PrivacySettings defaults = PrivacySettings();
 
@@ -1544,20 +1557,33 @@ class PrivacySettings {
       'share_usage_stats',
       defaults.shareUsageStats,
     ),
+    retainRecentAudio: _readBool(
+      v,
+      'retain_recent_audio',
+      defaults.retainRecentAudio,
+    ),
   );
 
-  Map<String, String> toMap() => {'share_usage_stats': '$shareUsageStats'};
+  Map<String, String> toMap() => {
+    'share_usage_stats': '$shareUsageStats',
+    'retain_recent_audio': '$retainRecentAudio',
+  };
 
-  PrivacySettings copyWith({bool? shareUsageStats}) =>
-      PrivacySettings(shareUsageStats: shareUsageStats ?? this.shareUsageStats);
+  PrivacySettings copyWith({bool? shareUsageStats, bool? retainRecentAudio}) =>
+      PrivacySettings(
+        shareUsageStats: shareUsageStats ?? this.shareUsageStats,
+        retainRecentAudio: retainRecentAudio ?? this.retainRecentAudio,
+      );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is PrivacySettings && shareUsageStats == other.shareUsageStats;
+      other is PrivacySettings &&
+          shareUsageStats == other.shareUsageStats &&
+          retainRecentAudio == other.retainRecentAudio;
 
   @override
-  int get hashCode => shareUsageStats.hashCode;
+  int get hashCode => Object.hash(shareUsageStats, retainRecentAudio);
 }
 
 // ===========================================================================

@@ -8,9 +8,11 @@ library;
 export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
     show
         sttDirOverride,
+        retainedAudioDirOverride,
         modelFilenames,
         resolveModelFilename,
         appDataDir,
         sttDir,
+        retainedAudioDir,
         whisperServerPath,
         sttModelPath;

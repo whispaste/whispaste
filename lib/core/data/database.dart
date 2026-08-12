@@ -1373,12 +1373,11 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   final Random _colorSlotRandom = Random();
 
-  /// Debug-only: links a retained dictation WAV to its history [entryId] as
-  /// an [EntryAttachment], so a diagnosis session can later pull the exact
-  /// audio Whisper received for a given transcript. Gated by
-  /// `kRetainDebugAudio` at the call site — this method itself does not
-  /// check the flag.
-  Future<void> insertDebugAudioAttachment({
+  /// Links a retained dictation WAV to its history [entryId] as an
+  /// [EntryAttachment] — either the uncapped `kRetainDebugAudio` diagnosis
+  /// flag or the user-facing rotating retention setting. Neither flag is
+  /// checked here; gating happens entirely at the call site.
+  Future<void> insertAudioAttachment({
     required String entryId,
     required String filePath,
     required int sizeBytes,
@@ -1397,6 +1396,36 @@ class HistoryDatabase extends _$HistoryDatabase {
         ),
       ),
     );
+  }
+
+  /// Keeps only the [max] most-recently-created `audio/wav` attachments,
+  /// deleting the rest of their rows and returning their filepaths so the
+  /// caller can remove the corresponding files on disk (this DB layer never
+  /// touches the filesystem itself).
+  ///
+  /// Attachment rows are not foreign-key-cascaded when their history entry
+  /// is deleted (no `PRAGMA foreign_keys`), so an entry's deletion can
+  /// orphan its attachment row — harmless here, since this cap bounds total
+  /// retained rows regardless of whether their entries still exist.
+  Future<List<String>> enforceAudioAttachmentCap({int max = 20}) {
+    return _writeCoordinator.write<List<String>>(() async {
+      final rows =
+          await (select(entryAttachments)
+                ..where((a) => a.mimeType.equals('audio/wav'))
+                ..orderBy([
+                  (a) => OrderingTerm(
+                    expression: a.createdAt,
+                    mode: OrderingMode.desc,
+                  ),
+                ]))
+              .get();
+      if (rows.length <= max) return const [];
+      final excess = rows.sublist(max);
+      await (delete(
+        entryAttachments,
+      )..where((a) => a.id.isIn(excess.map((r) => r.id)))).go();
+      return [for (final row in excess) row.filepath];
+    });
   }
 
   /// Duplicate an entry with a new ID and "(copy)" title suffix.

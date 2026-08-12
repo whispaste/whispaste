@@ -38,32 +38,32 @@
       "message": "unused public method `copyWith`"
     },
     {
-      "fingerprint": "b3d4f1236a7e8421",
+      "fingerprint": "0d2039e204345146",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1106,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1106, lib/core/data/database.dart:2126"
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1106, lib/core/data/database.dart:2155"
     },
     {
-      "fingerprint": "fc465504a641fb13",
+      "fingerprint": "6365d0f684e3a7b3",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1115,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1115, lib/core/data/database.dart:2135"
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1115, lib/core/data/database.dart:2164"
     },
     {
-      "fingerprint": "25699c76b0dfc138",
+      "fingerprint": "405dae4726a2b640",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1584,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1584, lib/core/data/database.dart:2218"
+      "line": 1613,
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1613, lib/core/data/database.dart:2247"
     },
     {
-      "fingerprint": "664ec61f55dd1fbc",
+      "fingerprint": "8ac39e64c59c0755",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1596,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1596, lib/core/data/database.dart:2230"
+      "line": 1625,
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1625, lib/core/data/database.dart:2259"
     },
     {
       "fingerprint": "8e06faf589dc1013",
