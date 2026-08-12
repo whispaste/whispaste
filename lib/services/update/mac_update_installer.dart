@@ -164,11 +164,14 @@ class DefaultMacUpdateInstaller implements MacUpdateInstaller {
     final parentPid = pid;
     // Isolate.run + timeout: Process.start's fork()+exec() can hang forever
     // if the child deadlocks before exec (a known macOS hazard when forking
-    // from a heavily multi-threaded host like Flutter — observed live as
-    // orphaned WhisPaste processes stuck in dart::bin::FDUtils::ReadFromBlocking).
-    // Running it off the main isolate keeps the app responsive/quittable even
-    // if that happens; the timeout keeps this call itself from hanging the
-    // update flow.
+    // from a heavily multi-threaded host like Flutter — confirmed live via a
+    // `sample` capture of an orphaned WhisPaste process with its main thread
+    // 100% inside dart::bin::FDUtils::ReadFromBlocking, though the actual
+    // culprit call site there was the pre-runApp RAM/GPU probe in
+    // packages/whispaste_diagnostics, not this installer). Running it off
+    // the main isolate keeps the app responsive/quittable even if that
+    // happens; the timeout keeps this call itself from hanging the update
+    // flow.
     await Isolate.run(() async {
       await Process.run('chmod', ['+x', scriptPath]);
       await Process.start('/bin/bash', [

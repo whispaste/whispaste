@@ -12,6 +12,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
@@ -42,6 +43,29 @@ ProcessRunner _processRunner = _defaultProcessRunner;
 @visibleForTesting
 void setProcessRunnerForTesting(ProcessRunner? runner) {
   _processRunner = runner ?? _defaultProcessRunner;
+}
+
+/// Runs [Process.run] on a worker isolate with a hard timeout.
+///
+/// Guards against a macOS/Linux `fork()`+`exec()` hazard: forking from a
+/// heavily multi-threaded host (Flutter) can occasionally deadlock the
+/// child before `exec()`, which wedges the *calling* isolate's own OS
+/// thread inside `Process.start`'s blocking read forever (confirmed live
+/// via a `sample` capture showing the main thread 100% inside
+/// `dart::bin::FDUtils::ReadFromBlocking`). A same-isolate `.timeout()`
+/// cannot help there — its timer needs the blocked thread's event loop to
+/// fire. Running on a separate isolate keeps the timeout effective and
+/// keeps the app itself responsive/quittable if the child does deadlock.
+/// Mac/Linux-only mechanism (no `fork()` on Windows), but harmless
+/// everywhere `Process.run` is otherwise used directly.
+Future<ProcessResult> _runProcessGuarded(
+  String executable,
+  List<String> arguments, {
+  Duration timeout = const Duration(seconds: 5),
+}) {
+  return Isolate.run(
+    () => Process.run(executable, arguments),
+  ).timeout(timeout);
 }
 
 /// Per-probe timeout for the parallel Windows GPU detection probes
@@ -969,11 +993,11 @@ Future<_GpuParsed?> _powershellGetGpus() async {
 Future<GpuInfo> _detectMacOS() async {
   // Check for Apple Silicon (ARM64).
   try {
-    final uname = await Process.run('uname', ['-m']);
+    final uname = await _runProcessGuarded('uname', ['-m']);
     if (uname.stdout.toString().trim() == 'arm64') {
       String chipName = 'Apple Silicon';
       try {
-        final sysctl = await Process.run('sysctl', [
+        final sysctl = await _runProcessGuarded('sysctl', [
           '-n',
           'machdep.cpu.brand_string',
         ]);
@@ -991,11 +1015,11 @@ Future<GpuInfo> _detectMacOS() async {
 
   // Intel Mac — check for discrete GPU.
   try {
-    final result = await Process.run('system_profiler', [
+    final result = await _runProcessGuarded('system_profiler', [
       'SPDisplaysDataType',
       '-detailLevel',
       'mini',
-    ]).timeout(const Duration(seconds: 10));
+    ], timeout: const Duration(seconds: 10));
 
     if (result.exitCode == 0) {
       final output = result.stdout.toString();
@@ -1020,7 +1044,7 @@ Future<GpuInfo> _detectMacOS() async {
 
 Future<int?> _macUnifiedMemoryMB() async {
   try {
-    final result = await Process.run('sysctl', ['-n', 'hw.memsize']);
+    final result = await _runProcessGuarded('sysctl', ['-n', 'hw.memsize']);
     if (result.exitCode != 0) return null;
     final bytes = int.tryParse(result.stdout.toString().trim());
     if (bytes == null || bytes <= 0) return null;
@@ -1054,10 +1078,7 @@ Future<int?> detectRamMB() async {
 
 Future<int?> _unixRamMB() async {
   if (Platform.isMacOS) {
-    final r = await Process.run('/usr/sbin/sysctl', [
-      '-n',
-      'hw.memsize',
-    ]).timeout(const Duration(seconds: 5));
+    final r = await _runProcessGuarded('/usr/sbin/sysctl', ['-n', 'hw.memsize']);
     if (r.exitCode != 0) return null;
     return parseSysctlMemsizeMb(r.stdout.toString());
   } else {
