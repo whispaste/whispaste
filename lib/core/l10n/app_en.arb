@@ -1255,6 +1255,15 @@
   "notesUnfavorite": "Remove from favorites",
   "notesQuickNoteSet": "Make this the quick note the hotkey appends to",
   "notesQuickNoteClear": "Quick note — remove the mark",
+  "notesQuickNoteHotkeyLabel": "Hotkey",
+  "notesQuickNoteHotkeyChange": "Change the quick-note hotkey — currently {combination}",
+  "@notesQuickNoteHotkeyChange": {
+    "placeholders": {
+      "combination": { "type": "String" }
+    }
+  },
+  "notesQuickNoteHotkeyOff": "The quick-note hotkey is switched off.",
+  "notesQuickNoteHotkeyEnable": "Turn hotkey on",
   "notesMoveToTrash": "Move to Trash",
   "notesMovedToTrash": "Moved to trash",
   "notesRestore": "Restore",

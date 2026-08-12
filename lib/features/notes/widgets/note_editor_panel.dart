@@ -13,6 +13,7 @@ import '../../../widgets/toast.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../../../widgets/wp_voice_input_button.dart';
 import '../data/note_title.dart';
+import 'quick_note_hotkey_line.dart';
 
 // ---------------------------------------------------------------------------
 // Note editor panel — strongly reduced sibling of HistoryDetailPanel:
@@ -346,6 +347,18 @@ class NoteEditorPanel extends StatelessWidget {
               ),
             ),
           ),
+          // ── Quick-note hotkey ──
+          // Sits with the mark, one line below it, and only on the note that
+          // actually holds the mark: whoever picks the target note is right
+          // then asking what triggers it (Ticket 24). Deliberately not *in*
+          // the toolbar row above — that cluster is capped for the 280 dp
+          // panel floor (FLUTTER_WHISPASTE-64) and another inflexible child
+          // would spend the budget the actions need.
+          //
+          // `showQuickNoteMark` is also what keeps it out of the trash view:
+          // a trashed note never carries the mark's UI, so the setting it
+          // belongs to has nothing to sit next to there.
+          if (showQuickNoteMark) const QuickNoteHotkeyLine(),
           // ── Tags ──
           // Deliberately minimal compared to history's tag section: no
           // suggestions, no inline label, no management-dialog button.

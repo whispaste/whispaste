@@ -1097,6 +1097,15 @@
   "notesUnfavorite": "Favorit aufheben",
   "notesQuickNoteSet": "Zur Schnellnotiz machen, an die der Hotkey anhängt",
   "notesQuickNoteClear": "Schnellnotiz — Markierung entfernen",
+  "notesQuickNoteHotkeyLabel": "Hotkey",
+  "notesQuickNoteHotkeyChange": "Hotkey der Schnellnotiz ändern — derzeit {combination}",
+  "@notesQuickNoteHotkeyChange": {
+    "placeholders": {
+      "combination": { "type": "String" }
+    }
+  },
+  "notesQuickNoteHotkeyOff": "Der Schnellnotiz-Hotkey ist ausgeschaltet.",
+  "notesQuickNoteHotkeyEnable": "Hotkey einschalten",
   "notesMoveToTrash": "In den Papierkorb verschieben",
   "notesMovedToTrash": "In den Papierkorb verschoben",
   "notesRestore": "Wiederherstellen",

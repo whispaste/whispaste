@@ -5,6 +5,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:whispaste/core/config/settings_labels.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -12,6 +16,10 @@ import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
+import 'package:whispaste/features/notes/widgets/quick_note_hotkey_line.dart';
+import 'package:whispaste/features/settings/sections/feedback_section.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart';
+import 'package:whispaste/widgets/hotkey_recorder.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -63,6 +71,8 @@ Note _sampleNote({
   required String id,
   required String content,
   bool pinned = false,
+  bool isQuickNote = false,
+  DateTime? deletedAt,
   DateTime? updatedAt,
 }) {
   final t = updatedAt ?? DateTime(2025, 6, 1);
@@ -70,8 +80,8 @@ Note _sampleNote({
     id: id,
     content: content,
     pinned: pinned,
-    isQuickNote: false,
-    deletedAt: null,
+    isQuickNote: isQuickNote,
+    deletedAt: deletedAt,
     createdAt: t,
     updatedAt: t,
   );
@@ -571,4 +581,508 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Schnellnotiz-Hotkey an der Markierung (Ticket 24)
+  // ---------------------------------------------------------------------------
+
+  group('NoteEditorPanel — Schnellnotiz-Hotkey (Ticket 24)', () {
+    /// Der Editor allein, ohne Seite und Datenbank: die Zeile hängt an der
+    /// Markierung der offenen Notiz, und die steckt in diesem Panel.
+    Widget panelSubject({
+      required Note note,
+      AppSettings settings = _hotkeyOn,
+      double textScale = 1.0,
+      double width = 320,
+    }) {
+      final controller = TextEditingController(text: note.content);
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+      return makeTestable(
+        MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+          child: Center(
+            child: SizedBox(
+              key: const Key('probeFrame'),
+              // Die Panel-Untergrenze der Split-View plus etwas Luft — die
+              // Breite, bei der die Aktionsleiste historisch überlief
+              // (FLUTTER_WHISPASTE-64).
+              width: width,
+              height: 560,
+              child: NoteEditorPanel(
+                note: note,
+                tags: const [],
+                controller: controller,
+                focusNode: focusNode,
+                onClose: () {},
+                onToggleFavorite: () {},
+                onQuickNoteSet: () {},
+                onQuickNoteClear: () {},
+                onMoveToTrash: () {},
+                onRestore: () {},
+                onDeleteForever: () {},
+                onAddTag: (_) {},
+                onRemoveTag: (_) {},
+                onExport: () {},
+                onVoiceTranscript: (_) {},
+              ),
+            ),
+          ),
+        ),
+        locale: const Locale('en'),
+        overrides: [
+          settingsProvider.overrideWith(() => _FakeSettings(settings)),
+        ],
+      );
+    }
+
+    AppSettings settingsOf(WidgetTester tester) => ProviderScope.containerOf(
+      tester.element(find.byType(NoteEditorPanel)),
+    ).read(settingsProvider).value!;
+
+    testWidgets('shows the stored combination on the marked note', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
+          settings: const AppSettings(
+            quickNoteHotkey: QuickNoteHotkeySettings(
+              quickNoteHotkeyEnabled: true,
+              quickNoteHotkeyKey: ';',
+              // Layout-abweichende Anzeige-Taste (DE-Tastatur): gespeichert
+              // wird ';', angezeigt gehört 'Ö'.
+              quickNoteHotkeyKeyDisplay: 'Ö',
+              quickNoteHotkeyModifiers: 'ctrl+alt',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Die bestehende Darstellungsform, nicht eine zweite: dasselbe Widget,
+      // das die Einstellungsseite benutzt.
+      expect(
+        find.descendant(
+          of: find.byType(NoteEditorPanel),
+          matching: find.byType(HotkeyDisplay),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Ö'), findsOneWidget);
+      expect(find.text(';'), findsNothing);
+    });
+
+    testWidgets('an unmarked note carries no hotkey line', (tester) async {
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(id: 'n1', content: 'Just a note'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickNoteHotkeyLine), findsNothing);
+    });
+
+    testWidgets('the trash view carries no hotkey line either', (tester) async {
+      // Eine Notiz im Papierkorb trägt die Markierung nicht mehr sichtbar —
+      // also gibt es dort auch nichts, woneben die Einstellung stehen könnte.
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(
+            id: 'n1',
+            content: 'Trashed',
+            isQuickNote: true,
+            deletedAt: DateTime(2025, 6, 2),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickNoteHotkeyLine), findsNothing);
+    });
+
+    testWidgets('tapping the combination records and saves a free one', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyCombo')));
+      await tester.pumpAndSettle();
+
+      // Derselbe Dialog wie in den Einstellungen — kein Nachbau.
+      expect(find.byType(WpHotkeyRecorderDialog), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.pumpAndSettle();
+
+      expect(settingsOf(tester).quickNoteHotkey.quickNoteHotkeyKey, 'K');
+      expect(
+        find.byKey(const Key('notesQuickNoteHotkeyCollisionNotice')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a combination another hotkey holds is refused here too', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
+          settings: const AppSettings(
+            hotkey: HotkeySettings(
+              hotkeyEnabled: true,
+              hotkeyKey: 'D',
+              hotkeyModifiers: 'ctrl+shift',
+            ),
+            quickNoteHotkey: QuickNoteHotkeySettings(
+              quickNoteHotkeyEnabled: true,
+              quickNoteHotkeyKey: 'Y',
+              quickNoteHotkeyModifiers: 'ctrl+shift',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyCombo')));
+      await tester.pumpAndSettle();
+
+      // Genau die Kombination des Haupt-Hotkeys aufzeichnen.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.pumpAndSettle();
+
+      expect(
+        settingsOf(tester).quickNoteHotkey.quickNoteHotkeyKey,
+        'Y',
+        reason: 'the colliding combination must not reach the settings',
+      );
+      expect(
+        find.byKey(const Key('notesQuickNoteHotkeyCollisionNotice')),
+        findsOneWidget,
+      );
+      // Dieselbe Meldung wie in den Einstellungen — dieselbe Regel, ein
+      // Wortlaut.
+      expect(
+        find.text(
+          l10n.settingsQuickNoteHotkeyCollision(
+            l10n.settingsHotkeyActionRecording,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a switched-off hotkey says so and can be switched on here', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
+          settings: const AppSettings(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Wer hier markiert und nichts erführe, hätte ein Feature eingerichtet,
+      // das nichts tut.
+      expect(find.text(l10n.notesQuickNoteHotkeyOff), findsOneWidget);
+      expect(find.byKey(const Key('notesQuickNoteHotkeyCombo')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyEnable')));
+      await tester.pumpAndSettle();
+
+      expect(
+        settingsOf(tester).quickNoteHotkey.quickNoteHotkeyEnabled,
+        isTrue,
+        reason: 'the AC asks for switching on from here, not for a signpost',
+      );
+      expect(
+        find.byKey(const Key('notesQuickNoteHotkeyCombo')),
+        findsOneWidget,
+        reason: 'switching on must reveal the combination it just enabled',
+      );
+    });
+
+    testWidgets('the combination is reachable by keyboard and announced as '
+        'one label', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        panelSubject(
+          note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final combo = find.byKey(const Key('notesQuickNoteHotkeyCombo'));
+      final node = tester.widget<InkWell>(combo).focusNode!;
+      node.requestFocus();
+      await tester.pump();
+      expect(
+        node.hasFocus,
+        isTrue,
+        reason: 'a mouse-only entry point would not be reachable at all',
+      );
+
+      // Die Kappen selbst sind eine Row aus Einzel-Texten — ohne eigene
+      // Beschriftung läse ein Screenreader „Strg", „+", „Y" als Fetzen vor.
+      final settings = settingsOf(tester).quickNoteHotkey;
+      expect(
+        find.bySemanticsLabel(
+          l10n.notesQuickNoteHotkeyChange(
+            formatHotkeyShortcut(
+              settings.quickNoteHotkeyModifiers,
+              settings.quickNoteHotkeyKey,
+              l10n: l10n,
+              displayOverride: settings.quickNoteHotkeyKeyDisplay,
+            ),
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      // Genau einmal: der Maus-Hinweis (Tooltip) trägt denselben Satz und
+      // landete ohne `excludeFromSemantics` als zweite Eigenschaft am selben
+      // Knoten — vorgelesen würde die Kombination dann doppelt.
+      expect(
+        tester.getSemantics(combo).tooltip,
+        isEmpty,
+        reason: 'label and tooltip would be announced one after the other',
+      );
+      handle.dispose();
+    });
+
+    for (final scale in [1.5, 2.0, 2.5]) {
+      testWidgets('survives text scale $scale without clipping', (
+        tester,
+      ) async {
+        // Erst die Kontrolle ohne die neue Zeile: was das Panel bei dieser
+        // Schriftgröße ohnehin schon wirft, ist Bestand und darf die Aussage
+        // über die Zeile weder tragen noch verschlucken.
+        await tester.pumpWidget(
+          panelSubject(
+            note: _sampleNote(id: 'n1', content: 'Inbox'),
+            textScale: scale,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final baseline = _drainExceptions(tester);
+
+        await tester.pumpWidget(
+          panelSubject(
+            note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
+            textScale: scale,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final marked = _drainExceptions(tester);
+        expect(
+          marked.length,
+          lessThanOrEqualTo(baseline.length),
+          reason:
+              'the hotkey line must not add an overflow at scale $scale: '
+              '$marked (Kontrolle: $baseline)',
+        );
+
+        final frame = tester.getRect(find.byKey(const Key('probeFrame')));
+        for (final probe in <String, Finder>{
+          'Beschriftung': find.text(l10n.notesQuickNoteHotkeyLabel),
+          'Tastenkappen': find.byType(HotkeyDisplay),
+        }.entries) {
+          final rect = tester.getRect(probe.value);
+          expect(
+            rect.left >= frame.left - 0.5 && rect.right <= frame.right + 0.5,
+            isTrue,
+            reason:
+                '${probe.key} ragt aus ${frame.left}..${frame.right} heraus: '
+                '${rect.left}..${rect.right}',
+          );
+        }
+      });
+    }
+
+    testWidgets('the hotkey line does not push the notes list away', (
+      tester,
+    ) async {
+      // Die Zeile sitzt im Detail-Panel; die Liste daneben darf davon nichts
+      // merken — auch nicht bei vergrößerter Systemschrift.
+      Future<Rect> listRectFor(bool marked) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const MediaQuery(
+              data: MediaQueryData(
+                size: Size(1280, 800),
+                textScaler: TextScaler.linear(2.0),
+              ),
+              child: NotesPage(),
+            ),
+            overrides: [
+              notesProvider.overrideWith(
+                (ref) => Stream.value([
+                  _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: marked),
+                ]),
+              ),
+              settingsProvider.overrideWith(() => _FakeSettings(_hotkeyOn)),
+              ..._noTagOverrides,
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(NotesListTile).first);
+        await tester.pumpAndSettle();
+        while (tester.takeException() != null) {}
+        return tester.getRect(find.byType(NotesListTile).first);
+      }
+
+      final unmarked = await listRectFor(false);
+      final marked = await listRectFor(true);
+      expect(marked.width, closeTo(unmarked.width, 0.5));
+      expect(marked.left, closeTo(unmarked.left, 0.5));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Eine Einstellung, zwei Aufrufstellen (Ticket 24)
+  // ---------------------------------------------------------------------------
+
+  group('Notizen-Seite und Einstellungen teilen einen Zustand', () {
+    Widget bothSurfaces(AppSettings settings) {
+      final controller = TextEditingController(text: 'Inbox');
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+      return makeTestable(
+        SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(width: 560, child: KeyboardShortcutSection()),
+              SizedBox(
+                width: 420,
+                height: 420,
+                child: NoteEditorPanel(
+                  note: _sampleNote(
+                    id: 'n1',
+                    content: 'Inbox',
+                    isQuickNote: true,
+                  ),
+                  tags: const [],
+                  controller: controller,
+                  focusNode: focusNode,
+                  onClose: () {},
+                  onToggleFavorite: () {},
+                  onQuickNoteSet: () {},
+                  onQuickNoteClear: () {},
+                  onMoveToTrash: () {},
+                  onRestore: () {},
+                  onDeleteForever: () {},
+                  onAddTag: (_) {},
+                  onRemoveTag: (_) {},
+                  onExport: () {},
+                  onVoiceTranscript: (_) {},
+                ),
+              ),
+            ],
+          ),
+        ),
+        locale: const Locale('en'),
+        overrides: [
+          settingsProvider.overrideWith(() => _FakeSettings(settings)),
+        ],
+      );
+    }
+
+    testWidgets('a change made in the notes editor shows up in Settings', (
+      tester,
+    ) async {
+      await tester.pumpWidget(bothSurfaces(_hotkeyOn));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyCombo')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.pumpAndSettle();
+
+      // Nicht den Provider-Wert prüfen, sondern das, was die andere Oberfläche
+      // *zeigt*: ein zweiter gespeicherter Zustand fiele nur hier auf.
+      // 'K' ist eindeutig — der Haupt-Hotkey steht per Vorgabe auf 'D'.
+      expect(
+        find.descendant(
+          of: find.byType(KeyboardShortcutSection),
+          matching: find.text('K'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('switching the hotkey off in Settings reaches the notes '
+        'editor', (tester) async {
+      await tester.pumpWidget(bothSurfaces(_hotkeyOn));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('notesQuickNoteHotkeyCombo')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('quickNoteHotkeyToggle')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(NoteEditorPanel),
+          matching: find.text(l10n.notesQuickNoteHotkeyOff),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('notesQuickNoteHotkeyCombo')), findsNothing);
+    });
+  });
+}
+
+/// Der Schnellnotiz-Hotkey eingeschaltet, sonst alles auf Vorgabe.
+const _hotkeyOn = AppSettings(
+  quickNoteHotkey: QuickNoteHotkeySettings(quickNoteHotkeyEnabled: true),
+);
+
+class _FakeSettings extends SettingsNotifier {
+  _FakeSettings(this._settings);
+
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+}
+
+/// Räumt die anstehenden Layout-Ausnahmen ab und meldet ihre erste Zeile.
+///
+/// Die Meldungen und nicht nur ihre Zahl, damit ein Fehlschlag benennt, *was*
+/// übergelaufen ist — sonst steht da nur „1 statt 0".
+List<String> _drainExceptions(WidgetTester tester) {
+  final messages = <String>[];
+  for (
+    Object? e = tester.takeException();
+    e != null;
+    e = tester.takeException()
+  ) {
+    messages.add(e.toString().split('\n').first);
+  }
+  return messages;
 }

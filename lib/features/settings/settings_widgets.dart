@@ -170,11 +170,22 @@ class HotkeyDisplay extends StatelessWidget {
     required this.hotkeyKey,
     required this.hotkeyModifiers,
     this.hotkeyKeyDisplay = '',
+    this.wrap = false,
   });
 
   final String hotkeyKey;
   final String hotkeyModifiers;
   final String hotkeyKeyDisplay;
+
+  /// Lässt die Kappen in die nächste Zeile umbrechen, statt über den Rand
+  /// hinauszulaufen.
+  ///
+  /// Aus per Vorgabe, damit die bestehenden Aufrufstellen (Einstellungen,
+  /// Onboarding, Über) unverändert eine Zeile bleiben. Eingeschaltet dort, wo
+  /// die Kappen in einer wirklich schmalen Spalte stehen — im Notiz-Editor
+  /// reicht die Breite bei vergrößerter Systemschrift sonst nicht, und ein
+  /// [Row] hat für diesen Fall keine Antwort außer Überlauf.
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
@@ -186,57 +197,62 @@ class HotkeyDisplay extends StatelessWidget {
       displayOverride: hotkeyKeyDisplay,
     );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (int i = 0; i < parts.length; i++) ...[
-          if (i > 0)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-              child: Text(
-                '+',
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w500,
-                  color: WpColors.textMuted,
-                ),
-              ),
-            ),
-          Container(
-            // A key cap stands beside a dense "Change" button in every place
-            // it is used, so it takes that height rather than whatever its
-            // padding and border happen to add up to (30 px, i.e. two pixels
-            // short and one pixel off the button's centre line).
-            constraints: const BoxConstraints(
-              minHeight: WpLayout.denseControlHeight,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs,
-              vertical: WpSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: WpColors.surfaceVariant,
-              borderRadius: WpRadius.borderSm,
-              border: Border.all(color: WpColors.borderSubtle),
-            ),
-            // `widthFactor: 1` so the cap centres its glyph in the taller box
-            // without also claiming the width the row has left over.
-            child: Center(
-              widthFactor: 1,
-              child: Text(
-                parts[i],
-                style: const TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                  color: WpColors.textPrimary,
-                ),
+    final caps = <Widget>[
+      for (int i = 0; i < parts.length; i++) ...[
+        if (i > 0)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+            child: Text(
+              '+',
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                fontWeight: FontWeight.w500,
+                color: WpColors.textMuted,
               ),
             ),
           ),
-        ],
+        Container(
+          // A key cap stands beside a dense "Change" button in every place
+          // it is used, so it takes that height rather than whatever its
+          // padding and border happen to add up to (30 px, i.e. two pixels
+          // short and one pixel off the button's centre line).
+          constraints: const BoxConstraints(
+            minHeight: WpLayout.denseControlHeight,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xs,
+            vertical: WpSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: WpColors.surfaceVariant,
+            borderRadius: WpRadius.borderSm,
+            border: Border.all(color: WpColors.borderSubtle),
+          ),
+          // `widthFactor: 1` so the cap centres its glyph in the taller box
+          // without also claiming the width the row has left over.
+          child: Center(
+            widthFactor: 1,
+            child: Text(
+              parts[i],
+              style: const TextStyle(
+                fontSize: WpTypography.body,
+                fontWeight: FontWeight.w600,
+                fontFeatures: [FontFeature.tabularFigures()],
+                color: WpColors.textPrimary,
+              ),
+            ),
+          ),
+        ),
       ],
-    );
+    ];
+
+    return wrap
+        ? Wrap(
+            runSpacing: WpSpacing.xxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: caps,
+          )
+        : Row(mainAxisSize: MainAxisSize.min, children: caps);
   }
 }
 

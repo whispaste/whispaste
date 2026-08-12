@@ -1110,6 +1110,15 @@
   "notesUnfavorite": "הסר מהמועדפים",
   "notesQuickNoteSet": "הפוך לפתק המהיר שאליו הקיצור מוסיף טקסט",
   "notesQuickNoteClear": "פתק מהיר — הסר את הסימון",
+  "notesQuickNoteHotkeyLabel": "קיצור",
+  "notesQuickNoteHotkeyChange": "שינוי הקיצור לפתק מהיר — כרגע {combination}",
+  "@notesQuickNoteHotkeyChange": {
+    "placeholders": {
+      "combination": { "type": "String" }
+    }
+  },
+  "notesQuickNoteHotkeyOff": "הקיצור לפתק מהיר כבוי.",
+  "notesQuickNoteHotkeyEnable": "הפעלת הקיצור",
   "notesMoveToTrash": "העבר לאשפה",
   "notesMovedToTrash": "הועבר לאשפה",
   "notesRestore": "שחזר",

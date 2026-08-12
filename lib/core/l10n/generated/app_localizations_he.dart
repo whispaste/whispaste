@@ -3229,6 +3229,20 @@ class L10nHe extends L10n {
   String get notesQuickNoteClear => 'פתק מהיר — הסר את הסימון';
 
   @override
+  String get notesQuickNoteHotkeyLabel => 'קיצור';
+
+  @override
+  String notesQuickNoteHotkeyChange(String combination) {
+    return 'שינוי הקיצור לפתק מהיר — כרגע $combination';
+  }
+
+  @override
+  String get notesQuickNoteHotkeyOff => 'הקיצור לפתק מהיר כבוי.';
+
+  @override
+  String get notesQuickNoteHotkeyEnable => 'הפעלת הקיצור';
+
+  @override
   String get notesMoveToTrash => 'העבר לאשפה';
 
   @override

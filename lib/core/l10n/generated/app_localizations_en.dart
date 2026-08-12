@@ -3278,6 +3278,21 @@ class L10nEn extends L10n {
   String get notesQuickNoteClear => 'Quick note — remove the mark';
 
   @override
+  String get notesQuickNoteHotkeyLabel => 'Hotkey';
+
+  @override
+  String notesQuickNoteHotkeyChange(String combination) {
+    return 'Change the quick-note hotkey — currently $combination';
+  }
+
+  @override
+  String get notesQuickNoteHotkeyOff =>
+      'The quick-note hotkey is switched off.';
+
+  @override
+  String get notesQuickNoteHotkeyEnable => 'Turn hotkey on';
+
+  @override
   String get notesMoveToTrash => 'Move to Trash';
 
   @override

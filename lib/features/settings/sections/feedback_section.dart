@@ -17,7 +17,6 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../services/hotkey_conflicts.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paste_policy.dart';
@@ -28,6 +27,7 @@ import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/paste_capability_indicator.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
+import '../quick_note_hotkey_flow.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -160,68 +160,22 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
   /// und eine Meldung, die währenddessen verschwindet, hilft ihm dabei nicht.
   String? _collidingAction;
 
-  /// Alle WhisPaste-Hotkeys, gegen die eine neue Kombination geprüft wird.
+  /// Öffnet den gemeinsamen Belegungs-Weg und zeigt an, was er ergeben hat.
   ///
-  /// Nur eingeschaltete Hotkeys zählen: ein abgeschalteter belegt beim OS
-  /// nichts, also gibt es auch nichts zu kollidieren. (Kehrseite — er kollidiert
-  /// dann eben in dem Moment, in dem er wieder eingeschaltet wird; siehe
-  /// Bericht.)
-  List<HotkeyBinding> _activeBindings(AppSettings settings, L10n l10n) => [
-    if (settings.hotkeyEnabled)
-      HotkeyBinding(
-        actionId: 'global',
-        actionLabel: l10n.settingsHotkeyActionRecording,
-        key: settings.hotkeyKey,
-        modifiers: settings.hotkeyModifiers,
-      ),
-    if (settings.quickNoteHotkey.quickNoteHotkeyEnabled)
-      HotkeyBinding(
-        actionId: 'quickNote',
-        actionLabel: l10n.settingsHotkeyActionQuickNote,
-        key: settings.quickNoteHotkey.quickNoteHotkeyKey,
-        modifiers: settings.quickNoteHotkey.quickNoteHotkeyModifiers,
-      ),
-  ];
-
+  /// Dialog, Kollisionsprüfung und Speichern liegen in
+  /// [recordQuickNoteHotkey] — dieselbe Funktion, die die Notizen-Seite
+  /// aufruft (Ticket 24). Hier bleibt nur die Darstellung des Ergebnisses.
   Future<void> _record() async {
-    final l10n = L10n.of(context);
-    final quickNote = widget.settings.quickNoteHotkey;
-    final result = await WpHotkeyRecorderDialog.show(
-      context,
-      initialKey: quickNote.quickNoteHotkeyKey,
-      initialDisplayKey: quickNote.quickNoteHotkeyKeyDisplay,
-      initialModifiers: quickNote.quickNoteHotkeyModifiers,
+    final result = await recordQuickNoteHotkey(
+      context: context,
+      ref: ref,
+      settings: widget.settings,
     );
-    if (result == null || !mounted) return;
-
-    // Vor dem Speichern, nicht danach: eine doppelt vergebene Kombination
-    // ließe sich zwar speichern, aber einer der beiden Hotkeys löste danach
-    // still nicht mehr aus — ohne dass irgendwo etwas sichtbar fehlschlüge.
-    // Gegen den kanonischen Token geprüft, nicht gegen die Anzeige-Taste: beim
-    // OS registriert wird der kanonische, also kollidiert auch nur der.
-    final collision = findHotkeyCollision(
-      modifiers: result.modifiers,
-      key: result.key,
-      bindings: _activeBindings(widget.settings, l10n),
-      excludeActionId: 'quickNote',
-    );
-    if (collision != null) {
-      setState(() => _collidingAction = collision.actionLabel);
-      return;
-    }
-
-    setState(() => _collidingAction = null);
-    await ref
-        .read(settingsProvider.notifier)
-        .updateSettings(
-          (s) => s.copyWithSections(
-            quickNoteHotkey: s.quickNoteHotkey.copyWith(
-              quickNoteHotkeyKey: result.key,
-              quickNoteHotkeyKeyDisplay: result.displayKey,
-              quickNoteHotkeyModifiers: result.modifiers,
-            ),
-          ),
-        );
+    if (!mounted) return;
+    // Abbruch lässt eine stehende Meldung stehen: sie gehört zur Kombination,
+    // die sie ausgelöst hat, und die ist unverändert.
+    if (result.change == QuickNoteHotkeyChange.cancelled) return;
+    setState(() => _collidingAction = result.collidingActionLabel);
   }
 
   @override
@@ -284,15 +238,7 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
                       // Eine Kollisions-Meldung gehört zur Kombination, die
                       // sie ausgelöst hat; beim Umschalten ist sie erledigt.
                       setState(() => _collidingAction = null);
-                      ref
-                          .read(settingsProvider.notifier)
-                          .updateSettings(
-                            (s) => s.copyWithSections(
-                              quickNoteHotkey: s.quickNoteHotkey.copyWith(
-                                quickNoteHotkeyEnabled: v,
-                              ),
-                            ),
-                          );
+                      unawaited(setQuickNoteHotkeyEnabled(ref, enabled: v));
                     },
                   ),
                 ),

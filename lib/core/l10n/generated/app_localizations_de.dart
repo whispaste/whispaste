@@ -3307,6 +3307,21 @@ class L10nDe extends L10n {
   String get notesQuickNoteClear => 'Schnellnotiz — Markierung entfernen';
 
   @override
+  String get notesQuickNoteHotkeyLabel => 'Hotkey';
+
+  @override
+  String notesQuickNoteHotkeyChange(String combination) {
+    return 'Hotkey der Schnellnotiz ändern — derzeit $combination';
+  }
+
+  @override
+  String get notesQuickNoteHotkeyOff =>
+      'Der Schnellnotiz-Hotkey ist ausgeschaltet.';
+
+  @override
+  String get notesQuickNoteHotkeyEnable => 'Hotkey einschalten';
+
+  @override
   String get notesMoveToTrash => 'In den Papierkorb verschieben';
 
   @override

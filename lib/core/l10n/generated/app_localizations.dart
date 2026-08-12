@@ -5802,6 +5802,30 @@ abstract class L10n {
   /// **'Quick note — remove the mark'**
   String get notesQuickNoteClear;
 
+  /// No description provided for @notesQuickNoteHotkeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey'**
+  String get notesQuickNoteHotkeyLabel;
+
+  /// No description provided for @notesQuickNoteHotkeyChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the quick-note hotkey — currently {combination}'**
+  String notesQuickNoteHotkeyChange(String combination);
+
+  /// No description provided for @notesQuickNoteHotkeyOff.
+  ///
+  /// In en, this message translates to:
+  /// **'The quick-note hotkey is switched off.'**
+  String get notesQuickNoteHotkeyOff;
+
+  /// No description provided for @notesQuickNoteHotkeyEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn hotkey on'**
+  String get notesQuickNoteHotkeyEnable;
+
   /// No description provided for @notesMoveToTrash.
   ///
   /// In en, this message translates to:
