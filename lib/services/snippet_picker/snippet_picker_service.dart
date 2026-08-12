@@ -149,6 +149,10 @@ class SnippetPickerService
       blocklist: settings.behavior.autoPasteBlocklist,
     );
     final outcome = await paster.paste(snippet.body, options);
+    // paste() may still be mid clipboard-restore delay (≥500ms) when the
+    // panel/provider is disposed in the meantime — guard the post-await
+    // ref use per Riverpod's own advice.
+    if (!ref.mounted) return;
     if (outcome == PasteOutcome.success) {
       ref
           .read(telemetrySessionAggregatorProvider)

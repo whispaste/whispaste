@@ -79,14 +79,15 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// map (escape only reads as "do nothing, don't propagate further" on
   /// Apple platforms — this widget's own `Shortcuts` sits nearer the focused
   /// leaf and wins first). So the gap isn't in the Dart layer; it's between
-  /// the raw macOS keyDown and the Flutter engine: the search field's
-  /// keyboard focus is held by the render engine's embedded text-input proxy
-  /// view (the object driving `NSTextInputClient` for IME/marked-text), and
-  /// that view's own `-interpretKeyEvents:`/`-doCommandBySelector:` handling
-  /// for Escape does not reliably keep forwarding it to Flutter's raw
-  /// keyboard channel — the same channel that carries Enter's `onSubmitted`
-  /// via a different, independent path (`TextInputAction.done`), which is
-  /// why Enter already worked while Escape didn't.
+  /// the raw macOS keyDown and the Flutter engine — the exact mechanism
+  /// inside the embedder (the search field's focus is held by the render
+  /// engine's embedded text-input proxy view, and something in its
+  /// `NSTextInputClient` handling doesn't keep forwarding Escape onward) was
+  /// not confirmed further than that, since Enter already worked via a
+  /// separate, independent path (`TextInputAction.done`) that doesn't go
+  /// through the same code. A local event monitor makes the fix correct
+  /// regardless of the exact mechanism, which is why this doesn't chase it
+  /// further.
   ///
   /// A local event monitor sidesteps that entirely: it runs at
   /// `NSApplication`'s event-dispatch stage, strictly before `-sendEvent:`
@@ -214,6 +215,23 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       renderChannel?.invokeMethod("setItems", arguments: ["items": items])
     } else {
       pendingItems = items
+    }
+
+    // [prewarm] (190b7477) keeps the render engine — and its
+    // `FlutterViewController` — alive across the whole app session, so
+    // `bootRenderEngine` only ever attaches it to the panel once. Reordering
+    // the panel back on screen via `orderFrontRegardless` after a prior
+    // `orderOut` does not retrigger AppKit's normal appearance cycle for a
+    // view controller that was never detached, so the reused view keeps
+    // presenting whatever frame was last rasterized instead of the current
+    // Dart tree (confirmed live: the panel kept showing the empty-state
+    // frame from the very first boot even after the Dart side rebuilt with
+    // real items and even after further code changes to that empty-state
+    // widget itself). Detaching and reattaching the same view controller
+    // forces AppKit to redo that appearance cycle and present a fresh frame.
+    if let vc = renderViewController {
+      p.contentViewController = nil
+      p.contentViewController = vc
     }
 
     p.orderFrontRegardless()
