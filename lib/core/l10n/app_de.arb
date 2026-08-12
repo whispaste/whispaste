@@ -516,6 +516,7 @@
   "sttStatusReady": "Bereit",
   "sttStatusError": "Fehler",
   "statusBarSttTooltip": "Sprachdienst und aktueller Status",
+  "statusBarSttBackendTooltip": "Transkriptions-Backend: {backend}",
   "statusBarRecording": "Aufnahme…",
   "statusBarTranscribing": "Transkribieren…",
   "statusBarDone": "Fertig",

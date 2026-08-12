@@ -558,6 +558,7 @@
   "sttStatusReady": "מוכן",
   "sttStatusError": "שגיאה",
   "statusBarSttTooltip": "מנוע דיבור וסטטוס נוכחי",
+  "statusBarSttBackendTooltip": "מנוע תמלול: {backend}",
   "statusBarRecording": "מקליט…",
   "statusBarTranscribing": "מתמלל…",
   "statusBarProcessing": "מעבד…",

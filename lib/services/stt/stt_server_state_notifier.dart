@@ -55,6 +55,7 @@ class SttStatus {
     this.isBenchmarking = false,
     this.benchmarkingTier,
     this.cpuFallbackActive = false,
+    this.backend,
   });
 
   final SttServerState serverState;
@@ -81,6 +82,14 @@ class SttStatus {
   /// True when the GPU crashed and the server restarted on CPU automatically.
   final bool cpuFallbackActive;
 
+  /// The compute backend the currently loaded model actually runs on
+  /// ([WhisperEngineStatus.backend] at the moment the load/warmup last
+  /// completed), or `null` before any model has ever loaded. Distinct from
+  /// [cpuFallbackActive]: that flag only covers the load-time GPU→CPU
+  /// retry, while this reflects the real backend regardless of *why* it
+  /// ended up there (including hardware that was never GPU-capable).
+  final WhisperBackend? backend;
+
   bool get isReady => serverState == SttServerState.ready;
 
   /// Legacy HTTP-era getter — dead since Issue 03's cutover to the in-process
@@ -99,6 +108,7 @@ class SttStatus {
     QualityTier? benchmarkingTier,
     bool clearBenchmarkingTier = false,
     bool? cpuFallbackActive,
+    WhisperBackend? backend,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
@@ -111,13 +121,15 @@ class SttStatus {
           ? null
           : (benchmarkingTier ?? this.benchmarkingTier),
       cpuFallbackActive: cpuFallbackActive ?? this.cpuFallbackActive,
+      backend: backend ?? this.backend,
     );
   }
 
   @override
   String toString() =>
       'SttStatus($serverState, port=$port, model=$modelId, '
-      'benchmarking=$isBenchmarking, cpuFallback=$cpuFallbackActive)';
+      'benchmarking=$isBenchmarking, cpuFallback=$cpuFallbackActive, '
+      'backend=$backend)';
 }
 
 // ---------------------------------------------------------------------------
@@ -636,7 +648,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
                 _resiliencePolicy.shouldRetryOnCpu(e.kind)) {
               cpuFallbackTried = true;
               if (ref.mounted) {
-                state = state.copyWith(cpuFallbackActive: true);
+                state = state.copyWith(
+                  cpuFallbackActive: true,
+                  backend: WhisperBackend.cpu,
+                );
               }
               _log.warning(
                 'GPU crash during inference — degrading to CPU and retrying',
@@ -954,10 +969,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   void _rearmPendingBenchmark() {
     if (_pendingBenchmarkModelId == null) return;
     _benchmarkDeferTimer?.cancel();
-    _benchmarkDeferTimer = Timer(
-      benchmarkIdleDelay,
-      _maybeRunPendingBenchmark,
-    );
+    _benchmarkDeferTimer = Timer(benchmarkIdleDelay, _maybeRunPendingBenchmark);
   }
 
   Future<void> _storeBenchmarkResult(String modelId, double rtf) async {
@@ -1194,6 +1206,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         // constructs a fresh SttStatus rather than copyWith-ing the current
         // one, so cpuFallbackActive would otherwise silently reset to false.
         cpuFallbackActive: state.cpuFallbackActive,
+        // The real backend this load ended up on — reads _engine.status
+        // directly rather than trusting the pre-load `attemptingGpu` guess,
+        // so it reflects the CPU swap above when that branch fired.
+        backend: _engine!.status.backend,
       ),
     );
   }

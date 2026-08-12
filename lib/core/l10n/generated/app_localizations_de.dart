@@ -1659,6 +1659,11 @@ class L10nDe extends L10n {
   String get statusBarSttTooltip => 'Sprachdienst und aktueller Status';
 
   @override
+  String statusBarSttBackendTooltip(String backend) {
+    return 'Transkriptions-Backend: $backend';
+  }
+
+  @override
   String get statusBarRecording => 'Aufnahme…';
 
   @override

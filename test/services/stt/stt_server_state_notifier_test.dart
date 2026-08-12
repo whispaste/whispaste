@@ -36,6 +36,10 @@ class _FakeWhisperEngine implements WhisperEngine {
   String? lastModelPath;
   int loadCallCount = 0;
 
+  /// The backend [status] reports once loaded — mutable so tests can prove
+  /// [SttStatus.backend] actually reads this rather than assuming CPU.
+  WhisperBackend backend = WhisperBackend.cpu;
+
   /// If set, [transcribe] waits this long before completing — simulates
   /// slower/faster hardware for benchmark-driven tier-selection tests.
   Duration? transcribeDelay;
@@ -48,7 +52,7 @@ class _FakeWhisperEngine implements WhisperEngine {
 
   @override
   WhisperEngineStatus get status =>
-      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
+      WhisperEngineStatus(isLoaded: _loaded, backend: backend);
 
   @override
   Future<void> load({required String modelPath, String? vadModelPath}) async {
@@ -213,6 +217,21 @@ void main() {
       expect(status.serverState, SttServerState.ready);
       expect(engine.loadCallCount, 1);
       expect(engine.lastModelPath, isNotNull);
+    });
+
+    test('ensureRunning() surfaces the engine\'s actual backend in '
+        'SttStatus.backend', () async {
+      final engine = _FakeWhisperEngine()..backend = WhisperBackend.metal;
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+      expect(
+        container.read(localSttBundleProvider).backend,
+        WhisperBackend.metal,
+      );
     });
 
     test('stop() transitions to stopped', () async {

@@ -192,6 +192,19 @@ SttServerState _sttServerStateFor(ParakeetEngineState state) => switch (state) {
   ParakeetEngineState.error => SttServerState.error,
 };
 
+/// Display name for the status bar's backend indicator — deliberately not
+/// localized (technical proper nouns: "Metal"/"CUDA"/"Vulkan"/"CPU" read the
+/// same in every supported language, same convention as "GPU acceleration"
+/// in Settings, which never translates the acronym itself). `null` before
+/// any local model has ever loaded (nothing to report yet).
+String? _sttBackendDisplayName(WhisperBackend? backend) => switch (backend) {
+  WhisperBackend.metal => 'Metal',
+  WhisperBackend.cuda => 'CUDA',
+  WhisperBackend.vulkan => 'Vulkan',
+  WhisperBackend.cpu => 'CPU',
+  null => null,
+};
+
 /// Map page IDs to their widgets.
 const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
@@ -1032,6 +1045,12 @@ class _AppShellState extends ConsumerState<_AppShell>
     final statusBarSttState = parakeetStatus != null
         ? _sttServerStateFor(parakeetStatus.state)
         : sttStatus.serverState;
+    // Parakeet has no GPU backend at all (CPU-only, see its `aboutParakeetDesc`
+    // copy) — the indicator only earns its keep for the local Whisper engine,
+    // where "GPU or CPU?" is an actual question with two possible answers.
+    final sttBackendLabel = parakeetStatus == null
+        ? _sttBackendDisplayName(sttStatus.backend)
+        : null;
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
@@ -1203,6 +1222,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                           WpStatusBar(
                             sttModeLabel: statusBarModel.sttModeLabel,
                             sttState: statusBarSttState,
+                            sttBackendLabel: sttBackendLabel,
                             // Parakeet has no starting-since timestamp (no
                             // "warming up" phase to time) — the status bar
                             // simply shows no elapsed-time hint for it.

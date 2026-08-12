@@ -1626,6 +1626,11 @@ class L10nHe extends L10n {
   String get statusBarSttTooltip => 'מנוע דיבור וסטטוס נוכחי';
 
   @override
+  String statusBarSttBackendTooltip(String backend) {
+    return 'מנוע תמלול: $backend';
+  }
+
+  @override
   String get statusBarRecording => 'מקליט…';
 
   @override

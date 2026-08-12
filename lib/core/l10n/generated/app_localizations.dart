@@ -3003,6 +3003,12 @@ abstract class L10n {
   /// **'Speech service and current status'**
   String get statusBarSttTooltip;
 
+  /// No description provided for @statusBarSttBackendTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription backend: {backend}'**
+  String statusBarSttBackendTooltip(String backend);
+
   /// No description provided for @statusBarRecording.
   ///
   /// In en, this message translates to:

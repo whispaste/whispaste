@@ -69,6 +69,7 @@ class WpStatusBar extends StatelessWidget {
     super.key,
     required this.sttModeLabel,
     this.sttState = SttServerState.stopped,
+    this.sttBackendLabel,
     this.sttStartingSince,
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
@@ -95,6 +96,12 @@ class WpStatusBar extends StatelessWidget {
 
   /// Current state of the STT server subprocess.
   final SttServerState sttState;
+
+  /// The real compute backend transcription is currently running on
+  /// ("Metal"/"CUDA"/"Vulkan"/"CPU"), or null to hide the indicator (no
+  /// local model loaded yet, or the active engine has no GPU concept —
+  /// see `_sttBackendDisplayName` in `app.dart`).
+  final String? sttBackendLabel;
 
   /// When the STT server entered the starting state (for elapsed display).
   final DateTime? sttStartingSince;
@@ -206,6 +213,7 @@ class WpStatusBar extends StatelessWidget {
                     _SttChip(
                       modeLabel: sttModeLabel,
                       state: sttState,
+                      backendLabel: sttBackendLabel,
                       startingSince: sttStartingSince,
                       recordingPhase: recordingPhase,
                       textStyle: textStyle,
@@ -309,6 +317,7 @@ class _SttChip extends StatefulWidget {
   const _SttChip({
     required this.modeLabel,
     required this.state,
+    this.backendLabel,
     this.startingSince,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
@@ -318,6 +327,9 @@ class _SttChip extends StatefulWidget {
 
   final String modeLabel;
   final SttServerState state;
+
+  /// See `WpStatusBar.sttBackendLabel`.
+  final String? backendLabel;
   final DateTime? startingSince;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
@@ -348,9 +360,12 @@ class _SttChipState extends State<_SttChip> {
     if (old.recordingPhase != widget.recordingPhase ||
         old.state != widget.state) {
       final (_, stateLabel, _) = _resolveDisplay();
+      final backend = widget.backendLabel;
       SemanticsService.sendAnnouncement(
         View.of(context),
-        '${widget.modeLabel} — $stateLabel',
+        backend == null
+            ? '${widget.modeLabel} — $stateLabel'
+            : '${widget.modeLabel} — $stateLabel · $backend',
         Directionality.of(context),
       );
     }
@@ -380,6 +395,14 @@ class _SttChipState extends State<_SttChip> {
   Widget build(BuildContext context) {
     final (Color dotColor, String stateLabel, bool showSpinner) =
         _resolveDisplay();
+    final backendLabel = widget.backendLabel;
+    final label = backendLabel == null
+        ? '${widget.modeLabel} — $stateLabel'
+        : '${widget.modeLabel} — $stateLabel · $backendLabel';
+    final tooltip = backendLabel == null
+        ? widget.l10n.statusBarSttTooltip
+        : '${widget.l10n.statusBarSttTooltip}\n'
+              '${widget.l10n.statusBarSttBackendTooltip(backendLabel)}';
 
     final inkWell = InkWell(
       onTap: widget.onTap,
@@ -421,7 +444,7 @@ class _SttChipState extends State<_SttChip> {
                 ),
               ),
             const SizedBox(width: 6),
-            Text('${widget.modeLabel} — $stateLabel', style: widget.textStyle),
+            Text(label, style: widget.textStyle),
           ],
         ),
       ),
@@ -450,7 +473,7 @@ class _SttChipState extends State<_SttChip> {
     return MergeSemantics(
       child: Semantics(
         button: widget.onTap != null,
-        child: Tooltip(message: widget.l10n.statusBarSttTooltip, child: body),
+        child: Tooltip(message: tooltip, child: body),
       ),
     );
   }

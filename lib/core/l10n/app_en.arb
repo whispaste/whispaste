@@ -636,6 +636,12 @@
   "sttStatusReady": "Ready",
   "sttStatusError": "Error",
   "statusBarSttTooltip": "Speech service and current status",
+  "statusBarSttBackendTooltip": "Transcription backend: {backend}",
+  "@statusBarSttBackendTooltip": {
+    "placeholders": {
+      "backend": { "type": "String" }
+    }
+  },
   "statusBarRecording": "Recording…",
   "statusBarTranscribing": "Transcribing…",
   "statusBarDone": "Done",
