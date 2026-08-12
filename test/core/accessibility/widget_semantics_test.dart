@@ -64,9 +64,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The 7 buttons: Bold, Italic, Heading, Bullet list,
-      // Numbered list, Quote, Code — labels out of the ARB files (Ticket 27),
-      // no longer hard-coded English inside the widget.
+      // The 8 buttons: Bold, Italic, Heading, Bullet list, Numbered list,
+      // Quote, Code, and — behind a divider — Find and replace. Labels out of
+      // the ARB files (Ticket 27), no longer hard-coded English inside the
+      // widget. Whenever the toolbar grows a button, it belongs in this list:
+      // the test's name promises *all* of them.
       for (final label in [
         l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel),
         l10n.markdownToolbarItalic(WpMarkdownFormatting.italicShortcutLabel),
@@ -77,6 +79,7 @@ void main() {
         l10n.markdownToolbarNumberedList,
         l10n.markdownToolbarQuote,
         l10n.markdownToolbarCode,
+        l10n.findReplaceToggle,
       ]) {
         expect(
           find.bySemanticsLabel(label),

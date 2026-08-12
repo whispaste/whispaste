@@ -19,6 +19,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
+import 'package:whispaste/widgets/find_replace_bar.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/wp_text_field.dart';
 
@@ -157,6 +158,73 @@ void main() {
     expect(
       controller.text,
       '_${original.substring(0, 2)}_${original.substring(2)}',
+    );
+
+    await _teardownTree(tester);
+  });
+
+  // The find bar's own Escape handling only matters here. Pumped standalone,
+  // the bar closes on Escape because nothing else wants the key; inside the
+  // detail panel, Escape is already bound to `_saveTranscript()`, which leaves
+  // edit mode and takes the toolbar — and the bar — down with it. Both paths
+  // end with the bar gone, so "the bar disappeared" proves nothing. The
+  // load-bearing assertion is that the transcript is *still* being edited.
+  testWidgets(
+    'Escape closes the find bar without leaving transcript edit mode',
+    (tester) async {
+      _ignoreOverflowErrors();
+      await _openTranscriptEditor(tester);
+
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await tester.pumpAndSettle();
+      expect(find.byType(WpFindReplaceBar), findsOneWidget);
+
+      // Focus has to sit in the find field: that is where the bar's
+      // `FocusNode.onKeyEvent` gets first crack at the key, ahead of the
+      // panel's ancestor `CallbackShortcuts`.
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceFindLabel));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.bySemanticsLabel(l10n.findReplaceFindLabel),
+        'the',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WpFindReplaceBar), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is WpTextField && w.variant == WpTextFieldVariant.passage,
+        ),
+        findsOneWidget,
+        reason:
+            'Escape reached the panel and saved the transcript instead of being '
+            'consumed by the find bar',
+      );
+
+      await _teardownTree(tester);
+    },
+  );
+
+  // The other half of the same contract: with the bar shut, Escape must still
+  // do what it always did. A find bar that swallowed the key permanently
+  // would pass the test above and still be a regression.
+  testWidgets('Escape still leaves transcript edit mode when the bar is shut', (
+    tester,
+  ) async {
+    _ignoreOverflowErrors();
+    await _openTranscriptEditor(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is WpTextField && w.variant == WpTextFieldVariant.passage,
+      ),
+      findsNothing,
     );
 
     await _teardownTree(tester);

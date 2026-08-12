@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'find_replace.dart';
 import 'find_replace_bar.dart';
 
 /// The markdown formatting actions themselves — the one place that knows how
@@ -221,10 +222,25 @@ class WpMarkdownToolbar extends StatefulWidget {
 class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
   bool _findOpen = false;
 
-  void _toggleFind() => setState(() => _findOpen = !_findOpen);
+  void _toggleFind() {
+    if (_findOpen) {
+      // Tapping the lit button is a close like any other — same tint teardown,
+      // same caret handover.
+      _closeFind();
+      return;
+    }
+    setState(() => _findOpen = true);
+  }
 
   void _closeFind() {
     if (!_findOpen) return;
+    // Before the bar leaves the tree, not after: the bar's own dispose runs
+    // while the framework is locked and can only clear the tint silently, so
+    // this is the call that actually repaints the field.
+    final controller = widget.controller;
+    if (controller is WpFindHighlightController) {
+      controller.clearFindHighlight();
+    }
     setState(() => _findOpen = false);
     widget.focusNode.requestFocus();
   }

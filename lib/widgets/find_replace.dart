@@ -173,6 +173,21 @@ abstract final class WpFindReplace {
 class WpFindHighlightController extends TextEditingController {
   WpFindHighlightController({super.text});
 
+  /// Tint alpha behind the match the caret is parked on.
+  ///
+  /// Same value [HighlightedText] already paints list-search hits with, and
+  /// not a free choice: the match keeps the body's own text colour, so the
+  /// tint composites *under* `textPrimary`. On `surfaceVariant` — the ground
+  /// `WpTextFieldVariant.form` fills with, i.e. every field this bar drives —
+  /// alpha 0.45 lands at 4.23:1, under the AA floor for body text. 0.28 gives
+  /// 6.39:1. Gated in `test/core/theme/wcag_contrast_test.dart`, so raising it
+  /// fails a test rather than shipping quietly.
+  static const double activeHighlightAlpha = 0.28;
+
+  /// Tint alpha behind every *other* match — far enough below
+  /// [activeHighlightAlpha] to read as "not the one you're on" at a glance.
+  static const double inactiveHighlightAlpha = 0.12;
+
   WpFindMatches _matches = WpFindMatches.none;
   int _activeIndex = -1;
 
@@ -193,7 +208,22 @@ class WpFindHighlightController extends TextEditingController {
     notifyListeners();
   }
 
-  void clearFindHighlight() => setFindHighlight(WpFindMatches.none, -1);
+  /// Drops the highlight.
+  ///
+  /// Pass `notify: false` from a [State.dispose]. Clearing normally notifies,
+  /// and dispose runs inside `BuildOwner.lockState` during unmount, where a
+  /// notification becomes a `markNeedsBuild` on widgets the framework has
+  /// locked — the field's own `EditableText` among them. Silent clearing is
+  /// safe there precisely because the widget is going away: either the field
+  /// unmounts with it, or the host repaints it when it takes the caret back.
+  void clearFindHighlight({bool notify = true}) {
+    if (notify) {
+      setFindHighlight(WpFindMatches.none, -1);
+      return;
+    }
+    _matches = WpFindMatches.none;
+    _activeIndex = -1;
+  }
 
   @override
   TextSpan buildTextSpan({
@@ -240,7 +270,9 @@ class WpFindHighlightController extends TextEditingController {
           text: text.substring(start, end),
           style: TextStyle(
             backgroundColor: WpColors.accent.withValues(
-              alpha: i == _activeIndex ? 0.45 : 0.16,
+              alpha: i == _activeIndex
+                  ? activeHighlightAlpha
+                  : inactiveHighlightAlpha,
             ),
           ),
         ),

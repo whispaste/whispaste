@@ -165,7 +165,10 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
 
   void _pushHighlight() => _highlightable?.setFindHighlight(_matches, _active);
 
-  void _clearHighlight() => _highlightable?.clearFindHighlight();
+  /// Silent by necessity — see [WpFindHighlightController.clearFindHighlight].
+  /// The visible clear happens in the host's close handler, before the bar
+  /// leaves the tree.
+  void _clearHighlight() => _highlightable?.clearFindHighlight(notify: false);
 
   // ── Match bookkeeping ─────────────────────────────────────────────────
 

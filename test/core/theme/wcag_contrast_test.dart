@@ -27,6 +27,7 @@ import 'package:whispaste/services/model_download_service.dart'
     show TierPerformance, sttModels;
 import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelId;
+import 'package:whispaste/widgets/find_replace.dart';
 import 'package:whispaste/widgets/tier_performance_presentation.dart';
 
 // ---------------------------------------------------------------------------
@@ -549,6 +550,68 @@ void main() {
               '< required ${pair.requiredRatio}:1 '
               '(fg: #${pair.fg.toARGB32().toRadixString(16).padLeft(8, '0')}, '
               'bg: #${pair.bg.toARGB32().toRadixString(16).padLeft(8, '0')})',
+        );
+      });
+    }
+  });
+
+  // Translucent tints painted *behind* text that keeps its own colour. These
+  // cannot live in `_darkPairs`: the effective background is a composite, and
+  // `Color.alphaBlend` is not const. They are the pairings most likely to rot
+  // unnoticed — nothing about `withValues(alpha: …)` at the call site hints
+  // that a number is load-bearing, and the first draft of the find bar shipped
+  // 0.45 here, which reads fine and measures 4.23:1.
+  group('WCAG AA contrast – translucent accent tints (dark)', () {
+    const tinted = <String, double>{
+      'find bar, active match': WpFindHighlightController.activeHighlightAlpha,
+      'find bar, other matches':
+          WpFindHighlightController.inactiveHighlightAlpha,
+    };
+    // Every ground a tinted match can land on: form fields fill with
+    // `surfaceVariant`, bare/embedded variants sit straight on the card.
+    const grounds = <String, Color>{
+      'surfaceVariant': WpColorsDark.surfaceVariant,
+      'surface': WpColorsDark.surface,
+      'background': WpColorsDark.background,
+    };
+
+    for (final tint in tinted.entries) {
+      for (final ground in grounds.entries) {
+        test('${tint.key} on ${ground.key}', () {
+          final composited = Color.alphaBlend(
+            WpColorsDark.accent.withValues(alpha: tint.value),
+            ground.value,
+          );
+          final ratio = contrastRatio(WpColorsDark.textPrimary, composited);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(4.5),
+            reason:
+                'textPrimary over accent @ alpha ${tint.value} on '
+                '${ground.key} is ${ratio.toStringAsFixed(2)}:1 — body text '
+                'under the AA floor. Lower the alpha rather than the floor.',
+          );
+        });
+      }
+    }
+
+    // The list-search highlight the find bar borrowed its alpha from. It
+    // recolours the glyph to `accent` instead of leaving it `textPrimary`, so
+    // it is a different pairing on the same tint — and it was ungated too.
+    for (final ground in grounds.entries) {
+      test('list-search highlight on ${ground.key}', () {
+        final composited = Color.alphaBlend(
+          WpColorsDark.accent.withValues(alpha: 0.28),
+          ground.value,
+        );
+        final ratio = contrastRatio(WpColorsDark.accent, composited);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(3.0),
+          reason:
+              'HighlightedText paints accent-on-accent-tint in bold, so it '
+              'clears the large-text floor: ${ratio.toStringAsFixed(2)}:1 on '
+              '${ground.key}.',
         );
       });
     }
