@@ -14,6 +14,17 @@ class AppDelegate: FlutterAppDelegate {
   private var secureBookmarkHost: SecureBookmarkHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
+  /// How long after launch the snippet-picker's second Flutter engine is
+  /// booted (see `SnippetPickerHost.prewarm`).
+  ///
+  /// The prewarm only has to be *finished before the user's first hotkey
+  /// press*; it does not have to be early. Holding it a couple of seconds
+  /// keeps the picker isolate's spawn and JIT burst clear of the main
+  /// engine's own startup work (STT prewarm, database open, first window
+  /// frame) — moving a stall onto the visible app start would just trade one
+  /// perceived slowdown for another.
+  private static let snippetPickerPrewarmDelay: TimeInterval = 2.5
+
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     // Return false so close-to-tray keeps the app alive in background.
     return false
@@ -91,6 +102,18 @@ class AppDelegate: FlutterAppDelegate {
     )
     lifecycleChannel?.setMethodCallHandler { [weak self] call, result in
       self?.handleLifecycleCall(call, result: result)
+    }
+
+    // Boot the snippet-picker's render engine off the critical path. Doing it
+    // lazily on the first hotkey press (the old behaviour) put the whole
+    // second-engine boot — Dart isolate spawn, theme/L10n resolution, warm-up
+    // frame — between the press and the panel appearing, which is exactly the
+    // latency this app exists to remove. Dispatched asynchronously rather
+    // than called inline so `applicationDidFinishLaunching` stays short and
+    // the main window's first frame is never held up by it.
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.snippetPickerPrewarmDelay) {
+      [weak self] in
+      self?.snippetPickerHost?.prewarm()
     }
   }
 

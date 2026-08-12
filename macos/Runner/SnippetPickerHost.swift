@@ -26,9 +26,16 @@ import os.log
 ///   `com.whispaste.snippet_picker_render` channel, and translates the picker
 ///   engine's `selectItem` / `cancel` calls back into the main-engine events.
 ///
-/// The panel is lazily created on first `show`, then reused across pickers
-/// for the app session — matching `FloatingButtonHost`'s pattern, so only the
-/// very first trigger pays the engine-boot cost.
+/// The panel is created once and reused across pickers for the app session.
+/// It is **not** created lazily on the first `show` (the original
+/// `FloatingButtonHost` pattern): booting a second Flutter engine costs a
+/// Dart isolate spawn plus theme/L10n resolution and a warm-up frame —
+/// seconds in a debug/JIT build — and paying that inside the `show` handler
+/// put the entire cost between the user's hotkey press and the panel
+/// appearing. [prewarm] moves it to a few seconds after launch instead, off
+/// the visible-startup path and long before the first press. `show` still
+/// calls [ensurePanel], so a missed or failed prewarm degrades to the old
+/// lazy behaviour rather than to no picker at all.
 class SnippetPickerHost: NSObject, NSWindowDelegate {
   private static let logger = OSLog(subsystem: "com.whispaste.snippet_picker", category: "SnippetPickerHost")
 
@@ -46,6 +53,11 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   private var renderReady = false
   private var pendingItems: [[String: String]]?
+
+  /// Start of the in-flight render-engine boot, so the `ready` handler can
+  /// report how long the engine actually took to come up — the number that
+  /// tells whether [prewarm] finished before the user's first hotkey press.
+  private var renderBootStartedAt: DispatchTime?
 
   /// Guards [dismiss] against a re-entrant second call: `orderOut(nil)`
   /// resigns the panel's key status, which fires `windowDidResignKey` — that
@@ -87,6 +99,41 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  // MARK: - Prewarm
+
+  /// Boots the panel and its render engine ahead of the first `show`,
+  /// without putting anything on screen. Called once from `AppDelegate`, a
+  /// short while after launch.
+  ///
+  /// Invisible by construction: [ensurePanel] only allocates the panel and
+  /// attaches the render `FlutterViewController`; the `orderFrontRegardless`
+  /// / `makeKey` pair that puts the panel on screen exists solely in [show],
+  /// and a freshly allocated `NSPanel` stays off-screen until it is ordered
+  /// in. Nothing is drawn, no window becomes key, and — the property
+  /// `SnippetPickerPanel` is built around — WhisPaste never becomes
+  /// frontmost, so `DesktopPasteHost.captureTarget()`'s stored paste target
+  /// is untouched.
+  ///
+  /// Deliberately not guarded against a second call: [ensurePanel] is
+  /// idempotent *and* re-attempts a failed boot, so calling this after a
+  /// failed attempt is a retry rather than a no-op.
+  func prewarm() {
+    let startedAt = DispatchTime.now()
+    ensurePanel()
+    os_log(
+      "prewarm: boot dispatched, %{public}@ ms on the main thread (engine readiness is reported separately)",
+      log: Self.logger, type: .info, Self.elapsedMillis(since: startedAt)
+    )
+  }
+
+  /// Milliseconds elapsed since [start], preformatted as a string — this
+  /// file's `os_log` calls interpolate `%{public}@` only, and there is no
+  /// numeric-format precedent to follow.
+  private static func elapsedMillis(since start: DispatchTime) -> String {
+    let nanos = DispatchTime.now().uptimeNanoseconds &- start.uptimeNanoseconds
+    return String(format: "%.0f", Double(nanos) / 1_000_000)
   }
 
   // MARK: - Show / dismiss
@@ -181,18 +228,42 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   // MARK: - Panel + render-engine creation
 
+  /// Idempotent: creates the panel if it doesn't exist yet, and boots the
+  /// render engine unless a live one is already attached.
+  ///
+  /// The second half matters now that [prewarm] boots the engine before the
+  /// user ever asks for a picker: a failed boot (`engine.run` returning
+  /// false, so no view controller ever gets attached) used to be permanent,
+  /// because the panel existed and this method returned early forever after.
+  /// The picker would then stay blank for the whole app session. Keying the
+  /// re-boot on `renderViewController` rather than on a separate failure flag
+  /// keeps "is there a usable engine?" a single question with a single
+  /// answer.
   private func ensurePanel() {
-    guard panel == nil else { return }
-    let p = SnippetPickerPanel(contentSize: Self.contentSize)
-    p.delegate = self
-    panel = p
-    bootRenderEngine()
-    os_log("ensurePanel: panel created", log: Self.logger, type: .info)
+    if panel == nil {
+      let p = SnippetPickerPanel(contentSize: Self.contentSize)
+      p.delegate = self
+      panel = p
+      os_log("ensurePanel: panel created", log: Self.logger, type: .info)
+    }
+    if renderViewController == nil {
+      bootRenderEngine()
+    }
   }
 
   private func bootRenderEngine() {
     guard let p = panel else { return }
     renderReady = false
+
+    // Discard the corpse of a failed earlier attempt (engine allocated, run
+    // failed, no view controller) before allocating a fresh one, so a retry
+    // can't leak a second engine.
+    if renderEngine != nil, renderViewController == nil {
+      renderEngine?.shutDownEngine()
+      renderEngine = nil
+    }
+
+    renderBootStartedAt = DispatchTime.now()
 
     // macOS `runWithEntrypoint:` resolves the name only against the ROOT
     // library, so `snippetPickerMain` is declared in Dart's main.dart (it
@@ -231,7 +302,12 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   private func handleRenderCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "ready":
-      os_log("render engine ready", log: Self.logger, type: .info)
+      let bootMillis = renderBootStartedAt.map { Self.elapsedMillis(since: $0) } ?? "?"
+      renderBootStartedAt = nil
+      os_log(
+        "render engine ready %{public}@ ms after boot start",
+        log: Self.logger, type: .info, bootMillis
+      )
       renderReady = true
       if let items = pendingItems {
         renderChannel?.invokeMethod("setItems", arguments: ["items": items])
@@ -285,6 +361,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     renderEngine?.shutDownEngine()
     renderEngine = nil
     renderReady = false
+    renderBootStartedAt = nil
     pendingItems = nil
     channel.setMethodCallHandler(nil)
   }
