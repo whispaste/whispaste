@@ -190,4 +190,170 @@ void main() {
       expect(entry.toString(), contains('F4'));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // findHotkeyCollision — WhisPaste-interne Doppelbelegung (kein System-Konflikt)
+  // ---------------------------------------------------------------------------
+
+  group('findHotkeyCollision', () {
+    const main = HotkeyBinding(
+      actionId: 'global',
+      actionLabel: 'Aufnahme',
+      key: 'D',
+      modifiers: 'ctrl+shift',
+    );
+    const quickNote = HotkeyBinding(
+      actionId: 'quickNote',
+      actionLabel: 'Schnellnotiz',
+      key: 'Y',
+      modifiers: 'ctrl+shift',
+    );
+
+    test('meldet die belegende Aktion bei identischer Kombination', () {
+      final hit = findHotkeyCollision(
+        modifiers: 'ctrl+shift',
+        key: 'D',
+        bindings: const [main, quickNote],
+      );
+      expect(hit, isNotNull);
+      expect(hit!.actionId, 'global');
+      expect(hit.actionLabel, 'Aufnahme');
+    });
+
+    test('meldet nichts, wenn die Taste abweicht', () {
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+shift',
+          key: 'K',
+          bindings: const [main, quickNote],
+        ),
+        isNull,
+      );
+    });
+
+    test('meldet nichts, wenn die Modifier abweichen', () {
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+alt',
+          key: 'D',
+          bindings: const [main],
+        ),
+        isNull,
+      );
+    });
+
+    test('ignoriert die Reihenfolge der Modifier', () {
+      expect(
+        findHotkeyCollision(
+          modifiers: 'shift+ctrl',
+          key: 'D',
+          bindings: const [main],
+        ),
+        isNotNull,
+      );
+    });
+
+    test('ignoriert Groß-/Kleinschreibung in Modifiern und Taste', () {
+      expect(
+        findHotkeyCollision(
+          modifiers: 'CTRL+Shift',
+          key: 'd',
+          bindings: const [main],
+        ),
+        isNotNull,
+      );
+    });
+
+    test('ignoriert umgebende Leerzeichen', () {
+      expect(
+        findHotkeyCollision(
+          modifiers: ' ctrl+shift ',
+          key: ' D ',
+          bindings: const [main],
+        ),
+        isNotNull,
+      );
+    });
+
+    test('schließt die gerade bearbeitete Aktion aus', () {
+      // Der Schnellnotiz-Hotkey darf nicht mit sich selbst kollidieren, wenn
+      // der Nutzer den Dialog öffnet und dieselbe Kombination bestätigt.
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+shift',
+          key: 'Y',
+          bindings: const [main, quickNote],
+          excludeActionId: 'quickNote',
+        ),
+        isNull,
+      );
+    });
+
+    test('prüft trotz Ausschluss weiter gegen die übrigen Aktionen', () {
+      final hit = findHotkeyCollision(
+        modifiers: 'ctrl+shift',
+        key: 'D',
+        bindings: const [main, quickNote],
+        excludeActionId: 'quickNote',
+      );
+      expect(hit?.actionId, 'global');
+    });
+
+    test('meldet nichts bei leerer Bindungs-Liste', () {
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+shift',
+          key: 'D',
+          bindings: const [],
+        ),
+        isNull,
+      );
+    });
+
+    test('eine unbelegte Taste kollidiert mit nichts', () {
+      // Leerer Taste-Token heißt „nicht konfiguriert" — er darf nicht auf
+      // andere unkonfigurierte Hotkeys matchen.
+      const unset = HotkeyBinding(
+        actionId: 'snippets',
+        actionLabel: 'Snippets',
+        key: '',
+        modifiers: '',
+      );
+      expect(
+        findHotkeyCollision(modifiers: '', key: '', bindings: const [unset]),
+        isNull,
+      );
+    });
+
+    test('liefert den ersten Treffer, wenn mehrere Aktionen kollidieren', () {
+      const twin = HotkeyBinding(
+        actionId: 'snippets',
+        actionLabel: 'Snippets',
+        key: 'D',
+        modifiers: 'ctrl+shift',
+      );
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+shift',
+          key: 'D',
+          bindings: const [main, twin],
+        )?.actionId,
+        'global',
+      );
+    });
+
+    test('trennt System-Konflikte von der internen Doppelbelegung', () {
+      // Dieselbe Kombination: die System-Liste kennt sie nicht, die interne
+      // Prüfung schon — genau die Trennung, die das Ticket verlangt.
+      expect(findConflict('ctrl+shift', 'D', conflicts: fixtures), isNull);
+      expect(
+        findHotkeyCollision(
+          modifiers: 'ctrl+shift',
+          key: 'D',
+          bindings: const [main],
+        ),
+        isNotNull,
+      );
+    });
+  });
 }

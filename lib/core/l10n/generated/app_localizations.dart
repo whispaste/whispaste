@@ -4155,6 +4155,48 @@ abstract class L10n {
   /// **'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1-F12), or an arrow key.'**
   String get settingsHotkeyRecorderInvalidKey;
 
+  /// No description provided for @settingsHotkeyActionRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Start/stop recording'**
+  String get settingsHotkeyActionRecording;
+
+  /// No description provided for @settingsHotkeyActionQuickNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick note'**
+  String get settingsHotkeyActionQuickNote;
+
+  /// No description provided for @settingsQuickNoteHotkeyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick-note hotkey'**
+  String get settingsQuickNoteHotkeyEnabled;
+
+  /// No description provided for @settingsQuickNoteHotkeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictated text is appended to the note marked as your quick note. You pick that note in the Notes area.'**
+  String get settingsQuickNoteHotkeyHint;
+
+  /// No description provided for @settingsQuickNoteCurrentHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Combination'**
+  String get settingsQuickNoteCurrentHotkey;
+
+  /// No description provided for @settingsQuickNoteHotkeyCollision.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination is already used for \"{action}\". Pick a different one.'**
+  String settingsQuickNoteHotkeyCollision(String action);
+
+  /// No description provided for @settingsQuickNoteHotkeyInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.'**
+  String get settingsQuickNoteHotkeyInactive;
+
   /// No description provided for @settingsMaxRecordDuration.
   ///
   /// In en, this message translates to:

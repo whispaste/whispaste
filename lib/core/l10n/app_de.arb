@@ -754,6 +754,19 @@
   "settingsHotkeyRecorderClear": "Zurücksetzen",
   "settingsHotkeyRecorderInvalidKey": "Diese Taste lässt sich nicht als Hotkey speichern. Probier einen Buchstaben, eine Ziffer, eine F-Taste (F1-F12) oder eine Pfeiltaste.",
 
+  "settingsHotkeyActionRecording": "Aufnahme starten/stoppen",
+  "settingsHotkeyActionQuickNote": "Schnellnotiz",
+  "settingsQuickNoteHotkeyEnabled": "Schnellnotiz-Hotkey",
+  "settingsQuickNoteHotkeyHint": "Diktiertes hängt an der Notiz, die als Schnellnotiz markiert ist. Welche das ist, legst du im Bereich „Notizen“ fest.",
+  "settingsQuickNoteCurrentHotkey": "Kombination",
+  "settingsQuickNoteHotkeyCollision": "Diese Kombination ist schon für „{action}“ vergeben. Wähl eine andere.",
+  "@settingsQuickNoteHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsQuickNoteHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Schnellnotiz-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.",
+
   "settingsMaxRecordDuration": "Maximale Aufnahmedauer",
   "settingsMaxRecordDurationSubtitle": "Automatischer Sicherheitsstopp nach dieser Zeit",
   "settingsMaxRecordDurationUnlimited": "Unbegrenzt",

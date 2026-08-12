@@ -1061,10 +1061,6 @@ class QuickNoteHotkeySettings {
   // deliberate convention (see the SttSettings comment above and the ~15
   // other section classes below); it is established repo-wide boilerplate,
   // not accidental duplication.
-  // loam-ignore: unused-public-exports – copyWith kept for parity with every
-  // other settings-section class's fromMap/toMap/copyWith/==/hashCode shape;
-  // not called directly today because AppSettings.copyWithSections replaces
-  // whole sections instead, same as the other section classes.
   QuickNoteHotkeySettings copyWith({
     bool? quickNoteHotkeyEnabled,
     String? quickNoteHotkeyKey,

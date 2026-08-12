@@ -2353,6 +2353,31 @@ class L10nDe extends L10n {
       'Diese Taste lässt sich nicht als Hotkey speichern. Probier einen Buchstaben, eine Ziffer, eine F-Taste (F1-F12) oder eine Pfeiltaste.';
 
   @override
+  String get settingsHotkeyActionRecording => 'Aufnahme starten/stoppen';
+
+  @override
+  String get settingsHotkeyActionQuickNote => 'Schnellnotiz';
+
+  @override
+  String get settingsQuickNoteHotkeyEnabled => 'Schnellnotiz-Hotkey';
+
+  @override
+  String get settingsQuickNoteHotkeyHint =>
+      'Diktiertes hängt an der Notiz, die als Schnellnotiz markiert ist. Welche das ist, legst du im Bereich „Notizen“ fest.';
+
+  @override
+  String get settingsQuickNoteCurrentHotkey => 'Kombination';
+
+  @override
+  String settingsQuickNoteHotkeyCollision(String action) {
+    return 'Diese Kombination ist schon für „$action“ vergeben. Wähl eine andere.';
+  }
+
+  @override
+  String get settingsQuickNoteHotkeyInactive =>
+      'Diese Kombination ließ sich nicht registrieren — der Schnellnotiz-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.';
+
+  @override
   String get settingsMaxRecordDuration => 'Maximale Aufnahmedauer';
 
   @override

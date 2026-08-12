@@ -12,9 +12,12 @@ import '../../../core/config/build_config.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/config/settings_sections.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/hotkey_conflicts.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paste_policy.dart';
@@ -110,6 +113,333 @@ class KeyboardShortcutSection extends ConsumerWidget {
             ),
           ),
           _PushToTalkRow(settings: settings),
+          // Bewusst *unter* der Push-to-talk-Zeile: die gehört zum
+          // Haupt-Hotkey, und eingeschoben zwischen beide würde sie optisch an
+          // den Schnellnotiz-Block andocken, für den sie gar nicht gilt (der
+          // ist Toggle-only).
+          _QuickNoteHotkeyBlock(settings: settings),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick-note hotkey block (subordinate to the main hotkey)
+// ---------------------------------------------------------------------------
+
+/// Der zweite, optionale Hotkey — sichtbar dem Haupt-Hotkey nachgeordnet.
+///
+/// Nachgeordnet heißt hier dreierlei, weil Einrückung allein zu leise wäre:
+/// eine Haarlinie trennt den Block vom Haupt-Hotkey ab, der ganze Block ist
+/// gegenüber den Zeilen darüber eingerückt, und die Kombination steht nicht
+/// als rechtsbündige `trailing`-Spalte einer vollwertigen [SettingRow],
+/// sondern als ruhige Zeile darunter.
+///
+/// Dass die Kombinations-Zeile umbricht statt rechts zu kleben, ist zugleich
+/// die Antwort auf die Accessibility-Textgröße: die `trailing`-Variante des
+/// Haupt-Hotkeys (Tastenkappen + Button in einer festen [Row]) läuft ab
+/// Textskalierung 1.5 rechts über — gemessen, siehe Bericht. Ein [Wrap] kann
+/// das strukturell nicht.
+class _QuickNoteHotkeyBlock extends ConsumerStatefulWidget {
+  const _QuickNoteHotkeyBlock({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  ConsumerState<_QuickNoteHotkeyBlock> createState() =>
+      _QuickNoteHotkeyBlockState();
+}
+
+class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock> {
+  /// Name der Aktion, die die zuletzt gewählte Kombination schon belegt —
+  /// `null`, solange nichts kollidiert.
+  ///
+  /// Bewusst Zustand und keine Momentan-Meldung (Toast/Snackbar): der Nutzer
+  /// muss den Aufzeichnungs-Dialog erneut öffnen, um den Fehler zu beheben,
+  /// und eine Meldung, die währenddessen verschwindet, hilft ihm dabei nicht.
+  String? _collidingAction;
+
+  /// Alle WhisPaste-Hotkeys, gegen die eine neue Kombination geprüft wird.
+  ///
+  /// Nur eingeschaltete Hotkeys zählen: ein abgeschalteter belegt beim OS
+  /// nichts, also gibt es auch nichts zu kollidieren. (Kehrseite — er kollidiert
+  /// dann eben in dem Moment, in dem er wieder eingeschaltet wird; siehe
+  /// Bericht.)
+  List<HotkeyBinding> _activeBindings(AppSettings settings, L10n l10n) => [
+    if (settings.hotkeyEnabled)
+      HotkeyBinding(
+        actionId: 'global',
+        actionLabel: l10n.settingsHotkeyActionRecording,
+        key: settings.hotkeyKey,
+        modifiers: settings.hotkeyModifiers,
+      ),
+    if (settings.quickNoteHotkey.quickNoteHotkeyEnabled)
+      HotkeyBinding(
+        actionId: 'quickNote',
+        actionLabel: l10n.settingsHotkeyActionQuickNote,
+        key: settings.quickNoteHotkey.quickNoteHotkeyKey,
+        modifiers: settings.quickNoteHotkey.quickNoteHotkeyModifiers,
+      ),
+  ];
+
+  Future<void> _record() async {
+    final l10n = L10n.of(context);
+    final quickNote = widget.settings.quickNoteHotkey;
+    final result = await WpHotkeyRecorderDialog.show(
+      context,
+      initialKey: quickNote.quickNoteHotkeyKey,
+      initialDisplayKey: quickNote.quickNoteHotkeyKeyDisplay,
+      initialModifiers: quickNote.quickNoteHotkeyModifiers,
+    );
+    if (result == null || !mounted) return;
+
+    // Vor dem Speichern, nicht danach: eine doppelt vergebene Kombination
+    // ließe sich zwar speichern, aber einer der beiden Hotkeys löste danach
+    // still nicht mehr aus — ohne dass irgendwo etwas sichtbar fehlschlüge.
+    // Gegen den kanonischen Token geprüft, nicht gegen die Anzeige-Taste: beim
+    // OS registriert wird der kanonische, also kollidiert auch nur der.
+    final collision = findHotkeyCollision(
+      modifiers: result.modifiers,
+      key: result.key,
+      bindings: _activeBindings(widget.settings, l10n),
+      excludeActionId: 'quickNote',
+    );
+    if (collision != null) {
+      setState(() => _collidingAction = collision.actionLabel);
+      return;
+    }
+
+    setState(() => _collidingAction = null);
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            quickNoteHotkey: s.quickNoteHotkey.copyWith(
+              quickNoteHotkeyKey: result.key,
+              quickNoteHotkeyKeyDisplay: result.displayKey,
+              quickNoteHotkeyModifiers: result.modifiers,
+            ),
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final settings = widget.settings;
+    final quickNote = settings.quickNoteHotkey;
+    final enabled = quickNote.quickNoteHotkeyEnabled;
+
+    // `enabled &&` ist nicht kosmetisch: der Registrierungs-Status ist ein
+    // In-Memory-Wert, den nur Registrierungs-Versuche schreiben — das
+    // Abschalten des Hotkeys setzt ihn nicht zurück. Ohne diese Bedingung
+    // stünde „nicht aktiv, bitte neu belegen" dauerhaft an einem Hotkey, den
+    // der Nutzer gerade selbst ausgeschaltet hat.
+    final registrationFailed =
+        enabled &&
+        ref.watch(quickNoteHotkeyRegistrationStatusProvider) ==
+            HotkeyRegistrationStatus.conflict;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: kSettingRowInset),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: WpColors.borderSubtle,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          Padding(
+            // Die Einrückung, die den Block als Unterpunkt des Haupt-Hotkeys
+            // liest — dasselbe Idiom, mit dem Betriebssystem-Einstellungen
+            // abhängige Optionen unter ihre Hauptoption setzen.
+            //
+            // `EdgeInsetsDirectional`, nicht `EdgeInsets`: die Einrückung ist
+            // das *einzige* Signal, das die Unterordnung trägt. Physisch links
+            // gesetzt läge sie auf Hebräisch an der Schlusskante und läse sich
+            // als beliebige Lücke statt als Einrückung.
+            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SettingRow(
+                  icon: LucideIcons.notebookPen,
+                  label: l10n.settingsQuickNoteHotkeyEnabled,
+                  // Der Ein-Zeilen-Hinweis, wohin der Text geht. Er steht am
+                  // Umschalter und nicht an der Kombination, weil er die Frage
+                  // beantwortet, die *beim Einschalten* aufkommt — und weil er
+                  // so auch sichtbar bleibt, wenn der Hotkey aus ist.
+                  subtitle: l10n.settingsQuickNoteHotkeyHint,
+                  semanticToggledValue: enabled,
+                  trailing: settingsToggle(
+                    key: const Key('quickNoteHotkeyToggle'),
+                    value: enabled,
+                    onChanged: (v) {
+                      // Eine Kollisions-Meldung gehört zur Kombination, die
+                      // sie ausgelöst hat; beim Umschalten ist sie erledigt.
+                      setState(() => _collidingAction = null);
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                            (s) => s.copyWithSections(
+                              quickNoteHotkey: s.quickNoteHotkey.copyWith(
+                                quickNoteHotkeyEnabled: v,
+                              ),
+                            ),
+                          );
+                    },
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: enabled ? 1.0 : 0.4,
+                  duration: WpMotion.durationFor(context, WpMotion.normal),
+                  // Dasselbe Paar wie beim Haupt-Hotkey: die abgeblendete
+                  // Zeile darf weder mit der Maus noch mit der Tabulatortaste
+                  // erreichbar sein.
+                  child: ExcludeFocus(
+                    excluding: !enabled,
+                    child: IgnorePointer(
+                      ignoring: !enabled,
+                      child: _QuickNoteComboLine(
+                        quickNote: quickNote,
+                        onChange: _record,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_collidingAction != null)
+                  _QuickNoteNotice(
+                    noticeKey: const Key('quickNoteHotkeyCollisionNotice'),
+                    icon: LucideIcons.circleAlert,
+                    color: WpColors.error,
+                    text: l10n.settingsQuickNoteHotkeyCollision(
+                      _collidingAction!,
+                    ),
+                  ),
+                if (registrationFailed)
+                  _QuickNoteNotice(
+                    noticeKey: const Key('quickNoteHotkeyInactiveNotice'),
+                    icon: LucideIcons.triangleAlert,
+                    color: WpColors.warning,
+                    // Sagt „nicht aktiv" und „wähl eine andere" — und nennt
+                    // bewusst keine Ersatzkombination, weil es anders als beim
+                    // Haupt-Hotkey keine gibt. Eine zu suggerieren wäre die
+                    // schlimmere Variante des Fehlers: der Nutzer hielte den
+                    // Hotkey für belegt und fände nie heraus, womit.
+                    text: l10n.settingsQuickNoteHotkeyInactive,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Die Kombinations-Zeile des Schnellnotiz-Hotkeys.
+///
+/// [Wrap] statt [Row]: bei vergrößerter Systemschrift rutschen Tastenkappen
+/// und „Ändern"-Button in die nächste Zeile, statt rechts abgeschnitten zu
+/// werden.
+class _QuickNoteComboLine extends StatelessWidget {
+  const _QuickNoteComboLine({required this.quickNote, required this.onChange});
+
+  final QuickNoteHotkeySettings quickNote;
+  final Future<void> Function() onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        kSettingRowInset,
+        WpSpacing.xxs,
+        kSettingRowInset,
+        WpSpacing.xs,
+      ),
+      child: Wrap(
+        spacing: WpSpacing.sm,
+        runSpacing: WpSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            l10n.settingsQuickNoteCurrentHotkey,
+            style: tt.bodySmall?.copyWith(color: WpColors.textMuted),
+          ),
+          HotkeyDisplay(
+            hotkeyKey: quickNote.quickNoteHotkeyKey,
+            hotkeyModifiers: quickNote.quickNoteHotkeyModifiers,
+            hotkeyKeyDisplay: quickNote.quickNoteHotkeyKeyDisplay,
+          ),
+          WpButton(
+            label: l10n.settingsChangeHotkey,
+            variant: WpButtonVariant.secondary,
+            onPressed: () => unawaited(onChange()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Unaufdringlicher Inline-Hinweis unter der Kombinations-Zeile.
+///
+/// Farbgebung und Icon-Konvention wie die Konflikt-Warnung im
+/// Aufzeichnungs-Dialog, aber ohne Rahmen und Füllung: dort ist die Warnung
+/// das zentrale Element eines Dialogs, hier eine Fußnote an einer von vielen
+/// Einstellungszeilen. Ein Kasten in der Einstellungsspalte zöge mehr
+/// Aufmerksamkeit auf sich als der Hotkey selbst.
+class _QuickNoteNotice extends StatelessWidget {
+  const _QuickNoteNotice({
+    required this.noticeKey,
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final Key noticeKey;
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: noticeKey,
+      padding: const EdgeInsets.fromLTRB(
+        kSettingRowInset,
+        0,
+        kSettingRowInset,
+        WpSpacing.xs,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            // Auf die Grundlinie der ersten Textzeile gesetzt, damit das Icon
+            // bei mehrzeiligem Text nicht mittig neben dem Absatz schwebt.
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: WpIconSize.sm, color: color),
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                height: 1.4,
+              ).copyWith(color: color),
+            ),
+          ),
         ],
       ),
     );

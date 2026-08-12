@@ -779,6 +779,19 @@
   "settingsHotkeyRecorderClear": "נקה",
   "settingsHotkeyRecorderModifierHint": "כל שילוב מקשי Modifier אפשרי: למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R",
   "settingsHotkeyRecorderInvalidKey": "לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1-F12) או מקש חץ.",
+
+  "settingsHotkeyActionRecording": "התחלת/עצירת הקלטה",
+  "settingsHotkeyActionQuickNote": "פתק מהיר",
+  "settingsQuickNoteHotkeyEnabled": "קיצור לפתק מהיר",
+  "settingsQuickNoteHotkeyHint": "הטקסט המוכתב מתווסף לפתק המסומן כפתק מהיר. את הפתק הזה בוחרים באזור \"פתקים\".",
+  "settingsQuickNoteCurrentHotkey": "צירוף מקשים",
+  "settingsQuickNoteHotkeyCollision": "הצירוף הזה כבר משמש עבור \"{action}\". בחר צירוף אחר.",
+  "@settingsQuickNoteHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsQuickNoteHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לפתק מהיר אינו פעיל כרגע. בחר צירוף אחר.",
   "hotkeyRegistrationFailed": "רישום קיצור הדרך נכשל, הגדר מחדש את הקיצור בהגדרות.",
   "hotkeyRegistrationFailedDefaultActive": "רישום קיצור הדרך נכשל, Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.",
   "hotkeyConflictWarning": "קיצור דרך זה שמור על ידי {platform} ({note}) ועלול לא לפעול.",

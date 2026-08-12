@@ -165,6 +165,86 @@ ConflictEntry? findConflict(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// WhisPaste-interne Doppelbelegung
+// ---------------------------------------------------------------------------
+
+/// Eine von WhisPaste selbst belegte Tastenkombination.
+///
+/// Bewusst getrennt von [ConflictEntry]: dort steht, was das *Betriebssystem*
+/// beansprucht, hier, was die *App* beansprucht. Die beiden Prüfungen haben
+/// unterschiedliche Konsequenzen — ein System-Konflikt ist eine Warnung, eine
+/// interne Doppelbelegung ist ein Bedienfehler, der das Speichern verhindert,
+/// weil sonst später still einer der beiden Hotkeys nicht mehr auslöst.
+class HotkeyBinding {
+  const HotkeyBinding({
+    required this.actionId,
+    required this.actionLabel,
+    required this.key,
+    required this.modifiers,
+  });
+
+  /// Stabile, nicht übersetzte Kennung der Aktion (z. B. `'global'`,
+  /// `'quickNote'`). Dient dem Ausschluss der gerade bearbeiteten Aktion.
+  final String actionId;
+
+  /// Übersetzter Name der Aktion — geht direkt in die Meldung an den Nutzer,
+  /// deshalb muss der Aufrufer ihn lokalisiert übergeben.
+  final String actionLabel;
+
+  /// Kanonischer Speicher-Token der Nicht-Modifier-Taste (z. B. `'D'`,
+  /// `'Space'`). **Nicht** die layoutabhängige Anzeige-Taste: registriert wird
+  /// beim OS der kanonische Token, also kollidiert auch nur der.
+  ///
+  /// Leer heißt „nicht konfiguriert" und kollidiert mit nichts.
+  final String key;
+
+  /// Modifier im Speicherformat, z. B. `'ctrl+shift'`.
+  final String modifiers;
+
+  @override
+  String toString() => 'HotkeyBinding($actionId: $modifiers + $key)';
+}
+
+/// Sucht in [bindings] den WhisPaste-Hotkey, der ([modifiers], [key]) bereits
+/// belegt — oder `null`, wenn die Kombination frei ist.
+///
+/// Absichtlich generisch über eine Liste statt fest gegen zwei Hotkeys
+/// verdrahtet: der Aufrufer entscheidet, welche Hotkeys überhaupt in Frage
+/// kommen (etwa nur die eingeschalteten), und ein dritter Hotkey kommt später
+/// als weiterer Listeneintrag dazu, ohne dass diese Funktion sich ändert.
+///
+/// [excludeActionId] nimmt die gerade bearbeitete Aktion aus der Prüfung —
+/// sonst meldete jeder Dialog, der seine eigene Kombination unverändert
+/// bestätigt, eine Kollision mit sich selbst.
+HotkeyBinding? findHotkeyCollision({
+  required String modifiers,
+  required String key,
+  required Iterable<HotkeyBinding> bindings,
+  String? excludeActionId,
+}) {
+  final normKey = _normaliseKey(key);
+  // Ohne Taste gibt es keine Kombination, die belegt sein könnte.
+  if (normKey.isEmpty) return null;
+  final normMods = _normalise(modifiers.trim());
+
+  for (final binding in bindings) {
+    if (binding.actionId == excludeActionId) continue;
+    if (_normaliseKey(binding.key) == normKey &&
+        _normalise(binding.modifiers.trim()) == normMods) {
+      return binding;
+    }
+  }
+  return null;
+}
+
+/// Normalisiert einen Tasten-Token: getrimmt und klein geschrieben.
+///
+/// Groß-/Kleinschreibung ist bewusst egal — zwei Token, die sich nur darin
+/// unterscheiden, meinen dieselbe physische Taste und müssen deshalb als
+/// Doppelbelegung auffallen.
+String _normaliseKey(String key) => key.trim().toLowerCase();
+
 /// Normalises a modifier string: lower-case, tokens sorted alphabetically.
 String _normalise(String modifiers) {
   if (modifiers.isEmpty) return '';

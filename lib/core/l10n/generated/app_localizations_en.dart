@@ -2334,6 +2334,31 @@ class L10nEn extends L10n {
       'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1-F12), or an arrow key.';
 
   @override
+  String get settingsHotkeyActionRecording => 'Start/stop recording';
+
+  @override
+  String get settingsHotkeyActionQuickNote => 'Quick note';
+
+  @override
+  String get settingsQuickNoteHotkeyEnabled => 'Quick-note hotkey';
+
+  @override
+  String get settingsQuickNoteHotkeyHint =>
+      'Dictated text is appended to the note marked as your quick note. You pick that note in the Notes area.';
+
+  @override
+  String get settingsQuickNoteCurrentHotkey => 'Combination';
+
+  @override
+  String settingsQuickNoteHotkeyCollision(String action) {
+    return 'This combination is already used for \"$action\". Pick a different one.';
+  }
+
+  @override
+  String get settingsQuickNoteHotkeyInactive =>
+      'This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.';
+
+  @override
   String get settingsMaxRecordDuration => 'Max Recording Duration';
 
   @override

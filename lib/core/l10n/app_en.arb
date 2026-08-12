@@ -886,6 +886,19 @@
   "settingsHotkeyRecorderClear": "Clear",
   "settingsHotkeyRecorderInvalidKey": "This key can't be used as a hotkey. Try a letter, digit, function key (F1-F12), or an arrow key.",
 
+  "settingsHotkeyActionRecording": "Start/stop recording",
+  "settingsHotkeyActionQuickNote": "Quick note",
+  "settingsQuickNoteHotkeyEnabled": "Quick-note hotkey",
+  "settingsQuickNoteHotkeyHint": "Dictated text is appended to the note marked as your quick note. You pick that note in the Notes area.",
+  "settingsQuickNoteCurrentHotkey": "Combination",
+  "settingsQuickNoteHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsQuickNoteHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsQuickNoteHotkeyInactive": "This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.",
+
   "settingsMaxRecordDuration": "Max Recording Duration",
   "settingsMaxRecordDurationSubtitle": "Automatic safety stop after this time",
   "settingsMaxRecordDurationUnlimited": "Unlimited",

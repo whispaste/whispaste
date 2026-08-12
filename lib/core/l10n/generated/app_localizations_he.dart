@@ -2294,6 +2294,31 @@ class L10nHe extends L10n {
       'לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1-F12) או מקש חץ.';
 
   @override
+  String get settingsHotkeyActionRecording => 'התחלת/עצירת הקלטה';
+
+  @override
+  String get settingsHotkeyActionQuickNote => 'פתק מהיר';
+
+  @override
+  String get settingsQuickNoteHotkeyEnabled => 'קיצור לפתק מהיר';
+
+  @override
+  String get settingsQuickNoteHotkeyHint =>
+      'הטקסט המוכתב מתווסף לפתק המסומן כפתק מהיר. את הפתק הזה בוחרים באזור \"פתקים\".';
+
+  @override
+  String get settingsQuickNoteCurrentHotkey => 'צירוף מקשים';
+
+  @override
+  String settingsQuickNoteHotkeyCollision(String action) {
+    return 'הצירוף הזה כבר משמש עבור \"$action\". בחר צירוף אחר.';
+  }
+
+  @override
+  String get settingsQuickNoteHotkeyInactive =>
+      'לא ניתן היה לרשום את הצירוף הזה — הקיצור לפתק מהיר אינו פעיל כרגע. בחר צירוף אחר.';
+
+  @override
   String get settingsMaxRecordDuration => 'משך הקלטה מקסימלי';
 
   @override

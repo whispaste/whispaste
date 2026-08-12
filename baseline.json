@@ -10,25 +10,18 @@
       "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=21, cognitive=20 (cyclomatic 21 > 20)"
     },
     {
-      "fingerprint": "cab6640e43726b37",
+      "fingerprint": "8b4994f0a4170148",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 391,
-      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:391, lib/core/config/settings_sections.dart:1188"
+      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:391, lib/core/config/settings_sections.dart:1184"
     },
     {
-      "fingerprint": "377a73b45325748b",
+      "fingerprint": "4201e2f833006a17",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 407,
-      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1201"
-    },
-    {
-      "fingerprint": "91f5a9601d454824",
-      "ruleId": "unused-public-exports",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1068,
-      "message": "unused public method `copyWith`"
+      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1197"
     },
     {
       "fingerprint": "b3d4f1236a7e8421",
