@@ -1011,7 +1011,7 @@ class HotkeySettings {
 class QuickNoteHotkeySettings {
   const QuickNoteHotkeySettings({
     this.quickNoteHotkeyEnabled = false,
-    this.quickNoteHotkeyKey = 'Y',
+    this.quickNoteHotkeyKey = 'N',
     this.quickNoteHotkeyKeyDisplay = '',
     this.quickNoteHotkeyModifiers = 'ctrl+shift',
   });
@@ -1633,7 +1633,7 @@ HotkeySettings buildDefaultHotkeySettings() => HotkeySettings(
 );
 
 /// Build a [QuickNoteHotkeySettings] with the platform-correct default
-/// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+Y` combination.
+/// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+N` combination.
 QuickNoteHotkeySettings buildDefaultQuickNoteHotkeySettings() =>
     QuickNoteHotkeySettings(
       quickNoteHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',

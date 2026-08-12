@@ -355,16 +355,30 @@ void main() {
   });
 
   group('quickNoteHotkey settings (ticket 20)', () {
-    test('defaults: disabled, key Y, platform-aware modifiers', () {
+    test('defaults: disabled, key N, platform-aware modifiers', () {
       final defaults = AppSettings.defaults;
 
       expect(defaults.quickNoteHotkey.quickNoteHotkeyEnabled, false);
-      expect(defaults.quickNoteHotkey.quickNoteHotkeyKey, 'Y');
+      expect(defaults.quickNoteHotkey.quickNoteHotkeyKey, 'N');
       expect(
         defaults.quickNoteHotkey.quickNoteHotkeyModifiers,
         Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
       );
     });
+
+    test(
+      'default key is layout-invariant (regression: Y/Z swap on QWERTZ made '
+      'the shipped default show one key but register the other physical '
+      'position — see hotkey_key_resolver.dart canonicalRecordableKey)',
+      () {
+        final defaults = AppSettings.defaults;
+
+        expect(
+          defaults.quickNoteHotkey.quickNoteHotkeyKey,
+          isNot(anyOf('Y', 'Z')),
+        );
+      },
+    );
 
     test(
       'missing storage keys fall back to defaults (no migration needed)',
