@@ -345,6 +345,14 @@ class L10nDe extends L10n {
   String get settingsShowNotifications => 'Benachrichtigungen anzeigen';
 
   @override
+  String get settingsShowBackendUtilization =>
+      'CPU/GPU-Anzeige in der Statusleiste';
+
+  @override
+  String get settingsShowBackendUtilizationSubtitle =>
+      'Zeigt, ob die Transkription gerade wirklich per CPU oder GPU läuft, inklusive Auslastung';
+
+  @override
   String get settingsAudio => 'Audio';
 
   @override
@@ -1662,6 +1670,10 @@ class L10nDe extends L10n {
   String statusBarSttBackendTooltip(String backend) {
     return 'Transkriptions-Backend: $backend';
   }
+
+  @override
+  String get statusBarBackendGpuUtilizationUnavailable =>
+      'Echte GPU-Auslastung ist plattformübergreifend nicht ohne Zusatzrechte messbar; die angezeigte Prozentzahl bezieht sich stattdessen auf die CPU-Aktivität dieses Prozesses.';
 
   @override
   String get statusBarRecording => 'Aufnahme…';

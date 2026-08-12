@@ -69,7 +69,8 @@ class WpStatusBar extends StatelessWidget {
     super.key,
     required this.sttModeLabel,
     this.sttState = SttServerState.stopped,
-    this.sttBackendLabel,
+    this.backendKind,
+    this.backendUtilizationPercent,
     this.sttStartingSince,
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
@@ -97,11 +98,22 @@ class WpStatusBar extends StatelessWidget {
   /// Current state of the STT server subprocess.
   final SttServerState sttState;
 
-  /// The real compute backend transcription is currently running on
-  /// ("Metal"/"CUDA"/"Vulkan"/"CPU"), or null to hide the indicator (no
-  /// local model loaded yet, or the active engine has no GPU concept —
-  /// see `_sttBackendDisplayName` in `app.dart`).
-  final String? sttBackendLabel;
+  /// The confirmed transcription compute-device kind — `'CPU'` or `'GPU'`
+  /// (never the specific architecture; see `_sttBackendKind` in `app.dart`),
+  /// or `null` to hide the far-right backend-utilization chip entirely (no
+  /// local model loaded yet, the active engine has no GPU concept, or the
+  /// user turned the indicator off in Settings).
+  final String? backendKind;
+
+  /// This process's CPU utilization as a 0..100 share of total machine
+  /// capacity, or `null` before a reading exists. Shown regardless of
+  /// [backendKind]: even on the GPU backend, whisper.cpp still drives CPU
+  /// threads, so this stays a meaningful "is it working" signal — see
+  /// `process_cpu_probe.dart`'s file doc comment for why no portable,
+  /// sudo-free *GPU*-load number exists to show instead when [backendKind]
+  /// is `'GPU'` (the tooltip clarifies that this reading is CPU, not GPU,
+  /// load).
+  final double? backendUtilizationPercent;
 
   /// When the STT server entered the starting state (for elapsed display).
   final DateTime? sttStartingSince;
@@ -213,7 +225,6 @@ class WpStatusBar extends StatelessWidget {
                     _SttChip(
                       modeLabel: sttModeLabel,
                       state: sttState,
-                      backendLabel: sttBackendLabel,
                       startingSince: sttStartingSince,
                       recordingPhase: recordingPhase,
                       textStyle: textStyle,
@@ -295,6 +306,21 @@ class WpStatusBar extends StatelessWidget {
               ),
             ),
           ),
+          if (backendKind != null) ...[
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+            _StatusChip(
+              icon: backendKind == 'GPU' ? LucideIcons.zap : LucideIcons.cpu,
+              label: backendUtilizationPercent != null
+                  ? '$backendKind · ${backendUtilizationPercent!.round()}%'
+                  : backendKind!,
+              textStyle: textStyle,
+              tooltip: backendKind == 'GPU'
+                  ? '${l10n.statusBarSttBackendTooltip('GPU')}\n'
+                        '${l10n.statusBarBackendGpuUtilizationUnavailable}'
+                  : l10n.statusBarSttBackendTooltip('CPU'),
+            ),
+            const SizedBox(width: WpSpacing.xl),
+          ],
         ],
       ),
     );
@@ -317,7 +343,6 @@ class _SttChip extends StatefulWidget {
   const _SttChip({
     required this.modeLabel,
     required this.state,
-    this.backendLabel,
     this.startingSince,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
@@ -327,9 +352,6 @@ class _SttChip extends StatefulWidget {
 
   final String modeLabel;
   final SttServerState state;
-
-  /// See `WpStatusBar.sttBackendLabel`.
-  final String? backendLabel;
   final DateTime? startingSince;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
@@ -360,12 +382,9 @@ class _SttChipState extends State<_SttChip> {
     if (old.recordingPhase != widget.recordingPhase ||
         old.state != widget.state) {
       final (_, stateLabel, _) = _resolveDisplay();
-      final backend = widget.backendLabel;
       SemanticsService.sendAnnouncement(
         View.of(context),
-        backend == null
-            ? '${widget.modeLabel} — $stateLabel'
-            : '${widget.modeLabel} — $stateLabel · $backend',
+        '${widget.modeLabel} — $stateLabel',
         Directionality.of(context),
       );
     }
@@ -395,14 +414,8 @@ class _SttChipState extends State<_SttChip> {
   Widget build(BuildContext context) {
     final (Color dotColor, String stateLabel, bool showSpinner) =
         _resolveDisplay();
-    final backendLabel = widget.backendLabel;
-    final label = backendLabel == null
-        ? '${widget.modeLabel} — $stateLabel'
-        : '${widget.modeLabel} — $stateLabel · $backendLabel';
-    final tooltip = backendLabel == null
-        ? widget.l10n.statusBarSttTooltip
-        : '${widget.l10n.statusBarSttTooltip}\n'
-              '${widget.l10n.statusBarSttBackendTooltip(backendLabel)}';
+    final label = '${widget.modeLabel} — $stateLabel';
+    final tooltip = widget.l10n.statusBarSttTooltip;
 
     final inkWell = InkWell(
       onTap: widget.onTap,

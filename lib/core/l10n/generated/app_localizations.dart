@@ -699,6 +699,18 @@ abstract class L10n {
   /// **'Show Notifications'**
   String get settingsShowNotifications;
 
+  /// No description provided for @settingsShowBackendUtilization.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU/GPU indicator in status bar'**
+  String get settingsShowBackendUtilization;
+
+  /// No description provided for @settingsShowBackendUtilizationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows whether transcription is really running on CPU or GPU, plus utilization'**
+  String get settingsShowBackendUtilizationSubtitle;
+
   /// No description provided for @settingsAudio.
   ///
   /// In en, this message translates to:
@@ -3008,6 +3020,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcription backend: {backend}'**
   String statusBarSttBackendTooltip(String backend);
+
+  /// No description provided for @statusBarBackendGpuUtilizationUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Real GPU utilization can\'t be measured across platforms without elevated privileges; the percentage shown reflects this process\'s CPU activity instead.'**
+  String get statusBarBackendGpuUtilizationUnavailable;
 
   /// No description provided for @statusBarRecording.
   ///

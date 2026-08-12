@@ -312,4 +312,35 @@ void main() {
       expect(find.text(l10n.settingsStartMinimized), findsNothing);
     });
   });
+
+  // ── Backend utilization toggle ─────────────────────────────────────────────
+
+  group('InterfaceSection backend utilization toggle', () {
+    // Regression: an earlier version of this handler called the wrong
+    // AppSettings mutation API (`copyWith(interface_: ...)`, which has no
+    // such parameter) — a compile error that a shallower test wouldn't have
+    // caught as a behavior failure. This asserts the write actually reaches
+    // `interface_.showBackendUtilization`.
+    testWidgets('toggling it writes interface_.showBackendUtilization', (
+      tester,
+    ) async {
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(
+          interface_: InterfaceSettings(showBackendUtilization: true),
+        ),
+      );
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      final row = find.widgetWithText(
+        SettingRow,
+        l10n.settingsShowBackendUtilization,
+      );
+      expect(row, findsOneWidget);
+      await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.interface_.showBackendUtilization, isFalse);
+    });
+  });
 }

@@ -59,6 +59,7 @@ import 'services/settings_portability_service.dart'
     show buildSettingsExportBundle;
 import 'services/single_instance_service.dart';
 import 'services/graceful_shutdown.dart';
+import 'services/stt/backend_utilization_notifier.dart';
 import 'services/stt/stt_bundle.dart';
 import 'services/stt_parakeet/parakeet_engine_notifier.dart'
     show ParakeetEngineState, parakeetEngineProvider;
@@ -192,17 +193,15 @@ SttServerState _sttServerStateFor(ParakeetEngineState state) => switch (state) {
   ParakeetEngineState.error => SttServerState.error,
 };
 
-/// Display name for the status bar's backend indicator — deliberately not
-/// localized (technical proper nouns: "Metal"/"CUDA"/"Vulkan"/"CPU" read the
-/// same in every supported language, same convention as "GPU acceleration"
-/// in Settings, which never translates the acronym itself). `null` before
-/// any local model has ever loaded (nothing to report yet).
-String? _sttBackendDisplayName(WhisperBackend? backend) => switch (backend) {
-  WhisperBackend.metal => 'Metal',
-  WhisperBackend.cuda => 'CUDA',
-  WhisperBackend.vulkan => 'Vulkan',
-  WhisperBackend.cpu => 'CPU',
+/// Coarse device kind for the status bar's far-right backend chip —
+/// deliberately `'CPU'`/`'GPU'`, never the specific architecture
+/// (Metal/CUDA/Vulkan): the user asked for "just CPU or GPU" after finding
+/// the specific name (e.g. "Metal") more detail than they wanted there.
+/// `null` before any local model has ever loaded (nothing to report yet).
+String? _sttBackendKind(WhisperBackend? backend) => switch (backend) {
   null => null,
+  WhisperBackend.cpu => 'CPU',
+  WhisperBackend.metal || WhisperBackend.cuda || WhisperBackend.vulkan => 'GPU',
 };
 
 /// Map page IDs to their widgets.
@@ -1048,9 +1047,13 @@ class _AppShellState extends ConsumerState<_AppShell>
     // Parakeet has no GPU backend at all (CPU-only, see its `aboutParakeetDesc`
     // copy) — the indicator only earns its keep for the local Whisper engine,
     // where "GPU or CPU?" is an actual question with two possible answers.
-    final sttBackendLabel = parakeetStatus == null
-        ? _sttBackendDisplayName(sttStatus.backend)
+    final sttBackendKind =
+        parakeetStatus == null && settings.interface_.showBackendUtilization
+        ? _sttBackendKind(sttStatus.backend)
         : null;
+    final backendUtilizationPercent = ref
+        .watch(backendUtilizationProvider)
+        .cpuPercent;
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
@@ -1222,7 +1225,9 @@ class _AppShellState extends ConsumerState<_AppShell>
                           WpStatusBar(
                             sttModeLabel: statusBarModel.sttModeLabel,
                             sttState: statusBarSttState,
-                            sttBackendLabel: sttBackendLabel,
+                            backendKind: sttBackendKind,
+                            backendUtilizationPercent:
+                                backendUtilizationPercent,
                             // Parakeet has no starting-since timestamp (no
                             // "warming up" phase to time) — the status bar
                             // simply shows no elapsed-time hint for it.

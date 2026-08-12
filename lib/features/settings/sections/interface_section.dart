@@ -110,6 +110,24 @@ class InterfaceSection extends ConsumerWidget {
             ),
           ),
           SettingRow(
+            icon: LucideIcons.cpu,
+            label: l10n.settingsShowBackendUtilization,
+            subtitle: l10n.settingsShowBackendUtilizationSubtitle,
+            semanticToggledValue: settings.interface_.showBackendUtilization,
+            trailing: settingsToggle(
+              value: settings.interface_.showBackendUtilization,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      interface_: s.interface_.copyWith(
+                        showBackendUtilization: v,
+                      ),
+                    ),
+                  ),
+            ),
+          ),
+          SettingRow(
             icon: LucideIcons.panelBottomClose,
             label: l10n.settingsCloseToTray,
             subtitle: l10n.settingsCloseToTraySubtitle,

@@ -345,6 +345,14 @@ class L10nEn extends L10n {
   String get settingsShowNotifications => 'Show Notifications';
 
   @override
+  String get settingsShowBackendUtilization =>
+      'CPU/GPU indicator in status bar';
+
+  @override
+  String get settingsShowBackendUtilizationSubtitle =>
+      'Shows whether transcription is really running on CPU or GPU, plus utilization';
+
+  @override
   String get settingsAudio => 'Audio';
 
   @override
@@ -1649,6 +1657,10 @@ class L10nEn extends L10n {
   String statusBarSttBackendTooltip(String backend) {
     return 'Transcription backend: $backend';
   }
+
+  @override
+  String get statusBarBackendGpuUtilizationUnavailable =>
+      'Real GPU utilization can\'t be measured across platforms without elevated privileges; the percentage shown reflects this process\'s CPU activity instead.';
 
   @override
   String get statusBarRecording => 'Recording…';

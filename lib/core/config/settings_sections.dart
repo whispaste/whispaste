@@ -92,12 +92,20 @@ class InterfaceSettings {
     this.launchAtStartup = false,
     this.startMinimized = false,
     this.showNotifications = true,
+    this.showBackendUtilization = true,
   });
 
   final String locale;
   final bool launchAtStartup;
   final bool startMinimized;
   final bool showNotifications;
+
+  /// Whether the status bar shows the CPU/GPU backend-utilization chip
+  /// (`_BackendUtilizationChip` in `status_bar.dart`). Default on: the
+  /// GPU→CPU silent-fallback investigation that added this chip was
+  /// discoverable by the user only because they happened to notice slower
+  /// transcription — most users would never think to look.
+  final bool showBackendUtilization;
 
   static const InterfaceSettings defaults = InterfaceSettings();
 
@@ -114,6 +122,11 @@ class InterfaceSettings {
       'show_notifications',
       defaults.showNotifications,
     ),
+    showBackendUtilization: _readBool(
+      v,
+      'show_backend_utilization',
+      defaults.showBackendUtilization,
+    ),
   );
 
   // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
@@ -125,6 +138,7 @@ class InterfaceSettings {
     'launch_at_startup': '$launchAtStartup',
     'start_minimized': '$startMinimized',
     'show_notifications': '$showNotifications',
+    'show_backend_utilization': '$showBackendUtilization',
   };
 
   InterfaceSettings copyWith({
@@ -132,11 +146,14 @@ class InterfaceSettings {
     bool? launchAtStartup,
     bool? startMinimized,
     bool? showNotifications,
+    bool? showBackendUtilization,
   }) => InterfaceSettings(
     locale: locale ?? this.locale,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     startMinimized: startMinimized ?? this.startMinimized,
     showNotifications: showNotifications ?? this.showNotifications,
+    showBackendUtilization:
+        showBackendUtilization ?? this.showBackendUtilization,
   );
 
   @override
@@ -146,11 +163,17 @@ class InterfaceSettings {
           locale == other.locale &&
           launchAtStartup == other.launchAtStartup &&
           startMinimized == other.startMinimized &&
-          showNotifications == other.showNotifications;
+          showNotifications == other.showNotifications &&
+          showBackendUtilization == other.showBackendUtilization;
 
   @override
-  int get hashCode =>
-      Object.hash(locale, launchAtStartup, startMinimized, showNotifications);
+  int get hashCode => Object.hash(
+    locale,
+    launchAtStartup,
+    startMinimized,
+    showNotifications,
+    showBackendUtilization,
+  );
 }
 
 // ===========================================================================

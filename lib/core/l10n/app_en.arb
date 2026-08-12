@@ -138,6 +138,8 @@
   "settingsAutostartMinimized": "Minimized",
   "settingsAutostartSyncFailed": "Autostart couldn't be registered with the operating system. This may be a permissions issue or your OS version isn't supported.",
   "settingsShowNotifications": "Show Notifications",
+  "settingsShowBackendUtilization": "CPU/GPU indicator in status bar",
+  "settingsShowBackendUtilizationSubtitle": "Shows whether transcription is really running on CPU or GPU, plus utilization",
   "settingsAudio": "Audio",
   "settingsAudioSubtitle": "Microphone and recording",
   "settingsMicrophone": "Microphone",
@@ -642,6 +644,7 @@
       "backend": { "type": "String" }
     }
   },
+  "statusBarBackendGpuUtilizationUnavailable": "Real GPU utilization can't be measured across platforms without elevated privileges; the percentage shown reflects this process's CPU activity instead.",
   "statusBarRecording": "Recording…",
   "statusBarTranscribing": "Transcribing…",
   "statusBarDone": "Done",

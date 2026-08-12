@@ -343,6 +343,13 @@ class L10nHe extends L10n {
   String get settingsShowNotifications => 'הצג התראות';
 
   @override
+  String get settingsShowBackendUtilization => 'מחוון CPU/GPU בשורת הסטטוס';
+
+  @override
+  String get settingsShowBackendUtilizationSubtitle =>
+      'מציג אם התמלול פועל בפועל על CPU או GPU, כולל ניצול';
+
+  @override
   String get settingsAudio => 'אודיו';
 
   @override
@@ -1629,6 +1636,10 @@ class L10nHe extends L10n {
   String statusBarSttBackendTooltip(String backend) {
     return 'מנוע תמלול: $backend';
   }
+
+  @override
+  String get statusBarBackendGpuUtilizationUnavailable =>
+      'לא ניתן למדוד ניצול GPU אמיתי בין מערכות הפעלה ללא הרשאות מוגברות; האחוזים המוצגים משקפים במקום זאת את פעילות ה-CPU של התהליך.';
 
   @override
   String get statusBarRecording => 'מקליט…';
