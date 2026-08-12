@@ -2,3 +2,8 @@
 **Vulnerability:** The `MacUpdateInstaller` embedded dynamic inputs (like the DMG path) directly into a generated shell script using fragile manual quoting (`_shq`), which is susceptible to command injection if quotes can be bypassed.
 **Learning:** Shell script generation via string interpolation is an anti-pattern. Even with manual escaping, it is difficult to secure perfectly and introduces a wide attack surface for malicious payloads.
 **Prevention:** Always parameterize shell commands. Use positional arguments (``, ``) in scripts and pass dynamic values via the native process arguments array (`Process.start`), which hands them directly to the OS without shell parsing.
+
+## 2024-05-18 - Prevent Command Injection via heredoc expansion in macOS Update Script
+**Vulnerability:** The macOS update script generated an inner script using an unquoted heredoc (`<<WPINNER`), causing the shell to expand variables like `$STAGE` before the inner script ran. This exposed the execution path to command injection, particularly concerning as the script runs with `osascript` administrator privileges, leading to potential Local Privilege Escalation (LPE).
+**Learning:** Even when external variables are passed correctly to an outer script, if that script generates another script via heredoc, the heredoc delimiter must be quoted (`<<'EOF'`) to prevent premature variable expansion.
+**Prevention:** Always quote heredoc delimiters when generating scripts. Pass required dynamic data to the generated script via positional arguments, and when using `osascript`, handle those arguments via `on run argv` and AppleScript's `quoted form of` command to ensure safe parameterization.
