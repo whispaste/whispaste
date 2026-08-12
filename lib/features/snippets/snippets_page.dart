@@ -14,6 +14,8 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/wp_list_tile_surface.dart';
 import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
+import '../../widgets/find_replace.dart';
+import '../../widgets/markdown_toolbar.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
@@ -599,7 +601,8 @@ class _SnippetDialog extends StatefulWidget {
 
 class _SnippetDialogState extends State<_SnippetDialog> {
   late final TextEditingController _titleCtrl;
-  late final TextEditingController _bodyCtrl;
+  late final WpFindHighlightController _bodyCtrl;
+  final FocusNode _bodyFocus = FocusNode(debugLabel: 'snippetBody');
 
   bool get _isValid =>
       _titleCtrl.text.trim().isNotEmpty && _bodyCtrl.text.trim().isNotEmpty;
@@ -610,14 +613,26 @@ class _SnippetDialogState extends State<_SnippetDialog> {
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.existing?.title ?? '');
-    _bodyCtrl = TextEditingController(text: widget.existing?.body ?? '');
+    // Highlight-capable so the editor toolbar's find bar can tint its hits —
+    // the same controller History's transcript and the Notes editor use.
+    _bodyCtrl = WpFindHighlightController(text: widget.existing?.body ?? '');
+    // The Save button's enabled state hangs off both fields, and a
+    // replace-all from the toolbar changes the body without going through
+    // `onChanged`.
+    _bodyCtrl.addListener(_onBodyChanged);
   }
 
   @override
   void dispose() {
+    _bodyCtrl.removeListener(_onBodyChanged);
     _titleCtrl.dispose();
     _bodyCtrl.dispose();
+    _bodyFocus.dispose();
     super.dispose();
+  }
+
+  void _onBodyChanged() {
+    if (mounted) setState(() {});
   }
 
   void _submit() {
@@ -632,6 +647,14 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 
     return WpFormDialogShell(
       animation: widget.animation,
+      // A snippet body is a *document* — a prompt template runs to paragraphs,
+      // and at the standard 420 dp card with a six-line box it read as a slot
+      // to paste into rather than a place to write. Widened via the named
+      // [WpDialogSize] axis rather than a one-off width, and still a dialog
+      // rather than a full-screen sheet: the snippet list behind it is the
+      // context you are editing against, and every other create/edit surface
+      // in the app (replacements, tags) is a dialog too.
+      size: WpDialogSize.wide,
       title: _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
       subtitle: l10n.snippetsDialogHint,
       fields: [
@@ -648,16 +671,30 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         ),
         const SizedBox(height: WpSpacing.md),
 
-        // Body (multi-line)
+        // Body (multi-line) — same toolbar the History transcript editor and
+        // the Notes editor carry, so bold/italic/lists and find-and-replace
+        // work identically wherever text is written in this app.
         Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
         const SizedBox(height: WpSpacing.xxs),
-        WpTextField(
-          controller: _bodyCtrl,
-          variant: WpTextFieldVariant.form,
-          hintText: l10n.snippetsBodyHint,
-          minLines: 3,
-          maxLines: 6,
-          onChanged: (_) => setState(() {}),
+        WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
+        const SizedBox(height: WpSpacing.xs),
+        // No Expanded/Flexible here on purpose: WpFormDialogShell puts its
+        // fields inside a SingleChildScrollView, so an unbounded height would
+        // be a layout exception. The line count does the growing instead, and
+        // the card's own viewport clamp keeps it on screen.
+        CallbackShortcuts(
+          bindings: WpMarkdownFormatting(
+            controller: _bodyCtrl,
+            focusNode: _bodyFocus,
+          ).shortcutBindings(),
+          child: WpTextField(
+            controller: _bodyCtrl,
+            focusNode: _bodyFocus,
+            variant: WpTextFieldVariant.form,
+            hintText: l10n.snippetsBodyHint,
+            minLines: 10,
+            maxLines: 18,
+          ),
         ),
       ],
       actions: [

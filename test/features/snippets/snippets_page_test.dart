@@ -18,6 +18,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -81,6 +82,51 @@ void main() {
       );
       expect(find.text(l10n.snippetsTitleLabel), findsOneWidget);
       expect(find.text(l10n.snippetsBodyLabel), findsOneWidget);
+    });
+
+    testWidgets('the dialog carries the editor toolbar, find bar included', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(WpMarkdownToolbar),
+        findsOneWidget,
+        reason:
+            'a snippet body is written prose like a note or a transcript — it '
+            'gets the same bar those two have',
+      );
+
+      // The find bar drops out of the toolbar, so it reaches this dialog for
+      // free — and it edits the body field, not the title. Body text goes in
+      // first: opening the bar inserts two more TextFields ahead of the body
+      // in tree order.
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'draft draft',
+      );
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.bySemanticsLabel(l10n.findReplaceFindLabel).first,
+        'draft',
+      );
+      await tester.enterText(
+        find.bySemanticsLabel(l10n.findReplaceReplaceLabel).first,
+        'final',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceReplaceAllAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text('final final'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('the dialog stays whole at a 2x system text size', (

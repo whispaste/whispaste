@@ -15,9 +15,31 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_button.dart';
 
+/// How much room a dialog card asks for.
+///
+/// A *named* axis rather than a free `width` parameter, for the reason
+/// `WpSearchField`'s library docs spell out at length: a free number produces
+/// N accidents instead of N decisions, and dialogs are the last place that can
+/// afford to drift. Two values is the whole vocabulary — add a third only when
+/// a case genuinely cannot be answered by either.
+enum WpDialogSize {
+  /// The default: a column of short form fields, a confirmation, a message.
+  standard,
+
+  /// Twice the measure, for a dialog whose *content is a document* — text the
+  /// user writes and re-reads rather than fills in. Currently the snippet
+  /// editor, whose body holds multi-paragraph prompt templates and which read
+  /// as a slot rather than an editor at [standard].
+  wide,
+}
+
 /// Width every WhisPaste dialog card shares — content dialogs, confirmations
 /// and form dialogs alike. Clamped against the viewport in [_WpDialogSurface].
 const double _kDialogWidth = 420;
+
+/// Width of a [WpDialogSize.wide] card. ~85 characters at the 13 dp form
+/// metrics, i.e. the same prose measure History caps its transcript at.
+const double _kWideDialogWidth = 760;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -187,10 +209,15 @@ class _WpDialogBarrier extends StatelessWidget {
 ///   which is what keeps dialogs whole at large system text sizes; the
 ///   scrollable body lives in [child] via a [Flexible].
 class _WpDialogSurface extends StatelessWidget {
-  const _WpDialogSurface({required this.animation, required this.child});
+  const _WpDialogSurface({
+    required this.animation,
+    required this.child,
+    this.size = WpDialogSize.standard,
+  });
 
   final Animation<double> animation;
   final Widget child;
+  final WpDialogSize size;
 
   @override
   Widget build(BuildContext context) {
@@ -202,9 +229,13 @@ class _WpDialogSurface extends StatelessWidget {
     final viewport = MediaQuery.sizeOf(context);
     // Leave a gutter so the card never touches the window edge, and never
     // demand more than the window offers.
+    final requested = switch (size) {
+      WpDialogSize.standard => _kDialogWidth,
+      WpDialogSize.wide => _kWideDialogWidth,
+    };
     final width = math.max(
       0.0,
-      math.min(_kDialogWidth, viewport.width - WpSpacing.xl * 2),
+      math.min(requested, viewport.width - WpSpacing.xl * 2),
     );
     final maxHeight = math.max(0.0, viewport.height - WpSpacing.xl * 2);
 
@@ -303,10 +334,14 @@ class WpFormDialogShell extends StatelessWidget {
     required this.subtitle,
     required this.fields,
     required this.actions,
+    this.size = WpDialogSize.standard,
   });
 
   final Animation<double> animation;
   final String title;
+
+  /// How much room the card asks for — see [WpDialogSize].
+  final WpDialogSize size;
 
   /// One sentence on what this form does. Required on purpose — the Snippets
   /// dialog shipped without one and read noticeably barer than its twin.
@@ -324,6 +359,7 @@ class WpFormDialogShell extends StatelessWidget {
 
     return _WpDialogSurface(
       animation: animation,
+      size: size,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
