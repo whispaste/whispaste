@@ -2154,23 +2154,28 @@ void main() {
       expect(quickNote!.content, 'Marked note was deleted');
     });
 
-    test('a quick-note run still saves a full history entry — it is a real '
-        'recording, not a special case', () async {
-      final note = await db.createNote();
-      await db.setQuickNote(note.id);
-      fakeStt.transcriptToReturn = 'History still records this';
+    test(
+      'regression: a quick-note run does NOT also save a history entry — '
+      'Notes and Verlauf are mutually exclusive destinations for the same '
+      'dictation (reverses the earlier "not a special case" design: a '
+      'quick note landing in both places read as an unwanted duplicate)',
+      () async {
+        final note = await db.createNote();
+        await db.setQuickNote(note.id);
+        fakeStt.transcriptToReturn = 'Only for the note';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhase();
+        container
+            .read(recordingTargetProvider.notifier)
+            .set(RecordingTarget.quickNote);
 
-      await orch.stopRecording();
+        await orch.stopRecording();
 
-      final entries = await db.allEntries();
-      expect(entries, hasLength(1));
-      expect(entries.first.content, 'History still records this');
-    });
+        expect((await db.getNote(note.id))?.content, 'Only for the note');
+        final entries = await db.allEntries();
+        expect(entries, isEmpty);
+      },
+    );
 
     test('without a registered live-editor override, the append writes '
         'directly to the database', () async {

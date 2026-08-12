@@ -1395,6 +1395,11 @@ class RecordingOrchestrator extends Notifier<void> {
     try {
       final store = ref.read(recordingStoreProvider);
       final wordCount = computeWordCountFast(transcript);
+      // A quick note already lives in Notes — it must not also land in
+      // Verlauf (see _handleAfterTranscription's quickNote branch below,
+      // which appends to the note instead of clipboard/paste).
+      final isQuickNote =
+          ref.read(recordingTargetProvider) == RecordingTarget.quickNote;
 
       final saved = await store.save(
         RecordingInput(
@@ -1407,10 +1412,18 @@ class RecordingOrchestrator extends Notifier<void> {
           historyMaxEntries: settings.historyMaxEntries,
           wordCount: wordCount,
           processingDurationSec: processingDurationSec,
+          insertHistoryEntry: !isQuickNote,
         ),
       );
 
-      _log.info('Saved entry ${saved.entryId} to history');
+      if (isQuickNote) {
+        _log.info(
+          'Applied text replacements for quick note (not saved to '
+          'history)',
+        );
+      } else {
+        _log.info('Saved entry ${saved.entryId} to history');
+      }
 
       if (saved.trimmedCount > 0) {
         _log.info(
@@ -1422,8 +1435,9 @@ class RecordingOrchestrator extends Notifier<void> {
       // Debug-only: link the retained WAV to this entry so a diagnosis
       // session can pull the exact audio Whisper received for this
       // transcript. Best-effort — a failure here must not fail the save
-      // that already succeeded above.
-      if (kRetainDebugAudio) {
+      // that already succeeded above. No-op for a quick note: there is no
+      // history entry to link the audio to.
+      if (kRetainDebugAudio && !isQuickNote) {
         await _linkDebugAudioAttachment(saved.entryId, wavPath);
       }
 

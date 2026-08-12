@@ -92,20 +92,24 @@ class DriftRecordingStore implements RecordingStore {
 
     // 3. Save history entry. insertHistoryEntry (not upsertEntry) is the
     // real creation path — it also draws this entry's decorative color slot
-    // atomically with the insert (see database.dart).
-    await _db.insertHistoryEntry(
-      HistoryEntriesCompanion(
-        id: Value(id),
-        content: Value(processedTranscript),
-        title: Value(title),
-        timestamp: Value(now),
-        durationSec: Value(input.audioDuration.inSeconds.toDouble()),
-        language: Value(input.languageCode),
-        model: Value(input.modelId),
-        isLocal: Value(input.isLocal),
-        source: const Value('dictation'),
-      ),
-    );
+    // atomically with the insert (see database.dart). Skipped for a quick
+    // note (input.insertHistoryEntry == false): it already lives in Notes
+    // and must not also appear in Verlauf.
+    if (input.insertHistoryEntry) {
+      await _db.insertHistoryEntry(
+        HistoryEntriesCompanion(
+          id: Value(id),
+          content: Value(processedTranscript),
+          title: Value(title),
+          timestamp: Value(now),
+          durationSec: Value(input.audioDuration.inSeconds.toDouble()),
+          language: Value(input.languageCode),
+          model: Value(input.modelId),
+          isLocal: Value(input.isLocal),
+          source: const Value('dictation'),
+        ),
+      );
+    }
 
     // 4. Record daily stat.
     await _db.recordDailyStat(
@@ -118,8 +122,9 @@ class DriftRecordingStore implements RecordingStore {
       costUsd: 0,
     );
 
-    // 5. Trim to max entries (0 = unlimited).
-    final trimmedCount = input.historyMaxEntries > 0
+    // 5. Trim to max entries (0 = unlimited). Skipped along with the insert
+    // above — nothing was added to trim for.
+    final trimmedCount = input.insertHistoryEntry && input.historyMaxEntries > 0
         ? await _db.trimToMaxEntries(input.historyMaxEntries)
         : 0;
 

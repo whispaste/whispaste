@@ -19,6 +19,7 @@ void main() {
     String transcript = 'hello world',
     bool applyReplacements = false,
     int maxEntries = 0,
+    bool insertHistoryEntry = true,
   }) => RecordingInput(
     transcript: transcript,
     audioDuration: const Duration(seconds: 5),
@@ -29,6 +30,7 @@ void main() {
     historyMaxEntries: maxEntries,
     wordCount: transcript.trim().split(RegExp(r'\s+')).length,
     processingDurationSec: 2,
+    insertHistoryEntry: insertHistoryEntry,
   );
 
   group('DriftRecordingStore', () {
@@ -271,6 +273,49 @@ void main() {
 
         final entries = await db.allEntries(limit: 100, offset: 0);
         expect(entries.first.colorSlot, inInclusiveRange(0, 7));
+      },
+    );
+
+    test('regression: insertHistoryEntry: false (quick-note dictations) still '
+        'applies text replacements but writes no row to history_entries — a '
+        'quick note must never also appear in Verlauf', () async {
+      final now = DateTime.now();
+      await db.upsertReplacementWithTriggers(
+        id: now.millisecondsSinceEpoch.toString(),
+        triggers: ['hello'],
+        replacement: 'Hi there',
+        createdAt: now,
+      );
+
+      final result = await store.save(
+        makeInput(
+          transcript: 'hello world',
+          applyReplacements: true,
+          insertHistoryEntry: false,
+        ),
+      );
+
+      expect(result.processedTranscript, 'Hi there world');
+      final entries = await db.allEntries(limit: 100, offset: 0);
+      expect(entries, isEmpty);
+    });
+
+    test(
+      'insertHistoryEntry: false does not trim existing history entries',
+      () async {
+        await store.save(makeInput(transcript: 'kept one', maxEntries: 1));
+        final result = await store.save(
+          makeInput(
+            transcript: 'quick note text',
+            maxEntries: 1,
+            insertHistoryEntry: false,
+          ),
+        );
+
+        expect(result.trimmedCount, 0);
+        final entries = await db.allEntries(limit: 100, offset: 0);
+        expect(entries, hasLength(1));
+        expect(entries.first.content, 'kept one');
       },
     );
 

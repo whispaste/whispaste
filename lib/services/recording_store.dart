@@ -19,6 +19,7 @@ class RecordingInput {
     required this.historyMaxEntries,
     required this.wordCount,
     required this.processingDurationSec,
+    this.insertHistoryEntry = true,
   });
 
   final String transcript;
@@ -27,6 +28,11 @@ class RecordingInput {
   final bool isLocal;
   final String languageCode;
   final bool applyTextReplacements;
+
+  /// False for a quick-note dictation: text replacements still apply (below)
+  /// but no row is written to `history_entries` — a quick note lives only in
+  /// Notes, never duplicated into Verlauf.
+  final bool insertHistoryEntry;
 
   /// 0 = unlimited.
   final int historyMaxEntries;
