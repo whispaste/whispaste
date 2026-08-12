@@ -453,7 +453,21 @@ class _PushToTalkRow extends ConsumerWidget {
       semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
       trailing: supportsKeyUp
           ? toggle
-          : Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
+          : Tooltip(
+              message: l10n.pushToTalkUnavailableTooltip,
+              // A disabled Switch still contributes its own hasEnabledState/
+              // hasToggledState/isToggled semantics regardless of this row's
+              // `semanticToggledValue: null` above — Semantics(toggled: null)
+              // only omits the row's *own* contribution, it does not stop a
+              // descendant's flags from merging into the same node. Exclude
+              // them here so the row (correctly) claims no state at all,
+              // matching the SettingRow contract this row is the one
+              // exception to on platforms without key-up (only observable on
+              // Linux, where supportsKeyUp is actually false — every other
+              // dev/CI platform always takes the branch above and never
+              // exercised this).
+              child: ExcludeSemantics(child: toggle),
+            ),
     );
   }
 }
