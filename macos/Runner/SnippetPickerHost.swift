@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import Cocoa
 import FlutterMacOS
 import os.log
@@ -68,6 +69,35 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// reliable — this latch is.
   private var isDismissing = false
 
+  /// Local `keyDown` monitor that guarantees Escape closes the picker (live-
+  /// test bug: Escape did nothing while the search field had focus).
+  ///
+  /// Root-caused empirically: a Dart widget test pumping the picker's
+  /// `SnippetPickerBody` directly proves the Dart-side wiring is already
+  /// correct — `Shortcuts` maps Escape to `_CancelIntent` → `onCancel`, and
+  /// it fires reliably there, on macOS's own `DefaultTextEditingShortcuts`
+  /// map (escape only reads as "do nothing, don't propagate further" on
+  /// Apple platforms — this widget's own `Shortcuts` sits nearer the focused
+  /// leaf and wins first). So the gap isn't in the Dart layer; it's between
+  /// the raw macOS keyDown and the Flutter engine: the search field's
+  /// keyboard focus is held by the render engine's embedded text-input proxy
+  /// view (the object driving `NSTextInputClient` for IME/marked-text), and
+  /// that view's own `-interpretKeyEvents:`/`-doCommandBySelector:` handling
+  /// for Escape does not reliably keep forwarding it to Flutter's raw
+  /// keyboard channel — the same channel that carries Enter's `onSubmitted`
+  /// via a different, independent path (`TextInputAction.done`), which is
+  /// why Enter already worked while Escape didn't.
+  ///
+  /// A local event monitor sidesteps that entirely: it runs at
+  /// `NSApplication`'s event-dispatch stage, strictly before `-sendEvent:`
+  /// hands the key to whatever the current first responder is (Flutter's
+  /// text-input proxy or otherwise), so it does not depend on anything the
+  /// embedded engine does or doesn't do with the key afterwards. Scoped to
+  /// "this picker's own panel is key" so it never touches the main window or
+  /// any other panel, and consumes the event (returns `nil`) once handled so
+  /// the swallowed keystroke can't *also* reach the search field.
+  private var escapeMonitor: Any?
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.snippet_picker",
@@ -75,6 +105,20 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     )
     super.init()
     channel.setMethodCallHandler(handle)
+    installEscapeMonitor()
+  }
+
+  /// Installed once for the host's lifetime — the closure re-checks
+  /// `panel`/`isKeyWindow` on every keystroke, so it is a safe no-op long
+  /// before [ensurePanel] ever creates a panel.
+  private func installEscapeMonitor() {
+    escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+      guard let self, let p = self.panel, p.isKeyWindow, event.keyCode == kVK_Escape else {
+        return event
+      }
+      self.dismiss(fireCancelled: true)
+      return nil
+    }
   }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -174,6 +218,24 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
     p.orderFrontRegardless()
     p.makeKey()
+    // Live-test bug: the search field wasn't focused when the picker opened,
+    // so typing did nothing until the user clicked into it first.
+    //
+    // `bootRenderEngine` sets `p.contentViewController = vc`, which per
+    // AppKit makes `vc.view` the panel's `initialFirstResponder` — but that
+    // outlet is documented to apply only the FIRST time a window is ordered
+    // onto the screen. This panel is deliberately created once and reused
+    // for the whole app session (see the class doc), so every `show()`
+    // after the very first one is *not* that first appearance, and the
+    // reused panel keeps whatever first responder it last had (typically
+    // reset to the window itself once `dismiss` orders it back out and it
+    // resigns key). Setting first responder explicitly, every time, removes
+    // the dependency on that one-shot semantics entirely.
+    let focused = p.makeFirstResponder(renderViewController?.view)
+    os_log(
+      "show: makeFirstResponder(renderView) -> %{public}@",
+      log: Self.logger, type: .info, focused ? "true" : "false"
+    )
   }
 
   /// Closes the panel and — unless [fireCancelled] is false (an explicit
@@ -352,6 +414,10 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   // MARK: - Teardown
 
   private func teardown() {
+    if let monitor = escapeMonitor {
+      NSEvent.removeMonitor(monitor)
+      escapeMonitor = nil
+    }
     renderChannel?.setMethodCallHandler(nil)
     panel?.delegate = nil
     panel?.close()

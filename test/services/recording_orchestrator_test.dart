@@ -786,31 +786,34 @@ void main() {
       expect(state.phase, RecordingPhase.done);
     });
 
-    test('a selected snippet is typed into the still-captured target without '
-        'ever re-priming the paste target (ticket 06\'s core AC)', () async {
-      await container.read(settingsProvider.future);
-      await db.upsertSnippet(
-        id: 's1',
-        title: 'Greeting',
-        body: 'Hello there!',
-        createdAt: DateTime.now(),
-      );
+    test(
+      'a selected snippet is pasted into the still-captured target '
+      'without ever re-priming the paste target (ticket 06\'s core AC)',
+      () async {
+        await container.read(settingsProvider.future);
+        await db.upsertSnippet(
+          id: 's1',
+          title: 'Greeting',
+          body: 'Hello there!',
+          createdAt: DateTime.now(),
+        );
 
-      fakeStt.transcriptToReturn = 'Snippets.';
-      final orch = await startRecordingPhase();
-      await orch.stopRecording();
+        fakeStt.transcriptToReturn = 'Snippets.';
+        final orch = await startRecordingPhase();
+        await orch.stopRecording();
 
-      // The insert happens asynchronously off the panel's event stream,
-      // fully decoupled from the pipeline run above — simulating the
-      // native panel reporting the click after the fact.
-      fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
-      await Future<void>.delayed(Duration.zero);
+        // The insert happens asynchronously off the panel's event stream,
+        // fully decoupled from the pipeline run above — simulating the
+        // native panel reporting the click after the fact.
+        fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
+        await Future<void>.delayed(Duration.zero);
 
-      expect(fakeDesktopPaste.typeCalls, 1);
-      expect(fakeDesktopPaste.lastTypedText, 'Hello there!');
-      expect(fakeDesktopPaste.pasteCalls, 0);
-      expect(fakeDesktopPaste.captureCalls, 0);
-    });
+        expect(fakeDesktopPaste.pasteCalls, 1);
+        expect(clipboardText, 'Hello there!');
+        expect(fakeDesktopPaste.typeCalls, 0);
+        expect(fakeDesktopPaste.captureCalls, 0);
+      },
+    );
 
     test('a transcript that only contains the trigger word as a substring '
         '(not an exact match) runs the normal pipeline instead', () async {
@@ -1016,8 +1019,8 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         expect(fakeDesktopPaste.captureCalls, 1);
-        expect(fakeDesktopPaste.typeCalls, 1);
-        expect(fakeDesktopPaste.lastTypedText, 'Hello there!');
+        expect(fakeDesktopPaste.pasteCalls, 1);
+        expect(clipboardText, 'Hello there!');
       },
     );
 
@@ -2106,11 +2109,11 @@ void main() {
       expect(clipboardText, 'Copy and paste');
     });
 
-    test('paste prefers typing over the classic paste shortcut when typing '
-        'succeeds on macOS/Windows — Linux has no native typeText handler '
-        'yet (see DesktopPaster.paste doc comment) and stays on the '
-        'classic clipboard+paste-shortcut path, so assertions below branch '
-        'on the actual host platform', () async {
+    test('paste falls back to direct typing when the classic paste '
+        'shortcut fails, on macOS/Windows — Linux has no native typeText '
+        'handler yet (see DesktopPaster.paste doc comment) and just '
+        'reports the failure, so assertions below branch on the actual '
+        'host platform', () async {
       container.dispose();
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
       wavFile = createFakeWav(
@@ -2119,6 +2122,7 @@ void main() {
       fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
       fakeStt = FakeSttService()..transcriptToReturn = 'Type preferred';
       clipboardText = 'Original clipboard';
+      fakeDesktopPaste.pasteResult = false;
       fakeDesktopPaste.typeResult = true;
 
       container = buildContainer(
@@ -2137,24 +2141,21 @@ void main() {
       await orch.stopRecording();
 
       expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      // The classic clipboard+paste-shortcut sequence is always attempted
+      // first, on every platform.
+      expect(fakeDesktopPaste.pasteCalls, 1);
       if (Platform.isMacOS || Platform.isWindows) {
         expect(fakeDesktopPaste.typeCalls, 1);
-        expect(fakeDesktopPaste.pasteCalls, 0);
         expect(fakeDesktopPaste.lastTypedText, 'Type preferred');
-        // typeText never touches the clipboard.
-        expect(clipboardText, 'Original clipboard');
       } else {
-        // Linux: the typing branch is skipped outright, so the classic
-        // clipboard+paste-shortcut sequence runs instead.
+        // Linux: no native typeText handler to fall back to.
         expect(fakeDesktopPaste.typeCalls, 0);
-        expect(fakeDesktopPaste.pasteCalls, 1);
       }
     });
 
     test('an old persisted "type" value still dispatches through the '
-        'paste path (fromValue back-compat mapping) — routes through '
-        'typing on macOS/Windows, through the classic clipboard+paste path '
-        'on Linux', () async {
+        'paste path (fromValue back-compat mapping) — the classic paste '
+        'shortcut runs first on every platform', () async {
       container.dispose();
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
       wavFile = createFakeWav(
@@ -2162,7 +2163,6 @@ void main() {
       );
       fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
       fakeStt = FakeSttService()..transcriptToReturn = 'Back-compat';
-      fakeDesktopPaste.typeResult = true;
 
       container = buildContainer(
         const AppSettings(
@@ -2181,14 +2181,8 @@ void main() {
       await orch.stopRecording();
 
       expect(container.read(recordingProvider).phase, RecordingPhase.done);
-      if (Platform.isMacOS || Platform.isWindows) {
-        expect(fakeDesktopPaste.typeCalls, 1);
-      } else {
-        // Linux: no native typeText handler, so the back-compat 'paste'
-        // mapping still resolves — just via the classic path.
-        expect(fakeDesktopPaste.typeCalls, 0);
-        expect(fakeDesktopPaste.pasteCalls, 1);
-      }
+      expect(fakeDesktopPaste.pasteCalls, 1);
+      expect(fakeDesktopPaste.typeCalls, 0);
     });
   });
 

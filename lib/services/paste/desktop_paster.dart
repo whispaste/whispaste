@@ -14,11 +14,14 @@ final _log = AppLogger('DesktopPaster');
 ///
 /// Implements the full paste lifecycle:
 /// - Blocklist check via bundle ID
-/// - On macOS and Windows, tries direct Unicode typing first (see
-///   [typeText]) — more broadly compatible and clipboard-free — falling
-///   back to the classic clipboard save → set transcript → native paste →
-///   wait → clipboard restore sequence if typing doesn't land. Linux stays
-///   on the classic sequence until it has a native typeText handler too.
+/// - Classic clipboard save → set transcript → native paste → wait →
+///   clipboard restore sequence, on every platform — this is the default,
+///   not a fallback. If the native paste shortcut doesn't land (e.g. an app
+///   that only reacts to direct keystrokes), macOS/Windows retry once via
+///   direct Unicode typing (see [typeText]) — skipped for multi-line text
+///   (see [requiresRealPaste]), since typing delivers "\n" as a literal
+///   Return keydown some apps read as "submit". Linux stays on the classic
+///   sequence only; it has no native typeText handler to fall back to.
 ///
 /// The choice of native mechanism is an implementation detail: from the
 /// user's perspective there is one "paste" action, regardless of which of
@@ -109,21 +112,6 @@ class DesktopPaster implements Paster {
     final blocked = await _checkBlocklist(options.blocklist);
     if (blocked != null) return blocked;
 
-    // Prefer direct Unicode typing on macOS/Windows: more broadly compatible
-    // (lands even in apps that don't respond to a paste shortcut) and skips
-    // the clipboard save/restore round-trip entirely. Falls through to the
-    // classic clipboard+paste-shortcut sequence below if typing doesn't land
-    // — e.g. an app that only accepts the literal paste shortcut. Linux
-    // stays on the classic sequence until it has a native typeText handler.
-    if (Platform.isMacOS || Platform.isWindows) {
-      final typeOutcome = await _typeTextCore(text, options);
-      if (typeOutcome == PasteOutcome.success) return typeOutcome;
-      _log.info(
-        'Direct typing did not land ($typeOutcome) — falling back to '
-        'clipboard + paste shortcut',
-      );
-    }
-
     // 2. Save current clipboard contents so we can restore after paste.
     String? previousClipboard;
     try {
@@ -171,6 +159,23 @@ class DesktopPaster implements Paster {
     );
 
     if (!pasteResult.isSuccess) {
+      // The native paste shortcut didn't land — retry once via direct
+      // Unicode typing on macOS/Windows (some apps don't react to a
+      // synthetic paste shortcut at all). Multi-line text skips this
+      // retry regardless of platform: CGEvent Unicode-typing delivers
+      // "\n"/"\r" as a literal Return keydown, which chat UIs (ChatGPT,
+      // Slack, ...) read as "submit" — better to report the paste failure
+      // than risk an unwanted send. Linux has no native typeText handler,
+      // so a failed paste there is reported as-is.
+      if ((Platform.isMacOS || Platform.isWindows) &&
+          !requiresRealPaste(text)) {
+        final typeOutcome = await _typeTextCore(text, options);
+        if (typeOutcome == PasteOutcome.success) return typeOutcome;
+        _log.info(
+          'Fallback typing also did not land ($typeOutcome) — reporting '
+          'the original paste failure',
+        );
+      }
       return _mapFailure(pasteResult);
     }
 

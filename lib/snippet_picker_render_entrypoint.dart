@@ -133,7 +133,7 @@ class _SnippetPickerRenderAppState
           child: Semantics(
             container: true,
             label: semanticsLabel,
-            child: _SnippetPickerBody(
+            child: SnippetPickerBody(
               items: _items,
               showGeneration: _showGeneration,
               searchController: _searchController,
@@ -161,8 +161,15 @@ class _SnippetPickerRenderAppState
 /// - Arrow keys and mouse hover drive a single highlight capsule that
 ///   *glides* between rows (Spotlight register) instead of swapping
 ///   per-tile backgrounds.
-class _SnippetPickerBody extends StatefulWidget {
-  const _SnippetPickerBody({
+/// The picker panel's content widget — split out from the private
+/// `_SnippetPickerRenderApp` shell (and marked [visibleForTesting]) purely so
+/// widget tests can pump it directly without booting a second Flutter engine
+/// or a native `NSPanel`. Not part of the public API otherwise: every other
+/// caller is [_SnippetPickerRenderAppState] in this same file.
+@visibleForTesting
+class SnippetPickerBody extends StatefulWidget {
+  const SnippetPickerBody({
+    super.key,
     required this.items,
     required this.showGeneration,
     required this.searchController,
@@ -183,10 +190,10 @@ class _SnippetPickerBody extends StatefulWidget {
   final VoidCallback onCancel;
 
   @override
-  State<_SnippetPickerBody> createState() => _SnippetPickerBodyState();
+  State<SnippetPickerBody> createState() => _SnippetPickerBodyState();
 }
 
-class _SnippetPickerBodyState extends State<_SnippetPickerBody>
+class _SnippetPickerBodyState extends State<SnippetPickerBody>
     with TickerProviderStateMixin {
   /// Fixed tile height — lets the list use `itemExtent` so both the
   /// arrow-key auto-scroll and the gliding highlight capsule can be
@@ -262,7 +269,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   }
 
   @override
-  void didUpdateWidget(covariant _SnippetPickerBody oldWidget) {
+  void didUpdateWidget(covariant SnippetPickerBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.showGeneration != oldWidget.showGeneration) _resetForShow();
   }

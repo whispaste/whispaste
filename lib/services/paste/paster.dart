@@ -87,6 +87,21 @@ class PasteOptions {
   final String blocklist;
 }
 
+/// Whether [text] must never fall back to synthetic Unicode-keystroke typing
+/// ([Paster.typeText]) if a real OS paste ([Paster.paste]) fails to land.
+///
+/// CGEvent Unicode-typing (the native `postUnicodeString`) delivers each
+/// character as a genuine key-down/key-up event pair. For a line feed or
+/// carriage return, the receiving app sees the same event a physical Return
+/// key press would produce — many chat UIs (ChatGPT, Slack, ...) bind
+/// exactly that event to "submit", so typing multi-line text can trigger an
+/// unwanted send. A real OS paste inserts the identical characters as
+/// clipboard content instead, without ever dispatching a key event, so a
+/// receiving app only ever sees a soft line break — which is why [paste] is
+/// always the default and this predicate only gates the typing *fallback*.
+bool requiresRealPaste(String text) =>
+    text.contains('\n') || text.contains('\r');
+
 /// Manages the full "write text to active window" lifecycle.
 abstract class Paster {
   /// Captures the paste target window before recording starts.

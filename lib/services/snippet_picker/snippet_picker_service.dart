@@ -42,13 +42,15 @@ enum SnippetPickerShowResult {
 /// pipeline that triggered [show].
 ///
 /// **Never calls `paster.prime()`.** [_insert] deliberately calls
-/// [Paster.typeText] directly against whatever target the pipeline already
+/// [Paster.paste] directly against whatever target the pipeline already
 /// captured before recording started — re-priming here would either recapture
 /// a stale target or, worse, clear it outright (native `captureTarget()`
 /// clears the stored target whenever WhisPaste itself is frontmost, which it
-/// is while this panel holds keyboard focus for search). This is the
-/// mechanism behind ticket 06's "never triggers a re-capture" AC. The voice
-/// path primes at `startRecording()`; the systemwide Snippet-Picker hotkey
+/// is while this panel holds keyboard focus for search). [Paster.paste]
+/// never calls [Paster.prime] either, so this holds regardless of which
+/// native mechanism ends up delivering the snippet. This is the mechanism
+/// behind ticket 06's "never triggers a re-capture" AC. The voice path
+/// primes at `startRecording()`; the systemwide Snippet-Picker hotkey
 /// (ticket 26, `RecordingOrchestrator.openSnippetPickerViaHotkey`) primes at
 /// key-down, before calling [show] — this class must stay uninvolved in
 /// priming for either caller.
@@ -142,13 +144,11 @@ class SnippetPickerService
     if (paster == null) return;
 
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final outcome = await paster.typeText(
-      snippet.body,
-      PasteOptions(
-        autoPasteDelayMs: settings.behavior.autoPasteDelay,
-        blocklist: settings.behavior.autoPasteBlocklist,
-      ),
+    final options = PasteOptions(
+      autoPasteDelayMs: settings.behavior.autoPasteDelay,
+      blocklist: settings.behavior.autoPasteBlocklist,
     );
+    final outcome = await paster.paste(snippet.body, options);
     if (outcome == PasteOutcome.success) {
       ref
           .read(telemetrySessionAggregatorProvider)
