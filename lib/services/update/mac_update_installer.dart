@@ -11,6 +11,7 @@
 library;
 
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 
@@ -155,13 +156,23 @@ class DefaultMacUpdateInstaller implements MacUpdateInstaller {
     final scriptPath = p.join(dir.path, 'wp-update-helper.sh');
     final logPath = p.join(dir.path, 'wp-update.log');
     await File(scriptPath).writeAsString(buildMacUpdateHelperScript());
-    await Process.run('chmod', ['+x', scriptPath]);
-    await Process.start('/bin/bash', [
-      scriptPath,
-      pid.toString(),
-      dmgPath,
-      targetBundlePath,
-      logPath,
-    ], mode: ProcessStartMode.detached);
+    final parentPid = pid;
+    // Isolate.run + timeout: Process.start's fork()+exec() can hang forever
+    // if the child deadlocks before exec (a known macOS hazard when forking
+    // from a heavily multi-threaded host like Flutter — observed live as
+    // orphaned WhisPaste processes stuck in dart::bin::FDUtils::ReadFromBlocking).
+    // Running it off the main isolate keeps the app responsive/quittable even
+    // if that happens; the timeout keeps this call itself from hanging the
+    // update flow.
+    await Isolate.run(() async {
+      await Process.run('chmod', ['+x', scriptPath]);
+      await Process.start('/bin/bash', [
+        scriptPath,
+        parentPid.toString(),
+        dmgPath,
+        targetBundlePath,
+        logPath,
+      ], mode: ProcessStartMode.detached);
+    }).timeout(const Duration(seconds: 15));
   }
 }

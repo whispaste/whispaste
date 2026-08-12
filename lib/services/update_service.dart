@@ -8,6 +8,7 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -477,13 +478,20 @@ class UpdateNotifier extends Notifier<UpdateState> {
           _log.info(
             'No resolvable .app bundle — opening DMG for manual install',
           );
+          // Isolate.run + timeout: Process.start's fork()+exec() can hang
+          // forever if the child deadlocks before exec (a known macOS hazard
+          // when forking from a heavily multi-threaded host like Flutter —
+          // observed live as orphaned WhisPaste processes stuck in
+          // dart::bin::FDUtils::ReadFromBlocking). Running it off the main
+          // isolate keeps the app responsive/quittable even if that happens;
+          // the timeout keeps this call itself from hanging the update flow.
           final openDmg =
               macOpenDmgOverrideForTesting ??
-              (path) async {
+              (path) => Isolate.run(() async {
                 await Process.start('open', [
                   path,
                 ], mode: ProcessStartMode.detached);
-              };
+              }).timeout(const Duration(seconds: 15));
           await openDmg(installerPath);
           state = state.copyWith(phase: UpdatePhase.idle);
           return;
