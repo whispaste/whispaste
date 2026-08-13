@@ -16,6 +16,7 @@
 - **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
 - **Nordstern:** OSS-Marktführer für systemweites Desktop-Diktat (macOS/Windows/Linux). Jede Produkt-/Design-/Copy-Entscheidung zahlt darauf ein.
 - **Formsprache spiegelt Philosophie:** Die Liquid-Glass-Optik des Aufnahme-Overlays (weiche Silhouette, kontinuierliche Bewegung, keine harten Zustandswechsel) ist die bewusste visuelle Übersetzung des Kernprinzips „Schreibfluss schlägt Funktion" (`docs/zielgruppe.md`): Der Gedanke fließt ohne Bruch in den Text, und die Oberfläche zeigt diesen Fluss. Design- und Copy-Entscheidungen halten diese Klammer aus Optik und Produktphilosophie zusammen, statt sie unabhängig voneinander zu treffen.
+- **Visuelles Kredo (seit 2026-08, app-weit und dauerhaft — gilt über den 2026-Visual-Refresh hinaus):** „Das bestehende WhisPaste — aber durch hochwertiges farbiges Glas betrachtet." Lebendige Atmosphäre, luxuriöse UI/Komponenten, eine intelligent wirkende Arbeitsumgebung und klar erkennbare Markenidentität — bei unverändertem Produkt: kein neues Layout, keine neue Informationsarchitektur, ein radikaler visueller Skin-Wechsel innerhalb der bestehenden Struktur. „Glas" ist eine Sättigungs-/Tiefen-Metapher, kein Auftrag zu echtem Compositor-Blur — Näheres inkl. Spannung zum bisherigen „Quiet Signal"-Framing: `docs/adr/0011-visuelles-kredo-farbiges-glas.md`.
 
 ### WhisPaste ist explizit nicht …
 
@@ -23,7 +24,6 @@
 |---|---|---|
 | ein **Always-Listening-Sprachassistent** | Siri, Cortana, Alexa, Google Assistant | anforderungs-basiert statt dauerlauschend |
 | ein **Transkriptions-/Aufnahme-Tool** | Otter.ai, Fireflies, Whisper-Wrapper | Output fließt in die aktive App statt in eine Datei |
-| ein **Sprachsteuerungs-/Voice-Command-Tool** | Talon, Dragon (Command-Modus), VoiceAttack | Output ist Text statt Befehl |
 | ein **Sprach-Frontend für eine KI** | ChatGPT-Voice, Claude-Voice | Sprache wird transkribiert, nicht interpretiert |
 | ein **Übersetzungs-Tool** | DeepL Voice, Apple Translate | Transkription statt Übersetzung |
 | ein **app-internes Diktat** | Word-/Notion-/macOS-Diktat | systemweit statt an eine App gebunden |
@@ -32,7 +32,7 @@
 
 ### 2.1 Aufnahme-Vorgang (Recording Cycle)
 
-Kompletter Akt von Hotkey bis eingefügtem Text. Phasen: `idle → recording → transcribing → processing → done | error`. Code: `RecordingOrchestrator` (orchestriert), `RecordingState` (Zustand), `RecordingPhase` (Enum). Kein Synonym für „Aufnahme" (§2.2).
+Kompletter Akt von Hotkey bis zum Ergebnis am Aufnahme-Ziel (§2.6 — Standard oder Schnellnotiz). Phasen: `idle → recording → transcribing → done | error` (kein separater `processing`-State, §3.1). Code: `RecordingOrchestrator` (orchestriert), `RecordingState` (Zustand), `RecordingPhase` (Enum). Kein Synonym für „Aufnahme" (§2.2).
 
 ### 2.2 Aufnahme (Recording)
 
@@ -48,29 +48,52 @@ Finaler Schritt: transkribierter Text wird per Clipboard-Inject + synthetisierte
 
 ### 2.5 Hotkey
 
-Systemweit registrierte Tastenkombination, die einen Aufnahme-Vorgang auslöst. Default `Ctrl+Shift+D`. Code: `hotkey_service.dart`. Formale DE-Variante „Tastenkombination" im Fließtext okay; in Code/UI-Strings immer „Hotkey".
+Systemweit registrierte Tastenkombination. Drei unabhängige Hotkeys, gemeinsame Registrierungs-Technik (`hotkey_service.dart`), aber unterschiedliche Wirkung, Default-Aktivierung und Aufnahme-Bezug:
+
+| Hotkey | Default-Kombination | Default aktiv | Löst aus |
+|---|---|---|---|
+| **Haupt-Hotkey** | `Ctrl+Shift+D` | ja | Aufnahme-Vorgang, Aufnahme-Ziel „Standard" (§2.6) |
+| **Schnellnotiz-Hotkey** | `Ctrl/⌘+Shift+N` | nein — muss in den Settings eingeschaltet werden | Aufnahme-Vorgang, Aufnahme-Ziel „Schnellnotiz" (§2.6) |
+| **Snippet-Hotkey** | `Ctrl/⌘+Shift+E` | nein — muss in den Settings eingeschaltet werden | **kein** Aufnahme-Vorgang — öffnet nur den Snippet-Picker (§5.8), identisch zum gesprochenen Snippet-Picker-Trigger |
+
+Nur der Haupt-Hotkey kennt beide Aufnahme-Modi (Tabelle unten); der Schnellnotiz-Hotkey unterstützt nur den Toggle-Modus (kein Push-to-talk — Schnellnotizen sind für kurze, frei unterbrechbare Eingaben gedacht, kein Gedrückthalten); der Snippet-Hotkey kennt keinen Aufnahme-Modus, da er nie eine Aufnahme startet. Formale DE-Variante „Tastenkombination" im Fließtext okay; in Code/UI-Strings immer „Hotkey".
 
 | Modus | Verhalten |
 |---|---|
 | **Push-to-talk** | Aufnahme läuft, solange der Hotkey gedrückt gehalten wird. |
 | **Toggle** | Erster Druck startet, zweiter Druck stoppt. |
 
-### 2.6 Auto-Paste
+### 2.6 Aufnahme-Ziel
 
-Kanonischer Feature-Begriff: „WhisPaste tippt nach der Transkription automatisch `⌘V`/`Ctrl+V`". Namensgebende Default-Erfahrung — Clipboard ist nur das Vehikel, nicht das Feature. Unterschied zu §2.4: §2.4 ist die Pipeline-**Phase**, Auto-Paste die User-sichtbare **Feature-Variante** davon (Gegenteil: „Nur Zwischenablage", `AfterTranscriptionAction.clipboard`).
+`RecordingTarget` (`lib/core/recording/recording_state.dart`, `recordingTargetProvider`) legt fest, WELCHES Ergebnis ein Aufnahme-Vorgang überhaupt hat — unveränderlich gesetzt beim Start, abhängig davon, welcher Hotkey ihn ausgelöst hat (Haupt-Hotkey oder jeder andere Aufnahme-Start-Weg außer dem Schnellnotiz-Hotkey → „Standard"; Schnellnotiz-Hotkey → „Schnellnotiz"). Abgrenzung zu Auto-Paste (§2.7): Aufnahme-Ziel entscheidet, welches Ergebnis zutrifft; Auto-Paste entscheidet erst danach, *innerhalb* des Ziels „Standard", *wie* genau vorgegangen wird (automatisch einfügen vs. nur kopieren).
+
+| Wert | Ausgelöst durch | Ergebnis |
+|---|---|---|
+| `clipboard` (Standard) | Haupt-Hotkey und alle übrigen Aufnahme-Start-Wege außer dem Schnellnotiz-Hotkey | landet in Zwischenablage/aktiver App — genaues „Wie" regelt §2.7 Auto-Paste |
+| `quickNote` | Schnellnotiz-Hotkey | wird an die exklusiv markierte Schnellnotiz angehängt (§5.9) — kein Zwischenablage-Zugriff, kein Einfügen, kein Verlauf-Eintrag |
+
+Der Snippet-Hotkey hat **kein** Aufnahme-Ziel: er startet nie einen Aufnahme-Vorgang (§5.8), `RecordingTarget` wird für ihn nie gesetzt.
+
+_Avoid_: Aufnahme-Ziel als Synonym für „Ziel-App"/Paste-Ziel (die App, in die eingefügt wird, §6.5-Telemetrie-Negativliste) — zwei verschiedene Dinge: Aufnahme-Ziel ist die grobe Weiche Standard/Schnellnotiz, Ziel-App ist nur innerhalb von „Standard" relevant (welche App den Paste empfängt).
+
+### 2.7 Auto-Paste
+
+Kanonischer Feature-Begriff: „WhisPaste tippt nach der Transkription automatisch `⌘V`/`Ctrl+V`". Namensgebende Default-Erfahrung — Clipboard ist nur das Vehikel, nicht das Feature. Unterschied zu §2.4: §2.4 ist die Pipeline-**Phase**, Auto-Paste die User-sichtbare **Feature-Variante** davon (Gegenteil: „Nur Zwischenablage", `AfterTranscriptionAction.clipboard`). Gilt nur innerhalb des Aufnahme-Ziels `clipboard` (§2.6) — beim Ziel `quickNote` stellt sich die Frage nicht, da nie kopiert oder eingefügt wird.
 
 Code: `AfterTranscriptionAction` (`paste`/`clipboard`), `autoPasteAfterTranscription`, `lib/services/paste/` (`Paster`, `PasteCapability`, §3.6), `AutoPasteStep` (§5.6).
 Plattform: macOS (Accessibility-Permission nötig), Windows (meist keine, UIPI-Edge bei elevated Targets), Linux (nicht unterstützt).
 
-### 2.7 Hotkey-Registrations-Status
+### 2.8 Hotkey-Registrations-Status
 
-Lifecycle-Status der OS-Hotkey-Registrierung. Code: `HotkeyRegistrationStatus` enum (`lib/services/hotkey_service.dart`), `hotkeyRegistrationStatusProvider`.
+Lifecycle-Status der OS-Hotkey-Registrierung — existiert **pro Hotkey** (§2.5), mit unterschiedlichen Konsequenzen bei Konflikt. Code: `HotkeyRegistrationStatus` enum (`lib/services/hotkey_service.dart`), je ein eigener Provider pro Hotkey (`hotkeyRegistrationStatusProvider`, `quickNoteHotkeyRegistrationStatusProvider`, `snippetPickerHotkeyRegistrationStatusProvider`) — ein Konflikt bei einem Hotkey wirkt sich nie auf den Status der anderen aus.
 
 | Wert | Bedeutung |
 |---|---|
 | `unknown` | noch kein abgeschlossener Versuch (App-Start) |
 | `success` | Hotkey ist beim OS registriert |
-| `conflict` | Registrierung fehlgeschlagen (Kollision) → Fallback auf Safe-Default (`Cmd/Ctrl+Shift+Space`), UI soll Re-Binding anbieten |
+| `conflict` | Registrierung fehlgeschlagen (Kollision) |
+
+Bei `conflict` reagieren die drei Hotkeys unterschiedlich: nur der **Haupt-Hotkey** fällt automatisch auf eine Safe-Default-Kombination zurück (`Cmd/Ctrl+Shift+Space`), UI soll Re-Binding anbieten. **Schnellnotiz-Hotkey** und **Snippet-Hotkey** bekommen bewusst **keinen** Fallback — sie bleiben unregistriert, statt eine unerwartet belegte Kombination zu kapern, die sonst in ein Textfeld tippen oder eine andere Aktion auslösen könnte; beide haben einen vollwertigen Alternativweg (Notizen-Bereich bzw. gesprochener Snippet-Picker-Trigger, §5.8).
 
 Nicht zu verwechseln mit §3.4 `RecordingReadiness` (Lauf-Bereitschaft, nicht OS-Bindung).
 
@@ -275,7 +298,14 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   bewusst geblockt; alles andere paste-kompatibel).
 - **Geräusch-arme, aber warme UI** — kein Glow, kein zweiter Marken-Akzent neben
   Cyan/Teal, ruhige Animationen; tonale Wärme und weiche Materialität sind
-  erwünscht, nicht bloße Kargheit. Light/Dark/System-Theme, EN/DE.
+  erwünscht, nicht bloße Kargheit. Kategoriefarben (`WpCategorySlot`) sind
+  ausdrücklich kein zweiter Akzent: sie sagen, *was* etwas ist, nie, dass es
+  wichtig ist — leiser als der Akzent, und nie alleiniger Bedeutungsträger.
+  Ausnahme in die andere Richtung: der Verlaufs-Eintrag-Avatar trägt einen
+  Slot aus derselben Palette, der *gar nichts* sagt — reine dekorative
+  Rotation, damit eine lange Liste scannbar bleibt. Die App klassifiziert
+  Diktate nicht, also darf aus dieser Farbe auch nichts abgeleitet werden.
+  Light/Dark/System-Theme, EN/DE.
 - **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
   geplant.
 
