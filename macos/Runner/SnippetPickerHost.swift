@@ -69,6 +69,29 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// reliable — this latch is.
   private var isDismissing = false
 
+  /// The app that was frontmost right before [show] activated WhisPaste, so
+  /// [dismiss] can hand activation straight back to it.
+  ///
+  /// Load-bearing beyond politeness: `SnippetPickerPanel`'s whole
+  /// `.nonactivatingPanel` design exists because
+  /// `DesktopPasteHost.captureTarget()` *clears* the stored paste target
+  /// whenever WhisPaste itself is frontmost. [show] now has to activate the
+  /// app anyway (see [activateForKeyboard]), so the invariant can no longer
+  /// be upheld *during* the picker — but it must be restored by the time the
+  /// panel closes, or the **next** dictation trigger's `prime()` would run
+  /// with WhisPaste still frontmost and capture nothing. The current pick is
+  /// unaffected either way: the pipeline captures its target at key-down,
+  /// long before `show`, and `SnippetPickerService` never re-primes.
+  private var previousFrontApp: NSRunningApplication?
+
+  /// How long after a [show] a lost key status still counts as the
+  /// activation race rather than as the user dismissing the picker — see
+  /// [windowDidResignKey].
+  private static let keyReclaimWindow: DispatchTimeInterval = .milliseconds(500)
+
+  private var keyReclaimDeadline: DispatchTime?
+  private var didReclaimKeyThisShow = false
+
   /// Local `keyDown` monitor that guarantees Escape closes the picker (live-
   /// test bug: Escape did nothing while the search field had focus).
   ///
@@ -99,6 +122,28 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// the swallowed keystroke can't *also* reach the search field.
   private var escapeMonitor: Any?
 
+  /// Local `keyDown` monitor for Return/Enter — the exact same fix as
+  /// [escapeMonitor], for the sibling regression it introduced.
+  ///
+  /// Enter used to reach the search field's `onSubmitted` via a path
+  /// independent of the fragile `NSTextInputClient` forwarding that Escape
+  /// needed a monitor for (see [escapeMonitor]'s doc) — that was true when
+  /// this class doc was written, before [show]'s per-`show()`
+  /// `contentViewController` detach/reattach (added later, see the comment
+  /// there) started resetting the render view's `NSTextInputContext`
+  /// session. `insertNewline:` — the `NSStandardKeyBindingResponding`
+  /// selector AppKit's `interpretKeyEvents:` turns Return into for a
+  /// text-input-active view, which Flutter's embedder translates into
+  /// `TextInputAction.done`/`onSubmitted` — apparently rides the same
+  /// `doCommandBySelector:` bridge as Escape's `cancelOperation:`, and
+  /// degraded the same way once that session started getting reset on every
+  /// re-show. Rather than forwarding a synthetic key event, this calls
+  /// straight into the render engine's own submit logic (which needs to
+  /// know the current search-filtered highlight, a Dart-only value) via a
+  /// dedicated `submitHighlighted` render-channel message — see
+  /// `SnippetPickerRenderChannel.onSubmit`.
+  private var returnMonitor: Any?
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.snippet_picker",
@@ -107,17 +152,51 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     super.init()
     channel.setMethodCallHandler(handle)
     installEscapeMonitor()
+    installReturnMonitor()
   }
 
   /// Installed once for the host's lifetime — the closure re-checks
-  /// `panel`/`isKeyWindow` on every keystroke, so it is a safe no-op long
-  /// before [ensurePanel] ever creates a panel.
+  /// `panel`/[panelOwnsKeyboard] on every keystroke, so it is a safe no-op
+  /// long before [ensurePanel] ever creates a panel.
   private func installEscapeMonitor() {
     escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-      guard let self, let p = self.panel, p.isKeyWindow, event.keyCode == kVK_Escape else {
+      guard let self, self.panelOwnsKeyboard, event.keyCode == kVK_Escape else {
         return event
       }
-      self.dismiss(fireCancelled: true)
+      self.dismiss(fireCancelled: true, restoreFrontApp: true)
+      return nil
+    }
+  }
+
+  /// Whether a keystroke arriving in this process right now belongs to the
+  /// picker.
+  ///
+  /// Deliberately gated on `isVisible` rather than on `isKeyWindow` (which
+  /// both monitors used until the third live test). A **local** event monitor
+  /// only ever sees events macOS already routed to *this process*, and macOS
+  /// never routes keystrokes to an inactive app at all — so "the picker panel
+  /// is on screen" is by itself enough to know the keystroke is meant for the
+  /// picker, without also betting on the panel having won key status. That
+  /// bet is exactly what turned out to be unreliable: `show`'s activation is
+  /// asynchronous, and AppKit re-picks a key window when the app actually
+  /// becomes active, so the panel can be visible and frontmost while
+  /// `isKeyWindow` is still false — which silently disabled *both* monitors
+  /// at the very moment they were needed.
+  private var panelOwnsKeyboard: Bool {
+    guard let p = panel else { return false }
+    return p.isVisible && !isDismissing
+  }
+
+  /// Same lifetime/scoping rules as [installEscapeMonitor]; see
+  /// [returnMonitor]'s doc for why this exists. Matches both the main Return
+  /// key and the numpad Enter key.
+  private func installReturnMonitor() {
+    returnMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+      guard let self, self.panelOwnsKeyboard,
+            event.keyCode == kVK_Return || event.keyCode == kVK_ANSI_KeypadEnter else {
+        return event
+      }
+      self.renderChannel?.invokeMethod("submitHighlighted", arguments: nil)
       return nil
     }
   }
@@ -134,7 +213,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       result(nil)
 
     case "hide":
-      dismiss(fireCancelled: false)
+      dismiss(fireCancelled: false, restoreFrontApp: true)
       result(nil)
 
     case "destroy":
@@ -217,43 +296,168 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       pendingItems = items
     }
 
-    // [prewarm] (190b7477) keeps the render engine — and its
-    // `FlutterViewController` — alive across the whole app session, so
-    // `bootRenderEngine` only ever attaches it to the panel once. Reordering
-    // the panel back on screen via `orderFrontRegardless` after a prior
-    // `orderOut` does not retrigger AppKit's normal appearance cycle for a
-    // view controller that was never detached, so the reused view keeps
-    // presenting whatever frame was last rasterized instead of the current
-    // Dart tree (confirmed live: the panel kept showing the empty-state
-    // frame from the very first boot even after the Dart side rebuilt with
-    // real items and even after further code changes to that empty-state
-    // widget itself). Detaching and reattaching the same view controller
-    // forces AppKit to redo that appearance cycle and present a fresh frame.
+    // Remember the outgoing frontmost app before anything below can change
+    // it — see [previousFrontApp] for why this is more than politeness.
+    let front = NSWorkspace.shared.frontmostApplication
+    previousFrontApp =
+      front?.bundleIdentifier == Bundle.main.bundleIdentifier ? nil : front
+
+    keyReclaimDeadline = DispatchTime.now() + Self.keyReclaimWindow
+    didReclaimKeyThisShow = false
+
+    // ORDER MATTERS from here down; the sequence is the fix for live-test 4
+    // ("the app comes to the front but the arrow keys still do nothing").
+    //
+    // 1. On screen first. Everything after this — the appearance cycle, key
+    //    status, activation — behaves differently for a window that AppKit
+    //    considers off-screen, and an ordered-out `NSWindow` reports a `nil`
+    //    `screen` and a non-`.visible` `occlusionState`.
+    p.orderFrontRegardless()
+
+    // 2. [prewarm] (190b7477) keeps the render engine — and its
+    //    `FlutterViewController` — alive across the whole app session, so
+    //    `bootRenderEngine` only ever attaches it to the panel once.
+    //    Reordering the panel back on screen after a prior `orderOut` does
+    //    not retrigger AppKit's normal appearance cycle for a view
+    //    controller that was never detached, so the reused view keeps
+    //    presenting whatever frame was last rasterized instead of the
+    //    current Dart tree (confirmed live: the panel kept showing the
+    //    empty-state frame from the very first boot even after the Dart side
+    //    rebuilt with real items and even after further code changes to that
+    //    empty-state widget itself). Detaching and reattaching the same view
+    //    controller forces AppKit to redo that appearance cycle.
+    //
+    //    Moved to *after* `orderFrontRegardless` (was before it): Flutter's
+    //    macOS view drives its frame production from a display link it sets
+    //    up when the view moves to a window, keyed on that window's screen,
+    //    and pauses it while the view is not on a visible window. Attaching
+    //    while the panel was still off-screen therefore handed the engine a
+    //    windowless/screenless view — the shape that produces exactly the
+    //    "one stale frame, no further repaints" symptom this reattach was
+    //    added to paper over. Attaching once the panel is genuinely on
+    //    screen gives that setup a real screen to bind to. (The
+    //    `occlusionVisible=` field logged below is the live check for this.)
     if let vc = renderViewController {
       p.contentViewController = nil
       p.contentViewController = vc
     }
 
-    p.orderFrontRegardless()
-    p.makeKey()
-    // Live-test bug: the search field wasn't focused when the picker opened,
-    // so typing did nothing until the user clicked into it first.
+    // 3. Claim key status and the first responder *before* activating, so
+    //    that when the app does become active the panel is already the
+    //    window AppKit finds in front — see [reassertKeyFocus] for why the
+    //    old order (activate first) was a race, and [activateForKeyboard]
+    //    for why activating at all is unavoidable.
     //
-    // `bootRenderEngine` sets `p.contentViewController = vc`, which per
-    // AppKit makes `vc.view` the panel's `initialFirstResponder` — but that
-    // outlet is documented to apply only the FIRST time a window is ordered
-    // onto the screen. This panel is deliberately created once and reused
-    // for the whole app session (see the class doc), so every `show()`
-    // after the very first one is *not* that first appearance, and the
-    // reused panel keeps whatever first responder it last had (typically
-    // reset to the window itself once `dismiss` orders it back out and it
-    // resigns key). Setting first responder explicitly, every time, removes
-    // the dependency on that one-shot semantics entirely.
+    //    Live-test bug this line originally fixed: the search field wasn't
+    //    focused when the picker opened, so typing did nothing until the
+    //    user clicked into it first. `bootRenderEngine` sets
+    //    `p.contentViewController = vc`, which per AppKit makes `vc.view`
+    //    the panel's `initialFirstResponder` — but that outlet applies only
+    //    the FIRST time a window is ordered onto the screen, and this panel
+    //    is reused for the whole app session (see the class doc). Setting
+    //    the first responder explicitly, every time, removes the dependency
+    //    on that one-shot semantics entirely.
+    p.makeKey()
     let focused = p.makeFirstResponder(renderViewController?.view)
-    os_log(
-      "show: makeFirstResponder(renderView) -> %{public}@",
-      log: Self.logger, type: .info, focused ? "true" : "false"
-    )
+
+    // 4. Activate last.
+    activateForKeyboard()
+
+    logPanelState("show/sync", extra: "makeFirstResponder=\(focused)")
+    DispatchQueue.main.async { [weak self] in self?.reassertKeyFocus() }
+  }
+
+  /// Makes WhisPaste the active app so the panel can actually receive
+  /// keystrokes, while raising as little else as possible.
+  ///
+  /// Unavoidable, and the reason `SnippetPickerPanel`'s `.nonactivatingPanel`
+  /// promise ("can become key WITHOUT activating the owning application")
+  /// doesn't carry as far as its doc comment hoped: that mask governs which
+  /// of *this app's* windows may hold key status, but macOS routes physical
+  /// keystrokes to the **active application's** process in the first place.
+  /// A panel of an inactive app is therefore keyboard-dead no matter what
+  /// `makeKey()`/`makeFirstResponder()` report (confirmed live: opening the
+  /// picker via the global hotkey left it keyboard-dead — no arrows, no
+  /// typing, no Enter/Escape — while a mouse click still worked, because
+  /// AppKit implicitly activates the clicked-on app as part of handling the
+  /// click). Getting keyboard focus without activating at all would take a
+  /// `CGEventTap`, i.e. a second Accessibility-permission channel and a
+  /// hand-rolled key path into the engine — far past this feature's weight.
+  ///
+  /// What *is* avoidable is dragging the rest of the app on screen with it,
+  /// which the previous `NSApp.activate(ignoringOtherApps:)` did (live-test
+  /// 4: "it pulls the whole WhisPaste app to the front"): that API is
+  /// documented as equivalent to `NSRunningApplication.activate` **with**
+  /// `.activateAllWindows`, which raises every window the app owns — main
+  /// window included. Omitting that option raises only the app's frontmost
+  /// window, which step 3 above has just made be this panel.
+  ///
+  /// `.activateIgnoringOtherApps` is deprecated as of macOS 14 in favour of
+  /// the cooperative `activate(options:)`, but is kept here on purpose (and
+  /// emits no warning at this target's 10.15 deployment floor): the
+  /// cooperative form may be *declined* for an app that isn't already
+  /// active, and a declined activation degrades straight back to the
+  /// keyboard-dead picker this whole method exists to prevent. The
+  /// `appActive=` field logged on the next runloop turn is the live check.
+  private func activateForKeyboard() {
+    guard !NSApp.isActive else { return }
+    NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
+  }
+
+  /// Re-claims key status and the first responder one runloop turn after
+  /// [show], and logs the panel's real input state.
+  ///
+  /// App activation is not synchronous: `activate` posts a request, and the
+  /// app becomes active on a later turn — at which point AppKit picks a key
+  /// window of its own accord, and can hand key status to the main window
+  /// (the app's remembered key window, and the only one here that may become
+  /// *main* at all, since `SnippetPickerPanel.canBecomeMain` is false),
+  /// silently undoing the `makeKey()` [show] performed while the app was
+  /// still inactive. Re-asserting after the dust settles closes that race.
+  ///
+  /// Deliberately does **not** clobber a first responder that already lives
+  /// inside the render view: once Dart requests focus for the search field,
+  /// Flutter's embedded text-input proxy view — a descendant of the
+  /// `FlutterViewController`'s view, not that view itself — becomes first
+  /// responder, and stealing it back would break text input rather than fix
+  /// focus.
+  private func reassertKeyFocus() {
+    guard let p = panel, p.isVisible else { return }
+    if !NSApp.isActive {
+      // The targeted activation was declined (see [activateForKeyboard]) —
+      // fall back to the blunt form live-test 4 proved does activate this
+      // app, accepting that it also raises the main window. Logged, so a
+      // live report can tell "the panel-only activation worked" apart from
+      // "it looked like it worked because this line never fired".
+      NSApp.activate(ignoringOtherApps: true)
+      logPanelState("show/next-runloop/activation-fallback")
+    }
+    if !p.isKeyWindow { p.makeKey() }
+    if let renderView = renderViewController?.view {
+      let responder = p.firstResponder as? NSView
+      let alreadyInside = responder === renderView
+        || (responder?.isDescendant(of: renderView) ?? false)
+      if !alreadyInside { p.makeFirstResponder(renderView) }
+    }
+    logPanelState("show/next-runloop")
+  }
+
+  /// One-line snapshot of everything that decides whether a keystroke can
+  /// reach the picker's Flutter engine, and whether that engine is allowed
+  /// to paint. Preformatted into a single string because this file's
+  /// `os_log` calls interpolate `%{public}@` only.
+  ///
+  /// Read live with:
+  /// `log stream --predicate 'subsystem == "com.whispaste.snippet_picker"' --info`
+  private func logPanelState(_ stage: String, extra: String = "") {
+    guard let p = panel else { return }
+    let responder = p.firstResponder.map { String(describing: type(of: $0)) } ?? "<nil>"
+    let appKey = NSApp.keyWindow.map { String(describing: type(of: $0)) } ?? "<nil>"
+    let line = "\(stage): appActive=\(NSApp.isActive) panelKey=\(p.isKeyWindow) "
+      + "panelVisible=\(p.isVisible) occlusionVisible=\(p.occlusionState.contains(.visible)) "
+      + "firstResponder=\(responder) appKeyWindow=\(appKey)"
+      + (extra.isEmpty ? "" : " \(extra)")
+    os_log("%{public}@", log: Self.logger, type: .info, line)
   }
 
   /// Closes the panel and — unless [fireCancelled] is false (an explicit
@@ -263,13 +467,44 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// Orders the panel out **before** invoking the callback so a snippet
   /// insert's native `typeText`/re-activation of the target app never races
   /// this panel's own teardown (see `SnippetPickerPanel`'s doc comment).
-  private func dismiss(fireCancelled: Bool) {
+  ///
+  /// [restoreFrontApp] hands activation back to whoever was frontmost before
+  /// [show] activated WhisPaste (see [previousFrontApp]). Passed `true` for
+  /// the deliberate close paths (Escape, Dart-side `cancel`, an explicit
+  /// `hide`) and `false` for the two paths where something else is already
+  /// deciding what comes forward: a pick — `DesktopPasteHost` activates the
+  /// paste target itself moments later, and racing it would be worse than
+  /// doing nothing — and `windowDidResignKey`, where the user just clicked
+  /// some other app, which macOS is in the middle of activating.
+  private func dismiss(fireCancelled: Bool, restoreFrontApp: Bool = false) {
     guard !isDismissing, let p = panel, p.isVisible else { return }
     isDismissing = true
     defer { isDismissing = false }
+    keyReclaimDeadline = nil
     p.orderOut(nil)
+    if restoreFrontApp { restorePreviousFrontApp() }
     if fireCancelled {
       channel.invokeMethod("onCancelled", arguments: nil)
+    }
+  }
+
+  /// Yields activation back to [previousFrontApp], restoring the "WhisPaste
+  /// is not frontmost" invariant the next dictation trigger's target capture
+  /// depends on.
+  ///
+  /// Uses the cooperative activation on macOS 14+ (unlike
+  /// [activateForKeyboard], which must not risk being declined): a *giving
+  /// away* of focus by the currently active app is precisely the case macOS
+  /// grants, and the same version split `DesktopPasteHost` already uses when
+  /// it re-activates a paste target.
+  private func restorePreviousFrontApp() {
+    guard let previous = previousFrontApp else { return }
+    previousFrontApp = nil
+    guard !previous.isTerminated else { return }
+    if #available(macOS 14.0, *) {
+      previous.activate(options: [])
+    } else {
+      previous.activate(options: [.activateIgnoringOtherApps])
     }
   }
 
@@ -406,7 +641,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       result(nil)
 
     case "cancel":
-      dismiss(fireCancelled: true)
+      dismiss(fireCancelled: true, restoreFrontApp: true)
       result(nil)
 
     case "reportError":
@@ -425,8 +660,44 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   /// Clicking outside the panel resigns its key status — treat that the same
   /// as pressing Esc: close and report a cancellation.
+  ///
+  /// Except for the one resign that isn't a user action at all: when
+  /// [activateForKeyboard]'s request lands, AppKit re-picks a key window for
+  /// the now-active app and can hand key status to the main window — the
+  /// app's remembered key window, and the only one of ours that may become
+  /// *main* (`SnippetPickerPanel.canBecomeMain` is false). Until live-test 4
+  /// that never surfaced here, because the panel never won key status in the
+  /// first place; now that it does, an unguarded resign would slam the
+  /// picker shut microseconds after the hotkey opened it. Reclaiming is
+  /// bounded twice over — a short post-`show` window, and once per `show` —
+  /// so a genuine click into another app is never mistaken for the race (the
+  /// user cannot click anything within [keyReclaimWindow] of pressing the
+  /// hotkey that opened the panel).
   func windowDidResignKey(_ notification: Notification) {
+    logPanelState("windowDidResignKey")
+    if let p = panel, p.isVisible, !didReclaimKeyThisShow,
+       let deadline = keyReclaimDeadline, DispatchTime.now() < deadline {
+      didReclaimKeyThisShow = true
+      p.makeKey()
+      logPanelState("windowDidResignKey/reclaimed")
+      return
+    }
     dismiss(fireCancelled: true)
+  }
+
+  /// Instrumentation only — pairs with the `show/sync` and
+  /// `show/next-runloop` snapshots to show whether the panel ever really won
+  /// key status, and when.
+  func windowDidBecomeKey(_ notification: Notification) {
+    logPanelState("windowDidBecomeKey")
+  }
+
+  /// Instrumentation only — the live check for the "the reused view is
+  /// attached to a window macOS does not consider visible, so Flutter never
+  /// presents another frame" half of the diagnosis (see the numbered comment
+  /// in [show]).
+  func windowDidChangeOcclusionState(_ notification: Notification) {
+    logPanelState("windowDidChangeOcclusionState")
   }
 
   // MARK: - Teardown
@@ -436,6 +707,11 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       NSEvent.removeMonitor(monitor)
       escapeMonitor = nil
     }
+    if let monitor = returnMonitor {
+      NSEvent.removeMonitor(monitor)
+      returnMonitor = nil
+    }
+    previousFrontApp = nil
     renderChannel?.setMethodCallHandler(nil)
     panel?.delegate = nil
     panel?.close()

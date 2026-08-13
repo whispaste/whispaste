@@ -41,6 +41,7 @@ class SnippetPickerRenderChannel implements RenderChannel {
   SnippetPickerRenderChannel({
     required String name,
     required this.onItems,
+    required this.onSubmit,
     MethodChannel? channel,
   }) : _channel = channel ?? MethodChannel(name) {
     _channel.setMethodCallHandler(_handle);
@@ -50,6 +51,17 @@ class SnippetPickerRenderChannel implements RenderChannel {
 
   /// Called when the native shell relays a fresh item list for this `show()`.
   final void Function(List<SnippetPickerRenderItem> items) onItems;
+
+  /// Called when the native shell's own `NSEvent` monitor sees Return/Enter
+  /// while the picker panel is key — a local monitor bypasses the search
+  /// field's embedded `NSTextInputClient` entirely (see
+  /// `SnippetPickerHost.returnMonitor`), the same fix already applied to
+  /// Escape for the identical reason: that embedded proxy's
+  /// `doCommandBySelector:` forwarding to Flutter's text-input channel is
+  /// fragile and stopped reliably delivering `insertNewline:` (which used to
+  /// reach `TextInputAction.done`/`onSubmitted`) after the panel's view
+  /// controller started being detached/reattached on every `show()`.
+  final VoidCallback onSubmit;
 
   Future<dynamic> _handle(MethodCall call) async {
     switch (call.method) {
@@ -63,6 +75,9 @@ class SnippetPickerRenderChannel implements RenderChannel {
             ]);
           }
         }
+        return null;
+      case 'submitHighlighted':
+        onSubmit();
         return null;
       default:
         return null;

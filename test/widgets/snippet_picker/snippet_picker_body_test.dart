@@ -152,6 +152,93 @@ void main() {
     });
   });
 
+  group('SnippetPickerBody — arrow navigation (live-test bug 4)', () {
+    testWidgets('ArrowDown moves the highlight the submit then acts on', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        String? selectedId;
+
+        // Three items so two presses land unambiguously on the last one —
+        // a wrong-but-plausible outcome (highlight never moved) selects '1',
+        // and an off-by-one selects '2'.
+        await _pumpPicker(
+          tester,
+          controller: controller,
+          items: const [
+            SnippetPickerRenderItem(id: '1', title: 'A', body: 'first'),
+            SnippetPickerRenderItem(id: '2', title: 'B', body: 'second'),
+            SnippetPickerRenderItem(id: '3', title: 'C', body: 'third'),
+          ],
+          onSelect: (id) => selectedId = id,
+        );
+
+        final field = tester.widget<WpSearchField>(find.byType(WpSearchField));
+        expect(field.focusNode!.hasFocus, isTrue);
+
+        // The live-test question this file did NOT answer before: do
+        // ArrowDown/ArrowUp reach this widget's own `Shortcuts` at all while
+        // the search field holds focus, or does the `EditableText` subtree /
+        // macOS `DefaultTextEditingShortcuts` consume them as caret motion
+        // first? Everything native (panel key status, app activation, frame
+        // presentation) was being investigated on the assumption that this
+        // half already worked.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+
+        expect(
+          selectedId,
+          '3',
+          reason:
+              'two ArrowDown presses must move the highlight from the first '
+              'to the third item',
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('ArrowUp moves the highlight back and clamps at the top', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        String? selectedId;
+
+        await _pumpPicker(
+          tester,
+          controller: controller,
+          onSelect: (id) => selectedId = id,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        // Three ups from index 1 must clamp at 0, not wrap or go negative.
+        for (var i = 0; i < 3; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+          await tester.pump();
+        }
+
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+
+        expect(selectedId, '1');
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   group('SnippetPickerBody — Enter (control, already working)', () {
     testWidgets('Enter selects the highlighted item', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

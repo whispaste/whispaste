@@ -80,6 +80,12 @@ class _SnippetPickerRenderAppState
   List<SnippetPickerRenderItem> _items = const [];
   final _searchController = TextEditingController();
 
+  /// Lets [createChannel]'s `onSubmit` reach [SnippetPickerBody._submit]
+  /// directly — the native shell's Return-key monitor bypasses the search
+  /// field's `onSubmitted` entirely (see `SnippetPickerRenderChannel.onSubmit`
+  /// doc), so this is the only way Enter reaches the same submit logic.
+  final _bodyKey = GlobalKey<_SnippetPickerBodyState>();
+
   /// Bumped once per native `setItems` call — the shell sends exactly one
   /// per panel `show()`, and it keeps panel + engine alive across pickers
   /// for the whole app session, so this counter is how the body knows "a
@@ -94,6 +100,7 @@ class _SnippetPickerRenderAppState
       _items = items;
       _showGeneration++;
     }),
+    onSubmit: () => _bodyKey.currentState?._submit(),
   );
 
   @override
@@ -134,6 +141,7 @@ class _SnippetPickerRenderAppState
             container: true,
             label: semanticsLabel,
             child: SnippetPickerBody(
+              key: _bodyKey,
               items: _items,
               showGeneration: _showGeneration,
               searchController: _searchController,
@@ -252,6 +260,38 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   }
 
   @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_debugLogKeyEvent);
+  }
+
+  /// TODO(DEBUG-sp01): temporary instrumentation for the live "arrow keys
+  /// don't navigate the picker" bug — remove once diagnosed.
+  ///
+  /// This is *the* discriminator between the two families of explanation
+  /// that both fit the reported symptoms ("only a mouse click works"), and
+  /// that no amount of reading either side's code can tell apart:
+  ///
+  /// - **Nothing logged on an arrow press** → the keystroke never reached
+  ///   this engine at all, and the bug is native (panel/key-window/app
+  ///   activation, see `SnippetPickerHost.show`).
+  /// - **Logged, and `_moveHighlight` logs a new index too** → input and the
+  ///   Dart logic are both fine and the panel simply isn't *repainting* —
+  ///   a rendering bug, which the reused-engine/`contentViewController`
+  ///   reattach in `SnippetPickerHost.show` is already known to be
+  ///   load-bearing for.
+  ///
+  /// Returns false so it only observes; every key continues to whatever
+  /// would have handled it.
+  bool _debugLogKeyEvent(KeyEvent event) {
+    debugPrint(
+      '[snippet-picker-engine] key ${event.runtimeType} '
+      '${event.logicalKey.keyLabel} searchFocus=${_searchFocus.hasFocus}',
+    );
+    return false;
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Reduced motion: settle instantly on the static frame (appear complete,
@@ -289,10 +329,24 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _searchFocus.requestFocus();
+    // TODO(DEBUG-sp01): temporary — see [_debugLogKeyEvent]. Marks the start
+    // of one picker invocation in the log, and confirms a frame was actually
+    // built for it. Deliberately reports no focus state: `FocusManager`
+    // applies a pending request at the *end* of the frame, so reading
+    // `hasFocus` from this callback reports the pre-request value and would
+    // read as a focus bug that isn't one. The per-keystroke line from
+    // [_debugLogKeyEvent] is the authoritative focus readout.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint(
+        '[snippet-picker-engine] --- show: items=${widget.items.length}, '
+        'first frame built ---',
+      );
+    });
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_debugLogKeyEvent);
     _appear.dispose();
     _appearController.dispose();
     _driftController.dispose();
@@ -313,6 +367,19 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     final length = _filtered.length;
     if (length == 0) return;
     setState(() => _highlight = (_highlight + delta).clamp(0, length - 1));
+    // TODO(DEBUG-sp01): temporary — see [_debugLogKeyEvent]. The post-frame
+    // callback is the second half of the discriminator: if the index moves
+    // but this line never prints, the engine isn't producing frames for this
+    // panel at all.
+    debugPrint(
+      '[snippet-picker-engine] _moveHighlight delta=$delta '
+      '-> highlight=$_highlight of $length',
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint(
+        '[snippet-picker-engine] frame rendered after highlight=$_highlight',
+      );
+    });
     _scrollHighlightIntoView();
   }
 
