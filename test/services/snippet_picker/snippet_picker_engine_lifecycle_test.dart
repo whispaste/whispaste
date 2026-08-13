@@ -1,5 +1,6 @@
 /// Regression test for the live "arrow keys don't visibly navigate the
-/// picker" bug (diagnosed 2026-08-13, DEBUG-sp02 round 2).
+/// picker" bug (diagnosed live 2026-08-13; the tagged-instrumentation log
+/// evidence is preserved in the fix commit's message).
 ///
 /// Root cause: the snippet-picker render engine received a bogus
 /// `AppLifecycleState.hidden` from the macOS embedder (stale per-engine

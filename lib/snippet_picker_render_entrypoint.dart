@@ -65,7 +65,8 @@ void runSnippetPickerEngine() {
 /// Detaches this render engine from the embedder's app-lifecycle stream.
 ///
 /// Root cause of the live "arrow keys don't visibly navigate the picker"
-/// bug (verified with DEBUG-sp02 instrumentation, 2026-08-13): each macOS
+/// bug (verified live with tagged debug instrumentation, 2026-08-13; the
+/// full log evidence is in the fix commit's message): each macOS
 /// `FlutterEngine` derives an app-lifecycle state from per-engine
 /// active/visible flags fed by app-global `NSApplication`
 /// activation/occlusion notifications. This secondary engine boots at
@@ -265,7 +266,7 @@ class SnippetPickerBody extends StatefulWidget {
 }
 
 class _SnippetPickerBodyState extends State<SnippetPickerBody>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin {
   /// Fixed tile height — lets the list use `itemExtent` so both the
   /// arrow-key auto-scroll and the gliding highlight capsule can be
   /// positioned with plain offset math.
@@ -320,88 +321,6 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
           (i) => searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
         )
         .toList();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    HardwareKeyboard.instance.addHandler(_debugLogKeyEvent);
-    // TODO(DEBUG-sp02): temporary — discriminates the three explanations for
-    // "requestFocus never sticks" (see _debugLogSp02): lifecycle-driven
-    // FocusManager suspension vs. focus never applied vs. revoked by a
-    // non-lifecycle actor. Remove with the rest of the sp02 tag.
-    WidgetsBinding.instance.addObserver(this);
-    _searchFocus.addListener(_debugLogSearchFocusChange);
-    FocusManager.instance.addListener(_debugLogPrimaryFocusChange);
-    _debugLogSp02('boot lifecycle=${WidgetsBinding.instance.lifecycleState}');
-  }
-
-  /// TODO(DEBUG-sp02): temporary — single tagged log line with a timestamp so
-  /// the ordering of lifecycle vs. focus events is readable from stdout.
-  void _debugLogSp02(String message) {
-    final now = DateTime.now();
-    final ts =
-        '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}:'
-        '${now.second.toString().padLeft(2, '0')}.'
-        '${now.millisecond.toString().padLeft(3, '0')}';
-    debugPrint('[snippet-picker-engine][sp02 $ts] $message');
-  }
-
-  /// TODO(DEBUG-sp02): temporary — every app-lifecycle transition this engine
-  /// receives. H1 predicts a transition to a non-resumed state right after
-  /// each show()'s activation, coinciding with searchFocus true->false.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _debugLogSp02('lifecycle -> $state');
-  }
-
-  /// TODO(DEBUG-sp02): temporary — fires on every hasFocus flip of the search
-  /// field. "Never true" = H2 (focus never applied); "true then false" = H1 or
-  /// H3 depending on whether a lifecycle line sits between.
-  void _debugLogSearchFocusChange() {
-    _debugLogSp02('searchFocus -> ${_searchFocus.hasFocus}');
-  }
-
-  /// TODO(DEBUG-sp02): temporary — tracks where primary focus actually goes.
-  /// Lifecycle suspension parks it on the root scope ("Root Focus Scope"),
-  /// which is distinguishable from null (detached) or another node.
-  void _debugLogPrimaryFocusChange() {
-    final primary = FocusManager.instance.primaryFocus;
-    _debugLogSp02(
-      'primaryFocus -> ${primary?.debugLabel ?? primary.runtimeType}',
-    );
-  }
-
-  /// TODO(DEBUG-sp01): temporary instrumentation for the live "arrow keys
-  /// don't navigate the picker" bug — remove once diagnosed.
-  ///
-  /// This is *the* discriminator between the two families of explanation
-  /// that both fit the reported symptoms ("only a mouse click works"), and
-  /// that no amount of reading either side's code can tell apart:
-  ///
-  /// - **Nothing logged on an arrow press** → the keystroke never reached
-  ///   this engine at all, and the bug is native (panel/key-window/app
-  ///   activation, see `SnippetPickerHost.show`).
-  /// - **Logged, and `_moveHighlight` logs a new index too** → input and the
-  ///   Dart logic are both fine and the panel simply isn't *repainting* —
-  ///   a rendering bug, which the reused-engine/`contentViewController`
-  ///   reattach in `SnippetPickerHost.show` is already known to be
-  ///   load-bearing for.
-  ///
-  /// Returns false so it only observes; every key continues to whatever
-  /// would have handled it.
-  bool _debugLogKeyEvent(KeyEvent event) {
-    // TODO(DEBUG-sp02): lifecycle= and primary= appended to the sp01 line —
-    // H1 predicts lifecycle != resumed on every keystroke that fails.
-    final primary = FocusManager.instance.primaryFocus;
-    debugPrint(
-      '[snippet-picker-engine] key ${event.runtimeType} '
-      '${event.logicalKey.keyLabel} searchFocus=${_searchFocus.hasFocus} '
-      'lifecycle=${WidgetsBinding.instance.lifecycleState} '
-      'primary=${primary?.debugLabel ?? primary.runtimeType}',
-    );
-    return false;
   }
 
   @override
@@ -473,32 +392,10 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
       _appearController.forward(from: 0);
     }
     _syncAnimations();
-    // TODO(DEBUG-sp01): temporary — see [_debugLogKeyEvent]. Marks the start
-    // of one picker invocation in the log, and confirms a frame was actually
-    // built for it. Deliberately reports no focus state: `FocusManager`
-    // applies a pending request at the *end* of the frame, so reading
-    // `hasFocus` from this callback reports the pre-request value and would
-    // read as a focus bug that isn't one. The per-keystroke line from
-    // [_debugLogKeyEvent] is the authoritative focus readout.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // TODO(DEBUG-sp02): lifecycle/focus snapshot appended — post-frame is
-      // after FocusManager applied the pending requestFocus, so hasFocus here
-      // is authoritative for "was focus ever granted this show".
-      debugPrint(
-        '[snippet-picker-engine] --- show: items=${widget.items.length}, '
-        'first frame built, searchFocus=${_searchFocus.hasFocus}, '
-        'lifecycle=${WidgetsBinding.instance.lifecycleState} ---',
-      );
-    });
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_debugLogKeyEvent);
-    // TODO(DEBUG-sp02): temporary — see initState.
-    WidgetsBinding.instance.removeObserver(this);
-    _searchFocus.removeListener(_debugLogSearchFocusChange);
-    FocusManager.instance.removeListener(_debugLogPrimaryFocusChange);
     _appear.dispose();
     _appearController.dispose();
     _driftController.dispose();
@@ -519,19 +416,6 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     final length = _filtered.length;
     if (length == 0) return;
     setState(() => _highlight = (_highlight + delta).clamp(0, length - 1));
-    // TODO(DEBUG-sp01): temporary — see [_debugLogKeyEvent]. The post-frame
-    // callback is the second half of the discriminator: if the index moves
-    // but this line never prints, the engine isn't producing frames for this
-    // panel at all.
-    debugPrint(
-      '[snippet-picker-engine] _moveHighlight delta=$delta '
-      '-> highlight=$_highlight of $length',
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      debugPrint(
-        '[snippet-picker-engine] frame rendered after highlight=$_highlight',
-      );
-    });
     _scrollHighlightIntoView();
   }
 
