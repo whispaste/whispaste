@@ -165,7 +165,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       ),
       asyncAll: ref.watch(snippetsProvider),
       searchMatches: (s, q) =>
-          s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
+          q.hasMatch(s.title) || q.hasMatch(s.body),
       searchHint: l10n.snippetsSearch,
       searchFieldLabel: l10n.snippetsSearchFieldLabel,
       addLabel: l10n.snippetsAdd,
