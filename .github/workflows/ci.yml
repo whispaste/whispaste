@@ -129,7 +129,11 @@ jobs:
   flutter-app-macos:
     name: Flutter App (macOS)
     runs-on: macos-latest
-    timeout-minutes: 20
+    # A normal run finishes in ~14-15min; run 31671272849 got killed by this
+    # timeout at 20m20s with every step already green (build done, secure-
+    # storage test just starting) — plain runner-speed variance, not a hang.
+    # 35min gives real headroom without masking an actual stuck job.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
 
