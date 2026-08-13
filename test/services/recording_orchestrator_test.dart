@@ -982,29 +982,15 @@ void main() {
       return orch;
     }
 
-    test('opens the panel with all snippets, capturing the paste target '
-        'exactly once, without starting any recording', () async {
-      await container.read(settingsProvider.future);
-      await db.upsertSnippet(
-        id: 's1',
-        title: 'Greeting',
-        body: 'Hello there!',
-        createdAt: DateTime.now(),
-      );
-      final orch = await readOrchestrator();
-
-      await orch.openSnippetPickerViaHotkey();
-
-      expect(fakeSnippetPicker.showCalls, hasLength(1));
-      expect(fakeDesktopPaste.captureCalls, 1);
-      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
-      expect(fakeAudio.startCallCount, 0);
-      expect(await db.allEntries(), isEmpty);
-    });
-
-    test(
-      'selecting a snippet afterward does not re-capture the paste target',
-      () async {
+    // snippetPickerAvailableOnPlatform is hardcoded to Platform.isMacOS and
+    // can't be faked from a test (see the non-mac test below, which works
+    // around that a different way) — so every test here that expects the
+    // hotkey to actually open the panel only holds on a real macOS host.
+    // Skipped rather than deleted or platform-gated in assertions: these are
+    // still the right spec for the feature once it ships elsewhere.
+    group('on macOS, where the native picker exists', () {
+      test('opens the panel with all snippets, capturing the paste target '
+          'exactly once, without starting any recording', () async {
         await container.read(settingsProvider.future);
         await db.upsertSnippet(
           id: 's1',
@@ -1015,18 +1001,61 @@ void main() {
         final orch = await readOrchestrator();
 
         await orch.openSnippetPickerViaHotkey();
-        fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
-        await Future<void>.delayed(Duration.zero);
 
+        expect(fakeSnippetPicker.showCalls, hasLength(1));
         expect(fakeDesktopPaste.captureCalls, 1);
-        expect(fakeDesktopPaste.pasteCalls, 1);
-        expect(clipboardText, 'Hello there!');
-      },
-    );
+        expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+        expect(fakeAudio.startCallCount, 0);
+        expect(await db.allEntries(), isEmpty);
+      });
 
-    test(
-      'a running recording suppresses the hotkey without aborting it',
-      () async {
+      test(
+        'selecting a snippet afterward does not re-capture the paste target',
+        () async {
+          await container.read(settingsProvider.future);
+          await db.upsertSnippet(
+            id: 's1',
+            title: 'Greeting',
+            body: 'Hello there!',
+            createdAt: DateTime.now(),
+          );
+          final orch = await readOrchestrator();
+
+          await orch.openSnippetPickerViaHotkey();
+          fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
+          await Future<void>.delayed(Duration.zero);
+
+          expect(fakeDesktopPaste.captureCalls, 1);
+          expect(fakeDesktopPaste.pasteCalls, 1);
+          expect(clipboardText, 'Hello there!');
+        },
+      );
+
+      test(
+        'a running recording suppresses the hotkey without aborting it',
+        () async {
+          await container.read(settingsProvider.future);
+          await db.upsertSnippet(
+            id: 's1',
+            title: 'Greeting',
+            body: 'Hello there!',
+            createdAt: DateTime.now(),
+          );
+          final orch = await readOrchestrator();
+          container.read(recordingProvider.notifier).startRecording();
+
+          await orch.openSnippetPickerViaHotkey();
+
+          expect(fakeSnippetPicker.showCalls, isEmpty);
+          expect(fakeDesktopPaste.captureCalls, 0);
+          expect(
+            container.read(recordingProvider).phase,
+            RecordingPhase.recording,
+          );
+        },
+      );
+
+      test('a repeated press does not reopen an already-open panel', () async {
         await container.read(settingsProvider.future);
         await db.upsertSnippet(
           id: 's1',
@@ -1035,68 +1064,50 @@ void main() {
           createdAt: DateTime.now(),
         );
         final orch = await readOrchestrator();
-        container.read(recordingProvider.notifier).startRecording();
+
+        await orch.openSnippetPickerViaHotkey();
+        await orch.openSnippetPickerViaHotkey();
+
+        expect(fakeSnippetPicker.showCalls, hasLength(1));
+        expect(fakeDesktopPaste.captureCalls, 1);
+      });
+
+      test(
+        'a cancelled panel allows the next press to open it again',
+        () async {
+          await container.read(settingsProvider.future);
+          await db.upsertSnippet(
+            id: 's1',
+            title: 'Greeting',
+            body: 'Hello there!',
+            createdAt: DateTime.now(),
+          );
+          final orch = await readOrchestrator();
+
+          await orch.openSnippetPickerViaHotkey();
+          fakeSnippetPicker.fireEvent(const SnippetPickerCancelled());
+          await Future<void>.delayed(Duration.zero);
+          await orch.openSnippetPickerViaHotkey();
+
+          expect(fakeSnippetPicker.showCalls, hasLength(2));
+        },
+      );
+
+      test('an empty snippet list reports the same info signal as the voice '
+          'path, without falling back to any pipeline', () async {
+        await container.read(settingsProvider.future);
+        final orch = await readOrchestrator();
 
         await orch.openSnippetPickerViaHotkey();
 
         expect(fakeSnippetPicker.showCalls, isEmpty);
-        expect(fakeDesktopPaste.captureCalls, 0);
         expect(
-          container.read(recordingProvider).phase,
-          RecordingPhase.recording,
+          container.read(recordingInfoProvider),
+          'info_snippet_picker_empty',
         );
-      },
-    );
-
-    test('a repeated press does not reopen an already-open panel', () async {
-      await container.read(settingsProvider.future);
-      await db.upsertSnippet(
-        id: 's1',
-        title: 'Greeting',
-        body: 'Hello there!',
-        createdAt: DateTime.now(),
-      );
-      final orch = await readOrchestrator();
-
-      await orch.openSnippetPickerViaHotkey();
-      await orch.openSnippetPickerViaHotkey();
-
-      expect(fakeSnippetPicker.showCalls, hasLength(1));
-      expect(fakeDesktopPaste.captureCalls, 1);
-    });
-
-    test('a cancelled panel allows the next press to open it again', () async {
-      await container.read(settingsProvider.future);
-      await db.upsertSnippet(
-        id: 's1',
-        title: 'Greeting',
-        body: 'Hello there!',
-        createdAt: DateTime.now(),
-      );
-      final orch = await readOrchestrator();
-
-      await orch.openSnippetPickerViaHotkey();
-      fakeSnippetPicker.fireEvent(const SnippetPickerCancelled());
-      await Future<void>.delayed(Duration.zero);
-      await orch.openSnippetPickerViaHotkey();
-
-      expect(fakeSnippetPicker.showCalls, hasLength(2));
-    });
-
-    test('an empty snippet list reports the same info signal as the voice '
-        'path, without falling back to any pipeline', () async {
-      await container.read(settingsProvider.future);
-      final orch = await readOrchestrator();
-
-      await orch.openSnippetPickerViaHotkey();
-
-      expect(fakeSnippetPicker.showCalls, isEmpty);
-      expect(
-        container.read(recordingInfoProvider),
-        'info_snippet_picker_empty',
-      );
-      expect(await db.allEntries(), isEmpty);
-    });
+        expect(await db.allEntries(), isEmpty);
+      });
+    }, skip: !Platform.isMacOS);
 
     test('on a platform without a native picker, the hotkey does nothing '
         'harmful', () async {
