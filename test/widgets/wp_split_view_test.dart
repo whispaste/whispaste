@@ -276,8 +276,8 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('notes fade between notes — with the page-owned controller '
-        'and focus node shared by both panels', (tester) async {
+    testWidgets('notes do NOT fade between notes — one panel keeps the '
+        'page-owned controller and focus node', (tester) async {
       final controller = TextEditingController(text: 'Notiz a');
       final focusNode = FocusNode();
       addTearDown(controller.dispose);
@@ -318,8 +318,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(NoteEditorPanel), findsOneWidget);
 
-      // Focused editor + text in the controller: the state that makes the
-      // double-mount during the fade risky.
+      // Focused editor + text in the controller: the state a double-mount
+      // used to break. Two panels bound to one controller and one focus node
+      // race over the platform text-input connection, and whichever of them
+      // is disposed while still owning the node's FocusAttachment detaches it
+      // mid-focus — which drops the focus notification and unparents the
+      // node, leaving a visible focus ring on a field that ignores the
+      // keyboard (the "new note is locked" report).
       focusNode.requestFocus();
       await tester.pump();
 
@@ -327,11 +332,20 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 60));
 
-      expect(find.byType(NoteEditorPanel), findsNWidgets(2));
-      expect(find.byType(FadeTransition), findsWidgets);
+      expect(
+        find.byType(NoteEditorPanel),
+        findsOneWidget,
+        reason: 'the editor panel is updated in place, never cross-faded',
+      );
+      expect(find.text('Notiz b'), findsWidgets);
 
       await tester.pumpAndSettle();
       expect(find.byType(NoteEditorPanel), findsOneWidget);
+      expect(
+        focusNode.hasFocus,
+        isTrue,
+        reason: 'switching notes must not cost the editor its focus',
+      );
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(const SizedBox.shrink());

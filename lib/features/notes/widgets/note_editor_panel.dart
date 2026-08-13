@@ -243,7 +243,17 @@ class NoteEditorPanel extends StatelessWidget {
                               ),
                             ),
                           ),
-                          WpVoiceInputButton(onTranscript: onVoiceTranscript),
+                          WpVoiceInputButton(
+                            // Keyed per note — see the note on the body field
+                            // below. A dictation started here delivers its
+                            // transcript into whichever note is open when it
+                            // finishes (up to 45 s later), so the button has
+                            // to go down with the note it was started on:
+                            // its own mounted-guard then drops the transcript
+                            // instead of writing note A's words into note B.
+                            key: ValueKey('voice-${note.id}'),
+                            onTranscript: onVoiceTranscript,
+                          ),
                           if (isTrashed) ...[
                             // Trash view: restore + delete forever instead of the
                             // favourite/move-to-trash pair (copy stays — it's harmless
@@ -380,6 +390,13 @@ class NoteEditorPanel extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: WpTagInput(
+                // Keyed per note: a half-typed, unsubmitted tag name must not
+                // ride along to the next note, where Enter would file it.
+                // Clicking a list tile already closes add mode through the
+                // input's own TapRegion, but Ctrl/Cmd+N (deliberately not
+                // guarded by isTextFieldFocused, see _buildListShortcuts) and
+                // the quick-note deep link do not go through a pointer.
+                key: ValueKey('tags-${note.id}'),
                 tags: tags,
                 onAdd: onAddTag,
                 onRemove: onRemoveTag,
@@ -412,6 +429,13 @@ class NoteEditorPanel extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: WpMarkdownToolbar(
+                // Keyed per note: it owns the find/replace bar's open flag and
+                // both of its fields. Carried over, note B would open with
+                // note A's query AND its replacement string loaded and one
+                // click from rewriting note B with them — and the still-live
+                // bar would re-apply its old query on top of the
+                // clearFindHighlight() that _setEditorText does on switch.
+                key: ValueKey('toolbar-${note.id}'),
                 controller: controller,
                 focusNode: focusNode,
               ),

@@ -28,6 +28,7 @@ class WpSplitView<T> extends StatefulWidget {
     required this.idOf,
     required this.listBuilder,
     required this.detailBuilder,
+    this.crossFadeDetail = true,
   });
 
   /// The item whose detail column is open, or `null` for the list-only state.
@@ -43,6 +44,18 @@ class WpSplitView<T> extends StatefulWidget {
 
   /// Builds the right column for [item].
   final Widget Function(BuildContext context, T item) detailBuilder;
+
+  /// Whether switching to a different item cross-fades the detail column.
+  ///
+  /// The fade keeps both panels mounted for its duration. That is fine for a
+  /// read-only detail view, and wrong for one holding a text field whose
+  /// [TextEditingController]/[FocusNode] the *caller* owns: the two panels
+  /// then race over the platform text-input connection and over which one
+  /// holds the node's [FocusAttachment] — and detaching a focused node drops
+  /// its pending focus notification, leaving a field that paints a focus ring
+  /// it cannot type into. Pass `false` there; the single panel is updated in
+  /// place instead.
+  final bool crossFadeDetail;
 
   @override
   State<WpSplitView<T>> createState() => _WpSplitViewState<T>();
@@ -118,9 +131,14 @@ class _WpSplitViewState<T> extends State<WpSplitView<T>>
   }
 
   /// Keyed here rather than at the call sites so the cross-fade below cannot
-  /// silently stop working when a caller forgets to key its panel.
+  /// silently stop working when a caller forgets to key its panel. The stable
+  /// key under [WpSplitView.crossFadeDetail] `false` is the same lever used
+  /// the other way: one key for every item means the [AnimatedSwitcher] never
+  /// sees a new child and reuses the one element.
   Widget _buildDetail(BuildContext context, T item) => KeyedSubtree(
-    key: ValueKey(widget.idOf(item)),
+    key: widget.crossFadeDetail
+        ? ValueKey<String>(widget.idOf(item))
+        : const ValueKey<String>('detail'),
     child: widget.detailBuilder(context, item),
   );
 

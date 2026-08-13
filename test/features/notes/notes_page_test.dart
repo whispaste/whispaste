@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:drift/native.dart';
@@ -169,6 +170,250 @@ void main() {
       expect(_editorTextFields(), findsOneWidget);
       expect(find.text('Meeting notes'), findsWidgets); // tile + editor title
     });
+
+    testWidgets(
+      'a brand-new note lands focus in the body field, ready to type',
+      (tester) async {
+        // notesProvider is deliberately NOT overridden with Stream.value here
+        // (unlike every other test in this file): a synchronous stream can't
+        // reproduce the real app's async gap between _actions.create()'s
+        // write and db.watchNotes() re-emitting with the new row — that gap
+        // is exactly what races against _createNote()'s single
+        // requestFocus() call. makeTestable's default historyDatabaseProvider
+        // override (a real in-memory Drift db) reproduces it.
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: _noTagOverrides,
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Seed one existing note through the real UI, matching the bug
+        // report (the user already has notes before hitting this). The
+        // empty state shows two "New note" buttons (header + empty-state
+        // action, see the comment at its actionLabel) — `.first` picks either.
+        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.pumpAndSettle();
+        expect(_editorTextFields(), findsOneWidget);
+
+        // Now create the SECOND note — the reported scenario.
+        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.pumpAndSettle();
+
+        expect(_editorTextFields(), findsOneWidget);
+        final focusNode = tester
+            .widget<TextField>(_editorTextFields())
+            .focusNode;
+        expect(
+          focusNode?.hasFocus,
+          isTrue,
+          reason:
+              'a brand-new note must land the caret in the body field '
+              "immediately, same as the app's always-focused editor design "
+              '(CONTEXT.md §5.9) — without focus, keystrokes never reach the '
+              'field at all, which is exactly the reported "field is locked" '
+              'symptom.',
+        );
+
+        // NOTE (diagnosing-bugs session, 2026-08-12): this asserts focus
+        // only. An attempt to tighten this into an input-DELIVERY probe via
+        // tester.testTextInput.enterText() was abandoned — a control test
+        // doing the same thing on an already-working existing note also
+        // failed to see the typed text land, proving that API isn't wired to
+        // this app's text field in this harness (false red, not a real
+        // repro). This test is therefore a NEGATIVE result only: it proves
+        // focus itself isn't the broken part (see git history / session
+        // notes for the live-GUI evidence — the focus ring is visibly
+        // present on a genuinely stuck field), not a reproduction of the
+        // reported bug. Left in as a regression guard for the focus path.
+
+        // Unmount before the test ends and pump once more: real
+        // db.watchNotes() streams (used deliberately above, unlike this
+        // file's other tests) schedule a zero-duration Timer on cancel, and
+        // flutter_test's pending-timer check trips if that fires only during
+        // the implicit teardown after this callback returns.
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'switching notes never mounts a second editor field on the shared '
+      'controller',
+      (tester) async {
+        final notes = [
+          _sampleNote(id: 'n1', content: 'First note'),
+          _sampleNote(id: 'n2', content: 'Second note'),
+        ];
+
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: [
+              notesProvider.overrideWith((ref) => Stream.value(notes)),
+              ..._noTagOverrides,
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('First note'));
+        await tester.pumpAndSettle();
+        expect(_editorTextFields(), findsOneWidget);
+
+        await tester.tap(find.text('Second note'));
+        // Mid-transition on purpose — pumpAndSettle would run past the very
+        // window this guards.
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(
+          _editorTextFields(),
+          findsOneWidget,
+          reason:
+              'the page owns ONE TextEditingController and ONE FocusNode for '
+              'the note body (see _NotesPageState). A second, simultaneously '
+              'mounted field bound to them fights over the platform text-input '
+              'connection and over which widget owns the FocusNode\'s '
+              'attachment — the field then paints a focus ring it cannot type '
+              'into.',
+        );
+
+        await tester.pumpAndSettle();
+        expect(_editorTextFields(), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a new note keeps the editor panel mounted while the stream catches up',
+      (tester) async {
+        // The notes stream is driven by hand here so the gap between
+        // `_actions.create()` writing the row and `watchNotes()` re-emitting
+        // with it can be held open for longer than the split view's close
+        // animation. In that gap `currentNote` used to resolve to null, the
+        // detail column animated shut, and the editor panel was unmounted
+        // while its field held the focus — which detaches the page-owned
+        // FocusNode mid-focus and leaves the remounted field unable to
+        // accept a keystroke.
+        final controller = StreamController<List<Note>>();
+        addTearDown(controller.close);
+
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: [
+              notesProvider.overrideWith((ref) => controller.stream),
+              ..._noTagOverrides,
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        controller.add([_sampleNote(id: 'n1', content: 'First note')]);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('First note'));
+        await tester.pumpAndSettle();
+        expect(find.byType(NoteEditorPanel), findsOneWidget);
+
+        await tester.tap(find.text(l10n.notesNewNote).first);
+        // Deliberately no emit on `controller`: the new row exists in the db
+        // and nowhere else yet. Pump well past the close animation.
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byType(NoteEditorPanel),
+          findsOneWidget,
+          reason:
+              'the note was created and selected — the editor must stay on '
+              'screen through the stream gap, not close and reopen around the '
+              'focus request',
+        );
+        final focusNode = tester
+            .widget<TextField>(_editorTextFields())
+            .focusNode;
+        expect(
+          focusNode?.hasFocus,
+          isTrue,
+          reason: 'and it must still be the focused, typable field',
+        );
+
+        // Leave the blank new note behind before tearing down: the page's
+        // dispose would otherwise run the empty-discard db write against the
+        // connection the provider scope closes in the same unmount pass.
+        await tester.tap(find.text('First note'));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'switching notes lands the body field at the caret, not at the offset '
+      'the previous note was left at',
+      (tester) async {
+        // The panel is now updated in place instead of cross-faded, so the
+        // body field's own ScrollController survives the switch. Left alone
+        // it merely clamps into range, which parks the new note at an offset
+        // that means nothing — the end (where _setEditorText puts the caret)
+        // is the one position that does.
+        final notes = [
+          _sampleNote(
+            id: 'n1',
+            content: 'Long note\n${List.filled(200, 'line').join('\n')}',
+          ),
+          _sampleNote(
+            id: 'n2',
+            content: 'Medium note\n${List.filled(40, 'line').join('\n')}',
+          ),
+          _sampleNote(id: 'n3', content: 'Short note'),
+        ];
+
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: [
+              notesProvider.overrideWith((ref) => Stream.value(notes)),
+              ..._noTagOverrides,
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Long note').first);
+        await tester.pumpAndSettle();
+
+        final scrollController = tester
+            .widget<TextField>(_editorTextFields())
+            .scrollController!;
+        expect(
+          scrollController.position.maxScrollExtent,
+          greaterThan(0),
+          reason:
+              'the long note has to actually overflow for this to test '
+              'anything',
+        );
+        scrollController.jumpTo(scrollController.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+
+        // Another note that still overflows: the offset above is a legal one
+        // here too, so clamping alone would leave it untouched.
+        await tester.tap(find.text('Medium note').first);
+        await tester.pumpAndSettle();
+        expect(scrollController.position.maxScrollExtent, greaterThan(0));
+        expect(
+          scrollController.offset,
+          scrollController.position.maxScrollExtent,
+        );
+
+        // And one that does not overflow at all.
+        await tester.tap(find.text('Short note').first);
+        await tester.pumpAndSettle();
+        expect(scrollController.offset, 0.0);
+      },
+    );
   });
 
   group('NotesPage — favorite/trash/restore (Ticket 04)', () {
@@ -387,6 +632,72 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(actions.lastAddTag, ('n1', 'errands'));
+    });
+
+    testWidgets('a half-typed tag does not follow the editor to a new note', (
+      tester,
+    ) async {
+      // The editor panel is updated in place across a note switch rather than
+      // rebuilt from scratch (WpSplitView.crossFadeDetail), so every child
+      // holding note-scoped state is keyed on the note id. This is that
+      // contract for WpTagInput: without the key its typed-but-unsubmitted
+      // text survives, and Enter would file it on the wrong note.
+      final controller = StreamController<List<Note>>();
+      addTearDown(controller.close);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => controller.stream),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      controller.add([_sampleNote(id: 'n1', content: 'First note')]);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('First note'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.notesAddTag));
+      await tester.pumpAndSettle();
+      await tester.enterText(_editorTextFields().first, 'errands');
+      await tester.pumpAndSettle();
+      expect(find.text('errands'), findsOneWidget);
+
+      // Ctrl/Cmd+N rather than a click on a list tile: the tag input closes
+      // its own add mode on any pointer-down outside itself, so only the
+      // keyboard path (deliberately not guarded by isTextFieldFocused, see
+      // _buildListShortcuts) actually reaches the editor with the field open.
+      if (Platform.isMacOS) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      } else {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      }
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('errands'),
+        findsNothing,
+        reason:
+            'the new note must not inherit the tag name typed for the '
+            'previous one — pressing Enter would file it here',
+      );
+
+      // Leave the blank new note before teardown: the page's dispose runs the
+      // empty-discard write, and the provider scope closes the db in the same
+      // unmount pass.
+      await tester.tap(find.text('First note'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
     });
 
     testWidgets(

@@ -19,7 +19,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/widgets/wp_voice_input_button.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
@@ -427,4 +429,147 @@ void main() {
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'a dictation started on one note does not follow the editor to the next',
+    (tester) async {
+      // The editor panel is updated in place across a note switch now (see
+      // NotesSplitView's crossFadeDetail), so without a note-scoped key the
+      // button's element — and with it a transcription still in flight — is
+      // reused for the next note and the transcript lands in the wrong one.
+      final audio = _FakeAudioServiceNotifier()..wavPathToReturn = wavPath;
+      final gate = Completer<void>();
+      final stt = _FakeSttServerStateNotifier(transcribeGate: gate);
+      var handOffs = 0;
+
+      final controller = TextEditingController(text: 'Notiz a');
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      final hostKey = GlobalKey<_NoteHostState>();
+      await tester.pumpWidget(
+        makeTestable(
+          _NoteHost(
+            key: hostKey,
+            initial: _note('a'),
+            builder: (note) => _panelFor(
+              note,
+              controller: controller,
+              focusNode: focusNode,
+              onVoiceTranscript: (_) => handOffs++,
+            ),
+          ),
+          overrides: [
+            audioServiceProvider.overrideWith(() => audio),
+            localSttBundleProvider.overrideWith(() => stt),
+            recordingOrchestratorProvider.overrideWith(
+              _FakeRecordingOrchestrator.new,
+            ),
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.mic));
+      await tester.pump();
+      expect(find.byIcon(LucideIcons.square), findsOneWidget);
+
+      // Stop + transcribe, parked on the gate — the same two-window dance as
+      // the unmount test above (`pumpWidget` is not allowed inside runAsync).
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(LucideIcons.square));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      expect(stt.transcribeCalled, isTrue);
+
+      hostKey.currentState!.select(_note('b'));
+      // Not pumpAndSettle: a carried-over button is still running its
+      // processing animation, and a settle timeout is a muddier failure than
+      // the icon assertion below.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byIcon(LucideIcons.mic),
+        findsOneWidget,
+        reason: 'the next note starts with an idle button, not a busy one',
+      );
+      expect(find.byIcon(LucideIcons.loader), findsNothing);
+
+      await tester.runAsync(() async {
+        gate.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pump();
+
+      expect(
+        handOffs,
+        0,
+        reason: "note a's dictation must never be inserted into note b",
+      );
+      expect(audio.cleanedUpPath, wavPath);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+}
+
+// ─── Note-switch harness ──────────────────────────────────────────────────
+
+Note _note(String id) => Note(
+  id: id,
+  content: 'Notiz $id',
+  createdAt: DateTime(2026, 4, 14, 10, 30),
+  updatedAt: DateTime(2026, 4, 14, 10, 30),
+  pinned: false,
+  isQuickNote: false,
+  deletedAt: null,
+);
+
+/// The real panel, so the test sees the production keying rather than its own.
+Widget _panelFor(
+  Note note, {
+  required TextEditingController controller,
+  required FocusNode focusNode,
+  required ValueChanged<String> onVoiceTranscript,
+}) => NoteEditorPanel(
+  note: note,
+  tags: const [],
+  controller: controller,
+  focusNode: focusNode,
+  onClose: () {},
+  onToggleFavorite: () {},
+  onQuickNoteSet: () {},
+  onQuickNoteClear: () {},
+  onMoveToTrash: () {},
+  onRestore: () {},
+  onDeleteForever: () {},
+  onAddTag: (_) {},
+  onRemoveTag: (_) {},
+  onExport: () {},
+  onVoiceTranscript: onVoiceTranscript,
+);
+
+/// Rebuilds [builder] with whatever the last `select` passed — the panel takes
+/// its note from above, so a switch has to come from a parent rebuild.
+class _NoteHost extends StatefulWidget {
+  const _NoteHost({super.key, required this.initial, required this.builder});
+
+  final Note initial;
+  final Widget Function(Note note) builder;
+
+  @override
+  State<_NoteHost> createState() => _NoteHostState();
+}
+
+class _NoteHostState extends State<_NoteHost> {
+  late Note _selected = widget.initial;
+
+  void select(Note note) => setState(() => _selected = note);
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_selected);
 }

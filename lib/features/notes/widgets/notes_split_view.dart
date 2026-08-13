@@ -136,6 +136,10 @@ class NotesSplitView extends StatelessWidget {
       idOf: (note) => note.id,
       listBuilder: _buildListBody,
       detailBuilder: _buildEditorPanel,
+      // The editor's controller and focus node are owned by `_NotesPageState`
+      // and outlive the panel, so the two panels a cross-fade keeps mounted
+      // side by side would both bind them — see WpSplitView.crossFadeDetail.
+      crossFadeDetail: false,
     );
   }
 }

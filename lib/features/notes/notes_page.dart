@@ -80,9 +80,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   final FocusNode _editorFocusNode = FocusNode();
 
   /// Asks the editor's body field to jump to the end of the note. A signal
-  /// rather than a [ScrollController] owned here: the split view cross-fades
-  /// between two editor panels, and one controller attached to both fields
-  /// at once is an assertion error — see [WpTextField.scrollToEnd].
+  /// rather than a [ScrollController] owned here: the split view mounts and
+  /// unmounts the editor panel around this page (closing the detail column,
+  /// the compact layout), and a controller attached to two fields at once —
+  /// or to none — is an error a signal cannot have. See
+  /// [WpTextField.scrollToEnd].
   final WpScrollToEndSignal _scrollEditorToEndSignal = WpScrollToEndSignal();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -98,6 +100,18 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   RecordingOrchestrator? _orchestrator;
 
   String? _selectedNoteId;
+
+  /// The note [_createNote] has just written, held only until the notes
+  /// stream re-emits with it.
+  ///
+  /// Without it, [build] resolves `currentNote` to `null` for the length of
+  /// that async gap and the split view runs a full close animation, which
+  /// unmounts the editor panel while its field holds the focus — and
+  /// detaching a focused [FocusNode] silently drops the focus notification
+  /// (`FocusManager._markDetached` removes the node from the pending set) and
+  /// unparents the node. The field is then left painting a focus ring it
+  /// cannot type into, which is what "a new note starts out locked" was.
+  Note? _pendingCreatedNote;
 
   /// Keyboard-focused note ID (distinct from the selected/editor note).
   String? _focusedNoteId;
@@ -224,6 +238,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// quick note is exempt even while blank (`discardIfBlank`) — it must
   /// survive until unmarked, not just until the next dictation lands.
   Future<void> _leaveCurrentNote() async {
+    // Every selection change funnels through here, which makes it the one
+    // place the create-time fallback below has to be dropped again.
+    _pendingCreatedNote = null;
     final previousId = _selectedNoteId;
     final previousContent = _editorController.text;
     await _autosave.flush();
@@ -334,6 +351,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       _focusedNoteId = note.id;
     });
     _setEditorText(note.content);
+    // The body field keeps its own scroll offset across a switch now that the
+    // panel is updated in place rather than rebuilt (see NotesSplitView's
+    // crossFadeDetail), so the new note would otherwise open at whatever
+    // offset the previous one was left at. Reveal the end, which is where
+    // [_setEditorText] has just put the caret.
+    _scrollEditorToEnd();
   }
 
   /// Moves the list's virtual keyboard cursor by [delta] within [notes].
@@ -430,7 +453,10 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     await _leaveCurrentNote();
     final note = await _actions.create();
     if (!mounted) return;
-    setState(() => _selectedNoteId = note.id);
+    setState(() {
+      _selectedNoteId = note.id;
+      _pendingCreatedNote = note;
+    });
     _setEditorText(note.content);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _editorFocusNode.requestFocus();
@@ -608,7 +634,14 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     Note? currentNote;
     if (_selectedNoteId != null) {
       final idx = notes.indexWhere((n) => n.id == _selectedNoteId);
-      currentNote = idx >= 0 ? notes[idx] : null;
+      // The streamed row wins as soon as it exists; the just-created note
+      // stands in only for the gap before the stream has it (see
+      // [_pendingCreatedNote]).
+      currentNote = idx >= 0
+          ? notes[idx]
+          : (_pendingCreatedNote?.id == _selectedNoteId
+                ? _pendingCreatedNote
+                : null);
     }
 
     return WpPageShell(
