@@ -202,7 +202,7 @@ class SnippetPickerBody extends StatefulWidget {
 }
 
 class _SnippetPickerBodyState extends State<SnippetPickerBody>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   /// Fixed tile height — lets the list use `itemExtent` so both the
   /// arrow-key auto-scroll and the gliding highlight capsule can be
   /// positioned with plain offset math.
@@ -263,6 +263,51 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_debugLogKeyEvent);
+    // TODO(DEBUG-sp02): temporary — discriminates the three explanations for
+    // "requestFocus never sticks" (see _debugLogSp02): lifecycle-driven
+    // FocusManager suspension vs. focus never applied vs. revoked by a
+    // non-lifecycle actor. Remove with the rest of the sp02 tag.
+    WidgetsBinding.instance.addObserver(this);
+    _searchFocus.addListener(_debugLogSearchFocusChange);
+    FocusManager.instance.addListener(_debugLogPrimaryFocusChange);
+    _debugLogSp02('boot lifecycle=${WidgetsBinding.instance.lifecycleState}');
+  }
+
+  /// TODO(DEBUG-sp02): temporary — single tagged log line with a timestamp so
+  /// the ordering of lifecycle vs. focus events is readable from stdout.
+  void _debugLogSp02(String message) {
+    final now = DateTime.now();
+    final ts =
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}.'
+        '${now.millisecond.toString().padLeft(3, '0')}';
+    debugPrint('[snippet-picker-engine][sp02 $ts] $message');
+  }
+
+  /// TODO(DEBUG-sp02): temporary — every app-lifecycle transition this engine
+  /// receives. H1 predicts a transition to a non-resumed state right after
+  /// each show()'s activation, coinciding with searchFocus true->false.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _debugLogSp02('lifecycle -> $state');
+  }
+
+  /// TODO(DEBUG-sp02): temporary — fires on every hasFocus flip of the search
+  /// field. "Never true" = H2 (focus never applied); "true then false" = H1 or
+  /// H3 depending on whether a lifecycle line sits between.
+  void _debugLogSearchFocusChange() {
+    _debugLogSp02('searchFocus -> ${_searchFocus.hasFocus}');
+  }
+
+  /// TODO(DEBUG-sp02): temporary — tracks where primary focus actually goes.
+  /// Lifecycle suspension parks it on the root scope ("Root Focus Scope"),
+  /// which is distinguishable from null (detached) or another node.
+  void _debugLogPrimaryFocusChange() {
+    final primary = FocusManager.instance.primaryFocus;
+    _debugLogSp02(
+      'primaryFocus -> ${primary?.debugLabel ?? primary.runtimeType}',
+    );
   }
 
   /// TODO(DEBUG-sp01): temporary instrumentation for the live "arrow keys
@@ -284,9 +329,14 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   /// Returns false so it only observes; every key continues to whatever
   /// would have handled it.
   bool _debugLogKeyEvent(KeyEvent event) {
+    // TODO(DEBUG-sp02): lifecycle= and primary= appended to the sp01 line —
+    // H1 predicts lifecycle != resumed on every keystroke that fails.
+    final primary = FocusManager.instance.primaryFocus;
     debugPrint(
       '[snippet-picker-engine] key ${event.runtimeType} '
-      '${event.logicalKey.keyLabel} searchFocus=${_searchFocus.hasFocus}',
+      '${event.logicalKey.keyLabel} searchFocus=${_searchFocus.hasFocus} '
+      'lifecycle=${WidgetsBinding.instance.lifecycleState} '
+      'primary=${primary?.debugLabel ?? primary.runtimeType}',
     );
     return false;
   }
@@ -337,9 +387,13 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     // read as a focus bug that isn't one. The per-keystroke line from
     // [_debugLogKeyEvent] is the authoritative focus readout.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // TODO(DEBUG-sp02): lifecycle/focus snapshot appended — post-frame is
+      // after FocusManager applied the pending requestFocus, so hasFocus here
+      // is authoritative for "was focus ever granted this show".
       debugPrint(
         '[snippet-picker-engine] --- show: items=${widget.items.length}, '
-        'first frame built ---',
+        'first frame built, searchFocus=${_searchFocus.hasFocus}, '
+        'lifecycle=${WidgetsBinding.instance.lifecycleState} ---',
       );
     });
   }
@@ -347,6 +401,10 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_debugLogKeyEvent);
+    // TODO(DEBUG-sp02): temporary — see initState.
+    WidgetsBinding.instance.removeObserver(this);
+    _searchFocus.removeListener(_debugLogSearchFocusChange);
+    FocusManager.instance.removeListener(_debugLogPrimaryFocusChange);
     _appear.dispose();
     _appearController.dispose();
     _driftController.dispose();
