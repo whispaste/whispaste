@@ -108,12 +108,18 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
           Semantics(
             label: L10n.of(context).hintDismiss,
             button: true,
-            child: GestureDetector(
-              onTap: _dismiss,
-              child: const Icon(
-                LucideIcons.x,
-                size: WpIconSize.xs,
-                color: textMuted,
+            child: Tooltip(
+              message: L10n.of(context).hintDismiss,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: _dismiss,
+                  child: const Icon(
+                    LucideIcons.x,
+                    size: WpIconSize.xs,
+                    color: textMuted,
+                  ),
+                ),
               ),
             ),
           ),
