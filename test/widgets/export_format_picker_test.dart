@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/export_service.dart';
 import 'package:whispaste/widgets/export_format_picker.dart';
@@ -61,6 +62,10 @@ void main() {
   // ARB key — wording tweaks in the ARB no longer silently break this suite.
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('ExportFormatPicker', () {
@@ -205,6 +210,29 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(find.text('result=docx'), findsOneWidget);
+    });
+
+    testWidgets('remembers last selected format using SharedPreferences', (
+      tester,
+    ) async {
+      // 1. Initial selection: Tap JSON
+      await _openPicker(tester);
+      await tester.tap(find.text(l10n.exportFormatJson));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('result=json'), findsOneWidget);
+
+      // 2. Restart picker and hit Enter immediately
+      await tester.tap(find.text('Open picker'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 3. Should have pre-selected JSON (index 3)
+      expect(find.text('result=json'), findsOneWidget);
     });
   });
 }
