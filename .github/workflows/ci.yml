@@ -68,8 +68,23 @@ jobs:
         # Those packages are covered by the loam gate below.
         run: flutter analyze --fatal-infos lib test integration_test tool
 
+      # Retried: the sqlite3 package's native-asset build hook downloads a
+      # prebuilt DLL from GitHub Releases on first use, which occasionally
+      # hits "Connection closed before full header was received" — a
+      # transient network blip unrelated to the code under test — and was
+      # observed eating the whole job (run 31663460234).
       - name: Run tests
-        run: flutter test --exclude-tags=golden
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            flutter test --exclude-tags=golden && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::flutter test failed after 3 attempts."
+              exit 1
+            fi
+            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
 
       - name: C++ static analysis (cppcheck)
         shell: pwsh
@@ -138,8 +153,19 @@ jobs:
         # Those packages are covered by the loam gate below.
         run: flutter analyze --fatal-infos lib test integration_test tool
 
+      # Retried: see the Windows job's "Run tests" step comment — the
+      # sqlite3 native-asset download flake is platform-agnostic.
       - name: Run tests
-        run: flutter test --exclude-tags=golden
+        run: |
+          for attempt in 1 2 3; do
+            flutter test --exclude-tags=golden && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::flutter test failed after 3 attempts."
+              exit 1
+            fi
+            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
 
       - name: Build macOS (debug)
         run: flutter build macos --debug
@@ -233,8 +259,19 @@ jobs:
 
       # Reproduzierbare, plattformidentische Unit-/Widget-/App-Flow-Tests
       # (inkl. test/app/app_flows_test.dart) — laufen headless ohne Display.
+      # Retried: see the Windows job's "Run tests" step comment — the
+      # sqlite3 native-asset download flake is platform-agnostic.
       - name: Run tests
-        run: flutter test --exclude-tags=golden
+        run: |
+          for attempt in 1 2 3; do
+            flutter test --exclude-tags=golden && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::flutter test failed after 3 attempts."
+              exit 1
+            fi
+            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
 
       - name: Build Linux (debug)
         run: flutter build linux --debug
@@ -275,8 +312,19 @@ jobs:
       # rendering matches the checked-in baseline PNGs (generated on macOS).
       # golden_screenshot applies a 0.1 % fuzzy tolerance automatically;
       # plain matchesGoldenFile tests use exact pixel comparison.
+      # Retried: see the Windows job's "Run tests" step comment — the
+      # sqlite3 native-asset download flake is platform-agnostic.
       - name: Run golden tests
-        run: flutter test --tags=golden
+        run: |
+          for attempt in 1 2 3; do
+            flutter test --tags=golden && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::flutter test failed after 3 attempts."
+              exit 1
+            fi
+            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
 
   website:
     name: Website
