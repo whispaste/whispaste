@@ -34,15 +34,28 @@ class ProcessCpuSample {
 
 /// Percentage of one CPU core [b] consumed relative to [a] (`b` must be the
 /// later sample). `100` means one full core saturated throughout the window;
-/// on an N-core machine the ceiling is `100 * N`. Clamped to that range —
-/// scheduler jitter around a sample boundary can otherwise produce a stray
-/// negative or over-100 blip.
-double processCpuPercentBetween(ProcessCpuSample a, ProcessCpuSample b) {
+/// on an [coreCount]-core machine the ceiling is `100 * coreCount`. Clamped
+/// to that range — scheduler jitter around a sample boundary can otherwise
+/// produce a stray negative or over-ceiling blip.
+///
+/// [coreCount] defaults to the real machine's [Platform.numberOfProcessors],
+/// but callers that normalize by a different (possibly injected/overridden)
+/// core count — see `processorCountProvider` in
+/// `backend_utilization_notifier.dart` — must pass that same count here too,
+/// so the ceiling this clamps against agrees with the divisor the caller
+/// normalizes by. A mismatch silently truncates the reading: on a real host
+/// with fewer cores than an injected/logical count, the default ceiling
+/// clamps the raw percentage below what the caller's normalization expects.
+double processCpuPercentBetween(
+  ProcessCpuSample a,
+  ProcessCpuSample b, {
+  int? coreCount,
+}) {
   final wallDeltaUs = b.wallTime.difference(a.wallTime).inMicroseconds;
   if (wallDeltaUs <= 0) return 0;
   final cpuDeltaUs = b.cpuTime.inMicroseconds - a.cpuTime.inMicroseconds;
   final percent = (cpuDeltaUs / wallDeltaUs) * 100;
-  final ceiling = (Platform.numberOfProcessors * 100).toDouble();
+  final ceiling = ((coreCount ?? Platform.numberOfProcessors) * 100).toDouble();
   return percent.clamp(0, ceiling);
 }
 

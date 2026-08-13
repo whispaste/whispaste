@@ -123,8 +123,12 @@ class BackendUtilizationNotifier extends Notifier<BackendUtilizationState> {
     _history.add(sample);
     if (_history.length > _historyLength) _history.removeAt(0);
     if (_history.length < 2) return;
-    final perCorePercent = processCpuPercentBetween(_history.first, sample);
     final cores = ref.read(processorCountProvider);
+    final perCorePercent = processCpuPercentBetween(
+      _history.first,
+      sample,
+      coreCount: cores,
+    );
     state = BackendUtilizationState(
       cpuPercent: (perCorePercent / cores).clamp(0.0, 100.0),
     );
