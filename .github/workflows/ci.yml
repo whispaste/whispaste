@@ -154,12 +154,31 @@ jobs:
           SIZE=$(du -sh "$APP" | cut -f1)
           echo "Flutter app bundle size: $SIZE"
 
+      # The classic login keychain (see below) is not reliably unlocked on a
+      # fresh runner — SecItemAdd/SecItemUpdate then blocks on an interactive
+      # authorization prompt that a headless CI session can never dismiss,
+      # silently eating the whole job's timeout instead of failing fast. A
+      # dedicated, always-unlocked keychain sidesteps that: no prompt is ever
+      # possible because access control never has anything to ask about.
+      - name: Create an unlocked keychain for the secure storage test
+        run: |
+          security create-keychain -p "" ci-secure-storage.keychain
+          security set-keychain-settings ci-secure-storage.keychain
+          security unlock-keychain -p "" ci-secure-storage.keychain
+          security list-keychains -d user -s ci-secure-storage.keychain $(security list-keychains -d user | sed 's/"//g')
+          security default-keychain -s ci-secure-storage.keychain
+
       # Verifies flutter_secure_storage against the real macOS
       # Keychain. The test pins usesDataProtectionKeychain: false
       # because the integration-test runner binary is unsigned and
       # has no Bundle ID — see secure_storage_test.dart for why.
       - name: Secure storage integration test
+        timeout-minutes: 5
         run: flutter test integration_test/secure_storage_test.dart -d macos
+
+      - name: Remove the CI keychain
+        if: always()
+        run: security delete-keychain ci-secure-storage.keychain || true
 
   flutter-app-linux:
     name: Flutter App (Linux)
