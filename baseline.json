@@ -10,25 +10,11 @@
       "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=22, cognitive=21 (cyclomatic 22 > 20)"
     },
     {
-      "fingerprint": "f8ec163895e85b81",
+      "fingerprint": "342815c92bec8a90",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 414,
-      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:414, lib/core/config/settings_sections.dart:1308"
-    },
-    {
-      "fingerprint": "ff64eae80ba24864",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 430,
-      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:430, lib/core/config/settings_sections.dart:1321"
-    },
-    {
-      "fingerprint": "863615640918d36a",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1058,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1058, lib/core/config/settings_sections.dart:1157"
+      "line": 1074,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1074, lib/core/config/settings_sections.dart:1173"
     },
     {
       "fingerprint": "0d2039e204345146",

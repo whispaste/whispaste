@@ -302,6 +302,7 @@ class SttSettings {
     this.punctuationPriming = true,
     this.stripPunctuation = false,
     this.vadEnabled = true,
+    this.numericOnlyMode = false,
   });
 
   final String provider;
@@ -359,6 +360,11 @@ class SttSettings {
   /// mid-utterance pauses, quiet/fading speech) before being wired in.
   final bool vadEnabled;
 
+  /// Whether the finished transcript is rendered exclusively as digits
+  /// (`[0-9.,-]`) — see `toNumericOnly` in `number_transforms.dart`. All-or-
+  /// nothing: a transcript that isn't fully convertible is left unchanged.
+  final bool numericOnlyMode;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -383,6 +389,11 @@ class SttSettings {
       defaults.stripPunctuation,
     ),
     vadEnabled: _readBool(v, 'stt_vad_enabled', defaults.vadEnabled),
+    numericOnlyMode: _readBool(
+      v,
+      'stt_numeric_only_mode',
+      defaults.numericOnlyMode,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -395,6 +406,7 @@ class SttSettings {
     'stt_punctuation_priming': '$punctuationPriming',
     'stt_strip_punctuation': '$stripPunctuation',
     'stt_vad_enabled': '$vadEnabled',
+    'stt_numeric_only_mode': '$numericOnlyMode',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -411,6 +423,7 @@ class SttSettings {
     bool? punctuationPriming,
     bool? stripPunctuation,
     bool? vadEnabled,
+    bool? numericOnlyMode,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -421,6 +434,7 @@ class SttSettings {
     punctuationPriming: punctuationPriming ?? this.punctuationPriming,
     stripPunctuation: stripPunctuation ?? this.stripPunctuation,
     vadEnabled: vadEnabled ?? this.vadEnabled,
+    numericOnlyMode: numericOnlyMode ?? this.numericOnlyMode,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -438,7 +452,8 @@ class SttSettings {
           engine == other.engine &&
           punctuationPriming == other.punctuationPriming &&
           stripPunctuation == other.stripPunctuation &&
-          vadEnabled == other.vadEnabled;
+          vadEnabled == other.vadEnabled &&
+          numericOnlyMode == other.numericOnlyMode;
 
   @override
   int get hashCode => Object.hash(
@@ -451,6 +466,7 @@ class SttSettings {
     punctuationPriming,
     stripPunctuation,
     vadEnabled,
+    numericOnlyMode,
   );
 }
 
