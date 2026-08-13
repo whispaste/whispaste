@@ -193,6 +193,7 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
         })
         .catchError((_) {
           // Ignore if prefs are inaccessible
+          return;
         });
 
     Navigator.of(context).pop<ExportFormat>(format);
