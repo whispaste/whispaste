@@ -3,11 +3,207 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
-      "fingerprint": "c01c5e0a3f3b3a8a",
-      "ruleId": "complexity-hotspots",
-      "filePath": "lib/core/config/settings_provider.dart",
-      "line": 485,
-      "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=22, cognitive=21 (cyclomatic 22 > 20)"
+      "fingerprint": "280f28f3810f342c",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/app_urls.dart",
+      "line": 11,
+      "message": "unused public variable `kGitHubRepoUrl`"
+    },
+    {
+      "fingerprint": "74a05123e0dfd926",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/app_urls.dart",
+      "line": 19,
+      "message": "unused public function `websiteHomeUrl`"
+    },
+    {
+      "fingerprint": "7d85292ea7da4abd",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/app_urls.dart",
+      "line": 25,
+      "message": "unused public function `privacyPolicyUrl`"
+    },
+    {
+      "fingerprint": "53baa6722f10f620",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/app_urls.dart",
+      "line": 32,
+      "message": "unused public variable `kWindowsStoreReviewUrl`"
+    },
+    {
+      "fingerprint": "42c690910e11455d",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/app_urls.dart",
+      "line": 37,
+      "message": "unused public variable `kGitHubSponsorsUrl`"
+    },
+    {
+      "fingerprint": "7d53ee7c7d1c62ed",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/app_urls.dart",
+      "line": 41,
+      "message": "unused public variable `kKofiUrl`"
+    },
+    {
+      "fingerprint": "e3ec21293f898dab",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/build_config.dart",
+      "line": 30,
+      "message": "unused public variable `kIsMasBuild`"
+    },
+    {
+      "fingerprint": "dbfd398787244dda",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/build_config.dart",
+      "line": 63,
+      "message": "unused public variable `kRetainDebugAudio`"
+    },
+    {
+      "fingerprint": "471f8f115202e388",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/punctuation_priming_prompts.dart",
+      "line": 55,
+      "message": "unused public function `resolvePunctuationPrimingPrompt`"
+    },
+    {
+      "fingerprint": "653869fc9c0970e1",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 25,
+      "message": "unused public method `fromValue`"
+    },
+    {
+      "fingerprint": "28664272a0c30935",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 50,
+      "message": "unused public method `fromValue`"
+    },
+    {
+      "fingerprint": "e550cbe7cc4640f5",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 79,
+      "message": "unused public method `fromValue`"
+    },
+    {
+      "fingerprint": "c2229c0da1eacb94",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 133,
+      "message": "unused public method `fromValue`"
+    },
+    {
+      "fingerprint": "541dba516724e8ac",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 161,
+      "message": "unused public method `fromValue`"
+    },
+    {
+      "fingerprint": "f254874569b49f66",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 185,
+      "message": "unused public method `fromValue`"
+    },
+    {
+      "fingerprint": "f8f892e6923934ae",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 195,
+      "message": "unused public extension `FloatingOverlaySizeVariantX`"
+    },
+    {
+      "fingerprint": "5f737f2fc514d680",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 197,
+      "message": "unused public getter `variant`"
+    },
+    {
+      "fingerprint": "37b7cf91d5bdf926",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_enums.dart",
+      "line": 215,
+      "message": "unused public field `value`"
+    },
+    {
+      "fingerprint": "15463d5b0fec0a34",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_labels.dart",
+      "line": 18,
+      "message": "unused public field `sttModeLabel`"
+    },
+    {
+      "fingerprint": "8d934e3dc9c03135",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_labels.dart",
+      "line": 22,
+      "message": "unused public function `buildStatusBarModel`"
+    },
+    {
+      "fingerprint": "6ebe9e4184acab74",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_labels.dart",
+      "line": 120,
+      "message": "unused public function `formatHotkeyShortcut`"
+    },
+    {
+      "fingerprint": "0907e01bd77b6e12",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 136,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "dce2e8b154a7d634",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 144,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "1e7cb81c42461bad",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 209,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "b84e8cbf0bf8e6ca",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 215,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "305ecd902da9b5e9",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 266,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "390a120f4292f1be",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 271,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "4e0e2e1d2b103d7f",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 388,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "42103aa0842a8a01",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 404,
+      "message": "unused public method `copyWith`"
     },
     {
       "fingerprint": "f8ec163895e85b81",
@@ -24,6 +220,132 @@
       "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:430, lib/core/config/settings_sections.dart:1321"
     },
     {
+      "fingerprint": "987f920073db4d14",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 505,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "28c351976bc2c430",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 514,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "c80d86f2d15ca388",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 573,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "9121b6616aa405e4",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 575,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "1e06fbe2597d6aef",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 637,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "e07fecb91cadf7e2",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 645,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "ba6252b11c04980b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 704,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "7d9fcbec7cebe2d3",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 711,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "2175b95b050b8790",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 791,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "db0c5440263a7f3a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 802,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "c0e4c99069b8f8d6",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 860,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "f0c1158599d8ed2c",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 862,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "ec8eab49d6246bd0",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 887,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "4f287c81e67a3048",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 889,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "ecfeb60e14f1d324",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 932,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "68d601ecaf576df1",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 937,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "cd5db984936aef0a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 992,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "99c512ee26d79285",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 999,
+      "message": "unused public method `copyWith`"
+    },
+    {
       "fingerprint": "863615640918d36a",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
@@ -31,74 +353,781 @@
       "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1058, lib/core/config/settings_sections.dart:1157"
     },
     {
-      "fingerprint": "0d2039e204345146",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/data/database.dart",
-      "line": 1106,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1106, lib/core/data/database.dart:2155"
+      "fingerprint": "b167f905e0f2ecb8",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1075,
+      "message": "unused public method `toMap`"
     },
     {
-      "fingerprint": "6365d0f684e3a7b3",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/data/database.dart",
-      "line": 1115,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1115, lib/core/data/database.dart:2164"
+      "fingerprint": "91f5a9601d454824",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1087,
+      "message": "unused public method `copyWith`"
     },
     {
-      "fingerprint": "405dae4726a2b640",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/data/database.dart",
-      "line": 1613,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1613, lib/core/data/database.dart:2247"
+      "fingerprint": "55c2845709913c07",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1174,
+      "message": "unused public method `toMap`"
     },
     {
-      "fingerprint": "8ac39e64c59c0755",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/data/database.dart",
-      "line": 1625,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1625, lib/core/data/database.dart:2259"
+      "fingerprint": "29ba1c20cdb28f11",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1186,
+      "message": "unused public method `copyWith`"
     },
     {
-      "fingerprint": "0cf57d299a06d8ec",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/features/history/history_page.dart",
-      "line": 133,
-      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:363"
+      "fingerprint": "c9835138cc8d761b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1286,
+      "message": "unused public method `toMap`"
     },
     {
-      "fingerprint": "bdb6241dd2630386",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 85,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:85, lib/features/snippets/snippets_page.dart:65"
+      "fingerprint": "300e897e8b9c1e10",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1298,
+      "message": "unused public method `copyWith`"
     },
     {
-      "fingerprint": "49a4e607a17ee3b5",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 125,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:125, lib/features/snippets/snippets_page.dart:105"
+      "fingerprint": "cc377dbed3b0338a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1426,
+      "message": "unused public method `toMap`"
     },
     {
-      "fingerprint": "bc2554a1bedc4b79",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/services/history/history_exporter.dart",
-      "line": 159,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
+      "fingerprint": "7ed6fc7bac5e4a71",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1434,
+      "message": "unused public method `copyWith`"
     },
     {
-      "fingerprint": "788b1de15a43115e",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/services/hotkey_service.dart",
-      "line": 436,
-      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:436, lib/services/hotkey_service.dart:477"
+      "fingerprint": "9e61ebe21ef4ac85",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1497,
+      "message": "unused public method `toMap`"
     },
     {
-      "fingerprint": "04f9846953938c39",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/services/hotkey_service.dart",
-      "line": 560,
-      "message": "2 occurrences of duplicated block (87 tokens): lib/services/hotkey_service.dart:560, lib/services/hotkey_service.dart:582"
+      "fingerprint": "95df3fe75a57f8e3",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1503,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "55f8c6e24b7cb2bd",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1567,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "17ebc4be176e8966",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1572,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "ad715ff82b3cf479",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1635,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "96f6bf14634f7fd1",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1642,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "22918a722aa087bb",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1739,
+      "message": "unused public method `toMap`"
+    },
+    {
+      "fingerprint": "9f2d0499c614d390",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1747,
+      "message": "unused public method `copyWith`"
+    },
+    {
+      "fingerprint": "a4e7da728b041f1a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1781,
+      "message": "unused public function `buildDefaultHotkeySettings`"
+    },
+    {
+      "fingerprint": "4adb3b2858f79db0",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1787,
+      "message": "unused public function `buildDefaultQuickNoteHotkeySettings`"
+    },
+    {
+      "fingerprint": "d13dffeabd866ecf",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1795,
+      "message": "unused public function `buildDefaultSnippetPickerHotkeySettings`"
+    },
+    {
+      "fingerprint": "a999cb648d6458ba",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/config/whisper_languages.dart",
+      "line": 123,
+      "message": "unused public variable `whisperLanguageCodes`"
+    },
+    {
+      "fingerprint": "a1f8084ff6882466",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/logging/breadcrumbs.dart",
+      "line": 19,
+      "message": "unused public method `add`"
+    },
+    {
+      "fingerprint": "0f4868a831b3605e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/logging/breadcrumbs.dart",
+      "line": 32,
+      "message": "unused public function `getRecentBreadcrumbs`"
+    },
+    {
+      "fingerprint": "6306ccc23aebe540",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/logging/crash_fingerprints.dart",
+      "line": 225,
+      "message": "unused public variable `allCrashFingerprints`"
+    },
+    {
+      "fingerprint": "fce2a6749700d70e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/recording/recording_helpers.dart",
+      "line": 21,
+      "message": "unused public function `doneMessageFor`"
+    },
+    {
+      "fingerprint": "cfdbbcae68d1c46b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/recording/recording_helpers.dart",
+      "line": 41,
+      "message": "unused public function `displayNameForModel`"
+    },
+    {
+      "fingerprint": "0d380c10b3525620",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/semver.dart",
+      "line": 82,
+      "message": "unused public function `isSemverNewer`"
+    },
+    {
+      "fingerprint": "99adca7a23c82722",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/sponsors.dart",
+      "line": 12,
+      "message": "unused public variable `kSponsors`"
+    },
+    {
+      "fingerprint": "de94977de6267639",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/core/utils/word_count.dart",
+      "line": 37,
+      "message": "unused public function `computeWordCountFast`"
+    },
+    {
+      "fingerprint": "23c86572e98650b2",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/history/data/search_query_parser.dart",
+      "line": 32,
+      "message": "unused public field `rawQuery`"
+    },
+    {
+      "fingerprint": "f07b565b6000f2ff",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/history/data/search_query_parser.dart",
+      "line": 35,
+      "message": "unused public getter `isEmpty`"
+    },
+    {
+      "fingerprint": "d07c3170043c7e7c",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/history/data/search_query_parser.dart",
+      "line": 55,
+      "message": "unused public function `parseSearchQuery`"
+    },
+    {
+      "fingerprint": "0b4174af4c46ce86",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/notes/data/note_autosave.dart",
+      "line": 27,
+      "message": "unused public method `schedule`"
+    },
+    {
+      "fingerprint": "905a313ad81bebec",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/notes/data/note_autosave.dart",
+      "line": 56,
+      "message": "unused public method `dispose`"
+    },
+    {
+      "fingerprint": "52cccca866f1a0e7",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/notes/data/note_title.dart",
+      "line": 12,
+      "message": "unused public function `deriveNoteTitle`"
+    },
+    {
+      "fingerprint": "cb9df2de5adc6db7",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/settings/search/settings_search_entry.dart",
+      "line": 26,
+      "message": "unused public field `id`"
+    },
+    {
+      "fingerprint": "52750f43451dc079",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/settings/search/settings_search_entry.dart",
+      "line": 44,
+      "message": "unused public method `title`"
+    },
+    {
+      "fingerprint": "0b15fd90256b77fe",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/settings/search/settings_search_entry.dart",
+      "line": 47,
+      "message": "unused public method `subtitle`"
+    },
+    {
+      "fingerprint": "28beaa80b1dc6018",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/features/settings/search/settings_search_entry.dart",
+      "line": 59,
+      "message": "unused public variable `kSettingsSearchTable`"
+    },
+    {
+      "fingerprint": "96da6c898471aa6d",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/audio/pcm_gain_processor.dart",
+      "line": 46,
+      "message": "unused public method `process`"
+    },
+    {
+      "fingerprint": "fd289abd32f76a28",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/audio/pcm_wav_codec.dart",
+      "line": 16,
+      "message": "unused public function `pcm16WavBytesToFloat32`"
+    },
+    {
+      "fingerprint": "6b04b84df0bf8521",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/audio/speech_level_mapper.dart",
+      "line": 41,
+      "message": "unused public method `map`"
+    },
+    {
+      "fingerprint": "451c43c447f5839d",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/audio/wav_file_writer.dart",
+      "line": 77,
+      "message": "unused public method `takeBytes`"
+    },
+    {
+      "fingerprint": "6c4897a74253c827",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/audio/wav_file_writer.dart",
+      "line": 89,
+      "message": "unused public method `open`"
+    },
+    {
+      "fingerprint": "a9ff01aa1a2bebbf",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 40,
+      "message": "unused public field `detail`"
+    },
+    {
+      "fingerprint": "3ed2dd344ab1a163",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 42,
+      "message": "unused public getter `isSuccess`"
+    },
+    {
+      "fingerprint": "856da472e11b7fa8",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 111,
+      "message": "unused public field `reason`"
+    },
+    {
+      "fingerprint": "afc6db630aa1348b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 127,
+      "message": "unused public field `status`"
+    },
+    {
+      "fingerprint": "647cd7f845ada988",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 128,
+      "message": "unused public field `canPrompt`"
+    },
+    {
+      "fingerprint": "e112a670bd5f24ab",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 129,
+      "message": "unused public field `detail`"
+    },
+    {
+      "fingerprint": "e53ad1b5ee6b5d59",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 220,
+      "message": "unused public field `accessibilityCleared`"
+    },
+    {
+      "fingerprint": "e49f91b22a00508f",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 221,
+      "message": "unused public field `appleEventsCleared`"
+    },
+    {
+      "fingerprint": "3891afc70a034a28",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/desktop_paste/desktop_paste_controller_interface.dart",
+      "line": 224,
+      "message": "unused public getter `isSupported`"
+    },
+    {
+      "fingerprint": "e7c1040d7f3bc93b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/exact_match_normalization.dart",
+      "line": 21,
+      "message": "unused public function `normalizeForExactMatch`"
+    },
+    {
+      "fingerprint": "74a955326381b222",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_context_menu.dart",
+      "line": 21,
+      "message": "unused public function `buildFloatingButtonContextMenu`"
+    },
+    {
+      "fingerprint": "ec2be7a6d5fb7a2a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_controller.dart",
+      "line": 12,
+      "message": "unused public function `createFloatingButtonController`"
+    },
+    {
+      "fingerprint": "a918bdb32c0299f7",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_events.dart",
+      "line": 19,
+      "message": "unused public field `id`"
+    },
+    {
+      "fingerprint": "2e8ce15dce73648c",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_events.dart",
+      "line": 25,
+      "message": "unused public field `x`"
+    },
+    {
+      "fingerprint": "439d23cb56121f71",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_events.dart",
+      "line": 26,
+      "message": "unused public field `y`"
+    },
+    {
+      "fingerprint": "873dd89915de6d3d",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_events.dart",
+      "line": 38,
+      "message": "unused public field `message`"
+    },
+    {
+      "fingerprint": "73aae353d2765dff",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_button/floating_button_events.dart",
+      "line": 39,
+      "message": "unused public field `isError`"
+    },
+    {
+      "fingerprint": "bb2299098f216ed9",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_controller.dart",
+      "line": 12,
+      "message": "unused public function `createFloatingOverlayController`"
+    },
+    {
+      "fingerprint": "498de48e5fade8cb",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_events.dart",
+      "line": 9,
+      "message": "unused public field `x`"
+    },
+    {
+      "fingerprint": "a63739e176220eef",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_events.dart",
+      "line": 10,
+      "message": "unused public field `y`"
+    },
+    {
+      "fingerprint": "dadf89ca8c59f709",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_events.dart",
+      "line": 11,
+      "message": "unused public field `anchorMode`"
+    },
+    {
+      "fingerprint": "a2a9d1c5856c9e40",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_events.dart",
+      "line": 32,
+      "message": "unused public field `action`"
+    },
+    {
+      "fingerprint": "0ae22169647c9e60",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_events.dart",
+      "line": 43,
+      "message": "unused public field `message`"
+    },
+    {
+      "fingerprint": "d37d954edadb88bb",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/floating_overlay_events.dart",
+      "line": 44,
+      "message": "unused public field `isError`"
+    },
+    {
+      "fingerprint": "ac1408c0e1891747",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/waveform_pipeline.dart",
+      "line": 65,
+      "message": "unused public getter `minBarLevel`"
+    },
+    {
+      "fingerprint": "70201dea6925029b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/waveform_pipeline.dart",
+      "line": 69,
+      "message": "unused public method `pushSample`"
+    },
+    {
+      "fingerprint": "38a9c05935924eab",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/floating_overlay/waveform_pipeline.dart",
+      "line": 118,
+      "message": "unused public method `barHeights`"
+    },
+    {
+      "fingerprint": "22b9331ef462d5e7",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/hotkey_conflicts.dart",
+      "line": 36,
+      "message": "unused public field `note`"
+    },
+    {
+      "fingerprint": "3ebbd5ef4b5fc310",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/hotkey_conflicts.dart",
+      "line": 148,
+      "message": "unused public function `findConflict`"
+    },
+    {
+      "fingerprint": "7c4e83c50794f00b",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/hotkey_conflicts.dart",
+      "line": 193,
+      "message": "unused public field `actionLabel`"
+    },
+    {
+      "fingerprint": "d90d94a595e86ee4",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/hotkey_conflicts.dart",
+      "line": 220,
+      "message": "unused public function `findHotkeyCollision`"
+    },
+    {
+      "fingerprint": "eaf973017456d618",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/number_transforms.dart",
+      "line": 489,
+      "message": "unused public function `toNumericOnly`"
+    },
+    {
+      "fingerprint": "1a55da0c014f4765",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/paste/paste_policy.dart",
+      "line": 46,
+      "message": "unused public function `afterTranscriptionActionPastes`"
+    },
+    {
+      "fingerprint": "a3f500a4e8a5b155",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/paste/paste_policy.dart",
+      "line": 74,
+      "message": "unused public function `shouldShowAutoPasteRestartSurface`"
+    },
+    {
+      "fingerprint": "4f82cbc26eb8f30e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/paste/paster.dart",
+      "line": 76,
+      "message": "unused public field `detail`"
+    },
+    {
+      "fingerprint": "5cb8ec452a6f5e2e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/paste/paster.dart",
+      "line": 84,
+      "message": "unused public field `autoPasteDelayMs`"
+    },
+    {
+      "fingerprint": "3f10170c08bc5f72",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/paste/paster.dart",
+      "line": 87,
+      "message": "unused public field `blocklist`"
+    },
+    {
+      "fingerprint": "01f50c431624b8b3",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/paste/paster.dart",
+      "line": 102,
+      "message": "unused public function `requiresRealPaste`"
+    },
+    {
+      "fingerprint": "9ea5d9f81aab97d5",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording/oom_recovery_handler.dart",
+      "line": 132,
+      "message": "unused public getter `attemptCount`"
+    },
+    {
+      "fingerprint": "d836877aee7b424d",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 25,
+      "message": "unused public field `transcript`"
+    },
+    {
+      "fingerprint": "550305ad3c671a60",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 26,
+      "message": "unused public field `audioDuration`"
+    },
+    {
+      "fingerprint": "782dc1ac9a3faf8a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 27,
+      "message": "unused public field `modelId`"
+    },
+    {
+      "fingerprint": "57c884955d5ace53",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 28,
+      "message": "unused public field `isLocal`"
+    },
+    {
+      "fingerprint": "ffb4770c068400bf",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 29,
+      "message": "unused public field `languageCode`"
+    },
+    {
+      "fingerprint": "cf7d93b7a7a5fba1",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 30,
+      "message": "unused public field `applyTextReplacements`"
+    },
+    {
+      "fingerprint": "7d59d36ed75d457a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 35,
+      "message": "unused public field `insertHistoryEntry`"
+    },
+    {
+      "fingerprint": "7142ed9693259a1a",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 39,
+      "message": "unused public field `wordCount`"
+    },
+    {
+      "fingerprint": "e9ecff2cb8e72457",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 40,
+      "message": "unused public field `processingDurationSec`"
+    },
+    {
+      "fingerprint": "56079103890e8b22",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 51,
+      "message": "unused public field `entryId`"
+    },
+    {
+      "fingerprint": "4f3cbc55aeaa60a3",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 54,
+      "message": "unused public field `processedTranscript`"
+    },
+    {
+      "fingerprint": "aa42199aedabe6aa",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/recording_store.dart",
+      "line": 58,
+      "message": "unused public field `trimmedCount`"
+    },
+    {
+      "fingerprint": "d7181459d8ee224d",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/smart_mode/smart_mode_engine.dart",
+      "line": 8,
+      "message": "unused public class `SmartModeEngine`"
+    },
+    {
+      "fingerprint": "ee5da162f4ff4bd8",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/snippet_picker/snippet_picker_events.dart",
+      "line": 9,
+      "message": "unused public field `id`"
+    },
+    {
+      "fingerprint": "acba349087ef77dd",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/snippet_picker/snippet_picker_events.dart",
+      "line": 25,
+      "message": "unused public field `message`"
+    },
+    {
+      "fingerprint": "9819c07e349c8988",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/snippet_picker/snippet_picker_events.dart",
+      "line": 26,
+      "message": "unused public field `isError`"
+    },
+    {
+      "fingerprint": "00b9eff3551db95e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/isolate_shutdown_helper.dart",
+      "line": 16,
+      "message": "unused public function `awaitGracefulShutdown`"
+    },
+    {
+      "fingerprint": "ac36266d532c218f",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/stt_benchmark.dart",
+      "line": 17,
+      "message": "unused public method `generateBenchmarkWav`"
+    },
+    {
+      "fingerprint": "f80d8c86c8bc938e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/stt_exit_classifier.dart",
+      "line": 30,
+      "message": "unused public function `classifySttExitCode`"
+    },
+    {
+      "fingerprint": "169fbe6b986eca37",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/stt_exit_classifier.dart",
+      "line": 76,
+      "message": "unused public function `classifyModelLoadFailure`"
+    },
+    {
+      "fingerprint": "0c533044dccf9abd",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/stt_gpu_fallback_policy.dart",
+      "line": 20,
+      "message": "unused public method `shouldRetryOnCpu`"
+    },
+    {
+      "fingerprint": "d2b27d300080f097",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/wav_header_repair.dart",
+      "line": 59,
+      "message": "unused public function `repairZeroedWavSizeFields`"
+    },
+    {
+      "fingerprint": "bf8e3ce3f0a2cf59",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/whisper/whisper_engine.dart",
+      "line": 90,
+      "message": "unused public field `isLoaded`"
+    },
+    {
+      "fingerprint": "f9a155e114e485e9",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/whisper/whisper_engine.dart",
+      "line": 95,
+      "message": "unused public field `backend`"
+    },
+    {
+      "fingerprint": "a112648cad7c90fb",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/whisper/whisper_engine.dart",
+      "line": 98,
+      "message": "unused public field `errorMessage`"
+    },
+    {
+      "fingerprint": "076ab429de561764",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/stt/whisper/whisper_resilience_policy.dart",
+      "line": 22,
+      "message": "unused public method `shouldRetryOnCpu`"
+    },
+    {
+      "fingerprint": "c170db05f27e1213",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/text_transforms.dart",
+      "line": 41,
+      "message": "unused public function `stripPunctuation`"
+    },
+    {
+      "fingerprint": "24da17b8a9acbf3f",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/text_transforms.dart",
+      "line": 54,
+      "message": "unused public function `appendToQuickNoteContent`"
+    },
+    {
+      "fingerprint": "8628e29e2a1c9a8e",
+      "ruleId": "unused-public-exports",
+      "filePath": "lib/services/voice_action_service.dart",
+      "line": 45,
+      "message": "unused public function `parseVoiceAction`"
     }
   ]
 }

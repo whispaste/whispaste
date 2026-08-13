@@ -222,10 +222,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       expect(find.text('result=json'), findsOneWidget);
 
+      // We need to pump here because `SharedPreferences` write happens after `pop` via `then`.
+      await tester.pumpAndSettle();
+
       // 2. Restart picker and hit Enter immediately
       await tester.tap(find.text('Open picker'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
+
+      // We also need to pump so that `SharedPreferences.getInstance()` in `initState` resolves.
+      await tester.pumpAndSettle();
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
