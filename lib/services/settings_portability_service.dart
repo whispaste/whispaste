@@ -154,7 +154,14 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'quick_note_hotkey_modifiers',
   'record_start_sound',
   'record_stop_sound',
+  // PrivacySettings — a behavior preference, not the audio data itself
+  // (which the export deliberately excludes, same as History's entries vs.
+  // its own portable 'history_*' preferences above).
+  'retain_recent_audio',
   'share_usage_stats',
+  // Ticket: status-bar CPU/GPU backend-utilization chip — a display
+  // preference like the other 'show_*' keys around it.
+  'show_backend_utilization',
   'show_floating_button',
   'show_notifications',
   'show_overlay',
