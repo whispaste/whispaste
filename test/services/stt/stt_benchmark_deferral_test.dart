@@ -184,9 +184,7 @@ void main() {
   setUp(() async {
     tempDir = await _createFakeSttDir();
     savedIdleDelay = SttServerStateNotifier.benchmarkIdleDelay;
-    SttServerStateNotifier.benchmarkIdleDelay = const Duration(
-      milliseconds: 5,
-    );
+    SttServerStateNotifier.benchmarkIdleDelay = const Duration(milliseconds: 5);
   });
 
   tearDown(() async {
@@ -195,52 +193,52 @@ void main() {
     if (tempDir.existsSync()) await tempDir.delete(recursive: true);
   });
 
-  test(
-    'a dictation already in progress is not queued behind the post-load '
-    'benchmark',
-    () async {
-      final engine = _QueueRecordingEngine()..gateFirstTranscribe();
-      final container = _makeContainer(engine);
-      addTearDown(container.dispose);
-      await container.read(settingsProvider.future);
-      final notifier = container.read(localSttBundleProvider.notifier);
-
-      // Hold the warmup inference open and start dictating while it runs —
-      // the exact interleaving from the captured cold start.
-      final running = notifier.ensureRunning();
-      await engine.firstTranscribeStarted.future;
-      notifier.notifyRecordingStarted();
-      engine.releaseGate();
-      await running;
-
-      // The load path has completed. The benchmark must still be waiting:
-      // grabbing the worker here is what buried the user's dictation.
-      expect(engine.transcribedSizes, [_warmupBytes]);
-
-      final text = await notifier.transcribeBytes(_validWav(), language: 'en');
-      expect(text, 'fake transcript');
-      expect(engine.transcribedSizes, [_warmupBytes, _dictationBytes]);
-
-      // Once the dictation is done the benchmark is free to run — deferring
-      // it must not mean dropping it.
-      notifier.notifyTranscriptionCompleted();
-      await _waitUntil(() => engine.transcribedSizes.length == 3);
-      expect(engine.transcribedSizes.last, _benchmarkBytes);
-    },
-  );
-
-  test('with an idle pipeline the benchmark still runs right after the load', () async {
-    final engine = _QueueRecordingEngine();
+  test('a dictation already in progress is not queued behind the post-load '
+      'benchmark', () async {
+    final engine = _QueueRecordingEngine()..gateFirstTranscribe();
     final container = _makeContainer(engine);
     addTearDown(container.dispose);
     await container.read(settingsProvider.future);
     final notifier = container.read(localSttBundleProvider.notifier);
 
-    await notifier.ensureRunning();
+    // Hold the warmup inference open and start dictating while it runs —
+    // the exact interleaving from the captured cold start.
+    final running = notifier.ensureRunning();
+    await engine.firstTranscribeStarted.future;
+    notifier.notifyRecordingStarted();
+    engine.releaseGate();
+    await running;
 
-    await _waitUntil(() => engine.transcribedSizes.length == 2);
-    expect(engine.transcribedSizes, [_warmupBytes, _benchmarkBytes]);
+    // The load path has completed. The benchmark must still be waiting:
+    // grabbing the worker here is what buried the user's dictation.
+    expect(engine.transcribedSizes, [_warmupBytes]);
+
+    final text = await notifier.transcribeBytes(_validWav(), language: 'en');
+    expect(text, 'fake transcript');
+    expect(engine.transcribedSizes, [_warmupBytes, _dictationBytes]);
+
+    // Once the dictation is done the benchmark is free to run — deferring
+    // it must not mean dropping it.
+    notifier.notifyTranscriptionCompleted();
+    await _waitUntil(() => engine.transcribedSizes.length == 3);
+    expect(engine.transcribedSizes.last, _benchmarkBytes);
   });
+
+  test(
+    'with an idle pipeline the benchmark still runs right after the load',
+    () async {
+      final engine = _QueueRecordingEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+
+      await notifier.ensureRunning();
+
+      await _waitUntil(() => engine.transcribedSizes.length == 2);
+      expect(engine.transcribedSizes, [_warmupBytes, _benchmarkBytes]);
+    },
+  );
 
   test('stop() drops a still-deferred benchmark instead of leaking it into '
       'the next engine', () async {

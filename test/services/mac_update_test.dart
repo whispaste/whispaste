@@ -67,7 +67,10 @@ void main() {
     });
 
     test('strips quarantine from the staged bundle', () {
-      expect(build(), contains('/usr/bin/xattr -dr com.apple.quarantine "\$INNER_STAGE"'));
+      expect(
+        build(),
+        contains('/usr/bin/xattr -dr com.apple.quarantine "\$INNER_STAGE"'),
+      );
     });
 
     test('escalates once via osascript when the target is not writable', () {
