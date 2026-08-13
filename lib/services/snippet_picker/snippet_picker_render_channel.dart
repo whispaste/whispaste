@@ -42,6 +42,7 @@ class SnippetPickerRenderChannel implements RenderChannel {
     required String name,
     required this.onItems,
     required this.onSubmit,
+    required this.onPanelHidden,
     MethodChannel? channel,
   }) : _channel = channel ?? MethodChannel(name) {
     _channel.setMethodCallHandler(_handle);
@@ -63,6 +64,16 @@ class SnippetPickerRenderChannel implements RenderChannel {
   /// controller started being detached/reattached on every `show()`.
   final VoidCallback onSubmit;
 
+  /// Called when the native shell's `dismiss()` orders the panel off screen.
+  ///
+  /// Exists because this engine is deliberately detached from the embedder's
+  /// app lifecycle (see `detachFromEmbedderAppLifecycle` in the entrypoint):
+  /// with frames never lifecycle-disabled any more, the panel's own glass
+  /// animations must be gated on the *relayed* visibility instead, or the
+  /// drift cycle would keep repainting an invisible panel for the rest of
+  /// the app session. `setItems` is the matching "panel shown" signal.
+  final VoidCallback onPanelHidden;
+
   Future<dynamic> _handle(MethodCall call) async {
     switch (call.method) {
       case 'setItems':
@@ -78,6 +89,9 @@ class SnippetPickerRenderChannel implements RenderChannel {
         return null;
       case 'submitHighlighted':
         onSubmit();
+        return null;
+      case 'panelHidden':
+        onPanelHidden();
         return null;
       default:
         return null;

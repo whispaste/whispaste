@@ -57,8 +57,49 @@ const String _renderChannelName = 'com.whispaste.snippet_picker_render';
 /// entrypoint delegates here so the real wiring stays in this cohesive file.
 void runSnippetPickerEngine() {
   WidgetsFlutterBinding.ensureInitialized();
+  detachFromEmbedderAppLifecycle();
   debugPrint('[snippet-picker-engine] runSnippetPickerEngine booted');
   runApp(const _SnippetPickerRenderApp());
+}
+
+/// Detaches this render engine from the embedder's app-lifecycle stream.
+///
+/// Root cause of the live "arrow keys don't visibly navigate the picker"
+/// bug (verified with DEBUG-sp02 instrumentation, 2026-08-13): each macOS
+/// `FlutterEngine` derives an app-lifecycle state from per-engine
+/// active/visible flags fed by app-global `NSApplication`
+/// activation/occlusion notifications. This secondary engine boots at
+/// prewarm, ~2.5 s after launch, and `FlutterAppLifecycleDelegate`'s
+/// `addDelegate` does not replay the current state to a late registrant —
+/// so both flags start stale-`NO`, and for a close-to-tray app the
+/// app-global signals bear no relation to the picker panel's actual
+/// visibility anyway. The engine therefore sat in
+/// `AppLifecycleState.hidden` while the panel was on screen, which broke
+/// the picker twice over:
+///
+///  - `SchedulerBinding` disables frame scheduling for `hidden`
+///    (`framesEnabled = false`), so every arrow-key `setState` updated
+///    `_moveHighlight`'s index without ever painting. The only frame per
+///    `show()` was the one the native `contentViewController` reattach
+///    forces via a metrics change — i.e. the panel was frozen on its first
+///    frame, which is exactly what the user saw (log signature: all
+///    `_moveHighlight` lines with correct indices, then a burst of queued
+///    post-frame callbacks firing together on the next show's forced
+///    frame).
+///  - `FocusManager`'s desktop lifecycle listener suspends primary focus on
+///    any transition away from `resumed`, so whenever such a transition
+///    landed after `_resetForShow`'s `requestFocus()`, the search field
+///    silently lost focus again (the earlier round's
+///    `searchFocus=false`-on-every-keystroke symptom).
+///
+/// The fix: this engine's real visibility is governed solely by the native
+/// host's `show()`/`dismiss()` (relayed as `setItems` / `panelHidden`), so
+/// the correct lifecycle for it is "always live". Replacing the
+/// `flutter/lifecycle` handler unhooks `SchedulerBinding`/`FocusManager`
+/// from the bogus embedder signal; animation cost while hidden is gated on
+/// the relayed visibility instead (see [SnippetPickerBody.visible]).
+void detachFromEmbedderAppLifecycle() {
+  SystemChannels.lifecycle.setMessageHandler((message) async => message);
 }
 
 class _SnippetPickerRenderApp extends StatefulWidget {
@@ -93,14 +134,26 @@ class _SnippetPickerRenderAppState
   /// highlight / keyboard-focus state (see `_resetForShow`).
   int _showGeneration = 0;
 
+  /// Whether the native panel is currently on screen.
+  ///
+  /// Driven entirely by the shell seam — `setItems` (sent once per native
+  /// `show()`) flips it on, `panelHidden` (sent by every native `dismiss()`)
+  /// flips it off. This engine is detached from the embedder's app
+  /// lifecycle (see [detachFromEmbedderAppLifecycle]), so this flag is the
+  /// only truthful visibility signal it has, and [SnippetPickerBody] gates
+  /// its continuous glass animations on it.
+  bool _panelVisible = false;
+
   @override
   SnippetPickerRenderChannel createChannel() => SnippetPickerRenderChannel(
     name: _renderChannelName,
     onItems: (items) => setState(() {
       _items = items;
       _showGeneration++;
+      _panelVisible = true;
     }),
     onSubmit: () => _bodyKey.currentState?._submit(),
+    onPanelHidden: () => setState(() => _panelVisible = false),
   );
 
   @override
@@ -144,6 +197,7 @@ class _SnippetPickerRenderAppState
               key: _bodyKey,
               items: _items,
               showGeneration: _showGeneration,
+              visible: _panelVisible,
               searchController: _searchController,
               l10n: resolvedL10n,
               onSelect: channel.selectItem,
@@ -180,6 +234,7 @@ class SnippetPickerBody extends StatefulWidget {
     super.key,
     required this.items,
     required this.showGeneration,
+    required this.visible,
     required this.searchController,
     required this.l10n,
     required this.onSelect,
@@ -191,6 +246,14 @@ class SnippetPickerBody extends StatefulWidget {
   /// Incremented by the app state once per native `show()` — triggers the
   /// per-invocation reset in [_SnippetPickerBodyState.didUpdateWidget].
   final int showGeneration;
+
+  /// Whether the native panel is on screen right now (see
+  /// `_SnippetPickerRenderAppState._panelVisible` for the shell seam that
+  /// drives it). Gates the continuous glass animations: this engine is
+  /// detached from the embedder's app lifecycle, so frames are never
+  /// lifecycle-disabled — an un-gated drift cycle would keep repainting an
+  /// invisible panel for the whole app session.
+  final bool visible;
 
   final TextEditingController searchController;
   final L10n l10n;
@@ -344,24 +407,46 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reduced motion: settle instantly on the static frame (appear complete,
-    // drift at phase 0) — mirrors how the overlay handles the same flag.
-    if (MediaQuery.of(context).disableAnimations) {
-      _appearController.value = 1;
-      _driftController.stop();
-      _driftController.value = 0;
-    } else {
-      if (!_appearController.isAnimating && !_appearController.isCompleted) {
-        _appearController.forward();
-      }
-      if (!_driftController.isAnimating) _driftController.repeat();
-    }
+    _syncAnimations();
   }
 
   @override
   void didUpdateWidget(covariant SnippetPickerBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.showGeneration != oldWidget.showGeneration) _resetForShow();
+    if (widget.showGeneration != oldWidget.showGeneration) {
+      // A new show() always bumps the generation (and flips `visible` on in
+      // the same update); _resetForShow ends in _syncAnimations itself.
+      _resetForShow();
+    } else if (widget.visible != oldWidget.visible) {
+      // A dismiss only flips `visible` off — stop the glass animations.
+      _syncAnimations();
+    }
+  }
+
+  /// Runs the glass animations only while the panel is actually on screen.
+  ///
+  /// Reduced motion settles instantly on the static frame (appear complete,
+  /// drift at phase 0) — mirrors how the overlay handles the same flag.
+  /// Otherwise the drift cycle runs exactly while [SnippetPickerBody.visible]
+  /// is true: this engine is detached from the embedder's app lifecycle (see
+  /// [detachFromEmbedderAppLifecycle]), so nothing else would ever stop a
+  /// `repeat()` from repainting the ordered-out panel all session.
+  void _syncAnimations() {
+    if (MediaQuery.of(context).disableAnimations) {
+      _appearController.value = 1;
+      _driftController.stop();
+      _driftController.value = 0;
+      return;
+    }
+    if (!widget.visible) {
+      _appearController.stop();
+      _driftController.stop();
+      return;
+    }
+    if (!_appearController.isAnimating && !_appearController.isCompleted) {
+      _appearController.forward();
+    }
+    if (!_driftController.isAnimating) _driftController.repeat();
   }
 
   /// Fresh-picker guarantee on engine reuse: the native shell keeps this
@@ -379,6 +464,15 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _searchFocus.requestFocus();
+    // Replay the documented spring-in on every show, not only the first
+    // mount: the panel is reused across pickers, and before the
+    // frame-starvation fix (frames were lifecycle-disabled, so only one
+    // forced frame per show ever rendered) a re-show's missing entrance was
+    // simply invisible. Reduced motion keeps the instant static frame.
+    if (!MediaQuery.of(context).disableAnimations) {
+      _appearController.forward(from: 0);
+    }
+    _syncAnimations();
     // TODO(DEBUG-sp01): temporary — see [_debugLogKeyEvent]. Marks the start
     // of one picker invocation in the log, and confirms a frame was actually
     // built for it. Deliberately reports no focus state: `FocusManager`

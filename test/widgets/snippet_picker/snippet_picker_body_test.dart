@@ -44,6 +44,7 @@ Future<void> _pumpPicker(
   required TextEditingController controller,
   List<SnippetPickerRenderItem> items = _items,
   int showGeneration = 0,
+  bool visible = true,
   ValueChanged<String>? onSelect,
   VoidCallback? onCancel,
 }) async {
@@ -58,6 +59,7 @@ Future<void> _pumpPicker(
         body: SnippetPickerBody(
           items: items,
           showGeneration: showGeneration,
+          visible: visible,
           searchController: controller,
           l10n: lookupL10n(const Locale('en')),
           onSelect: onSelect ?? (_) {},
@@ -233,6 +235,73 @@ void main() {
         await tester.pump();
 
         expect(selectedId, '1');
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  group('SnippetPickerBody — animation gating (frame-starvation fix)', () {
+    // Companion to test/services/snippet_picker/
+    // snippet_picker_engine_lifecycle_test.dart: with the render engine
+    // detached from the embedder's app lifecycle, frames are never
+    // lifecycle-disabled — so the panel's own `visible` flag (relayed via
+    // native show()/dismiss()) must be what starts and stops the continuous
+    // glass drift animation, or an invisible panel would repaint all
+    // session. Tickers are the observable: `transientCallbackCount` counts
+    // active animation tickers, and the drift `repeat()` holds one open.
+    testWidgets('glass animations run only while the panel is visible', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+
+        // The autofocused search field runs finite focus animations
+        // (~hundreds of ms) that also hold tickers open; every assertion
+        // below first pumps past them, so the only ticker that can remain
+        // is the panel's own unbounded drift `repeat()`.
+        const settleFiniteAnimations = Duration(milliseconds: 500);
+
+        // Boot state: engine alive (prewarm), panel never shown.
+        await _pumpPicker(tester, controller: controller, visible: false);
+        await tester.pump(settleFiniteAnimations);
+        expect(
+          tester.binding.transientCallbackCount,
+          0,
+          reason: 'no ticker may run while the panel has never been shown',
+        );
+
+        // Native show(): setItems bumps the generation and flips visible on.
+        await _pumpPicker(
+          tester,
+          controller: controller,
+          visible: true,
+          showGeneration: 1,
+        );
+        await tester.pump(settleFiniteAnimations);
+        expect(
+          tester.binding.transientCallbackCount,
+          greaterThan(0),
+          reason: 'the glass drift cycle must animate while on screen',
+        );
+
+        // Native dismiss(): panelHidden flips visible off (generation stays).
+        await _pumpPicker(
+          tester,
+          controller: controller,
+          visible: false,
+          showGeneration: 1,
+        );
+        await tester.pump(settleFiniteAnimations);
+        expect(
+          tester.binding.transientCallbackCount,
+          0,
+          reason:
+              'an ordered-out panel must not keep repainting for the rest '
+              'of the app session',
+        );
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

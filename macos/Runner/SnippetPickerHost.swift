@@ -482,6 +482,16 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     defer { isDismissing = false }
     keyReclaimDeadline = nil
     p.orderOut(nil)
+    // Tell the render engine the panel left the screen so it can stop its
+    // glass animations. Needed since the engine was detached from the
+    // embedder's app lifecycle (the arrow-key frame-starvation fix, see
+    // `detachFromEmbedderAppLifecycle` in
+    // snippet_picker_render_entrypoint.dart): frames are never
+    // lifecycle-disabled in that engine any more, so without this signal an
+    // un-gated drift animation would keep repainting the ordered-out panel
+    // for the rest of the app session. `setItems` (sent by every `show`) is
+    // the matching "panel shown" signal.
+    renderChannel?.invokeMethod("panelHidden", arguments: nil)
     if restoreFrontApp { restorePreviousFrontApp() }
     if fireCancelled {
       channel.invokeMethod("onCancelled", arguments: nil)
