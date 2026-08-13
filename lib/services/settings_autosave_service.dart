@@ -42,7 +42,6 @@ import 'dart:async';
 
 import 'package:file/file.dart';
 import 'package:file/local.dart';
-import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart' show AppSettings;
 import '../core/config/settings_sections.dart' show SettingsAutosaveSettings;
@@ -259,7 +258,7 @@ class SettingsAutosaveRunner {
     try {
       final bundle = await gather();
       final at = now();
-      final path = p.join(folder, autosaveFileName(at));
+      final path = _fileSystem.path.join(folder, autosaveFileName(at));
       await service.exportToFile(path, bundle);
       await _rotate(folder);
       return SettingsAutosaveOutcome.written(
@@ -293,12 +292,16 @@ class SettingsAutosaveRunner {
       final mine = <String>[];
       await for (final entity in dir.list(followLinks: false)) {
         if (entity is! File) continue;
-        final name = p.basename(entity.path);
+        final name = _fileSystem.path.basename(entity.path);
         if (kAutosaveFilePattern.hasMatch(name)) mine.add(entity.path);
       }
       if (mine.length <= keep) return;
       // Names are fixed-width and time-ordered, so sorting them sorts by age.
-      mine.sort((a, b) => p.basename(a).compareTo(p.basename(b)));
+      mine.sort(
+        (a, b) => _fileSystem.path
+            .basename(a)
+            .compareTo(_fileSystem.path.basename(b)),
+      );
       for (final stale in mine.take(mine.length - keep)) {
         await _fileSystem.file(stale).delete();
       }
