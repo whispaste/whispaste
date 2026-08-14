@@ -248,6 +248,8 @@
   "settingsVadEnabledSubtitle": "Entfernt lange Stille bzw. Rauschen am Ende einer Aufnahme, bevor Whisper sie decodiert – so kann dort kein erfundener Schlusssatz entstehen (z. B. halluziniertes „Vielen Dank\"). Kaum spürbarer Zeitaufwand, ausschaltbar, falls du lieber Whispers unbearbeitete Ausgabe möchtest.",
   "settingsStripPunctuation": "Satzzeichen entfernen",
   "settingsStripPunctuationSubtitle": "Entfernt Punkte, Kommas und andere Satzzeichen aus jedem Transkript, bevor es gespeichert oder eingefügt wird. Funktioniert bei jeder Engine und jedem Anbieter gleich, nicht nur bei Whisper.",
+  "settingsNumericOnlyMode": "Nur Zahlen",
+  "settingsNumericOnlyModeSubtitle": "Wandelt gesprochene Zahlen (Deutsch und Englisch) in Ziffern um, z. B. wird „fünf Komma zwei“ zu „5,2“. Lässt das Transkript unverändert, wenn es nicht vollständig umwandelbar ist.",
   "settingsAppLanguage": "App-Sprache",
   "settingsSttModels": "Spracherkennungs-Modelle",
   "settingsOpenAiApiKey": "OpenAI API-Schlüssel",

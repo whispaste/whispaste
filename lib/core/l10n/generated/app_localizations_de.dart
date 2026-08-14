@@ -800,6 +800,13 @@ class L10nDe extends L10n {
       'Entfernt Punkte, Kommas und andere Satzzeichen aus jedem Transkript, bevor es gespeichert oder eingefügt wird. Funktioniert bei jeder Engine und jedem Anbieter gleich, nicht nur bei Whisper.';
 
   @override
+  String get settingsNumericOnlyMode => 'Nur Zahlen';
+
+  @override
+  String get settingsNumericOnlyModeSubtitle =>
+      'Wandelt gesprochene Zahlen (Deutsch und Englisch) in Ziffern um, z. B. wird „fünf Komma zwei“ zu „5,2“. Lässt das Transkript unverändert, wenn es nicht vollständig umwandelbar ist.';
+
+  @override
   String get settingsAppLanguage => 'App-Sprache';
 
   @override

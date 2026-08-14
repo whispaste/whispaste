@@ -793,6 +793,13 @@ class L10nEn extends L10n {
       'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted. Works the same way for every engine and provider, not just Whisper.';
 
   @override
+  String get settingsNumericOnlyMode => 'Numbers only';
+
+  @override
+  String get settingsNumericOnlyModeSubtitle =>
+      'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override

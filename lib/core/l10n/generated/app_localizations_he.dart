@@ -781,6 +781,13 @@ class L10nHe extends L10n {
       'מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה. פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.';
 
   @override
+  String get settingsNumericOnlyMode => 'מספרים בלבד';
+
+  @override
+  String get settingsNumericOnlyModeSubtitle =>
+      'ממיר מספרים מדוברים (בגרמנית ובאנגלית) לספרות, למשל \"חמש פסיק שתיים\" הופך ל-\"5,2\". משאיר את התמלול ללא שינוי אם אינו ניתן להמרה מלאה.';
+
+  @override
   String get settingsAppLanguage => 'שפת האפליקציה';
 
   @override

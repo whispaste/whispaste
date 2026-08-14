@@ -258,6 +258,8 @@
   "settingsVadEnabledSubtitle": "מסיר שתיקה או רעש ארוכים מסוף ההקלטה לפני שWhisper מפענח אותה, כדי שלא יומצא שם משפט סיום (למשל תופעות הזיה כמו \"תודה שצפיתם\"). עלות זניחה, ניתן לכבות אם עדיפה הפלט הגולמי של Whisper.",
   "settingsStripPunctuation": "הסרת סימני פיסוק",
   "settingsStripPunctuationSubtitle": "מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה. פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.",
+  "settingsNumericOnlyMode": "מספרים בלבד",
+  "settingsNumericOnlyModeSubtitle": "ממיר מספרים מדוברים (בגרמנית ובאנגלית) לספרות, למשל \"חמש פסיק שתיים\" הופך ל-\"5,2\". משאיר את התמלול ללא שינוי אם אינו ניתן להמרה מלאה.",
   "settingsAppLanguage": "שפת האפליקציה",
   "settingsSttModels": "מודלי זיהוי דיבור",
   "settingsCloudProviders": "ספקי ענן",

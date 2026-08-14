@@ -271,6 +271,27 @@ class _SpeechRecognitionSectionState
             ),
           ),
 
+          // Numbers-only mode — engine/provider-independent, same as Strip
+          // Punctuation above (itn-cad-zahlen: a deterministic post-
+          // transcription text transform in RecordingOrchestrator, not an
+          // ASR-level mode, so it works identically for every engine).
+          SettingRow(
+            icon: LucideIcons.hash,
+            label: l10n.settingsNumericOnlyMode,
+            subtitle: l10n.settingsNumericOnlyModeSubtitle,
+            semanticToggledValue: settings.stt.numericOnlyMode,
+            trailing: settingsToggle(
+              value: settings.stt.numericOnlyMode,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(numericOnlyMode: v),
+                    ),
+                  ),
+            ),
+          ),
+
           // Punctuation priming — local Whisper only (a prompt nudge fed
           // into whisper.cpp's initial-prompt mechanism; no equivalent
           // exists for the cloud providers or Parakeet). For a toggle that

@@ -1479,6 +1479,18 @@ abstract class L10n {
   /// **'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted. Works the same way for every engine and provider, not just Whisper.'**
   String get settingsStripPunctuationSubtitle;
 
+  /// No description provided for @settingsNumericOnlyMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbers only'**
+  String get settingsNumericOnlyMode;
+
+  /// No description provided for @settingsNumericOnlyModeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.'**
+  String get settingsNumericOnlyModeSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:
