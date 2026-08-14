@@ -223,8 +223,17 @@ if [ -n "$DART_STAGED" ]; then
   echo "Flutter analyze..."
 
   # --fatal-infos --fatal-warnings erzwingt clean exit
+  #
+  # GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE explizit entfernen: git setzt diese
+  # für Hooks (v.a. in Worktrees), und Flutters interne Versionsermittlung
+  # ruft `git -C "$FLUTTER_ROOT" rev-parse HEAD` auf — bei gesetztem
+  # absolutem GIT_DIR gewinnt das geerbte GIT_DIR gegen `-C`, wodurch
+  # `flutter.version.json` mit WhisPastes statt Flutters eigenem
+  # Commit-Hash überschrieben wird ("0.0.0-unknown" → pub-Resolution
+  # schlägt fehl). Reproduzierbar aus jedem Worktree heraus.
   flutter_ok=true
-  flutter analyze --fatal-infos --fatal-warnings 2>&1 || flutter_ok=false
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_PREFIX \
+    flutter analyze --fatal-infos --fatal-warnings 2>&1 || flutter_ok=false
 
   if [ "$flutter_ok" = "true" ] && [ -f "$ROOT/loam.yaml" ] && command -v dart >/dev/null 2>&1; then
     echo ""
