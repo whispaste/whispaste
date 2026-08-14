@@ -17,6 +17,7 @@ import '../../widgets/dialog.dart';
 import '../../widgets/find_replace.dart';
 import '../../widgets/markdown_toolbar.dart';
 import '../../widgets/searchable_list_page.dart';
+import '../../widgets/toast.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/hotkey_flow.dart';
@@ -192,6 +193,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
           isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: s),
           onDelete: () => _confirmDelete(s),
+          onCopy: () => _copySnippet(s),
         );
       },
     );
@@ -221,6 +223,17 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
           .read(telemetrySessionAggregatorProvider)
           .count(category: 'snippets', action: 'create');
     }
+  }
+
+  // ── Copy action ──────────────────────────────────────────────────────
+
+  void _copySnippet(SnippetItem snippet) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: snippet.body,
+      category: 'snippets',
+    );
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────
@@ -727,6 +740,7 @@ class _SnippetTile extends StatefulWidget {
     required this.isCursor,
     required this.onTap,
     required this.onDelete,
+    required this.onCopy,
   });
 
   final SnippetItem snippet;
@@ -740,6 +754,7 @@ class _SnippetTile extends StatefulWidget {
   final bool isCursor;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onCopy;
 
   @override
   State<_SnippetTile> createState() => _SnippetTileState();
@@ -838,6 +853,12 @@ class _SnippetTileState extends State<_SnippetTile> {
               actions: WpRowActions(
                 visible: _isActive,
                 children: [
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.copy,
+                    tooltip: L10n.of(context).actionCopy,
+                    onTap: widget.onCopy,
+                  ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(
                     icon: LucideIcons.trash2,

@@ -19,7 +19,6 @@ import '../../widgets/toast.dart';
 import '../../widgets/wp_list_skeleton.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
-import '../../services/telemetry_service.dart';
 import 'data/history_detail_provider.dart';
 import 'data/providers.dart';
 import 'widgets/widgets.dart';
@@ -613,16 +612,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   void _copyEntry(HistoryEntry entry) {
-    Clipboard.setData(ClipboardData(text: entry.content));
-    ref
-        .read(telemetrySessionAggregatorProvider)
-        .count(category: 'history', action: 'copy');
-    if (!mounted) return;
-    WpToast.show(
-      context,
-      message: L10n.of(context).historyCopiedToClipboard,
-      type: WpToastType.success,
-      duration: const Duration(seconds: 2),
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: entry.content,
+      category: 'history',
     );
   }
 

@@ -4,15 +4,44 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/telemetry_service.dart';
 import 'wp_button.dart';
 
 /// Toast severity levels — controls icon, color, and animation style.
 enum WpToastType { success, error, info, warning }
+
+/// Copies [text] to the clipboard, counts a `copy` telemetry event under
+/// [category], and shows the standard "Copied to clipboard" toast.
+///
+/// The shared shape behind every list page's row-level copy action
+/// (History, Snippets, …) — pulled out once two independent pages needed
+/// the identical four lines, rather than duplicated per page.
+void copyToClipboardWithToast({
+  required BuildContext context,
+  required WidgetRef ref,
+  required String text,
+  required String category,
+}) {
+  Clipboard.setData(ClipboardData(text: text));
+  ref
+      .read(telemetrySessionAggregatorProvider)
+      .count(category: category, action: 'copy');
+  if (!context.mounted) return;
+  WpToast.show(
+    context,
+    message: L10n.of(context).historyCopiedToClipboard,
+    type: WpToastType.success,
+    duration: const Duration(seconds: 2),
+  );
+}
 
 /// Bundled label + callback for an actionable toast.
 ///
