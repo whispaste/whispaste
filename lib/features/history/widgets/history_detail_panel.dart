@@ -623,6 +623,7 @@ class _DetailPanelHeader extends StatelessWidget {
                         Expanded(
                           child: Semantics(
                             button: !isTrashView,
+                            label: isTrashView ? null : l10n.historyEditTitle,
                             onTapHint: isTrashView
                                 ? null
                                 : l10n.historyEditTitle,
@@ -929,6 +930,7 @@ class _DetailTranscriptZone extends StatelessWidget {
                       )
                     : Semantics(
                         button: !isTrashView,
+                        label: isTrashView ? null : l10n.historyEditTranscript,
                         // Same trash-view rule as the title above: the
                         // transcript is read-only here, so it must not offer
                         // "Edit transcript" on hover next to a tap that does
