@@ -1106,3 +1106,153 @@ html.light {
     transition: none;
   }
 }
+
+/* ===========================================================================
+   M10 — Cinematic Motion System
+   ---------------------------------------------------------------------------
+   Vier benannte Reveal-/Motion-Primitive für die Set-Pieces des Cinematic-
+   Redesigns, als Leiter neben Radius/Schatten (siehe DESIGN-Doku §4): fester
+   Vokabular-Satz statt Ad-hoc-Keyframes pro Sektion.
+
+   Bewusster Unterschied zum bestehenden `.scroll-reveal`-System (Zeile ~452):
+   `.scroll-reveal` braucht eine sichtbare Default-Hidden-State + den
+   IntersectionObserver in index.astro als Fallback für Browser ohne
+   `animation-timeline: view()` (Safari < 18). Die vier Primitive hier sind
+   dagegen **komplett in `@supports` gekapselt** — ohne Support bleibt das
+   Element von Anfang an normal sichtbar, keine JS-Abhängigkeit, kein
+   "für immer unsichtbar"-Risiko. Kosten: auf nicht unterstützenden Browsern
+   (v.a. älteres Safari) gibt es dort keinen Reveal, nur die statische
+   Endposition — exakt das Prinzip aus der Pre-Delivery-Checkliste
+   ("Struktur bleibt, nur Bewegung fällt weg"), nur auf fehlenden
+   Browser-Support statt auf reduced-motion angewandt.
+
+   Motion-Vokabular:
+   - .wp-kinetic-line   Vorhang-Aufzug für Headlines — EIN Element, kein
+                        Wort-/Zeichen-Split. Sprachwechsel ist auf Seiten mit
+                        Locale-Pendant eine volle Navigation (toggleLang() →
+                        window.location.assign(), i18n.ts:1712); der
+                        textContent-Ersatz in applyLang() (i18n.ts:1737) ist
+                        nur der Fallback ohne Pendant-Seite — auf beiden Wegen
+                        würde ein Span-Split das Markup zerreißen.
+   - .wp-mask-reveal    Richtungs-Wipe für Panels/Karten (Modifier `--up` für
+                        vertikal statt horizontal).
+   - .wp-clip-reveal    Blende/Iris-Reveal für Bild-/Screenshot-Kacheln.
+   - .wp-parallax-*     Tiefen-Parallax für dekorative Hintergrund-Layer via
+                        named `view-timeline` — nur auf `pointer-events:none`-
+                        Dekor, nie auf interaktivem Inhalt.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Über --dur-slow (320ms, Karten) hinaus: großformatige Set-Piece-Reveals
+     brauchen mehr Zeit, um als Inszenierung statt als Layout-Snap zu lesen. */
+  --dur-cinematic: 900ms;
+  --dur-cinematic-slow: 1400ms;
+  /* Deckt sich mit dem bestehenden nth-child-Rhythmus in index.astro
+     (0/80/160/240/320/400ms) — künftige Stagger-Stellen rechnen mit
+     calc(var(--stagger-step) * n) statt neue Werte zu erfinden. */
+  --stagger-step: 80ms;
+}
+
+/* --- Kinetic Line: Vorhang-Aufzug für Headlines ---------------------------- */
+@keyframes wp-kinetic-rise {
+  from {
+    clip-path: inset(0 0 100% 0);
+    translate: 0 14%;
+    filter: blur(7px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  to {
+    clip-path: inset(0 0 0% 0);
+    translate: 0 0;
+    filter: blur(0);
+  }
+}
+@supports (animation-timeline: view()) {
+  .wp-kinetic-line {
+    animation: wp-kinetic-rise var(--dur-cinematic-slow) var(--ease-flow) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 55%;
+  }
+}
+
+/* --- Mask Reveal: Richtungs-Wipe für Panels/Karten -------------------------
+   Generalisiert das hero-ribbon-draw-Muster (Hero.astro) zu einer
+   wiederverwendbaren Utility. Default horizontal (links→rechts); Modifier
+   `.wp-mask-reveal--up` wipt von unten nach oben (für Karten in Grids, wo ein
+   vertikaler Aufzug besser zum Stagger passt). */
+@keyframes wp-mask-wipe-x {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes wp-mask-wipe-y {
+  from { clip-path: inset(100% 0 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@supports (animation-timeline: view()) {
+  .wp-mask-reveal {
+    animation: wp-mask-wipe-x var(--dur-cinematic) var(--ease-flow) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 45%;
+  }
+  .wp-mask-reveal--up {
+    animation-name: wp-mask-wipe-y;
+  }
+}
+
+/* --- Clip Reveal: Blende/Iris für Bild-/Screenshot-Kacheln -----------------
+   Kreisförmige Apertur statt Rechteck-Wipe — bewusst anderes Motiv als
+   .wp-mask-reveal, damit Bild-Tiles sich von Text-/Panel-Reveals abheben. */
+@keyframes wp-clip-iris {
+  from { clip-path: circle(0% at 50% 50%); }
+  to   { clip-path: circle(75% at 50% 50%); }
+}
+@supports (animation-timeline: view()) {
+  .wp-clip-reveal {
+    animation: wp-clip-iris var(--dur-cinematic) var(--ease-flow) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 50%;
+  }
+}
+
+/* --- Depth Parallax: Tiefen-Layer für dekorative Hintergründe --------------
+   Scope-Element (die Sektion) trägt `.wp-parallax-scope` und benennt seine
+   eigene view-timeline; Layer-Kinder tragen `.wp-parallax-layer` und lesen
+   diese Timeline über den ganzen sichtbaren Sektionsverlauf (`cover`), nicht
+   nur beim Eintritt — dadurch entsteht echte Parallaxe (der Layer bewegt sich
+   langsamer/schneller als der Rest), keine einmalige Reveal-Animation.
+   `--wp-parallax-depth` pro Instanz überschreiben (Default 32px). NUR auf
+   `pointer-events: none`-Dekor (Hero-Wave, Band-Auren) — nie auf Inhalt. */
+.wp-parallax-scope {
+  view-timeline-name: --wp-parallax-scope;
+  view-timeline-axis: block;
+}
+.wp-parallax-layer {
+  --wp-parallax-depth: 32px;
+  will-change: transform;
+}
+@keyframes wp-parallax-drift {
+  from { translate: 0 calc(var(--wp-parallax-depth) * -1); }
+  to   { translate: 0 var(--wp-parallax-depth); }
+}
+@supports (animation-timeline: view()) {
+  .wp-parallax-layer {
+    animation: wp-parallax-drift linear;
+    animation-timeline: --wp-parallax-scope;
+    animation-range: cover 0% cover 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-kinetic-line,
+  .wp-mask-reveal,
+  .wp-mask-reveal--up,
+  .wp-clip-reveal,
+  .wp-parallax-layer {
+    animation: none !important;
+    clip-path: none !important;
+    filter: none !important;
+    translate: none !important;
+  }
+}
