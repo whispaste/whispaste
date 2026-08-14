@@ -97,18 +97,46 @@
   /* Serif accent for editorial headline moments — applied via `.headline-serif`,
      never as a document default. Keeps body/display grotesk untouched. */
   --font-serif: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
+  /* Terminal/monospace voice — HUD labels, metrics, keycaps. Deliberately a
+     pure system stack: zero extra font requests (Performance-Nordstern), and
+     genuinely the typeface the target audience reads code in all day. */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* ---- Motion vocabulary (see the note below on --ease-flow) ----
+     Tailwind's own `transition-*` utilities read these two keys. Setting them
+     here routes all ~200 bare `transition-*` call sites onto the brand curve
+     instead of Tailwind's generic cubic-bezier(0.4,0,0.2,1) — without touching
+     a single piece of markup. 150ms cut the quintic-out tail off mid-flight;
+     180ms lets it actually land. */
+  --ease-flow: cubic-bezier(0.22, 1, 0.36, 1);
+  --default-transition-timing-function: var(--ease-flow);
+  --default-transition-duration: 180ms;
+}
+
+/* Named durations so hand-written CSS stops picking freely between 0.12s and
+   0.4s. fast = state flips on small controls, base = the default (matches
+   --default-transition-duration), slow = larger surfaces (cards, figures,
+   modals). Deliberately in a plain :root and NOT in @theme: they belong to no
+   Tailwind namespace, so @theme would tree-shake them away as "unused" — and
+   the Astro-scoped <style> blocks that consume them are invisible to that
+   analysis. */
+:root {
+  --dur-fast: 140ms;
+  --dur-base: 180ms;
+  --dur-slow: 320ms;
 }
 
 /* ---------------------------------------------------------------------------
    Flow-Motion-Token — „Schreibfluss" als Bewegungsvokabular.
-   --ease-flow ist DIE Deceleration-Kurve der Site (bisher mehrfach hartkodiert
+   --ease-flow ist DIE Deceleration-Kurve der Site (früher mehrfach hartkodiert
    als cubic-bezier(0.22, 1, 0.36, 1) — der Charakter der Overlay-Pille:
-   selbstbewusst ankommen, weich auslaufen). Übergänge nutzen das Token statt
-   eigener Kurven, damit alle Bewegung aus einem Guss fließt.
+   selbstbewusst ankommen, weich auslaufen). Das Token lebt jetzt oben im
+   `@theme`-Block: dadurch (a) erbt jede Tailwind-`transition-*`-Utility die
+   Kurve über --default-transition-timing-function, (b) entsteht zusätzlich
+   eine `ease-flow`-Utility für Ausnahmen, und (c) bleibt --ease-flow für die
+   Astro-scoped <style>-Blöcke unverändert per var() erreichbar.
    --------------------------------------------------------------------------- */
-:root {
-  --ease-flow: cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 @layer base {
   html {
