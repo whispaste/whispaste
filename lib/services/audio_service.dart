@@ -18,6 +18,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import 'audio/amplitude_from_pcm.dart';
 import 'audio/pcm_gain_processor.dart';
+import 'audio/recording_start_stop_arbiter.dart';
 import 'audio/speech_level_mapper.dart';
 import 'audio/wav_file_writer.dart';
 import 'audio_routing_service.dart';
@@ -113,6 +114,12 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// routing returns to what it was. `null` when no override is active.
   String? _originalDefaultInputUid;
 
+  /// Arbitrates the start/stop race documented on [RecordingStartStopArbiter]:
+  /// a stop that arrives while [startRecording]'s async setup is still in
+  /// flight must abort the capture once setup finishes, not leave it running
+  /// unsupervised until the next unrelated start/stop cycle.
+  final _startStopArbiter = RecordingStartStopArbiter();
+
   /// Subscription to the raw PCM stream emitted by [AudioRecorder.startStream].
   StreamSubscription<Uint8List>? _pcmSub;
 
@@ -173,6 +180,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       return;
     }
 
+    _startStopArbiter.beginStart();
+
     // Lazily create a recorder instance.
     _recorder ??= AudioRecorder();
     final recorder = _recorder!;
@@ -180,6 +189,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     // Check / request microphone permission.
     final hasPermission = await recorder.hasPermission();
     if (!hasPermission) {
+      _startStopArbiter.endStart();
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
         errorMessage: 'mic_permission_denied',
@@ -271,6 +281,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       await cleanupFile(wavPath);
       _amplitudeController?.close();
       _amplitudeController = null;
+      _startStopArbiter.endStart();
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
         errorMessage: 'recording_start_failed',
@@ -310,10 +321,69 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       cancelOnError: true,
     );
 
+    if (_startStopArbiter.endStart()) {
+      // A stop arrived while we were still starting up — it was a no-op at
+      // the time (nothing was recording yet per `state.isRecording`). Tear
+      // this capture down now instead of reporting it as active, which
+      // would otherwise leave the mic running unsupervised until some
+      // later, unrelated start/stop cycle happened to absorb it.
+      dev.log(
+        'stop arrived during startup — aborting just-opened capture',
+        name: 'AudioService',
+      );
+      await _abortJustStartedRecording(wavPath);
+      return;
+    }
+
     state = AudioStatus(
       captureState: AudioCaptureState.recording,
       filePath: wavPath,
     );
+  }
+
+  /// Tears down a capture that just finished opening but was already
+  /// unwanted — a [stopRecording] call arrived while [startRecording] was
+  /// still setting up (see [RecordingStartStopArbiter]). Mirrors
+  /// [_failActiveRecording]'s teardown, but always deletes the WAV (nobody
+  /// asked for this recording) and resets to idle rather than error (this
+  /// is not a failure — it's a stop that arrived a moment too early).
+  Future<void> _abortJustStartedRecording(String wavPath) async {
+    await _pcmSub?.cancel();
+    _pcmSub = null;
+    await _ampSub?.cancel();
+    _ampSub = null;
+    await _amplitudeFromPcm?.dispose();
+    _amplitudeFromPcm = null;
+    try {
+      await _wavWriter?.close();
+    } on Exception catch (e) {
+      dev.log(
+        'Closing WAV after start/stop race failed: $e',
+        name: 'AudioService',
+      );
+    }
+    _wavWriter = null;
+    _lastRecordingClippedSamples = 0;
+    _gainProcessor = null;
+    await _amplitudeController?.close();
+    _amplitudeController = null;
+
+    final recorder = _recorder;
+    if (recorder != null) {
+      try {
+        await recorder.stop();
+      } on Exception catch (e) {
+        dev.log(
+          'Stopping recorder after start/stop race failed: $e',
+          name: 'AudioService',
+        );
+      }
+    }
+
+    await cleanupFile(wavPath);
+    await _restoreDefaultInputRouting();
+
+    state = const AudioStatus();
   }
 
   /// Resolves the configured microphone label to an [InputDevice] by
@@ -461,7 +531,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// was recording.
   Future<String?> stopRecording() async {
     if (!state.isRecording) {
-      dev.log('stopRecording ignored — not recording', name: 'AudioService');
+      if (_startStopArbiter.requestStopWhileNotRecording()) {
+        dev.log(
+          'stopRecording arrived mid-startup — capture will be aborted '
+          'once setup finishes',
+          name: 'AudioService',
+        );
+      } else {
+        dev.log('stopRecording ignored — not recording', name: 'AudioService');
+      }
       return null;
     }
 
