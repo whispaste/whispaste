@@ -17,6 +17,20 @@ DRIFTSH="$ROOT/scripts/docs-drift.sh"
 REMOTE="${1:-}"
 ZERO="0000000000000000000000000000000000000000"
 
+# Git liefert die Ref-Update-Zeilen (<local ref> <local sha1> <remote ref>
+# <remote sha1>) EINMALIG über stdin (nicht-seekbare Pipe). Alle Abschnitte
+# unten brauchen dieselben Zeilen -- EINMAL vollständig einlesen und danach
+# per Array wiederverwenden. Ein zweites `while read` direkt von stdin bekäme
+# sofort EOF (0 Zeilen), seine Prüfung liefe seither leise ins Leere, ohne
+# Fehlermeldung -- exakt der Bug, der hier bis 2026-08-14 unbemerkt Abschnitt
+# 2 (Force-push-auf-main-Schutz), 3 (Secret-/Bot-/AI-Trailer-Scan der
+# Push-Range) und 6 (docs-drift) wirkungslos gemacht hat.
+REF_LINES=()
+while IFS= read -r _refline; do
+  [ -z "$_refline" ] && continue
+  REF_LINES+=("$_refline")
+done
+
 # Two-Path-Sync Advisory (Lektion aus 1.2.43: Store submitted, Tag vergessen
 # → Website/Downloads/Sentry asynchron). Advisory-only, nie blockierend.
 # Der Hook sieht nur die git-Seite; die Store-Submission läuft außerhalb und
@@ -72,7 +86,8 @@ EOF
     exit 1
   }
 
-  while read -r local_ref local_sha remote_ref remote_sha; do
+  for _refline in "${REF_LINES[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<<"$_refline" || true
     [ "$local_sha" = "$ZERO" ] && continue
 
     if [ "$remote_sha" != "$ZERO" ]; then
@@ -108,12 +123,13 @@ EOF
 fi
 
 # ── 2. Force-push auf main blockiert ───────────────────────────────────
-while read -r _lr local_sha rref remote_sha; do
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
   [ "$local_sha" = "$ZERO" ] && continue
   branch="${rref#refs/heads/}"
   if [ "$branch" = "main" ] && [ "$remote_sha" != "$ZERO" ]; then
     if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
-      if [ "$WP_ALLOW_FORCE_MAIN" != "1" ]; then
+      if [ "${WP_ALLOW_FORCE_MAIN:-}" != "1" ]; then
         cat >&2 <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗
@@ -136,8 +152,17 @@ SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-
 AI_TRAILER_RE='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium|opencode)'
 BOT_RE='(co-?pilot|anthropic|claude|opencode|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com|noreply@github\.com)'
 
-while read -r _lr local_sha rref remote_sha; do
+# beta-appcast-pointer ist eine reine CI-verwaltete Orphan-Branch (appcast-beta.xml,
+# force-gepusht von release.yml/publish_beta_fallback.sh) -- deren Commits sind
+# IMMER github-actions[bot]-authored. Der Bot-Author-Check unten ist für
+# menschliche/Agent-Commits auf dev/main gedacht; ein manueller Recovery-Push dieser
+# Branch (z. B. nach versehentlichem Löschen) würde sonst am eigenen Zweck der
+# Branch scheitern. Secret-Scan/.gitignore-PROTECTED/AI-Trailer-Check bleiben aktiv.
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
   [ "$local_sha" = "$ZERO" ] && continue
+  is_appcast_pointer=0
+  [ "$rref" = "refs/heads/beta-appcast-pointer" ] && is_appcast_pointer=1
 
   [ "$remote_sha" != "$ZERO" ] \
     && range="${remote_sha}..${local_sha}" \
@@ -203,6 +228,7 @@ EOF
     fi
 
     # Bot author/committer
+    [ "$is_appcast_pointer" = "1" ] && continue
     ident=$(git log -1 --format='%an <%ae>%n%cn <%ce>' "$commit" 2>/dev/null || true)
     if echo "$ident" | grep -qiE "$BOT_RE"; then
       cat >&2 <<EOF
@@ -233,9 +259,18 @@ EOF
 
   attested="$(bash "$ATTESTSH" attested)"
   pushed_any=0
-  while read -r _lr local_sha _rr _rs; do
+  saw_appcast_pointer=0
+  for _refline in "${REF_LINES[@]}"; do
+    read -r _lr local_sha _rr _rs <<<"$_refline" || true
     [ -z "${local_sha:-}" ] && continue
     [ "$local_sha" = "$ZERO" ] && continue
+    # beta-appcast-pointer trägt nur appcast-beta.xml (kein README/CHANGELOG/
+    # Website) -- ihre SHA kann nie mit dem attestierten dev-Stand übereinstimmen,
+    # das ist kein Docs-Drift-Signal für diese Branch (siehe Abschnitt 3 oben).
+    if [ "$_rr" = "refs/heads/beta-appcast-pointer" ]; then
+      saw_appcast_pointer=1
+      continue
+    fi
     pushed_any=1
     cs="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
     [ "$cs" = "$attested" ] || {
@@ -253,7 +288,9 @@ EOF
       exit 1
     }
   done
-  if [ "$pushed_any" -eq 0 ]; then
+  if [ "$pushed_any" -eq 0 ] && [ "$saw_appcast_pointer" -eq 1 ]; then
+    : # ausschließlich beta-appcast-pointer im Push -- HEAD-Fallback unten übersprungen
+  elif [ "$pushed_any" -eq 0 ]; then
     head="$(git rev-parse HEAD)"
     [ "$head" = "$attested" ] || {
       cat >&2 <<EOF
@@ -410,7 +447,8 @@ fi
 
 # ── 6. Advisory: docs-drift (weich, NIE blockierend) ────────────────────
 run_drift=0
-while read -r _lr _ls rref _rs; do
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _ls rref _rs <<<"$_refline" || true
   case "$rref" in refs/heads/main|refs/heads/master|refs/tags/v*) run_drift=1 ;; esac
 done
 if [ "$run_drift" = 1 ] && [ "${WHISPASTE_SKIP_DRIFT:-}" != 1 ] \
