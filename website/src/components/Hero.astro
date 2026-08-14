@@ -16,10 +16,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
 <!-- Hero Section -->
 <section
-  class="relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
+  class="wp-parallax-scope relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
 >
   <!-- W-wave background (exact brand logo: wave + audio bars) -->
-  <div class="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+  <div class="wp-parallax-layer absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
     <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
@@ -53,7 +53,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       </div>
 
       <h1
-        class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
+        class="wp-kinetic-line hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
       >
         <span data-i18n="hero.title1">{t(lang, "hero.title1")}</span><br />
         <span class="hero-gradient" data-i18n="hero.title2"
