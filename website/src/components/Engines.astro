@@ -118,7 +118,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   }
   .feature-card:hover {
     background: linear-gradient(135deg, rgba(29, 37, 56, 0.7) 0%, rgba(56, 217, 240, 0.03) 100%);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-card-hover);
     transform: translateY(-3px);
   }
   .feature-card::after {
@@ -136,7 +136,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     opacity: 1;
   }
   :global(.light) .feature-card:hover {
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    box-shadow: var(--shadow-card-hover);
   }
   /* Der bright-cyan Hover-Sheen (56,217,240) verschwindet auf Weiß —
      Light bekommt dieselbe Lichtkante im tiefen Light-Akzent. */

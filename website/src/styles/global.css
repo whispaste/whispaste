@@ -154,6 +154,48 @@
   --radius-control: 10px;
   --radius-card: 14px;
   --radius-surface: 20px;
+
+  /* ---- Schatten-Leiter ----
+     Vorher lagen 81 box-shadow-Deklarationen verstreut in den Komponenten,
+     davon allein 24 als drei byte-identische Kopien in StoreButton /
+     AppleButton / LinuxButton. Weil Astro-scoped <style>-Blöcke per
+     [data-astro-cid-*] jede globale Regel schlagen, lässt sich das nicht
+     zentral „überschreiben" — jede Deklaration muss einzeln auf das Token
+     zeigen. Der Gewinn liegt trotzdem hier: html.light definiert dieselben
+     Namen neu, dadurch entfallen die Light-Duplikate in den Komponenten
+     ersatzlos, statt in drei Dateien parallel gepflegt zu werden.
+
+     card / card-hover   Kartenflächen und ihr Hover-Lift
+     overlay             schwebende Chrome über der Seite (Nav-Pille, Menü)
+     pill / pill-active  sekundäre Buttons
+     cta / cta-hover     der primäre Button — Marken-Glow statt Schwarz */
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 10px 30px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.3);
+  --shadow-pill: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-pill-active: 0 1px 4px rgba(0, 0, 0, 0.2);
+  --shadow-cta: 0 4px 20px -6px rgba(56, 217, 240, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-cta-hover: 0 10px 28px -6px rgba(56, 217, 240, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Light-Varianten: kühler (Schlagschatten auf Slate statt reinem Schwarz) und
+   deutlich weniger opak — reines Schwarz mit Dark-Opazität liest auf hellem
+   Grund als Schmutzrand. Gleiche Namen, damit jede Komponente genau eine
+   Deklaration braucht. */
+html.light {
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-card-hover: 0 10px 30px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-overlay: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --shadow-pill: 0 4px 12px rgba(15, 23, 42, 0.1), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-pill-active: 0 1px 4px rgba(15, 23, 42, 0.08);
+  --shadow-cta: 0 4px 18px -6px rgba(10, 110, 148, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-cta-hover: 0 10px 24px -6px rgba(10, 110, 148, 0.44),
+    0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 /* ---------------------------------------------------------------------------
@@ -654,8 +696,6 @@ html.light .hero-gradient {
 }
 html.light .bg-brand-darker\/80, html.light .bg-brand-darker\/60, html.light .bg-brand-darker\/40 { background: rgba(241,245,249,0.55) !important; }
 html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
-html.light .shadow-black\/50 { box-shadow: 0 25px 50px rgba(0,0,0,0.1) !important; }
-html.light .shadow-brand-cyan\/\[0\.05\] { box-shadow: 0 4px 12px rgba(10,110,148,0.14) !important; }
 html.light .bg-brand-card\/60 { background: rgba(255,255,255,0.8) !important; }
 html.light .bg-brand-cyan\/10 { background: rgba(10,110,148,0.14) !important; }
 html.light .bg-brand-cyan\/\[0\.04\] { background: rgba(10,110,148,0.07) !important; }
@@ -664,7 +704,10 @@ html.light .hover\:border-white\/20:hover { border-color: #CBD5E1 !important; }
 
 /* ---- Feature cards (light theme) ---- */
 html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-color: #D3DEE9 !important; }
-html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; }
+/* Kein box-shadow mehr hier: der !important-Wert schlug den Hover-Schatten,
+   den Engines.astro fuer dieselbe Karte definiert — der dortige Wert rendete
+   nie. Der Light-Schatten kommt jetzt ueber --shadow-card-hover. */
+html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; }
 
 /* ---- Hero carousel global styles ---- */
 /* Dynamic elements created by JS need global scope */
@@ -846,11 +889,11 @@ html.light .sponsor-card:hover {
 .download-card,
 .release-card,
 .sponsor-card {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-card);
 }
 .feature-card:hover,
 .pricing-card:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-card-hover);
 }
 
 /* Border radius: Flutter uses 14px (WpRadius.lg) for cards.

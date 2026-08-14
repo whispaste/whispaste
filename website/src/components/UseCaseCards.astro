@@ -113,7 +113,7 @@ const workflows = [
   .use-case-card:hover {
     border-color: rgba(56, 217, 240, 0.3);
     transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-card-hover);
   }
 
   .use-case-card:hover::after {
@@ -184,12 +184,12 @@ const workflows = [
   :root.light .use-case-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.6) 100%);
     border-color: rgba(0, 0, 0, 0.08);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-card);
   }
 
   :root.light .use-case-card:hover {
     border-color: rgba(10, 110, 148, 0.45);
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    box-shadow: var(--shadow-card-hover);
   }
   /* Hover-Lichtkante in Light im tiefen Akzent statt unsichtbarem Bright-Cyan. */
   :root.light .use-case-card::after {
