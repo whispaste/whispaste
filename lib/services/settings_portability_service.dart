@@ -179,6 +179,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'stt_idle_timeout_minutes',
   'stt_language',
   'stt_model',
+  'stt_numeric_only_mode',
   'stt_provider',
   'stt_punctuation_priming',
   'stt_strip_punctuation',

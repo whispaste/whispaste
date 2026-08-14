@@ -254,7 +254,20 @@ jobs:
       # 0.1.14 fixes an a11y-interactive-semantics false positive on
       # call-sites that pass label/semanticLabel/tooltip through to an
       # already-excluded Flutter class (e.g. WpButton → ElevatedButton).
+      # Advisory-only on pull_request: baseline.json matches findings by
+      # file+line, so a PR that inserts/removes lines anywhere above an
+      # already-frozen finding in the same file (e.g. one half of a
+      # code-duplicates pair) shifts that finding to a new line number —
+      # loam then counts it as "neu" (and the old line as "gefixt"), even
+      # though nothing actually regressed. Investigated 2026-08-14: this was
+      # the reason near-daily bot/contributor PRs failed CI on unrelated
+      # files. `push` stays hard-blocking because every dev/main commit
+      # already ran this same gate locally via `scripts/docs-attest.sh
+      # attest` before being pushed (baseline.json is always in sync there);
+      # PRs have no equivalent local step to fix a false positive before CI
+      # runs.
       - name: Loam ratchet gate (a11y + slop + duplicates + exports + complexity + cycles)
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
           dart pub global activate loam 0.1.14
           export PATH="$PATH:$HOME/.pub-cache/bin"
