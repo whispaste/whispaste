@@ -23,7 +23,13 @@ final trashNotesProvider = StreamProvider<List<Note>>((ref) {
 });
 
 /// Live stream of tags linked to a single note, alphabetically sorted.
-final noteTagsProvider = StreamProvider.family<List<Tag>, String>((
+///
+/// `autoDispose` — without it, every note ever selected during a session
+/// leaves its Drift stream subscription running forever (only the current
+/// selection's tags are ever visible; watched from `notes_page.dart`'s
+/// build via `ref.watch`, never `ref.read`, so nothing needs the provider
+/// to outlive its last watcher).
+final noteTagsProvider = StreamProvider.autoDispose.family<List<Tag>, String>((
   ref,
   noteId,
 ) {
