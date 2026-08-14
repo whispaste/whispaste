@@ -2,6 +2,7 @@
 import StoreButton from './StoreButton.astro';
 import AppleButton from './AppleButton.astro';
 import LinuxButton from './LinuxButton.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -32,7 +33,7 @@ const features = [
   </div>
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="pricing.label">{t(lang, "pricing.label")}</p>
+      <SectionEyebrow key="pricing.label" />
       <h2 class="section-title headline-serif"><span data-i18n="pricing.titleLead">{t(lang, "pricing.titleLead")}</span><span class="text-gradient-brand" data-i18n="pricing.titleAccent">{t(lang, "pricing.titleAccent")}</span><span data-i18n="pricing.titleTail">{t(lang, "pricing.titleTail")}</span></h2>
       <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">{t(lang, "pricing.desc")}</p>
     </div>
@@ -42,7 +43,10 @@ const features = [
          damit auf 14px, während das Gradient-Overlay auf rounded-3xl (24px)
          stand — das Overlay erreichte die echten Kartenecken nie. Die Karte
          nimmt jetzt den Token-Radius aus global.css, das Overlay erbt ihn. -->
-    <div class="pricing-card relative p-8 sm:p-10 border border-brand-cyan/20 scroll-reveal">
+    <!-- `hud-frame`: HUD-Eckwinkel (global.css) — die Preis-Karte ist die
+         primäre Handlungsfläche der Startseite und trägt deshalb als einzige
+         Karte hier die Klammer-Signatur. -->
+    <div class="pricing-card hud-frame relative p-8 sm:p-10 border border-brand-cyan/20 scroll-reveal">
       <div class="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-brand-cyan/[0.04] to-transparent pointer-events-none"></div>
       <div class="relative">
         <div class="text-center mb-8">

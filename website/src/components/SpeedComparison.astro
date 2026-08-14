@@ -8,6 +8,7 @@
  * Zahlen sind ehrliche, breit belegte Durchschnittswerte (Tippen ~40 WpM,
  * flüssiges Sprechen ~150 WpM) und als „~" + Caption als Durchschnitt markiert.
  */
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -38,8 +39,7 @@ const waveBars = `
 <section id="speed" class="band band-raised py-24 sm:py-32 relative scroll-mt-20 scroll-reveal">
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
-         data-i18n="speed.label">{t(lang, 'speed.label')}</p>
+      <SectionEyebrow key="speed.label" />
       <h2 class="section-title">
         <span data-i18n="speed.titleLead">{t(lang, 'speed.titleLead')}</span><!--
         --><span class="text-gradient-brand" data-i18n="speed.titleAccent">{t(lang, 'speed.titleAccent')}</span><!--

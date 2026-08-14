@@ -986,3 +986,123 @@ html.light {
     opacity: 0;
   }
 }
+
+/* ===========================================================================
+   M9 — „Glamour Terminal": die Klammer-Sprache
+   ---------------------------------------------------------------------------
+   Ein einziges Motiv, nicht fünf: die eckige Klammer als TUI-Signatur. Sie
+   erscheint an genau drei Orten, jeder davon eine Beschriftung oder eine
+   Entscheidungsfläche — nie als Flächenschmuck:
+
+     1. `.wp-eyebrow`   — das Sektions-Label als Terminal-Tag `[ PREIS ]`
+     2. `.hud-frame`    — dieselbe Klammer als Eckwinkel um die primären
+                          Handlungsflächen (Pricing-Karte, OS-Download-Karten)
+     3. `.pkg-copy-btn` — die Copy-Schaltfläche neben den Shell-Befehlen
+                          (Styling in download.astro, Utility von hier)
+
+   Bewusst NICHT umgesetzt (Auftrag: „lieber wenige, präzise Details"):
+   - Kein zweiter Cursor. `.typing-cursor` (HeroCarousel) blinkt bereits im
+     ersten Viewport neben der H1; ein zweiter Caret dort wäre Eskalation
+     statt Motiv. Das Blinken bleibt exklusiv bei der Tipp-Demo.
+   - Keine Tick-/Lineal-Marken an den Bandkanten. Die träfen vier und mehr
+     Sektionen pro Seite und wären damit ein neues Rasterprinzip über die
+     ganze Seite — genau das, was der Auftrag ausschließt.
+   =========================================================================== */
+
+:root {
+  /* Kein neuer Akzent: derselbe Cyan-Marken-Token, nur heruntergemischt. */
+  --wp-bracket: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+}
+html.light {
+  /* Wie beim Karten-Ring: das gemischte Cyan verschwindet auf hellem Grund,
+     hier greift derselbe dunklere Light-Akzent wie in `--wp-card-ring`. */
+  --wp-bracket: rgba(10, 110, 148, 0.55);
+}
+
+/* --- Utility: eckige Klammern um den Inhalt eines Elements ---------------- */
+.wp-bracketed::before,
+.wp-bracketed::after {
+  color: var(--wp-bracket);
+  font-weight: 500;
+}
+.wp-bracketed::before {
+  content: "[";
+  margin-right: var(--wp-bracket-gap, 0.5em);
+}
+.wp-bracketed::after {
+  content: "]";
+  margin-left: var(--wp-bracket-gap, 0.5em);
+}
+/* Rein dekorative Glyphen aus der Screenreader-Ausgabe nehmen, wo der Browser
+   die Alt-Text-Form von `content` kennt. Ohne `@supports` würde die ganze
+   Deklaration in älteren Engines ungültig und die Klammer verschwände; die
+   Klammer allein wird in der Standard-Interpunktionsstufe ohnehin nicht
+   vorgelesen, der Fallback ist also unkritisch. */
+@supports (content: "x" / "") {
+  .wp-bracketed::before {
+    content: "[" / "";
+  }
+  .wp-bracketed::after {
+    content: "]" / "";
+  }
+}
+
+/* --- Sektions-Eyebrow ----------------------------------------------------- */
+/* Vorher zehnmal identisch als Utility-Kette im Markup
+   (`text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3`),
+   jetzt eine Klasse hinter `SectionEyebrow.astro`. Mono + weiteres Tracking
+   ist der eigentliche Terminal-Zug: der Kicker liest sich als Tag, die
+   Serif-/Grotesk-Headline darunter behält ihre Stimme unverändert. */
+.wp-eyebrow {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-brand-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- HUD-Eckwinkel -------------------------------------------------------- */
+/* Vier Winkel aus je zwei 1px-Segmenten, in der Polsterzone der Karte — kein
+   zweiter Rahmen, sondern ein Anschnitt, der die Ecken markiert. Liegt auf
+   `::after`; `::before` gehört dem atmenden Karten-Ring aus M2, beide stören
+   sich nicht (Ring auf der Kante, Winkel innen).
+   Feedback läuft nur über `opacity` — dieselbe Compositor-Disziplin wie beim
+   Ring, kein Layout-/Paint-Anfall beim Hover. */
+.hud-frame {
+  position: relative;
+}
+.hud-frame::after {
+  --hud-arm: 12px;
+  --hud-line: linear-gradient(var(--wp-bracket), var(--wp-bracket));
+  content: "";
+  position: absolute;
+  inset: 9px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity var(--dur-base) var(--ease-flow);
+  background-image: var(--hud-line), var(--hud-line), var(--hud-line),
+    var(--hud-line), var(--hud-line), var(--hud-line), var(--hud-line),
+    var(--hud-line);
+  background-repeat: no-repeat;
+  background-size: var(--hud-arm) 1px, 1px var(--hud-arm), var(--hud-arm) 1px,
+    1px var(--hud-arm), var(--hud-arm) 1px, 1px var(--hud-arm),
+    var(--hud-arm) 1px, 1px var(--hud-arm);
+  background-position: left top, left top, right top, right top, left bottom,
+    left bottom, right bottom, right bottom;
+}
+/* `:focus-within` bewusst gleichrangig zum Hover: die Karten tragen die
+   Download-/Kauf-CTAs, per Tastatur soll dieselbe Fläche antworten. */
+.hud-frame:hover::after,
+.hud-frame:focus-within::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-frame::after {
+    transition: none;
+  }
+}

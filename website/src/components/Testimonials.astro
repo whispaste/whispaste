@@ -1,4 +1,5 @@
 ---
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -57,7 +58,7 @@ function escapeHtml(s: string): string {
   <section id="testimonials" class="band band-spotlight py-24 sm:py-32 relative scroll-mt-20">
     <div class="max-w-5xl mx-auto px-6">
       <div class="text-center mb-12 scroll-reveal">
-        <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="testimonials.label">{t(lang, "testimonials.label")}</p>
+        <SectionEyebrow key="testimonials.label" />
         <h2 class="section-title"><span data-i18n="testimonials.titleLead">{t(lang, "testimonials.titleLead")}</span><span class="text-gradient-brand" data-i18n="testimonials.titleAccent">{t(lang, "testimonials.titleAccent")}</span><span data-i18n="testimonials.titleTail">{t(lang, "testimonials.titleTail")}</span></h2>
         <p class="mt-4 text-ink-muted max-w-xl mx-auto" data-i18n="testimonials.subtitle">{t(lang, "testimonials.subtitle")}</p>
       </div>

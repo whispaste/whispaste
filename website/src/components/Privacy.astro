@@ -1,4 +1,5 @@
 ---
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -39,7 +40,7 @@ const cards = [
         />
       </div>
       <div class="text-center md:text-left">
-        <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="privacy.label">{t(lang, "privacy.label")}</p>
+        <SectionEyebrow key="privacy.label" />
         <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
         <p class="mt-4 text-ink-muted text-lg" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
       </div>

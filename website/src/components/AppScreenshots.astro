@@ -1,5 +1,6 @@
 ---
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -8,12 +9,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 <section id="app-screenshots" class="band band-deep relative py-20 sm:py-28 scroll-mt-20">
   <div class="relative max-w-6xl mx-auto px-6">
     <div class="max-w-2xl mx-auto text-center mb-10 scroll-reveal">
-      <p
-        class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
-        data-i18n="screenshots.label"
-      >
-        {t(lang, "screenshots.label")}
-      </p>
+      <SectionEyebrow key="screenshots.label" />
       <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="text-gradient-brand" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>
       <p class="mt-3 text-ink-muted text-base" data-i18n="screenshots.desc">
         {t(lang, "screenshots.desc")}

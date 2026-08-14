@@ -1,4 +1,5 @@
 ---
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -30,8 +31,7 @@ const workflows = [
 <section id="use-cases" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
   <div class="relative max-w-5xl mx-auto px-6">
     <div class="text-center mb-14 scroll-reveal">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
-         data-i18n="useCaseCards.label">{t(lang, 'useCaseCards.label')}</p>
+      <SectionEyebrow key="useCaseCards.label" />
       <h2 class="section-title">
         <span data-i18n="useCaseCards.titleLead">{t(lang, 'useCaseCards.titleLead')}</span><!--
         --><span class="text-gradient-brand" data-i18n="useCaseCards.titleAccent">{t(lang, 'useCaseCards.titleAccent')}</span><!--

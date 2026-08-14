@@ -1,4 +1,5 @@
 ---
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -36,10 +37,7 @@ const appCloudIcons = [
 
     <!-- Section header -->
     <div class="text-center mb-14">
-      <p
-        class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
-        data-i18n="appdemo.label"
-      >{t(lang, 'appdemo.label')}</p>
+      <SectionEyebrow key="appdemo.label" />
       <h2 class="section-title">
         <span data-i18n="appdemo.titleLead">{t(lang, 'appdemo.titleLead')}</span><span
           class="text-gradient-brand"

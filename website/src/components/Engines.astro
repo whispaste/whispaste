@@ -13,6 +13,7 @@
  * the light-mode remap in `global.css` `.feature-card` still applies here
  * for free.
  */
+import SectionEyebrow from './SectionEyebrow.astro';
 import { t, localePath } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -25,7 +26,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 <section id="engines" class="band band-spotlight py-24 sm:py-32 relative scroll-mt-20">
   <div class="relative max-w-4xl mx-auto px-6">
     <div class="text-center mb-14 scroll-reveal">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="engines.label">{t(lang, "engines.label")}</p>
+      <SectionEyebrow key="engines.label" />
       <h2 class="section-title">{t(lang, "engines.title")}</h2>
       <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
     </div>
@@ -41,15 +42,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <dl class="engine-stats">
           <div class="engine-stat">
             <dt data-i18n="engines.whisper.stat.languages.label">{t(lang, "engines.whisper.stat.languages.label")}</dt>
-            <dd data-i18n="engines.whisper.stat.languages.value">{t(lang, "engines.whisper.stat.languages.value")}</dd>
+            <dd class="wp-nums" data-i18n="engines.whisper.stat.languages.value">{t(lang, "engines.whisper.stat.languages.value")}</dd>
           </div>
           <div class="engine-stat">
             <dt data-i18n="engines.whisper.stat.hardware.label">{t(lang, "engines.whisper.stat.hardware.label")}</dt>
-            <dd data-i18n="engines.whisper.stat.hardware.value">{t(lang, "engines.whisper.stat.hardware.value")}</dd>
+            <dd class="wp-nums" data-i18n="engines.whisper.stat.hardware.value">{t(lang, "engines.whisper.stat.hardware.value")}</dd>
           </div>
           <div class="engine-stat">
             <dt data-i18n="engines.whisper.stat.bestfor.label">{t(lang, "engines.whisper.stat.bestfor.label")}</dt>
-            <dd data-i18n="engines.whisper.stat.bestfor.value">{t(lang, "engines.whisper.stat.bestfor.value")}</dd>
+            <dd class="wp-nums" data-i18n="engines.whisper.stat.bestfor.value">{t(lang, "engines.whisper.stat.bestfor.value")}</dd>
           </div>
         </dl>
         <p class="text-ink-muted text-sm leading-relaxed" data-i18n="engines.whisper.desc">{t(lang, "engines.whisper.desc")}</p>
@@ -65,15 +66,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <dl class="engine-stats">
           <div class="engine-stat">
             <dt data-i18n="engines.parakeet.stat.languages.label">{t(lang, "engines.parakeet.stat.languages.label")}</dt>
-            <dd data-i18n="engines.parakeet.stat.languages.value">{t(lang, "engines.parakeet.stat.languages.value")}</dd>
+            <dd class="wp-nums" data-i18n="engines.parakeet.stat.languages.value">{t(lang, "engines.parakeet.stat.languages.value")}</dd>
           </div>
           <div class="engine-stat">
             <dt data-i18n="engines.parakeet.stat.hardware.label">{t(lang, "engines.parakeet.stat.hardware.label")}</dt>
-            <dd data-i18n="engines.parakeet.stat.hardware.value">{t(lang, "engines.parakeet.stat.hardware.value")}</dd>
+            <dd class="wp-nums" data-i18n="engines.parakeet.stat.hardware.value">{t(lang, "engines.parakeet.stat.hardware.value")}</dd>
           </div>
           <div class="engine-stat">
             <dt data-i18n="engines.parakeet.stat.speed.label">{t(lang, "engines.parakeet.stat.speed.label")}</dt>
-            <dd data-i18n="engines.parakeet.stat.speed.value">{t(lang, "engines.parakeet.stat.speed.value")}</dd>
+            <dd class="wp-nums" data-i18n="engines.parakeet.stat.speed.value">{t(lang, "engines.parakeet.stat.speed.value")}</dd>
           </div>
         </dl>
         <p class="text-ink-muted text-sm leading-relaxed" data-i18n="engines.parakeet.desc">{t(lang, "engines.parakeet.desc")}</p>

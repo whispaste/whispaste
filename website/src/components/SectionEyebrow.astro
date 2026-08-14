@@ -1,0 +1,28 @@
+---
+/**
+ * `SectionEyebrow.astro` — das Kicker-Label über jeder Sektions-Headline.
+ *
+ * Ersetzt zehn wortgleiche Kopien desselben Markups (`AppScreenshots`,
+ * `AppPasteDemo`, `SpeedComparison`, `UseCaseCards`, `Languages`, `FAQ`,
+ * `Privacy`, `Pricing`, `Engines`, `Testimonials`). Die Gestaltung sitzt in
+ * `.wp-eyebrow` / `.wp-bracketed` (global.css), nicht hier — so bleibt der
+ * Terminal-Look an genau einer Stelle definiert.
+ *
+ * Die eckigen Klammern sind CSS-Pseudo-Elemente und bewusst kein Markup-Text:
+ * der i18n-Runtime-Switch setzt `el.textContent` (i18n.ts) und würde jedes
+ * literale Zeichen beim Sprachwechsel wegwerfen.
+ */
+import { t } from '../scripts/i18n.ts';
+
+interface Props {
+  /** i18n-Key, z. B. `pricing.label`. Muss DE **und** EN haben. */
+  key: string;
+  /** Zusätzliche Utility-Klassen des Aufrufers (z. B. Layout-Overrides). */
+  class?: string;
+}
+
+const { key, class: className = '' } = Astro.props;
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+---
+
+<p class:list={['wp-eyebrow', 'wp-bracketed', className]} data-i18n={key}>{t(lang, key)}</p>
