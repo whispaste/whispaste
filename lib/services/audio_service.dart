@@ -181,150 +181,172 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     }
 
     _startStopArbiter.beginStart();
-
-    // Lazily create a recorder instance.
-    _recorder ??= AudioRecorder();
-    final recorder = _recorder!;
-
-    // Check / request microphone permission.
-    final hasPermission = await recorder.hasPermission();
-    if (!hasPermission) {
-      _startStopArbiter.endStart();
-      state = const AudioStatus(
-        captureState: AudioCaptureState.error,
-        errorMessage: 'mic_permission_denied',
-      );
-      return;
-    }
-
-    // ── Resolve selected microphone from settings ──────────────────────
-    final settings = ref.read(settingsProvider).value;
-    final micLabel = settings?.microphone ?? 'Default';
-    // Snapshot the gain at start — mid-recording slider changes do not
-    // affect the in-flight recording. Threshold against `1.0` is exact:
-    // the slider produces discrete 5 %-step values so tolerant float
-    // comparison is unnecessary.
-    final inputGain = settings?.audioInput.inputGain ?? 1.0;
-    final useUserGain = inputGain != 1.0;
-
-    final selectedDevice = await _resolveInputDevice(recorder, micLabel);
-
-    final libraryAutoGain = !useUserGain;
-
-    // Generate a temp file path for the WAV. Directory.systemTemp (not
-    // path_provider's getTemporaryDirectory) deliberately — the latter's
-    // macOS backend resolves via package:objective_c FFI bindings to
-    // Foundation, which can lose a symbol-resolution race
-    // (OBJC_CLASS_$_NSArray dlsym failure) when called from a fire-and-forget
-    // Future this early in startup (see cleanupStaleFiles below, the actual
-    // first-observed crash site). Directory.systemTemp is pure dart:io and
-    // resolves to the same per-user temp dir on macOS (TMPDIR).
-    final tempDir = Directory.systemTemp;
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final wavPath = p.join(tempDir.path, 'whispaste_$timestamp.wav');
-
-    // macOS workaround: AVAudioEngine ignores `setDeviceID()` for non-default
-    // devices, so the `device:` field in RecordConfig is silently dropped.
-    // Flip the system default to the chosen device for the recording's
-    // lifetime; restore in stop/error paths. `_originalDefaultInputUid` is
-    // also our "active override" flag.
-    await _applyInputRoutingOverride(selectedDevice);
-
-    _log.info(
-      'Start recording → $wavPath | '
-      'Mic: ${selectedDevice?.label ?? "System Default"} '
-      '(setting: "$micLabel"'
-      '${selectedDevice != null ? ', id: ${selectedDevice.id}' : ''})'
-      ' | inputGain: $inputGain (autoGain=$libraryAutoGain)',
-    );
-
-    // Reset clipping bookkeeping for this recording and instantiate the
-    // user-gain processor only when the slider is off the default.
-    _lastRecordingClippedSamples = 0;
-    _gainProcessor = useUserGain ? PcmGainProcessor(gain: inputGain) : null;
-
-    // Prepare amplitude stream and PCM-side helpers.
-    final amplitudeFromPcm = _initAmplitudeStream();
-
-    // Open the WAV writer up-front so the file exists from t=0.
-    FilePcmSink? pcmSink;
-    WavFileWriter? wavWriter;
-    Stream<Uint8List> pcmStream;
+    // The setup below has no bounded duration — it can be suspended for
+    // arbitrarily long by main-isolate contention elsewhere (observed: an
+    // STT engine warmup starving this continuation for 6+ seconds). A stop
+    // can legitimately land anywhere in that window, including inside an
+    // `await` that then throws. `finally` is the only exit that is
+    // guaranteed to run on every one of those paths — pairing `beginStart()`
+    // with scattered `endStart()` calls at each early return left the ones
+    // reachable by an *unhandled* throw (e.g. `hasPermission()` itself
+    // throwing) able to leak `_startInProgress = true` forever, wedging every
+    // later `stopRecording()` onto the arbiter's race-detection branch.
+    var startedOk = false;
+    var needsAbort = false;
+    String? wavPath;
     try {
-      pcmSink = await FilePcmSink.open(wavPath);
-      wavWriter = WavFileWriter(
-        sink: pcmSink,
-        sampleRate: 16000,
-        channels: 1,
-        bitsPerSample: 16,
-      );
-      _wavWriter = wavWriter;
-      pcmStream = await recorder.startStream(
-        _whisperConfig(device: selectedDevice, autoGain: libraryAutoGain),
-      );
-    } on Exception catch (e) {
-      dev.log('startStream failed: $e', name: 'AudioService');
-      await _ampSub?.cancel();
-      _ampSub = null;
-      await _amplitudeFromPcm?.dispose();
-      _amplitudeFromPcm = null;
-      try {
-        await wavWriter?.close();
-      } on Exception catch (closeErr) {
-        dev.log(
-          'Closing partial WAV after start error failed: $closeErr',
-          name: 'AudioService',
+      // Lazily create a recorder instance.
+      _recorder ??= AudioRecorder();
+      final recorder = _recorder!;
+
+      // Check / request microphone permission.
+      final hasPermission = await recorder.hasPermission();
+      if (!hasPermission) {
+        state = const AudioStatus(
+          captureState: AudioCaptureState.error,
+          errorMessage: 'mic_permission_denied',
         );
+        return;
       }
-      _wavWriter = null;
-      _gainProcessor = null;
-      await cleanupFile(wavPath);
-      _amplitudeController?.close();
-      _amplitudeController = null;
-      _startStopArbiter.endStart();
-      state = const AudioStatus(
-        captureState: AudioCaptureState.error,
-        errorMessage: 'recording_start_failed',
+
+      // ── Resolve selected microphone from settings ────────────────────
+      final settings = ref.read(settingsProvider).value;
+      final micLabel = settings?.microphone ?? 'Default';
+      // Snapshot the gain at start — mid-recording slider changes do not
+      // affect the in-flight recording. Threshold against `1.0` is exact:
+      // the slider produces discrete 5 %-step values so tolerant float
+      // comparison is unnecessary.
+      final inputGain = settings?.audioInput.inputGain ?? 1.0;
+      final useUserGain = inputGain != 1.0;
+
+      final selectedDevice = await _resolveInputDevice(recorder, micLabel);
+
+      final libraryAutoGain = !useUserGain;
+
+      // Generate a temp file path for the WAV. Directory.systemTemp (not
+      // path_provider's getTemporaryDirectory) deliberately — the latter's
+      // macOS backend resolves via package:objective_c FFI bindings to
+      // Foundation, which can lose a symbol-resolution race
+      // (OBJC_CLASS_$_NSArray dlsym failure) when called from a
+      // fire-and-forget Future this early in startup (see cleanupStaleFiles
+      // below, the actual first-observed crash site). Directory.systemTemp
+      // is pure dart:io and resolves to the same per-user temp dir on macOS
+      // (TMPDIR).
+      final tempDir = Directory.systemTemp;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      wavPath = p.join(tempDir.path, 'whispaste_$timestamp.wav');
+
+      // macOS workaround: AVAudioEngine ignores `setDeviceID()` for
+      // non-default devices, so the `device:` field in RecordConfig is
+      // silently dropped. Flip the system default to the chosen device for
+      // the recording's lifetime; restore in stop/error paths.
+      // `_originalDefaultInputUid` is also our "active override" flag.
+      await _applyInputRoutingOverride(selectedDevice);
+
+      _log.info(
+        'Start recording → $wavPath | '
+        'Mic: ${selectedDevice?.label ?? "System Default"} '
+        '(setting: "$micLabel"'
+        '${selectedDevice != null ? ', id: ${selectedDevice.id}' : ''})'
+        ' | inputGain: $inputGain (autoGain=$libraryAutoGain)',
       );
-      return;
+
+      // Reset clipping bookkeeping for this recording and instantiate the
+      // user-gain processor only when the slider is off the default.
+      _lastRecordingClippedSamples = 0;
+      _gainProcessor = useUserGain ? PcmGainProcessor(gain: inputGain) : null;
+
+      // Prepare amplitude stream and PCM-side helpers.
+      final amplitudeFromPcm = _initAmplitudeStream();
+
+      // Open the WAV writer up-front so the file exists from t=0.
+      FilePcmSink? pcmSink;
+      WavFileWriter? wavWriter;
+      Stream<Uint8List> pcmStream;
+      try {
+        pcmSink = await FilePcmSink.open(wavPath);
+        wavWriter = WavFileWriter(
+          sink: pcmSink,
+          sampleRate: 16000,
+          channels: 1,
+          bitsPerSample: 16,
+        );
+        _wavWriter = wavWriter;
+        pcmStream = await recorder.startStream(
+          _whisperConfig(device: selectedDevice, autoGain: libraryAutoGain),
+        );
+      } on Exception catch (e) {
+        dev.log('startStream failed: $e', name: 'AudioService');
+        await _ampSub?.cancel();
+        _ampSub = null;
+        await _amplitudeFromPcm?.dispose();
+        _amplitudeFromPcm = null;
+        try {
+          await wavWriter?.close();
+        } on Exception catch (closeErr) {
+          dev.log(
+            'Closing partial WAV after start error failed: $closeErr',
+            name: 'AudioService',
+          );
+        }
+        _wavWriter = null;
+        _gainProcessor = null;
+        await cleanupFile(wavPath);
+        _amplitudeController?.close();
+        _amplitudeController = null;
+        state = const AudioStatus(
+          captureState: AudioCaptureState.error,
+          errorMessage: 'recording_start_failed',
+        );
+        return;
+      }
+
+      // Fork the PCM stream into the dBFS calculator + the WAV writer. Any
+      // mid-recording stream error transitions to captureState=error and
+      // cleans up the partial WAV file. When the user has dialled an
+      // explicit gain, the chunk passes through [PcmGainProcessor] first so
+      // both downstream branches see the scaled samples.
+      final gainProcessor = _gainProcessor;
+      _pcmSub = pcmStream.listen(
+        (chunk) {
+          final scaled = gainProcessor == null
+              ? chunk
+              : gainProcessor.process(chunk);
+          amplitudeFromPcm.addChunk(scaled);
+          // Errors from the WAV writer are recoverable from the stream's
+          // POV (we just stop writing more samples) but should not crash
+          // the recording — they are surfaced in logs.
+          wavWriter!.writeChunk(scaled).catchError((Object e) {
+            dev.log('WAV writer chunk failure: $e', name: 'AudioService');
+          });
+        },
+        onError: (Object e) async {
+          dev.log('PCM stream error: $e', name: 'AudioService');
+          await _failActiveRecording(
+            errorMessage: 'pcm_stream_failed',
+            deleteWav: true,
+          );
+        },
+        onDone: () {
+          dev.log('PCM stream closed', name: 'AudioService');
+        },
+        cancelOnError: true,
+      );
+
+      startedOk = true;
+    } finally {
+      // Runs on every exit — normal completion, an early `return` above, or
+      // an unhandled throw (e.g. `hasPermission()` itself failing) — so
+      // `_startInProgress` can never leak `true` past this call. A scattered
+      // per-return-site `endStart()` would miss that throw path and wedge
+      // every later `stopRecording()` onto the arbiter's race branch.
+      needsAbort = _startStopArbiter.endStart() && startedOk;
     }
 
-    // Fork the PCM stream into the dBFS calculator + the WAV writer. Any
-    // mid-recording stream error transitions to captureState=error and
-    // cleans up the partial WAV file. When the user has dialled an
-    // explicit gain, the chunk passes through [PcmGainProcessor] first so
-    // both downstream branches see the scaled samples.
-    final gainProcessor = _gainProcessor;
-    _pcmSub = pcmStream.listen(
-      (chunk) {
-        final scaled = gainProcessor == null
-            ? chunk
-            : gainProcessor.process(chunk);
-        amplitudeFromPcm.addChunk(scaled);
-        // Errors from the WAV writer are recoverable from the stream's POV
-        // (we just stop writing more samples) but should not crash the
-        // recording — they are surfaced in logs.
-        wavWriter!.writeChunk(scaled).catchError((Object e) {
-          dev.log('WAV writer chunk failure: $e', name: 'AudioService');
-        });
-      },
-      onError: (Object e) async {
-        dev.log('PCM stream error: $e', name: 'AudioService');
-        await _failActiveRecording(
-          errorMessage: 'pcm_stream_failed',
-          deleteWav: true,
-        );
-      },
-      onDone: () {
-        dev.log('PCM stream closed', name: 'AudioService');
-      },
-      cancelOnError: true,
-    );
-
-    if (_startStopArbiter.endStart()) {
+    if (needsAbort) {
       // A stop arrived while we were still starting up — it was a no-op at
       // the time (nothing was recording yet per `state.isRecording`). Tear
-      // this capture down now instead of reporting it as active, which
+      // this capture down now instead of ever reporting it as active, which
       // would otherwise leave the mic running unsupervised until some
       // later, unrelated start/stop cycle happened to absorb it.
       dev.log(
@@ -335,10 +357,12 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       return;
     }
 
-    state = AudioStatus(
-      captureState: AudioCaptureState.recording,
-      filePath: wavPath,
-    );
+    if (startedOk) {
+      state = AudioStatus(
+        captureState: AudioCaptureState.recording,
+        filePath: wavPath,
+      );
+    }
   }
 
   /// Tears down a capture that just finished opening but was already
