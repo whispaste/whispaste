@@ -167,6 +167,8 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _ensureEntryTagIndexes();
       // Ensure indexes on notes/note_tags for fast sort/tag joins.
       await _ensureNotesIndexes();
+      // Ensure index on history_entries for fast active/trash/archive sort.
+      await _ensureHistoryEntriesIndexes();
       // One-time backfill: populate DailyStats from existing history
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
@@ -861,6 +863,33 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// guard directly against the already-open database.
   @visibleForTesting
   Future<void> ensureNotesIndexesForTesting() => _ensureNotesIndexes();
+
+  /// Creates an index on history_entries for fast active/trash/archive sort
+  /// (idempotent). `history_entries` is the app's largest and hottest table
+  /// — it backs the main history list ([watchEntries]), the trash and
+  /// archive lists ([watchTrash], [watchArchived]), and the per-save trim
+  /// logic ([trimToMaxEntries]), all of which previously ran as full table
+  /// scans. `(deleted_at, pinned, timestamp)` matches [watchEntries]'s
+  /// `WHERE deleted_at IS NULL … ORDER BY pinned DESC, timestamp DESC` and
+  /// [trimToMaxEntries]'s `WHERE deleted_at IS NULL AND pinned = false
+  /// ORDER BY timestamp DESC` exactly, and its leading `deleted_at` column
+  /// also serves [watchTrash]'s `WHERE deleted_at IS NOT NULL ORDER BY
+  /// deleted_at DESC`.
+  Future<void> _ensureHistoryEntriesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_history_entries_active_sort '
+        'ON history_entries(deleted_at, pinned, timestamp)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureHistoryEntriesIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Query helpers
