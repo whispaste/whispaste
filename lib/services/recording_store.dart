@@ -20,7 +20,6 @@ class RecordingInput {
     required this.wordCount,
     required this.processingDurationSec,
     this.insertHistoryEntry = true,
-    this.numericOnlyMode = false,
   });
 
   final String transcript;
@@ -29,14 +28,6 @@ class RecordingInput {
   final bool isLocal;
   final String languageCode;
   final bool applyTextReplacements;
-
-  /// Whether the transcript is reduced to digits-only (`toNumericOnly`)
-  /// after replacements are applied — must run after replacements (which
-  /// match on number *words*) but before the row is persisted, since the
-  /// history entry must store the already-transformed text (Zahlen-Modus
-  /// PRD §6.2 Option D1). That ordering constraint is why the transform
-  /// happens inside [RecordingStore.save] rather than by the caller.
-  final bool numericOnlyMode;
 
   /// False for a quick-note dictation: text replacements still apply (below)
   /// but no row is written to `history_entries` — a quick note lives only in

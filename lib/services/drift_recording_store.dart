@@ -4,7 +4,6 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/database.dart';
-import 'number_transforms.dart';
 import 'recording_store.dart';
 
 /// Turns a trigger phrase into a regex fragment that matches regardless of
@@ -80,17 +79,7 @@ class DriftRecordingStore implements RecordingStore {
       }
     }
 
-    // 2. Zahlen-Modus: digits-only transform, after replacements (which
-    // match on number words) but before the title/persist step below, so
-    // the persisted history entry already reflects it (D1). All-or-nothing
-    // — falls back to the replacement-applied text unchanged if the
-    // transcript isn't fully convertible.
-    if (input.numericOnlyMode) {
-      processedTranscript =
-          toNumericOnly(processedTranscript) ?? processedTranscript;
-    }
-
-    // 3. Derive title: trim, then cut at last word boundary within 60 chars.
+    // 2. Derive title: trim, then cut at last word boundary within 60 chars.
     final trimmed = processedTranscript.trim();
     final String title;
     if (trimmed.length <= 60) {
@@ -101,7 +90,7 @@ class DriftRecordingStore implements RecordingStore {
       title = lastSpace > 20 ? '${cut.substring(0, lastSpace)}…' : '$cut…';
     }
 
-    // 4. Save history entry. insertHistoryEntry (not upsertEntry) is the
+    // 3. Save history entry. insertHistoryEntry (not upsertEntry) is the
     // real creation path — it also draws this entry's decorative color slot
     // atomically with the insert (see database.dart). Skipped for a quick
     // note (input.insertHistoryEntry == false): it already lives in Notes
@@ -122,7 +111,7 @@ class DriftRecordingStore implements RecordingStore {
       );
     }
 
-    // 5. Record daily stat.
+    // 4. Record daily stat.
     await _db.recordDailyStat(
       timestamp: now,
       model: input.modelId,
@@ -133,7 +122,7 @@ class DriftRecordingStore implements RecordingStore {
       costUsd: 0,
     );
 
-    // 6. Trim to max entries (0 = unlimited). Skipped along with the insert
+    // 5. Trim to max entries (0 = unlimited). Skipped along with the insert
     // above — nothing was added to trim for.
     final trimmedCount = input.insertHistoryEntry && input.historyMaxEntries > 0
         ? await _db.trimToMaxEntries(input.historyMaxEntries)

@@ -878,8 +878,10 @@ void main() {
       expect(clipboardText, 'fünf Apfel');
     });
 
-    test('R7: the persisted history entry already contains the numeric-'
-        'transformed text, not the number-word raw text', () async {
+    test('R7: per PRD §6.2 Option D1, the persisted history entry keeps the '
+        'pre-transform (number-word) text — precedent-conform with how '
+        'stripPunctuation already diverges from the pasted/clipboard text, '
+        'no second DB write in the hotkey→text path', () async {
       await runCase(
         stt: const SttSettings(
           model: 'whisper-small',
@@ -889,8 +891,9 @@ void main() {
         transcript: 'fünf komma zwei minus drei',
       );
 
+      expect(clipboardText, '5,2-3');
       final entries = await db.allEntries();
-      expect(entries.first.content, '5,2-3');
+      expect(entries.first.content, 'fünf komma zwei minus drei');
     });
   });
 

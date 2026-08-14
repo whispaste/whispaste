@@ -44,6 +44,7 @@ import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
 import 'system_attention_service.dart';
+import 'number_transforms.dart';
 import 'text_transforms.dart';
 import 'tray_service.dart';
 import 'recording_store.dart';
@@ -936,6 +937,18 @@ class RecordingOrchestrator extends Notifier<void> {
         }
       }
 
+      // ── Zahlen-Modus (itn-cad-zahlen, digits-only transform) ────────
+      // Runs after the history-save block (and its text-replacement pass,
+      // so a trigger phrase that happens to contain a number word still
+      // fires) but before stripPunctuation (whose ambiguous-punctuation
+      // guard for a decimal separator only works once digits already
+      // exist). Precedent-conform with stripPunctuation (§6.2 Option D1,
+      // itn-cad-zahlen PRD): the history entry keeps the pre-transform
+      // text — no second DB write in this latency-critical path.
+      if (settings.stt.numericOnlyMode) {
+        finalText = toNumericOnly(finalText) ?? finalText;
+      }
+
       // ── Punctuation strip (always applied after text replacements) ──
       // Deterministic, engine-independent — runs regardless of which STT
       // engine/provider produced finalText. Placed after the history-save
@@ -1462,7 +1475,6 @@ class RecordingOrchestrator extends Notifier<void> {
           wordCount: wordCount,
           processingDurationSec: processingDurationSec,
           insertHistoryEntry: !isQuickNote,
-          numericOnlyMode: settings.stt.numericOnlyMode,
         ),
       );
 

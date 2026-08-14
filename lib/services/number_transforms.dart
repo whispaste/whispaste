@@ -146,6 +146,9 @@ final _digitsRegex = RegExp(r'^[0-9]+([.,-][0-9]+)*$');
 /// Nachbedingung: Ergebnis darf nur Zeichen aus dem Zielalphabet enthalten.
 final _numericOnlyRegex = RegExp(r'^[0-9.,-]+$');
 
+/// Tokenisierungs-Trenner (Stufe 1).
+final _whitespaceSplitRegex = RegExp(r'\s+');
+
 // ---------------------------------------------------------------------------
 // Klassifikation
 // ---------------------------------------------------------------------------
@@ -488,7 +491,7 @@ List<String>? _emit(List<_Token> tokens) {
 /// ```
 String? toNumericOnly(String text) {
   // Stufe 1: Tokenisieren.
-  final rawTokens = text.split(RegExp(r'\s+'));
+  final rawTokens = text.split(_whitespaceSplitRegex);
   final tokens = rawTokens.map(_cleanToken).where((t) => t.isNotEmpty).toList();
 
   if (tokens.isEmpty) return null;
