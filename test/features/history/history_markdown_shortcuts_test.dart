@@ -90,7 +90,7 @@ Future<void> _openTranscriptEditor(WidgetTester tester) async {
 
   // The read view of the transcript carries the "Edit transcript" tooltip and
   // opens edit mode on tap.
-  final readView = find.byTooltip(l10n.historyEditTranscript).first;
+  final readView = find.bySemanticsLabel(l10n.historyEditTranscript).first;
   await tester.ensureVisible(readView);
   await tester.pumpAndSettle();
   await tester.tap(readView, warnIfMissed: false);
