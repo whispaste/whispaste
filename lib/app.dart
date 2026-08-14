@@ -1051,9 +1051,6 @@ class _AppShellState extends ConsumerState<_AppShell>
         parakeetStatus == null && settings.interface_.showBackendUtilization
         ? _sttBackendKind(sttStatus.backend)
         : null;
-    final backendUtilizationPercent = ref
-        .watch(backendUtilizationProvider)
-        .cpuPercent;
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
@@ -1221,105 +1218,138 @@ class _AppShellState extends ConsumerState<_AppShell>
                               ],
                             ),
                           ),
-                          // Status bar — sits on the frame, full width
-                          WpStatusBar(
-                            sttModeLabel: statusBarModel.sttModeLabel,
-                            sttState: statusBarSttState,
-                            backendKind: sttBackendKind,
-                            backendUtilizationPercent:
-                                backendUtilizationPercent,
-                            // Parakeet has no starting-since timestamp (no
-                            // "warming up" phase to time) — the status bar
-                            // simply shows no elapsed-time hint for it.
-                            sttStartingSince: parakeetStatus != null
-                                ? null
-                                : sttStatus.startingSince,
-                            recordingPhase: recordingPhase,
-                            afterActionLabel: afterTranscriptionStatusLabel(
-                              resolvedAfterAction,
-                              l10n,
-                            ),
-                            afterAction: resolvedAfterAction,
-                            microphoneLabel: currentMic,
-                            microphoneOptions: micOptions,
-                            onMicrophoneChanged: (label) {
-                              unawaited(
-                                ref
-                                    .read(microphoneSelectionServiceProvider)
-                                    .select(label),
+                          // Status bar — sits on the frame, full width.
+                          //
+                          // `backendUtilizationPercent` alone is wrapped in a
+                          // `Consumer`: `backendUtilizationProvider` ticks
+                          // every ~3 s (see backend_utilization_notifier.dart),
+                          // and watching it directly in this method's `build`
+                          // would rebuild the entire app shell — nav rail,
+                          // active page, animations — on every tick for a
+                          // value only this one status-bar chip renders. The
+                          // `.select` narrows it further to just the field
+                          // this chip actually reads, so only this `Consumer`
+                          // rebuilds each tick.
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final backendUtilizationPercent = ref.watch(
+                                backendUtilizationProvider.select(
+                                  (s) => s.cpuPercent,
+                                ),
+                              );
+                              return WpStatusBar(
+                                sttModeLabel: statusBarModel.sttModeLabel,
+                                sttState: statusBarSttState,
+                                backendKind: sttBackendKind,
+                                backendUtilizationPercent:
+                                    backendUtilizationPercent,
+                                // Parakeet has no starting-since timestamp (no
+                                // "warming up" phase to time) — the status bar
+                                // simply shows no elapsed-time hint for it.
+                                sttStartingSince: parakeetStatus != null
+                                    ? null
+                                    : sttStatus.startingSince,
+                                recordingPhase: recordingPhase,
+                                afterActionLabel: afterTranscriptionStatusLabel(
+                                  resolvedAfterAction,
+                                  l10n,
+                                ),
+                                afterAction: resolvedAfterAction,
+                                microphoneLabel: currentMic,
+                                microphoneOptions: micOptions,
+                                onMicrophoneChanged: (label) {
+                                  unawaited(
+                                    ref
+                                        .read(
+                                          microphoneSelectionServiceProvider,
+                                        )
+                                        .select(label),
+                                  );
+                                },
+                                onMicrophoneMenuOpened: () =>
+                                    ref.invalidate(audioInputDevicesProvider),
+                                hotkeyLabel: formatHotkeyShortcut(
+                                  settings.hotkeyModifiers,
+                                  settings.hotkeyKey,
+                                  l10n: l10n,
+                                  displayOverride:
+                                      settings.hotkey.hotkeyKeyDisplay,
+                                ),
+                                hotkeyEnabled: settings.hotkeyEnabled,
+                                updateVersion:
+                                    updateState.phase == UpdatePhase.available
+                                    ? updateState.latestVersion
+                                    : null,
+                                updateReadyToInstall:
+                                    updateState.phase ==
+                                    UpdatePhase.readyToInstall,
+                                showAutoPasteOffHint:
+                                    shouldShowAutoPasteOffHint(
+                                      afterAction: resolvedAfterAction,
+                                      onboardingCompleted: settings
+                                          .onboarding
+                                          .onboardingCompleted,
+                                      autoPasteOffHintDismissed: settings
+                                          .onboarding
+                                          .autoPasteOffHintDismissed,
+                                    ),
+                                onAutoPasteOffHintTap: () {
+                                  ref
+                                      .read(
+                                        settingsScrollTargetProvider.notifier,
+                                      )
+                                      .set('afterTranscription');
+                                  ref
+                                      .read(activePageProvider.notifier)
+                                      .setPage('settings');
+                                },
+                                onAutoPasteOffHintDismiss: () {
+                                  ref
+                                      .read(settingsProvider.notifier)
+                                      .updateSettings(
+                                        (s) => s.copyWithSections(
+                                          onboarding: s.onboarding.copyWith(
+                                            autoPasteOffHintDismissed: true,
+                                          ),
+                                        ),
+                                      );
+                                },
+                                onHotkeyTap: () {
+                                  ref
+                                      .read(
+                                        settingsScrollTargetProvider.notifier,
+                                      )
+                                      .set('hotkey');
+                                  ref
+                                      .read(activePageProvider.notifier)
+                                      .setPage('settings');
+                                },
+                                onSttTap: () {
+                                  ref
+                                      .read(
+                                        settingsScrollTargetProvider.notifier,
+                                      )
+                                      .set('stt');
+                                  ref
+                                      .read(activePageProvider.notifier)
+                                      .setPage('settings');
+                                },
+                                onAfterActionChanged: (action) {
+                                  ref
+                                      .read(settingsProvider.notifier)
+                                      .updateSettings(
+                                        (s) => s.copyWith(
+                                          afterTranscription: action.value,
+                                        ),
+                                      );
+                                },
+                                onUpdateTap: () => triggerUpdateAction(
+                                  ref: ref,
+                                  updateState: updateState,
+                                  channel: deployChannel,
+                                ),
                               );
                             },
-                            onMicrophoneMenuOpened: () =>
-                                ref.invalidate(audioInputDevicesProvider),
-                            hotkeyLabel: formatHotkeyShortcut(
-                              settings.hotkeyModifiers,
-                              settings.hotkeyKey,
-                              l10n: l10n,
-                              displayOverride: settings.hotkey.hotkeyKeyDisplay,
-                            ),
-                            hotkeyEnabled: settings.hotkeyEnabled,
-                            updateVersion:
-                                updateState.phase == UpdatePhase.available
-                                ? updateState.latestVersion
-                                : null,
-                            updateReadyToInstall:
-                                updateState.phase == UpdatePhase.readyToInstall,
-                            showAutoPasteOffHint: shouldShowAutoPasteOffHint(
-                              afterAction: resolvedAfterAction,
-                              onboardingCompleted:
-                                  settings.onboarding.onboardingCompleted,
-                              autoPasteOffHintDismissed:
-                                  settings.onboarding.autoPasteOffHintDismissed,
-                            ),
-                            onAutoPasteOffHintTap: () {
-                              ref
-                                  .read(settingsScrollTargetProvider.notifier)
-                                  .set('afterTranscription');
-                              ref
-                                  .read(activePageProvider.notifier)
-                                  .setPage('settings');
-                            },
-                            onAutoPasteOffHintDismiss: () {
-                              ref
-                                  .read(settingsProvider.notifier)
-                                  .updateSettings(
-                                    (s) => s.copyWithSections(
-                                      onboarding: s.onboarding.copyWith(
-                                        autoPasteOffHintDismissed: true,
-                                      ),
-                                    ),
-                                  );
-                            },
-                            onHotkeyTap: () {
-                              ref
-                                  .read(settingsScrollTargetProvider.notifier)
-                                  .set('hotkey');
-                              ref
-                                  .read(activePageProvider.notifier)
-                                  .setPage('settings');
-                            },
-                            onSttTap: () {
-                              ref
-                                  .read(settingsScrollTargetProvider.notifier)
-                                  .set('stt');
-                              ref
-                                  .read(activePageProvider.notifier)
-                                  .setPage('settings');
-                            },
-                            onAfterActionChanged: (action) {
-                              ref
-                                  .read(settingsProvider.notifier)
-                                  .updateSettings(
-                                    (s) => s.copyWith(
-                                      afterTranscription: action.value,
-                                    ),
-                                  );
-                            },
-                            onUpdateTap: () => triggerUpdateAction(
-                              ref: ref,
-                              updateState: updateState,
-                              channel: deployChannel,
-                            ),
                           ),
                         ],
                       ),
