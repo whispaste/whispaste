@@ -285,11 +285,17 @@ export class OverlayDemo {
     };
     this.transitionElapsed = 0;
     // Into done/error the crossfade runs slightly longer so the stroke-first
-    // status-icon draw-on has room to land (statusRevealDuration).
-    this.transitionDur =
-      to === 'done' || to === 'error'
-        ? OVERLAY_ARC.statusRevealMs
-        : OVERLAY_ARC.stateTransitionMs;
+    // status-icon draw-on has room to land (statusRevealDuration). Recording
+    // → transcribing also runs longer (releaseOutDuration): the outgoing
+    // layer is the only one painting live waveform decay, and the generic
+    // 150 ms crossfade cut that decay off mid-motion.
+    if (to === 'done' || to === 'error') {
+      this.transitionDur = OVERLAY_ARC.statusRevealMs;
+    } else if (from === 'recording' && to === 'transcribing') {
+      this.transitionDur = OVERLAY_ARC.releaseOutMs;
+    } else {
+      this.transitionDur = OVERLAY_ARC.stateTransitionMs;
+    }
     this.widthSpring.setTarget(
       pillWidthForText(to, this.textFor(to), (t) => this.measureText(t)),
     );

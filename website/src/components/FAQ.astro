@@ -19,23 +19,27 @@ const faqs = [
 ---
 
 <!-- FAQ Section -->
-<section id="faq" class="band band-raised py-24 sm:py-32 relative scroll-mt-20 overflow-hidden">
+<section id="faq" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
   <!-- Decorative context motif: speech bubbles with a question mark — the FAQ
-       "ask us anything" cue. Theme-adaptive, faint, non-interactive. -->
-  <div
-    aria-hidden="true"
-    class="pointer-events-none absolute left-1/2 top-8 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
-  >
-    <svg width="250" height="200" viewBox="0 0 250 200" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M35 25h150a20 20 0 0 1 20 20v70a20 20 0 0 1-20 20h-70l-40 30v-30h-40a20 20 0 0 1-20-20V45a20 20 0 0 1 20-20Z" />
-      <path d="M92 68a18 18 0 1 1 30 13c-7 6-12 9-12 17" />
-      <path d="M110 118h.01" />
-    </svg>
+       "ask us anything" cue. Theme-adaptive, faint, non-interactive.
+       Own overflow:hidden wrapper instead of on the section — see Pricing.astro/
+       Languages.astro for the reasoning (the wp-kinetic-line view() timeline
+       below needs the real page scroll container). -->
+  <div class="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div
+      class="absolute left-1/2 top-8 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
+    >
+      <svg width="250" height="200" viewBox="0 0 250 200" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M35 25h150a20 20 0 0 1 20 20v70a20 20 0 0 1-20 20h-70l-40 30v-30h-40a20 20 0 0 1-20-20V45a20 20 0 0 1 20-20Z" />
+        <path d="M92 68a18 18 0 1 1 30 13c-7 6-12 9-12 17" />
+        <path d="M110 118h.01" />
+      </svg>
+    </div>
   </div>
   <div class="relative max-w-3xl mx-auto px-6">
-    <div class="text-center mb-12 scroll-reveal">
-      <SectionEyebrow key="faq.label" />
-      <h2 class="section-title headline-serif"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
+    <div class="text-center mb-12">
+      <SectionEyebrow key="faq.label" class="reveal-up" />
+      <h2 class="section-title headline-serif wp-kinetic-line"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
     </div>
 
     <div class="space-y-3 scroll-reveal" id="faq-accordion">

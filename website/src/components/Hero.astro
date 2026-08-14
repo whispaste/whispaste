@@ -69,13 +69,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       />
     </div>
 
-    <!-- Eyebrow: the one spot on the page that didn't carry the M9 bracket
-         signature yet. Bracket-lock is the "hotkey" beat of the load
-         choreography -- the brackets click into place like a keypress. -->
-    <p class="wp-eyebrow wp-bracketed wp-bracket-lock" style="--wp-rise-delay: 80ms">
-      <span data-i18n="hero.eyebrow">{t(lang, "hero.eyebrow")}</span>
-    </p>
-
     <h1
       class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
     >

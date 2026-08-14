@@ -257,6 +257,10 @@ export const OVERLAY_ARC = {
   appearMs: 300, //          appearDuration (easeOutCubic, no overshoot)
   appearScale: 0.88, //      appearScale (0.88 → 1.0 + fade-in)
   stateTransitionMs: 150, // stateTransitionDuration (generic crossfade)
+  releaseOutMs: 300, //      releaseOutDuration (recording → transcribing only;
+  //                         mirrors waveformReleaseOutMs — the outgoing layer
+  //                         is the only one painting live waveform decay, so
+  //                         the generic 150 ms crossfade cut it off mid-motion)
   statusRevealMs: 280, //    statusRevealDuration (into done/error)
   spring: { mass: 1, stiffness: 170, damping: 26 }, // pillSpring (Gentle preset)
 } as const;

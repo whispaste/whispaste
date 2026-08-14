@@ -24,24 +24,31 @@ const languages = [
 ---
 
 <!-- Languages Section -->
-<section id="languages" class="band band-deep py-24 sm:py-32 relative scroll-mt-20 overflow-hidden">
+<section id="languages" class="band band-deep py-24 sm:py-32 relative scroll-mt-20">
   <!-- Decorative context motif: a globe — "speak in many languages". Theme-
-       adaptive (brand token), faint, non-interactive. -->
-  <div
-    aria-hidden="true"
-    class="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
-  >
-    <svg width="250" height="250" viewBox="0 0 220 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="110" cy="110" r="90" />
-      <ellipse cx="110" cy="110" rx="40" ry="90" />
-      <path d="M22 110h176M38 68h144M38 152h144" />
-    </svg>
+       adaptive (brand token), faint, non-interactive.
+       Own overflow:hidden wrapper instead of on the section: the
+       wp-kinetic-line below needs the real page scroll container for its
+       view() timeline — overflow:hidden on the section would become its
+       nearest scroll container and freeze the timeline (same failure mode
+       as Pricing.astro, see there). The wrapper is a sibling of the content
+       column, not its ancestor. -->
+  <div class="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div
+      class="absolute left-1/2 top-10 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
+    >
+      <svg width="250" height="250" viewBox="0 0 220 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="110" cy="110" r="90" />
+        <ellipse cx="110" cy="110" rx="40" ry="90" />
+        <path d="M22 110h176M38 68h144M38 152h144" />
+      </svg>
+    </div>
   </div>
   <div class="relative max-w-4xl mx-auto px-6">
-    <div class="text-center mb-12 scroll-reveal">
-      <SectionEyebrow key="languages.label" />
-      <h2 class="section-title"><span data-i18n="languages.titleLead">{t(lang, "languages.titleLead")}</span><span class="text-gradient-brand" data-i18n="languages.titleAccent">{t(lang, "languages.titleAccent")}</span><span data-i18n="languages.titleTail">{t(lang, "languages.titleTail")}</span></h2>
-      <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto" data-i18n="languages.desc">{t(lang, "languages.desc")}</p>
+    <div class="text-center mb-12">
+      <SectionEyebrow key="languages.label" class="reveal-up" />
+      <h2 class="section-title wp-kinetic-line"><span data-i18n="languages.titleLead">{t(lang, "languages.titleLead")}</span><span class="text-gradient-brand" data-i18n="languages.titleAccent">{t(lang, "languages.titleAccent")}</span><span data-i18n="languages.titleTail">{t(lang, "languages.titleTail")}</span></h2>
+      <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto reveal-up" data-i18n="languages.desc">{t(lang, "languages.desc")}</p>
     </div>
 
     <div class="flex flex-wrap justify-center gap-2.5 scroll-reveal">

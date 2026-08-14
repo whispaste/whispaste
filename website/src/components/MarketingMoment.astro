@@ -14,10 +14,14 @@ import { t } from '../scripts/i18n.ts';
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
-<section id="marketing-moment" class="band band-deep py-20 sm:py-28 scroll-reveal">
+<section id="marketing-moment" class="band band-deep py-20 sm:py-28">
   <div class="max-w-5xl mx-auto px-6">
     <div class="mm-grid">
-      <figure class="mm-figure">
+      <!-- wp-clip-reveal instead of a blanket scroll-reveal on the section:
+           the iris reveal is the documented motif for image tiles
+           (see global.css), a direct fit here. Title/subline get their own
+           text-appropriate curtain-rise animation. -->
+      <figure class="mm-figure wp-clip-reveal">
         <img
           class="mm-img"
           src="/illustrations/marketing-speak-illustration.webp"
@@ -29,11 +33,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         />
       </figure>
       <div class="mm-copy">
-        <h2 class="mm-title"><!--
+        <h2 class="mm-title wp-kinetic-line"><!--
           --><span data-i18n="marketing.moment.titleLead">{t(lang, 'marketing.moment.titleLead')}</span><!--
           --><span class="text-gradient-brand" data-i18n="marketing.moment.titleAccent">{t(lang, 'marketing.moment.titleAccent')}</span><!--
         --></h2>
-        <p class="mm-sub" data-i18n="marketing.moment.sub">{t(lang, 'marketing.moment.sub')}</p>
+        <p class="mm-sub reveal-up" data-i18n="marketing.moment.sub">{t(lang, 'marketing.moment.sub')}</p>
       </div>
     </div>
   </div>

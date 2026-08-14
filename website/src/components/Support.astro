@@ -33,14 +33,14 @@ const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
     <div class="support-photo__veil"></div>
   </div>
   <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.05)_0%,_transparent_50%)]"></div>
-  <div class="relative max-w-4xl mx-auto px-6 scroll-reveal">
+  <div class="relative max-w-4xl mx-auto px-6">
     <div class="grid items-center gap-8 md:gap-10 md:grid-cols-[1fr_0.6fr]">
       <!-- Floating cut-out support motif (heart + voice waveform + star) integrated
            beside the card — no boxed tile, soft brand halo. On md+ it moves to
            the RIGHT column (md:order-2): the photo's device sits right of
            centre (~62% focus axis), so the opaque card covers the photo's
            empty left half while heart + laptop share the photogenic right. -->
-      <div class="illo-halo illo-float mx-auto md:mx-0 md:order-2 w-40 sm:w-48 md:w-full max-w-[14rem]">
+      <div class="illo-halo illo-float wp-clip-reveal mx-auto md:mx-0 md:order-2 w-40 sm:w-48 md:w-full max-w-[14rem]">
         <img
           src="/illustrations/support-love.webp"
           alt={lang === 'en'
@@ -53,7 +53,7 @@ const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
           class="block w-full h-auto"
         />
       </div>
-      <div class="md:order-1 p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm text-center">
+      <div class="md:order-1 p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm text-center scroll-reveal">
       <h2 class="text-2xl sm:text-3xl font-bold text-ink" data-i18n="support.title">{t(lang, "support.title")}</h2>
       <p class="mt-4 text-ink-muted text-sm sm:text-base max-w-md mx-auto" data-i18n="support.desc">{t(lang, "support.desc")}</p>
       <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
