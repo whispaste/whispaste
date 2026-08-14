@@ -103,6 +103,30 @@
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 
+  /* ---- Radius-Leiter ----
+     Eigene Namen statt Tailwinds --radius-xl/2xl/3xl zu überschreiben: deren
+     Streuung ist zu breit, sie träfen auch Pills und Badges, wo ein
+     Karten-Radius falsch liest. Drei Rollen, drei Werte — mehr braucht die
+     Seite nicht.
+
+     control  kleine Steuerelemente: Inputs, Chips, Thumbnails
+     card     die dominante Fläche der Seite — Karten UND die großen
+              CTA-Buttons. Letztere liegen faktisch alle schon auf 14px
+              (Store/Apple/Linux/.dl-btn, je ~52px hoch); sie auf `control`
+              zu ziehen wäre ein sichtbares Redesign jedes CTAs, nicht das
+              Aufräumen einer Drift. Sie bleiben deshalb bewusst hier.
+     surface  große Flächen: Modals, Bild-Tiles, Longform-Sektionen
+
+     Nicht in dieser Leiter: Pills (9999px), Kreise (50%) und die
+     App-/Device-Fidelity-Zonen (AppPasteDemo, AppScreenshots,
+     HeroCarousel-Keycaps, overlay-mockup.ts) — dort spiegeln die Radien
+     echte Flutter-/Geräte-Geometrie und dürfen nicht konsolidiert werden.
+
+     Die Werte stehen weiter unten im regulären :root-Block, nicht hier: in
+     @theme würde Tailwind alles wegshaken, was es nicht selbst als Utility
+     ausgibt — und die Astro-scoped <style>-Blöcke, die diese Tokens
+     verbrauchen, sind für diese Analyse unsichtbar. */
+
   /* ---- Motion vocabulary (see the note below on --ease-flow) ----
      Tailwind's own `transition-*` utilities read these two keys. Setting them
      here routes all ~200 bare `transition-*` call sites onto the brand curve
@@ -125,6 +149,11 @@
   --dur-fast: 140ms;
   --dur-base: 180ms;
   --dur-slow: 320ms;
+
+  /* Radius-Leiter — Rollen und Begründung siehe @theme-Block oben. */
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-surface: 20px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -824,14 +853,20 @@ html.light .sponsor-card:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Border radius: Flutter uses 14px (WpRadius.lg) for cards */
+/* Border radius: Flutter uses 14px (WpRadius.lg) for cards.
+   ACHTUNG — dieser Block steht bewusst AUSSERHALB jedes @layer. Unlayered CSS
+   schlägt in der Cascade jede @layer-Regel, also auch Tailwinds Utilities.
+   Nur deshalb gewinnt er gegen die rounded-2xl/rounded-3xl-Utilities, die auf
+   rund 20 dieser Karten im Markup stehen. Wandert der Block in ein @layer,
+   springen all diese Karten schlagartig auf ihren nominellen Utility-Wert.
+   Der Wert selbst kommt jetzt aus dem Token, die Layer-Position nicht. */
 .feature-card,
 .pricing-card,
 .download-card,
 .release-card,
 .sponsor-card,
 .faq-item {
-  border-radius: 14px;
+  border-radius: var(--radius-card);
 }
 
 /* Living hairline — the overlay pill's material breathes; its neighbours carry
