@@ -796,15 +796,37 @@ html.light .sponsor-card:hover {
 }
 
 /* Living hairline — the overlay pill's material breathes; its neighbours carry
-   the same idea. Idle animation (nicht mehr hover-gated: ein Besucher, der nur
-   schaut, soll es sehen) on the pill's own 8s period, band 0.16–0.3 — the
-   trough stays above the 0.12 resting border, the crest reaches past the 0.19
-   hover token, so the breathing reads at a glance. Opacity only: no wobble,
-   no shape change. Light theme stays static on purpose (its !important border
-   overrides outrank animations). Reduced motion: static 0.12 base border. */
-@keyframes wp-border-breathe {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.16); }
-  50% { border-color: rgba(255, 255, 255, 0.3); }
+   the same idea. Idle animation (nicht hover-gated: ein Besucher, der nur
+   schaut, soll es sehen) auf der 8s-Periode der Pille.
+
+   Umbau (vorher: @keyframes auf `border-color` direkt auf der Karte):
+   1. `border-color` zu animieren erzwingt auf JEDER Karte einen Dauer-Repaint.
+      Ein Overlay-Ring, dessen `opacity` animiert wird, läuft dagegen auf dem
+      Compositor — dieselbe Optik, ohne Repaint-Last im Leerlauf.
+   2. Der Animations-Cascade-Level schlägt normale Declarations. Solange die
+      Keyframes `border-color` besaßen, war der :hover-Border-Aufheller
+      (0.12 → 0.19) auf diesen Karten im Dark-Theme faktisch TOT. Jetzt liegt
+      der Hover wieder frei auf der echten Border, der Ring atmet darüber.
+   3. Light blieb bisher bewusst statisch, weil die !important-Border-Overrides
+      jede Animation überstimmten. Der Ring ist ein eigenes Element und davon
+      unberührt — Light atmet damit zum ersten Mal mit, in eigener Amplitude
+      (die Weiß-Werte der Dark-Variante sind auf hellem Grund unsichtbar).
+
+   Der Ring liegt bei inset:-1px exakt auf der eigenen Border der Karte
+   (Bezug ist die Padding-Box), deckt sie also, statt eine zweite Linie
+   danebenzusetzen. Amplitude so kalibriert, dass die Komposition aus
+   0.12er-Border + Ring das dokumentierte Band ~0.17–0.30 trifft. */
+:root {
+  --wp-card-ring: rgba(255, 255, 255, 0.2);
+}
+html.light {
+  /* Cyan-getönte Haarlinie statt Weiß: auf #FFF-Karten wäre Weiß unsichtbar,
+     ein neutrales Grau träge nur ein. Kein neuer Farbwert — der Light-Akzent. */
+  --wp-card-ring: rgba(10, 110, 148, 0.3);
+}
+@keyframes wp-card-ring-breathe {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 .feature-card,
 .pricing-card,
@@ -812,15 +834,38 @@ html.light .sponsor-card:hover {
 .download-card,
 .release-card,
 .sponsor-card {
-  animation: wp-border-breathe 8s ease-in-out infinite;
+  position: relative;
+}
+.feature-card::before,
+.pricing-card::before,
+.faq-item::before,
+.download-card::before,
+.release-card::before,
+.sponsor-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  border: 1px solid var(--wp-card-ring);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: wp-card-ring-breathe 8s ease-in-out infinite;
+}
+/* .faq-item trägt overflow:hidden (rundet den aufklappenden <details>-Inhalt).
+   Ein Ring bei -1px läge außerhalb der Clip-Kante und verschwände komplett —
+   hier sitzt er deshalb bündig innen. */
+.faq-item::before {
+  inset: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .feature-card,
-  .pricing-card,
-  .faq-item,
-  .download-card,
-  .release-card,
-  .sponsor-card {
+  /* Verhalten wie vorher: Ring aus, es bleibt die statische 0.12er-Border. */
+  .feature-card::before,
+  .pricing-card::before,
+  .faq-item::before,
+  .download-card::before,
+  .release-card::before,
+  .sponsor-card::before {
     animation: none;
+    opacity: 0;
   }
 }
