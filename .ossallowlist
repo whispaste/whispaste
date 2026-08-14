@@ -106,6 +106,10 @@ scripts/build-smartmode-shim-macos.sh
 native/
 scripts/generate_appcast.sh
 scripts/publish_beta_fallback.sh
+# Generated Sparkle Beta feed — sole content of the orphan branch
+# beta-appcast-pointer (release.yml + publish_beta_fallback.sh), served live
+# to Beta-channel clients via raw.githubusercontent.com. Deliberately public.
+appcast-beta.xml
 scripts/install-hooks.sh
 scripts/macos-selfsign.sh
 scripts/macos-selfsign-export-secret.sh
