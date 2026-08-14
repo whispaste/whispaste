@@ -1,3 +1,3 @@
-## 2024-05-18 - Case-insensitive filtering in Dart tight loops
-**Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
-**Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead.
+## 2024-05-18 - RegExp.escape is required for dynamic search inputs
+**Learning:** When replacing `toLowerCase()` string filtering with precompiled `RegExp(..., caseSensitive: false)` for performance in tight loops, you must wrap user input in `RegExp.escape(query)` to prevent regex engine crashes when users type special characters (like `*`, `?`, `[`).
+**Action:** Always validate and escape dynamic input before passing it to the RegExp constructor.
