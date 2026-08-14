@@ -149,6 +149,17 @@
     font-family: var(--font-display);
     letter-spacing: -0.02em;
     font-weight: 700;
+    /* Zweizeilige Section-Titel setzten regelmäßig ein Waisenwort auf die
+       zweite Zeile ab. balance verteilt die Zeilen gleichmäßig — die
+       sichtbarste Einzelverbesserung an der Titel-Hierarchie, ohne einen
+       einzigen Umbruch von Hand zu setzen (und damit i18n-fest). */
+    text-wrap: balance;
+  }
+  /* Fließtext: pretty verhindert Schusterjungen am Absatzende, ohne wie
+     balance die ganze Zeilenaufteilung umzurechnen (auf langen Absätzen
+     wäre balance teuer und wird von Browsern ohnehin gedeckelt). */
+  p {
+    text-wrap: pretty;
   }
   /* Cohesive keyboard-focus ring for all interactive elements (A11y).
      Keyboard-only via :focus-visible — mouse clicks don't get a ring. */
@@ -160,7 +171,11 @@
   select:focus-visible {
     outline: 2px solid var(--color-brand-cyan);
     outline-offset: 2px;
-    border-radius: 4px;
+    /* Kein border-radius hier. Die Regel liegt in @layer base und verliert
+       ohnehin gegen jede rounded-*-Utility; wirksam wurde sie nur auf
+       ungestylten Elementen — und erzeugte dort einen fast eckigen Ring
+       neben runden Nachbarn. Ohne die Zeile folgt der outline automatisch
+       dem echten Radius des Elements. */
   }
   /* Subtle noise texture for atmospheric depth */
   body::before {
@@ -236,11 +251,21 @@ html.light .text-gradient-brand {
 /* raised = a half-step-elevated surface with a faint cyan-tinted top lift and
    a hairline divider, so the band edge is legible. UseCaseCards,
    SpeedComparison, Pricing, FAQ. */
+/* Der Auslauf des Lifts war fix 260px. Sektionen dieses Bandes sind aber
+   zwischen ~700px (Desktop) und weit über 1400px (390px, alles gestapelt)
+   hoch — derselbe Pixelwert nahm damit je nach Breite einen ganz anderen
+   Anteil der Sektion ein. Bezug ist jetzt der sichtbare Bildschirm statt
+   einer absoluten Zahl: bei 900px Viewport-Höhe landet clamp() praktisch auf
+   dem alten Wert (Desktop bleibt wie er war), auf kurzen und sehr hohen
+   Viewports skaliert die Kante mit. Bewusst vh und nicht % — die Bandhöhen
+   unterscheiden sich um das Fünffache, ein Prozentwert würde den Lift auf
+   dem FAQ-Band riesig und auf kurzen Bändern unsichtbar machen. */
 .band-raised {
+  --band-lift-end: clamp(200px, 28vh, 320px);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-brand-cyan) 6%, var(--color-brand-dark)) 0%,
-    var(--color-brand-dark) 260px
+    var(--color-brand-dark) var(--band-lift-end)
   );
   /* Crisp top edge: a hairline + a 1px inner highlight reads as a new raised
      surface without lifting the base tone toward the card colour (which would
@@ -256,7 +281,7 @@ html.light .band-raised {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, #0891B2 7%, var(--color-brand-dark)) 0%,
-    var(--color-brand-dark) 260px
+    var(--color-brand-dark) var(--band-lift-end)
   );
   border-top-color: color-mix(in srgb, #0891B2 30%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 70%, transparent);
@@ -322,6 +347,20 @@ html.light .band-spotlight::before {
   line-height: 1.03;
   color: var(--color-ink);
   font-size: clamp(2.25rem, 1.35rem + 3.7vw, 4rem);
+  text-wrap: balance;
+}
+
+/* ===========================================================================
+   Kennzahlen — tabellarische Ziffern.
+   Überall dort, wo eine Zahl eine Messgröße ist (WPM, Sprachanzahl, Preis,
+   Version), sollen die Ziffern gleich breit laufen: nebeneinanderstehende
+   Werte fluchten, und ein hochzählender Wert springt nicht in der Breite.
+   Eine Klasse statt einer Regel pro Fundstelle, damit dieselbe Geste über
+   Komponenten hinweg wiederverwendet wird.
+   --------------------------------------------------------------------------- */
+.wp-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 /* ===========================================================================
