@@ -14,7 +14,8 @@
     "test": "playwright test",
     "test:ci": "playwright test --reporter=github",
     "test:ui": "playwright test --ui",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "check:viewport": "node scripts/viewport-check.mjs"
   },
   "type": "module",
   "dependencies": {

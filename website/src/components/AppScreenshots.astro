@@ -6,7 +6,7 @@ import { t } from '../scripts/i18n.ts';
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 <!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
-<section id="app-screenshots" class="band band-deep relative py-20 sm:py-28 scroll-mt-20">
+<section id="app-screenshots" class="band band-deep relative py-20 sm:py-28 scroll-mt-20 wp-parallax-scope">
   <div class="relative max-w-6xl mx-auto px-6">
     <div class="max-w-2xl mx-auto text-center mb-10 scroll-reveal">
       <SectionEyebrow key="screenshots.label" />
@@ -17,8 +17,9 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     </div>
 
     <!-- Two hero screenshots: workspace (dark) + detail (light) -->
-    <div class="teaser-pair scroll-reveal">
-      <figure class="teaser-card teaser-card--primary">
+    <div class="teaser-pair">
+      <div class="teaser-glow wp-parallax-layer" aria-hidden="true"></div>
+      <figure class="teaser-card teaser-card--primary wp-clip-reveal">
         {/* MacBook device frame — grounds the app as a real macOS desktop app.
             Purely decorative chrome around the existing screenshot button; the
             lightbox wiring and lang/os/theme sync stay untouched. */}
@@ -28,6 +29,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
               {/* The display: macOS wallpaper behind a menu bar, a windowed app,
                   and the dock — matching how a real notched MacBook renders. */}
               <div class="mbp-display">
+                <div class="mbp-wallpaper wp-parallax-layer" aria-hidden="true"></div>
                 {/* Camera notch — cut into the centre of the menu bar */}
                 <div class="mbp-notch" aria-hidden="true"></div>
 
@@ -101,7 +103,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         </div>
       </figure>
 
-      <figure class="teaser-card teaser-card--secondary">
+      <figure class="teaser-card teaser-card--secondary wp-clip-reveal">
         <button
           class="teaser-thumb-btn"
           data-teaser-idx="1"
@@ -153,9 +155,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   }
   /* Soft cyan pedestal so the screenshots read as a deliberate showcase rather
      than a flat pair sitting on the band. Sits behind the figures, inside the
-     band's stacking context (theme-aware via color-mix). */
-  .teaser-pair::before {
-    content: "";
+     band's stacking context (theme-aware via color-mix). Echtes Div statt
+     ::before, weil `.wp-parallax-layer` ein animierbares Element für seinen
+     eigenen `translate` braucht (Gegen-Drift zum Wallpaper, siehe unten). */
+  .teaser-glow {
     position: absolute;
     /* Horizontal kein Bleed (0 statt -6%): der Glow lief bei breiten-
        gedeckelten Viewports (768/1024px) über den Seitenrand und erzeugte
@@ -163,12 +166,49 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     inset: -10% 0 -14%;
     z-index: -1;
     pointer-events: none;
+    --wp-parallax-depth: -18px;
     background: radial-gradient(
       ellipse 68% 60% at 50% 42%,
       color-mix(in srgb, var(--color-brand-cyan) 15%, transparent) 0%,
       transparent 70%
     );
     filter: blur(10px);
+  }
+
+  /* Iris-Reveal-Tuning pro Karte: Endradius 140-145% statt Default 75% —
+     der persistente clip-path (fill-mode: both) läge sonst innerhalb der
+     60-84px weichen MacBook-Schatten bzw. des 3px-Fokusrings und würde sie
+     dauerhaft anschneiden. Sekundäre Karte öffnet ~10% Scroll-Range nach
+     der primären (nur in unterstützenden Browsern relevant). */
+  .teaser-card--primary {
+    --wp-clip-end: 145%;
+    --wp-clip-origin: 50% 46%;
+  }
+  .teaser-card--secondary {
+    --wp-clip-end: 140%;
+  }
+  @supports (animation-timeline: view()) {
+    .teaser-card--secondary.wp-clip-reveal {
+      animation-range: entry 10% entry 62%;
+    }
+  }
+
+  /* Wallpaper als eigener Tiefen-Layer (ersetzt das statische background von
+     .mbp-display): überscannt (inset -14px vertikal > 8px Drift), damit beim
+     Driften keine Kante aufreißt — .mbp-display { overflow: hidden } clippt
+     den Überstand. z-index 0 liegt unter Fenster/Dock/Menübar/Notch, die
+     bleiben komplett statisch (eine wandernde Menüleiste läse sich als
+     kaputtes UI, nicht als Tiefe). */
+  .mbp-wallpaper {
+    position: absolute;
+    inset: -14px 0;
+    z-index: 0;
+    pointer-events: none;
+    --wp-parallax-depth: 8px;
+    background:
+      radial-gradient(120% 90% at 78% 10%, rgba(120, 230, 240, 0.45) 0%, transparent 45%),
+      radial-gradient(120% 100% at 10% 96%, rgba(40, 70, 150, 0.5) 0%, transparent 55%),
+      linear-gradient(150deg, #14304c 0%, #1d4f6e 32%, #1f6f87 56%, #2f93a8 78%, #57bcd0 100%);
   }
 
   @media (min-width: 768px) {
@@ -294,10 +334,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     aspect-ratio: 16 / 10.5;
     display: flex;
     flex-direction: column;
-    background:
-      radial-gradient(120% 90% at 78% 10%, rgba(120, 230, 240, 0.45) 0%, transparent 45%),
-      radial-gradient(120% 100% at 10% 96%, rgba(40, 70, 150, 0.5) 0%, transparent 55%),
-      linear-gradient(150deg, #14304c 0%, #1d4f6e 32%, #1f6f87 56%, #2f93a8 78%, #57bcd0 100%);
+    /* Solide Fallback-Farbe statt der Gradients direkt hier — die sitzen jetzt
+       im eigenen .mbp-wallpaper-Tiefen-Layer (erstes Kind). Kein Flash, falls
+       der Layer je fehlt (z. B. reduced-motion-Edge-Fall). */
+    background: #14304c;
   }
 
   /* macOS camera notch — black cut-out in the centre of the menu bar */

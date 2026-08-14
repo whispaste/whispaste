@@ -207,13 +207,122 @@ const waveBars = `
     color: var(--color-ink-subtle);
   }
 
+  /* ===========================================================================
+     Set-Piece: Scroll-Scrubbing "Das Rennen" (M10) — der User scrollt die
+     Balken nicht vorbei, er scrollt sie auf. Beide starten gleichzeitig, der
+     Tipp-Balken plateaut früh und steht, der Sprech-Balken zieht weiter — die
+     Asymmetrie der Ranges IST die Botschaft (~40 vs. ~150 WPM), nicht nur die
+     Endbreite. Timeline auf .speed-bars (nicht anonym auf .speed-fill): die
+     Fills sitzen in .speed-track mit overflow:hidden, das würde eine anonyme
+     view() als Scroll-Container einfangen und für immer bei Progress 0
+     hängen — derselbe Fehlermodus wie bei .wp-recede (global.css). .band/
+     .band-raised sind overflow-frei, .speed-bars bindet damit sauber an den
+     echten Seiten-Scroller.
+     =========================================================================== */
+  .speed-bars {
+    view-timeline-name: --speed-bars;
+    view-timeline-axis: block;
+  }
+
+  /* Aufdecken statt Strecken: die Welle darunter bleibt unverzerrt, ein
+     scrub-gehaltenes scaleX(0.4) wäre eine sichtbar gestauchte Textur.
+     round 999px = Pillen-Vorderkante während des Scrubs. */
+  @keyframes speed-scrub-fill {
+    from { clip-path: inset(0 100% 0 0 round 999px); }
+    to   { clip-path: inset(0 0 0 0 round 999px); }
+  }
+
+  /* Zahlen-Landung: Rise + Deblur (Motiv von wp-kinetic-rise, M10). */
+  @keyframes speed-value-land {
+    from {
+      opacity: 0;
+      translate: 0 0.35em;
+      filter: blur(4px);
+    }
+    70% { filter: blur(0); }
+    to {
+      opacity: 1;
+      translate: 0 0;
+      filter: blur(0);
+    }
+  }
+
+  /* Sprech-Zahl: gleiche Landung + Glow-Rastung in den letzten 15% — der
+     grafische "Klick" der Vollendung, reversibel beim Zurückscrollen. */
+  @keyframes speed-value-land-glow {
+    from {
+      opacity: 0;
+      translate: 0 0.35em;
+      filter: blur(4px);
+      text-shadow: none;
+    }
+    70% { filter: blur(0); }
+    85% {
+      opacity: 1;
+      translate: 0 0;
+      text-shadow: none;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+      filter: blur(0);
+      text-shadow: 0 0 18px color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+    }
+  }
+
+  /* Gleiches Feature-Gate wie alle M10-Primitive. Ohne Support bleibt der
+     komplette bestehende .scroll-reveal/.visible-Einmal-Reveal unangetastet. */
+  @supports (animation-timeline: view()) {
+    .speed-fill {
+      /* Scrub übernimmt: den transition-basierten Einmal-Reveal stilllegen.
+         transform:none neutralisiert das scaleX(0)-Versteck des Fallbacks
+         (die .visible-Regel oben setzt scaleX(1) — Identität, harmlos). */
+      transform: none;
+      transition: none;
+      /* animation-timeline/-range NACH dem animation-Shorthand deklarieren —
+         der Shorthand resettet timeline auf auto. */
+      animation: speed-scrub-fill linear both;
+      animation-timeline: --speed-bars;
+    }
+    .speed-fill--typing {
+      animation-range: entry 0% cover 35%;
+    }
+    .speed-fill--speaking {
+      animation-range: entry 0% cover 55%;
+    }
+
+    /* Zahlen-Landung auf derselben Timeline, Endpunkte synchron zum
+       jeweiligen Balken-Plateau. linear, weil scroll-gescrubbt — der
+       Scrollfinger ist das Easing (gleiche Regel wie bei .wp-recede). */
+    .speed-row__value {
+      animation: speed-value-land linear both;
+      animation-timeline: --speed-bars;
+      animation-range: entry 0% cover 30%;
+    }
+    .speed-row__value--brand {
+      animation-name: speed-value-land-glow;
+      animation-range: entry 10% cover 55%;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .speed-fill {
       transition: none;
       transform: scaleX(1);
+      /* Scrub stilllegen, Endzustand sofort. */
+      animation: none !important;
+      clip-path: none !important;
     }
     .speed-wave-track {
       animation: none;
+    }
+    /* Zahlen sofort voll sichtbar, keine Bewegung, kein Glow-Verlauf. */
+    .speed-row__value {
+      animation: none !important;
+      opacity: 1 !important;
+      translate: none !important;
+      filter: none !important;
+      text-shadow: none !important;
     }
   }
 </style>

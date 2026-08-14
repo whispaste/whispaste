@@ -1155,7 +1155,12 @@ html.light {
                         Choreografie-Steuerung.
    - .wp-mask-reveal    Richtungs-Wipe für Panels/Karten (Modifier `--up` für
                         vertikal statt horizontal).
-   - .wp-clip-reveal    Blende/Iris-Reveal für Bild-/Screenshot-Kacheln.
+   - .wp-clip-reveal    Blende/Iris-Reveal für Bild-/Screenshot-Kacheln. Endradius
+                        (Default 75%) und Ursprung (Default 50% 50%) über
+                        `--wp-clip-end`/`--wp-clip-origin` pro Instanz überschreibbar
+                        — der Endradius bleibt durch `fill-mode: both` dauerhaft als
+                        clip-path stehen, bei Karten mit großem Weichschatten oder
+                        Fokusring reicht 75% nicht, um ihn frei zu lassen.
    - .wp-parallax-*     Tiefen-Parallax für dekorative Hintergrund-Layer via
                         named `view-timeline` — nur auf `pointer-events:none`-
                         Dekor, nie auf interaktivem Inhalt.
@@ -1279,8 +1284,8 @@ html.light {
    Kreisförmige Apertur statt Rechteck-Wipe — bewusst anderes Motiv als
    .wp-mask-reveal, damit Bild-Tiles sich von Text-/Panel-Reveals abheben. */
 @keyframes wp-clip-iris {
-  from { clip-path: circle(0% at 50% 50%); }
-  to   { clip-path: circle(75% at 50% 50%); }
+  from { clip-path: circle(0% at var(--wp-clip-origin, 50% 50%)); }
+  to   { clip-path: circle(var(--wp-clip-end, 75%) at var(--wp-clip-origin, 50% 50%)); }
 }
 @supports (animation-timeline: view()) {
   .wp-clip-reveal {
@@ -1344,6 +1349,62 @@ html.light {
     animation: wp-recede linear both;
     animation-timeline: --wp-parallax-scope;
     animation-range: exit 0% exit 80%;
+  }
+}
+
+/* --- Set-Piece: Pricing-Karte ---------------------------------------------
+   Drei Schläge auf EINER benannten Timeline (der Karte): Wipe der Fläche
+   (.wp-mask-reveal--up, im Markup), Vorhang-Aufzug des Preises, Einfahren
+   der HUD-Arme. Benannte Timeline statt anonymem view() auf dem Preis: der
+   Preis ist zu klein, seine eigene entry-Range wäre ein Snap. Ranges enden
+   bei ≤85 %, damit der Endzustand auch dann sicher erreicht wird, wenn die
+   Karte (Mobile, 390px) fast viewport-hoch ist. */
+.pricing-card {
+  view-timeline-name: --pricing-card;
+  view-timeline-axis: block;
+}
+
+/* Macht --hud-arm interpolierbar (Latch-Animation unten). initial-value
+   == dem in .hud-frame::after gesetzten Wert, für alle anderen hud-frame-
+   Einsatzorte (/download/) ändert sich dadurch nichts. */
+@property --hud-arm {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 12px;
+}
+
+@keyframes wp-hud-arm-in {
+  from { --hud-arm: 0px; }
+  to   { --hud-arm: 12px; }
+}
+
+@supports (animation-timeline: view()) {
+  /* Punchline: Preis steigt, sobald der Karten-Wipe oben ankommt.
+     Reuse von wp-kinetic-rise — gleiche Optik wie alle Headlines-Rises. */
+  .pricing-price-in {
+    animation: wp-kinetic-rise var(--dur-cinematic) var(--ease-flow) both;
+    animation-timeline: --pricing-card;
+    animation-range: entry 30% entry 75%;
+  }
+  /* Latch: HUD-Arme wachsen von 0 auf 12px. Bewusst NUR --hud-arm animiert,
+     nie opacity — die Hover/Focus-Transition auf ::after (global.css ~1085)
+     bleibt vollständig zuständig für Feedback, keine Kollision. */
+  .pricing-card.hud-frame::after {
+    animation: wp-hud-arm-in var(--dur-cinematic) var(--ease-flow) both;
+    animation-timeline: --pricing-card;
+    animation-range: entry 45% entry 85%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pricing-price-in {
+    animation: none !important;
+    clip-path: none !important;
+    filter: none !important;
+    translate: none !important;
+  }
+  .pricing-card.hud-frame::after {
+    animation: none !important;
   }
 }
 
