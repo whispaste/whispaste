@@ -20,16 +20,24 @@ const features = [
 ---
 
 <!-- Pricing Section -->
-<section id="pricing" class="band band-raised py-24 sm:py-32 relative scroll-mt-20 overflow-hidden">
+<section id="pricing" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
   <!-- Decorative context motif: a heart — "free, given freely / open source".
-       Theme-adaptive (brand token), faint, non-interactive. -->
-  <div
-    aria-hidden="true"
-    class="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
-  >
-    <svg width="260" height="240" viewBox="0 0 240 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M190 130c14.9-14.6 30-32.1 30-55A55 55 0 0 0 165 20c-17.6 0-30 5-45 20-15-15-27.4-20-45-20A55 55 0 0 0 20 75c0 22.9 15.1 40.4 30 55l70 70Z" />
-    </svg>
+       Theme-adaptive (brand token), faint, non-interactive.
+       Eigener overflow:hidden-Wrapper statt auf der Section: .pricing-card
+       trägt weiter unten eine eigene view-timeline-name (Preis-Aufzug +
+       HUD-Latch) — ein overflow:hidden auf der Section wäre deren nächster
+       Scroll-Container und würde die Timeline für immer auf einem
+       Fix-Progress einfrieren (derselbe Fehlermodus wie .wp-recede,
+       s. SpeedComparison.astro). Der Wrapper hier ist ein Geschwister der
+       Karte, nicht ihr Vorfahre, und bleibt damit außen vor. -->
+  <div class="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div
+      class="absolute left-1/2 top-10 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
+    >
+      <svg width="260" height="240" viewBox="0 0 240 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M190 130c14.9-14.6 30-32.1 30-55A55 55 0 0 0 165 20c-17.6 0-30 5-45 20-15-15-27.4-20-45-20A55 55 0 0 0 20 75c0 22.9 15.1 40.4 30 55l70 70Z" />
+      </svg>
+    </div>
   </div>
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">

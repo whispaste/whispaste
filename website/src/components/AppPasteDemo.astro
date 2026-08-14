@@ -464,6 +464,11 @@ const appCloudIcons = [
   /* Reply input bar — the cursor target */
   .apd-inputbar {
     position: relative;
+    /* overflow:hidden hält .apd-paste-flash beim Sweep in der Box — ohne das
+       läuft der Streif per translateX(100%) über die eigene Breite hinaus
+       und erzeugt echten horizontalen Seiten-Overflow (kein Vorfahre bis
+       document.documentElement clippt sonst). */
+    overflow: hidden;
     margin-top: auto;
     display: flex;
     align-items: center;
