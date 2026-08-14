@@ -743,4 +743,57 @@ void main() {
       await subscription.cancel();
     });
   });
+
+  group('Hotkey latency KPI (issue 07)', () {
+    test(
+      'recordHotkeyLatency is a no-op trim when at or under the cap',
+      () async {
+        for (var i = 0; i < 5; i++) {
+          await db.recordHotkeyLatency(
+            recordedAt: DateTime(2025, 1, 1, 0, 0, i),
+            latencyMs: 100 + i,
+          );
+        }
+
+        final rows = await db.select(db.hotkeyLatencyEntries).get();
+        expect(rows, hasLength(5));
+      },
+    );
+
+    test(
+      'recordHotkeyLatency trims the oldest samples beyond the row cap',
+      () async {
+        // Insert directly (bypassing recordHotkeyLatency's own trim so the
+        // table can grow past the cap first), with explicit,
+        // second-spaced recordedAt values — the column round-trips at
+        // 1-second resolution, so relying on real wall-clock delays
+        // between calls would make this test either flaky or slow.
+        for (var i = 0; i < 1000; i++) {
+          await db
+              .into(db.hotkeyLatencyEntries)
+              .insert(
+                HotkeyLatencyEntriesCompanion.insert(
+                  id: 'lat-$i',
+                  recordedAt: DateTime(2025, 1, 1, 0, 0, i),
+                  latencyMs: 100,
+                ),
+              );
+        }
+        expect(await db.select(db.hotkeyLatencyEntries).get(), hasLength(1000));
+
+        // One more sample via the public API pushes the table to 1001 rows
+        // and should trigger the trim back down to the 1000-row cap,
+        // evicting the single oldest sample.
+        await db.recordHotkeyLatency(
+          recordedAt: DateTime(2025, 1, 1, 1, 0),
+          latencyMs: 999,
+        );
+
+        final remaining = await db.select(db.hotkeyLatencyEntries).get();
+        expect(remaining, hasLength(1000));
+        expect(remaining.map((r) => r.id), isNot(contains('lat-0')));
+        expect(remaining.map((r) => r.id), contains('lat-1'));
+      },
+    );
+  });
 }

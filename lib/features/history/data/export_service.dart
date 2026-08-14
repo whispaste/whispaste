@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart' show compute;
 
 /// Supported export formats.
 enum ExportFormat { txt, md, json, csv, docx }
@@ -59,28 +60,46 @@ class ExportService {
 
   /// Format [entries] in [format] and write to [path].
   /// Returns the number of bytes written.
+  ///
+  /// The CPU-heavy formatting (JSON/CSV/DOCX serialization, ZIP archiving)
+  /// plus the resulting file write run on a background isolate via
+  /// [compute], so a large export never blocks the UI thread. [entries] is
+  /// a list of plain, sendable [ExportEntry] DTOs, so it copies across the
+  /// isolate boundary safely.
   static Future<int> export(
     List<ExportEntry> entries,
     ExportFormat format,
     String path,
   ) async {
     if (entries.isEmpty) return 0;
+    return compute(_exportOnIsolate, (
+      entries: entries,
+      format: format,
+      path: path,
+    ));
+  }
 
+  /// Runs on a background isolate (see [export]). Must stay a static/
+  /// top-level function — not a closure — so [compute] only has to copy the
+  /// plain argument record, not any surrounding instance state.
+  static Future<int> _exportOnIsolate(
+    ({List<ExportEntry> entries, ExportFormat format, String path}) args,
+  ) async {
     final Uint8List data;
-    switch (format) {
+    switch (args.format) {
       case ExportFormat.json:
-        data = _formatJson(entries);
+        data = _formatJson(args.entries);
       case ExportFormat.csv:
-        data = _formatCsv(entries);
+        data = _formatCsv(args.entries);
       case ExportFormat.docx:
-        data = _generateDocx(entries);
+        data = _generateDocx(args.entries);
       case ExportFormat.md:
-        data = _formatMulti(entries, _formatMd);
+        data = _formatMulti(args.entries, _formatMd);
       case ExportFormat.txt:
-        data = _formatMulti(entries, _formatTxt);
+        data = _formatMulti(args.entries, _formatTxt);
     }
 
-    final file = File(path);
+    final file = File(args.path);
     await file.writeAsBytes(data);
     return data.length;
   }

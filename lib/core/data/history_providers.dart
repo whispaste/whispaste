@@ -28,10 +28,14 @@ final trashEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
 });
 
 /// Watch notes for a specific entry.
-final entryNotesProvider = StreamProvider.family<List<EntryNote>, String>((
-  ref,
-  entryId,
-) {
-  final db = ref.watch(historyDatabaseProvider);
-  return db.watchNotesForEntry(entryId);
-});
+///
+/// `autoDispose` — without it, every history entry ever opened during a
+/// session leaves its Drift stream subscription running forever (only one
+/// entry's notes are ever visible at a time; watched from
+/// `history_notes_section.dart`'s build via `ref.watch`, never `ref.read`,
+/// so nothing needs the provider to outlive its last watcher).
+final entryNotesProvider = StreamProvider.autoDispose
+    .family<List<EntryNote>, String>((ref, entryId) {
+      final db = ref.watch(historyDatabaseProvider);
+      return db.watchNotesForEntry(entryId);
+    });

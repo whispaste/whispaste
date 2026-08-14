@@ -167,6 +167,8 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _ensureEntryTagIndexes();
       // Ensure indexes on notes/note_tags for fast sort/tag joins.
       await _ensureNotesIndexes();
+      // Ensure index on history_entries for fast active/trash/archive sort.
+      await _ensureHistoryEntriesIndexes();
       // One-time backfill: populate DailyStats from existing history
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
@@ -861,6 +863,33 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// guard directly against the already-open database.
   @visibleForTesting
   Future<void> ensureNotesIndexesForTesting() => _ensureNotesIndexes();
+
+  /// Creates an index on history_entries for fast active/trash/archive sort
+  /// (idempotent). `history_entries` is the app's largest and hottest table
+  /// — it backs the main history list ([watchEntries]), the trash and
+  /// archive lists ([watchTrash], [watchArchived]), and the per-save trim
+  /// logic ([trimToMaxEntries]), all of which previously ran as full table
+  /// scans. `(deleted_at, pinned, timestamp)` matches [watchEntries]'s
+  /// `WHERE deleted_at IS NULL … ORDER BY pinned DESC, timestamp DESC` and
+  /// [trimToMaxEntries]'s `WHERE deleted_at IS NULL AND pinned = false
+  /// ORDER BY timestamp DESC` exactly, and its leading `deleted_at` column
+  /// also serves [watchTrash]'s `WHERE deleted_at IS NOT NULL ORDER BY
+  /// deleted_at DESC`.
+  Future<void> _ensureHistoryEntriesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_history_entries_active_sort '
+        'ON history_entries(deleted_at, pinned, timestamp)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureHistoryEntriesIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Query helpers
@@ -2509,16 +2538,31 @@ class HistoryDatabase extends _$HistoryDatabase {
   // Hotkey→text latency — local-only performance KPI (issue 07)
   // ---------------------------------------------------------------------------
 
+  /// Hard cap on stored [hotkeyLatencyEntries] rows. Unlike history entries
+  /// (`historyMaxEntries`), this local-only KPI table has no user-facing
+  /// retention setting, so — like [enforceAudioAttachmentCap]'s `max: 20`
+  /// default — the cap is a fixed constant.
+  static const int _maxHotkeyLatencyEntries = 1000;
+
   /// Persists one end-to-end hotkey→text latency sample.
   ///
   /// Local-only: this table is never read by the outgoing telemetry path
   /// (`_latencyBucketSeconds` in `recording_orchestrator.dart` remains the
   /// sole, intentionally coarse latency signal that leaves the device).
+  ///
+  /// Trims the table to [_maxHotkeyLatencyEntries] rows (oldest-first) after
+  /// each insert via [_trimHotkeyLatencyEntries] — same row-count-cap policy
+  /// as [trimToMaxEntries]/[enforceAudioAttachmentCap], run as its own
+  /// top-level [_writeCoordinator] call rather than nested inside the
+  /// insert's (the coordinator's lock is not reentrant — see the
+  /// lock-in-lock note on [_writeCoordinator]'s doc comment). As a
+  /// consequence, [analyticsAverageHotkeyLatencyMs] only ever averages over
+  /// the retained window.
   Future<void> recordHotkeyLatency({
     required DateTime recordedAt,
     required int latencyMs,
-  }) {
-    return _writeCoordinator.write<void>(
+  }) async {
+    await _writeCoordinator.write<void>(
       () => into(hotkeyLatencyEntries).insert(
         HotkeyLatencyEntriesCompanion.insert(
           id: _uuid(),
@@ -2527,6 +2571,30 @@ class HistoryDatabase extends _$HistoryDatabase {
         ),
       ),
     );
+    await _trimHotkeyLatencyEntries();
+  }
+
+  /// Keeps only the [_maxHotkeyLatencyEntries] most recent latency samples,
+  /// deleting the rest. Same query shape as [enforceAudioAttachmentCap]:
+  /// fetch ordered rows, slice off everything past the cap, delete by id.
+  Future<int> _trimHotkeyLatencyEntries() {
+    return _writeCoordinator.write<int>(() async {
+      final rows =
+          await (select(hotkeyLatencyEntries)..orderBy([
+                (e) => OrderingTerm(
+                  expression: e.recordedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ]))
+              .get();
+      if (rows.length <= _maxHotkeyLatencyEntries) return 0;
+
+      final excess = rows.sublist(_maxHotkeyLatencyEntries);
+      await (delete(
+        hotkeyLatencyEntries,
+      )..where((e) => e.id.isIn(excess.map((r) => r.id)))).go();
+      return excess.length;
+    });
   }
 
   /// Average hotkey→text latency in milliseconds across recorded samples.
