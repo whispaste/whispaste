@@ -20,6 +20,7 @@ void main() {
     bool applyReplacements = false,
     int maxEntries = 0,
     bool insertHistoryEntry = true,
+    bool numericOnlyMode = false,
   }) => RecordingInput(
     transcript: transcript,
     audioDuration: const Duration(seconds: 5),
@@ -31,6 +32,7 @@ void main() {
     wordCount: transcript.trim().split(RegExp(r'\s+')).length,
     processingDurationSec: 2,
     insertHistoryEntry: insertHistoryEntry,
+    numericOnlyMode: numericOnlyMode,
   );
 
   group('DriftRecordingStore', () {
@@ -318,6 +320,38 @@ void main() {
         expect(entries.first.content, 'kept one');
       },
     );
+
+    test('numericOnlyMode transforms the replacement-applied text and '
+        'persists the transformed text to history', () async {
+      final now = DateTime.now();
+      await db.upsertReplacementWithTriggers(
+        id: now.millisecondsSinceEpoch.toString(),
+        triggers: ['minus'],
+        replacement: 'minus',
+        createdAt: now,
+      );
+
+      final result = await store.save(
+        makeInput(
+          transcript: 'fünf komma zwei minus drei',
+          applyReplacements: true,
+          numericOnlyMode: true,
+        ),
+      );
+
+      expect(result.processedTranscript, '5,2-3');
+      final entries = await db.allEntries(limit: 100, offset: 0);
+      expect(entries.first.content, '5,2-3');
+    });
+
+    test('numericOnlyMode leaves an unconvertible transcript unchanged '
+        '(all-or-nothing, no crash)', () async {
+      final result = await store.save(
+        makeInput(transcript: 'Hallo Welt', numericOnlyMode: true),
+      );
+
+      expect(result.processedTranscript, 'Hallo Welt');
+    });
 
     test('two consecutive saves never share a color slot', () async {
       for (var i = 0; i < 10; i++) {

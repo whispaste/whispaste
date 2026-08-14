@@ -711,6 +711,190 @@ void main() {
   });
 
   // =========================================================================
+  // Zahlen-Modus (numericOnlyMode, itn-cad-zahlen ticket 05) — R1-R7
+  // =========================================================================
+
+  group('Zahlen-Modus (numericOnlyMode)', () {
+    /// Rebuilds the container with [stt]/[behavior] overrides, runs a full
+    /// record→transcribe cycle targeting the clipboard, and returns the
+    /// clipboard text so both the finalText result and (via [db]) the
+    /// persisted history entry can be asserted.
+    Future<void> runCase({
+      required SttSettings stt,
+      BehaviorSettings behavior = const BehaviorSettings(),
+      required String transcript,
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          stt: stt,
+          behavior: behavior,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = transcript;
+      await orch.stopRecording();
+    }
+
+    test('R1: numericOnlyMode off leaves the transcript untouched', () async {
+      await runCase(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+        transcript: 'fünf komma zwei minus drei',
+      );
+
+      expect(clipboardText, 'fünf komma zwei minus drei');
+    });
+
+    test('R2: a replacement rule matching a number word fires first, the '
+        'numeric transform runs on its result', () async {
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: ['boah'],
+        replacement: 'acht',
+        createdAt: DateTime.now(),
+      );
+
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          numericOnlyMode: true,
+        ),
+        behavior: const BehaviorSettings(textReplacementsEnabled: true),
+        transcript: 'boah komma fünf',
+      );
+
+      expect(clipboardText, '8,5');
+    });
+
+    test(
+      'R3: numericOnlyMode + stripPunctuation together do not conflict — '
+      'the digits/decimal-separator output survives the punctuation strip',
+      () async {
+        await runCase(
+          stt: const SttSettings(
+            model: 'whisper-small',
+            language: 'German',
+            numericOnlyMode: true,
+            stripPunctuation: true,
+          ),
+          transcript: 'fünf komma zwei minus drei',
+        );
+
+        expect(clipboardText, '5,2-3');
+      },
+    );
+
+    test(
+      'R4: a transcript with no number words is left unchanged, no crash',
+      () async {
+        await runCase(
+          stt: const SttSettings(
+            model: 'whisper-small',
+            language: 'German',
+            numericOnlyMode: true,
+          ),
+          transcript: 'Hallo Welt',
+        );
+
+        expect(clipboardText, 'Hallo Welt');
+      },
+    );
+
+    test('R5: Snippet-Picker exact-match dispatch still runs on the raw '
+        'transcript, unaffected by numericOnlyMode', () async {
+      final fakeSnippetPicker = FakeSnippetPickerController();
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(
+              const AppSettings(
+                stt: SttSettings(
+                  model: 'whisper-small',
+                  language: 'German',
+                  numericOnlyMode: true,
+                ),
+                afterTranscriptionSection: AfterTranscriptionSettings(
+                  afterTranscription: 'paste',
+                ),
+                behavior: BehaviorSettings(snippetPickerTrigger: 'snippets'),
+                onboarding: OnboardingSettings(onboardingCompleted: true),
+              ),
+            ),
+          ),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          snippetPickerControllerProvider.overrideWithValue(fakeSnippetPicker),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, hasLength(1));
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('R6: a transcript mixing a number word with an unclassifiable token '
+        'is left unchanged (all-or-nothing, no partial conversion)', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          numericOnlyMode: true,
+        ),
+        transcript: 'fünf Apfel',
+      );
+
+      expect(clipboardText, 'fünf Apfel');
+    });
+
+    test('R7: the persisted history entry already contains the numeric-'
+        'transformed text, not the number-word raw text', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          numericOnlyMode: true,
+        ),
+        transcript: 'fünf komma zwei minus drei',
+      );
+
+      final entries = await db.allEntries();
+      expect(entries.first.content, '5,2-3');
+    });
+  });
+
+  // =========================================================================
   // Snippet-Picker dispatch (exact-match short-circuit, dictation-automations
   // ticket 06)
   // =========================================================================

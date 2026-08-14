@@ -1462,6 +1462,7 @@ class RecordingOrchestrator extends Notifier<void> {
           wordCount: wordCount,
           processingDurationSec: processingDurationSec,
           insertHistoryEntry: !isQuickNote,
+          numericOnlyMode: settings.stt.numericOnlyMode,
         ),
       );
 
