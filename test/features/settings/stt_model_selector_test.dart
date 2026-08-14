@@ -522,6 +522,74 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Accessibility — tier rows must announce as buttons (screen readers
+  // otherwise skip straight past them), but without a `label:` that repeats
+  // the tier name already rendered as visible text underneath (see the
+  // house-wide regression guard in
+  // test/core/accessibility/no_double_announcement_test.dart).
+  // -------------------------------------------------------------------------
+  group('tier row accessibility', () {
+    /// How often [needle] occurs in [haystack].
+    int occurrences(String haystack, String needle) =>
+        needle.allMatches(haystack).length;
+
+    testWidgets(
+      'selectable tier card exposes a button role and names itself once',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(_makeTestable());
+          await tester.pumpAndSettle();
+
+          final node = tester.getSemantics(
+            find.text(l10n.qualityTierCompactLabel),
+          );
+          expect(
+            occurrences(node.label, l10n.qualityTierCompactLabel),
+            1,
+            reason:
+                'a Semantics label here would double-announce the tier '
+                'name, which is already rendered as visible text',
+          );
+          expect(node.flagsCollection.isButton, isTrue);
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
+
+    testWidgets(
+      'current, already-downloaded tier card carries no button role',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        try {
+          final modelId = bestModelForTier(QualityTier.compact).id;
+          await tester.pumpWidget(
+            _makeTestable(
+              currentModelId: modelId,
+              downloadState: ModelDownloadState(downloadedModels: {modelId}),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final node = tester.getSemantics(
+            find.text(l10n.qualityTierCompactLabel),
+          );
+          expect(
+            node.flagsCollection.isButton,
+            isFalse,
+            reason:
+                'this tier is not tappable — onTap is null — so it '
+                'must not be announced as an actionable button',
+          );
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
   // Graded performance info line
   //
   // The line renders for the *current* tier only, so at most one stage is on

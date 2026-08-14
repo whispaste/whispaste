@@ -283,77 +283,85 @@ class _TierRowState extends State<_TierRow> {
       cursor: isSelectable
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: isSelectable ? widget.onSelect : null,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(context, WpMotion.hoverIn),
-          curve: WpMotion.defaultCurve,
-          // 1px margin keeps adjacent rows' selection borders from touching.
-          margin: const EdgeInsets.symmetric(vertical: 1),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: widget.isCurrentTier || _isDownloading
-                ? accentButtonFill
-                : _isHovered && isSelectable
-                ? hoverBg
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(WpRadius.sm),
-            border: widget.isCurrentTier || _isDownloading
-                ? Border.all(color: accentBorder30)
-                : null,
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  // Tier icon with status indicator
-                  _StatusIcon(
-                    isDownloaded: _isDownloaded,
-                    isActive: _isDownloading,
-                    phase: _phase,
-                    icon: _tierIcon,
-                    accent: accent,
-                    success: success,
-                    muted: textMuted,
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // Tier info
-                  Expanded(
-                    child: _TierRowInfo(
-                      tier: widget.tier,
-                      label: _tierLabel(widget.l10n),
-                      desc: _tierDesc(widget.l10n),
-                      isRecommended: widget.isRecommended,
+      child: Semantics(
+        // No `label:` — the tier name and description are already rendered
+        // as visible Text descendants further down this subtree, and a
+        // Semantics label is prepended to (not substituted for) that text,
+        // so adding one here would announce the tier name twice (see the
+        // identical tradeoff documented on `_SnippetTile._buildRow`).
+        button: isSelectable,
+        child: GestureDetector(
+          onTap: isSelectable ? widget.onSelect : null,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: WpMotion.durationFor(context, WpMotion.hoverIn),
+            curve: WpMotion.defaultCurve,
+            // 1px margin keeps adjacent rows' selection borders from touching.
+            margin: const EdgeInsets.symmetric(vertical: 1),
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: widget.isCurrentTier || _isDownloading
+                  ? accentButtonFill
+                  : _isHovered && isSelectable
+                  ? hoverBg
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(WpRadius.sm),
+              border: widget.isCurrentTier || _isDownloading
+                  ? Border.all(color: accentBorder30)
+                  : null,
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // Tier icon with status indicator
+                    _StatusIcon(
                       isDownloaded: _isDownloaded,
-                      isBenchmarking: widget.isBenchmarking,
-                      infoMessage: infoMessage,
-                      infoColor: infoColor,
-                      performance: infoPerformance,
-                      l10n: widget.l10n,
+                      isActive: _isDownloading,
+                      phase: _phase,
+                      icon: _tierIcon,
                       accent: accent,
-                      textMuted: textMuted,
                       success: success,
+                      muted: textMuted,
+                    ),
+                    const SizedBox(width: WpSpacing.sm),
+                    // Tier info
+                    Expanded(
+                      child: _TierRowInfo(
+                        tier: widget.tier,
+                        label: _tierLabel(widget.l10n),
+                        desc: _tierDesc(widget.l10n),
+                        isRecommended: widget.isRecommended,
+                        isDownloaded: _isDownloaded,
+                        isBenchmarking: widget.isBenchmarking,
+                        infoMessage: infoMessage,
+                        infoColor: infoColor,
+                        performance: infoPerformance,
+                        l10n: widget.l10n,
+                        accent: accent,
+                        textMuted: textMuted,
+                        success: success,
+                      ),
+                    ),
+                    // Action
+                    _buildAction(accent, textMuted),
+                  ],
+                ),
+                // Progress bar + status text
+                if (_isDownloading && widget.downloadState.isBusy)
+                  Padding(
+                    padding: const EdgeInsets.only(top: WpSpacing.xs),
+                    child: _DownloadProgressInfo(
+                      downloadState: widget.downloadState,
+                      accent: accent,
+                      l10n: widget.l10n,
                     ),
                   ),
-                  // Action
-                  _buildAction(accent, textMuted),
-                ],
-              ),
-              // Progress bar + status text
-              if (_isDownloading && widget.downloadState.isBusy)
-                Padding(
-                  padding: const EdgeInsets.only(top: WpSpacing.xs),
-                  child: _DownloadProgressInfo(
-                    downloadState: widget.downloadState,
-                    accent: accent,
-                    l10n: widget.l10n,
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
