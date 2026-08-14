@@ -1,0 +1,26 @@
+name: Cleanup Closed PR Branch
+# Ergänzt die eingebaute "Automatically delete head branches"-Einstellung (die
+# nur beim Merge über den GitHub-Button greift) um den fehlenden Fall: PR
+# geschlossen OHNE Merge (z. B. abgelehnte Bot-Vorschläge von bolt/palette/
+# sentinel/sprout). Der Diff bleibt im geschlossenen PR einsehbar, nur der
+# Branch-Ref verschwindet.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-branch:
+    if: >
+      github.event.pull_request.merged == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !contains(fromJSON('["main", "dev"]'), github.event.pull_request.head.ref)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete head branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${BRANCH}" || true
