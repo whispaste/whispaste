@@ -1133,13 +1133,40 @@ html.light {
                         window.location.assign(), i18n.ts:1712); der
                         textContent-Ersatz in applyLang() (i18n.ts:1737) ist
                         nur der Fallback ohne Pendant-Seite — auf beiden Wegen
-                        würde ein Span-Split das Markup zerreißen.
+                        würde ein Span-Split das Markup zerreißen. Läuft über
+                        `animation-timeline: view()` — für above-the-fold-
+                        Elemente (dauerhaft im Viewport, z. B. eine Hero-H1)
+                        deshalb ungeeignet: die Timeline steht dort beim ersten
+                        Frame bereits bei 100 %, der Reveal spielt nie. Für
+                        solche Fälle .wp-rise-in verwenden.
+   - .wp-rise-in        Dieselbe Vorhang-Aufzug-Optik wie .wp-kinetic-line,
+                        aber zeitbasiert (animation-delay) statt scroll-
+                        gekoppelt — deshalb ohne @supports lauffähig und die
+                        richtige Wahl für alles, was schon beim Laden sichtbar
+                        ist (Hero-Headline, Above-the-fold-Content). Delay pro
+                        Instanz über `--wp-rise-delay`; Blur-Stärke über
+                        `--wp-rise-blur` kappbar (Default 6px — auf großem
+                        Display-Text ist ungebremster Blur die teuerste
+                        Paint-Operation der Seite).
+   - .wp-bracket-lock   Modifier auf `.wp-bracketed`: die Klammern rasten von
+                        außen kommend auf den Text ein, statt nur zu erscheinen
+                        — der "Tastendruck" als grafisches Ereignis. Teilt sich
+                        `--wp-rise-delay` mit .wp-rise-in für gemeinsame
+                        Choreografie-Steuerung.
    - .wp-mask-reveal    Richtungs-Wipe für Panels/Karten (Modifier `--up` für
                         vertikal statt horizontal).
    - .wp-clip-reveal    Blende/Iris-Reveal für Bild-/Screenshot-Kacheln.
    - .wp-parallax-*     Tiefen-Parallax für dekorative Hintergrund-Layer via
                         named `view-timeline` — nur auf `pointer-events:none`-
                         Dekor, nie auf interaktivem Inhalt.
+   - .wp-recede         Scroll-Abgang für Full-Viewport-Opener: der Inhalt löst
+                        sich beim Verlassen des Viewports (`exit`-Range) leicht
+                        nach oben auf, während dekorative Hintergrund-Layer
+                        (die volle `cover`-Range) länger stehen bleiben — ein
+                        Mehr-Geschwindigkeiten-Abgang statt eines Ein-Ebenen-
+                        Schnitts. Endet bei opacity 0.35, nicht 0, damit
+                        zurück-tabbende Tastatur-Nutzer den Inhalt weiter
+                        wahrnehmen.
    --------------------------------------------------------------------------- */
 
 :root {
@@ -1175,6 +1202,53 @@ html.light {
     animation-timeline: view();
     animation-range: entry 0% entry 55%;
   }
+}
+
+/* --- Rise In: zeitbasierte Vorhang-Aufzug-Variante für Above-the-fold-Inhalt
+   Gleiche Optik wie wp-kinetic-rise, aber über animation-delay statt
+   view-timeline gesteuert — läuft überall, keine @supports-Gate nötig. Bewusst
+   kein `opacity: 0`-Start (nur clip-path/translate/filter): auf einem
+   LCP-Kandidaten wie der Hero-H1 darf der Erstanstrich nicht auf einen späten
+   Animationsschritt warten. */
+@keyframes wp-rise {
+  from {
+    clip-path: inset(0 0 100% 0);
+    translate: 0 14%;
+    filter: blur(var(--wp-rise-blur, 6px));
+  }
+  60% {
+    filter: blur(0);
+  }
+  to {
+    clip-path: inset(0 0 0% 0);
+    translate: 0 0;
+    filter: blur(0);
+  }
+}
+.wp-rise-in {
+  animation: wp-rise var(--dur-cinematic) var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+}
+
+/* --- Bracket Lock: Klammern rasten von außen auf den Text ein --------------
+   Modifier auf `.wp-bracketed` (M9) — nur in Kombination sinnvoll, deshalb
+   zusammengesetzter Selektor statt eigenständiger Klasse. Nur transform/
+   opacity, kurze feste Dauer (--dur-slow, 320ms): soll wie ein Tastenanschlag
+   klicken, nicht schweben. */
+@keyframes wp-bracket-lock-l {
+  from { opacity: 0; translate: -0.4em 0; }
+}
+@keyframes wp-bracket-lock-r {
+  from { opacity: 0; translate: 0.4em 0; }
+}
+.wp-bracketed.wp-bracket-lock::before,
+.wp-bracketed.wp-bracket-lock::after {
+  display: inline-block;
+}
+.wp-bracketed.wp-bracket-lock::before {
+  animation: wp-bracket-lock-l var(--dur-slow) var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+}
+.wp-bracketed.wp-bracket-lock::after {
+  animation: wp-bracket-lock-r var(--dur-slow) var(--ease-flow) var(--wp-rise-delay, 0ms) both;
 }
 
 /* --- Mask Reveal: Richtungs-Wipe für Panels/Karten -------------------------
@@ -1244,15 +1318,55 @@ html.light {
   }
 }
 
+/* --- Recede: Scroll-Abgang für Full-Viewport-Opener ------------------------
+   `exit`-Range statt `entry` — inert beim Laden, aktiv erst wenn der Abschnitt
+   den Viewport verlässt. Auf den Inhalts-Container anwenden, NICHT auf die
+   Section (sonst nehmen auch die Parallax-Layer die falsche Timeline an).
+   Linear, weil scroll-gekoppelt: der Scrollfinger ist hier das Easing.
+
+   Bewusst KEINE anonyme `view()`-Timeline hier (anders als bei den anderen
+   fünf M10-Primitiven) — gemessen und verifiziert kaputt: `view()` bindet an
+   den "nächsten Scroll-Container" des Elements selbst, und ein Full-Viewport-
+   Opener sitzt fast immer in einer Section mit `overflow-hidden` (hier: das
+   Wasserzeichen-Clipping). `overflow: hidden` etabliert nach Spec einen
+   Scroll-Container, obwohl er nie einen echten Scroll-Event vom Nutzer sieht
+   — die anonyme Timeline bindet daran und bleibt für immer bei progress 0
+   hängen (reproduziert: über 3000px Scroll-Distanz konstant 0, mit `exit` UND
+   mit `cover`). Der schon vorhandene BENANNTE Scope `--wp-parallax-scope`
+   (auf der Section deklariert, deren eigener nächster Scroll-Container
+   korrekt der echte Seiten-Scroller ist) trägt hier stattdessen — dieselbe
+   Timeline, die auch die Parallax-Layer schon nutzen. */
+@keyframes wp-recede {
+  to { translate: 0 -40px; opacity: 0.35; }
+}
+@supports (animation-timeline: view()) {
+  .wp-recede {
+    animation: wp-recede linear both;
+    animation-timeline: --wp-parallax-scope;
+    animation-range: exit 0% exit 80%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wp-kinetic-line,
   .wp-mask-reveal,
   .wp-mask-reveal--up,
   .wp-clip-reveal,
-  .wp-parallax-layer {
+  .wp-parallax-layer,
+  .wp-rise-in,
+  .wp-recede {
     animation: none !important;
     clip-path: none !important;
     filter: none !important;
+    translate: none !important;
+  }
+  .wp-recede {
+    opacity: 1 !important;
+  }
+  .wp-bracketed.wp-bracket-lock::before,
+  .wp-bracketed.wp-bracket-lock::after {
+    animation: none !important;
+    opacity: 1 !important;
     translate: none !important;
   }
 }

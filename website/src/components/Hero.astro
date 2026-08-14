@@ -18,8 +18,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 <section
   class="wp-parallax-scope relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
 >
-  <!-- W-wave background (exact brand logo: wave + audio bars) -->
-  <div class="wp-parallax-layer absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+  <!-- W-wave background (exact brand logo: wave + audio bars). Depth raised to
+       48px (default is 32px) and masked so it visibly recedes behind the text
+       column instead of running flat underneath it -- the actual source of
+       the figure/ground read, the parallax drift alone wasn't enough. -->
+  <div
+    class="wp-parallax-layer hero-wave-mask absolute inset-0 flex items-center justify-center pointer-events-none"
+    aria-hidden="true"
+    style="--wp-parallax-depth: 48px;"
+  >
     <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
@@ -39,38 +46,67 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     </svg>
   </div>
 
-  <div class="relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
-    <div class="animate-fade-in">
-      <div class="mb-4 sm:mb-6 mt-4">
-        <img
-          id="heroLogo"
-          src="/app-icon-dark.png"
-          alt="WhisPaste"
-          width="80"
-          height="80"
-          class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl"
-        />
-      </div>
+  <!-- Mid-depth console glow: a second parallax layer with negative depth so
+       it drifts opposite to the wave above -- two layers moving apart, not
+       one layer sliding under static text, is what makes the parallax read
+       as depth instead of a single background nudge. 6% cyan is deliberately
+       below "visible element" -- it should read as stage light, not a shape. -->
+  <div
+    class="wp-parallax-layer hero-console-glow absolute inset-0 pointer-events-none"
+    aria-hidden="true"
+    style="--wp-parallax-depth: -14px;"
+  ></div>
 
-      <h1
-        class="wp-kinetic-line hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
-      >
-        <span data-i18n="hero.title1">{t(lang, "hero.title1")}</span><br />
-        <span class="hero-gradient" data-i18n="hero.title2"
-          >{t(lang, "hero.title2")}</span
-        >
-      </h1>
-      <p
-        class="mt-4 sm:mt-6 text-base sm:text-xl text-ink-muted max-w-2xl mx-auto leading-relaxed"
-        data-i18n="hero.desc"
-      >
-        {t(lang, "hero.desc")}
-      </p>
+  <div class="wp-recede relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
+    <div class="mb-4 sm:mb-6 mt-4">
+      <img
+        id="heroLogo"
+        src="/app-icon-dark.png"
+        alt="WhisPaste"
+        width="80"
+        height="80"
+        class="hero-logo-in w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl"
+      />
     </div>
+
+    <!-- Eyebrow: the one spot on the page that didn't carry the M9 bracket
+         signature yet. Bracket-lock is the "hotkey" beat of the load
+         choreography -- the brackets click into place like a keypress. -->
+    <p class="wp-eyebrow wp-bracketed wp-bracket-lock" style="--wp-rise-delay: 80ms">
+      <span data-i18n="hero.eyebrow">{t(lang, "hero.eyebrow")}</span>
+    </p>
+
+    <h1
+      class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
+    >
+      <span
+        class="wp-rise-in hero-title-line"
+        data-i18n="hero.title1"
+        style="--wp-rise-delay: 160ms"
+        >{t(lang, "hero.title1")}</span
+      ><br />
+      <span
+        class="wp-rise-in hero-title-line"
+        style="--wp-rise-delay: 280ms"
+        ><span
+          class="hero-gradient"
+          data-i18n="hero.title2"
+          >{t(lang, "hero.title2")}</span
+        ></span
+      >
+    </h1>
+    <p
+      class="hero-fade-rise mt-4 sm:mt-6 text-base sm:text-xl text-ink-muted max-w-2xl mx-auto leading-relaxed"
+      data-i18n="hero.desc"
+      style="--wp-rise-delay: 480ms"
+    >
+      {t(lang, "hero.desc")}
+    </p>
 
     <!-- CTA buttons -->
 <div
-  class="mt-6 sm:mt-8 flex flex-col items-center gap-4 animate-fade-in-delay"
+  class="hero-fade-rise mt-6 sm:mt-8 flex flex-col items-center gap-4"
+  style="--wp-rise-delay: 560ms"
 >
   <!-- Primary row: all three desktop platforms as equal-rank CTAs
        (Plattform-Parität, PRODUCT.md). The existing data-os/data-platform-btn
@@ -119,7 +155,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
          (`#macos`/`#windows`/`#linux`, added in download.astro), not just
          informational pills. `platform-badge` class + `data-platform-badge`
          are kept exactly as-is so the highlight CSS above keeps matching. -->
-    <div class="platform-row mt-7 sm:mt-9 flex flex-col items-center gap-2.5 animate-fade-in-delay">
+    <div class="platform-row hero-fade-rise mt-7 sm:mt-9 flex flex-col items-center gap-2.5" style="--wp-rise-delay: 640ms">
       <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle" data-i18n="hero.platforms.claim">
         {t(lang, "hero.platforms.claim")}
       </p>
@@ -170,8 +206,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       href="https://github.com/whispaste/whispaste"
       target="_blank"
       rel="noopener"
-      class="mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors animate-fade-in-delay"
-      style="display:none"
+      class="hero-fade-rise mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
+      style="display:none; --wp-rise-delay: 720ms"
       aria-label="Star WhisPaste on GitHub"
     >
       <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -240,11 +276,34 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       transform: translateY(0);
     }
   }
-  .animate-fade-in {
-    animation: fade-in 0.8s ease-out both;
+  /* Load partiture ("Der Hotkey-Moment"): logo -> eyebrow (bracket-lock,
+     global.css) -> H1 lines (wp-rise-in, global.css) -> desc/CTA/badges/
+     GitHub link (this fade-rise), each on its own --wp-rise-delay instead of
+     the old two-tier animate-fade-in/-delay split. Everything lands by
+     ~800ms; the H1 (likely LCP) gets <=200ms and no opacity:0 start. */
+  .hero-fade-rise {
+    animation: fade-in 0.6s var(--ease-flow) var(--wp-rise-delay, 0ms) both;
   }
-  .animate-fade-in-delay {
-    animation: fade-in 0.8s ease-out 0.3s both;
+  @keyframes hero-logo-in {
+    from { opacity: 0; scale: 0.92; }
+    to { opacity: 1; scale: 1; }
+  }
+  .hero-logo-in {
+    animation: hero-logo-in 0.5s var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+  }
+  /* inline-block so .wp-rise-in's translate/clip-path apply cleanly (both
+     spans wrap normally inside it -- title1 wraps across two visual lines by
+     width alone, no <br> inside the span, so the reveal still plays as one
+     sweep per span, never per wrapped line). Title2's .hero-gradient (own
+     `animation` shorthand, gradient-shift) sits on a NESTED inner span rather
+     than this element -- two `animation` shorthands on the same element
+     silently clobber each other (confirmed: without the split, only
+     gradient-shift ran and wp-rise-in never played). data-i18n stays on that
+     inner span too, since applyLang() replaces textContent on exactly the
+     element it's attached to -- keeping it there is what makes the split safe
+     for the language-switch fallback path. */
+  .hero-title-line {
+    display: inline-block;
   }
   .hero-gradient {
     /* Mirrors the app's WpColorsDark.accentWarmGradient (cyan → teal). */
@@ -319,6 +378,23 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     0%, 100% { opacity: 0.10; }
     50% { opacity: 0.14; }
   }
+  /* Depth separation for the watermark layer (M10 §3): the wave fades out
+     behind the text column instead of running flat underneath it -- this is
+     what actually produces the figure/ground read, the parallax drift alone
+     only moved one flat layer. Both prefixed and unprefixed since Safari
+     still wants -webkit-mask-image; harmless no-op elsewhere. */
+  .hero-wave-mask {
+    mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 22%, black 68%);
+    -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 22%, black 68%);
+  }
+  /* Mid-depth glow, see markup comment above -- deliberately below the
+     "visible element" threshold (6% cyan): stage light, not a shape. */
+  .hero-console-glow {
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--color-brand-cyan) 6%, transparent) 0%, transparent 70%);
+    background-repeat: no-repeat;
+    background-position: center 38%;
+    background-size: min(60vw, 900px) min(60vw, 900px);
+  }
   :global(.light) .hero-wave {
     animation: wave-breathe-light 8s ease-in-out infinite;
   }
@@ -337,14 +413,41 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     50% { opacity: 0.13; }
   }
 
+  /* CTA-Affirm: a one-shot soft glow on the platform button matching the
+     visitor's detected OS (`data-os` on <html>, set before first paint --
+     see Layout.astro), ~1.1s after load. Confirms "your system is
+     recognized" without changing the button's shape (Fidelity-Zone: no
+     bracket/HUD chrome on functional surfaces). No pulse on unknown OS
+     (bots, privacy tools) -- there's nothing true to confirm, so nothing
+     fires. `.wp-store-btn`/`.wp-apple-btn`/`.wp-linux-btn` are rendered by
+     child components (StoreButton/AppleButton/LinuxButton), so the whole
+     selector needs :global() -- Astro's scoping would otherwise add a
+     data-astro-cid attribute these child-rendered elements never carry, and
+     the rule would silently never match. */
+  @keyframes wp-cta-affirm {
+    50% {
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+    }
+  }
+  :global([data-os="macos"] .wp-apple-btn),
+  :global([data-os="windows"] .wp-store-btn),
+  :global([data-os="linux"] .wp-linux-btn) {
+    animation: wp-cta-affirm 900ms var(--ease-flow) 1100ms 1;
+  }
+
   /* Reduced motion for hero animations (incl. the gated signature burst) */
   @media (prefers-reduced-motion: reduce) {
     .hero-gradient,
     .hero-wave,
     .hero-bar,
     .hero-ribbon,
-    .animate-fade-in,
-    .animate-fade-in-delay {
+    .hero-fade-rise,
+    .hero-logo-in {
+      animation: none !important;
+    }
+    :global([data-os="macos"] .wp-apple-btn),
+    :global([data-os="windows"] .wp-store-btn),
+    :global([data-os="linux"] .wp-linux-btn) {
       animation: none !important;
     }
     /* show the assembled glyph immediately */
