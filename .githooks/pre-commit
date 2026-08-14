@@ -235,6 +235,16 @@ if [ -n "$DART_STAGED" ]; then
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_PREFIX \
     flutter analyze --fatal-infos --fatal-warnings 2>&1 || flutter_ok=false
 
+  # flutter analyze regeneriert GeneratedPluginRegistrant.swift als
+  # Nebeneffekt und entfernt dabei den MAS-Guard erneut -- unabhängig davon,
+  # ob die Datei überhaupt Teil dieses Commits ist. Nur den Working Tree
+  # heilen (kein `git add` -- die Datei ist hier i. d. R. nicht gestaged;
+  # der bereits committete/gestagte Stand aus 3c bleibt unberührt), sonst
+  # bleibt sie nach praktisch jedem Dart-Commit erneut dirty.
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$ROOT/macos/patch_plugin_registrant_guard.py" "$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift" >/dev/null
+  fi
+
   if [ "$flutter_ok" = "true" ] && [ -f "$ROOT/loam.yaml" ] && command -v dart >/dev/null 2>&1; then
     echo ""
     echo "Loam ratchet gate..."
