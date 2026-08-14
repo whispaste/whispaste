@@ -4,7 +4,7 @@
   "description": "",
   "private": true,
   "scripts": {
-    "dev": "astro dev",
+    "dev": "bash scripts/dev.sh",
     "build": "node scripts/generate-llms-txt.mjs && astro build",
     "build:check": "node scripts/generate-llms-txt.mjs && astro build && node scripts/check-brand-vocabulary.mjs",
     "build:deploy": "npm run build:check && node scripts/push-indexnow.mjs",
