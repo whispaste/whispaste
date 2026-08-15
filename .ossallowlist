@@ -137,3 +137,7 @@ tool/
 # getrackt bleiben)
 .jules/
 
+# Root AGENTS.md — the only file Jules documentedly reads for repo-wide
+# agent instructions; points to .jules/GUIDANCE.md. No secrets/infra details.
+AGENTS.md
+

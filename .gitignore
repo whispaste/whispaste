@@ -85,7 +85,6 @@ fastlane/*.provisionprofile
 docs/
 
 # AI agent / skill config (local only)
-AGENTS.md
 opencode.json
 rules/
 skills-lock.json
