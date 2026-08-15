@@ -195,9 +195,9 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
             .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
       ),
       asyncAll: ref.watch(replacementsProvider),
-      searchMatches: (r, q) =>
-          r.triggers.any((t) => t.toLowerCase().contains(q)) ||
-          r.replacement.toLowerCase().contains(q),
+      searchMatches: (r, regex) =>
+          r.triggers.any(regex.hasMatch) ||
+          regex.hasMatch(r.replacement),
       searchHint: l10n.replacementsSearch,
       searchFieldLabel: l10n.replacementsSearchFieldLabel,
       addLabel: l10n.replacementsAdd,

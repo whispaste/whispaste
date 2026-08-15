@@ -165,8 +165,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
         showEmptyListHint: trigger.trim().isNotEmpty && !hasSnippets,
       ),
       asyncAll: ref.watch(snippetsProvider),
-      searchMatches: (s, q) =>
-          s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
+      searchMatches: (s, regex) =>
+          regex.hasMatch(s.title) || regex.hasMatch(s.body),
       searchHint: l10n.snippetsSearch,
       searchFieldLabel: l10n.snippetsSearchFieldLabel,
       addLabel: l10n.snippetsAdd,
