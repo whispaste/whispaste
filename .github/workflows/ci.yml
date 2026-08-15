@@ -89,10 +89,11 @@ jobs:
       - name: C++ static analysis (cppcheck)
         shell: pwsh
         run: |
-          choco install cppcheck --version=2.14.0 -y --no-progress
+          Invoke-WebRequest -Uri "https://github.com/cppcheck-opensource/cppcheck/releases/download/2.14.0/cppcheck-2.14.0-x64-Setup.msi" -OutFile "cppcheck-setup.msi"
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i cppcheck-setup.msi /qn /norestart" -Wait -NoNewWindow
           $defaultPath = 'C:\Program Files\Cppcheck\cppcheck.exe'
           if (-not (Test-Path $defaultPath)) {
-            throw "cppcheck was expected at $defaultPath after Chocolatey installation."
+            throw "cppcheck was expected at $defaultPath after MSI installation."
           }
           $env:Path = "C:\Program Files\Cppcheck;$env:Path"
           $cppcheck = @{ Source = $defaultPath }
