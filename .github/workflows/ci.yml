@@ -89,7 +89,7 @@ jobs:
       - name: C++ static analysis (cppcheck)
         shell: pwsh
         run: |
-          choco install cppcheck -y --no-progress
+          choco install cppcheck --version=2.14.0 -y --no-progress
           $defaultPath = 'C:\Program Files\Cppcheck\cppcheck.exe'
           if (-not (Test-Path $defaultPath)) {
             throw "cppcheck was expected at $defaultPath after Chocolatey installation."
