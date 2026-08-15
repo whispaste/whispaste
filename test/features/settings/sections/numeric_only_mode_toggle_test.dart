@@ -45,14 +45,25 @@ AppSettings _cloudSettings({bool numericOnlyMode = false}) {
       );
 }
 
-Future<_FakeSettingsNotifier> _pumpSection(
-  WidgetTester tester, {
+/// [AppSettings.defaults] is already on-device/whisper, so this only needs
+/// to override the engine for the Parakeet case.
+AppSettings _localSettings({
+  OnDeviceEngine engine = OnDeviceEngine.whisper,
   bool numericOnlyMode = false,
+}) {
+  return AppSettings.defaults
+      .copyWith(sttEngine: engine.value)
+      .copyWithSections(
+        stt: AppSettings.defaults.stt.copyWith(numericOnlyMode: numericOnlyMode),
+      );
+}
+
+Future<_FakeSettingsNotifier> _pumpSectionWith(
+  WidgetTester tester,
+  AppSettings settings, {
   ValueNotifier<bool>? sectionVisible,
 }) async {
-  final notifier = _FakeSettingsNotifier(
-    _cloudSettings(numericOnlyMode: numericOnlyMode),
-  );
+  final notifier = _FakeSettingsNotifier(settings);
   final visible = sectionVisible ?? ValueNotifier<bool>(true);
   await tester.pumpWidget(
     makeTestable(
@@ -69,6 +80,16 @@ Future<_FakeSettingsNotifier> _pumpSection(
   await tester.pumpAndSettle();
   return notifier;
 }
+
+Future<_FakeSettingsNotifier> _pumpSection(
+  WidgetTester tester, {
+  bool numericOnlyMode = false,
+  ValueNotifier<bool>? sectionVisible,
+}) => _pumpSectionWith(
+  tester,
+  _cloudSettings(numericOnlyMode: numericOnlyMode),
+  sectionVisible: sectionVisible,
+);
 
 /// The toggle's own [SettingRow], found via its icon (locale-independent,
 /// unlike matching on the label text) so the assertion doesn't depend on
@@ -148,6 +169,36 @@ void main() {
 
       expect(notifier.current.stt.numericOnlyMode, isFalse);
       expect(_toggleSwitch(tester).value, isFalse);
+    });
+
+    // Regression: the toggle is a deterministic post-transcription text
+    // transform (RecordingOrchestrator), not an ASR-level mode, so it must
+    // stay visible for every engine/provider combination — the user should
+    // decide for themselves whether to use it, not have it hidden because a
+    // particular on-device engine happens to be selected.
+    for (final engine in OnDeviceEngine.values) {
+      testWidgets(
+        'renders for on-device engine ${engine.value}',
+        (tester) async {
+          await _pumpSectionWith(tester, _localSettings(engine: engine));
+
+          expect(_toggleRow(), findsOneWidget);
+          expect(find.text(l10n.settingsNumericOnlyMode), findsOneWidget);
+        },
+      );
+    }
+
+    testWidgets('renders for the Deepgram cloud provider too', (
+      tester,
+    ) async {
+      await _pumpSectionWith(
+        tester,
+        AppSettings.defaults.copyWith(
+          sttProvider: SttProviderType.deepgram.value,
+        ),
+      );
+
+      expect(_toggleRow(), findsOneWidget);
     });
 
     // CLAUDE.md Arbeitsweise Punkt 6 asks for an accessibility-large-text
