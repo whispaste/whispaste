@@ -183,12 +183,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     }
   }
 
-  /// Theme-resolved palette for the card chrome — pulled out of [build] so
-  /// its branching doesn't count against that method's own complexity.
+  /// Palette for the card chrome — pulled out of [build] so its branching
+  /// doesn't count against that method's own complexity.
   ///
-  /// Light-theme accent strokes are slightly reduced (history polish pass):
-  /// the light accent #06678A is itself dark, so equal alphas read heavier
-  /// on the pearl surfaces than on dark navy. Mirrors the list tile.
+  /// Every state cue here is a *fill or an edge*, never a lift: see the
+  /// `boxShadow` note in [build] and *The Depth-Source Rule*.
   ({
     Color accent,
     Color textPrimary,
@@ -199,15 +198,25 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
   })
   _resolveColors() {
     const accent = WpColors.accent;
+    final isActive = widget.isSelected || widget.isFocused || _isHovered;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
         : widget.isFocused
         ? accent.withValues(alpha: 0.4)
-        : (WpColors.borderSubtle);
+        // Hover takes the tinted rim `WpListTileSurface`'s card variant uses
+        // for the same state on the list rows this grid is an alternative
+        // view of — a white rim over a chromatic frost fill is the "reads
+        // grey" failure the material exists to avoid.
+        : _isHovered
+        ? WpColors.cardEdgeHighlight
+        : WpColors.borderSubtle;
     // The card material, same as `WpListTileSurface`'s card variant paints
-    // for the list rows this grid is an alternative view of: a translucent
-    // frost plate over the one ambient gradient, not an opaque tile.
-    const restingSurface = WpColors.cardFill;
+    // for those rows: a translucent frost plate over the one ambient
+    // gradient, not an opaque tile. Hover/focus/selection lift it by one
+    // rung rather than by a shadow — the brightness delta *is* the depth.
+    final restingSurface = isActive
+        ? WpColors.cardFillElevated
+        : WpColors.cardFill;
     return (
       accent: accent,
       textPrimary: WpColors.textPrimary,
@@ -267,16 +276,21 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               color: fill,
               borderRadius: WpRadius.borderLg,
               border: Border.all(color: borderColor),
-              // Weiche Ambient-Elevation: die Kachel trägt immer einen
-              // dezenten Materiallift (subtle), Hover/Select/Focus vertiefen
-              // ihn (card) — glow-frei, siehe WpShadows. Theme-resolved:
-              // im Light-Theme mit halbierter Schwarz-Alpha, damit der Lift
-              // auf den Pearl-Flächen kein dunkler Halo wird (die volle
-              // card-Stärke lag bei ≈ 1.6:1 gegen die Surface — deutlich
-              // sichtbare Dunkelzone um jede gehoverte Kachel).
-              boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
-                  ? WpShadows.card
-                  : WpShadows.subtle,
+              // No lift, in any state (Ticket 13, *The Depth-Source Rule*).
+              // This tile used to carry `WpShadows.subtle` at rest and
+              // `WpShadows.card` while active; the argument for it was a
+              // light-theme one — halve the black alpha on pearl so the lift
+              // isn't a dark halo — and the light theme was removed on
+              // 2026-08-11. What was left is the case the rule exists to
+              // keep out: a black shadow on a near-black ground, muddying
+              // the one ambient gradient the frost fill is there to let
+              // through. Both twins named beside it in DESIGN.md have since
+              // dropped theirs (`wp_list_tile_surface.dart`, Ticket 08; the
+              // entry avatar in `history_helpers.dart`), and hover/focus/
+              // selection now read through the fill rung and the edge in
+              // [_resolveColors] instead. Gated by
+              // `test/core/design/depth_source_test.dart`.
+              boxShadow: null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
