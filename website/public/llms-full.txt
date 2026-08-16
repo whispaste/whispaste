@@ -123,7 +123,7 @@ Korrelations-ID (`<base36-timestamp>-<hex-rand>`) pro Aufnahme-Vorgang, in allen
 |---|---|---|
 | **Stuck-Guard** | `transcribing` > 5 min | Auto-Fail `pipeline_timeout` |
 | **Retry** | STT-Fehler (Crash/Timeout/Netzwerk) | bis zu 3 Wiederholungen |
-| **OOM-Recovery** | CUDA Out-of-Memory | `OomRecoveryHandler` → kleineres Modell / Cloud-Fallback / permanent fail |
+| **OOM-Recovery** | GPU Out-of-Memory | `OomRecoveryHandler` → kleineres Modell / Cloud-Fallback / permanent fail |
 | **CPU-Fallback** | GPU-Backend-Crash während Transkription | Re-Run auf CPU, `SttStatus.cpuFallbackActive` |
 | **SafetyGuard** | Stream-Anomalien (z. B. Hotkey-Doppelfeuer) | `StreamTransformer` fängt invalide Events vor der State Machine ab |
 
@@ -188,7 +188,8 @@ Vier Ebenen, bewusst getrennt (im Alltag oft synonym verwendet):
 | `onDevice` | „On Device" | lokal, kein Netzverkehr — zwei Engines, §4.2 |
 | `openAI` | „OpenAI" | Cloud (BYOK) — OpenAI Audio API, eigener Key |
 | `deepgram` | „Deepgram" | Cloud (BYOK) — Deepgram API, eigener Key |
-| `managed` | „WhisPaste Cloud" | Cloud (Managed-Tarif, §8) — kein eigener Key, WhisPaste-Backend ruft OpenAI stellvertretend auf |
+
+`managed` (§8, „WhisPaste Cloud") ist **geplant, nicht ausgeliefert** — `SttProviderType` (`lib/core/config/settings_enums.dart`) hat aktuell exakt drei Werte: `onDevice`, `openAI`, `deepgram`.
 
 Code nutzt **`onDevice`**, nie „local".
 
@@ -208,15 +209,14 @@ Code nutzt **`onDevice`**, nie „local".
 | onDevice (Whisper) | tiny/base/small/medium/large-v3 (`ggml-*.bin`, lokaler Cache) |
 |---|---|
 | onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt, ~640 MB |
-| openAI | `gpt-transcribe` (fest, ADR-0005) |
-| deepgram | `nova-3`, `nova-2` etc. (wählbar) |
-| managed | `gpt-transcribe` (fest, ADR-0005) |
+| openAI | `whisper-1` (fest im Code, `openai_transcriber.dart`; ADR-0005 plant `gpt-transcribe`, nicht umgesetzt) |
+| deepgram | `nova-3` (fest im Code, `deepgram_transcriber.dart` — nicht wählbar) |
 
-**Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `gpt-transcribe`).
+**Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `whisper-1`).
 
 ### 4.4 Backend (nur lokal)
 
-Whisper-Compute-Backends, erkannt via `hardware_info_service.dart`: CUDA (NVIDIA), Vulkan (Cross-Vendor-GPU), CPU (Fallback). `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: (Stand 2026) kein GPU-Backend, CPU-only, aber schon dort schneller als Whisper auf jedem Backend.
+Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). Kein eigenes CUDA-Backend wird gebaut — der `WhisperBackend`-Enum (`whisper_engine.dart`) listet `cuda` als möglichen Wert, aber kein Build produziert dafür ein Binary. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: (Stand 2026) kein GPU-Backend, CPU-only, aber schon dort schneller als Whisper auf jedem Backend.
 
 ### 4.5 Engine-Lebenszyklus (`SttServerState`)
 
@@ -305,7 +305,7 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   Slot aus derselben Palette, der *gar nichts* sagt — reine dekorative
   Rotation, damit eine lange Liste scannbar bleibt. Die App klassifiziert
   Diktate nicht, also darf aus dieser Farbe auch nichts abgeleitet werden.
-  Light/Dark/System-Theme, EN/DE.
+  Dark-only (das Light-Theme und der Theme-Picker wurden 2026-08-11 entfernt), EN/DE.
 - **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
   geplant.
 
