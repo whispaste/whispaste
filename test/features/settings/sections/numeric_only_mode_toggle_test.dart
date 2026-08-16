@@ -41,7 +41,9 @@ AppSettings _cloudSettings({bool numericOnlyMode = false}) {
   return AppSettings.defaults
       .copyWith(sttProvider: SttProviderType.openAI.value)
       .copyWithSections(
-        stt: AppSettings.defaults.stt.copyWith(numericOnlyMode: numericOnlyMode),
+        stt: AppSettings.defaults.stt.copyWith(
+          numericOnlyMode: numericOnlyMode,
+        ),
       );
 }
 
@@ -54,7 +56,9 @@ AppSettings _localSettings({
   return AppSettings.defaults
       .copyWith(sttEngine: engine.value)
       .copyWithSections(
-        stt: AppSettings.defaults.stt.copyWith(numericOnlyMode: numericOnlyMode),
+        stt: AppSettings.defaults.stt.copyWith(
+          numericOnlyMode: numericOnlyMode,
+        ),
       );
 }
 
@@ -95,14 +99,13 @@ Future<_FakeSettingsNotifier> _pumpSection(
 /// unlike matching on the label text) so the assertion doesn't depend on
 /// how many other Switches are on the page.
 Finder _toggleRow() => find.ancestor(
-  of: find.byWidgetPredicate(
-    (w) => w is Icon && w.icon == LucideIcons.hash,
-  ),
+  of: find.byWidgetPredicate((w) => w is Icon && w.icon == LucideIcons.hash),
   matching: find.byType(SettingRow),
 );
 
-Switch _toggleSwitch(WidgetTester tester) =>
-    tester.widget<Switch>(find.descendant(of: _toggleRow(), matching: find.byType(Switch)));
+Switch _toggleSwitch(WidgetTester tester) => tester.widget<Switch>(
+  find.descendant(of: _toggleRow(), matching: find.byType(Switch)),
+);
 
 void main() {
   setUpAll(() async {
@@ -177,20 +180,17 @@ void main() {
     // decide for themselves whether to use it, not have it hidden because a
     // particular on-device engine happens to be selected.
     for (final engine in OnDeviceEngine.values) {
-      testWidgets(
-        'renders for on-device engine ${engine.value}',
-        (tester) async {
-          await _pumpSectionWith(tester, _localSettings(engine: engine));
+      testWidgets('renders for on-device engine ${engine.value}', (
+        tester,
+      ) async {
+        await _pumpSectionWith(tester, _localSettings(engine: engine));
 
-          expect(_toggleRow(), findsOneWidget);
-          expect(find.text(l10n.settingsNumericOnlyMode), findsOneWidget);
-        },
-      );
+        expect(_toggleRow(), findsOneWidget);
+        expect(find.text(l10n.settingsNumericOnlyMode), findsOneWidget);
+      });
     }
 
-    testWidgets('renders for the Deepgram cloud provider too', (
-      tester,
-    ) async {
+    testWidgets('renders for the Deepgram cloud provider too', (tester) async {
       await _pumpSectionWith(
         tester,
         AppSettings.defaults.copyWith(
