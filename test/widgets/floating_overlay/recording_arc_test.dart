@@ -710,6 +710,68 @@ void main() {
     );
 
     testWidgets(
+      'transcribing mini overlay: the waveform keeps moving over wall-clock '
+      'time (animate=true) — regression guard for the "frozen wave" report',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            WpFloatingOverlayView(
+              snapshot: _snap(
+                OverlayVisualState.transcribing,
+                size: OverlaySizeVariant.mini,
+              ),
+              animate: true,
+            ),
+          ),
+        );
+        await tester.pump();
+        final painterAt0 =
+            tester.widget<CustomPaint>(find.byType(CustomPaint).last).painter
+                as WpOverlayPainter;
+        final phase0 = painterAt0.glassPhase;
+
+        // 300 ms is well inside a typical transcription episode — the live
+        // glass-drift ticker (8 s period) must have visibly advanced by
+        // then, and that advance must reach the waveform-level formula the
+        // painter actually draws with (not just the raw field).
+        await tester.pump(const Duration(milliseconds: 300));
+        final painterAt300 =
+            tester.widget<CustomPaint>(find.byType(CustomPaint).last).painter
+                as WpOverlayPainter;
+        final phase300 = painterAt300.glassPhase;
+
+        expect(
+          phase300,
+          isNot(closeTo(phase0, 1e-6)),
+          reason:
+              'glassPhase must keep advancing while transcribing is on '
+              'screen — a frozen phase reproduces the reported "static '
+              'wave" bug even if the level formula itself is correct',
+        );
+
+        final barCount = OverlayDesignSpec.waveform.barCount;
+        final maxLevelDelta = List.generate(barCount, (i) {
+          final l0 = WpOverlayPainter.transcribingBarLevel(i, barCount, phase0);
+          final l300 = WpOverlayPainter.transcribingBarLevel(
+            i,
+            barCount,
+            phase300,
+          );
+          return (l300 - l0).abs();
+        }).reduce((a, b) => a > b ? a : b);
+        expect(
+          maxLevelDelta,
+          greaterThanOrEqualTo(0.15),
+          reason:
+              'the phase the live widget produced must translate into a '
+              'visibly moving bar (≥ ~3px in the mini 18px waveform zone)',
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
+    testWidgets(
       'appear animation does not run under reduced-motion (scale stays at 1.0)',
       (tester) async {
         await tester.pumpWidget(

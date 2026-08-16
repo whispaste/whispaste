@@ -1207,8 +1207,9 @@ abstract final class OverlayDesignSpec {
   /// opaque; active vs. muted reads through width + core brightness.
   static const double waveformMutedLineOpacity = 1.0;
 
-  /// Alpha of the flat waveform shown outside recording (decorative rest
-  /// state, deliberately quieter than the live bars).
+  /// Alpha of the waveform shown outside recording (transcribing's processing
+  /// ripple included — decorative rest/processing state, deliberately
+  /// quieter than the live bars).
   static const double waveformInactiveStateOpacity = 0.5;
 
   /// Visual bar width as a fraction of the per-bar slot (the remainder is
@@ -1243,8 +1244,16 @@ abstract final class OverlayDesignSpec {
   static const double waveformHeightFactor = 0.60;
 
   /// Flat rest level used for the faint waveform outside recording (spike
-  /// `0.06`).
+  /// `0.06`) — the baseline the transcribing ripple (below) oscillates
+  /// around.
   static const double waveformRestLevel = 0.06;
+
+  /// Peak amplitude added on top of [waveformRestLevel] for the transcribing
+  /// bar ripple (`WpOverlayPainter.transcribingBarLevel`) — the "processing"
+  /// signal for the state that otherwise has no live audio to visualise.
+  /// Deliberately far below a live recording bar's headroom (which reaches
+  /// up to `1.0`) so transcribing never reads as "still listening".
+  static const double waveformTranscribingRippleAmplitude = 0.40;
 
   /// Length of the waveform release-out that follows `recording →
   /// transcribing`, in milliseconds.

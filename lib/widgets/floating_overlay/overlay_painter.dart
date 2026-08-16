@@ -70,8 +70,8 @@ class WpOverlayPainter extends CustomPainter {
   final OverlayThemeColors colors;
 
   /// Normalised waveform levels (`[0, 1]`), length [WaveformSpec.barCount].
-  /// Empty outside the recording state (a flat faint waveform is synthesised
-  /// from [OverlayDesignSpec.waveformRestLevel] for the transcribing state).
+  /// Empty outside the recording state — the transcribing state instead
+  /// synthesises a travelling ripple via [transcribingBarLevel].
   final List<double> waveformBars;
 
   /// Pre-formatted recording timer (e.g. `0:12`).
@@ -690,6 +690,30 @@ class WpOverlayPainter extends CustomPainter {
     );
   }
 
+  /// Transcribing-state bar level: a fast travelling ripple over the flat
+  /// [OverlayDesignSpec.waveformRestLevel] baseline, reusing the exact
+  /// spatial/temporal ratio already established for the capsule's "voice"
+  /// ripple (`_liquidShape`: 5 perimeter periods, 6 time-cycles per
+  /// [OverlayDesignSpec.liquidDriftPeriod]) — the fastest existing motion in
+  /// this painter, chosen because a transcription is typically only a few
+  /// seconds long and needs to visibly move within that window, unlike the
+  /// slow 8 s sheen drift the phase otherwise drives. Integer multipliers on
+  /// [glassPhase] keep the motion seamless at the phase wrap (no jump when
+  /// the driving [AnimationController] loops back to 0).
+  ///
+  /// Amplitude stays well under a live recording bar's headroom (see
+  /// [OverlayDesignSpec.waveformTranscribingRippleAmplitude]) so the ripple
+  /// reads as "processing", never as "still listening". Public and pure —
+  /// no canvas needed — so it is directly unit-testable.
+  @visibleForTesting
+  static double transcribingBarLevel(int index, int count, double glassPhase) {
+    final u = count <= 1 ? 0.0 : index / count;
+    final ripple = math.sin(2 * math.pi * (5 * u - 6 * glassPhase));
+    return OverlayDesignSpec.waveformRestLevel +
+        OverlayDesignSpec.waveformTranscribingRippleAmplitude *
+            (0.5 + 0.5 * ripple);
+  }
+
   void _drawWaveform(
     Canvas canvas,
     double left,
@@ -736,7 +760,7 @@ class WpOverlayPainter extends CustomPainter {
     for (var i = 0; i < count; i++) {
       final rawLevel = _isRecording
           ? (i < waveformBars.length ? waveformBars[i].clamp(0.0, 1.0) : 0.0)
-          : OverlayDesignSpec.waveformRestLevel;
+          : transcribingBarLevel(i, count, glassPhase);
       // Perceptual display gamma: lifts quiet syllables so the waveform
       // dances instead of idling near the floor (display-only mapping).
       final level = _isRecording

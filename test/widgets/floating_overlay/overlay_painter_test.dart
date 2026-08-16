@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
+import 'package:whispaste/widgets/floating_overlay/overlay_painter.dart';
 
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
@@ -322,6 +323,56 @@ void main() {
       );
       final painter = WpFloatingOverlayView.painterFor(snapshot: snap);
       expect(painter.pillWidth, isNull);
+    });
+  });
+
+  group('WpOverlayPainter.transcribingBarLevel — processing ripple', () {
+    final barCount = OverlayDesignSpec.waveform.barCount;
+    const restLevel = OverlayDesignSpec.waveformRestLevel;
+    const amplitude = OverlayDesignSpec.waveformTranscribingRippleAmplitude;
+
+    test('moves visibly within one redraw cadence (300 ms of an 8 s loop)', () {
+      // Regression guard for the "transcribing waveform looks frozen" report
+      // (mini overlay, all bars pinned to the flat waveformRestLevel). One
+      // liquidDriftPeriod (8 s) advances glassPhase by 1.0, so 300 ms later
+      // is phase + 0.3/8.
+      const phase0 = 0.0;
+      const phase1 = 0.3 / 8.0;
+      final maxDelta = List.generate(barCount, (i) {
+        final l0 = WpOverlayPainter.transcribingBarLevel(i, barCount, phase0);
+        final l1 = WpOverlayPainter.transcribingBarLevel(i, barCount, phase1);
+        return (l1 - l0).abs();
+      }).reduce((a, b) => a > b ? a : b);
+
+      // A flat/static formula (the bug) yields exactly 0 here. Require a
+      // level swing that clears the ≥3 px floor at mini's 18 px waveform
+      // zone (delta * 18 ≥ 3 ⇒ delta ≥ ~0.167); 0.15 keeps a small margin
+      // while still being far above the flat-formula's 0.
+      expect(maxDelta, greaterThanOrEqualTo(0.15));
+    });
+
+    test('varies across bars at a fixed instant (a travelling wave, not a '
+        'synchronised pulse)', () {
+      final levels = List.generate(
+        barCount,
+        (i) => WpOverlayPainter.transcribingBarLevel(i, barCount, 0.3),
+      );
+      expect(levels.toSet().length, greaterThan(1));
+    });
+
+    test('stays within [restLevel, restLevel + amplitude] across a full '
+        'loop', () {
+      for (var p = 0; p < 100; p++) {
+        final phase = p / 100.0;
+        for (var i = 0; i < barCount; i++) {
+          final level = WpOverlayPainter.transcribingBarLevel(
+            i,
+            barCount,
+            phase,
+          );
+          expect(level, inInclusiveRange(restLevel, restLevel + amplitude));
+        }
+      }
     });
   });
 

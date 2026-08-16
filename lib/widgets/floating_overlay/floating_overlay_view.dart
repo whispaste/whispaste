@@ -626,6 +626,13 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                         paintFill: false,
                         paintContent: true,
                         pillWidth: animatedPillWidth,
+                        // Content now paints the transcribing ripple too
+                        // (see WpOverlayPainter.transcribingBarLevel), so
+                        // this layer needs the live phase like Layer 1 —
+                        // previously irrelevant here since paintFill=false
+                        // meant only the (phase-independent) sheen was
+                        // skipped.
+                        glassPhase: _glass.value,
                       ),
                     ),
                   ),
@@ -645,6 +652,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                         paintContent: true,
                         pillWidth: animatedPillWidth,
                         iconRevealFraction: ct,
+                        glassPhase: _glass.value,
                       ),
                     ),
                   ),
