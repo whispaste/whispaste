@@ -49,7 +49,7 @@ The following are **out of scope**:
 ## Security Practices
 
 - All network requests use HTTPS exclusively
-- Auto-update downloads are verified via SHA-256 checksums
+- Auto-update packages are cryptographically signed via EdDSA (Ed25519); model file downloads are verified via SHA-256 checksums
 - API keys are stored in platform-native secure storage (OS keychain / credential manager)
 - Crash reporting via Sentry is **consent-gated** — users must opt in; PII is sanitized before transmission
 - Usage analytics are anonymous, self-hosted, and opt-out — no tracking cookies, no account, no personal or device identifiers (see the privacy policy)

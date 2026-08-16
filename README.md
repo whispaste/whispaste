@@ -7,12 +7,13 @@
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
   Stop typing — speak, and your words land at the cursor in any app.<br>
-  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop app — 100% local speech-to-text, no cloud, no subscription.<br>
+  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop app — offline by default, cloud providers optional, no subscription.<br>
   Windows · macOS · Linux · MIT-licensed.
 </p>
 
 <p align="center">
   <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=download" alt="Download"></a>&nbsp;
+  Windows users: also available on the <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0">Microsoft Store</a>.<br>
   <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">&nbsp;
   <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">&nbsp;
   <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">&nbsp;
@@ -51,7 +52,9 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app (macOS/Windows; Linux copies to clipboard) · Recording overlay with waveform · Floating record button
 
-**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated) or NVIDIA Parakeet (~25 languages, CPU-only, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them
+**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated) or NVIDIA Parakeet (~25 languages, CPU-only, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine)
+
+**Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
 **Productivity** — Voice Snippets (spoken triggers → text expansion) · Audio feedback sounds
 
@@ -61,7 +64,7 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 ## Development
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 10.15+, or a recent Linux distro
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 11 Big Sur or newer (Apple Silicon), or a recent Linux distro
 
 ```bash
 git clone https://github.com/whispaste/whispaste.git

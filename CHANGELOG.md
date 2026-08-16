@@ -8,9 +8,9 @@
 
 ### Maintenance
 
-- Interne Store-Compliance-Korrektur (Mac App Store): die Mehrfachinstanz-Erkennung lief bislang über einen lokalen Netzwerk-Socket, wofür Apple ein dafür nötiges Sandbox-Recht (`network.server`) beim App Review als unbegründet ablehnte. Sie läuft jetzt stattdessen über eine Datei-Sperre, ganz ohne Netzwerk. Zwei weitere, ungenutzte Sandbox-Rechte (`cs.allow-jit`, `files.user-selected.read-write`) wurden bei der Gelegenheit ebenfalls entfernt, und das Datenschutz-Manifest wurde um die bereits an anderer Stelle veröffentlichte Angabe zu optionalen Cloud-Spracherkennungs-Audiodaten ergänzt.
+- Interne Store-Compliance-Korrektur (im Rahmen einer noch nicht abgeschlossenen, nicht-live Mac-App-Store-Einreichung — einziger aktueller macOS-Vertriebsweg bleibt die GitHub-DMG): die Mehrfachinstanz-Erkennung lief bislang über einen lokalen Netzwerk-Socket, wofür das dafür nötige Sandbox-Recht (`network.server`) beim App Review als unbegründet abgelehnt wurde. Sie läuft jetzt stattdessen über eine Datei-Sperre, ganz ohne Netzwerk. Zwei weitere, ungenutzte Sandbox-Rechte (`cs.allow-jit`, `files.user-selected.read-write`) wurden bei der Gelegenheit ebenfalls entfernt, und das Datenschutz-Manifest wurde um die bereits an anderer Stelle veröffentlichte Angabe zu optionalen Cloud-Spracherkennungs-Audiodaten ergänzt.
 - Spürbar flüssigere Verlaufsliste bei tausenden Einträgen (unnötige Objekt-Allokationen beim Datums-Gruppieren entfernt) und ein ruckelfreieres Aufnahme-Overlay (Wellenform rendert jetzt in einer eigenen Compositing-Ebene).
-- Weitere Store-Compliance-Korrekturen (Mac App Store, zweite Review-Runde): die Buttons auf den Berechtigungs-Erklärseiten im Onboarding hießen „Zugriff gewähren"/„Jetzt erlauben", was den nachfolgenden echten macOS-Systemdialog vorwegzunehmen schien — heißen jetzt einheitlich „Weiter". Der Hinweistext zur Bedienungshilfen-Berechtigung erklärt jetzt deutlicher, dass WhisPaste diese Berechtigung nur zum Einfügen von Text nutzt, nicht für echte Bedienungshilfen-Funktionen. Der einmalige „Danke für deine Unterstützung"-Hinweis mit der Stores-Bewertungs-Bitte erschien bislang direkt nach der Ersteinrichtung — erscheint jetzt frühestens nach 12 abgeschlossenen Aufnahmen, wenn tatsächlich schon ein Nutzen entstanden ist. China (Festland) wurde aus der Store-Verfügbarkeit entfernt, da die dortigen Zulassungsauflagen für die optionale Cloud-Spracherkennung über OpenAI nicht erfüllt sind.
+- Weitere Store-Compliance-Korrekturen (zweite Review-Runde derselben, weiterhin nicht-live Mac-App-Store-Einreichung): die Buttons auf den Berechtigungs-Erklärseiten im Onboarding hießen „Zugriff gewähren"/„Jetzt erlauben", was den nachfolgenden echten macOS-Systemdialog vorwegzunehmen schien — heißen jetzt einheitlich „Weiter". Der Hinweistext zur Bedienungshilfen-Berechtigung erklärt jetzt deutlicher, dass WhisPaste diese Berechtigung nur zum Einfügen von Text nutzt, nicht für echte Bedienungshilfen-Funktionen. Der einmalige „Danke für deine Unterstützung"-Hinweis mit der Stores-Bewertungs-Bitte erschien bislang direkt nach der Ersteinrichtung — erscheint jetzt frühestens nach 12 abgeschlossenen Aufnahmen, wenn tatsächlich schon ein Nutzen entstanden ist.
 
 ## 1.2.65
 
@@ -55,7 +55,7 @@
 
 ### Maintenance
 
-- **Im Mac App Store waren teilweise doppelte Screenshots hinterlegt** (ein fehlendes Upload-Flag ließ alte Bilder stehen statt sie zu ersetzen) — jetzt werden Screenshots bei jeder Aktualisierung sauber ersetzt.
+- **In der (nicht-live) Mac-App-Store-Einreichungsvorbereitung waren teilweise doppelte Screenshots hinterlegt** (ein fehlendes Upload-Flag ließ alte Bilder stehen statt sie zu ersetzen) — jetzt werden Screenshots bei jeder Aktualisierung sauber ersetzt.
 - Interne Vorbereitung für das nächste Microsoft-Store-Update (keine Funktionsänderung an der App).
 
 ## 1.2.61
@@ -76,7 +76,7 @@
 
 ### Maintenance
 
-- **Store-Veröffentlichungs-Automatisierung überarbeitet** (betrifft nur den Bereitstellungsprozess, keine Funktionsänderung an der App selbst): Der Microsoft-Store-Paket-Upload läuft wieder automatisiert, und der Mac-App-Store-Kaufpreis wird jetzt direkt über die App-Store-Connect-API gesetzt statt manuell.
+- **Store-Veröffentlichungs-Automatisierung überarbeitet** (betrifft nur den Bereitstellungsprozess, keine Funktionsänderung an der App selbst): Der Microsoft-Store-Paket-Upload läuft wieder automatisiert, und der Kaufpreis für die (nicht-live) Mac-App-Store-Einreichungsvorbereitung wird jetzt direkt über die App-Store-Connect-API gesetzt statt manuell.
 
 ## 1.2.58
 
