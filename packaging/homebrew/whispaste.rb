@@ -26,7 +26,7 @@ cask "whispaste" do
   depends_on macos: ">= :catalina"
   depends_on arch: :arm64
 
-  app "whispaste.app"
+  app "WhisPaste.app"
 
   # Bundle-ID seit v1.2.58 de.whispaste.app (zuvor com.whispaste.whispaste).
   # Alte Pfade bleiben gelistet, da die App-seitige Migration bestehende
