@@ -81,20 +81,20 @@ WpCategorySlot historyAvatarSlot(HistoryEntry entry) =>
 /// is mud, not lift. Pearl keeps `WpShadows.subtleLight`, because there is
 /// almost no room above the plane for a fill to carry objecthood on its own.
 ///
-/// Every lightness and alpha comes from [WpAvatarTint], and every one of them
-/// is *mirrored* between the themes — except the crown, which is lit in both
-/// (see the token). The disc is a translucent tint over its ground, so it only
-/// separates if the preparation flips direction: lighter and thin on navy,
-/// toward ink and denser on pearl. The shifts are clamped into a legibility
-/// band, so a hue that already sits near the band edge is held there instead of
-/// collapsing into the ground or into near-black; hues in between keep their
-/// own lightness character. Calibrated to keep the disc visible (≥1.5:1) and
-/// the glyph readable (≥3:1 against the disc) for every [WpCategorySlot] in
-/// both themes, measured on the ground the row actually stands on — the content
+/// Every lightness and alpha comes from [WpAvatarTint] — see the token for the
+/// current recipe. (Retracted: this used to describe the fill as "mirrored
+/// between the themes", "lighter and thin on navy, toward ink and denser on
+/// pearl". That was true of the theme pair, which is gone; Ticket 32/B2 then
+/// recalibrated `dark` itself into a dense fill pushed toward ink, because the
+/// thin veil let the ambient decide the hue instead of the slot.) The shifts
+/// are clamped into a legibility band, so a hue that already sits near the
+/// band edge is held there instead of collapsing into the ground or into
+/// near-black; hues in between keep their own lightness character. Calibrated
+/// to keep the disc visible (≥1.5:1) and the glyph readable (≥3:1 against the
+/// disc), measured on the ground the row actually stands on — the content
 /// plane, not the flat `surface` token — and gated in
 /// `test/core/theme/wcag_contrast_test.dart`. The material itself (stops, axis,
-/// shape, which theme gets the shadow) is gated in
-/// `test/features/history/history_avatar_material_test.dart`.
+/// shape) is gated in `test/features/history/history_avatar_material_test.dart`.
 ///
 /// > **Retracted 2026-08-11 — "a soft, theme-resolved `WpShadows.subtleFor`
 /// > lift".** The disc used to carry `subtleFor(isDark)`, i.e. a shadow in

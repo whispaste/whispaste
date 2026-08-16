@@ -1038,6 +1038,152 @@ void main() {
   }
 
   // -------------------------------------------------------------------------
+  // Avatar disc hue composition (Ticket 32, B2) — the disc-vs-ground group
+  // above gates *contrast*: whether the circle is visible against its row.
+  // It says nothing about whether eight different [WpCategorySlot] hues still
+  // read as eight different colors once each is composited, at 20–28% alpha,
+  // over the same content-plane ground — a thin fill lets the ground's own
+  // hue bleed through and can collapse several slots onto the same visible
+  // band even though their *source* hues sit far apart. Three checks, all on
+  // the composite a viewer actually sees (`tint.fillTop`/`tint.fillBottom`
+  // midpoint, matching the disc-vs-ground group's own modeling choice):
+  //   1. every pair of composited hues stays ≥ 20° apart — "the rotation" has
+  //      to mean eight visibly distinct colors, not eight distinct constants;
+  //   2. no composited hue lands inside a band around [recordingAccent] — a
+  //      category slot must never borrow the one hue *The Depth-Source
+  //      Rule*'s sibling doctrine, *Two Accents, Two Jobs*, reserves for "a
+  //      recording is in flight";
+  //   3. composited saturation clears the same 15% floor the rest of this
+  //      file holds every tinted surface to.
+  //
+  // [WpAvatarTint.light] was removed 2026-08-11 with the rest of the light
+  // stack (`lib/core/theme/colors.dart`) — [tint] below is the only recipe
+  // left, painted in both the (now single) theme's list rows.
+  //
+  // Ticket 32 measured this against the violet ambient Ticket 04 shipped
+  // (composited hues bunched 244–285°, `fern` landing 0.5° from
+  // `recordingAccent`). Ticket 33 re-solved the whole palette back to the
+  // navy/cyan brand core afterward, so the numbers below are re-measured
+  // against the current tokens rather than assumed from that report — see the
+  // `reason:` strings for what actually comes out today.
+  group('Avatar disc hue composition (Ticket 32, B2)', () {
+    const tint = WpAvatarTint.dark;
+    const hueSeparationFloor = 20.0;
+    const saturationFloor = 0.15;
+    // ± band around recordingAccent's hue a composited disc must clear —
+    // same width as the retired "180–200°" band this generalizes, re-centered
+    // on the token instead of a pinned degree so a future recordingAccent
+    // retune can't silently stop being gated.
+    const recordingAccentBand = 10.0;
+    final recordingAccentHue = preciseHsl(WpColorsDark.recordingAccent).hue;
+
+    Color discFor(WpCategorySlot slot, Color ground) => midpoint(
+      alphaComposite(tint.fillTop(slot.color()), ground),
+      alphaComposite(tint.fillBottom(slot.color()), ground),
+    );
+
+    for (var i = 0; i < WpColorsDark.warmSurfaceGradient.colors.length; i++) {
+      final ground = WpColorsDark.warmSurfaceGradient.colors[i];
+      final groundName = 'content plane stop $i';
+      final composited = {
+        for (final slot in WpCategorySlot.categories)
+          slot: discFor(slot, ground),
+      };
+
+      test('$groundName: composited hues stay ≥ $hueSeparationFloor° apart', () {
+        final entries = composited.entries.toList();
+        for (var a = 0; a < entries.length; a++) {
+          for (var b = a + 1; b < entries.length; b++) {
+            final gap = hueDelta(entries[a].value, entries[b].value);
+            expect(
+              gap,
+              greaterThanOrEqualTo(hueSeparationFloor),
+              reason:
+                  '$groundName: ${entries[a].key.name} '
+                  '(${preciseHsl(entries[a].value).hue.toStringAsFixed(1)}°) and '
+                  '${entries[b].key.name} '
+                  '(${preciseHsl(entries[b].value).hue.toStringAsFixed(1)}°) '
+                  'composite only ${gap.toStringAsFixed(1)}° apart — the '
+                  'rotation is supposed to read as eight different colors',
+            );
+          }
+        }
+      });
+
+      test('$groundName: no composited hue lands on recordingAccent', () {
+        composited.forEach((slot, disc) {
+          final gap = hueDelta(disc, WpColorsDark.recordingAccent);
+          expect(
+            gap,
+            greaterThan(recordingAccentBand),
+            reason:
+                '$groundName: ${slot.name} composites to '
+                '${preciseHsl(disc).hue.toStringAsFixed(1)}°, only '
+                '${gap.toStringAsFixed(1)}° from recordingAccent '
+                '(${recordingAccentHue.toStringAsFixed(1)}°) — a category '
+                'slot would read as the recording signal',
+          );
+        });
+      });
+
+      test('$groundName: composited saturation stays ≥ '
+          '${(saturationFloor * 100).toStringAsFixed(0)}%', () {
+        composited.forEach((slot, disc) {
+          final saturation = preciseHsl(disc).saturation;
+          expect(
+            saturation,
+            greaterThanOrEqualTo(saturationFloor),
+            reason:
+                '$groundName: ${slot.name} composites to only '
+                '${(saturation * 100).toStringAsFixed(1)}% saturation — the '
+                'ground is diluting the slot toward grey',
+          );
+        });
+      });
+    }
+
+    test('no base WpCategoryColorsDark value moved — only WpAvatarTint.dark '
+        'parameters may change here', () {
+      final source = File('lib/core/theme/colors.dart').readAsStringSync();
+      final classMatch = RegExp(
+        r'abstract final class WpCategoryColorsDark \{([\s\S]*?)\n\}',
+      ).firstMatch(source);
+      expect(
+        classMatch,
+        isNotNull,
+        reason:
+            'WpCategoryColorsDark was not found — this guard would pass '
+            'vacuously',
+      );
+      // Baseline hex bytes, frozen at the point Ticket 32 was scoped.
+      // categorySlotForTag and categorySlotForModel both key off these same
+      // constants and are explicitly out of this ticket's scope — this test
+      // is the guard that a B2 fix stayed inside WpAvatarTint.
+      const baseline = {
+        'iris': '0xFFA486D9',
+        'ember': '0xFFCB855B',
+        'fern': '0xFF36AA53',
+        'orchid': '0xFFCD74D3',
+        'brass': '0xFF979B31',
+        'azure': '0xFF8092D7',
+        'plum': '0xFFD477A3',
+        'moss': '0xFF5EA735',
+      };
+      final body = classMatch!.group(1)!;
+      baseline.forEach((name, hex) {
+        expect(
+          body,
+          contains('Color($hex)'),
+          reason:
+              'WpCategoryColorsDark.$name no longer defines $hex — B2 may '
+              'only touch WpAvatarTint.dark, never the base slot colors '
+              'shared with categorySlotForTag/categorySlotForModel',
+        );
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Tier-performance info line (STT model selector)
   //
   // [WpTierPerformancePresentation.color] grades the line by measured tier
