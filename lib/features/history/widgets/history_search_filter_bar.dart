@@ -1150,8 +1150,16 @@ class HistoryMultiSelectBar extends StatelessWidget {
       ),
       decoration: const BoxDecoration(
         color: bg,
+        // The band's lower edge is `cardEdgeHighlight`, not `accentBorder20`
+        // (Ticket 13): the line is load-bearing — it is what separates the
+        // mode band from the list underneath it — but the *accent* on it was
+        // not. Accent means "you can act on this", and nothing happens when
+        // you touch a boundary. Structurally the same finding as Ticket 32's
+        // B3 (the section-head accent bar, removed by Ticket 08). The accent
+        // that stays on this bar is the selection-count pill, which reports
+        // what the operable controls beside it will act on.
         border: Border(
-          bottom: BorderSide(color: WpColors.accentBorder20, width: 1),
+          bottom: BorderSide(color: WpColors.cardEdgeHighlight, width: 1),
         ),
       ),
       child: Row(
