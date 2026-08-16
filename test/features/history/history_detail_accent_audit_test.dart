@@ -300,10 +300,7 @@ Widget _harness(HistoryDatabase db) {
       // this test answers was made on a full-window screenshot.
       home: const MediaQuery(
         data: MediaQueryData(size: Size(1280, 800)),
-        child: WpScreenshotShell(
-          activePageId: 'history',
-          child: HistoryPage(),
-        ),
+        child: WpScreenshotShell(activePageId: 'history', child: HistoryPage()),
       ),
     ),
   );
@@ -322,11 +319,7 @@ Future<void> _seed(HistoryDatabase db) async {
           createdAt: Value(now),
         ),
       );
-  const titles = <String>[
-    _taggedEntryTitle,
-    'Podcast outline',
-    'Bug report',
-  ];
+  const titles = <String>[_taggedEntryTitle, 'Podcast outline', 'Bug report'];
   for (final (i, title) in titles.indexed) {
     await db
         .into(db.historyEntries)

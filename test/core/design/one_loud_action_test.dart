@@ -127,19 +127,21 @@ List<HistoryEntry> _sampleActiveEntries() => generateSampleEntries()
 /// notes test: left alone they fall through to real Drift `.watch()` queries
 /// whose stream cleanup schedules a Timer on disposal, which flutter_test's
 /// pending-timer check then trips.
-List<Object> _notesOverrides({List<Note>? notes, List<Note> trash = const []}) =>
-    [
-      notesProvider.overrideWith(
-        (ref) => notes == null
-            ? Stream<List<Note>>.error(StateError('load failed'))
-            : Stream.value(notes),
-      ),
-      trashNotesProvider.overrideWith((ref) => Stream.value(trash)),
-      allNoteTagsProvider.overrideWith(
-        (ref) => Stream.value(const <String, List<Tag>>{}),
-      ),
-      noteTagsProvider.overrideWith((ref, noteId) => Stream.value(const <Tag>[])),
-    ];
+List<Object> _notesOverrides({
+  List<Note>? notes,
+  List<Note> trash = const [],
+}) => [
+  notesProvider.overrideWith(
+    (ref) => notes == null
+        ? Stream<List<Note>>.error(StateError('load failed'))
+        : Stream.value(notes),
+  ),
+  trashNotesProvider.overrideWith((ref) => Stream.value(trash)),
+  allNoteTagsProvider.overrideWith(
+    (ref) => Stream.value(const <String, List<Tag>>{}),
+  ),
+  noteTagsProvider.overrideWith((ref, noteId) => Stream.value(const <Tag>[])),
+];
 
 Note _note(String id, String content) {
   final t = DateTime(2025, 6, 1);
@@ -211,24 +213,25 @@ void main() {
       );
     });
 
-    testWidgets('an empty list keeps it loud — that empty state offers no CTA', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const HistoryPage(),
-          overrides: _historyOverrides(entries: const []),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'an empty list keeps it loud — that empty state offers no CTA',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HistoryPage(),
+            overrides: _historyOverrides(entries: const []),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      _expectOneLoudAction(
-        tester,
-        state: 'History with nothing recorded yet',
-        expectedLabel: l10n.historyNewRecording,
-      );
-    });
+        _expectOneLoudAction(
+          tester,
+          state: 'History with nothing recorded yet',
+          expectedLabel: l10n.historyNewRecording,
+        );
+      },
+    );
 
     testWidgets('a search that finds nothing hands the volume to "Clear '
         'search"', (tester) async {
@@ -293,26 +296,27 @@ void main() {
       );
     });
 
-    testWidgets('the empty state owns the CTA — the toolbar button steps back', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: _notesOverrides(notes: const []),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'the empty state owns the CTA — the toolbar button steps back',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: _notesOverrides(notes: const []),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      // Both carry the same label, so the count is what separates them: the
-      // empty state's centred CTA is the one that stays `primary`.
-      _expectOneLoudAction(
-        tester,
-        state: 'Notes with no notes yet',
-        expectedLabel: l10n.notesNewNote,
-      );
-    });
+        // Both carry the same label, so the count is what separates them: the
+        // empty state's centred CTA is the one that stays `primary`.
+        _expectOneLoudAction(
+          tester,
+          state: 'Notes with no notes yet',
+          expectedLabel: l10n.notesNewNote,
+        );
+      },
+    );
 
     testWidgets('the trash keeps the toolbar button loud — its empty state '
         'offers nothing', (tester) async {
@@ -383,7 +387,9 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const SnippetsPage(),
-          overrides: [snippetsProvider.overrideWith(() => _FakeSnippets(items))],
+          overrides: [
+            snippetsProvider.overrideWith(() => _FakeSnippets(items)),
+          ],
           locale: const Locale('en'),
         ),
       );
@@ -394,7 +400,9 @@ void main() {
       SnippetItem(id: 's1', title: 'Signature', body: 'Kind regards'),
     ];
 
-    testWidgets('a populated list leaves "Add" as the loud one', (tester) async {
+    testWidgets('a populated list leaves "Add" as the loud one', (
+      tester,
+    ) async {
       await pump(tester, items);
 
       _expectOneLoudAction(
@@ -455,7 +463,9 @@ void main() {
       Replacement(id: 'r1', triggers: ['btw'], replacement: 'by the way'),
     ];
 
-    testWidgets('a populated list leaves "Add" as the loud one', (tester) async {
+    testWidgets('a populated list leaves "Add" as the loud one', (
+      tester,
+    ) async {
       await pump(tester, items);
 
       _expectOneLoudAction(
