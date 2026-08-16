@@ -1049,6 +1049,9 @@ class L10nEn extends L10n {
   String get actionCopy => 'Copy';
 
   @override
+  String get actionDuplicate => 'Duplicate';
+
+  @override
   String get actionDelete => 'Delete';
 
   @override
