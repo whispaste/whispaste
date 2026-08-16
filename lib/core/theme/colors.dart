@@ -63,9 +63,8 @@
 /// > argued-for positions, not defaults, and a rule that quietly disappears
 /// > cannot be audited.
 ///
-/// The two-accent and one-depth-source splits are stated in this file rather
-/// than cited: `lib/DESIGN.md` still carries the superseded single-accent
-/// doctrine and is rewritten in a follow-up ticket.
+/// The two-accent and one-depth-source splits are stated in this file and
+/// mirrored in `lib/DESIGN.md` (synced to this state 2026-08-16, Ticket 17).
 library;
 
 import 'dart:math' as math;
