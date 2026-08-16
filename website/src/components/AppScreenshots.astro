@@ -16,7 +16,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       </p>
     </div>
 
-    <!-- Two hero screenshots: workspace (dark) + detail (light) -->
+    <!-- Two hero screenshots: workspace overview + detail editor, both dark
+         (the app's only theme since the light theme was removed) -->
     <div class="teaser-pair">
       <div class="teaser-glow wp-parallax-layer" aria-hidden="true"></div>
       <figure class="teaser-card teaser-card--primary wp-clip-reveal">
@@ -113,14 +114,14 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         >
           <img
             class="teaser-img"
-            src="/screenshots/en/light/02_workspace_detail.webp"
-            data-screenshot-en="/screenshots/en/light/02_workspace_detail.webp"
-            data-screenshot-de="/screenshots/de/light/02_workspace_detail.webp"
-            data-screenshot-mac-en="/screenshots/mac/en/light/02_workspace_detail.webp"
-            data-screenshot-mac-de="/screenshots/mac/de/light/02_workspace_detail.webp"
-            data-alt-en="WhisPaste detail editor, light theme"
-            data-alt-de="WhisPaste Detail-Editor, helles Design"
-            alt="WhisPaste detail editor, light theme"
+            src="/screenshots/en/dark/02_workspace_detail.webp"
+            data-screenshot-en="/screenshots/en/dark/02_workspace_detail.webp"
+            data-screenshot-de="/screenshots/de/dark/02_workspace_detail.webp"
+            data-screenshot-mac-en="/screenshots/mac/en/dark/02_workspace_detail.webp"
+            data-screenshot-mac-de="/screenshots/mac/de/dark/02_workspace_detail.webp"
+            data-alt-en="WhisPaste detail editor, dark theme"
+            data-alt-de="WhisPaste Detail-Editor, dunkles Design"
+            alt="WhisPaste detail editor, dark theme"
             width="1920"
             height="1080"
             loading="lazy"

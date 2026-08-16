@@ -9,4 +9,4 @@ Floating Button: schwebender Aufnahme-Button, der dauerhaft über allen Fenstern
 Verlauf mit Volltextsuche, Anheften, Tags und Archiv
 Export als TXT, Markdown, JSON, CSV und Word (.docx)
 Textbausteine: Stichwort sprechen, vollständiger Text wird vor dem Einfügen eingesetzt
-System-Tray, Autostart mit Windows, Hell-/Dunkel-/System-Design
+System-Tray, Autostart mit Windows

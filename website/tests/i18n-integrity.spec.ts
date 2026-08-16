@@ -188,9 +188,10 @@ test.describe('gallery page', () => {
     await expect(counter).toHaveText('1 / 5');
   });
 
-  test('gallery shows storyboard mix of dark and light screenshots', async ({ page }) => {
-    // Theme is fixed per screenshot by the golden-test storyboard
-    // (01/03/05 dark, 02/04 light). The page no longer offers a theme toggle.
+  test('gallery shows all five screenshots in dark theme', async ({ page }) => {
+    // Theme is fixed per screenshot by the golden-test storyboard. All five
+    // are dark since the app's light theme was removed — the page never
+    // offered a theme toggle to begin with.
     await page.goto('/screenshots');
 
     const images = page.locator('.gallery-image');
@@ -199,10 +200,10 @@ test.describe('gallery page', () => {
     const themes = await images.evaluateAll((els) =>
       els.map((el) => (el as HTMLImageElement).dataset.galleryTheme),
     );
-    expect(themes).toEqual(['dark', 'light', 'dark', 'light', 'dark']);
+    expect(themes).toEqual(['dark', 'dark', 'dark', 'dark', 'dark']);
 
     await expect(images.nth(0)).toHaveAttribute('src', /\/dark\/01_/);
-    await expect(images.nth(1)).toHaveAttribute('src', /\/light\/02_/);
+    await expect(images.nth(1)).toHaveAttribute('src', /\/dark\/02_/);
 
     await expect(page.locator('[data-gallery-theme]:not(img)')).toHaveCount(0);
   });

@@ -30,7 +30,7 @@
   <img src="resources/screenshots/history-overview-dark.png" alt="WhisPaste — History view, dark theme" width="720">
 </p>
 <p align="center">
-  <img src="resources/screenshots/history-detail-light.png" alt="WhisPaste — History detail view, light theme" width="720">
+  <img src="resources/screenshots/history-detail-dark.png" alt="WhisPaste — History detail view, dark theme" width="720">
 </p>
 
 ---
