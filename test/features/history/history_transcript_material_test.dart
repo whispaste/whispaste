@@ -21,6 +21,7 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
+import 'package:whispaste/features/history/widgets/highlighted_text.dart';
 import 'package:whispaste/widgets/wp_text_field.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -87,12 +88,20 @@ AnimatedContainer _readBox(WidgetTester tester) =>
       ),
     );
 
+/// The transcript's own field — the page also renders a search field, so
+/// `find.byType(WpTextField)` alone would be ambiguous.
+Finder _transcriptField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is WpTextField &&
+      widget.semanticsLabel == l10n.historyEditTranscript,
+);
+
 /// The edit view's painted box — the field's own.
 AnimatedContainer _editBox(WidgetTester tester) =>
     tester.widget<AnimatedContainer>(
       find
           .descendant(
-            of: find.byType(WpTextField),
+            of: _transcriptField(),
             matching: find.byType(AnimatedContainer),
           )
           .first,
@@ -104,10 +113,7 @@ AnimatedContainer _editBox(WidgetTester tester) =>
 EdgeInsetsGeometry? _fieldContentPadding(WidgetTester tester) => tester
     .widget<TextField>(
       find
-          .descendant(
-            of: find.byType(WpTextField),
-            matching: find.byType(TextField),
-          )
+          .descendant(of: _transcriptField(), matching: find.byType(TextField))
           .first,
     )
     .decoration!
@@ -170,6 +176,17 @@ void main() {
     final readBox = _readBox(tester);
     final readFill = readBox.decoration! as BoxDecoration;
     final readStroke = readBox.foregroundDecoration as BoxDecoration?;
+    // The list rows render `HighlightedText` too — only the one on the read
+    // surface is the transcript.
+    final readTextOrigin = tester.getTopLeft(
+      find.descendant(
+        of: find.byType(WpTextFieldSurface),
+        matching: find.byType(HighlightedText),
+      ),
+    );
+    final readSurfaceOrigin = tester.getTopLeft(
+      find.byType(WpTextFieldSurface),
+    );
 
     // Into edit mode the way a reader gets there: the read view carries the
     // "Edit transcript" tooltip and opens the editor on tap.
@@ -207,6 +224,34 @@ void main() {
       reason:
           'the paragraph shifts sideways on toggle unless the read view '
           'carries the field\'s inset too',
+    );
+
+    // The point of matching the inset: the paragraph must not jump when the
+    // reader taps into the editor. Checked where it is actually visible — at
+    // the first glyph's origin — because the field's inset reaches the text
+    // through `InputDecorator`, not through the box alone.
+    final editTextOrigin = tester.getTopLeft(
+      find.descendant(
+        of: _transcriptField(),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(
+      editTextOrigin.dx,
+      moreOrLessEquals(readTextOrigin.dx, epsilon: 0.5),
+      reason: 'the transcript shifts sideways when the reader starts editing',
+    );
+    // Vertically the comparison has to be made *within* each view: edit mode
+    // reveals the markdown toolbar above the transcript, so the whole zone
+    // sits lower — behaviour that predates this ticket. What must match is
+    // the text's offset inside its own surface.
+    final editFieldOrigin = tester.getTopLeft(_transcriptField());
+    expect(
+      editTextOrigin.dy - editFieldOrigin.dy,
+      moreOrLessEquals(readTextOrigin.dy - readSurfaceOrigin.dy, epsilon: 0.5),
+      reason:
+          'the transcript sits at a different height inside its own surface '
+          'when the reader starts editing',
     );
 
     // Contour-free at rest on both sides: `passage` paints a *transparent*
