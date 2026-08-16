@@ -4,6 +4,7 @@
 /// CI-gating: ensures the app works from small laptops to ultrawide monitors.
 library;
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,6 +86,13 @@ Widget _testShell(
   Widget page,
   Size size, {
   double textScale = 1.0,
+  // A seeded database for the cases that need History to render *rows*. When
+  // null, the three entry streams are stubbed empty (the default here, which
+  // keeps the size sweep free of pending Drift timers); when given, the real
+  // providers run against it so the list, its cards and the detail panel are
+  // actually laid out. See the accessibility-text-size group below for why
+  // an empty History is not enough there.
+  HistoryDatabase? seededDb,
   // Untyped for the same reason `test_helpers.dart` does it: this Riverpod
   // version does not export the `Override` type name.
   List extraOverrides = const [],
@@ -92,15 +100,19 @@ Widget _testShell(
   final theme = wpDarkTheme();
   return ProviderScope(
     overrides: [
-      historyDatabaseProvider.overrideWith((ref) {
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        ref.onDispose(db.close);
-        return db;
-      }),
-      // Provide instant empty streams to avoid pending Drift timers in tests.
-      historyEntriesProvider.overrideWith((ref) => Stream.value(const [])),
-      archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
-      trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+      if (seededDb != null)
+        historyDatabaseProvider.overrideWithValue(seededDb)
+      else ...[
+        historyDatabaseProvider.overrideWith((ref) {
+          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+          ref.onDispose(db.close);
+          return db;
+        }),
+        // Provide instant empty streams to avoid pending Drift timers.
+        historyEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+        archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+        trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+      ],
       hw.gpuInfoProvider.overrideWith(
         (ref) async =>
             const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
@@ -125,6 +137,44 @@ Widget _testShell(
       ),
     ),
   );
+}
+
+/// Titles for the seeded History fixture. Deliberately long and unbroken:
+/// an enlarged system font clips where a string cannot wrap, and a fixture of
+/// three-word titles would pass every width.
+const _seededTitles = <String>[
+  'Quarterly planning session with the whole distributed platform team',
+  'Podcast outline — episode 14, dictation-first workflows',
+  'Bug report: hotkey stops responding after the display sleeps',
+];
+
+/// Rows for the accessibility-text-size cases below. Mirrors the fixture in
+/// `history_detail_accent_audit_test.dart`, with longer copy.
+Future<void> _seedHistory(HistoryDatabase db) async {
+  final now = DateTime.now();
+  for (final (i, title) in _seededTitles.indexed) {
+    await db
+        .into(db.historyEntries)
+        .insert(
+          HistoryEntriesCompanion(
+            id: Value('overflow-$i'),
+            title: Value(title),
+            content: Value(
+              '$title — a transcript body long enough that the detail '
+              'panel has to wrap it several times at an accessibility text '
+              'size, which is the case this fixture exists for.',
+            ),
+            timestamp: Value(now.subtract(Duration(minutes: 5 * (i + 1)))),
+            durationSec: const Value(128.0),
+            processingDurationSec: const Value(1.4),
+            language: const Value('en'),
+            model: const Value('whisper-large-v3-turbo'),
+            isLocal: const Value(true),
+            source: const Value('dictation'),
+            colorSlot: Value(i),
+          ),
+        );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -263,6 +313,89 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+  }
+
+  // Extra: History at an accessibility text size, with rows on screen.
+  //
+  // This is the project's "check the layout at an enlarged system font"
+  // convention, and History is the screen Ticket 13 owes it on. The group
+  // above cannot stand in for it: it stubs the three entry streams empty, so
+  // History renders `WpEmptyState` and none of the geometry the check is
+  // about — the card padding, the metadata row under each title, the detail
+  // panel's header — is ever laid out. The two "narrow detail panel" cases
+  // below have the same hole; they tap `GestureDetector` #3 only `if` more
+  // than three exist, and with an empty list they never do.
+  //
+  // 1.5 is the same rung About/Settings/Analytics are checked at. Two widths:
+  // the group's reference size, and the narrowest one where the list and the
+  // detail panel still share the window.
+  //
+  // Only the default (list) view mode is covered — switching modes needs the
+  // settings provider the page reads its mode from, which is outside this
+  // file's shell. The card grid's own geometry is pinned separately in
+  // `history_card_multiselect_test.dart`.
+  for (final narrow in <Size>[const Size(1280, 800), const Size(1024, 768)]) {
+    testWidgets(
+      'History with entries at textScaler 1.5 (${narrow.width.toInt()}×${narrow.height.toInt()})',
+      (tester) async {
+        tester.view.physicalSize = narrow;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+        await _seedHistory(db);
+
+        final overflows = <String>[];
+        final originalHandler = FlutterError.onError;
+        FlutterError.onError = (details) {
+          if (details.toString().contains('overflowed')) {
+            overflows.add(details.toString());
+          } else {
+            originalHandler?.call(details);
+          }
+        };
+        addTearDown(() => FlutterError.onError = originalHandler);
+
+        await tester.pumpWidget(
+          _testShell(const HistoryPage(), narrow, textScale: 1.5, seededDb: db),
+        );
+        await tester.pumpAndSettle();
+
+        // Guard against a hollow pass: without rows this case degenerates
+        // into the empty-state check the sweep above already does.
+        expect(
+          find.byType(WpEmptyState),
+          findsNothing,
+          reason: 'History must render the seeded rows, not the empty state',
+        );
+
+        // Open the detail panel — the half of the screen the size sweep
+        // never reaches, and the one with the most text in the least width.
+        await tester.tap(find.text(_seededTitles.first).first);
+        await tester.pumpAndSettle();
+
+        expect(
+          overflows,
+          isEmpty,
+          reason:
+              'History overflow at 1.5x text, ${narrow.width.toInt()}×'
+              '${narrow.height.toInt()}:\n${overflows.join('\n')}',
+        );
+        expect(tester.takeException(), isNull);
+
+        // Drift's stream queries schedule a cleanup timer when their last
+        // listener goes away, and Riverpod drops those listeners while the
+        // tree is being unmounted — too late for flutter_test, which checks
+        // for pending timers straight after the body. Tear the tree down
+        // inside the body instead, so the cleanup runs while the fake clock
+        // is still turning. (Same idiom as
+        // `history_detail_accent_audit_test.dart`.)
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
   }
 
   // Extra: test History with narrow detail panel (common overflow source)
