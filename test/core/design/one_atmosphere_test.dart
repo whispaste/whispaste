@@ -17,8 +17,8 @@ import 'package:whispaste/core/theme/colors.dart';
 /// or more stops". It does not work here, in both directions:
 ///
 ///  * `WpColors.surfaceGradient` has **two** stops and is a background, so a
-///    stop-count rule would wave through the exact violations this gate is
-///    supposed to be counting down (the two detail panels below).
+///    stop-count rule would have waved through the exact violations this gate
+///    was written to count down (the two detail panels, cleared by Ticket 09).
 ///  * `navChipGradient`, `navChipGradientHover` and `navPillActiveGradient`
 ///    have **three** stops each and are chip fills — objects standing on the
 ///    ground, not the ground. A stop-count rule would fail them for existing.
@@ -29,13 +29,13 @@ import 'package:whispaste/core/theme/colors.dart';
 ///
 /// ## The allowlist is a countdown, not an amnesty
 ///
-/// Each entry names the ticket that owns it. Two of them are live debts, not
-/// exemptions: the notes and history detail panels still paint
-/// `surfaceGradient` as their own ground and move onto the card material in
-/// Ticket 09. When they do, delete their rows — a shrinking allowlist is the
-/// point. Following `wp_toast_guard_test.dart`: if a new call site ever
-/// becomes legitimate, add it here **with its reason** rather than widening
-/// the pattern or deleting the guard.
+/// It has already been counted down once: the notes and history detail panels
+/// painted `surfaceGradient` as their own ground until Ticket 09 moved their
+/// writing surfaces onto the card material, and their rows are gone rather
+/// than grandfathered. What is left is three genuine exceptions, each naming
+/// why it may paint a ground. Following `wp_toast_guard_test.dart`: if a new
+/// call site ever becomes legitimate, add it here **with its reason** rather
+/// than widening the pattern or deleting the guard.
 void main() {
   /// The tokens that *are* the app's atmosphere — the ground itself, in the
   /// three shapes it is painted in.
@@ -65,13 +65,6 @@ void main() {
     'lib/widgets/insufficient_ram_screen.dart':
         'stands in for the app rather than inside it (Preflight-Screen '
         'Exception)',
-
-    // ---- Live debts. Delete these two rows when Ticket 09 lands. ----
-    'lib/features/notes/widgets/note_editor_panel.dart':
-        'Ticket 09 — the notes editor panel still paints surfaceGradient as '
-        'its own ground; it moves onto the card material with WpTextField',
-    'lib/features/history/widgets/history_detail_panel.dart':
-        'Ticket 09 — same debt as the notes editor panel',
   };
 
   /// Everything after a `//` on a line, so that a file *discussing* the
@@ -143,8 +136,9 @@ void main() {
 
   test('the allowlist has no stale entries', () {
     // A path that no longer exists, or no longer references a ground token,
-    // is an exemption nobody is using — and the two Ticket-09 rows are
-    // supposed to *disappear*, not linger as decoration.
+    // is an exemption nobody is using. This is the half that forced the two
+    // Ticket-09 rows out: fixing the panels without deleting their rows fails
+    // here rather than leaving the list looking stale.
     final stale = <String>[];
     allowedFiles.forEach((path, _) {
       final file = File(path);

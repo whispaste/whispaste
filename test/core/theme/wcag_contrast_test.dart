@@ -567,12 +567,26 @@ void main() {
       'find bar, other matches':
           WpFindHighlightController.inactiveHighlightAlpha,
     };
-    // Every ground a tinted match can land on: form fields fill with
-    // `surfaceVariant`, bare/embedded variants sit straight on the card.
-    const grounds = <String, Color>{
+    // Every ground a tinted match can land on. `heading`/`form` fields fill
+    // with `surfaceVariant`; since Ticket 09 the prose variants
+    // (`passage`/`bare` — the History transcript and the Notes editor, i.e.
+    // exactly where a find bar is used) fill with the translucent `cardFill`
+    // over the app's one ambient, so the real ground there is that composite
+    // at both ends of the gradient, not a flat token. `embedded` still sits
+    // straight on its host row.
+    final ambient = gradientExtremes(WpColorsDark.warmSurfaceGradient);
+    final grounds = <String, Color>{
       'surfaceVariant': WpColorsDark.surfaceVariant,
       'surface': WpColorsDark.surface,
       'background': WpColorsDark.background,
+      'cardFill over ambient.lightest': alphaComposite(
+        WpColorsDark.cardFill,
+        ambient.lightest,
+      ),
+      'cardFill over ambient.darkest': alphaComposite(
+        WpColorsDark.cardFill,
+        ambient.darkest,
+      ),
     };
 
     for (final tint in tinted.entries) {

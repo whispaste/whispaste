@@ -344,94 +344,91 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       },
       child: Focus(
         focusNode: _panelFocusNode,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(gradient: WpColors.surfaceGradient),
-          child: Column(
-            children: [
-              // Header bar
-              _DetailPanelHeader(
-                entry: entry,
-                isTrashView: isTrashView,
-                isEditingTitle: _isEditingTitle,
-                titleController: _titleController,
-                titleFocusNode: _titleFocusNode,
-                timestamp: _fullTimestamp(context),
-                onStartTitleEdit: _startTitleEdit,
-                onSaveTitle: _saveTitle,
-                onCopy: onCopy,
-                onPin: onPin,
-                onDelete: onDelete,
-                onArchive: onArchive,
-                onRestore: onRestore,
-                onDuplicate: onDuplicate,
-                onCopyMarkdown: onCopyMarkdown,
-                onExport: _exportEntry,
-                onClose: onClose,
+        child: Column(
+          children: [
+            // Header bar
+            _DetailPanelHeader(
+              entry: entry,
+              isTrashView: isTrashView,
+              isEditingTitle: _isEditingTitle,
+              titleController: _titleController,
+              titleFocusNode: _titleFocusNode,
+              timestamp: _fullTimestamp(context),
+              onStartTitleEdit: _startTitleEdit,
+              onSaveTitle: _saveTitle,
+              onCopy: onCopy,
+              onPin: onPin,
+              onDelete: onDelete,
+              onArchive: onArchive,
+              onRestore: onRestore,
+              onDuplicate: onDuplicate,
+              onCopyMarkdown: onCopyMarkdown,
+              onExport: _exportEntry,
+              onClose: onClose,
+            ),
+            // Divider
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+              color: WpColors.borderSubtle,
+            ),
+            // Content
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact =
+                      constraints.maxWidth < WpLayout.breakpointMobile;
+                  final contentPad = isCompact ? WpSpacing.md : WpSpacing.xl;
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.all(contentPad),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Context zone: metadata + tags ──
+                        _DetailMetaChips(
+                          entry: entry,
+                          durationLabel: _durationLabel,
+                        ),
+                        const SizedBox(height: WpSpacing.sm),
+                        // Tags — label + chips in a single inline flow
+                        _TagSection(
+                          key: _tagSectionKey,
+                          entryId: entry.id,
+                          tags: tags,
+                          content: entry.content,
+                          searchQuery: _tagSearchQuery,
+                          onSearchChanged: (q) =>
+                              setState(() => _tagSearchQuery = q),
+                        ),
+                        // ── Divider between context and content ──
+                        const SizedBox(height: WpSpacing.md),
+                        Container(height: 1, color: WpColors.borderSubtle),
+                        const SizedBox(height: WpSpacing.md),
+                        // ── Content zone: transcript + edit controls ──
+                        _DetailTranscriptZone(
+                          entry: entry,
+                          isTrashView: isTrashView,
+                          isEditing: _isEditingTranscript,
+                          transcriptController: _transcriptController,
+                          editorFocusNode: _editorFocusNode,
+                          wordCountLabel: _wordCountLabel(l10n),
+                          onToggleEdit: _toggleEdit,
+                          onSaveTranscript: _saveTranscript,
+                        ),
+                        // ── Notes section ──
+                        const SizedBox(height: WpSpacing.lg),
+                        HistoryNotesSection(
+                          key: _notesSectionKey,
+                          entryId: entry.id,
+                        ),
+                        const SizedBox(height: WpSpacing.xl),
+                      ],
+                    ),
+                  );
+                },
               ),
-              // Divider
-              Container(
-                height: 1,
-                margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-                color: WpColors.borderSubtle,
-              ),
-              // Content
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isCompact =
-                        constraints.maxWidth < WpLayout.breakpointMobile;
-                    final contentPad = isCompact ? WpSpacing.md : WpSpacing.xl;
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.all(contentPad),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── Context zone: metadata + tags ──
-                          _DetailMetaChips(
-                            entry: entry,
-                            durationLabel: _durationLabel,
-                          ),
-                          const SizedBox(height: WpSpacing.sm),
-                          // Tags — label + chips in a single inline flow
-                          _TagSection(
-                            key: _tagSectionKey,
-                            entryId: entry.id,
-                            tags: tags,
-                            content: entry.content,
-                            searchQuery: _tagSearchQuery,
-                            onSearchChanged: (q) =>
-                                setState(() => _tagSearchQuery = q),
-                          ),
-                          // ── Divider between context and content ──
-                          const SizedBox(height: WpSpacing.md),
-                          Container(height: 1, color: WpColors.borderSubtle),
-                          const SizedBox(height: WpSpacing.md),
-                          // ── Content zone: transcript + edit controls ──
-                          _DetailTranscriptZone(
-                            entry: entry,
-                            isTrashView: isTrashView,
-                            isEditing: _isEditingTranscript,
-                            transcriptController: _transcriptController,
-                            editorFocusNode: _editorFocusNode,
-                            wordCountLabel: _wordCountLabel(l10n),
-                            onToggleEdit: _toggleEdit,
-                            onSaveTranscript: _saveTranscript,
-                          ),
-                          // ── Notes section ──
-                          const SizedBox(height: WpSpacing.lg),
-                          HistoryNotesSection(
-                            key: _notesSectionKey,
-                            entryId: entry.id,
-                          ),
-                          const SizedBox(height: WpSpacing.xl),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
