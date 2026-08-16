@@ -28,7 +28,25 @@
 ///
 /// Ticket 13 brings the four list screens under the rule. Tickets 14 and 15
 /// extend this file to the remaining pages.
+///
+/// **Ticket 15 (the narrative family) is the extension at the bottom of this
+/// file.** It reads differently from the four groups above, because the three
+/// screens do:
+///
+///  * **About** has *zero* loud actions, by a decision documented at its call
+///    sites — so it asserts zero explicitly with the reason, rather than
+///    relaxing the shared helper to at-most-one and weakening it for the list
+///    screens.
+///  * **Onboarding** is checked at source level here (no step body may build a
+///    `WpHeroButton`) and page by page in
+///    `test/features/onboarding/onboarding_overlay_test.dart`, which owns the
+///    fixtures the seven-page walk needs. The source half is the one that pins
+///    the two CTAs Ticket 15 demoted.
+///  * **Recording** — the 3-px bar above the content panel is the main
+///    window's whole recording surface, and it carries no action at all.
 library;
+
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,11 +54,14 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/providers.dart';
+import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
+import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
@@ -505,6 +526,133 @@ void main() {
         state: 'Replacements after a failed load',
         expectedLabel: l10n.actionRetry,
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Ticket 15 — the narrative family (Onboarding · Über · Aufnahme)
+  // -------------------------------------------------------------------------
+
+  group('About', () {
+    testWidgets('is deliberately quiet — no loud action at all', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const AboutPage(), locale: const Locale('en')),
+      );
+      await tester.pump();
+
+      final loud = tester
+          .widgetList<WpButton>(find.byType(WpButton))
+          .where((b) => b.variant == WpButtonVariant.primary)
+          .map((b) => b.label)
+          .toList();
+
+      expect(
+        loud,
+        isEmpty,
+        reason:
+            'The zero form of the rule, and a decision rather than an '
+            'oversight — which is why it is spelled out here instead of '
+            'quietly relaxing `_expectOneLoudAction` to at-most-one for '
+            'everybody. About is a page you read: its quick actions are '
+            'wayfinding and its support row is an ask, so both stay '
+            '`secondary` and the hierarchy is carried by tone (neutral vs. '
+            'accent) rather than by fill. Found $loud. Adding a `primary` here '
+            'means deciding which single thing the page tells you to do — say '
+            'so here first.',
+      );
+    });
+  });
+
+  group('Onboarding', () {
+    // The seven-page walk lives in `onboarding_overlay_test.dart`, which owns
+    // the fixtures it needs. What belongs here is the half a widget test
+    // cannot reach non-vacuously: under the default fixtures most pages never
+    // render their CTA at all, so a page-by-page count would wave through a
+    // hero re-appearing in a state the walk does not visit.
+    //
+    // `WpHeroButton` is one step *above* the variant ladder — the flow's
+    // signature CTA, and the flow spends it exactly once, on the shell's
+    // Next/completion button. Before Ticket 15 two step bodies built one each
+    // (the Auto-Paste grant CTA and the model download CTA), wearing the
+    // identical `accentWarmGradient` a few pixels from the shell's own.
+    const heroOwner = 'lib/features/onboarding/onboarding_overlay.dart';
+
+    test('only the shell builds a hero — no step body does', () {
+      final dir = Directory('lib/features/onboarding');
+      expect(dir.existsSync(), isTrue, reason: 'the flow must exist');
+
+      final lineComment = RegExp(r'//.*$', multiLine: true);
+      final heroReference = RegExp(r'\bWpHeroButton\s*\(');
+
+      final files = [
+        for (final entity in dir.listSync(recursive: true))
+          if (entity is File && entity.path.endsWith('.dart'))
+            entity.path.replaceAll(r'\', '/'),
+      ];
+      expect(
+        files.length,
+        greaterThan(5),
+        reason:
+            'the sweep found only ${files.length} files under the flow — an '
+            'empty offender list below would pass vacuously',
+      );
+
+      final offenders = <String>[];
+      for (final relPath in files) {
+        if (relPath == heroOwner) continue;
+        final source = File(
+          relPath,
+        ).readAsStringSync().replaceAll(lineComment, '');
+        if (heroReference.hasMatch(source)) offenders.add(relPath);
+      }
+
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'These onboarding files build a WpHeroButton of their own: '
+            '${offenders.join(', ')}. The hero belongs to the shell\'s '
+            'navigation row alone ($heroOwner) — a second one on the same '
+            'page makes the page\'s own action outshout the one that ends the '
+            'flow. Use `WpButton(variant: WpButtonVariant.primary)` for a '
+            'page\'s own action.',
+      );
+    });
+
+    test('the shell still builds the one hero it is allowed', () {
+      // Anti-vacuum guard, mirroring `one_atmosphere_test.dart`: the sweep
+      // above passes just as happily on a flow that has no hero at all.
+      final source = File(heroOwner).readAsStringSync();
+      expect(
+        RegExp(r'\bWpHeroButton\s*\(').hasMatch(source),
+        isTrue,
+        reason:
+            'The shell no longer builds a WpHeroButton, so the exemption above '
+            'guards nothing. Either the flow lost its signature CTA or the '
+            'hero moved — update this file rather than leaving it green.',
+      );
+    });
+  });
+
+  group('Recording', () {
+    testWidgets('the main window\'s recording surface carries no action', (
+      tester,
+    ) async {
+      // The 3-px bar above the content panel is the whole surface: the
+      // in-window FAB is gone (`test/widgets/no_fab_regression_test.dart`)
+      // and the floating overlay is a separate window. A signal, not a
+      // control — so the rule is satisfied with nothing to demote, and this
+      // records that as the finding it is rather than a gap in the sweep.
+      await tester.pumpWidget(
+        makeTestable(
+          const WpRecordingIndicatorBar(phase: RecordingPhase.recording),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.byType(WpButton), findsNothing);
     });
   });
 }
