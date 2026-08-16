@@ -143,10 +143,15 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
               behavior: HitTestBehavior.opaque,
               child: Row(
                 children: [
+                  // `textSecondary`, not the accent — same correction as the
+                  // tag section's glyph directly above it (Ticket 32, B3):
+                  // the section label is inert, and the two controls that
+                  // *are* operable (microphone, "+") sit on the same line and
+                  // keep the accent to themselves.
                   const Icon(
                     LucideIcons.stickyNote,
                     size: WpIconSize.sm,
-                    color: accent,
+                    color: textSecondary,
                   ),
                   const SizedBox(width: WpSpacing.xs),
                   Flexible(

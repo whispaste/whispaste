@@ -1421,7 +1421,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   Widget build(BuildContext context) {
     final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
     const textSecondary = WpColors.textSecondary;
     const textMuted = WpColors.textMuted;
 
@@ -1439,7 +1438,18 @@ class _TagSectionState extends ConsumerState<_TagSection> {
           inlineLabel: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
+              // `textSecondary`, not the accent: this glyph labels a section,
+              // it does not trigger anything — the two controls that do (the
+              // "+" trigger and the chips' remove buttons) sit two pixels to
+              // its right and are the accent's job here. Same correction
+              // Ticket 08 made to the settings section heads (Ticket 32, B3):
+              // an interaction accent on an inert element is what turns the
+              // detail screen's accent into wallpaper.
+              const Icon(
+                LucideIcons.tags,
+                size: WpIconSize.sm,
+                color: textSecondary,
+              ),
               const SizedBox(width: WpSpacing.xxs),
               Text(
                 l10n.historyTags,
