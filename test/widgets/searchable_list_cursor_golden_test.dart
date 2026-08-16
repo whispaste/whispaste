@@ -8,7 +8,19 @@
 /// *middle* row on purpose, so the sight-check in Batch L sees it between its
 /// two resting neighbours and can judge the one thing that is actually new:
 /// how far the shared `WpListTileSurface` "focused" step (border, fill,
-/// shadow, revealed row action) reads on a card row, in both themes.
+/// revealed row action) reads on a card row.
+///
+/// **Read the re-baselined images knowing what the frame does not contain.**
+/// Ticket 08 put the card variant on the translucent frost, and
+/// `matchesGoldenFile` rasterises the `ListView`'s own layer subtree — not the
+/// ambient gradient painted far above it in `app.dart`. So the rows here
+/// composite against nothing and come out pale; on screen they composite
+/// against the one atmosphere and come out tinted. The *relative* step between
+/// the cursor row and its two neighbours, which is what this golden exists to
+/// show, is unaffected. For the absolute material, read the store screenshots
+/// in `test/screenshots/` — those capture the whole window, ambient included.
+/// (The step also no longer includes a shadow: a row lives in the plane, and
+/// its depth is the fill/edge delta alone.)
 ///
 /// Driven by the keyboard like the behaviour tests next door — the cursor has
 /// no other way in.

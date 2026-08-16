@@ -27,6 +27,8 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart'
+    show settingsInlineBreak;
 import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 import 'package:whispaste/widgets/overlay_preview.dart';
@@ -317,9 +319,14 @@ void main() {
 
         // Preview is present as its own row, rendered at real (1:1) size …
         expect(find.byType(WpOverlayRealPreview), findsOneWidget);
-        // … with its own Divider: one before the size row, one before the
-        // standalone preview row → two Dividers in the floating sub-section.
-        expect(find.byType(Divider), findsNWidgets(2));
+        // … set off by its own break: one before the size row, one before the
+        // standalone preview row → two breaks in the floating sub-section.
+        //
+        // These were `Divider`s until Ticket 08 turned every non-load-bearing
+        // settings rule into spacing; what the assertion is about — that the
+        // preview is a *separated row* and not a trailing part of the size
+        // row — is unchanged, only the thing doing the separating is.
+        expect(find.byWidget(settingsInlineBreak), findsNWidgets(2));
       },
     );
 

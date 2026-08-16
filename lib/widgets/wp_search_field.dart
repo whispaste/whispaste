@@ -530,19 +530,39 @@ class _WpSearchFieldPalette {
     required this.surface,
     required this.mutedFill,
     required this.border,
+    required this.cardEdge,
     required this.textPrimary,
     required this.textMuted,
     required this.accent,
   });
 
-  /// Fill of the in-window variant, [WpSearchFieldVariant.outlined].
+  /// Fill of the in-window variant, [WpSearchFieldVariant.outlined] — the
+  /// shared card frost since Ticket 08.
   final Color surface;
 
   /// Fill of [WpSearchFieldVariant.capsule] — translucent on purpose, so the
   /// overlay's blurred backdrop stays readable through the pill.
+  ///
+  /// Deliberately *not* moved to the frost with the outlined variant. Its only
+  /// call site is `snippet_picker_render_entrypoint.dart`, the floating
+  /// overlay, which is a separate window with its own liquid-glass material
+  /// and its own golden suite; it does not sit on the main window's ambient
+  /// gradient, so the card tokens would have nothing to be translucent
+  /// *against*. That `surfaceMutedFill` is a near-neutral alpha is a real
+  /// Tinted-Never-Grey debt — it belongs to the overlay's own pass, not to the
+  /// main app's card material.
   final Color mutedFill;
 
+  /// Resting hairline of the overlay's capsule — neutral, and left that way
+  /// for the same reason [mutedFill] is.
   final Color border;
+
+  /// Resting hairline of the in-window variant: the shared, *tinted* card rim.
+  /// On a translucent frost fill the rim is what carries the control's shape,
+  /// and a neutral white hairline over a chromatic fill is exactly the "reads
+  /// grey" failure Ticket 08 exists to remove.
+  final Color cardEdge;
+
   final Color textPrimary;
   final Color textMuted;
 
@@ -555,9 +575,10 @@ class _WpSearchFieldPalette {
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
   static const _palette = _WpSearchFieldPalette(
-    surface: WpColors.surfaceVariant,
+    surface: WpColors.cardFillElevated,
     mutedFill: WpColors.surfaceMutedFill,
     border: WpColors.borderSubtle,
+    cardEdge: WpColors.cardEdgeHighlight,
     textPrimary: WpColors.textPrimary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
@@ -569,14 +590,18 @@ class _WpSearchFieldPalette {
 class _WpSearchFieldSpec {
   const _WpSearchFieldSpec({
     required this.radius,
-    required this.tinted,
+    required this.overlayMaterial,
     required this.bordered,
   });
 
   final BorderRadius radius;
 
-  /// Uses the translucent muted fill rather than the opaque surface one.
-  final bool tinted;
+  /// Which *material* the field is made of, fill and resting rim together:
+  /// `true` = the floating overlay's muted pill, `false` = the main window's
+  /// card frost. The two cannot be mixed — the overlay is a separate window
+  /// with its own backdrop, so the main window's card tokens have no ambient
+  /// to be translucent against there.
+  final bool overlayMaterial;
 
   /// Shows a hairline while unfocused. `false` leaves the resting border
   /// *transparent* rather than absent, so the focus transition animates a
@@ -586,20 +611,21 @@ class _WpSearchFieldSpec {
   /// shape the next variant would need.
   final bool bordered;
 
-  Color fill(_WpSearchFieldPalette p) => tinted ? p.mutedFill : p.surface;
+  Color fill(_WpSearchFieldPalette p) =>
+      overlayMaterial ? p.mutedFill : p.surface;
 
   Color restingBorder(_WpSearchFieldPalette p) =>
-      bordered ? p.border : Colors.transparent;
+      bordered ? (overlayMaterial ? p.border : p.cardEdge) : Colors.transparent;
 
   static final _outlined = _WpSearchFieldSpec(
     radius: WpRadius.borderSm,
-    tinted: false,
+    overlayMaterial: false,
     bordered: true,
   );
 
   static final _capsule = _WpSearchFieldSpec(
     radius: WpRadius.borderFull,
-    tinted: true,
+    overlayMaterial: true,
     bordered: true,
   );
 

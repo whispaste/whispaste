@@ -26,7 +26,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 // Window sizes to test — covers common desktop form factors
 //
 // The narrow entry deliberately sits *below* the window minimum the app
-// enforces ([WpLayout.minWindowHeight], 621 dp): these cases pump a bare page
+// enforces ([WpLayout.minWindowHeight], 628 dp): these cases pump a bare page
 // without the app chrome, so a page that survives 800 × 600 here has more room
 // than it will ever get inside the real shell. The nav rail's own height
 // budget, which is what sets that minimum, is pinned separately in

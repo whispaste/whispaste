@@ -39,7 +39,7 @@ void main() {
         iconLeft,
         reason:
             'The section title and the icon of the row beneath it must share '
-            'one reading edge — see the accent-bar geometry in section.dart.',
+            'one reading edge — see `_headerTextInset` in section.dart.',
       );
     });
   });

@@ -323,7 +323,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       for (var i = 0; i < visibleSections.length; i++) {
         children.add(visibleSections[i].$2());
         if (i < visibleSections.length - 1) {
-          children.add(settingsSectionDivider(context));
+          children.add(settingsSectionBreak);
         }
       }
       scrollContent = Column(

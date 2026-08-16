@@ -17,7 +17,6 @@ import 'package:whispaste/core/data/database.dart' show AnalyticsModelUsage;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
-import 'package:whispaste/widgets/section.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -560,20 +559,27 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Seven, and each one accounted for: four hero pills (no latency sample
-      // in `colorData`, so four rather than five) plus the accent bar of the
-      // three `WpSection`s. The eight bars that used to wear it — three model,
-      // five duration — are flat now. The gradient is the brand's own moment;
-      // when everything wore it, nothing on the page was emphatic any more.
-      // Ticket 17 owns where else it may appear; until then, seven.
+      // Four, and each one accounted for: the four hero pills (no latency
+      // sample in `colorData`, so four rather than five). The eight bars that
+      // used to wear it — three model, five duration — are flat now. The
+      // gradient is the brand's own moment; when everything wore it, nothing
+      // on the page was emphatic any more.
+      //
+      // It used to be seven: the three `WpSection`s each hung a 3 px
+      // accent-gradient bar beside their heading. Ticket 08 removed that bar —
+      // a *generic* interaction accent on a heading that is not interactive,
+      // spending the brand's loudest gradient on "here is a section". The
+      // accent still marks selection (the sidebar's active rail item); it no
+      // longer marks structure.
       expect(
         decorationGradients(
           tester,
         ).where((g) => g == WpColorsDark.accentWarmGradient).length,
-        4 + tester.widgetList(find.byType(WpSection)).length,
+        4,
         reason:
-            'the accent gradient escaped the hero pills and section bars — the '
-            'model and duration bars are flat by decision, not by accident',
+            'the accent gradient escaped the hero pills — the model and '
+            'duration bars are flat by decision, not by accident, and a '
+            'section heading no longer wears it at all',
       );
     });
   });

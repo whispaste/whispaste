@@ -286,9 +286,14 @@ class _ToastCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, color) = _iconAndColor();
-    const surfaceBg = WpColors.surfaceElevated;
+    // Card material (Ticket 08). Pre-composited rather than translucent: a
+    // toast floats over whatever the user happens to have on screen, so the
+    // ambient it would let through is unknowable. The rim is the tinted card
+    // edge — a neutral `borderDefault` hairline over a chromatic fill is the
+    // "reads grey" failure the frost exists to fix.
+    const surfaceBg = WpColors.floatingSurface;
     const textPrimary = WpColors.textPrimary;
-    const borderColor = WpColors.borderDefault;
+    const borderColor = WpColors.cardEdgeHighlight;
 
     return Semantics(
       // Not a liveRegion: WpToast.show() already calls sendAnnouncement()
@@ -317,16 +322,17 @@ class _ToastCard extends StatelessWidget {
               color: surfaceBg,
               borderRadius: BorderRadius.circular(WpRadius.md),
               border: Border.all(color: borderColor),
+              // Exactly one shadow — neutral, offset, wide. The toast really
+              // does float, so it earns a shadow; it used to carry a *second*
+              // one tinted with the severity colour at a near-zero offset,
+              // which is a glow: a second light source on the same element,
+              // and on a success toast a ring of decorative green nobody had
+              // earned. Removed with Ticket 08.
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.4),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: color.withValues(alpha: 0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 2),
                 ),
               ],
             ),

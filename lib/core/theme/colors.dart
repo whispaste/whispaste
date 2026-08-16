@@ -155,11 +155,14 @@ abstract final class WpColorsDark {
   static const Color borderSubtle = Color(0x1EFFFFFF);
   static const Color borderDefault = Color(0x30FFFFFF);
 
-  /// Hairline of an *active* card tile. This was one of the few structural
-  /// translucents that carried the *same* alpha byte in both themes rather
-  /// than stepping between them; with one theme left, that exemption no
-  /// longer distinguishes it from anything.
-  static const Color cardActiveBorder = Color(0x24FFFFFF);
+  // Removed with Ticket 08: `cardActiveBorder` (0x24FFFFFF), the hairline of
+  // an *active* card tile. Its one call site — `wp_list_tile_surface.dart` —
+  // now draws [cardEdgeHighlight] there instead. Same alpha byte, but tinted:
+  // on a translucent frost fill the rim is the card's shape, and a neutral
+  // white rim over a chromatic fill desaturates it toward grey, which is the
+  // failure the frost material was introduced to fix. Recorded rather than
+  // deleted silently, because "a neutral hairline on an active card" was a
+  // deliberate choice once and has to be visibly overruled.
 
   /// Text — readable, not overly bright to avoid harshness
   static const Color textPrimary = Color(0xFFF0F4FA);
@@ -282,6 +285,29 @@ abstract final class WpColorsDark {
   /// own. On dark this rim is now the *primary* separator between them, not a
   /// finishing touch on top of a brightness step.
   static const Color cardEdgeHighlight = Color(0x24D7C8F9);
+
+  /// The same frost, **pre-composited** for surfaces that float over content
+  /// the material cannot see through.
+  ///
+  /// [cardFill]/[cardFillElevated] are translucent by definition: they only
+  /// read as frost because the one ambient gradient runs underneath them. A
+  /// dialog does not sit on that ambient — it sits on a 92 %-opaque barrier of
+  /// [background] — and a toast or a dropdown popup sits on whatever the user
+  /// happens to have scrolled underneath it. A 4.7 % tint over an unknown or
+  /// near-opaque ground is not a material, it is a rounding error, and it would
+  /// leave those three the only surfaces in the app still reading as raw
+  /// [surfaceElevated].
+  ///
+  /// So the composite is done once, here, instead of at paint time:
+  /// `Color.alphaBlend(cardFillElevated, surfaceElevated)` = #18274D. Same
+  /// recipe, same hue, same rim ([cardEdgeHighlight]) — a floating surface is
+  /// the *result* of the card material rather than a second material.
+  ///
+  /// This is also the one place in the app where a shadow is still spent
+  /// (Ticket 08): an element that floats above arbitrary content has no
+  /// brightness reference to be read against, so it gets exactly one neutral
+  /// drop shadow and never a second, never a tinted one.
+  static const Color floatingSurface = Color(0xFF18274D);
 
   /// Wash for a large decorative background glyph — its own category, *below*
   /// the 6/12/30% tint ladder above. The two themes used to carry different

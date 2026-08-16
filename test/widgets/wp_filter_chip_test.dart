@@ -63,18 +63,25 @@ Widget _chip({
 
 void main() {
   group('WpFilterChip — the three states', () {
-    testWidgets('resting uses the surface-variant fill and secondary label', (
+    testWidgets('resting uses the card frost and secondary label', (
       tester,
     ) async {
       await tester.pumpWidget(makeTestable(_chip()));
       await tester.pumpAndSettle();
 
-      expect(_pillDecoration(tester).color, WpColorsDark.surfaceVariant);
+      // `cardFillElevated`, not the opaque `surfaceVariant` this used to pin
+      // (Ticket 08): the resting chip was the last rung of the ladder where
+      // the ambient stopped, so the pill sat on a plate of its own while its
+      // hover and active states were translucent tints. All three rungs are
+      // now translucent over the one atmosphere.
+      expect(_pillDecoration(tester).color, WpColorsDark.cardFillElevated);
       expect(_labelColor(tester, 'All'), WpColorsDark.textSecondary);
       expect(
-        _pillDecoration(tester).border,
-        isNull,
-        reason: 'only the selected state carries an outline',
+        (_pillDecoration(tester).border! as Border).top.color,
+        WpColorsDark.cardEdgeHighlight,
+        reason:
+            'on a translucent fill the rim is what carries the pill; it is no '
+            'longer selection-only',
       );
     });
 

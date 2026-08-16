@@ -71,15 +71,25 @@ class _WpFilterChipState extends State<WpFilterChip> {
     //     resting → hover → active progression one hue getting stronger,
     //     which is what a chip's hover is *for*: previewing the state the
     //     click leads to.
+    // Ticket 08 replaced the third rung's *ground*: resting used to be the
+    // opaque `surfaceVariant`, the last place in the chip where the ambient
+    // stopped. It is now the shared frost, so all three rungs are translucent
+    // tints over the one gradient and the pill's shape is carried by its rim
+    // rather than by an opaque plate. The rim is therefore no longer
+    // active-only — see the border below.
+    final Color borderColor;
     if (widget.isActive) {
       bg = WpColors.accentActiveFill;
       fg = WpColors.accent;
+      borderColor = WpColors.accentBorder30;
     } else if (_isHovered) {
       bg = WpColors.accentRowHover;
       fg = WpColors.textPrimary;
+      borderColor = WpColors.cardEdgeHighlight;
     } else {
-      bg = WpColors.surfaceVariant;
+      bg = WpColors.cardFillElevated;
       fg = WpColors.textSecondary;
+      borderColor = WpColors.cardEdgeHighlight;
     }
 
     // Compact visual pill — the actual tap/focus surface around it is
@@ -99,9 +109,11 @@ class _WpFilterChipState extends State<WpFilterChip> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: WpRadius.borderFull,
-        border: widget.isActive
-            ? Border.all(color: WpColors.accentBorder30)
-            : null,
+        // Always present, never null: on a translucent fill the rim *is* the
+        // pill, and `Border.lerp(a, null, t)` scales width instead of alpha,
+        // which reads as a one-frame flash (same mechanism documented in
+        // `wp_list_tile_surface.dart`).
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

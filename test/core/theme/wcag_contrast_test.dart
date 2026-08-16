@@ -1788,7 +1788,7 @@ void main() {
   // color.
   //
   // Scoped to fills on purpose. Hairlines and borders (`borderSubtle`,
-  // `borderDefault`, `cardActiveBorder`) are neutral by design and are a
+  // `borderDefault`) are neutral by design and are a
   // different question; the rule as written names surfaces.
   group('Card material – every fill carries hue', () {
     final fills = <String, Color>{

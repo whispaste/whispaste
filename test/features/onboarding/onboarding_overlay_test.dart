@@ -22,7 +22,7 @@
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
 ///  - the layout survives a window *below* the size the app enforces (800×550;
-///    the real floor is `WpLayout.minWindowHeight`, 800×621) and an enlarged
+///    the real floor is `WpLayout.minWindowHeight`, 800×628) and an enlarged
 ///    system text scale without overflow errors.
 library;
 
@@ -777,7 +777,7 @@ void main() {
     // same pattern as `test/core/design/responsive_overflow_test.dart`.
     //
     // 800×550 is one notch *below* the window minimum the app enforces
-    // (`WpLayout.minWindowHeight`, 800×621) — kept there on purpose after the
+    // (`WpLayout.minWindowHeight`, 800×628) — kept there on purpose after the
     // minimum was raised: a floor that is harsher than reality stays a valid
     // floor, and the onboarding overlay covers the whole window anyway, so
     // none of the chrome that sets that minimum is on screen here.

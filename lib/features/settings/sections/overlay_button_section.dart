@@ -91,7 +91,7 @@ class OverlaySection extends ConsumerWidget {
 
           // ── Size + preview (visible only when overlay is enabled) ─────
           if (effectiveMode == OverlayMode.floating) ...[
-            settingsInlineDivider(context),
+            settingsInlineBreak,
             SettingRow(
               icon: LucideIcons.maximize2,
               label: l10n.settingsOverlaySize,
@@ -113,7 +113,7 @@ class OverlaySection extends ConsumerWidget {
                 },
               ),
             ),
-            settingsInlineDivider(context),
+            settingsInlineBreak,
             // Preview at real (1:1) size in its own full-width row so the
             // Normal vs. Compact difference is actually recognisable. FittedBox
             // inside only scales down on windows narrower than the real pill.

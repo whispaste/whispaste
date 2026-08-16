@@ -544,21 +544,26 @@ Widget settingsTextField({
   );
 }
 
-/// Horizontal divider between settings sections.
-Widget settingsSectionDivider(BuildContext context) {
-  return const Padding(
-    padding: EdgeInsets.symmetric(vertical: WpSpacing.xs),
-    child: Divider(color: WpColors.borderSubtle),
-  );
-}
+/// Break between two settings sections.
+///
+/// Was a `borderSubtle` [Divider] in 8 dp of padding until Ticket 08. The line
+/// was not load-bearing: a settings section already announces itself with a
+/// heading, and a rule drawn across the page is a second, weaker answer to a
+/// question the heading has already answered — while being one more edge
+/// cutting across the one ambient gradient the window is painted on. The
+/// vertical budget is unchanged (the old divider row also came to 32 dp), so
+/// only the line is gone, not the air.
+const Widget settingsSectionBreak = SizedBox(height: WpSpacing.xxl);
 
-/// Thin divider between conditional sub-groups *within* one settings
-/// section (e.g. local- vs. cloud-mode STT fields, or an overlay section's
-/// conditionally-shown size/preview rows) — a tighter, lower-profile sibling
-/// of [settingsSectionDivider], which separates whole top-level sections.
-Widget settingsInlineDivider(BuildContext context) {
-  return const Divider(height: 1, color: WpColors.borderSubtle);
-}
+/// Break between conditional sub-groups *within* one settings section (e.g.
+/// local- vs. cloud-mode STT fields, or an overlay section's
+/// conditionally-shown size/preview rows) — the tighter sibling of
+/// [settingsSectionBreak].
+///
+/// This one *gains* room: the hairline it replaces was `Divider(height: 1)`,
+/// a line with no air around it at all, so removing it without adding spacing
+/// would have fused the sub-groups into one list instead of separating them.
+const Widget settingsInlineBreak = SizedBox(height: WpSpacing.md);
 
 // ---------------------------------------------------------------------------
 // Inline notice

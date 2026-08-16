@@ -342,14 +342,22 @@ class _WpDropdownPalette {
   /// stack (2026-08-11). The twin was not merely unreachable — it was
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
+  ///
+  /// Ticket 08 split the two surfaces apart, because they are not the same
+  /// kind of thing. The **trigger** sits in the page plane, so it takes the
+  /// translucent frost and lets the ambient run through it; its rim is the
+  /// tinted [WpColors.cardEdgeHighlight], which on a translucent fill is what
+  /// carries the control's shape. The **menu** is a route overlay floating
+  /// over arbitrary content with no ambient underneath, so it takes the
+  /// pre-composited [WpColors.floatingSurface] instead.
   static const _palette = _WpDropdownPalette(
-    surface: WpColors.surfaceVariant,
-    border: WpColors.borderSubtle,
+    surface: WpColors.cardFillElevated,
+    border: WpColors.cardEdgeHighlight,
     textPrimary: WpColors.textPrimary,
     textSecondary: WpColors.textSecondary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
-    menuSurface: WpColors.surfaceElevated,
+    menuSurface: WpColors.floatingSurface,
     focusWash: WpColors.accentActiveFill,
     hoverWash: WpColors.accentRowHover,
   );

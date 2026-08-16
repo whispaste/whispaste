@@ -197,9 +197,10 @@ class _WpDialogBarrier extends StatelessWidget {
 // Dialog surface — the one card every WhisPaste dialog is built on
 // ---------------------------------------------------------------------------
 
-/// The card behind every dialog in the app: elevated surface, [WpRadius.borderLg],
-/// subtle border, [WpShadows.elevated] — plus the two behaviours every dialog
-/// wants and none should re-derive:
+/// The card behind every dialog in the app: pre-composited frost
+/// ([WpColors.floatingSurface]), [WpRadius.borderLg], the tinted
+/// [WpColors.cardEdgeHighlight] rim, [WpShadows.elevated] — plus the two
+/// behaviours every dialog wants and none should re-derive:
 ///
 /// * It grows softly. An [AnimatedContainer] alone cannot animate an intrinsic
 ///   height change, so the body sits in an [AnimatedSize] — a dialog whose
@@ -251,9 +252,16 @@ class _WpDialogSurface extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: width, maxHeight: maxHeight),
             padding: const EdgeInsets.all(WpSpacing.lg),
             decoration: BoxDecoration(
-              color: WpColors.surfaceElevated,
+              // Card material, pre-composited: a dialog floats over a
+              // 92 %-opaque barrier, so a translucent frost would tint the
+              // barrier rather than the ambient and vanish. See
+              // `WpColors.floatingSurface` for the derivation. The rim is the
+              // tinted `cardEdgeHighlight`, not a neutral white hairline —
+              // same edge every card in the app carries.
+              color: WpColors.floatingSurface,
               borderRadius: WpRadius.borderLg,
-              border: Border.all(color: WpColors.borderSubtle),
+              border: Border.all(color: WpColors.cardEdgeHighlight),
+              // The one sanctioned shadow family: this really does float.
               boxShadow: WpShadows.elevated,
             ),
             child: AnimatedSize(
