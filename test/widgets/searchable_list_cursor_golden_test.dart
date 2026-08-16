@@ -41,8 +41,6 @@ void main() {
   group('searchable-list keyboard cursor', () {
     testWidgets(
       'Snippets, dark — cursor on the middle row',
-      skip:
-          'Needs golden update for new duplicate action (Sandbox SDK mismatch)',
       (tester) async {
         const page = SnippetsPage();
         await tester.pumpWidget(
@@ -72,6 +70,7 @@ void main() {
           matchesGoldenFile('goldens/searchable_list_cursor_snippets_dark.png'),
         );
       },
+      skip: 'Needs golden update for new duplicate action',
     );
 
     // This case used to pump at `Brightness.light`, so the pair covered both
