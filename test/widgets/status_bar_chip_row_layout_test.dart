@@ -48,9 +48,7 @@ void main() {
                 showAutoPasteOffHint: showAutoPasteOffHint,
                 microphoneLabel: microphoneLabel,
                 microphoneOptions: microphoneOptions,
-                onMicrophoneChanged: microphoneOptions != null
-                    ? (_) {}
-                    : null,
+                onMicrophoneChanged: microphoneOptions != null ? (_) {} : null,
                 hotkeyLabel: hotkeyLabel,
                 updateVersion: updateVersion,
                 backendKind: backendKind,
