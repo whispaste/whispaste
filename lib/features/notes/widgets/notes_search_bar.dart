@@ -26,6 +26,7 @@ class NotesSearchBar extends StatelessWidget {
     required this.resultCount,
     required this.showResultCount,
     required this.onCreate,
+    this.createIsLoud = true,
   });
 
   final NotesFilter currentFilter;
@@ -41,6 +42,16 @@ class NotesSearchBar extends StatelessWidget {
 
   /// Creates a new note — rendered as the trailing "new note" button.
   final VoidCallback onCreate;
+
+  /// Whether that button is this screen's one loud action.
+  ///
+  /// False while the content area below shows an empty state that carries a
+  /// CTA of its own — the base empty state offers "New note" with the very
+  /// same label, the search-found-nothing state offers "Clear search". *The
+  /// One-Loud-Action Rule* allows one `primary` per screen, and a centred CTA
+  /// on an otherwise blank page is the louder of the two; this button keeps
+  /// the action and gives up the volume.
+  final bool createIsLoud;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +88,9 @@ class NotesSearchBar extends StatelessWidget {
               const SizedBox(width: WpSpacing.sm),
               WpButton(
                 label: l10n.notesNewNote,
-                variant: WpButtonVariant.primary,
+                variant: createIsLoud
+                    ? WpButtonVariant.primary
+                    : WpButtonVariant.secondary,
                 icon: LucideIcons.plus,
                 onPressed: onCreate,
               ),

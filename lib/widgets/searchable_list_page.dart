@@ -450,6 +450,16 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
       ),
       data: (all) {
         final visible = _filtered(all);
+        // *The One-Loud-Action Rule*: at most one `primary` in a screen's main
+        // content area. Both empty states below carry a CTA of their own — the
+        // no-items state repeats this very button, the no-matches state offers
+        // "clear search" — and a centred CTA in an otherwise blank page is the
+        // louder of the two by construction. So while an empty state is on
+        // screen the toolbar button steps back to `secondary`; the action stays
+        // exactly where it was, it just stops competing with the one the page
+        // is pointing at. With rows in the list there is no second CTA and the
+        // toolbar button is the page's loud action again.
+        final emptyStateOwnsTheCta = all.isEmpty || visible.isEmpty;
         // Derived, never stored: an item can be deleted out from under the
         // cursor between two frames, and the list can shrink under a new
         // query before `onChanged`'s reset has been rebuilt.
@@ -528,10 +538,12 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  // Add button
+                  // Add button — see `emptyStateOwnsTheCta` above.
                   WpButton(
                     label: widget.addLabel,
-                    variant: WpButtonVariant.primary,
+                    variant: emptyStateOwnsTheCta
+                        ? WpButtonVariant.secondary
+                        : WpButtonVariant.primary,
                     icon: LucideIcons.plus,
                     onPressed: widget.onAdd,
                   ),

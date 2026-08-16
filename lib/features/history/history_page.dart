@@ -519,6 +519,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
                       ? _emptyTrash
                       : null,
+                  // *The One-Loud-Action Rule*: two of the states the content
+                  // area below can be in put a CTA of their own on screen —
+                  // "Clear search" when a query found nothing, "Try again"
+                  // after a load error. Everything else (a populated list, the
+                  // loading skeleton, and the empty states that deliberately
+                  // offer no action) leaves "New recording" as the page's one
+                  // loud thing. See `_emptyStateForFilter`.
+                  newRecordingIsLoud: !(groupedAsync.hasError ||
+                      (groupedAsync.value?.isEmpty == true &&
+                          _searchController.text.isNotEmpty)),
                 ),
               // Master-detail content
               Expanded(

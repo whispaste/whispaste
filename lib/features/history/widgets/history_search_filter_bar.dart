@@ -71,6 +71,7 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
     required this.onSortOrderChanged,
     this.searchFocusNode,
     this.onEmptyTrash,
+    this.newRecordingIsLoud = true,
   });
 
   final TextEditingController controller;
@@ -86,6 +87,22 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
   final ValueChanged<HistorySortOrder> onSortOrderChanged;
   final FocusNode? searchFocusNode;
   final VoidCallback? onEmptyTrash;
+
+  /// Whether "New recording" is this screen's one loud action.
+  ///
+  /// False while the content area below shows an empty state that carries a
+  /// CTA of its own — "Clear search" when a query found nothing, "Try again"
+  /// after a load error. *The One-Loud-Action Rule* allows one `primary` per
+  /// screen and a centred CTA on an otherwise blank page is the louder of the
+  /// two, so the button gives up the volume and keeps the action.
+  ///
+  /// The other empty states — trash, archive, favourites, today, this week,
+  /// and a history that has simply never been filled — deliberately offer no
+  /// action of their own (see [WpEmptyState]'s rule: the history fills from a
+  /// recording run, and its hint says so). On those this button stays loud,
+  /// which is exactly right: starting a recording is what an empty history
+  /// wants next.
+  final bool newRecordingIsLoud;
 
   @override
   ConsumerState<HistorySearchFilterBar> createState() =>
@@ -703,7 +720,7 @@ class _HistorySearchFilterBarState
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),
-              const _NewRecordingButton(),
+              _NewRecordingButton(isLoud: widget.newRecordingIsLoud),
             ],
           ),
 
@@ -1540,7 +1557,10 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
 /// way through the pipeline, and nothing sensible remains to stop. The
 /// spinner says so, the tooltip names the phase.
 class _NewRecordingButton extends ConsumerWidget {
-  const _NewRecordingButton();
+  const _NewRecordingButton({required this.isLoud});
+
+  /// See [HistorySearchFilterBar.newRecordingIsLoud].
+  final bool isLoud;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1551,7 +1571,11 @@ class _NewRecordingButton extends ConsumerWidget {
 
     return WpButton(
       label: isRecording ? l10n.historyStopRecording : l10n.historyNewRecording,
-      variant: WpButtonVariant.primary,
+      // Recording never quiets down: a running recording is the loudest thing
+      // on any screen it appears on, whatever the list behind it is showing.
+      variant: (isLoud || isRecording)
+          ? WpButtonVariant.primary
+          : WpButtonVariant.secondary,
       tone: isRecording ? WpButtonTone.danger : WpButtonTone.accent,
       icon: isRecording ? LucideIcons.square : LucideIcons.mic,
       isLoading: isTranscribing,
