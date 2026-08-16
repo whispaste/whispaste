@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/services/auto_updater_service.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
@@ -233,6 +234,106 @@ void main() {
         reason:
             'A tappable GestureDetector outside an InkWell is unreachable by '
             'keyboard — wrap it the way _AboutTapTarget does.',
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Ticket 15 (visual-refresh-2026) — the narrative family's material
+  // ---------------------------------------------------------------------------
+
+  group('AboutPage material (Ticket 15)', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Future<Iterable<BoxDecoration>> pumpAndCollect(WidgetTester tester) async {
+      await tester.pumpWidget(
+        makeTestable(const AboutPage(), locale: const Locale('en')),
+      );
+      await tester.pump();
+      return tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(AboutPage),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((d) => d.decoration)
+          .whereType<BoxDecoration>()
+          .toList();
+    }
+
+    testWidgets('the section cards stand on the frost, not on surfaceElevated', (
+      tester,
+    ) async {
+      final decorations = await pumpAndCollect(tester);
+
+      expect(
+        decorations.where((d) => d.color == WpColors.cardFill),
+        isNotEmpty,
+        reason:
+            'AC1 — About\'s section cards take the card material. The page '
+            'sits inside the content panel, so the one ambient runs live '
+            'underneath and the translucent fill reads as frost.',
+      );
+      expect(
+        decorations.where((d) => d.color == WpColors.surfaceElevated),
+        isEmpty,
+        reason:
+            'An opaque `surfaceElevated` box is a second surface painted over '
+            'the content plane rather than a card standing on it.',
+      );
+    });
+
+    testWidgets('no surface on the page paints a gradient of its own', (
+      tester,
+    ) async {
+      final decorations = await pumpAndCollect(tester);
+
+      expect(
+        decorations.where((d) => d.gradient != null),
+        isEmpty,
+        reason: 'AC3 — *The One-Atmosphere Rule*: one light source, one place.',
+      );
+    });
+
+    testWidgets('the in-plane cards carry no shadow', (tester) async {
+      final decorations = await pumpAndCollect(tester);
+
+      expect(
+        decorations.where((d) => (d.boxShadow ?? const []).isNotEmpty),
+        isEmpty,
+        reason:
+            '*The Depth-Source Rule*: depth comes from position. An in-plane '
+            'card is separated by the lit `cardEdgeHighlight` rim, and the one '
+            'shadow the app still spends belongs to floating surfaces.',
+      );
+    });
+
+    testWidgets('About is deliberately quiet — it has no loud action at all', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const AboutPage(), locale: const Locale('en')),
+      );
+      await tester.pump();
+
+      final loud = tester
+          .widgetList<WpButton>(find.byType(WpButton))
+          .where((b) => b.variant == WpButtonVariant.primary)
+          .map((b) => b.label)
+          .toList();
+
+      expect(
+        loud,
+        isEmpty,
+        reason:
+            'AC2 / *The One-Loud-Action Rule*, in its zero form. This is a '
+            'documented decision, not an oversight: About is a page you read. '
+            'Its quick actions are wayfinding and its support row is an ask, '
+            'so both stay `secondary` and the hierarchy is carried by tone '
+            '(neutral vs. accent) rather than by fill. Adding a `primary` here '
+            'means deciding which single thing the page tells you to do — say '
+            'so here first.',
       );
     });
   });

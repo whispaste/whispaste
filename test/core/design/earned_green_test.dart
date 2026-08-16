@@ -68,8 +68,6 @@ void main() {
         'resting green on downloaded-model rows — Ticket 14 (settings family)',
     'lib/features/analytics/analytics_page.dart':
         'resting green on a dashboard metric — Ticket 14 (analytics)',
-    'lib/features/about/about_page.dart':
-        'resting green in the update block — Ticket 15 (narrative family)',
     'lib/features/onboarding/steps/test_recording_step.dart':
         'resting green in the onboarding sandbox — Ticket 15',
     'lib/features/onboarding/steps/model_step.dart':

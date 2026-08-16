@@ -358,7 +358,19 @@ class AboutPage extends ConsumerWidget {
 
 /// Surface card that groups one About section (header + its content) so the
 /// page reads as structured panels rather than a flat document. Tokens only:
-/// elevated surface, subtle border, [WpRadius.borderLg], [WpSpacing.lg] pad.
+/// the card material, [WpRadius.borderLg], [WpSpacing.lg] pad.
+///
+/// **Ticket 15 — the frost, not `surfaceElevated`.** This card used to be an
+/// opaque `surfaceElevated` box with a `borderSubtle` outline, which is a
+/// second surface painted over the content plane rather than a card standing
+/// on it. About sits *inside* the content panel, so the one ambient runs live
+/// underneath it and the translucent [WpColors.cardFill] reads as material —
+/// unlike the onboarding surfaces, which stand on an opaque ground of their
+/// own and therefore take the pre-composited `floatingSurface` instead. Same
+/// recipe, two spellings, because the grounds differ.
+///
+/// No shadow: depth here comes from position (in-plane) plus the lit
+/// [WpColors.cardEdgeHighlight] rim — *The Depth-Source Rule*.
 ///
 /// The header is a plain [WpSection] — the same one Settings and Analytics
 /// use — so About no longer carries a section head of its own.
@@ -374,9 +386,9 @@ class _AboutCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(WpSpacing.lg),
       decoration: BoxDecoration(
-        color: WpColors.surfaceElevated,
+        color: WpColors.cardFill,
         borderRadius: WpRadius.borderLg,
-        border: Border.all(color: WpColors.borderSubtle),
+        border: Border.all(color: WpColors.cardEdgeHighlight),
       ),
       // The card already pads itself — the section only supplies the header.
       child: WpSection(
@@ -597,7 +609,13 @@ class _PrivacyPoint extends StatelessWidget {
             child: Icon(
               LucideIcons.check,
               size: WpIconSize.xs,
-              color: WpColors.success,
+              // Accent, not `success` (Ticket 15, *The Earned-Green Rule*).
+              // These four checks are a standing statement about how the app
+              // is built — they are true before the user does anything and
+              // stay true afterwards. Green is what the app has left to say
+              // "that worked just now", and four permanent ticks spend it on
+              // nothing having happened.
+              color: WpColors.accent,
             ),
           ),
           const SizedBox(width: WpSpacing.sm),
