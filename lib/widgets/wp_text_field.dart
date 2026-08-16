@@ -134,6 +134,18 @@
 /// metrics — the two can no longer drift apart, and the call site still sets
 /// no font size of its own.
 ///
+/// Metrics were only half of it. Until Ticket 16 the read view borrowed the
+/// *text style* and nothing else, which was invisible while `passage` was a
+/// hairline box — read mode simply had no box — and became the whole problem
+/// the moment Ticket 09 gave the variant a real fill: the same paragraph was
+/// bare prose on the ambient while reading and a frosted card while editing,
+/// so the material changed under the reader on a toggle that changes nothing
+/// about the text. [WpTextFieldSurface] closes that half. It paints the
+/// variant's **resting** box — the same [_WpTextFieldSpec] fill, radius, inset
+/// and hover lift the field itself asks that spec for — around whatever the
+/// read view renders, so the two views are one material and cannot drift into
+/// two.
+///
 /// ## One highlight per state
 ///
 /// The [WpSearchField] rule, unchanged: **the field's own contour is the only
@@ -573,6 +585,99 @@ class _WpTextFieldState extends State<WpTextField> {
       ),
     ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Read-mode surface
+// ---------------------------------------------------------------------------
+
+/// The resting box of a [WpTextFieldVariant], around something that is not a
+/// field — a read-only rendering of the very text the field would edit.
+///
+/// The counterpart to [WpTextField.styleFor], and it exists for the same
+/// reason: a surface that toggles between reading and editing must not change
+/// under the reader. `styleFor` keeps the two views at one set of *metrics*;
+/// this keeps them on one *material*. See "Read mode has to match" in the
+/// library docs.
+///
+/// Everything it paints comes out of the same [_WpTextFieldSpec] the field
+/// asks — fill, radius, resting stroke, inset and the hover lift — so there is
+/// no second copy of the variant's look to keep in step. What it deliberately
+/// does *not* have is a focus state: a read view holds no caret, so the accent
+/// contour, the app's single focus signal, would be a lie here.
+class WpTextFieldSurface extends StatefulWidget {
+  const WpTextFieldSurface({
+    super.key,
+    required this.variant,
+    required this.child,
+    this.liftsOnHover = true,
+  });
+
+  /// Which field this surface is the read view of. Same value the edit view
+  /// passes to [WpTextField], and passing a different one is exactly the drift
+  /// this widget exists to prevent.
+  final WpTextFieldVariant variant;
+
+  /// The read-only rendering — a `Text`, a highlighted paragraph, a rich span.
+  final Widget child;
+
+  /// Whether the pointer lift is offered. It is the "you can write here"
+  /// affordance the resting hairline used to carry (see "The hover lift"), so
+  /// it belongs on a read view that opens edit mode on tap and must be off
+  /// where the text is read-only — History's trash view, where the same
+  /// paragraph is shown but nothing can be edited. Ignored on the variants
+  /// that never lift at all.
+  final bool liftsOnHover;
+
+  @override
+  State<WpTextFieldSurface> createState() => _WpTextFieldSurfaceState();
+}
+
+class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
+  bool _hovered = false;
+
+  void _setHovered(bool value) {
+    if (!mounted || _hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const palette = _WpTextFieldPalette._palette;
+    final spec = _WpTextFieldSpec.of(widget.variant);
+    final lifts = spec.liftsOnHover && widget.liftsOnHover;
+
+    // The field's own box, minus the focus state — same duration and curve, so
+    // a hover that crosses from the read view into the edit view (or back)
+    // does not change speed halfway.
+    Widget box = AnimatedContainer(
+      duration: WpMotion.durationFor(context, WpMotion.normal),
+      curve: WpMotion.defaultCurve,
+      padding: spec.padding,
+      decoration: BoxDecoration(
+        color: spec.fillAt(hovered: lifts && _hovered, palette: palette),
+        borderRadius: spec.radius,
+      ),
+      foregroundDecoration: spec.strokeAt(focused: false)
+          ? BoxDecoration(
+              borderRadius: spec.radius,
+              border: Border.all(
+                color: spec.strokeColor(focused: false, palette: palette),
+              ),
+            )
+          : null,
+      child: widget.child,
+    );
+
+    if (lifts) {
+      box = MouseRegion(
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
+        child: box,
+      );
+    }
+    return box;
+  }
 }
 
 // ---------------------------------------------------------------------------

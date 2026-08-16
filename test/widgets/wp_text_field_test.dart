@@ -451,6 +451,124 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // AC10 — the read-mode surface (Ticket 16)
+  // -------------------------------------------------------------------------
+  group('AC10 — WpTextFieldSurface', () {
+    BoxDecoration surfaceDecoration(WidgetTester tester) =>
+        tester
+                .widget<AnimatedContainer>(
+                  find.descendant(
+                    of: find.byType(WpTextFieldSurface),
+                    matching: find.byType(AnimatedContainer),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+
+    testWidgets('paints the variant\'s own resting box, not a copy of it', (
+      tester,
+    ) async {
+      // Captured from a live field rather than pinned as a literal: two
+      // literals agree forever while the surfaces they describe drift apart,
+      // which is precisely the failure this widget exists to prevent.
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        makeTestable(
+          _field(controller: controller, variant: WpTextFieldVariant.passage),
+        ),
+      );
+      final fieldFill = _boxDecoration(tester);
+      final fieldInset = tester
+          .widget<TextField>(find.byType(TextField))
+          .decoration!
+          .contentPadding;
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+
+      expect(surfaceDecoration(tester).color, fieldFill.color);
+      expect(surfaceDecoration(tester).borderRadius, fieldFill.borderRadius);
+      expect(
+        tester
+            .widget<AnimatedContainer>(
+              find.descendant(
+                of: find.byType(WpTextFieldSurface),
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .padding,
+        fieldInset,
+        reason:
+            'the read view must sit at the field\'s inset, or the text '
+            'shifts sideways the moment edit mode opens',
+      );
+    });
+
+    testWidgets('lifts under the pointer like the field, and not when the '
+        'call site says the text is read-only', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+      await _whileHovering(tester, find.byType(WpTextFieldSurface), () {
+        expect(surfaceDecoration(tester).color, WpColorsDark.cardFillElevated);
+      });
+
+      // History's trash view: the same paragraph, but no tap opens an editor
+      // behind it, so the "you can write here" affordance would be a promise
+      // the screen cannot keep.
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            liftsOnHover: false,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+      await _whileHovering(tester, find.byType(WpTextFieldSurface), () {
+        expect(surfaceDecoration(tester).color, WpColorsDark.cardFill);
+      });
+    });
+
+    testWidgets('never shows the focus contour — a read view holds no caret', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+
+      final stroke =
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: find.byType(WpTextFieldSurface),
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .foregroundDecoration
+              as BoxDecoration?;
+      expect((stroke!.border! as Border).top.color, Colors.transparent);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // AC6 — one type family
   // -------------------------------------------------------------------------
   test('AC6 — no variant asks for a second type family', () {
