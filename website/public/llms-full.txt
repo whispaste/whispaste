@@ -10,7 +10,7 @@
 
 ## 1. Produktkern
 
-**WhisPaste**: Sprach-Eingabe-Tool — nimmt auf Anforderung eine Sprachaufnahme entgegen, fügt transkribierten Text an der Cursor-Position der aktiven Anwendung ein.
+**WhisPaste**: Sprach-Eingabe-Tool — nimmt auf Anforderung eine Sprachaufnahme entgegen, fügt transkribierten Text an der Cursor-Position der aktiven Anwendung ein (Auto-Paste: macOS/Windows; Linux legt ihn in die Zwischenablage, manuelles Einfügen per Strg+V).
 
 - **App:** macOS, Windows, Ubuntu Linux — drei gleichrangige Desktop-Plattformen (Linux-Ziel: Binär-Parität via AppImage). Kein iOS/Android.
 - **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
@@ -40,7 +40,7 @@ Einzelne Phase **innerhalb** eines Aufnahme-Vorgangs: Mikrofon offen, Audio → 
 
 ### 2.3 Transkription
 
-WAV → Text via STT-Engine — lokal whisper.cpp/Parakeet (§4.2), cloud OpenAI/Deepgram/Groq. Code: `RecordingPhase.transcribing`, `lib/services/stt/`. Ergebnis heißt **transkribierter Text** (nicht „Text").
+WAV → Text via STT-Engine — lokal whisper.cpp/Parakeet (§4.2), cloud OpenAI/Deepgram (Groq entfernt in v1.2.13). Code: `RecordingPhase.transcribing`, `lib/services/stt/`. Ergebnis heißt **transkribierter Text** (nicht „Text").
 
 ### 2.4 Einfügen / Paste
 
@@ -305,7 +305,7 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   Slot aus derselben Palette, der *gar nichts* sagt — reine dekorative
   Rotation, damit eine lange Liste scannbar bleibt. Die App klassifiziert
   Diktate nicht, also darf aus dieser Farbe auch nichts abgeleitet werden.
-  Dark-only (das Light-Theme und der Theme-Picker wurden 2026-08-11 entfernt), EN/DE.
+  Dark-only (das Light-Theme und der Theme-Picker wurden 2026-08-11 entfernt), EN/DE/HE.
 - **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
   geplant.
 
