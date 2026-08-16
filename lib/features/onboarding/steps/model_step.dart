@@ -1042,6 +1042,19 @@ class _DownloadProgress extends StatelessWidget {
           style: const TextStyle(
             fontSize: WpTypography.small,
             color: textSecondary,
+            // The one number in the flow that changes in place, several times
+            // a second, for minutes. Inter's proportional digits are not the
+            // same width, so "38%" → "39%" reflows the glyphs under a bar
+            // that is itself perfectly steady, and the counter shimmers.
+            // Tabular figures give it a fixed numeric column — the same
+            // vocabulary the status bar's backend chip already uses, and the
+            // only spelling *The One-Family Rule* leaves for "monospace" (an
+            // actual second family is forbidden outright).
+            //
+            // Here it needs no figure-space padding: the label is left-aligned
+            // and nothing sits beside it, so only the per-character width has
+            // to be fixed, not the character count.
+            fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
       ],

@@ -2335,6 +2335,15 @@ void main() {
         'lib/widgets/waveform.dart', // audio-level bars
         'lib/widgets/status_bar.dart', // the transcribing dot
         'lib/features/onboarding/steps/test_recording_step.dart', // sandbox
+        // The 3px bar above the content panel — the main window's whole
+        // recording surface, since the in-window FAB is gone and the floating
+        // overlay is a separate window. Admitted by Ticket 15: it painted
+        // `error` red while recording and `warning` amber while transcribing,
+        // which spent both colours the Quiet Status Rule reserves for real
+        // failures and not-yet-granted states on a bar reporting a healthy
+        // pipeline. Both in-flight phases are the recording family now — the
+        // classification this list exists to make explicit.
+        'lib/widgets/recording_indicator_bar.dart',
       };
 
       final referencing = dartFilesUnderLib()
