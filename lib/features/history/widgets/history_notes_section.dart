@@ -138,56 +138,71 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header row — clickable to start adding a note
-            GestureDetector(
-              onTap: _isAdding ? null : () => setState(() => _isAdding = true),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.stickyNote,
-                    size: WpIconSize.sm,
-                    color: accent,
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      noteList.isEmpty
-                          ? l10n.historyAddNote
-                          : '${l10n.historyNotes} (${noteList.length})',
-                      style: const TextStyle(
-                        fontSize: WpTypography.body,
-                        fontWeight: FontWeight.w600,
-                        color: textSecondary,
-                        letterSpacing: 0.3,
+            Semantics(
+              button: true,
+              label: l10n.historyAddNote,
+              enabled: !_isAdding,
+              child: MouseRegion(
+                cursor: _isAdding
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: _isAdding
+                      ? null
+                      : () => setState(() => _isAdding = true),
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.stickyNote,
+                        size: WpIconSize.sm,
+                        color: accent,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  VoiceNoteButton(entryId: widget.entryId),
-                  const SizedBox(width: WpSpacing.xxs),
-                  if (!_isAdding)
-                    Semantics(
-                      label: l10n.historyAddNote,
-                      button: true,
-                      child: Tooltip(
-                        message: l10n.historyAddNote,
-                        child: InkWell(
-                          onTap: () => setState(() => _isAdding = true),
-                          borderRadius: WpRadius.borderSm,
-                          child: const Padding(
-                            padding: EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.plus,
-                              size: WpIconSize.md,
-                              color: accent,
+                      const SizedBox(width: WpSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          noteList.isEmpty
+                              ? l10n.historyAddNote
+                              : '${l10n.historyNotes} (${noteList.length})',
+                          style: const TextStyle(
+                            fontSize: WpTypography.body,
+                            fontWeight: FontWeight.w600,
+                            color: textSecondary,
+                            letterSpacing: 0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: WpSpacing.sm),
+                      VoiceNoteButton(entryId: widget.entryId),
+                      const SizedBox(width: WpSpacing.xxs),
+                      if (!_isAdding)
+                        // The 'Add note' button is functionally identical to tapping the
+                        // row, but keeps its own semantics node to remain discoverable
+                        // as a discrete action target for screen reader navigation.
+                        Semantics(
+                          label: l10n.historyAddNote,
+                          button: true,
+                          child: Tooltip(
+                            message: l10n.historyAddNote,
+                            child: InkWell(
+                              onTap: () => setState(() => _isAdding = true),
+                              borderRadius: WpRadius.borderSm,
+                              child: const Padding(
+                                padding: EdgeInsets.all(WpSpacing.xs),
+                                child: Icon(
+                                  LucideIcons.plus,
+                                  size: WpIconSize.md,
+                                  color: accent,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
             // Add note input
