@@ -616,7 +616,10 @@ class _BeatListTileState extends State<_BeatListTile> {
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
     const textMuted = WpColors.textMuted;
-    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
+    // Ticket 15: the card material, pre-composited — see
+    // [_PermissionStatusCard] in `auto_paste_step.dart` for why onboarding
+    // takes `floatingSurface` rather than the translucent `cardFill`.
+    const surface = WpColors.floatingSurface;
 
     // MergeSemantics + a plain Semantics wrapper, not
     // `Semantics(excludeSemantics: true)`: excluding the subtree also discards
@@ -733,7 +736,10 @@ class _BeatMediaPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
+    // Ticket 15: the card material, pre-composited — see
+    // [_PermissionStatusCard] in `auto_paste_step.dart` for why onboarding
+    // takes `floatingSurface` rather than the translucent `cardFill`.
+    const surface = WpColors.floatingSurface;
     const glyphWash = WpColors.decorativeGlyphWash;
 
     // The empty stage, designed as one.

@@ -68,26 +68,34 @@ void main() {
         'resting green on downloaded-model rows — Ticket 14 (settings family)',
     'lib/features/analytics/analytics_page.dart':
         'resting green on a dashboard metric — Ticket 14 (analytics)',
-    'lib/features/onboarding/steps/test_recording_step.dart':
-        'resting green in the onboarding sandbox — Ticket 15',
-    'lib/features/onboarding/steps/model_step.dart':
-        'resting green on the downloaded-model row — Ticket 15',
-    'lib/features/onboarding/steps/mic_permission_chip.dart':
-        'resting green on the granted-permission chip — Ticket 15',
-    'lib/features/onboarding/steps/auto_paste_step.dart':
-        'resting green on the granted-permission row — Ticket 15',
   };
 
-  /// The four screens this ticket brought through the refresh. Held separately
+  /// The screens the refresh has already brought through. Held separately
   /// from the allowlist on purpose: the sweep below proves they carry no
   /// `success` token *at all*, so a future edit cannot make one legitimate by
   /// adding an allowlist row — it has to reach for a status chip, a badge or
   /// a toast, which is what the rule asks for.
+  ///
+  /// Ticket 13 put the four list screens here. Ticket 15 added the narrative
+  /// family (onboarding and About) — the same guarantee, extended rather than
+  /// reinvented, which is what that ticket asked for.
   const refreshedScreenDirs = <String>[
+    // Ticket 13 — the list-panel family.
     'lib/features/history',
     'lib/features/notes',
     'lib/features/snippets',
     'lib/features/replacements',
+    // Ticket 15 — the narrative family.
+    'lib/features/onboarding',
+    'lib/features/about',
+  ];
+
+  /// The third screen Ticket 15 covers is a single widget rather than a
+  /// feature directory: the 3-px bar above the content panel is the main
+  /// window's whole recording surface (the in-window FAB is gone, and the
+  /// floating overlay is a separate window with its own material).
+  const refreshedScreenFiles = <String>[
+    'lib/widgets/recording_indicator_bar.dart',
   ];
 
   /// Everything after a `//` on a line, so a file *discussing* success in a
@@ -144,7 +152,7 @@ void main() {
     );
   });
 
-  test('the four refreshed list screens carry no success token at all', () {
+  test('the refreshed screens carry no success token at all', () {
     final offenders = <String>[];
     for (final dir in refreshedScreenDirs) {
       for (final relPath in dartFilesUnder(dir)) {
@@ -154,13 +162,20 @@ void main() {
         if (successReference.hasMatch(source)) offenders.add(relPath);
       }
     }
+    for (final relPath in refreshedScreenFiles) {
+      final file = File(relPath);
+      expect(file.existsSync(), isTrue, reason: '$relPath must exist');
+      final source = file.readAsStringSync().replaceAll(lineComment, '');
+      if (successReference.hasMatch(source)) offenders.add(relPath);
+    }
 
     expect(
       offenders,
       isEmpty,
       reason:
-          'Verlauf, Notizen, Snippets and Ersetzungen came through Ticket 13 '
-          'with every green on them coming from a transient '
+          'Verlauf, Notizen, Snippets and Ersetzungen (Ticket 13) plus '
+          'onboarding, About and the recording bar (Ticket 15) came through '
+          'the refresh with every green on them coming from a transient '
           '`WpToastType.success` toast — i.e. from a component that cannot '
           'exist at rest. These files broke that: ${offenders.join(', ')}. '
           'Adding an `allowedFiles` row is not the fix here; the fix is to '

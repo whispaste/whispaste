@@ -99,7 +99,14 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
     final l10n = L10n.of(context);
     final status = ref.watch(micPermissionNotifierProvider).status;
 
-    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.55);
+    // Ticket 15: the card material, in its pre-composited spelling. See
+    // [_PermissionStatusCard] in `auto_paste_step.dart` for why onboarding
+    // takes `floatingSurface` rather than the translucent `cardFill` the rest
+    // of the app uses — the flow paints its own opaque ground, and a 3–5 %
+    // tint over near-black is a rounding error, not a frost. Retires a
+    // hand-rolled `withValues(alpha: 0.55)` the tint ladder forbids at a call
+    // site.
+    const surface = WpColors.floatingSurface;
     const hover = WpColors.hover;
     const border = WpColors.borderSubtle;
     const textPrimary = WpColors.textPrimary;
@@ -107,10 +114,16 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
     // Status is carried by the tinted leading glyph and the copy — the pill
     // itself stays neutral (same quiet register as the Auto-Paste indicator).
     final (String label, IconData? icon, Color statusColor) = switch (status) {
+      // Accent, not `success` (Ticket 15, *The Earned-Green Rule*). A granted
+      // microphone permission is a state at rest: it is still granted the next
+      // time the page is opened, and it was very likely granted by an OS
+      // dialog the user answered on the way *out* of page 1. Green is what the
+      // app has left for "that worked just now"; a permission that is simply
+      // in order is the succeeding-flow register, which is accent.
       MicPermissionStatus.granted => (
         l10n.onboardingMicChipReady,
         LucideIcons.circleCheck,
-        WpColors.success,
+        WpColors.accent,
       ),
       MicPermissionStatus.denied => (
         l10n.onboardingMicChipAction,
@@ -119,10 +132,17 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
       ),
       // unknown & requesting both read "pending": a fresh install has simply
       // not been asked yet and must never claim "action needed".
+      //
+      // Muted, since Ticket 15 moved `granted` off green and onto the accent:
+      // pending held the accent, and two of three states wearing one hue is a
+      // status chip that no longer reports status at a glance. Neutral is also
+      // the more honest of the two — pending is the state in which *nothing
+      // has happened yet*, and the pill's own affordance, not the glyph's hue,
+      // is what says it can be tapped.
       MicPermissionStatus.unknown || MicPermissionStatus.requesting => (
         l10n.onboardingMicChipPending,
         status == MicPermissionStatus.requesting ? null : LucideIcons.mic,
-        WpColors.accent,
+        WpColors.textMuted,
       ),
     };
 
