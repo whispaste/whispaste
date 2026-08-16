@@ -54,23 +54,39 @@ void main() {
 
   /// Floating surfaces inside those directories: they sit *above* the plane,
   /// so the rule grants them exactly one shadow. Path → why it floats.
-  ///
-  /// Empty today. The one dialog in these directories
-  /// (`tag_management_dialog.dart`) takes its elevation from the shared
-  /// `WpDialog` shell rather than painting its own, which is the shape the
-  /// rule wants: one floating primitive, not one per dialog.
-  const floatingSurfaces = <String, String>{};
+  const floatingSurfaces = <String, String>{
+    'lib/features/history/widgets/tag_management_dialog.dart':
+        'A modal dialog on its own barrier — it floats above the whole plane, '
+        'so the rule grants it the one shadow. It spends it on '
+        '`Material(elevation: 8)`, the same lift the shared `WpDialog` shell '
+        'paints, which is why the surface underneath is `floatingSurface` '
+        'rather than a frost fill.',
+  };
 
   /// Everything after a `//` on a line, so a file *discussing* shadows in a
   /// comment (`history_helpers.dart` carries two retraction notes about
   /// exactly this rule) is not counted as painting one.
   final lineComment = RegExp(r'//.*$', multiLine: true);
 
-  /// A shadow can only enter a decoration two ways: through a named token or
-  /// through a hand-rolled `BoxShadow(...)`. `boxShadow: null` — the explicit
-  /// "this one carries no lift" marker `history_helpers.dart` uses — matches
-  /// neither, on purpose.
-  final shadowReference = RegExp(r'\bWpShadows\.\w+|\bBoxShadow\s*\(');
+  /// Every way a shadow can reach the screen, not just the decoration route:
+  /// a named token, a hand-rolled `BoxShadow(...)`, `Material`'s own
+  /// `elevation:`, and the two `CustomPainter` spellings — `drawShadow` and a
+  /// blurred fill standing in for one. The first review of this gate matched
+  /// only the first two and therefore called the family "shadow-free" while
+  /// `tag_management_dialog.dart` was lifting itself with `elevation: 8`; a
+  /// grep narrower than the ways a shadow can be painted is a gate that
+  /// reports on its own regex rather than on the screens.
+  ///
+  /// `elevation: 0` is the *absence* of a lift and matches nothing, as does
+  /// `boxShadow: null` — the explicit "this one carries no lift" marker
+  /// `history_helpers.dart` uses.
+  final shadowReference = RegExp(
+    r'\bWpShadows\.\w+'
+    r'|\bBoxShadow\s*\('
+    r'|\belevation:\s*[1-9]'
+    r'|\bdrawShadow\s*\('
+    r'|\bMaskFilter\.blur\b',
+  );
 
   List<String> dartFilesUnder(String dir) {
     final directory = Directory(dir);
