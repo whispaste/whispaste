@@ -286,7 +286,7 @@ class WpStatusBar extends StatelessWidget {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: Align(
-                      child: AnimatedSize(
+                      child: WpAnimatedSize(
                         duration: WpMotion.durationFor(
                           context,
                           WpMotion.normal,

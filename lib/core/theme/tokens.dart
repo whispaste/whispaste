@@ -214,6 +214,45 @@ abstract final class WpMotion {
   }
 }
 
+/// Drop-in [AnimatedSize] that a zero [duration] passes straight through
+/// instead of animating.
+///
+/// [AnimatedSize] restarts its internal [AnimationController] from inside its
+/// own `performLayout` whenever the child's size changes while it is
+/// `stable`. With [duration] resolved to [Duration.zero] (as
+/// [WpMotion.durationFor] does under reduced motion) that restart completes
+/// synchronously and calls `markNeedsLayout` on itself while still being laid
+/// out — a hard Flutter assertion ("A RenderObject must not re-dirty itself
+/// while still being laid out"), reproduced in
+/// `test/core/theme/motion_test.dart`. A zero-duration transition is not an
+/// animation to begin with, so skipping [AnimatedSize] for that case is the
+/// correct behavior, not merely a workaround for the assertion.
+class WpAnimatedSize extends StatelessWidget {
+  const WpAnimatedSize({
+    super.key,
+    required this.duration,
+    this.curve = Curves.linear,
+    this.alignment = Alignment.center,
+    required this.child,
+  });
+
+  final Duration duration;
+  final Curve curve;
+  final Alignment alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (duration == Duration.zero) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: curve,
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Layout dimensions
 // ---------------------------------------------------------------------------

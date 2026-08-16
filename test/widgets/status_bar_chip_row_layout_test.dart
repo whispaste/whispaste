@@ -31,23 +31,33 @@ void main() {
     String? hotkeyLabel,
     String? updateVersion,
     String? backendKind,
+    bool disableAnimations = false,
   }) {
     return makeTestable(
-      Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          WpStatusBar(
-            sttModeLabel: 'On device',
-            sttState: SttServerState.ready,
-            showAutoPasteOffHint: showAutoPasteOffHint,
-            microphoneLabel: microphoneLabel,
-            microphoneOptions: microphoneOptions,
-            onMicrophoneChanged: microphoneOptions != null ? (_) {} : null,
-            hotkeyLabel: hotkeyLabel,
-            updateVersion: updateVersion,
-            backendKind: backendKind,
+      Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(disableAnimations: disableAnimations),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              WpStatusBar(
+                sttModeLabel: 'On device',
+                sttState: SttServerState.ready,
+                showAutoPasteOffHint: showAutoPasteOffHint,
+                microphoneLabel: microphoneLabel,
+                microphoneOptions: microphoneOptions,
+                onMicrophoneChanged: microphoneOptions != null
+                    ? (_) {}
+                    : null,
+                hotkeyLabel: hotkeyLabel,
+                updateVersion: updateVersion,
+                backendKind: backendKind,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -219,4 +229,31 @@ void main() {
     await tester.pump();
     expect(position.pixels, greaterThan(0));
   });
+
+  testWidgets(
+    'a chip appearing under reduced motion (disableAnimations) does not '
+    'crash RenderAnimatedSize',
+    (tester) async {
+      // Regression: WpMotion.durationFor resolves to Duration.zero under
+      // disableAnimations, and a bare AnimatedSize restarts its controller
+      // synchronously from inside its own performLayout when that duration
+      // is zero — a hard Flutter assertion. golden_screenshot's DeviceBox
+      // sets disableAnimations: true unconditionally, so every store
+      // screenshot tripped this. See WpAnimatedSize in tokens.dart for the
+      // fix (bypasses AnimatedSize entirely once the duration is zero) and
+      // test/core/theme/motion_test.dart's former repro group for the
+      // isolated reproduction that pinned the root cause.
+      await tester.pumpWidget(
+        buildStatusBar(showAutoPasteOffHint: false, disableAnimations: true),
+      );
+      await tester.pump();
+
+      await tester.pumpWidget(
+        buildStatusBar(showAutoPasteOffHint: true, disableAnimations: true),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

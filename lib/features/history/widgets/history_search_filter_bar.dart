@@ -728,7 +728,7 @@ class _HistorySearchFilterBarState
           // alternative: the panel belongs to the search *area*, it ends
           // flush with the button, and nothing about it has to know how wide
           // that button's label made it.
-          AnimatedSize(
+          WpAnimatedSize(
             duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,

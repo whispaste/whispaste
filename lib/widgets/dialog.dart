@@ -264,7 +264,7 @@ class _WpDialogSurface extends StatelessWidget {
               // The one sanctioned shadow family: this really does float.
               boxShadow: WpShadows.elevated,
             ),
-            child: AnimatedSize(
+            child: WpAnimatedSize(
               duration: WpMotion.durationFor(context, WpMotion.fast),
               curve: WpMotion.defaultCurve,
               alignment: Alignment.topCenter,
