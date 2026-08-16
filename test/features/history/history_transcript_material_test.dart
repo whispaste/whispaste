@@ -13,12 +13,19 @@
 /// drift apart — the failure this file exists to catch. Both decorations are
 /// captured from the same pumped panel, across one toggle, and compared to
 /// each other.
+///
+/// The readability case at the bottom is the one deliberate exception, and for
+/// the opposite reason: it exists to *name* the two tokens
+/// `wcag_contrast_test.dart` measures against each other, so that gate's
+/// 4.5:1 keeps applying to this surface. A comparison there would prove the
+/// two views agree while both drifted off the measured pair together.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/history/widgets/highlighted_text.dart';
@@ -294,6 +301,62 @@ void main() {
           'stayed its resting height would be clipping them',
     );
     expect(tester.takeException(), isNull);
+
+    await _teardownTree(tester);
+  });
+
+  testWidgets('the long transcript is read on the exact pair the contrast gate '
+      'measures', (tester) async {
+    // The readability half of Ticket 16, joined up rather than re-derived.
+    //
+    // `wcag_contrast_test.dart` already composites `cardFill` onto both
+    // extremes of the ambient gradient and holds every body-text token on it
+    // to WCAG 1.4.3's full 4.5:1. What that gate could not know is whether the
+    // paragraph a reader actually reads is painted with those two tokens: the
+    // read view's text colour is a call-site literal in
+    // `history_detail_panel.dart`, and its fill arrives through the `passage`
+    // spec. This test is the join. It asserts the ends meet, so a call site
+    // that quietly moved to `textSecondary`, or a variant that took a
+    // different fill, fails here instead of passing a token gate that is no
+    // longer about this surface.
+    //
+    // "In beiden Themes" from the ticket collapses to one: `wpLightTheme()`
+    // and `WpColorsLight` were removed on 2026-08-11 (see the note above
+    // `_buildTheme` in `lib/core/theme/theme.dart`), so the dark stack is the
+    // whole set of themes a transcript can be read in.
+    _ignoreOverflowErrors();
+    await _openDetail(tester);
+
+    final readFill = (_readBox(tester).decoration! as BoxDecoration).color;
+    expect(
+      readFill,
+      WpColors.cardFill,
+      reason:
+          'the resting read surface must be the fill the contrast gate '
+          'measures — on any other one, the 4.5:1 that gate proves says '
+          'nothing about the transcript. (The hover fill is the gate\'s other '
+          'card token, `cardFillElevated`, pinned in `wp_text_field_test.dart` '
+          'where the lift itself is.)',
+    );
+
+    // With an empty search query `HighlightedText` renders a plain `Text`
+    // carrying the style the panel handed it — read back here rather than
+    // assumed, because the panel is free to override the colour.
+    final readText = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(WpTextFieldSurface),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(readText.data, _transcript);
+    expect(
+      readText.style?.color,
+      WpColors.textPrimary,
+      reason:
+          'the transcript is body text on a card, so it owes the full 4.5:1 — '
+          'which is proven for `textPrimary` on `cardFill` and for no other '
+          'pairing this call site could pick',
+    );
 
     await _teardownTree(tester);
   });
