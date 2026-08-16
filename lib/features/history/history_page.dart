@@ -526,9 +526,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   // loading skeleton, and the empty states that deliberately
                   // offer no action) leaves "New recording" as the page's one
                   // loud thing. See `_emptyStateForFilter`.
-                  newRecordingIsLoud: !(groupedAsync.hasError ||
-                      (groupedAsync.value?.isEmpty == true &&
-                          _searchController.text.isNotEmpty)),
+                  newRecordingIsLoud:
+                      !(groupedAsync.hasError ||
+                          (groupedAsync.value?.isEmpty == true &&
+                              _searchController.text.isNotEmpty)),
                 ),
               // Master-detail content
               Expanded(

@@ -403,14 +403,12 @@ class NoteEditorPanel extends StatelessWidget {
             ),
           ),
         ),
-        // ── Divider ──
-        Container(
-          height: 1,
-          margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-          color: WpColors.borderSubtle,
-        ),
+        // Space instead of a rule: the toolbar's own buttons already read as
+        // a band, and the line above them was drawing a border around a group
+        // that has one.
+        const SizedBox(height: WpSpacing.sm),
         // ── Formatting toolbar ──
-        // Its own row under the divider, permanently — Notes has no read
+        // Its own row under the tag input, permanently — Notes has no read
         // mode to hide it behind (History shows the same bar only while
         // `isEditing`), and a bar that comes and goes on a surface whose
         // whole purpose is writing would move the text under the cursor.

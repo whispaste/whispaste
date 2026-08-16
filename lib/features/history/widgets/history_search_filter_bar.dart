@@ -685,8 +685,12 @@ class _HistorySearchFilterBarState
 
     const accent = WpColors.accent;
     const textMuted = WpColors.textMuted;
-    const surface = WpColors.surfaceElevated;
-    const borderCol = WpColors.borderDefault;
+    // The suggestion panel floats over whatever the list happens to show, so
+    // it takes the *pre-composited* card material and the tinted rim that
+    // goes with it — the same recipe `WpDropdown` uses for its menu. A
+    // translucent frost over unknown content is not a material.
+    const surface = WpColors.floatingSurface;
+    const borderCol = WpColors.cardEdgeHighlight;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -1135,7 +1139,9 @@ class HistoryMultiSelectBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     const accent = WpColors.accent;
-    const bg = WpColors.surfaceElevated;
+    // Card material at its elevated rung: this bar is a mode band laid over
+    // the list, and the frost keeps the ambient running under it.
+    const bg = WpColors.cardFillElevated;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -1398,7 +1404,10 @@ class HistoryViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = WpColors.surfaceVariant;
+    // The track is card material like the filter chips beside it, not the
+    // old `surfaceVariant` tile: at the resting rung, so the active segment's
+    // accent fill is the only thing in this control that reads as raised.
+    const bgColor = WpColors.cardFill;
     return Container(
       // Off-scale on purpose: classic 2px segmented-control inset between the
       // track and its segments; xxs would make the track look chunky.
@@ -1604,7 +1613,9 @@ class _SearchHelpButton extends StatelessWidget {
     final l10n = L10n.of(context);
     const textMuted = WpColors.textMuted;
     const textPrimary = WpColors.textPrimary;
-    const surface = WpColors.surfaceElevated;
+    // A popup menu floats over arbitrary content — pre-composited card
+    // material, see `WpColors.floatingSurface`.
+    const surface = WpColors.floatingSurface;
 
     return IconButton(
       icon: const Icon(LucideIcons.info, size: 15, color: textMuted),

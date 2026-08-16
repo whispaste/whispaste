@@ -128,7 +128,10 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     const textMuted = WpColors.textMuted;
     const accent = WpColors.accent;
     const borderColor = WpColors.borderSubtle;
-    const surfaceElevated = WpColors.surfaceElevated;
+    // Card material for both the add-note row and every saved note below it
+    // — the notes are plates inside the detail panel, and `surfaceElevated`
+    // was the last opaque fill left in this panel.
+    const cardFill = WpColors.cardFill;
 
     return notes.when(
       loading: () => const SizedBox.shrink(),
@@ -203,7 +206,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
               // state — see `_NoteItem`.
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: surfaceElevated,
+                  color: cardFill,
                   borderRadius: WpRadius.borderSm,
                   border: Border.all(color: accent),
                 ),
@@ -284,7 +287,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 accent: accent,
                 textPrimary: textPrimary,
                 textMuted: textMuted,
-                surfaceElevated: surfaceElevated,
+                cardFill: cardFill,
                 borderColor: borderColor,
                 onSave: () => _saveEditedNote(note.id),
                 onCancel: _cancelEditing,
@@ -312,7 +315,7 @@ class _NoteItem extends StatefulWidget {
     required this.accent,
     required this.textPrimary,
     required this.textMuted,
-    required this.surfaceElevated,
+    required this.cardFill,
     required this.borderColor,
     required this.onSave,
     required this.onCancel,
@@ -326,7 +329,7 @@ class _NoteItem extends StatefulWidget {
   final Color accent;
   final Color textPrimary;
   final Color textMuted;
-  final Color surfaceElevated;
+  final Color cardFill;
   final Color borderColor;
   final VoidCallback onSave;
   final VoidCallback onCancel;
@@ -359,7 +362,10 @@ class _NoteItemState extends State<_NoteItem> {
 
   @override
   Widget build(BuildContext context) {
-    const hoverBg = WpColors.surfaceVariant;
+    // The card material's hover rung, the same one `WpListTileSurface`
+    // lifts a card row to — not `surfaceVariant`, which was an opaque tile
+    // colour from the old system.
+    const hoverBg = WpColors.cardFillElevated;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -380,9 +386,7 @@ class _NoteItemState extends State<_NoteItem> {
                 vertical: WpSpacing.sm + 2,
               ),
         decoration: BoxDecoration(
-          color: _hovered && !widget.isEditing
-              ? hoverBg
-              : widget.surfaceElevated,
+          color: _hovered && !widget.isEditing ? hoverBg : widget.cardFill,
           borderRadius: WpRadius.borderSm,
         ),
         // Painted over the row rather than around it — the same reason

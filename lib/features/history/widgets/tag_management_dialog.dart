@@ -133,7 +133,10 @@ class _TagManagementContentState extends State<_TagManagementContent> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
             child: Material(
-              color: WpColors.surfaceElevated,
+              // Same surface `WpDialog` paints: the pre-composited card
+              // material, because a dialog sits on its own barrier rather
+              // than on the ambient the frost tints need.
+              color: WpColors.floatingSurface,
               borderRadius: BorderRadius.circular(WpRadius.lg),
               elevation: 8,
               child: Column(

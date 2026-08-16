@@ -366,12 +366,11 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               onExport: _exportEntry,
               onClose: onClose,
             ),
-            // Divider
-            Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-              color: WpColors.borderSubtle,
-            ),
+            // No rule between header and content. The header's own bottom
+            // inset and the content's top padding already leave 32 dp here,
+            // and a line drawn across a gap that wide separates nothing that
+            // the gap has not separated already — it only adds one more
+            // horizontal to count on a screen meant to read as one task.
             // Content
             Expanded(
               child: LayoutBuilder(
@@ -400,10 +399,12 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           onSearchChanged: (q) =>
                               setState(() => _tagSearchQuery = q),
                         ),
-                        // ── Divider between context and content ──
-                        const SizedBox(height: WpSpacing.md),
-                        Container(height: 1, color: WpColors.borderSubtle),
-                        const SizedBox(height: WpSpacing.md),
+                        // ── Context zone ends, content zone begins ──
+                        // Whitespace, not a rule: one `xl` gap says the same
+                        // thing the `md`/line/`md` sandwich said, in the same
+                        // vertical space, without a second horizontal
+                        // competing with the transcript's own head.
+                        const SizedBox(height: WpSpacing.xl),
                         // ── Content zone: transcript + edit controls ──
                         _DetailTranscriptZone(
                           entry: entry,
@@ -757,7 +758,9 @@ class _DetailOverflowMenu extends StatelessWidget {
       tooltip: '',
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      color: WpColors.surfaceElevated,
+      // A popup menu floats over arbitrary content — pre-composited card
+      // material, see `WpColors.floatingSurface`.
+      color: WpColors.floatingSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WpRadius.md),
       ),
