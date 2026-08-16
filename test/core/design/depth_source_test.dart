@@ -48,7 +48,9 @@ void main() {
   /// outside a feature directory but is the canonical statement of the rule
   /// ("## Why there is no shadow (Ticket 08)"), so a regression there would
   /// reach all four screens at once.
-  const refreshedScreenFiles = <String>['lib/widgets/wp_list_tile_surface.dart'];
+  const refreshedScreenFiles = <String>[
+    'lib/widgets/wp_list_tile_surface.dart',
+  ];
 
   /// Floating surfaces inside those directories: they sit *above* the plane,
   /// so the rule grants them exactly one shadow. Path → why it floats.
@@ -88,11 +90,7 @@ void main() {
       swept.addAll(dartFilesUnder(dir));
     }
     for (final relPath in refreshedScreenFiles) {
-      expect(
-        File(relPath).existsSync(),
-        isTrue,
-        reason: '$relPath must exist',
-      );
+      expect(File(relPath).existsSync(), isTrue, reason: '$relPath must exist');
       swept.add(relPath);
     }
 
