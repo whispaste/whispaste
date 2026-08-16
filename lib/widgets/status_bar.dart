@@ -199,109 +199,154 @@ class WpStatusBar extends StatelessWidget {
         children: [
           // Sidebar-width spacer — chips start in the content area
           const SizedBox(width: WpLayout.sidebarWidth),
-          // Content-area span.
+          // Content-area span — the chip group is *centred* over the content
+          // column, so the bar reads as balanced rather than heaped against
+          // one edge.
           //
-          // Start-aligned, not centred: the chip row's membership changes at
+          // This reverses the decision that used to be recorded here. The old
+          // comment rejected centring because the row's membership changes at
           // runtime (microphone, after-action, update, Auto-Paste hint all
-          // come and go), and a centred row re-flows every chip sideways each
-          // time one appears — the STT chip, the one that is always there,
-          // never sits still. Anchored to the start, an arriving chip only
-          // grows the row to the right and every chip before it stays put.
+          // come and go) and a centred row re-flows every chip sideways each
+          // time one arrives — the STT chip, the one that is always there,
+          // would never sit still. That objection was about the *jump*, not
+          // about centring: wrapped in an [AnimatedSize], an arriving or
+          // leaving chip now resolves as one damped ~200 ms reflow
+          // (`WpMotion.normal` / `defaultCurve`, and `Duration.zero` under
+          // "Reduce Motion"). A group that glides stays readable; a group that
+          // snaps does not. So the objection is answered rather than
+          // overruled.
           //
-          // The `start: xl` inset puts the first chip on the same gutter
-          // `WpPageShell`'s default `fromLTRB(xl, …)` padding gives page
-          // content, so the status line reads as the same column as the page
-          // above it rather than as a second, narrower one.
+          // Known, bounded residual, measured: the far-right backend chip is a
+          // real layout participant, so its label crossing a digit boundary
+          // ("CPU · 9%" → "CPU · 10%") narrows this span and shifts the centred
+          // group 5.6 px, un-damped. Only at the 9↔10 / 99↔100 boundaries, not
+          // on every 3 s poll — the published value is a ~12 s smoothed average
+          // (see `BackendUtilizationNotifier._historyLength`), so it drifts
+          // across a boundary rarely rather than flapping. Both cures cost more
+          // than the symptom: a `Stack` overlay would let the group slide
+          // *under* an opaque chip in a narrow window, and an `AnimatedSize`
+          // here would only trade a 5.6 px snap for an equally large 5.6 px
+          // glide. If this ever does start flapping, pad the percent to a fixed
+          // character count inside the label string — that keeps the chip
+          // shrink-wrapped and costs no layout slot.
+          //
+          // Mechanics, in the one order that works: [LayoutBuilder] must sit
+          // outside the scroll view (inside, `maxWidth` is infinite), and
+          // [Align] must sit between the [ConstrainedBox] and the
+          // [AnimatedSize] — it re-loosens the `minWidth`, which would
+          // otherwise pin the animated box to the viewport and leave it no
+          // delta to animate. Once the chips outgrow the viewport `maxWidth`
+          // goes infinite, [Align] shrink-wraps, and scrolling is unchanged.
+          //
+          // The symmetric `WpSpacing.xl` gutter sits *outside* the scroll view
+          // rather than in its `padding`, where it would count as scrollable
+          // content and leave the bar permanently scrollable and off-centre by
+          // half a gutter. (The former asymmetric `start: xl` matched
+          // `WpPageShell`'s page gutter — that only meant something while the
+          // first chip was the anchor.)
           Expanded(
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsetsDirectional.only(start: WpSpacing.xl),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _SttChip.build
-                    _SttChip(
-                      modeLabel: sttModeLabel,
-                      state: sttState,
-                      startingSince: sttStartingSince,
-                      recordingPhase: recordingPhase,
-                      textStyle: textStyle,
-                      l10n: l10n,
-                      onTap: onSttTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Align(
+                      child: AnimatedSize(
+                        duration: WpMotion.durationFor(
+                          context,
+                          WpMotion.normal,
+                        ),
+                        curve: WpMotion.defaultCurve,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // loam-ignore: a11y-interactive-semantics – semantics provided in _SttChip.build
+                            _SttChip(
+                              modeLabel: sttModeLabel,
+                              state: sttState,
+                              startingSince: sttStartingSince,
+                              recordingPhase: recordingPhase,
+                              textStyle: textStyle,
+                              l10n: l10n,
+                              onTap: onSttTap,
+                            ),
+                            if (microphoneLabel != null &&
+                                microphoneOptions != null &&
+                                onMicrophoneChanged != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              _MicrophoneChip(
+                                current: microphoneLabel!,
+                                options: microphoneOptions!,
+                                textStyle: textStyle,
+                                l10n: l10n,
+                                onChanged: onMicrophoneChanged!,
+                                onOpened: onMicrophoneMenuOpened,
+                              ),
+                            ],
+                            if (afterActionLabel != null &&
+                                afterAction != null &&
+                                onAfterActionChanged != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              _AfterActionChip(
+                                label: afterActionLabel!,
+                                current: afterAction!,
+                                textStyle: textStyle,
+                                l10n: l10n,
+                                onChanged: onAfterActionChanged!,
+                              ),
+                            ],
+                            if (showAutoPasteOffHint) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _AutoPasteOffHintChip.build
+                              _AutoPasteOffHintChip(
+                                textStyle: textStyle,
+                                l10n: l10n,
+                                onTap: onAutoPasteOffHintTap,
+                                onDismiss: onAutoPasteOffHintDismiss,
+                              ),
+                            ],
+                            if (hotkeyLabel != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon: hotkeyEnabled
+                                    ? LucideIcons.keyboard
+                                    : LucideIcons.keyboardOff,
+                                label: hotkeyLabel!,
+                                textStyle: textStyle,
+                                tooltip: l10n.statusBarHotkeyTooltip,
+                                onTap: onHotkeyTap,
+                                dimmed: !hotkeyEnabled,
+                              ),
+                            ],
+                            if (updateReadyToInstall) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon: LucideIcons.packageCheck,
+                                label: l10n.updateInstall,
+                                textStyle: textStyle,
+                                tooltip: l10n.updateInstall,
+                                onTap: onUpdateTap,
+                              ),
+                            ] else if (updateVersion != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon: LucideIcons.download,
+                                label: l10n.updateStatusBarChip(updateVersion!),
+                                textStyle: textStyle,
+                                tooltip: l10n.updateAvailable(updateVersion!),
+                                onTap: onUpdateTap,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                    if (microphoneLabel != null &&
-                        microphoneOptions != null &&
-                        onMicrophoneChanged != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _MicrophoneChip(
-                        current: microphoneLabel!,
-                        options: microphoneOptions!,
-                        textStyle: textStyle,
-                        l10n: l10n,
-                        onChanged: onMicrophoneChanged!,
-                        onOpened: onMicrophoneMenuOpened,
-                      ),
-                    ],
-                    if (afterActionLabel != null &&
-                        afterAction != null &&
-                        onAfterActionChanged != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _AfterActionChip(
-                        label: afterActionLabel!,
-                        current: afterAction!,
-                        textStyle: textStyle,
-                        l10n: l10n,
-                        onChanged: onAfterActionChanged!,
-                      ),
-                    ],
-                    if (showAutoPasteOffHint) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _AutoPasteOffHintChip.build
-                      _AutoPasteOffHintChip(
-                        textStyle: textStyle,
-                        l10n: l10n,
-                        onTap: onAutoPasteOffHintTap,
-                        onDismiss: onAutoPasteOffHintDismiss,
-                      ),
-                    ],
-                    if (hotkeyLabel != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
-                      _StatusChip(
-                        icon: hotkeyEnabled
-                            ? LucideIcons.keyboard
-                            : LucideIcons.keyboardOff,
-                        label: hotkeyLabel!,
-                        textStyle: textStyle,
-                        tooltip: l10n.statusBarHotkeyTooltip,
-                        onTap: onHotkeyTap,
-                        dimmed: !hotkeyEnabled,
-                      ),
-                    ],
-                    if (updateReadyToInstall) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
-                      _StatusChip(
-                        icon: LucideIcons.packageCheck,
-                        label: l10n.updateInstall,
-                        textStyle: textStyle,
-                        tooltip: l10n.updateInstall,
-                        onTap: onUpdateTap,
-                      ),
-                    ] else if (updateVersion != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
-                      _StatusChip(
-                        icon: LucideIcons.download,
-                        label: l10n.updateStatusBarChip(updateVersion!),
-                        textStyle: textStyle,
-                        tooltip: l10n.updateAvailable(updateVersion!),
-                        onTap: onUpdateTap,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
