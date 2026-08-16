@@ -114,10 +114,34 @@ class OverlaySection extends ConsumerWidget {
               ),
             ),
             settingsInlineBreak,
+            SettingRow(
+              icon: LucideIcons.sparkles,
+              label: l10n.settingsOverlayStyle,
+              subtitle: l10n.settingsOverlayStyleSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.overlayStyleType.value,
+                items: OverlayStyle.values.map((e) => e.value).toList(),
+                labels: [
+                  l10n.settingsOverlayStyleGlass,
+                  l10n.settingsOverlayStyleSolid,
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(overlayStyle: v));
+                },
+              ),
+            ),
+            settingsInlineBreak,
             // Preview at real (1:1) size in its own full-width row so the
             // Normal vs. Compact difference is actually recognisable. FittedBox
             // inside only scales down on windows narrower than the real pill.
-            WpOverlayRealPreview(size: settings.overlaySizeType),
+            WpOverlayRealPreview(
+              size: settings.overlaySizeType,
+              style: settings.overlayStyleType,
+            ),
           ],
         ],
       ),

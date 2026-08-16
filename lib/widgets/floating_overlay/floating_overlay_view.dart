@@ -126,6 +126,7 @@ class WpFloatingOverlayView extends StatefulWidget {
       sizeSpec: OverlayDesignSpec.sizeFor(snapshot.size),
       layout: OverlayDesignSpec.layoutFor(snapshot.size),
       colors: OverlayDesignSpec.colors(theme),
+      style: snapshot.style,
       waveformBars: snapshot.state == OverlayVisualState.recording
           ? waveformBars
           : const [],

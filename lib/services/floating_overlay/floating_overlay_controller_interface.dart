@@ -5,7 +5,8 @@
 /// and avoid a circular dependency with the factory layer.
 library;
 
-import '../../core/theme/overlay_design_spec.dart' show OverlaySizeVariant;
+import '../../core/theme/overlay_design_spec.dart'
+    show OverlaySizeVariant, OverlayStyleVariant;
 import 'floating_overlay_events.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
@@ -24,6 +25,7 @@ class FloatingOverlaySnapshot {
     required this.state,
     required this.label,
     this.size = OverlaySizeVariant.normal,
+    this.style = OverlayStyleVariant.glass,
     this.elapsed = '',
     this.hint = '',
     this.transcript,
@@ -40,6 +42,9 @@ class FloatingOverlaySnapshot {
   /// size their window from the serialised `size` name.
   final OverlaySizeVariant size;
 
+  /// The overlay chrome style (glass / solid), independent of [size].
+  final OverlayStyleVariant style;
+
   final String label;
   final String elapsed;
   final String hint;
@@ -55,6 +60,7 @@ class FloatingOverlaySnapshot {
     'visible': visible,
     'state': state.name,
     'size': size.name,
+    'style': style.name,
     // Legacy mirror of the old two-size contract, kept so any consumer that
     // still switches on the boolean (older shell binaries during a staged
     // rollout) degrades to compact instead of breaking. `mini` reports
@@ -92,10 +98,12 @@ class FloatingOverlaySnapshot {
         : ((map['compact'] as bool? ?? false)
               ? OverlaySizeVariant.compact
               : OverlaySizeVariant.normal);
+    final style = OverlayStyleVariant.fromName(map['style'] as String?);
     return FloatingOverlaySnapshot(
       visible: map['visible'] as bool? ?? false,
       state: state,
       size: size,
+      style: style,
       label: map['label'] as String? ?? '',
       elapsed: map['elapsed'] as String? ?? '',
       hint: map['hint'] as String? ?? '',

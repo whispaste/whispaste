@@ -58,6 +58,17 @@ void main() {
         'the floating overlay is a second window, not a second light source '
         'in this one',
 
+    // The recording overlay's design SSoT (consumed only by
+    // lib/widgets/floating_overlay/, itself exempted below as the same
+    // second window as the snippet picker above). Its solid overlay style
+    // (Settings: "Overlay-Stil") deliberately reuses frameGradient verbatim
+    // rather than inventing a nearby blue, so the two never drift apart.
+    'lib/core/theme/overlay_design_spec.dart':
+        'feeds only the floating overlay\'s separate window (see the '
+        'snippet-picker exemption above); the solid overlay style is the '
+        'app\'s own frame gradient carried into that other window, not a '
+        'second light source in this one',
+
     // *The Preflight-Screen Exception* (lib/DESIGN.md): the blocking
     // low-RAM screen renders *instead of* the app, never inside it. It is the
     // app's ground painted where `app.dart` is not running — the rule's

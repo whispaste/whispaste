@@ -30,9 +30,17 @@ import 'floating_overlay/floating_overlay_view.dart';
 /// `ValueKey('overlay-real-preview-<size.value>')` so widget tests can
 /// observe size changes without reaching into painter internals.
 class WpOverlayRealPreview extends StatelessWidget {
-  const WpOverlayRealPreview({super.key, required this.size});
+  const WpOverlayRealPreview({
+    super.key,
+    required this.size,
+    this.style = OverlayStyle.glass,
+  });
 
   final FloatingOverlaySize size;
+
+  /// Chrome style (glass/solid) the preview renders — reactive to the
+  /// Settings page's "Overlay-Stil" picker, independent of [size].
+  final OverlayStyle style;
 
   // 22 bars — matches OverlayDesignSpec.waveform.barCount.
   // Non-flat values so the waveform renders visibly in the preview.
@@ -46,6 +54,7 @@ class WpOverlayRealPreview extends StatelessWidget {
       visible: true,
       state: OverlayVisualState.recording,
       size: size.variant,
+      style: style.variant,
       label: 'Recording',
       elapsed: '0:05',
     );

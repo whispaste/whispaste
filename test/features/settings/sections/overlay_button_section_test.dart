@@ -163,8 +163,8 @@ void main() {
           OverlayMode.floating.value,
         );
         expect(notifier.state.value!.overlay.showOverlay, isTrue);
-        // Start-position + size dropdowns now both visible.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+        // Start-position + size + style dropdowns now all visible.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(3));
       },
     );
 
@@ -189,8 +189,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // Floating mode reveals start-position + size dropdowns.
-      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      // Floating mode reveals start-position + size + style dropdowns.
+      expect(find.byType(DropdownButton<String>), findsNWidgets(3));
     });
 
     // -- AC (a) ---------------------------------------------------------------
@@ -214,8 +214,8 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // Floating: 2 dropdowns visible.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+        // Floating: 3 dropdowns visible.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(3));
 
         // Simulate 'Aus' selection callback.
         notifier.updateSettings(
@@ -269,7 +269,7 @@ void main() {
         OverlayMode.floating.value,
       );
       expect(notifier.state.value!.overlay.showOverlay, isTrue);
-      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      expect(find.byType(DropdownButton<String>), findsNWidgets(3));
     });
 
     // -- AC (c) ---------------------------------------------------------------
@@ -320,13 +320,14 @@ void main() {
         // Preview is present as its own row, rendered at real (1:1) size …
         expect(find.byType(WpOverlayRealPreview), findsOneWidget);
         // … set off by its own break: one before the size row, one before the
-        // standalone preview row → two breaks in the floating sub-section.
+        // style row, one before the standalone preview row → three breaks in
+        // the floating sub-section.
         //
         // These were `Divider`s until Ticket 08 turned every non-load-bearing
         // settings rule into spacing; what the assertion is about — that the
         // preview is a *separated row* and not a trailing part of the size
         // row — is unchanged, only the thing doing the separating is.
-        expect(find.byWidget(settingsInlineBreak), findsNWidgets(2));
+        expect(find.byWidget(settingsInlineBreak), findsNWidgets(3));
       },
     );
 

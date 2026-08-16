@@ -5214,6 +5214,30 @@ abstract class L10n {
   /// **'Mini'**
   String get settingsOverlaySizeMini;
 
+  /// No description provided for @settingsOverlayStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay style'**
+  String get settingsOverlayStyle;
+
+  /// No description provided for @settingsOverlayStyleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose between glass or a solid opaque look'**
+  String get settingsOverlayStyleSubtitle;
+
+  /// No description provided for @settingsOverlayStyleGlass.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get settingsOverlayStyleGlass;
+
+  /// No description provided for @settingsOverlayStyleSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid'**
+  String get settingsOverlayStyleSolid;
+
   /// No description provided for @overlayRetry.
   ///
   /// In en, this message translates to:

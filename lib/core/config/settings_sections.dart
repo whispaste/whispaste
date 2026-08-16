@@ -613,6 +613,7 @@ class OverlaySettings {
     this.overlayMode = 'floating',
     this.overlayStartPosition = 'top-center',
     this.overlaySize = 'normal',
+    this.overlayStyle = 'glass',
     this.showFloatingButton = false,
   });
 
@@ -626,6 +627,9 @@ class OverlaySettings {
 
   /// 'normal' or 'compact'.
   final String overlaySize;
+
+  /// 'glass' or 'solid'.
+  final String overlayStyle;
 
   final bool showFloatingButton;
 
@@ -641,6 +645,7 @@ class OverlaySettings {
     overlayStartPosition:
         v['overlay_start_position'] ?? defaults.overlayStartPosition,
     overlaySize: v['overlay_size'] ?? defaults.overlaySize,
+    overlayStyle: v['overlay_style'] ?? defaults.overlayStyle,
     showFloatingButton: _readBool(
       v,
       'show_floating_button',
@@ -655,6 +660,7 @@ class OverlaySettings {
     'overlay_mode': overlayMode,
     'overlay_start_position': overlayStartPosition,
     'overlay_size': overlaySize,
+    'overlay_style': overlayStyle,
     'show_floating_button': '$showFloatingButton',
   };
 
@@ -663,12 +669,14 @@ class OverlaySettings {
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
+    String? overlayStyle,
     bool? showFloatingButton,
   }) => OverlaySettings(
     showOverlay: showOverlay ?? this.showOverlay,
     overlayMode: overlayMode ?? this.overlayMode,
     overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
     overlaySize: overlaySize ?? this.overlaySize,
+    overlayStyle: overlayStyle ?? this.overlayStyle,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
   );
 
@@ -680,6 +688,7 @@ class OverlaySettings {
           overlayMode == other.overlayMode &&
           overlayStartPosition == other.overlayStartPosition &&
           overlaySize == other.overlaySize &&
+          overlayStyle == other.overlayStyle &&
           showFloatingButton == other.showFloatingButton;
 
   @override
@@ -688,6 +697,7 @@ class OverlaySettings {
     overlayMode,
     overlayStartPosition,
     overlaySize,
+    overlayStyle,
     showFloatingButton,
   );
 }

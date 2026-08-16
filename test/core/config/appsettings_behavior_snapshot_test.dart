@@ -231,6 +231,11 @@ void main() {
       expect(_roundtrip(s).overlaySize, 'compact');
     });
 
+    test('overlayStyle solid survives roundtrip', () {
+      final s = AppSettings.defaults.copyWith(overlayStyle: 'solid');
+      expect(_roundtrip(s).overlayStyle, 'solid');
+    });
+
     test('showFloatingButton true survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(showFloatingButton: true);
       expect(_roundtrip(s).showFloatingButton, isTrue);
@@ -654,6 +659,7 @@ void main() {
         overlayMode: 'floating',
         overlayStartPosition: 'last-position',
         overlaySize: 'compact',
+        overlayStyle: 'solid',
         showFloatingButton: true,
       );
       final map = s.toStorageMap();
@@ -661,6 +667,7 @@ void main() {
       expect(map['overlay_mode'], 'floating');
       expect(map['overlay_start_position'], 'last-position');
       expect(map['overlay_size'], 'compact');
+      expect(map['overlay_style'], 'solid');
       expect(map['show_floating_button'], 'true');
       // Size and opacity keys are no longer written (issue 11).
       expect(map.containsKey('floating_button_size'), isFalse);
@@ -674,6 +681,7 @@ void main() {
         overlayMode: OverlayMode.floating.value,
         overlayStartPosition: OverlayStartPosition.lastPosition.value,
         overlaySize: FloatingOverlaySize.compact.value,
+        overlayStyle: OverlayStyle.solid.value,
         showFloatingButton: true,
       );
       final r = _roundtrip(s);
@@ -681,6 +689,7 @@ void main() {
       expect(r.overlayMode, OverlayMode.floating.value);
       expect(r.overlayStartPosition, OverlayStartPosition.lastPosition.value);
       expect(r.overlaySize, FloatingOverlaySize.compact.value);
+      expect(r.overlayStyle, OverlayStyle.solid.value);
       expect(r.showFloatingButton, isTrue);
     });
 
