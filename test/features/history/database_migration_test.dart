@@ -721,6 +721,65 @@ void main() {
       );
     },
   );
+
+  group('entry_notes index (perf: per-entry "Anmerkung" lookups)', () {
+    test('idx_entry_notes_entry_id is created on a fresh database', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
+
+      final indexes = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE type = 'index' AND tbl_name = 'entry_notes'",
+          )
+          .get();
+      expect(
+        indexes.map((r) => r.data['name'] as String),
+        contains('idx_entry_notes_entry_id'),
+      );
+
+      await db.close();
+    });
+
+    test('notesForEntry only returns rows for the requested entry '
+        '(index does not change query results)', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2026, 1, 1),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e2',
+          timestamp: DateTime(2026, 1, 1),
+        ),
+      );
+      final now = DateTime(2026, 1, 1);
+      await db.upsertNote(
+        EntryNotesCompanion.insert(
+          id: 'n1',
+          entryId: 'e1',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await db.upsertNote(
+        EntryNotesCompanion.insert(
+          id: 'n2',
+          entryId: 'e2',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      final notesForE1 = await db.notesForEntry('e1');
+      expect(notesForE1.map((n) => n.id), ['n1']);
+
+      await db.close();
+    });
+  });
 }
 
 /// Mock query executor user for manual schema creation

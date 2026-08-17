@@ -169,6 +169,8 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _ensureNotesIndexes();
       // Ensure index on history_entries for fast active/trash/archive sort.
       await _ensureHistoryEntriesIndexes();
+      // Ensure index on entry_notes for fast per-entry "Anmerkung" lookups.
+      await _ensureEntryNotesIndexes();
       // One-time backfill: populate DailyStats from existing history
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
@@ -885,6 +887,29 @@ class HistoryDatabase extends _$HistoryDatabase {
       // Table may not exist yet during initial creation — skip.
       _log.debug(
         '_ensureHistoryEntriesIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
+
+  /// Creates an index on entry_notes for fast per-entry "Anmerkung" lookups
+  /// (idempotent). [notesForEntry]/[watchNotesForEntry] both do a point
+  /// lookup `WHERE entry_id = ?` on entry_notes, which has no index at all —
+  /// without one, every history-entry detail panel open runs a full table
+  /// scan of entry_notes. (Note: [searchEntries]'s note-content branch does a
+  /// `LIKE` on `content`, not `entry_id`, so this index does not speed up
+  /// search — that stays a full scan regardless.)
+  Future<void> _ensureEntryNotesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_notes_entry_id '
+        'ON entry_notes(entry_id)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureEntryNotesIndexes skipped (tables not yet ready)',
         e,
         st,
       );
@@ -1754,10 +1779,12 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<int> deleteUnusedTags() async {
     final unused = await unusedTags();
     if (unused.isEmpty) return 0;
-    for (final tag in unused) {
-      await (delete(tags)..where((t) => t.id.equals(tag.id))).go();
-    }
-    return unused.length;
+    // Single batched DELETE (`id IN (...)`) instead of one DELETE statement
+    // per tag — same rows removed, same return value, one round-trip
+    // instead of N.
+    return (delete(
+      tags,
+    )..where((t) => t.id.isIn(unused.map((u) => u.id)))).go();
   }
 
   /// Prefix search for tag autocomplete.
@@ -2385,18 +2412,30 @@ class HistoryDatabase extends _$HistoryDatabase {
 
     // Read ALL history entries (including deleted/archived) for backfill.
     final entries = await select(historyEntries).get();
-    for (final e in entries) {
-      final words = computeWordCountFast(e.content);
-      await recordDailyStat(
-        timestamp: e.timestamp,
-        model: e.model,
-        isLocal: e.isLocal,
-        durationSec: e.durationSec,
-        processingDurationSec: e.processingDurationSec,
-        wordCount: words,
-        costUsd: e.costUsd,
-      );
-    }
+    // One transaction for the whole backfill instead of one implicit
+    // commit per `recordDailyStat` upsert: with no explicit WAL pragma set
+    // on the connection (see `_openConnection`), each un-batched statement
+    // is its own autocommit round-trip to disk. For a user with thousands
+    // of history entries — reachable not just on first launch after an
+    // upgrade, but any time `resetDailyStats()` runs (Settings/Analytics
+    // "reset stats") and the next app open re-triggers this backfill —
+    // that is thousands of individual fsyncs instead of one. Wrapping the
+    // loop cuts it to a single commit; the SQL emitted per row and the
+    // resulting DailyStats rows are unchanged.
+    await transaction(() async {
+      for (final e in entries) {
+        final words = computeWordCountFast(e.content);
+        await recordDailyStat(
+          timestamp: e.timestamp,
+          model: e.model,
+          isLocal: e.isLocal,
+          durationSec: e.durationSec,
+          processingDurationSec: e.processingDurationSec,
+          wordCount: words,
+          costUsd: e.costUsd,
+        );
+      }
+    });
   }
 
   static String _dateKey(DateTime dt) =>
