@@ -24,6 +24,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
+import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paste_failure_notifier.dart';
 import '../services/paste/paster.dart';
 import '../services/permissions/mic_permission_notifier.dart';
@@ -495,11 +496,19 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     L10n l10n,
     PasteOutcome outcome,
   ) {
+    // Same three-way routing the failed-paste OS notification uses (see
+    // `recording_orchestrator.dart`) — the two surfaces fire for one and the
+    // same failure, so offering different recoveries would be a bug.
+    final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     showPasteFailureToast(
       context: context,
       l10n: l10n,
       outcome: outcome,
       openAccessibilitySettings: _openAccessibilitySettings,
+      resetEntryAndGrant: capNotifier.grantRequiresEntryReset
+          ? capNotifier.repairAndRequestGrant
+          : null,
+      staleEntry: capNotifier.grantDidNotTakeEffect,
     );
   }
 
@@ -610,11 +619,26 @@ void showRecordingErrorToast({
 ///
 /// [openAccessibilitySettings] is injected so widget tests can substitute a
 /// spy, mirroring [showRecoveryToast]'s [showRecoveryToast.openSettings].
+/// [resetEntryAndGrant] is the same seam for the entry-reset recovery: when
+/// non-null it *replaces* the Settings deep-link as the permission action,
+/// because on that build a plain trip to Settings can land the user on an
+/// already-enabled toggle with nothing to do (see
+/// [PasteCapabilityNotifier.grantRequiresEntryReset]).
+///
+/// [staleEntry] only swaps the copy, never the action. It is true when this
+/// process has in-memory proof that a grant already happened and did not take
+/// ([PasteCapabilityNotifier.grantDidNotTakeEffect]) — then the toast can name
+/// the stale entry outright instead of repeating the generic "permission
+/// missing" framing, which would misdescribe what the button is about to do.
+/// Without that proof the generic copy stays, since a first-time user has no
+/// old entry to be told about.
 void showPasteFailureToast({
   required BuildContext context,
   required L10n l10n,
   required PasteOutcome outcome,
   VoidCallback? openAccessibilitySettings,
+  VoidCallback? resetEntryAndGrant,
+  bool staleEntry = false,
 }) {
   String message;
   String? actionLabel;
@@ -626,6 +650,11 @@ void showPasteFailureToast({
       if (Platform.isMacOS) {
         actionLabel = l10n.pasteFailureOpenSettings;
         onAction = openAccessibilitySettings;
+        if (resetEntryAndGrant != null) {
+          actionLabel = l10n.pasteCapabilityRepairButton;
+          onAction = resetEntryAndGrant;
+          if (staleEntry) message = l10n.pasteCapabilityRepairHint;
+        }
       }
     case PasteOutcome.elevationBlocked:
       message = l10n.pasteFailureElevationBlocked;

@@ -1923,6 +1923,27 @@ class RecordingOrchestrator extends Notifier<void> {
         // restart instead of sending the user to Settings a second time.
         final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
         final staleGrant = capNotifier.needsRestart;
+        // Third arm, ahead of the plain Settings deep-link: on a live-probe
+        // build a missing permission can be a TCC entry pinned to a binary
+        // that no longer exists, and Settings then shows the toggle already
+        // ON — "nichts zu tun" — which is precisely the dead end the user
+        // reported. Clearing the entry first makes the row honest before the
+        // user ever gets there. See
+        // [PasteCapabilityNotifier.grantRequiresEntryReset] for why this is
+        // unconditional rather than gated on detected staleness.
+        final resetEntryFirst =
+            !staleGrant && capNotifier.grantRequiresEntryReset;
+        // Name the chosen arm in the log: all three arms report the same
+        // `permissionMissing` outcome, so without this a support log cannot
+        // tell which recovery the user was actually offered.
+        _log.info(
+          'Auto-paste permission recovery arm: '
+          '${staleGrant
+              ? 'restart'
+              : resetEntryFirst
+              ? 'reset-entry-then-grant'
+              : 'open-settings'}',
+        );
         _reportPasteFailure(
           outcome: PasteOutcome.permissionMissing,
           kind: AttentionKind.pasteBlockedPermission,
@@ -1931,12 +1952,16 @@ class RecordingOrchestrator extends Notifier<void> {
               : 'WhisPaste: Auto-Einfügen blockiert',
           body: staleGrant
               ? 'Die Berechtigung wurde erteilt, aber WhisPaste läuft noch mit dem alten Stand. Klicke hier, um WhisPaste neu zu starten.'
+              : resetEntryFirst
+              ? 'WhisPaste braucht die Berechtigung, Text in andere Apps einzufügen — macOS nennt sie „Bedienungshilfen“. Klicke hier: WhisPaste räumt einen möglicherweise veralteten Eintrag weg und lässt macOS neu fragen.'
               : 'WhisPaste braucht die Berechtigung, Text in andere Apps einzufügen — macOS nennt sie „Bedienungshilfen“. Klicke hier oder das Tray-Icon, um die Systemeinstellungen zu öffnen.',
           trayLabel: staleGrant
               ? 'Auto-Einfügen blockiert — Neustart nötig'
               : 'Auto-Einfügen blockiert — Systemeinstellungen öffnen',
           onClick: staleGrant
               ? capNotifier.restartForGrant
+              : resetEntryFirst
+              ? capNotifier.repairAndRequestGrant
               : capNotifier.openAccessibilitySettings,
         );
         return false;

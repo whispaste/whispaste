@@ -266,9 +266,16 @@ class FakeDesktopPasteController extends DesktopPasteController {
   }) async =>
       const NativeCapabilityResult(status: NativeCapabilityStatus.ready);
 
+  /// Counts entry resets. The failed-paste notification's live-probe arm is
+  /// supposed to clear the stale TCC entry before re-asking, and a count is
+  /// the only way to tell that apart from a plain Settings deep-link.
+  int repairCalls = 0;
+
   @override
-  Future<TccRepairResult> repairTccEntries() async =>
-      TccRepairResult.unsupported();
+  Future<TccRepairResult> repairTccEntries() async {
+    repairCalls += 1;
+    return TccRepairResult.unsupported();
+  }
 
   @override
   Future<TestPasteOutcome> diagnosticPaste(String demoText) async =>
@@ -395,20 +402,23 @@ class FakeSystemAttentionService extends SystemAttentionService {
 /// `openAccessibilitySettings` so the routing under test exercises production
 /// logic, not a re-implementation.
 class _SeededPasteCapabilityNotifier extends PasteCapabilityNotifier {
-  _SeededPasteCapabilityNotifier(this._seed);
+  _SeededPasteCapabilityNotifier(this._seed, {this.cachedProbe = true});
 
   final PasteCapabilityState _seed;
 
+  /// Which macOS build leg to pin. Defaults to the cached-probe (Mac App
+  /// Store) leg: it is the only build where `requiredAction` resolves to
+  /// `restart`, so it is the only one whose failed-paste notification can
+  /// route to the restart copy. On the live-probe Developer-ID build the same
+  /// seed routes to the entry-reset copy instead — a relaunch there cannot
+  /// reveal a grant that polling would not already have seen, but a stale TCC
+  /// entry can. See [PasteCapabilityNotifier.usesCachedPermissionProbe] and
+  /// [PasteCapabilityNotifier.grantRequiresEntryReset].
+  final bool cachedProbe;
+
   @override
   PasteCapabilityState build() {
-    // Pin the cached-probe (Mac App Store) leg: it is the only build where
-    // `requiredAction` resolves to `restart`, so it is the only one whose
-    // failed-paste notification can route to the restart copy. On the
-    // live-probe Developer-ID build the same seed routes to the grant copy
-    // by design — a relaunch there cannot reveal a grant that polling would
-    // not already have seen. See [PasteCapabilityNotifier
-    // .usesCachedPermissionProbe].
-    usesCachedPermissionProbe = true;
+    usesCachedPermissionProbe = cachedProbe;
     return _seed;
   }
 }
@@ -3882,6 +3892,77 @@ void main() {
               'restart, not another trip to Settings.',
         );
       },
+    );
+
+    test(
+      'live-probe build: the permissionMissing notification offers the entry '
+      'reset instead of a Settings trip, and clicking it actually resets',
+      () async {
+        fakeDesktopPaste.pasteStatusOverride =
+            NativePasteStatus.permissionMissing;
+
+        // Same seed as the "routes to Settings (grant)" test above — only the
+        // build leg differs. On the live-probe leg a missing permission can be
+        // a TCC entry pinned to a binary that no longer exists, and Settings
+        // then shows the toggle already ON with nothing to do (the reported
+        // dead end), so the notification must clear the entry first.
+        final notifier = _SeededPasteCapabilityNotifier(
+          const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+          cachedProbe: false,
+        );
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+          capabilityNotifier: () => notifier,
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'entry reset routing test';
+        await orch.stopRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Einfügen blockiert');
+        expect(
+          fakeAttention.lastBody,
+          contains('veralteten Eintrag'),
+          reason:
+              'The body must promise what the click does. Repeating the plain '
+              '"open System Settings" line while the click now resets the '
+              'entry would leave the user expecting the old dead end.',
+        );
+
+        expect(fakeDesktopPaste.repairCalls, 0);
+        fakeAttention.lastOnClick?.call();
+        // repair() -> requestGrant() is a two-step async chain.
+        for (var i = 0; i < 8; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        container.read(pasteCapabilityNotifierProvider.notifier).stopPolling();
+
+        expect(
+          fakeDesktopPaste.repairCalls,
+          1,
+          reason:
+              'Clicking the notification must clear the stale TCC entry, not '
+              'just deep-link into Settings — the deep-link alone is what '
+              'showed the user an already-enabled toggle.',
+        );
+      },
+      skip: !Platform.isMacOS,
     );
 
     // =========================================================================

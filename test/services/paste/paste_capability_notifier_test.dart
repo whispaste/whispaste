@@ -43,10 +43,17 @@ class _FakePaster implements Paster {
   /// calls (later) and to model the periodic-call ordering in polling tests.
   set gate(Completer<void>? c) => _gate = c;
 
+  /// Optional probe fired at the top of every [checkCapability]. Lets a test
+  /// snapshot unrelated state at that exact instant — how
+  /// [PasteCapabilityNotifier.repairAndRequestGrant]'s "repair strictly before
+  /// the prompted check" guarantee is proven without a shared order log.
+  void Function()? onCheck;
+
   @override
   Future<PasteCapability> checkCapability({
     bool promptIfMissing = false,
   }) async {
+    onCheck?.call();
     calls.add(promptIfMissing);
     final g = _gate;
     if (g != null) await g.future;
@@ -1012,6 +1019,73 @@ void main() {
         expect(result.isSupported, isTrue);
       },
     );
+
+    test(
+      'repairAndRequestGrant wipes the entry BEFORE the prompted check, so '
+      'the fresh prompt cannot bind against the entry being deleted',
+      () async {
+        final controller = _FakeRepairController();
+        final paster = _FakePaster();
+        final container = _container(paster: paster, controller: controller);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        notifier.stopPolling();
+
+        // Snapshot how many repairs had completed at each capability probe.
+        final repairsSeenAtCheck = <int>[];
+        paster.onCheck = () => repairsSeenAtCheck.add(controller.repairCalls);
+
+        await notifier.repairAndRequestGrant(
+          pollTimeout: const Duration(milliseconds: 1),
+        );
+        notifier.stopPolling();
+
+        expect(controller.repairCalls, 1);
+        expect(
+          repairsSeenAtCheck.first,
+          1,
+          reason:
+              'The repair must already have completed when the prompting '
+              'check runs. Fire the two concurrently and macOS binds the new '
+              'grant to the TCC row that is about to be removed — exactly the '
+              'stale state this recovery exists to leave.',
+        );
+      },
+    );
+
+    test('grantRequiresEntryReset separates the two macOS builds: only the '
+        'live-probe leg puts the entry reset in front of the grant', () async {
+      final container = _container(
+        paster: _FakePaster(),
+        controller: _FakeRepairController(),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      notifier.usesCachedPermissionProbe = true;
+      expect(
+        notifier.grantRequiresEntryReset,
+        isFalse,
+        reason:
+            'On a cached probe "granted but this process cannot see it yet" '
+            'is a real state that a restart fixes, so wiping the entry '
+            'would destroy a working grant.',
+      );
+
+      notifier.usesCachedPermissionProbe = false;
+      expect(
+        notifier.grantRequiresEntryReset,
+        isTrue,
+        reason:
+            'AXIsProcessTrusted() answers live, so a missing permission '
+            'here cannot be a stale in-process view — a stale TCC entry is '
+            'the remaining explanation and the reset is what clears it.',
+      );
+    }, skip: !Platform.isMacOS);
 
     test(
       'repair returns unsupported result when no controller is available',

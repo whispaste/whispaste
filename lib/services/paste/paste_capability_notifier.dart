@@ -299,6 +299,36 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       state.sentToOsGrantFlow &&
       state.pollingPhase != PollingPhase.awaitingGrant;
 
+  /// `true` when clearing the TCC entry belongs *in front of* every grant
+  /// handoff on this build, rather than behind a troubleshoot escape.
+  ///
+  /// macOS live-probe (Developer-ID / ad-hoc) builds only. Two facts make the
+  /// unconditional reset correct precisely here and nowhere else:
+  ///
+  ///   1. A stale entry is the only way this build can read
+  ///      `permissionMissing` while System Settings shows the toggle ON.
+  ///      `AXIsProcessTrusted()` answers live, so "granted but this process
+  ///      hasn't noticed" — the case a plain [requestGrant] is tuned for —
+  ///      cannot occur. Sending that user to Settings shows them an
+  ///      already-enabled row and nothing to do, the exact reported dead end.
+  ///   2. We cannot *detect* the stale case before acting.
+  ///      [grantDidNotTakeEffect] needs [PasteCapabilityState
+  ///      .sentToOsGrantFlow], which is in-memory by design, so a fresh
+  ///      process — the usual one, since the user rebuilt or relaunched
+  ///      between granting and the failing paste — carries no evidence at
+  ///      all. Gating the reset on evidence we don't have would ship a dead
+  ///      branch.
+  ///
+  /// Resetting when there was nothing stale is a verified no-op: a `tccutil
+  /// reset` for a service/bundle pair with no row exits 0 and
+  /// removes nothing. So the one arm is right in both worlds — first-time
+  /// users get today's behaviour plus a harmless no-op, stale users get the
+  /// fix. The one real cost, named for the design review: [repair] also
+  /// clears AppleEvents, so a user whose AppleEvents grant was fine gets
+  /// re-prompted for it once.
+  bool get grantRequiresEntryReset =>
+      Platform.isMacOS && !usesCachedPermissionProbe;
+
   /// Convenience: the current [requiredAction] is [PastePermissionAction.restart].
   /// The single flag every surface keys its restart affordance off — the
   /// former `suspectedTccMismatch` heuristic, minus the fragile
@@ -430,6 +460,12 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// call would force a needless re-grant for that case. Escalate to
   /// [repair] only from the collapsed troubleshoot escape once a restart
   /// alone didn't clear it.
+  ///
+  /// That reasoning is specific to the cached-probe build — "the grant exists
+  /// but this process can't see it" is what a cached probe *is*. It has no
+  /// counterpart on the live-probe build, which is why the failure-moment
+  /// surfaces there call [repairAndRequestGrant] instead of this method
+  /// directly. See [grantRequiresEntryReset].
   Future<void> requestGrant({
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
@@ -689,6 +725,29 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       'error=${result.error ?? "none"}',
     );
     return result;
+  }
+
+  /// The single recovery the failure-moment surfaces (failed-paste OS
+  /// notification, in-app paste-failure toast) hand the user on a build where
+  /// [grantRequiresEntryReset] holds: clear the stale TCC entry, then re-enter
+  /// the grant flow so macOS asks against the binary that is actually running.
+  ///
+  /// Composed here rather than at the call sites so the ordering is not
+  /// optional. [repair] must complete before [requestGrant] — fire both and
+  /// the prompt binds against the entry that is about to be deleted, which is
+  /// the stale state we were trying to leave. Keeping it on the notifier also
+  /// keeps [PasteCapabilityState.sentToOsGrantFlow] bookkeeping in one place.
+  ///
+  /// The user still has to flip the toggle themselves; no API grants
+  /// Accessibility. What changes is that the row they land on is finally
+  /// honest — absent or off — instead of an already-enabled row that reads as
+  /// "nothing to do here".
+  Future<void> repairAndRequestGrant({
+    Duration pollInterval = const Duration(seconds: 1),
+    Duration pollTimeout = const Duration(seconds: 30),
+  }) async {
+    await repair();
+    await requestGrant(pollInterval: pollInterval, pollTimeout: pollTimeout);
   }
 
   /// Runs the diagnostic paste flow — the explicit "prove Auto-Paste works"
