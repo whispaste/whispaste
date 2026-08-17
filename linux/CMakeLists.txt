@@ -57,6 +57,11 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # System-level dependencies.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+# gtk+-3.0's own pkg-config Libs never includes -lX11 (verified: `pkg-config --libs
+# gtk+-3.0` omits it even though gdk-x11-3.0 is a private/transitive dependency) —
+# needed explicitly for runner/snippet_picker_host.cc's direct Xlib calls
+# (XGetInputFocus/XSetInputFocus, visual-refresh-2026 ticket 30).
+pkg_check_modules(X11 REQUIRED IMPORTED_TARGET x11)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
