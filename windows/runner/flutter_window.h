@@ -11,6 +11,7 @@
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
 #include "keyboard_monitor_host.h"
+#include "snippet_picker_host.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -42,6 +43,10 @@ class FlutterWindow : public Win32Window {
 
   // Native desktop paste bridge (runner-owned, destroyed before engine teardown).
   std::unique_ptr<DesktopPasteHost> desktop_paste_host_;
+
+  // Native Snippet-Picker panel (runner-owned, destroyed before engine
+  // teardown — visual-refresh-2026 ticket 29).
+  std::unique_ptr<SnippetPickerHost> snippet_picker_host_;
 
   // Taskbar-flash attention bridge for cross-platform parity with the
   // macOS Dock-bounce request — used to surface action items when the

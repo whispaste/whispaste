@@ -46,6 +46,11 @@ bool FlutterWindow::OnCreate() {
   keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the native Snippet-Picker host AFTER plugins are registered
+  // (visual-refresh-2026 ticket 29).
+  snippet_picker_host_ = std::make_unique<SnippetPickerHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -81,6 +86,10 @@ void FlutterWindow::OnDestroy() {
   if (keyboard_monitor_host_) {
     keyboard_monitor_host_->Destroy();
     keyboard_monitor_host_.reset();
+  }
+  if (snippet_picker_host_) {
+    snippet_picker_host_->Destroy();
+    snippet_picker_host_.reset();
   }
 
   if (flutter_controller_) {

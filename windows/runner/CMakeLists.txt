@@ -17,6 +17,8 @@ add_executable(${BINARY_NAME} WIN32
   "gdiplus_helper.cpp"
   "keyboard_monitor_host.cpp"
   "main.cpp"
+  "snippet_picker_host.cpp"
+  "snippet_picker_window.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'macos_snippet_picker_controller.dart';
 import 'snippet_picker_controller_interface.dart';
+import 'windows_snippet_picker_controller.dart';
 
 export 'snippet_picker_controller_interface.dart';
 
@@ -17,10 +18,12 @@ export 'snippet_picker_controller_interface.dart';
 /// once, so both the hotkey dispatch path (ticket 26) and later UI (tickets
 /// 27/29/30) read the same answer instead of re-deriving it.
 ///
-/// macOS only for now (dictation-automations ticket 06) — Windows/Linux
-/// implementations land in tickets 07/08 behind the same interface, at
-/// which point this is the one place to update.
-bool get snippetPickerAvailableOnPlatform => Platform.isMacOS;
+/// macOS and Windows (visual-refresh-2026 tickets 06/29). Linux support
+/// (ticket 30) is in progress — the native shell/backend land first, and
+/// this flips to include `Platform.isLinux` in the same change that wires
+/// [createSnippetPickerController]'s Linux branch below.
+bool get snippetPickerAvailableOnPlatform =>
+    Platform.isMacOS || Platform.isWindows;
 
 /// [snippetPickerAvailableOnPlatform] as a provider — the same answer, reached
 /// the way the UI reaches everything else.
@@ -29,8 +32,8 @@ bool get snippetPickerAvailableOnPlatform => Platform.isMacOS;
 /// therefore only ever see the host it runs on: the „nicht verfügbar"-Zweig of
 /// the settings row and the Snippets page (ticket 27) would have no test at
 /// all on a macOS machine. Deliberately delegating rather than re-deriving —
-/// tickets 29/30 still flip exactly one line, and an override in a test is a
-/// stand-in for a different platform, not a second stored truth.
+/// ticket 30 still only needs a new branch here, and an override in a test
+/// is a stand-in for a different platform, not a second stored truth.
 final snippetPickerAvailabilityProvider = Provider<bool>(
   (ref) => snippetPickerAvailableOnPlatform,
 );
@@ -38,7 +41,8 @@ final snippetPickerAvailabilityProvider = Provider<bool>(
 /// Creates the platform-specific [SnippetPickerController], or `null` if
 /// the current platform is unsupported (see [snippetPickerAvailableOnPlatform]).
 SnippetPickerController? createSnippetPickerController() {
-  if (snippetPickerAvailableOnPlatform) return MacOSSnippetPickerController();
+  if (Platform.isMacOS) return MacOSSnippetPickerController();
+  if (Platform.isWindows) return WindowsSnippetPickerController();
   return null;
 }
 
