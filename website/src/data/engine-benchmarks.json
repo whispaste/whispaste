@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "rows": [
+    {
+      "engine": "whisper.cpp",
+      "model": "base.en",
+      "hardwareClass": "Apple Silicon (M5, Metal)",
+      "rtf": 0.0168,
+      "wer": 0,
+      "sampleSize": 1,
+      "measuredAt": "2026-08-17",
+      "methodology": "avg of 5 runs, JFK sample (11.0s), processing time excludes one-time model load"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+---
+/**
+ * `/en/engine-benchmarks/` — English counterpart of `/engine-benchmarks/`.
+ * See the DE page for the full rationale comment.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+import benchmarkData from "../../data/engine-benchmarks.json";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.engineBenchmarks.breadcrumb"), item: localePath(lang, "engine-benchmarks") },
+];
+
+const seo = {
+  title: t(lang, "explainer.engineBenchmarks.seoTitle"),
+  description: t(lang, "explainer.engineBenchmarks.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.engineBenchmarks.heroHeading"),
+  lead: t(lang, "explainer.engineBenchmarks.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.engineBenchmarks.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const alternateSlugs = { de: "engine-benchmarks", en: "engine-benchmarks" };
+
+const relatedPages = [
+  { label: t(lang, "explainer.engines.breadcrumb"), href: localePath(lang, "engines") },
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+];
+
+const matrix = [
+  { engine: "whisper.cpp", model: "base.en", hardwareClass: "Apple Silicon (Metal)" },
+  { engine: "whisper.cpp", model: "base.en", hardwareClass: "Vulkan (Windows/Linux, NVIDIA/AMD/Intel)" },
+  { engine: "whisper.cpp", model: "base.en", hardwareClass: "CPU fallback (any platform)" },
+  { engine: "Parakeet (sherpa-onnx)", model: "parakeet-tdt-0.6b-v3", hardwareClass: "CPU (any platform)" },
+] as const;
+
+const rows = matrix.map((cell) => {
+  const measured = benchmarkData.rows.find(
+    (r) => r.engine === cell.engine && r.model === cell.model && r.hardwareClass === cell.hardwareClass,
+  );
+  return { ...cell, measured };
+});
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
+>
+  <section>
+    <h2>{t(lang, "explainer.engineBenchmarks.methodology.heading")}</h2>
+    <p>{t(lang, "explainer.engineBenchmarks.methodology.body")}</p>
+  </section>
+
+  <section>
+    <div class="benchmark-table-wrap">
+      <table class="benchmark-table">
+        <thead>
+          <tr>
+            <th>{t(lang, "explainer.engineBenchmarks.table.hardwareClass")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.engine")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.model")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.rtf")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.wer")}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr>
+              <td>{row.hardwareClass}</td>
+              <td>{row.engine}</td>
+              <td>{row.model}</td>
+              <td>{row.measured ? `${row.measured.rtf}×` : "—"}</td>
+              <td>{row.measured ? `${(row.measured.wer * 100).toFixed(1)} %` : "—"}</td>
+              <td>
+                {row.measured ? (
+                  <span class="status-badge status-badge--measured">
+                    {t(lang, "explainer.engineBenchmarks.table.measured")}
+                  </span>
+                ) : (
+                  <span class="status-badge status-badge--pending">
+                    {t(lang, "explainer.engineBenchmarks.table.pending")}
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.engineBenchmarks.backends.heading")}</h2>
+    <p>{t(lang, "explainer.engineBenchmarks.backends.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.engineBenchmarks.reproduce.heading")}</h2>
+    <p>{t(lang, "explainer.engineBenchmarks.reproduce.body")}</p>
+    <p>
+      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-run.mjs">
+        {t(lang, "explainer.engineBenchmarks.reproduce.linkLabel")}
+      </a>
+    </p>
+  </section>
+</LandingPageLayout>
+
+<style>
+  .benchmark-table-wrap {
+    overflow-x: auto;
+    margin-top: 1rem;
+  }
+  .benchmark-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .benchmark-table th,
+  .benchmark-table td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--color-brand-border);
+  }
+  .benchmark-table th {
+    color: var(--color-ink-muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.15rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge--measured {
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 14%, transparent);
+  }
+  .status-badge--pending {
+    color: var(--color-ink-subtle);
+    background: color-mix(in srgb, var(--color-ink-subtle) 12%, transparent);
+  }
+</style>
