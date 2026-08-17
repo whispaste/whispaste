@@ -317,10 +317,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     ];
 
-    // Filter to visible sections (matchSet == null means show all).
-    final visibleSections = matchSet == null
-        ? allSections
-        : allSections.where((s) => matchSet.contains(s.$1)).toList();
+    // Filter to visible sections (matchSet == null means show all). The
+    // Floating Button section is Windows/macOS-only — on other platforms
+    // FloatingButtonSection.build() returns SizedBox.shrink(), but
+    // sectionCard() still wraps it in a padded, bordered card, leaving a
+    // bare empty outline. Drop the whole card on unsupported platforms
+    // instead.
+    final visibleSections = allSections.where((s) {
+      if (s.$1 == 'floatingButton' &&
+          !FloatingButtonSection.isSupportedPlatform) {
+        return false;
+      }
+      return matchSet == null || matchSet.contains(s.$1);
+    }).toList();
 
     // Build scrollable content — either the filtered list or a "no results" state.
     Widget scrollContent;

@@ -161,13 +161,18 @@ class FloatingButtonSection extends ConsumerWidget {
   /// Uses [defaultTargetPlatform] instead of [Platform.isWindows/isMacOS] so
   /// that widget tests can override the platform via
   /// [debugDefaultTargetPlatformOverride] without touching real OS checks.
-  static bool get _isSupportedPlatform =>
+  ///
+  /// Public so `settings_page.dart` can exclude this section's card entirely
+  /// on unsupported platforms — otherwise the empty `SizedBox.shrink()` still
+  /// sits inside `sectionCard`'s padded, bordered container, leaving a bare
+  /// outline with nothing in it.
+  static bool get isSupportedPlatform =>
       defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.macOS;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!_isSupportedPlatform) {
+    if (!isSupportedPlatform) {
       return const SizedBox.shrink();
     }
 

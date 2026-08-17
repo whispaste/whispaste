@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/widgets/page_shell.dart';
@@ -142,6 +144,40 @@ void main() {
       await tester.pumpAndSettle();
       // Always-on entry is visible and not gated by the review-prompt cooldown.
       expect(find.text(l10n.reviewSupportEntry), findsOneWidget);
+    });
+
+    group('Floating Button section — platform gating', () {
+      testWidgets(
+        'is entirely absent on Linux, not just an empty card '
+        '(sectionCard wraps even a SizedBox.shrink() child in a padded, '
+        'bordered container, so hiding only the inner content still leaves '
+        'a bare outline)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+          await tester.pumpWidget(
+            makeTestable(const SettingsPage(), locale: const Locale('en')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byType(FloatingButtonSection), findsNothing);
+
+          debugDefaultTargetPlatformOverride = null;
+        },
+      );
+
+      testWidgets('is present on Windows', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+
+        await tester.pumpWidget(
+          makeTestable(const SettingsPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FloatingButtonSection), findsOneWidget);
+
+        debugDefaultTargetPlatformOverride = null;
+      });
     });
   });
 }
