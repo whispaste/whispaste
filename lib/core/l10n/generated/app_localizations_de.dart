@@ -658,6 +658,10 @@ class L10nDe extends L10n {
       'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja, fertig.';
 
   @override
+  String get onboardingPasteSubtitleWin =>
+      'Hier gibt es nichts zu tun — wir bestätigen nur kurz, dass es funktioniert.';
+
+  @override
   String get onboardingPasteChipReady => 'Auto-Einfügen bereit';
 
   @override
@@ -2555,7 +2559,11 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get onboardingAppearancePageTitle => 'Start';
+  String get onboardingAppearancePageTitle => 'Aussehen';
+
+  @override
+  String get onboardingAppearancePageSubtitle =>
+      'Wie die App startet und wie das Aufnahme-Overlay aussieht.';
 
   @override
   String get onboardingBeat1Title => 'Hotkey drücken, sprechen, fertig';
@@ -2743,6 +2751,10 @@ class L10nDe extends L10n {
   @override
   String get onboardingTriggerModeToggleHint =>
       'Einmal drücken startet, erneutes Drücken beendet die Aufnahme';
+
+  @override
+  String get onboardingTriggerSystemWideHint =>
+      'Funktioniert systemweit — nicht nur innerhalb von WhisPaste.';
 
   @override
   String get onboardingStartUsing => 'Los geht\'s';

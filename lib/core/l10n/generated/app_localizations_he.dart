@@ -642,6 +642,10 @@ class L10nHe extends L10n {
       'macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן, וזהו.';
 
   @override
+  String get onboardingPasteSubtitleWin =>
+      'אין כאן שום דבר לעשות — רק מוודאים שזה פועל.';
+
+  @override
   String get onboardingPasteChipReady => 'הדבקה אוטומטית מוכנה';
 
   @override
@@ -2491,7 +2495,11 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get onboardingAppearancePageTitle => 'הפעלה';
+  String get onboardingAppearancePageTitle => 'מראה';
+
+  @override
+  String get onboardingAppearancePageSubtitle =>
+      'איך האפליקציה מופעלת, ואיך נראית שכבת ההקלטה.';
 
   @override
   String get onboardingBeat1Title => 'לחץ על הקיצור, דבר, סיימת';
@@ -2675,6 +2683,10 @@ class L10nHe extends L10n {
   @override
   String get onboardingTriggerModeToggleHint =>
       'לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים';
+
+  @override
+  String get onboardingTriggerSystemWideHint =>
+      'עובד בכל המערכת — לא רק בתוך WhisPaste.';
 
   @override
   String get onboardingStartUsing => 'בוא נתחיל';

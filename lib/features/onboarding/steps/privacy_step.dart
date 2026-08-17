@@ -21,13 +21,15 @@ const kPrivacyStepCrashToggleKey = Key('privacyStepCrashReportingToggle');
 /// WhisPaste sends anonymous, GDPR-compliant usage statistics to a
 /// self-hosted EU server (CONTEXT.md §6.5/§7: never an absolute "no
 /// tracking" claim), and separately, that it can send anonymous crash
-/// reports — and gives them both toggles right here. Both
-/// stay **on by default** (informed opt-out; [AppSettings] defaults
-/// `shareUsageStats = true` and `errorReporting = true`); the user can switch
-/// either off without leaving the flow. Wording and toggles mirror
-/// Settings → Privacy ([PrivacySection]) so the two never drift. Continuing
-/// is always allowed regardless of either toggle's state. Content only —
-/// navigation (Back/Next) is owned by the onboarding shell.
+/// reports — and gives them both toggles right here, plus a third toggle for
+/// keeping recent recordings on disk. The first two stay **on by default**
+/// (informed opt-out; [AppSettings] defaults `shareUsageStats = true` and
+/// `errorReporting = true`), the third stays **off by default**
+/// (`retainRecentAudio = false`); the user can flip any of them without
+/// leaving the flow. Wording, order, and toggles mirror Settings → Privacy
+/// ([PrivacySection]) so the two never drift. Continuing is always allowed
+/// regardless of any toggle's state. Content only — navigation (Back/Next) is
+/// owned by the onboarding shell.
 class PrivacyStep extends ConsumerWidget {
   const PrivacyStep({super.key});
 
@@ -44,21 +46,29 @@ class PrivacyStep extends ConsumerWidget {
         subtitle: l10n.onboardingPrivacyHint,
       ),
 
-      // Opt-out toggles — same SettingRow + switch as Settings → Privacy.
-      // Two separate consents (analytics vs. crash reports), each its own
-      // toggle, each on by default. Deliberately frameless: the surrounding
-      // card plus an inline divider made two quiet rows read as one packed
-      // box. Whitespace separates them now, as in the reference.
-      //
-      // The pair is one body block, so this page's 248 px of spare height
-      // (511-px content area) never lands between the two rows: they are
-      // separate decisions but the same kind of decision, and a gap as wide
-      // as the one under the heading would stop them reading as a pair.
-      //
+      // Opt-out toggles — same SettingRow + switch as Settings → Privacy,
+      // same order: crash reports, usage stats, keep recent recordings.
+      // Deliberately frameless: the surrounding card plus an inline divider
+      // made these rows read as one packed box. Whitespace separates them
+      // now, as in the reference.
       body: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SettingRow(
+            key: kPrivacyStepCrashToggleKey,
+            icon: LucideIcons.shieldCheck,
+            iconSize: WpIconSize.md,
+            trailingHugsLabel: true,
+            label: l10n.onboardingPrivacyCrashToggle,
+            subtitle: l10n.onboardingPrivacyCrashToggleHint,
+            semanticToggledValue: settings.errorReporting,
+            trailing: settingsToggle(
+              value: settings.errorReporting,
+              onChanged: (v) => _setErrorReportingConsent(ref, v),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.lg),
           SettingRow(
             icon: LucideIcons.barChart3,
             iconSize: WpIconSize.md,
@@ -73,16 +83,17 @@ class PrivacyStep extends ConsumerWidget {
           ),
           const SizedBox(height: WpSpacing.lg),
           SettingRow(
-            key: kPrivacyStepCrashToggleKey,
-            icon: LucideIcons.shieldCheck,
+            icon: LucideIcons.fileAudio,
             iconSize: WpIconSize.md,
             trailingHugsLabel: true,
-            label: l10n.onboardingPrivacyCrashToggle,
-            subtitle: l10n.onboardingPrivacyCrashToggleHint,
-            semanticToggledValue: settings.errorReporting,
+            label: l10n.settingsRetainRecentAudio,
+            subtitle: l10n.settingsRetainRecentAudioSubtitle,
+            semanticToggledValue: settings.privacy.retainRecentAudio,
             trailing: settingsToggle(
-              value: settings.errorReporting,
-              onChanged: (v) => _setErrorReportingConsent(ref, v),
+              value: settings.privacy.retainRecentAudio,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(retainRecentAudio: v)),
             ),
           ),
         ],

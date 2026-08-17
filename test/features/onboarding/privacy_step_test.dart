@@ -1,10 +1,12 @@
 /// Widget tests for [PrivacyStep] — the informed telemetry opt-out step.
 ///
-/// Verifies the behaviours that matter for an *informed opt-out*, across
-/// both consents (anonymous usage stats and crash reporting):
-///   1. Both default to ON (switches reflect `shareUsageStats`/
-///      `errorReporting == true`).
-///   2. Toggling either switch persists its own consent value independently.
+/// Verifies the behaviours that matter for an *informed opt-out*, across all
+/// three toggles (crash reporting, anonymous usage stats, keep recent
+/// recordings — in that order, mirroring Settings → Privacy):
+///   1. Crash reporting and usage stats default to ON; keep recent
+///      recordings defaults to OFF.
+///   2. Toggling any switch persists its own value independently of the
+///      other two.
 ///   3. The wording follows CONTEXT.md §6.5/§7 — never an absolute "no
 ///      tracking" claim; instead the correct promise: audio & text stay
 ///      local, the statistics are anonymous, self-hosted, and can be
@@ -117,38 +119,56 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  testWidgets('both consents default to ON (informed opt-out)', (tester) async {
-    final settings = await _pump(tester);
-    expect(
-      settings.state.value!.privacy.shareUsageStats,
-      isTrue,
-      reason: 'Default must be opt-out: consent on until the user disables it.',
-    );
-    expect(
-      settings.state.value!.errorReporting,
-      isTrue,
-      reason: 'Crash-reporting consent must also default to on-by-default.',
-    );
-    expect(find.byType(Switch), findsNWidgets(2));
-    for (final s in tester.widgetList<Switch>(find.byType(Switch))) {
-      expect(s.value, isTrue);
-    }
-    expect(find.text(l10n.onboardingPrivacyTitle), findsOneWidget);
-  });
+  testWidgets(
+    'crash reporting and usage stats default to ON, keep recent recordings '
+    'defaults to OFF',
+    (tester) async {
+      final settings = await _pump(tester);
+      expect(
+        settings.state.value!.errorReporting,
+        isTrue,
+        reason: 'Crash-reporting consent must default to on-by-default.',
+      );
+      expect(
+        settings.state.value!.privacy.shareUsageStats,
+        isTrue,
+        reason: 'Default must be opt-out: consent on until the user disables it.',
+      );
+      expect(
+        settings.state.value!.privacy.retainRecentAudio,
+        isFalse,
+        reason: 'Keeping recent recordings defaults to off, unlike the other '
+            'two toggles.',
+      );
+      expect(find.byType(Switch), findsNWidgets(3));
+      final switches = tester
+          .widgetList<Switch>(find.byType(Switch))
+          .toList();
+      expect(switches[0].value, isTrue, reason: 'Crash reporting, first row.');
+      expect(switches[1].value, isTrue, reason: 'Usage stats, second row.');
+      expect(
+        switches[2].value,
+        isFalse,
+        reason: 'Keep recent recordings, third row.',
+      );
+      expect(find.text(l10n.onboardingPrivacyTitle), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'toggling the usage-stats switch off persists that consent only',
     (tester) async {
       final settings = await _pump(tester);
-      await tester.tap(find.byType(Switch).first);
+      await tester.tap(find.byType(Switch).at(1));
       await tester.pumpAndSettle();
 
       expect(settings.state.value!.privacy.shareUsageStats, isFalse);
       expect(
         settings.state.value!.errorReporting,
         isTrue,
-        reason: 'The two consents must not affect each other.',
+        reason: 'The three toggles must not affect each other.',
       );
+      expect(settings.state.value!.privacy.retainRecentAudio, isFalse);
     },
   );
 
@@ -169,9 +189,27 @@ void main() {
       expect(
         settings.state.value!.privacy.shareUsageStats,
         isTrue,
-        reason: 'The two consents must not affect each other.',
+        reason: 'The three toggles must not affect each other.',
       );
+      expect(settings.state.value!.privacy.retainRecentAudio, isFalse);
       expect(tester.widget<Switch>(crashToggle).value, isFalse);
+    },
+  );
+
+  testWidgets(
+    'toggling the keep-recent-recordings switch on persists that value only',
+    (tester) async {
+      final settings = await _pump(tester);
+      await tester.tap(find.byType(Switch).at(2));
+      await tester.pumpAndSettle();
+
+      expect(settings.state.value!.privacy.retainRecentAudio, isTrue);
+      expect(
+        settings.state.value!.errorReporting,
+        isTrue,
+        reason: 'The three toggles must not affect each other.',
+      );
+      expect(settings.state.value!.privacy.shareUsageStats, isTrue);
     },
   );
 
@@ -238,7 +276,7 @@ void main() {
     );
 
     testWidgets(
-      'at enlarged system text (textScaler 1.5) both consent rows stay '
+      'at enlarged system text (textScaler 1.5) all three rows stay '
       'reachable and operable — the shell scroll fallback may kick in, but '
       'nothing is clipped away',
       (tester) async {
@@ -253,19 +291,17 @@ void main() {
           isNull,
           reason: 'Enlarged text must scroll, never overflow-clip.',
         );
-        expect(find.byType(Switch), findsNWidgets(2));
+        expect(find.byType(Switch), findsNWidgets(3));
 
-        // The second consent sits lowest — prove it can be brought into
-        // view and actually operated, not just that it exists in the tree.
-        final crashToggle = find.descendant(
-          of: find.byKey(kPrivacyStepCrashToggleKey),
-          matching: find.byType(Switch),
-        );
-        await tester.ensureVisible(crashToggle);
+        // The third row (keep recent recordings) sits lowest — prove it can
+        // be brought into view and actually operated, not just that it
+        // exists in the tree.
+        final retainToggle = find.byType(Switch).at(2);
+        await tester.ensureVisible(retainToggle);
         await tester.pumpAndSettle();
-        await tester.tap(crashToggle);
+        await tester.tap(retainToggle);
         await tester.pumpAndSettle();
-        expect(tester.widget<Switch>(crashToggle).value, isFalse);
+        expect(tester.widget<Switch>(retainToggle).value, isTrue);
       },
     );
   });

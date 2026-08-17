@@ -369,7 +369,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                     onTap: () => _selectEngine(OnDeviceEngine.parakeet),
                   ),
                 ),
-                const SizedBox(width: WpSpacing.md),
+                const SizedBox(width: WpSpacing.lg),
                 Expanded(
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
                   child: _EngineCard(
@@ -527,27 +527,46 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       // the app's one word for "that worked just now", and a permanent row
       // wearing it leaves nothing to say it with.
       const ready = WpColors.accent;
-      // Start-aligned like every other status row in the app (settings,
-      // history and notes rows are all CrossAxisAlignment.start; no centred
-      // status state exists anywhere else) and like the full-width CTA,
-      // progress bar and error banner that occupy this same spot.
-      return Row(
-        children: [
-          const Icon(
-            LucideIcons.circleCheck,
-            size: WpIconSize.sm,
-            color: ready,
+      // Same floating-surface + edge-highlight pill material as the
+      // mic-permission chip and the Auto-Paste status card (Ticket 04) — not
+      // tappable, so no InkWell, just the material.
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xxs,
           ),
-          const SizedBox(width: WpSpacing.xs),
-          Text(
-            l10n.modelReady,
-            style: const TextStyle(
-              fontSize: WpTypography.subheading,
-              fontWeight: FontWeight.w600,
-              color: ready,
-            ),
+          decoration: BoxDecoration(
+            color: WpColors.floatingSurface,
+            borderRadius: WpRadius.borderFull,
+            border: Border.all(color: WpColors.cardEdgeHighlight),
           ),
-        ],
+          // Start-aligned like every other status row in the app (settings,
+          // history and notes rows are all CrossAxisAlignment.start; no
+          // centred status state exists anywhere else) and like the
+          // full-width CTA, progress bar and error banner that occupy this
+          // same spot.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.circleCheck,
+                size: WpIconSize.sm,
+                color: ready,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                l10n.modelReady,
+                style: const TextStyle(
+                  fontSize: WpTypography.subheading,
+                  fontWeight: FontWeight.w600,
+                  color: ready,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
     // Half the row, not all of it (M6). At `double.infinity` this was 720 px
@@ -720,7 +739,7 @@ class _EngineCard extends StatefulWidget {
 /// off the [WpIconSize] scale: that scale sizes icons the user reads or presses
 /// (14/16 decorative, 20 interactive minimum, 24 standard, 32/48 hero), and
 /// this is a background graphic that has to overrun the card to work at all.
-const double _heroWashSize = 140;
+const double _heroWashSize = 180;
 
 class _EngineCardState extends State<_EngineCard> {
   bool _hovered = false;
@@ -848,10 +867,10 @@ class _EngineCardState extends State<_EngineCard> {
                               children: [
                                 Icon(
                                   widget.icon,
-                                  size: WpIconSize.sm,
+                                  size: WpIconSize.md,
                                   color: iconColor,
                                 ),
-                                const SizedBox(width: WpSpacing.xs),
+                                const SizedBox(width: WpSpacing.sm),
                                 // Expanded, and the only widget on this line that takes
                                 // free space: with `Flexible` title + `Flexible` badge +
                                 // a `Spacer`, the three split the width between them and
@@ -883,7 +902,7 @@ class _EngineCardState extends State<_EngineCard> {
                                   // the appetite.
                                   ConstrainedBox(
                                     constraints: const BoxConstraints(
-                                      maxWidth: 128,
+                                      maxWidth: 104,
                                     ),
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
@@ -933,7 +952,7 @@ class _EngineCardState extends State<_EngineCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: WpSpacing.xs),
+                            const SizedBox(height: WpSpacing.sm),
                             Text(
                               widget.description,
                               style: TextStyle(

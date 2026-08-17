@@ -203,6 +203,50 @@ class TriggerStep extends ConsumerWidget {
           supportsKeyUp: supportsKeyUp,
           l10n: l10n,
         ),
+
+        // Third content element — normal branch only. A confirmed conflict
+        // already fills the page with the warn box and the inline recorder;
+        // adding a third line there would contradict it before it's resolved.
+        if (status != HotkeyRegistrationStatus.conflict) ...[
+          const SizedBox(height: WpSpacing.lg),
+          _SystemWideHotkeyNotice(message: l10n.onboardingTriggerSystemWideHint),
+        ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// System-wide hotkey notice — informational, normal branch only.
+// ---------------------------------------------------------------------------
+
+/// Tells the user the hotkey fires system-wide, not just while WhisPaste has
+/// focus — structured 1:1 like `_GpuCpuFallbackNotice` in `model_step.dart`:
+/// no frame, no card, just an icon and a line, matching that page's "no hero"
+/// decision for this register of content.
+class _SystemWideHotkeyNotice extends StatelessWidget {
+  const _SystemWideHotkeyNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = WpColors.accent;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(LucideIcons.appWindow, size: WpIconSize.sm, color: accent),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(
+              fontSize: WpTypography.body,
+              color: accent,
+              height: 1.35,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -296,11 +340,10 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
     // hand-rolled at the call site (pixel-identical: 0.12 x 255 rounds to the
     // 0x1F the token carries).
     const bgColor = WpColors.errorActiveFill;
-    // Still hand-rolled, and knowingly so: the ladder tops out at 30 %
-    // (`errorBorder30`) and this outline is at 40. Dropping it to the
-    // sanctioned ceiling is a visible change to a blocker's outline, which is
-    // a maintainer call rather than a token swap — Ticket 15 finding.
-    final borderColor = dangerColor.withValues(alpha: 0.40);
+    // Ladder value, not the former hand-rolled 40 % (2026-08-17 maintainer
+    // call, Ticket 15's deferred finding): the ladder tops out at 30 %
+    // (`errorBorder30`) and this is now that rung.
+    const borderColor = WpColors.errorBorder30;
     const textPrimary = WpColors.textPrimary;
 
     return Container(

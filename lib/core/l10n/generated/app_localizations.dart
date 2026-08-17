@@ -1233,6 +1233,12 @@ abstract class L10n {
   /// **'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.'**
   String get onboardingPasteSubtitle;
 
+  /// No description provided for @onboardingPasteSubtitleWin.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to do here — just confirming it works.'**
+  String get onboardingPasteSubtitleWin;
+
   /// No description provided for @onboardingPasteChipReady.
   ///
   /// In en, this message translates to:
@@ -4494,8 +4500,14 @@ abstract class L10n {
   /// No description provided for @onboardingAppearancePageTitle.
   ///
   /// In en, this message translates to:
-  /// **'Launch'**
+  /// **'Appearance'**
   String get onboardingAppearancePageTitle;
+
+  /// No description provided for @onboardingAppearancePageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How the app starts, and how the recording overlay looks.'**
+  String get onboardingAppearancePageSubtitle;
 
   /// No description provided for @onboardingBeat1Title.
   ///
@@ -4805,6 +4817,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Press once to start, press again to finish'**
   String get onboardingTriggerModeToggleHint;
+
+  /// No description provided for @onboardingTriggerSystemWideHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Works system-wide — not just inside WhisPaste.'**
+  String get onboardingTriggerSystemWideHint;
 
   /// No description provided for @onboardingStartUsing.
   ///

@@ -468,13 +468,15 @@ void main() {
           final toggles = tester
               .widgetList<Switch>(find.byType(Switch))
               .toList();
-          expect(toggles, hasLength(2));
+          expect(toggles, hasLength(3));
           expect(
             toggles.map((t) => t.value),
-            [false, true],
+            [true, false, false],
             reason:
-                'Step 2 shows the stored decision as it stands — usage stats '
-                'off, crash reports on.',
+                'Step 2 shows the stored decision as it stands, in the '
+                'Privacy step\'s crash → usage → retain-recordings order — '
+                'crash reports on, usage stats off, keep-recordings off '
+                '(default).',
           );
           expect(settings.state.value!.privacy.shareUsageStats, isFalse);
           expect(settings.state.value!.errorReporting, isTrue);

@@ -32,7 +32,7 @@ import 'package:whispaste/core/theme/colors.dart';
 /// It has already been counted down once: the notes and history detail panels
 /// painted `surfaceGradient` as their own ground until Ticket 09 moved their
 /// writing surfaces onto the card material, and their rows are gone rather
-/// than grandfathered. What is left is three genuine exceptions, each naming
+/// than grandfathered. What is left is four genuine exceptions, each naming
 /// why it may paint a ground. Following `wp_toast_guard_test.dart`: if a new
 /// call site ever becomes legitimate, add it here **with its reason** rather
 /// than widening the pattern or deleting the guard.
@@ -76,6 +76,20 @@ void main() {
     'lib/widgets/insufficient_ram_screen.dart':
         'stands in for the app rather than inside it (Preflight-Screen '
         'Exception)',
+
+    // The onboarding flow is `Positioned.fill` inside app.dart's own Stack
+    // (structurally nested, unlike the Preflight-Screen's separate
+    // `MaterialApp.home` mount), but it is full-window, edge-to-edge and
+    // fully opaque — no blur, no scrim, no translucency — so it always
+    // replaces the app's atmosphere in what the user sees rather than
+    // sitting on top of it. The two gradients are never concurrently
+    // visible, which is the rule's actual concern (a felt second light
+    // source), even though app.dart's frameGradient keeps painting,
+    // unseen, underneath it (onboarding-visual-pass Ticket 01, 2026-08-17).
+    'lib/features/onboarding/onboarding_overlay.dart':
+        'full-window opaque overlay that replaces the visible app surface '
+        'rather than sitting on it — same effect as the Preflight-Screen '
+        'Exception, reached by nesting instead of a separate mount',
   };
 
   /// Everything after a `//` on a line, so that a file *discussing* the

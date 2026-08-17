@@ -24,7 +24,7 @@ import '../../widgets/wp_hero_button.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
 import 'steps/auto_paste_step.dart';
-import 'steps/autostart_toggle.dart';
+import 'steps/appearance_step.dart';
 import 'steps/onboarding_headings.dart';
 import 'steps/onboarding_page_fill.dart';
 import 'steps/welcome_step.dart';
@@ -194,8 +194,9 @@ List<OnboardingStepId> buildOnboardingStepIds({
 
 /// Full-window, edge-to-edge onboarding flow.
 ///
-/// Sits on top of the main app shell in a [Stack] and covers it with a flat
-/// theme-background surface — no blur, no dimmed scrim, no floating card.
+/// Sits on top of the main app shell in a [Stack] and covers it with the same
+/// ambient frame gradient the rest of the app uses — no blur, no dimmed
+/// scrim, no floating card.
 /// Seven pages (six on Linux) with animated transitions, a shell-owned
 /// Back/Next navigation
 /// row (Next becomes the completion CTA on the last page), stepper dots, and
@@ -695,31 +696,19 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         body: const ModelStep(),
       ),
       OnboardingStepId.hotkey => _buildHotkeyPage(l10n),
-      // Autostart alone since the light theme was removed (2026-08-11). The
-      // page used to carry the light/dark/system tiles above this row, and
-      // the heading named both halves in order; with the tiles gone the
-      // heading names the one that is left.
-      //
-      // It keeps its own page rather than folding into a neighbour because
-      // dropping a step would renumber every position after it and need a
-      // fourth entry in `onboarding_flow_migration.dart` — a migration owed
-      // to a copy change. Whether the page is still worth a page is a
-      // maintainer call, deliberately left open.
-      //
-      // No subtitle. The only honest one would restate the toggle's own
-      // label directly beneath it, which is the "same string twice at two
-      // sizes" this file rejects everywhere else; the title carries the
-      // topic and the row states the choice.
       OnboardingStepId.appearance => OnboardingPage(
         header: OnboardingPageHeading(
           title: l10n.onboardingAppearancePageTitle,
+          subtitle: l10n.onboardingAppearancePageSubtitle,
         ),
-        body: const OnboardingAutostartToggle(),
+        body: const AppearanceStep(),
       ),
       OnboardingStepId.autoPaste => OnboardingPage(
         header: OnboardingPageHeading(
           title: l10n.onboardingPasteTitle,
-          subtitle: l10n.onboardingPasteSubtitle,
+          subtitle: defaultTargetPlatform == TargetPlatform.windows
+              ? l10n.onboardingPasteSubtitleWin
+              : l10n.onboardingPasteSubtitle,
         ),
         body: const AutoPasteStep(),
       ),
@@ -933,7 +922,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         hotkeyStatus != HotkeyRegistrationStatus.conflict &&
         (testRecordingSucceeded || micBypassed);
 
-    const background = WpColors.background;
     const textMuted = WpColors.textMuted;
     const accentGradient = WpColors.accentWarmGradient;
 
@@ -944,11 +932,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // the window.
       child: GestureDetector(
         onPanStart: (_) => windowManager.startDragging(),
-        child: ColoredBox(
-          // Flat, opaque, edge-to-edge page surface — deliberately no blur
-          // and no dimmed scrim (and therefore no Windows frameless-window
-          // blur fallback either).
-          color: background,
+        child: DecoratedBox(
+          // Same ambient frame gradient as the rest of the app — deliberately
+          // no blur and no dimmed scrim (and therefore no Windows
+          // frameless-window blur fallback either).
+          decoration: const BoxDecoration(gradient: WpColors.frameGradient),
           child: Column(
             children: [
               _buildTopBar(l10n, textMuted),

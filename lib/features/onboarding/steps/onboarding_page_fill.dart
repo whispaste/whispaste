@@ -1,5 +1,5 @@
 /// Vertical rhythm of the onboarding pages: header top, body directly under
-/// it, leftover height trailing at the bottom.
+/// it, centred in the leftover height between header and footer.
 ///
 /// The onboarding window is fixed at 1100×720, which leaves a 551-px content
 /// viewport — more than most pages need. Anchoring a 247-px page to the top of
@@ -21,11 +21,10 @@
 ///
 /// [OnboardingPageFill] stretches the page to the height the viewport actually
 /// offers, and [OnboardingPageBody] — which [OnboardingPage] wraps the body in
-/// for you — puts the body at the top of the leftover height and lets the rest
-/// trail underneath. The header stays at the top, the shell's navigation row
-/// stays at the bottom, and the gap between header and body is
-/// [kOnboardingHeaderGap] on every page rather than whatever a page's own
-/// height left there.
+/// for you — centres the body in the leftover height. The header stays at the
+/// top, the shell's navigation row stays at the bottom, and the gap between
+/// header and body is [kOnboardingHeaderGap] on every page rather than
+/// whatever a page's own height left there.
 library;
 
 import 'package:flutter/material.dart';
@@ -151,26 +150,20 @@ class OnboardingPageFill extends StatelessWidget {
 /// unit is the same mechanism — a flex child of the page column — with one
 /// decision instead of four.
 ///
-/// **Top, always — and it used to be a per-page choice.** The body was
-/// `Expanded(Center(...))` by default, with sparse pages opting into
-/// `topCenter`. That gave the flow exactly two ways to spend leftover height,
-/// both of them decided per page, and the distance from the header's bottom
-/// edge to the first thing under it came out anywhere between 20 px (Try & Go)
-/// and 117.5 px (Appearance) — a factor of six, off a single shared header
-/// constant. Centring is what did it: it splits the slack into equal voids
-/// above and below the body, so the emptier the page, the further its heading
-/// drifted from the content it introduces, and growing the body only ever
-/// reclaimed half of what it added.
+/// **Centred, always (2026-08-17) — and it used to be a per-page choice.**
+/// The body was `Expanded(Align(topCenter))` by default, with sparse pages
+/// opting into a plain top anchor. That gave the flow exactly two ways to
+/// spend leftover height, both of them decided per page, and the distance
+/// from the header's bottom edge to the first thing under it came out
+/// anywhere between 20 px (Try & Go) and 117.5 px (Appearance) — a factor of
+/// six, off a single shared header constant.
 ///
-/// One rule replaces the choice: the gap under the header is
-/// [kOnboardingHeaderGap] on every page, and everything left over trails at
-/// the bottom. That is not "the sparse-page fix applied globally" — it is the
-/// asymmetry the two kinds of space actually have. Trailing space under a
-/// short settings page is ordinary and reads as the page being short; space
-/// wedged between a heading and its own content reads as the heading having
-/// lost track of what it was introducing. The hotkey page keeps ~60 % trailing
-/// emptiness under two setting rows after this, and that is the correct
-/// outcome rather than a missed target.
+/// One rule replaces the choice: the body sits centred between header and
+/// footer on every page. The known trade-off — the header-to-content gap
+/// grows on content-sparse pages, up to ~245 px on the hotkey page before the
+/// content work in tickets 03–06 landed — is accepted rather than fixed by
+/// layout alone; it is the companion content tickets that keep it in check,
+/// not this rule.
 ///
 /// Outside an [OnboardingPageFill] — the page widgets are also mounted
 /// standalone in their own tests, where the height is unbounded and a flex
@@ -184,9 +177,7 @@ class OnboardingPageBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _OnboardingFillScope.isFilling(context)
-        ? Expanded(
-            child: Align(alignment: Alignment.topCenter, child: child),
-          )
+        ? Expanded(child: Center(child: child))
         : child;
   }
 }
