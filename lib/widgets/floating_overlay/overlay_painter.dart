@@ -534,13 +534,15 @@ class WpOverlayPainter extends CustomPainter {
 
     _drawClose(canvas, Offset(base + layout.closeOffset, cy));
 
-    // Leading glyph: pulsing accent dot (recording/transcribing) or the
+    // Leading glyph: pulsing accent dot (recording), rotating amber spinner
+    // (transcribing — the "working" register, state-distinction pass) or the
     // done/error status icon.
     final leadCenter = Offset(base + layout.dotInset, cy);
     switch (state) {
       case OverlayDesignState.recording:
-      case OverlayDesignState.transcribing:
         _drawDot(canvas, leadCenter);
+      case OverlayDesignState.transcribing:
+        _drawSpinner(canvas, leadCenter);
       case OverlayDesignState.done:
         _drawCheckIcon(canvas, leadCenter, colors.success, iconRevealFraction);
       case OverlayDesignState.error:
@@ -584,19 +586,21 @@ class WpOverlayPainter extends CustomPainter {
     }
   }
 
-  /// Mini (waveform-first) content: the waveform IS the overlay. Recording/
-  /// transcribing render a small pulsing dot plus the waveform spanning the
-  /// remaining width; done/error collapse to a single centred status icon.
-  /// No close glyph, no timer/status text, no stop square — state identity
-  /// stays readable through the crisp content glyphs (dot, waveform, icons).
-  /// The thin progress timeline is kept: it is the only max-duration feedback.
+  /// Mini (waveform-first) content: the waveform IS the overlay while
+  /// recording — a small pulsing dot plus live bars spanning the remaining
+  /// width. Transcribing (state-distinction pass, 2026-08-17) morphs into a
+  /// compact fitted status pill: the amber rotating spinner plus the
+  /// localized status label — the one text mini paints, because the
+  /// ever-moving waveform alone did not distinguish transcribing from
+  /// recording here. Done/error collapse to a single centred status icon.
+  /// No close glyph, no timer, no stop square. The thin progress timeline is
+  /// kept: it is the only max-duration feedback.
   void _drawMinimalContent(Canvas canvas, Rect pill) {
     final cy = pill.center.dy;
     final base = pill.left + layout.padH;
 
     switch (state) {
       case OverlayDesignState.recording:
-      case OverlayDesignState.transcribing:
         final dotCenter = Offset(base + layout.dotInset, cy);
         _drawDot(canvas, dotCenter);
         final waveLeft = dotCenter.dx + layout.timerGap;
@@ -608,6 +612,18 @@ class WpOverlayPainter extends CustomPainter {
           cy,
           pill.height,
           maxHeight: sizeSpec.waveformMaxHeight,
+        );
+      case OverlayDesignState.transcribing:
+        final spinnerCenter = Offset(base + layout.dotInset, cy);
+        _drawSpinner(canvas, spinnerCenter);
+        final textLeft = spinnerCenter.dx + layout.timerGap;
+        _drawText(
+          canvas,
+          statusText,
+          Offset(textLeft, cy),
+          layout.timerFontSize,
+          OverlayDesignSpec.contentGlyphFill,
+          maxWidth: pill.right - layout.padH - textLeft,
         );
       case OverlayDesignState.done:
         _drawCheckIcon(canvas, pill.center, colors.success, iconRevealFraction);
@@ -660,6 +676,50 @@ class WpOverlayPainter extends CustomPainter {
       center,
       layout.dotRadius * scale,
       Paint()..color = colors.accent.withValues(alpha: alpha),
+    );
+  }
+
+  /// Transcribing "working" glyph (state-distinction pass, 2026-08-17): a
+  /// small rotating open arc over a faint full-circle track, in the state's
+  /// own amber [OverlayThemeColors.transcribingAccent] — clearly a machine
+  /// working, where the recording state's pulsing cyan dot is a microphone
+  /// listening. Rotation rides the existing liquid-glass phase
+  /// ([OverlayDesignSpec.transcribingSpinnerTurnsPerLoop] integer turns per
+  /// loop → seamless at the phase wrap, no extra AnimationController, one
+  /// arc + one circle of paint cost). Reduced-motion and the static settings
+  /// preview rest at the phase-0 frame — a fully formed static spinner
+  /// glyph, exactly like every other phase-driven motion in this painter.
+  void _drawSpinner(Canvas canvas, Offset center) {
+    final r =
+        layout.dotRadius * OverlayDesignSpec.transcribingSpinnerRadiusFactor;
+    final stroke = math.max(
+      OverlayDesignSpec.transcribingSpinnerMinStrokePx,
+      layout.dotRadius * OverlayDesignSpec.transcribingSpinnerStrokeFactor,
+    );
+    final rect = Rect.fromCircle(center: center, radius: r);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    // Faint closed track beneath the bright arc: anchors the glyph as a
+    // spinner (not a stray crescent) over busy desktops.
+    paint.color = colors.transcribingAccent.withValues(
+      alpha: OverlayDesignSpec.transcribingSpinnerTrackOpacity,
+    );
+    canvas.drawCircle(center, r, paint);
+    final start =
+        2 *
+            math.pi *
+            OverlayDesignSpec.transcribingSpinnerTurnsPerLoop *
+            glassPhase -
+        math.pi / 2;
+    paint.color = colors.transcribingAccent;
+    canvas.drawArc(
+      rect,
+      start,
+      OverlayDesignSpec.transcribingSpinnerSweep,
+      false,
+      paint,
     );
   }
 
@@ -738,8 +798,13 @@ class WpOverlayPainter extends CustomPainter {
     // shader across the wave zone, so every bar reads lit from its middle
     // and the light stays consistent while bars move.
     final zone = Rect.fromLTRB(left, cy - maxH / 2, right, cy + maxH / 2);
+    // The live recording bars speak the cyan accent; the transcribing
+    // processing ripple speaks the state's own amber accent — the waveform
+    // keeps moving through the transition (no hard state cut) but its colour
+    // says which phase owns it (state-distinction pass, 2026-08-17).
+    final accent = _isRecording ? colors.accent : colors.transcribingAccent;
     final tip = Color.lerp(
-      colors.accent,
+      accent,
       const Color(0xFF000000),
       OverlayDesignSpec.waveformTipShadeFraction,
     )!;
@@ -748,7 +813,7 @@ class WpOverlayPainter extends CustomPainter {
       end: Alignment.bottomCenter,
       colors: [
         tip,
-        Color.lerp(colors.accent, const Color(0xFFFFFFFF), coreLight)!,
+        Color.lerp(accent, const Color(0xFFFFFFFF), coreLight)!,
         tip,
       ],
       stops: const [0.0, 0.5, 1.0],

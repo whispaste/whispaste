@@ -252,16 +252,20 @@ void main() {
       );
     });
 
-    test('mini pill width: full while the waveform runs, shrinks around '
-        'the status glyph for done/error', () {
+    test('mini pill width: full while the live waveform runs, fitted to the '
+        'status label while transcribing, shrinks around the status glyph '
+        'for done/error', () {
       const m = OverlayDesignSpec.miniSize;
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, m),
         m.width,
       );
+      // Transcribing floor (state-distinction pass): the ratio is only the
+      // lower bound — pillWidthForText grows the pill to fit the status
+      // label mini now paints in this state.
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
-        m.width,
+        closeTo(m.width * 0.42, 1e-9),
       );
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, m),
@@ -271,14 +275,34 @@ void main() {
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.error, m),
         closeTo(m.width * 0.42, 1e-9),
       );
-      // Mini renders no status text — text never grows the pill.
-      for (final state in OverlayDesignState.values) {
+      // Mini paints status text ONLY while transcribing — there the label
+      // grows the pill (clamped to the full width); every other state stays
+      // glyph-only and text never grows it.
+      const label = 'some long status text that would grow a normal pill';
+      final transcribingWidth = OverlayDesignSpec.pillWidthForText(
+        OverlayDesignState.transcribing,
+        m,
+        OverlayLayoutSpec.mini,
+        label,
+      );
+      expect(
+        transcribingWidth,
+        greaterThan(
+          OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
+        ),
+      );
+      expect(transcribingWidth, lessThanOrEqualTo(m.width));
+      for (final state in const [
+        OverlayDesignState.recording,
+        OverlayDesignState.done,
+        OverlayDesignState.error,
+      ]) {
         expect(
           OverlayDesignSpec.pillWidthForText(
             state,
             m,
             OverlayLayoutSpec.mini,
-            'some long status text that would grow a normal pill',
+            label,
           ),
           OverlayDesignSpec.pillWidthFor(state, m),
         );
@@ -583,6 +607,40 @@ void main() {
       expect(OverlayDesignSpec.buttonWindowSize(56), const Size(72, 72));
       expect(OverlayDesignSpec.buttonWindowSize(44), const Size(60, 60));
       expect(OverlayDesignSpec.buttonWindowSize(80), const Size(96, 96));
+    });
+  });
+
+  group('OverlayDesignSpec — transcribing state identity '
+      '(state-distinction pass)', () {
+    test('transcribing owns its own amber accent, distinct from the cyan '
+        'accent and aligned with the stateGradients amber pair', () {
+      const c = OverlayDesignSpec.light;
+      expect(c.transcribingAccent, isNot(c.accent));
+      expect(c.transcribingAccent, isNot(c.recordingDot));
+      // One colour language with the floating button's mic tint: the accent
+      // is the dark stop of the transcribing state gradient.
+      expect(
+        OverlayDesignSpec
+            .stateGradients[OverlayDesignState.transcribing]!
+            .stops
+            .last,
+        c.transcribingAccent,
+      );
+    });
+
+    test('spinner rotation is an integer number of turns per glass loop '
+        '(seamless at the phase wrap)', () {
+      expect(OverlayDesignSpec.transcribingSpinnerTurnsPerLoop, isPositive);
+      // Sweep stays an open arc — more than a tick, less than a full ring.
+      expect(
+        OverlayDesignSpec.transcribingSpinnerSweep,
+        inExclusiveRange(math.pi / 2, 2 * math.pi),
+      );
+      expect(OverlayDesignSpec.transcribingSpinnerRadiusFactor, greaterThan(1));
+      expect(
+        OverlayDesignSpec.transcribingSpinnerTrackOpacity,
+        inExclusiveRange(0.0, 1.0),
+      );
     });
   });
 

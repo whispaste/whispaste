@@ -46,8 +46,9 @@ enum OverlayDesignState { recording, transcribing, done, error }
 /// - [mini]: the waveform-first variant — a small, extra-translucent capsule
 ///   whose content is deliberately REDUCED to (almost) only the waveform.
 ///   Status identity stays readable through the crisp content glyphs (pulsing
-///   dot, live waveform, done/error status icons); timer text, close glyph
-///   and stop square are omitted by design ([OverlaySizeSpec.minimalContent]).
+///   dot, live waveform, transcribing spinner + status label, done/error
+///   status icons); timer text, close glyph and stop square are omitted by
+///   design ([OverlaySizeSpec.minimalContent]).
 enum OverlaySizeVariant {
   /// Full-size pill.
   normal,
@@ -105,6 +106,7 @@ class OverlayThemeColors {
     required this.capsuleBorder,
     required this.text,
     required this.accent,
+    required this.transcribingAccent,
     required this.success,
     required this.error,
     required this.recordingDot,
@@ -128,6 +130,18 @@ class OverlayThemeColors {
 
   /// Cyan accent — spinner, waveform active bars, unlimited-progress line.
   final Color accent;
+
+  /// Amber accent owned by the transcribing state (state-distinction pass,
+  /// 2026-08-17): the processing spinner and the transcribing waveform
+  /// ripple render in this colour so "working" is tellable from "listening"
+  /// (cyan [accent]) at a glance. Deliberately the dark stop of the amber
+  /// pair [OverlayDesignSpec.stateGradients] already assigns to
+  /// [OverlayDesignState.transcribing] — the floating button tints its mic
+  /// glyph from that same pair, so overlay and button speak one colour
+  /// language. Mid-tone on purpose: `#D97706` holds ≥3:1 against both white
+  /// (≈3.2:1) and black (≈6.6:1) desktops, so it needs no glyph shadow
+  /// (same rule as the other semantic mid-tones).
+  final Color transcribingAccent;
 
   /// Success colour — done check + message.
   final Color success;
@@ -294,9 +308,12 @@ class OverlaySizeSpec {
   // (6 px inset = 21 % of mini's height vs. 9 % of normal's).
 
   /// Whether this size renders the reduced, waveform-first content set
-  /// (mini): no close glyph, no timer/status text, no stop square; the
-  /// waveform is the dominant element and done/error collapse to a centred
-  /// status icon. State identity stays on the content glyphs (dot/icons).
+  /// (mini): no close glyph, no timer, no stop square; the waveform is the
+  /// dominant element and done/error collapse to a centred status icon.
+  /// State identity stays on the content glyphs (dot/spinner/icons) plus —
+  /// since the state-distinction pass — the transcribing status label, the
+  /// one text mini does paint (the ever-moving waveform alone did not
+  /// distinguish transcribing from recording there).
   final bool minimalContent;
 
   /// Bottom inset of the progress timeline for this size.
@@ -524,9 +541,11 @@ class OverlayLayoutSpec {
     lineStrokeMin: 1.5,
   );
 
-  /// Mini-size layout. The mini painter branch renders only dot + waveform
-  /// (+ centred status icon for done/error), so the close/stop/timer values
-  /// here are conservative fallbacks that are never drawn in practice.
+  /// Mini-size layout. The mini painter branch renders dot + waveform while
+  /// recording, spinner + status label while transcribing (which consumes
+  /// [dotInset]/[timerGap]/[timerFontSize]) and a centred status icon for
+  /// done/error; the close/stop values here are conservative fallbacks that
+  /// are never drawn in practice.
   static const OverlayLayoutSpec mini = OverlayLayoutSpec(
     padH: 12,
     closeArm: 3.0,
@@ -1268,6 +1287,44 @@ abstract final class OverlayDesignSpec {
   /// through the decay.
   static const int waveformReleaseOutMs = 300;
 
+  // -- Transcribing state identity (state-distinction pass, 2026-08-17) ------
+  //
+  // Recording and transcribing used to share the cyan accent and the pulsing
+  // dot; over the always-moving waveform the two states were hard to tell
+  // apart at a glance (maintainer report), loudest on mini where no text is
+  // painted. Transcribing now owns a distinct identity, identical across all
+  // three sizes: the amber [OverlayThemeColors.transcribingAccent] on the
+  // ripple, plus a small rotating open arc (the classic "working" glyph)
+  // where recording pulses its dot. The arc is driven by the existing
+  // liquid-glass phase — [transcribingSpinnerTurnsPerLoop] integer turns per
+  // [liquidDriftPeriod] loop keep the rotation seamless at the phase wrap
+  // and add NO new AnimationController; reduced-motion/preview rest at the
+  // static phase-0 frame like every other phase-driven motion.
+
+  /// Spinner arc radius as a factor of the per-size [OverlayLayoutSpec.
+  /// dotRadius], so the glyph scales with the size variant exactly like the
+  /// recording dot it replaces.
+  static const double transcribingSpinnerRadiusFactor = 1.7;
+
+  /// Spinner stroke width as a factor of the per-size dot radius.
+  static const double transcribingSpinnerStrokeFactor = 0.55;
+
+  /// Hard floor for the spinner stroke width in logical pixels.
+  static const double transcribingSpinnerMinStrokePx = 1.5;
+
+  /// Arc sweep — 270°, open enough to read as motion, closed enough to read
+  /// as a ring.
+  static const double transcribingSpinnerSweep = 1.5 * math.pi;
+
+  /// Full rotations per [liquidDriftPeriod] loop (integer → seamless wrap).
+  /// 10 turns / 8 s = 1.25 rev/s — clearly "working", still calm.
+  static const int transcribingSpinnerTurnsPerLoop = 10;
+
+  /// Alpha of the faint full-circle track beneath the bright arc — anchors
+  /// the arc as a spinner (not a stray crescent) over busy desktops. Same
+  /// trailing-alpha register as [timelineEndOpacity].
+  static const double transcribingSpinnerTrackOpacity = 0.25;
+
   // -- Font weights (theme-wide, not scaled) ---------------------------------
 
   /// Recording timer weight (bold).
@@ -1316,6 +1373,7 @@ abstract final class OverlayDesignSpec {
     capsuleBorder: Color(0x330887A8),
     text: Color(0xFF14202E),
     accent: Color(0xFF0887A8),
+    transcribingAccent: Color(0xFFD97706),
     success: Color(0xFF05875C),
     error: Color(0xFFCC1C1C),
     recordingDot: Color(0xFFFF5252),
@@ -1477,14 +1535,18 @@ abstract final class OverlayDesignSpec {
 
   /// Width ratio for a [OverlaySizeSpec.minimalContent] (mini) pill.
   ///
-  /// While the waveform runs (recording/transcribing) mini keeps its full
-  /// width. For the done/error end states the capsule shrinks around the
-  /// single centred status icon (impeccable pass) — a 150 px capsule holding
-  /// one 14 px glyph read as an empty shell, and the width-morph spring is
-  /// the overlay's most elegant motion; mini now shares it.
+  /// While the live waveform runs (recording) mini keeps its full width. For
+  /// the done/error end states the capsule shrinks around the single centred
+  /// status icon (impeccable pass) — a 150 px capsule holding one 14 px glyph
+  /// read as an empty shell, and the width-morph spring is the overlay's most
+  /// elegant motion; mini now shares it. Transcribing (state-distinction
+  /// pass, 2026-08-17) uses the same floor: the ratio is only the lower
+  /// bound, [pillWidthForText] grows the pill to fit the status label mini
+  /// now paints in that state, so the capsule morphs from the full-width
+  /// waveform into a compact fitted status pill.
   static double miniPillWidthRatio(OverlayDesignState state) => switch (state) {
     OverlayDesignState.recording => 1.0,
-    OverlayDesignState.transcribing => 1.0,
+    OverlayDesignState.transcribing => 0.42,
     OverlayDesignState.done => 0.42,
     OverlayDesignState.error => 0.42,
   };
@@ -1517,8 +1579,11 @@ abstract final class OverlayDesignSpec {
     String text,
   ) {
     final baseWidth = pillWidthFor(state, sizeSpec);
-    // Mini renders no status text — nothing to grow for.
-    if (sizeSpec.minimalContent) return baseWidth;
+    // Mini paints status text only while transcribing (state-distinction
+    // pass); its other states stay glyph-only — nothing to grow for.
+    final paintsText =
+        !sizeSpec.minimalContent || state == OverlayDesignState.transcribing;
+    if (!paintsText) return baseWidth;
     if (text.isEmpty) return baseWidth;
     // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry:
     // textLeft sits at padH + dotInset + timerGap from the pill's left edge,

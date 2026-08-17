@@ -389,16 +389,18 @@ void main() {
       expect(painter.sizeSpec.minimalContent, isTrue);
     });
 
-    test('mini pill: full width while the waveform runs, shrinks around '
-        'the glyph for done/error', () {
+    test('mini pill: full width while the live waveform runs, fitted floor '
+        'for transcribing (label grows it), shrinks for done/error', () {
       const m = OverlaySizeSpec.mini;
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, m),
         m.width,
       );
+      // Transcribing floor (state-distinction pass): pillWidthForText grows
+      // the pill to fit the status label mini now paints in this state.
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
-        m.width,
+        closeTo(m.width * 0.42, 1e-9),
       );
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, m),
