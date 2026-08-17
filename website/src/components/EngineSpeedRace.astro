@@ -1,0 +1,202 @@
+---
+/**
+ * `EngineSpeedRace.astro` — animated whisper.cpp-vs-Parakeet CPU speed
+ * comparison for `/engine-benchmarks/` (+ EN counterpart). Same visual
+ * language as `SpeedComparison.astro` (proportional bar race, scroll-scrubbed
+ * via `animation-timeline: view()`, `--ease-flow`, `--color-brand-cyan`) —
+ * deliberately reused rather than invented, so this reads as the same motion
+ * system as the rest of the site instead of a one-off graphic.
+ *
+ * Values come straight from `engine-benchmarks.json` (the same file the
+ * table above already renders from), never hardcoded here — this graphic
+ * can't drift from the measured numbers.
+ */
+import benchmarkData from '../data/engine-benchmarks.json';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+const whisperCpu = benchmarkData.rows.find(
+  (r) => r.engine === 'whisper.cpp' && r.hardwareClass === 'Apple Silicon (CPU)',
+);
+const parakeetCpu = benchmarkData.rows.find(
+  (r) => r.engine === 'Parakeet (sherpa-onnx)' && r.hardwareClass === 'Apple Silicon (CPU)',
+);
+
+const whisperMultiplier = whisperCpu ? Math.round(1 / whisperCpu.rtf) : null;
+const parakeetMultiplier = parakeetCpu ? Math.round(1 / parakeetCpu.rtf) : null;
+const whisperTarget =
+  whisperMultiplier && parakeetMultiplier ? Math.round((whisperMultiplier / parakeetMultiplier) * 100) : 0;
+---
+
+{whisperMultiplier && parakeetMultiplier && (
+  <div class="engine-race">
+    <p class="engine-race__heading">{t(lang, 'explainer.engineBenchmarks.speedRace.heading')}</p>
+
+    <div class="engine-race__bars">
+      <div class="engine-race__row">
+        <div class="engine-race__head">
+          <span class="engine-race__label">whisper.cpp (CPU)</span>
+          <span class="engine-race__value wp-nums">
+            {whisperMultiplier}{t(lang, 'explainer.engineBenchmarks.table.speedSuffix')}
+          </span>
+        </div>
+        <div class="engine-race__track">
+          <div class="engine-race__fill engine-race__fill--whisper" style={`--target: ${whisperTarget}%`}></div>
+        </div>
+      </div>
+
+      <div class="engine-race__row">
+        <div class="engine-race__head">
+          <span class="engine-race__label engine-race__label--brand">Parakeet (CPU)</span>
+          <span class="engine-race__value engine-race__value--brand wp-nums">
+            {parakeetMultiplier}{t(lang, 'explainer.engineBenchmarks.table.speedSuffix')}
+          </span>
+        </div>
+        <div class="engine-race__track">
+          <div class="engine-race__fill engine-race__fill--parakeet" style="--target: 100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="engine-race__caption">{t(lang, 'explainer.engineBenchmarks.speedRace.caption')}</p>
+  </div>
+)}
+
+<style>
+  .engine-race {
+    margin-top: 1.5rem;
+  }
+  .engine-race__heading {
+    margin: 0 0 1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-ink-muted);
+  }
+  .engine-race__bars {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    view-timeline-name: --engine-race-bars;
+    view-timeline-axis: block;
+  }
+  .engine-race__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    gap: 1rem;
+  }
+  .engine-race__label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-ink-muted);
+  }
+  .engine-race__label--brand {
+    color: var(--color-ink);
+  }
+  .engine-race__value {
+    font-family: var(--font-display, inherit);
+    font-weight: 800;
+    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
+    line-height: 1;
+    color: var(--color-ink-muted);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .engine-race__value--brand {
+    color: var(--color-brand-cyan);
+  }
+  .engine-race__track {
+    position: relative;
+    height: 1.125rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-ink-subtle) 18%, transparent);
+    overflow: hidden;
+  }
+  .engine-race__fill {
+    height: 100%;
+    width: var(--target);
+    border-radius: 999px;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 1s var(--ease-flow);
+  }
+  .engine-race__fill--whisper {
+    background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
+    transition-delay: 0.05s;
+  }
+  .engine-race__fill--parakeet {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-brand-cyan) 75%, #0b7fa0) 0%,
+      var(--color-brand-cyan) 100%
+    );
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+    transition-delay: 0.18s;
+  }
+  .engine-race__caption {
+    margin: 1.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
+  }
+
+  /* Reveal on load — this page has no page-level scroll-reveal observer
+     (that machinery only exists on index.astro/changelog.astro), so this
+     component stays self-contained: CSS-only scroll-scrubbing on the
+     progressive-enhancement path, immediate full state as the baseline
+     (below) for browsers without it instead of depending on JS. */
+  .engine-race__fill {
+    transform: scaleX(1);
+    transition: none;
+  }
+
+  @supports (animation-timeline: view()) {
+    @keyframes engine-race-fill {
+      from { clip-path: inset(0 100% 0 0 round 999px); }
+      to { clip-path: inset(0 0 0 0 round 999px); }
+    }
+    @keyframes engine-race-value-land {
+      from {
+        opacity: 0;
+        translate: 0 0.3em;
+        filter: blur(3px);
+      }
+      to {
+        opacity: 1;
+        translate: 0 0;
+        filter: blur(0);
+      }
+    }
+    .engine-race__fill {
+      transform: none;
+      animation: engine-race-fill linear both;
+      animation-timeline: --engine-race-bars;
+    }
+    .engine-race__fill--whisper {
+      animation-range: entry 0% cover 35%;
+    }
+    .engine-race__fill--parakeet {
+      animation-range: entry 0% cover 55%;
+    }
+    .engine-race__value {
+      animation: engine-race-value-land linear both;
+      animation-timeline: --engine-race-bars;
+      animation-range: entry 0% cover 30%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .engine-race__fill {
+      transform: scaleX(1) !important;
+      animation: none !important;
+      clip-path: none !important;
+    }
+    .engine-race__value {
+      animation: none !important;
+      opacity: 1 !important;
+      translate: none !important;
+      filter: none !important;
+    }
+  }
+</style>

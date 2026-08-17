@@ -13,6 +13,7 @@
  * erfunden.
  */
 import LandingPageLayout from "../layouts/LandingPageLayout.astro";
+import EngineSpeedRace from "../components/EngineSpeedRace.astro";
 import { t, localePath } from "../scripts/i18n.ts";
 import benchmarkData from "../data/engine-benchmarks.json";
 
@@ -132,6 +133,7 @@ const rows = matrix.map((cell) => {
         </tbody>
       </table>
     </div>
+    <EngineSpeedRace />
   </section>
 
   <section>
