@@ -119,6 +119,15 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     setState(() => _editingNoteId = null);
   }
 
+  void _copyNote(String noteContent) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: noteContent,
+      category: 'history_note',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -299,6 +308,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 onCancel: _cancelEditing,
                 onStartEdit: () => _startEditing(note.id, note.content),
                 onDelete: () => _deleteNote(note.id, note.content),
+                onCopy: () => _copyNote(note.content),
               ),
             ],
           ],
@@ -327,6 +337,7 @@ class _NoteItem extends StatefulWidget {
     required this.onCancel,
     required this.onStartEdit,
     required this.onDelete,
+    required this.onCopy,
   });
 
   final EntryNote note;
@@ -341,6 +352,7 @@ class _NoteItem extends StatefulWidget {
   final VoidCallback onCancel;
   final VoidCallback onStartEdit;
   final VoidCallback onDelete;
+  final VoidCallback onCopy;
 
   @override
   State<_NoteItem> createState() => _NoteItemState();
@@ -495,6 +507,25 @@ class _NoteItemState extends State<_NoteItem> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Semantics(
+                          label: L10n.of(context).notesCopy,
+                          button: true,
+                          child: Tooltip(
+                            message: L10n.of(context).notesCopy,
+                            child: InkWell(
+                              onTap: widget.onCopy,
+                              borderRadius: WpRadius.borderSm,
+                              child: Padding(
+                                padding: const EdgeInsets.all(WpSpacing.xs),
+                                child: Icon(
+                                  LucideIcons.copy,
+                                  size: WpIconSize.sm,
+                                  color: widget.textMuted,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         Semantics(
                           label: L10n.of(context).actionEdit,
                           button: true,
