@@ -723,9 +723,15 @@ class _AppShellState extends ConsumerState<_AppShell>
           ? AutoPasteGateHooks(
               readStatus: _readAutoPasteGateStatus,
               showGrantAlert: _showAutoPasteGateGrantAlert,
+              // Repair-aware, exactly like [_grantAccessibilityFromNotice]:
+              // this branch is only reached when the capability already reads
+              // `permissionMissing`, i.e. the same stale-entry situation, and
+              // a bare requestGrant() would send the user to a Settings row
+              // that is already switched on (reported dead end, verified: no
+              // `repairTccEntries` ever appeared in the native log).
               startGrantFlow: () => ref
                   .read(pasteCapabilityNotifierProvider.notifier)
-                  .requestGrant(),
+                  .runMissingPermissionRecovery(),
               showManualGrantAlert: _showManualGrantAlert,
             )
           : null,
@@ -834,8 +840,18 @@ class _AppShellState extends ConsumerState<_AppShell>
     if (capability?.status != PasteCapabilityStatus.permissionMissing) {
       return AutoPasteGateStatus.notNeeded;
     }
-    return notifier.restartWasIneffective
-        ? AutoPasteGateStatus.missingAfterIneffectiveRestart
+    if (notifier.restartWasIneffective) {
+      return AutoPasteGateStatus.missingAfterIneffectiveRestart;
+    }
+    // `grantRequiresEntryReset` is the live-probe (Developer-ID / ad-hoc)
+    // build — the one where the grant handoff calls
+    // `AXIsProcessTrustedWithOptions(prompt:)` and macOS therefore raises its
+    // own Accessibility alert. Our pre-alert would be that same question
+    // twice. The cached-probe (MAS) build keeps its own alert: only
+    // `CGRequestPostEventAccess()` runs there, and that its dialog appears is
+    // not verified on this machine.
+    return notifier.grantRequiresEntryReset
+        ? AutoPasteGateStatus.missingWithOsPrompt
         : AutoPasteGateStatus.missing;
   }
 

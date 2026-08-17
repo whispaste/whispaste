@@ -383,13 +383,30 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
 
   /// Runs one capability probe through the [Paster].
   ///
-  /// Calls that overlap are coalesced — a second [check] entered while the
-  /// first is still in flight returns immediately without firing a
-  /// duplicate probe. Never mutates [PasteCapabilityState.sentToOsGrantFlow]:
-  /// that bit is owned by the grant-handoff entry points ([requestGrant] /
+  /// Overlapping **probes** are coalesced — a second `check()` entered while
+  /// the first is still in flight returns immediately without firing a
+  /// duplicate one. A **prompting** call (`prompt: true`) is never coalesced
+  /// away: it is not a probe but the user-initiated permission request, and
+  /// dropping it means macOS's own dialog silently never appears.
+  ///
+  /// That was a live-reproduced dead end: dismissing the microphone dialog
+  /// returns focus to the app, which fires `recheckOnForeground()`, and the
+  /// startup gate's Auto-Paste grant handoff runs microseconds later in the
+  /// same turn — the prompt landed inside that probe's flight window, was
+  /// dropped, and the user got no dialog at all (verified: `repairTccEntries`
+  /// in the native log with no following `prompt=true`). Prompting calls come
+  /// from explicit user actions only, so they are far too rare to need the
+  /// duplicate-suppression this guard exists for.
+  ///
+  /// Never mutates [PasteCapabilityState.sentToOsGrantFlow]: that bit is owned
+  /// by the grant-handoff entry points ([requestGrant] /
   /// [openAccessibilitySettings]), not by probing.
   Future<void> check({bool prompt = false}) async {
-    if (_checkInFlight) return;
+    // The flag stays owned by the outermost call, so a prompting call that
+    // rides along inside a probe's flight window cannot clear it early and
+    // re-open the duplicate-probe window it guards.
+    final rodeAlong = _checkInFlight;
+    if (rodeAlong && !prompt) return;
     _checkInFlight = true;
     try {
       final paster = ref.read(pasterProvider);
@@ -434,7 +451,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         await _clearRestartMarker();
       }
     } finally {
-      _checkInFlight = false;
+      if (!rodeAlong) _checkInFlight = false;
     }
   }
 

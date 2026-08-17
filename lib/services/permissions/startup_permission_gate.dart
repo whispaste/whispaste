@@ -115,7 +115,24 @@ enum AutoPasteGateStatus {
   /// action never pastes — no gate required.
   notNeeded,
 
-  /// Permission missing, first contact this boot chain.
+  /// Permission missing, first contact this boot chain, and the grant handoff
+  /// will raise **macOS's own** Accessibility alert — so this gate must not
+  /// show a pre-alert of its own.
+  ///
+  /// This mirrors the microphone leg's asymmetry (see the library doc): there,
+  /// `showGrantAlert` only fires *after* a denial, when no OS dialog will ever
+  /// come again; on first contact the OS dialog is the whole surface. The
+  /// Auto-Paste leg used to show its alert unconditionally, which on the
+  /// live-probe build produced two dialogs in a row asking the identical
+  /// question with the identical primary button ("Systemeinstellungen öffnen")
+  /// — reproduced live, with the second one landing on top of the first. The
+  /// OS alert carries its own "Nicht erlauben", so declinability (Apple HIG)
+  /// is preserved without our copy.
+  missingWithOsPrompt,
+
+  /// Permission missing, first contact this boot chain, and no OS dialog is
+  /// expected — our own alert is the only surface that can explain the
+  /// missing toggle, so it stays.
   missing,
 
   /// Permission missing although a grant-driven restart already ran
@@ -178,9 +195,14 @@ class AutoPasteGateHooks {
   /// abort the grant flow entirely.
   final Future<bool> Function() showGrantAlert;
 
-  /// Hands off to `PasteCapabilityNotifier.requestGrant()` — fires the OS
-  /// request (registers the correct Settings toggle), opens the exact pane,
-  /// arms the grant poll. The existing app-level restart watch takes it
+  /// Hands off to `PasteCapabilityNotifier.runMissingPermissionRecovery()` —
+  /// the repair-aware entry point: on builds where a stale, hash-pinned TCC
+  /// entry is the only possible cause of `permissionMissing` it clears that
+  /// entry FIRST and only then fires the OS request (registers the correct
+  /// Settings toggle), opens the exact pane, arms the grant poll. A bare
+  /// `requestGrant()` here was the reported dead end — it re-hit the stale
+  /// entry, so System Settings showed an already-enabled row with nothing
+  /// left for the user to do. The existing app-level restart watch takes it
   /// from there (forced-restart modal on MAS, live flip on Developer-ID).
   final Future<void> Function() startGrantFlow;
 
@@ -217,6 +239,13 @@ class StartupPermissionGate {
     _breadcrumb('mic.outcome', {'outcome': micOutcome.name});
     final autoPasteOutcome = await _runAutoPasteGate();
     _breadcrumb('autopaste.outcome', {'outcome': autoPasteOutcome.name});
+    // Also logged, not just breadcrumbed: Sentry breadcrumbs are invisible in
+    // the local log file, and two rounds of debugging this flow were spent
+    // inferring from `capability check:` lines alone which leg had actually
+    // run. One line makes the gate's decision readable in every bug report.
+    _log.info(
+      'gate outcome: mic=${micOutcome.name} autoPaste=${autoPasteOutcome.name}',
+    );
     return StartupGateResult(mic: micOutcome, autoPaste: autoPasteOutcome);
   }
 
@@ -278,6 +307,11 @@ class StartupPermissionGate {
         case AutoPasteGateStatus.missingAfterIneffectiveRestart:
           await hooks.showManualGrantAlert();
           return AutoPasteGateOutcome.manualAlertShown;
+        case AutoPasteGateStatus.missingWithOsPrompt:
+          // macOS raises its own alert inside the grant flow — a pre-alert
+          // here would be the same question twice. See the enum doc.
+          await hooks.startGrantFlow();
+          return AutoPasteGateOutcome.grantFlowStarted;
         case AutoPasteGateStatus.missing:
           if (!await hooks.showGrantAlert()) {
             return AutoPasteGateOutcome.declined;

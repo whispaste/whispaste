@@ -184,6 +184,44 @@ void main() {
       },
     );
 
+    test('an in-flight probe coalesces another probe but never swallows a '
+        'prompting call — the OS dialog must not go missing', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      // A probe suspended mid-round-trip, exactly like the foreground recheck
+      // that fires when the user dismisses the microphone dialog.
+      final gate = Completer<void>();
+      paster.gate = gate;
+      final probe = notifier.check();
+      await pumpEventQueue();
+      expect(paster.calls, [false]);
+
+      // A second probe is still coalesced away (unchanged behaviour).
+      final duplicate = notifier.check();
+      await pumpEventQueue();
+      expect(paster.calls, [false]);
+
+      // The prompting call is an action, not a probe: it must reach the
+      // platform even inside the probe's flight window. Dropping it is what
+      // made macOS's Accessibility alert silently never appear.
+      final prompted = notifier.check(prompt: true);
+      await pumpEventQueue();
+      expect(
+        paster.calls,
+        [false, true],
+        reason:
+            'A prompting check entered while a probe is in flight must still '
+            'reach Paster.checkCapability — otherwise the user gets no dialog '
+            'at all (live-reproduced startup-gate dead end).',
+      );
+
+      gate.complete();
+      await Future.wait([probe, duplicate, prompted]);
+    });
+
     test('check(prompt: true) with permissionMissing does NOT set '
         'sentToOsGrantFlow — probing never owns the handoff bit', () async {
       final paster = _FakePaster(

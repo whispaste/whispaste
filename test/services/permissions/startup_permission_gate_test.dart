@@ -205,6 +205,18 @@ void main() {
       ]);
     });
 
+    test('missing while macOS raises its own alert → no pre-alert, straight '
+        'into the grant flow (one dialog, not two)', () async {
+      final h = _GateHarness()
+        ..statusReads = [true]
+        ..autoPasteStatus = AutoPasteGateStatus.missingWithOsPrompt;
+      final result = await h.gate().run();
+
+      expect(result.autoPaste, AutoPasteGateOutcome.grantFlowStarted);
+      expect(h.calls, ['mic.status', 'ap.readStatus', 'ap.startGrantFlow']);
+      expect(h.calls, isNot(contains('ap.grantAlert')));
+    });
+
     test('still missing after an ineffective restart → honest manual alert, '
         'no new grant flow (no restart loop)', () async {
       final h = _GateHarness()
