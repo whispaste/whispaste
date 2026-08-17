@@ -185,7 +185,16 @@ class TrayService extends Notifier<void> implements TrayListener {
       }
 
       await trayManager.setIcon(iconPath);
-      await trayManager.setToolTip('WhisPaste');
+      try {
+        await trayManager.setToolTip('WhisPaste');
+      } on Exception catch (e) {
+        // tray_manager's Linux plugin only implements destroy/setIcon/
+        // setTitle/setContextMenu — setToolTip throws MissingPluginException
+        // there. Tooltip is cosmetic; it must not abort listener/menu setup
+        // below (that left the tray icon visible but inert on Linux — no
+        // click, no right-click, no menu).
+        _log.warning('Tray tooltip init failed (non-fatal): $e');
+      }
       trayManager.addListener(this);
 
       _initialized = true;
