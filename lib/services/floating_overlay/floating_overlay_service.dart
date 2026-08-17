@@ -272,19 +272,24 @@ class FloatingOverlayService
       case RecordingPhase.recording:
         _generation++;
         _autoHideTimer?.cancel();
-        // Content first, position second (not the other way around): a fast
-        // second recording can preempt a still-lingering "done" overlay
-        // (see the RecordingPhase.idle case's early return above) — if
-        // _setStartPosition's platform-channel round trip were awaited
-        // first, the stale "done" snapshot stays on screen for however long
-        // that takes, and a same-cycle stopRecording() before it resolves
-        // can even let a later transcribing/done snapshot land first,
-        // freezing the overlay on stale content. Position doesn't need to
-        // precede content — nothing downstream depends on that order.
-        _sendSnapshot(settings, next);
+        // Position first, content second. Both go through the same
+        // MethodChannel (com.whispaste.floating_overlay), which delivers in
+        // FIFO order, so this ordering decides which side the native host
+        // sees first — not which Dart call blocks the other, since neither
+        // is awaited here. Sending setPosition first lets
+        // EnsureOverlayWindow() (linux/runner/floating_overlay_host.cc)
+        // apply the pending anchor before the window's first Show(),
+        // avoiding a (0,0) flash on cold creation. This is still safe for
+        // the "fast second recording preempts a lingering done overlay"
+        // case the old ordering guarded against: that hazard was about
+        // _setStartPosition's *internal* currentDisplayBounds() await
+        // delaying _sendSnapshot if it were awaited at the call site — it
+        // still isn't (unawaited), so _sendSnapshot still fires in the same
+        // synchronous turn regardless of source order.
         if (prev == RecordingPhase.idle) {
           unawaited(_setStartPosition(settings));
         }
+        _sendSnapshot(settings, next);
         // t₁ for hotkey→overlay latency: snapshot sent, native side can now
         // show the overlay. Counterpart: PerfMarkers.markHotkeyPressed() in
         // HotkeyService. HUMAN GATE (issue 16): read the log during dogfooding.
@@ -498,17 +503,37 @@ class FloatingOverlayService
       if (pos == OverlayStartPosition.lastPosition &&
           s.floatingOverlayX >= 0 &&
           s.floatingOverlayY >= 0) {
-        // A "topLeft" (dragged) position is used verbatim by every native
-        // shell — clamp it here, once, so a monitor unplugged since the
-        // position was saved can never start the overlay off-screen on any
-        // platform.
+        // Dispatch the saved position immediately, unclamped: this is the
+        // first `await` in this branch, so the setPosition platform-channel
+        // message still goes out synchronously at call time (Dart dispatches
+        // a MethodChannel call's message before suspending on its reply) —
+        // ahead of _sendSnapshot's updateSnapshot on the recording-phase
+        // caller's next line. currentDisplayBounds() below is itself an
+        // async plugin round trip; awaiting it before sending anything would
+        // let updateSnapshot win that race instead, recreating the
+        // (0,0)-flash-on-cold-creation bug this call ordering exists to
+        // avoid. A monitor unplugged since the position was saved is
+        // corrected a moment later by the clamped follow-up call below —
+        // preferable to reintroducing the flash for every recording.
+        await c.setPosition(
+          s.floatingOverlayX,
+          s.floatingOverlayY,
+          OverlayAnchorMode.topLeft,
+        );
         final displays = await currentDisplayBounds();
         final clamped = WindowPositionClamp.clamp(
           position: Offset(s.floatingOverlayX, s.floatingOverlayY),
           size: OverlayPositioning.overlaySize(compact: false),
           displays: displays,
         );
-        await c.setPosition(clamped.dx, clamped.dy, OverlayAnchorMode.topLeft);
+        if (clamped.dx != s.floatingOverlayX ||
+            clamped.dy != s.floatingOverlayY) {
+          await c.setPosition(
+            clamped.dx,
+            clamped.dy,
+            OverlayAnchorMode.topLeft,
+          );
+        }
       } else {
         final anchor = pos == OverlayStartPosition.bottomCenter
             ? OverlayAnchorMode.bottomCenter
