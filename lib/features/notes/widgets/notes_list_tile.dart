@@ -110,6 +110,30 @@ class _NotesListTileState extends State<NotesListTile> {
     }
   }
 
+  /// Locale the two [DateFormat]s below were built for — empty until the
+  /// first [didChangeDependencies] call, which always runs before the first
+  /// [build] (see `_CollapsibleSectionState` in `section.dart` for the same
+  /// context-dependent-caching pattern).
+  String _dateFormatLocale = '';
+  late DateFormat _monthDayFormat;
+  late DateFormat _yearMonthDayFormat;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // `build()` re-runs on every hover toggle (see MouseRegion below), far
+    // more often than the locale ever changes — constructing a fresh
+    // DateFormat inside `_relativeDateLabel` on each of those calls was pure
+    // per-frame allocation for a value only `didChangeDependencies` needs to
+    // recompute.
+    final locale = Localizations.localeOf(context).toString();
+    if (locale != _dateFormatLocale) {
+      _dateFormatLocale = locale;
+      _monthDayFormat = DateFormat.MMMd(locale);
+      _yearMonthDayFormat = DateFormat.yMMMd(locale);
+    }
+  }
+
   /// Relative label for [Note.updatedAt]: today → HH:MM, yesterday →
   /// localized "Yesterday", else a short localized date (year only when it
   /// differs). Minimal local analogue of the history tile's time labeling —
@@ -126,10 +150,9 @@ class _NotesListTileState extends State<NotesListTile> {
     if (day == today.subtract(const Duration(days: 1))) {
       return L10n.of(context).historyYesterday;
     }
-    final locale = Localizations.localeOf(context).toString();
     return t.year == now.year
-        ? DateFormat.MMMd(locale).format(t)
-        : DateFormat.yMMMd(locale).format(t);
+        ? _monthDayFormat.format(t)
+        : _yearMonthDayFormat.format(t);
   }
 
   @override
