@@ -132,18 +132,18 @@ void main() {
       expect(
         settings.state.value!.privacy.shareUsageStats,
         isTrue,
-        reason: 'Default must be opt-out: consent on until the user disables it.',
+        reason:
+            'Default must be opt-out: consent on until the user disables it.',
       );
       expect(
         settings.state.value!.privacy.retainRecentAudio,
         isFalse,
-        reason: 'Keeping recent recordings defaults to off, unlike the other '
+        reason:
+            'Keeping recent recordings defaults to off, unlike the other '
             'two toggles.',
       );
       expect(find.byType(Switch), findsNWidgets(3));
-      final switches = tester
-          .widgetList<Switch>(find.byType(Switch))
-          .toList();
+      final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
       expect(switches[0].value, isTrue, reason: 'Crash reporting, first row.');
       expect(switches[1].value, isTrue, reason: 'Usage stats, second row.');
       expect(
@@ -275,34 +275,31 @@ void main() {
       },
     );
 
-    testWidgets(
-      'at enlarged system text (textScaler 1.5) all three rows stay '
-      'reachable and operable — the shell scroll fallback may kick in, but '
-      'nothing is clipped away',
-      (tester) async {
-        await _pumpShellOnPrivacyPage(
-          tester,
-          size: kOnboardingWindowSize,
-          textScaler: const TextScaler.linear(1.5),
-        );
+    testWidgets('at enlarged system text (textScaler 1.5) all three rows stay '
+        'reachable and operable — the shell scroll fallback may kick in, but '
+        'nothing is clipped away', (tester) async {
+      await _pumpShellOnPrivacyPage(
+        tester,
+        size: kOnboardingWindowSize,
+        textScaler: const TextScaler.linear(1.5),
+      );
 
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'Enlarged text must scroll, never overflow-clip.',
-        );
-        expect(find.byType(Switch), findsNWidgets(3));
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Enlarged text must scroll, never overflow-clip.',
+      );
+      expect(find.byType(Switch), findsNWidgets(3));
 
-        // The third row (keep recent recordings) sits lowest — prove it can
-        // be brought into view and actually operated, not just that it
-        // exists in the tree.
-        final retainToggle = find.byType(Switch).at(2);
-        await tester.ensureVisible(retainToggle);
-        await tester.pumpAndSettle();
-        await tester.tap(retainToggle);
-        await tester.pumpAndSettle();
-        expect(tester.widget<Switch>(retainToggle).value, isTrue);
-      },
-    );
+      // The third row (keep recent recordings) sits lowest — prove it can
+      // be brought into view and actually operated, not just that it
+      // exists in the tree.
+      final retainToggle = find.byType(Switch).at(2);
+      await tester.ensureVisible(retainToggle);
+      await tester.pumpAndSettle();
+      await tester.tap(retainToggle);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(retainToggle).value, isTrue);
+    });
   });
 }

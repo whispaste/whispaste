@@ -11,9 +11,7 @@ import 'autostart_toggle.dart';
 
 /// Widget keys exposed for testing.
 @visibleForTesting
-const kAppearanceStepOverlayPositionKey = Key(
-  'appearanceStepOverlayPosition',
-);
+const kAppearanceStepOverlayPositionKey = Key('appearanceStepOverlayPosition');
 @visibleForTesting
 const kAppearanceStepOverlaySizeKey = Key('appearanceStepOverlaySize');
 @visibleForTesting

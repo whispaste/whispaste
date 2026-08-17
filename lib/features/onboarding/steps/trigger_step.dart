@@ -209,7 +209,9 @@ class TriggerStep extends ConsumerWidget {
         // adding a third line there would contradict it before it's resolved.
         if (status != HotkeyRegistrationStatus.conflict) ...[
           const SizedBox(height: WpSpacing.lg),
-          _SystemWideHotkeyNotice(message: l10n.onboardingTriggerSystemWideHint),
+          _SystemWideHotkeyNotice(
+            message: l10n.onboardingTriggerSystemWideHint,
+          ),
         ],
       ],
     );
