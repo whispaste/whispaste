@@ -63,11 +63,14 @@ alle App-Funktionen ab:
 | Audio-Aufnahme (§2.2) | `audio-record`, `audio-playback` |
 | Self-Download Sprachdienst (Netzwerk) | `network` |
 | Tray / App-Indicator + Notifications | `desktop` (Session-Bus → StatusNotifier/Notifications) |
+| Auto-Paste-Tastendruck-Synthese (§2.7) | `uinput` |
 
-Auto-Paste-Tastendruck-Synthese ist auf Linux **nicht unterstützt**
-(`PasteCapabilityStatus.unsupported`, CONTEXT.md §2.7) — daher **kein**
-Input-Injection-Interface angefragt (hält den Plug-Satz minimal → bessere
-Store-Auto-Freigabe).
+Auto-Paste läuft auf Linux über ein uinput-virtuelles Keyboard
+(`linux/runner/desktop_paste_host.cc`, Ticket 30). snapd behandelt `uinput` als
+**nicht auto-connect**: der Plug im Manifest allein reicht nicht — Nutzer
+außerhalb eines Store-Auto-Freigabe-Assertions müssen einmalig
+`snap connect whispaste:uinput` ausführen, sonst bleibt `CheckCapability()` bei
+`permission_missing` und Auto-Paste fällt auf Zwischenablage-only zurück.
 
 ---
 

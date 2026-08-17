@@ -73,13 +73,19 @@ apps:
     plugs:
       # ── Display / windowing + Clipboard / Paste (CONTEXT.md §2.4) ────────────
       # Clipboard write rides on the Wayland/X11 sockets; the desktop plugs cover
-      # it. (Auto-Paste keystroke synthesis is unsupported on Linux —
-      # PasteCapabilityStatus.unsupported, CONTEXT.md §2.7 — so no input-injection
-      # interface is requested.)
+      # it.
       - wayland
       - x11
       - desktop
       - desktop-legacy
+      # ── Auto-Paste keystroke synthesis (CONTEXT.md §2.7) ─────────────────────
+      # uinput virtual keyboard (linux/runner/desktop_paste_host.cc, ticket 30).
+      # Unlike the plugs above, snapd's `uinput` interface is NOT auto-connect —
+      # even with this plug declared, a user installing outside the Snap Store
+      # (or before a store auto-connect assertion is granted) must run
+      # `snap connect whispaste:uinput` once themselves, or Auto-Paste falls
+      # back to clipboard-only (CheckCapability() reports `permission_missing`).
+      - uinput
       # ── Global Hotkey (CONTEXT.md §2.5) ──────────────────────────────────────
       # The session bus reaches the WM / GlobalShortcuts portal + the keybinder
       # path. unity7 also carries the legacy session-bus + appindicator surface.
