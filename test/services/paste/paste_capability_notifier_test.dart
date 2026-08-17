@@ -442,25 +442,26 @@ void main() {
       expect(notifier.needsRestart, isFalse);
     });
 
-    test(
-      'missing + sent + idle → restart (no poll timeout required)',
-      () async {
-        final paster = _FakePaster();
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
+    test('missing + sent + idle → restart on a cached-probe (MAS) build '
+        '(no poll timeout required)', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
 
-        final notifier = await probed(
-          container,
-          paster,
-          PasteCapabilityStatus.permissionMissing,
-        );
-        // Hand the user to the OS grant flow (sets sentToOsGrantFlow); no poll.
-        await notifier.openAccessibilitySettings();
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.permissionMissing,
+      );
+      // Restart is only a real recovery where the probe is cached at
+      // process start; the live-probe leg is covered in its own group.
+      notifier.usesCachedPermissionProbe = true;
+      // Hand the user to the OS grant flow (sets sentToOsGrantFlow); no poll.
+      await notifier.openAccessibilitySettings();
 
-        expect(notifier.requiredAction, PastePermissionAction.restart);
-        expect(notifier.needsRestart, isTrue);
-      },
-    );
+      expect(notifier.requiredAction, PastePermissionAction.restart);
+      expect(notifier.needsRestart, isTrue);
+    });
 
     test('missing + sent + awaitingGrant → none (waiting hint owns the '
         'screen)', () async {
@@ -486,7 +487,8 @@ void main() {
       notifier.stopPolling();
     });
 
-    test('missing + sent + timedOut → restart', () async {
+    test('missing + sent + timedOut → restart on a cached-probe (MAS) '
+        'build', () async {
       final paster = _FakePaster(
         initial: const PasteCapability(
           status: PasteCapabilityStatus.permissionMissing,
@@ -496,7 +498,8 @@ void main() {
       final container = _container(paster: paster);
       addTearDown(container.dispose);
 
-      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier)
+        ..usesCachedPermissionProbe = true;
       await notifier.check(); // populate capability = missing
       await notifier.openAccessibilitySettings();
       notifier.startPolling(
@@ -788,7 +791,8 @@ void main() {
       final container = _container(paster: paster);
       addTearDown(container.dispose);
 
-      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier)
+        ..usesCachedPermissionProbe = true;
       await notifier.openAccessibilitySettings();
       notifier.startPolling(
         interval: const Duration(seconds: 30),
@@ -1171,5 +1175,156 @@ void main() {
       expect(notifier.requiredAction, PastePermissionAction.grant);
       expect(notifier.restartWasIneffective, isFalse);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Live-probe (Developer-ID) build: restart is never a valid recovery.
+  // -------------------------------------------------------------------------
+  //
+  // Regression cover for the "far too many restarts" report. On the
+  // Developer-ID build the probe is `AXIsProcessTrusted()`, which flips LIVE
+  // — a relaunch cannot reveal a grant that polling would not have seen
+  // anyway. Every one of these cases used to resolve to `restart` and, via
+  // the app-level `needsRestart` watch, fired the forced-restart modal.
+  //
+  // The captured field trace that motivated this (unified log, subsystem
+  // `com.whispaste.paste`, Developer-ID debug build): a 1 Hz poll ticking
+  // `checkCapability: trusted=false` at :30.668 … :42.668, then an
+  // OFF-CADENCE probe at :43.334 — `recheckOnForeground` — after which the
+  // periodic tick never reappears and the process is replaced 2 s later.
+  // The poll was torn down 13 s into its 30 s budget and the user was
+  // relaunched instead of simply waited out.
+  group('PasteCapabilityNotifier — live-probe build never demands restart', () {
+    test('foreground return with a still-missing probe keeps the poll armed '
+        'and does NOT surface restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      expect(
+        notifier.usesCachedPermissionProbe,
+        isFalse,
+        reason: 'Default (non-MAS) build probes AXIsProcessTrusted() live',
+      );
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 30),
+        timeout: const Duration(seconds: 30),
+      );
+      expect(notifier.isPolling, isTrue);
+
+      // User tabs back to WhisPaste a beat before TCC propagates the grant.
+      await notifier.recheckOnForeground();
+
+      expect(
+        notifier.isPolling,
+        isTrue,
+        reason:
+            'AXIsProcessTrusted() flips live — the poll that would have '
+            'resolved the grant must survive the foreground return',
+      );
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+      notifier.stopPolling();
+    });
+
+    test('a timed-out poll degrades to grant, not restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check();
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(milliseconds: 60),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).pollingPhase,
+        PollingPhase.timedOut,
+      );
+      expect(
+        notifier.requiredAction,
+        PastePermissionAction.grant,
+        reason:
+            '30 s is an ordinary first trip through the Accessibility pane; '
+            'a relaunch cannot help, so keep offering the grant action',
+      );
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('a cancelled poll (user navigated away) degrades to grant, not '
+        'restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check();
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 30),
+        timeout: const Duration(seconds: 30),
+      );
+      notifier.stopPolling();
+
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test(
+      'cached-probe (MAS) build keeps the restart recovery — the '
+      'CGPreflightPostEventAccess value really is stale until relaunch',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        )..usesCachedPermissionProbe = true;
+        await notifier.check();
+        await notifier.openAccessibilitySettings();
+        notifier.startPolling(
+          interval: const Duration(seconds: 30),
+          timeout: const Duration(seconds: 30),
+        );
+        expect(notifier.isPolling, isTrue);
+
+        await notifier.recheckOnForeground();
+
+        expect(
+          notifier.isPolling,
+          isFalse,
+          reason: 'The poll can never resolve on a cached probe — stop it',
+        );
+        expect(notifier.requiredAction, PastePermissionAction.restart);
+        expect(notifier.needsRestart, isTrue);
+      },
+    );
   });
 }

@@ -86,6 +86,16 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   @override
   PasteCapabilityState build() {
     ref.onDispose(() => stopPollingCalls++);
+    // Exercise the cached-probe (Mac App Store) leg: that is the only build
+    // where `requiredAction` can resolve to `restart` at all, so it is the
+    // one that renders this step's restart banner. The live-probe
+    // (Developer-ID) leg deliberately never surfaces a restart — see the
+    // "live-probe build never demands restart" group in
+    // `test/services/paste/paste_capability_notifier_test.dart`. States that
+    // keep `needsRestart` false (ready / awaitingGrant / never-sent) resolve
+    // identically on both legs, so the hidden-banner cases below are
+    // unaffected by this.
+    usesCachedPermissionProbe = true;
     return _initial;
   }
 

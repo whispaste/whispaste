@@ -32,7 +32,15 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   final PasteCapabilityState _seed;
 
   @override
-  PasteCapabilityState build() => _seed;
+  PasteCapabilityState build() {
+    // The banner under test is the cached-probe (Mac App Store) recovery —
+    // the live-probe Developer-ID build never resolves `requiredAction` to
+    // `restart`, because a relaunch cannot reveal a grant that polling would
+    // not already have seen. See [PasteCapabilityNotifier
+    // .usesCachedPermissionProbe].
+    usesCachedPermissionProbe = true;
+    return _seed;
+  }
 
   @override
   Future<void> check({bool prompt = false}) async {}

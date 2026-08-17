@@ -136,7 +136,15 @@ class _TroubleshootPasteCapabilityNotifier extends PasteCapabilityNotifier {
   );
 
   @override
-  PasteCapabilityState build() => _troubleshootState;
+  PasteCapabilityState build() {
+    // The troubleshoot branch this fake exists to hold on screen is
+    // cached-probe (Mac App Store) only — on the live-probe Developer-ID
+    // build `requiredAction` never resolves to `restart`, so the branch has
+    // no restart button to measure. See [PasteCapabilityNotifier
+    // .usesCachedPermissionProbe].
+    usesCachedPermissionProbe = true;
+    return _troubleshootState;
+  }
 
   @override
   Future<void> check({bool prompt = false}) async {

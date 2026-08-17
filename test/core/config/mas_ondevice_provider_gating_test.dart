@@ -54,6 +54,10 @@ void main() {
         'lib/features/settings/sections/feedback_section.dart',
         'lib/features/onboarding/onboarding_overlay.dart',
         'lib/services/paste/paste_policy.dart',
+        // Decides whether a restart is a meaningful permission recovery at
+        // all: the MAS probe is cached at process start, the Developer-ID
+        // one flips live. Auto-Paste only — never STT provider selection.
+        'lib/services/paste/paste_capability_notifier.dart',
         'lib/services/desktop_paste/desktop_paste_controller.dart',
         'lib/services/deploy_channel_service.dart',
         'lib/widgets/status_bar.dart',

@@ -400,7 +400,17 @@ class _SeededPasteCapabilityNotifier extends PasteCapabilityNotifier {
   final PasteCapabilityState _seed;
 
   @override
-  PasteCapabilityState build() => _seed;
+  PasteCapabilityState build() {
+    // Pin the cached-probe (Mac App Store) leg: it is the only build where
+    // `requiredAction` resolves to `restart`, so it is the only one whose
+    // failed-paste notification can route to the restart copy. On the
+    // live-probe Developer-ID build the same seed routes to the grant copy
+    // by design — a relaunch there cannot reveal a grant that polling would
+    // not already have seen. See [PasteCapabilityNotifier
+    // .usesCachedPermissionProbe].
+    usesCachedPermissionProbe = true;
+    return _seed;
+  }
 }
 
 /// Fake sound feedback service for issue 09 — records `playError()` calls

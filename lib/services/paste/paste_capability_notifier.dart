@@ -36,11 +36,13 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/build_config.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
@@ -168,6 +170,28 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   bool _checkInFlight = false;
   Stopwatch? _pollStopwatch;
 
+  /// Whether this build's capability probe is **cached at process start**.
+  ///
+  /// This is the single property that decides whether a restart is a
+  /// meaningful recovery at all:
+  ///
+  ///   - Mac App Store (sandboxed) build → `CGPreflightPostEventAccess()`,
+  ///     which Apple DTS confirms never refreshes mid-process (see the
+  ///     library doc). A relaunch is the *only* way to observe a fresh
+  ///     grant, so [PastePermissionAction.restart] is correct there.
+  ///   - Developer-ID build → `AXIsProcessTrusted()`, which flips **live**.
+  ///     A relaunch can never reveal a grant that continued polling would
+  ///     not have seen anyway, and it cannot fix the other failure mode
+  ///     either (a stale ad-hoc-CDHash TCC entry — the fresh process carries
+  ///     the same hash; only [repair] clears that). So on this build a
+  ///     restart is pure user-visible cost with no mechanism behind it.
+  ///
+  /// Mirrors the `kIsMasBuild` compile-time constant. Settable only so tests
+  /// can exercise BOTH legs: `bool.fromEnvironment` is always `false` under
+  /// `flutter test`, which would otherwise leave the MAS branch uncovered.
+  @visibleForTesting
+  bool usesCachedPermissionProbe = kIsMasBuild;
+
   /// `false` until the first probe of this process resolves — lets [check]
   /// tag the cold-start probe breadcrumb, the one that (together with the
   /// hydrated [PasteCapabilityState.restartAttempted]) discriminates "the
@@ -233,6 +257,18 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     }
     if (state.pollingPhase == PollingPhase.awaitingGrant) {
       return PastePermissionAction.none;
+    }
+    // Live-probe (Developer-ID) build: a relaunch has no mechanism behind it
+    // — `AXIsProcessTrusted()` already reports the current on-disk grant, so
+    // a fresh process reads exactly what this one just read. Offering
+    // "restart" here spends a full app relaunch to re-ask a question we have
+    // the answer to, which is precisely the "far too many restarts" the user
+    // reported. Keep the actionable [grant] instead; the genuinely different
+    // recovery for this build is [repair] (stale ad-hoc-CDHash TCC entry),
+    // which the troubleshoot escape still reaches. See
+    // [usesCachedPermissionProbe].
+    if (!usesCachedPermissionProbe) {
+      return PastePermissionAction.grant;
     }
     return state.sentToOsGrantFlow
         ? PastePermissionAction.restart
@@ -515,9 +551,20 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   Future<void> recheckOnForeground() async {
     if (state.capability?.status == PasteCapabilityStatus.ready) return;
     await check();
-    if (state.sentToOsGrantFlow &&
+    if (usesCachedPermissionProbe &&
+        state.sentToOsGrantFlow &&
         state.capability?.status == PasteCapabilityStatus.permissionMissing) {
-      // Leaves awaitingGrant → idle, so requiredAction resolves to restart.
+      // Cached-probe (MAS) build only: this poll can never resolve, so end it
+      // now and let requiredAction surface the restart affordance instead of
+      // stranding the user on the "tick the box" spinner until the timeout.
+      //
+      // Deliberately NOT done on the live-probe build. TCC propagation is not
+      // instantaneous, and the user routinely tabs back to WhisPaste a beat
+      // before `AXIsProcessTrusted()` flips — tearing the poll down on that
+      // beat threw away the very loop that was about to succeed. Captured
+      // live: a 1 Hz poll ticking `trusted=false` was cancelled by an
+      // off-cadence foreground probe 13 s into its 30 s budget, and the user
+      // got relaunched instead of simply waited out.
       _disposePolling();
     }
   }
