@@ -192,9 +192,10 @@ FlValue* DesktopPasteHost::CheckCapability() {
     const bool exists = access("/dev/uinput", F_OK) == 0;
     FlValue* map = MakeResultMap(
         exists ? "permission_missing" : "unsupported",
-        exists ? "no write access to /dev/uinput — run the WhisPaste udev "
-                  "setup step, or add this user to the 'input' group and "
-                  "log out/in"
+        exists ? "no write access to /dev/uinput — install "
+                  "packaging/linux/71-whispaste-uinput.rules to "
+                  "/etc/udev/rules.d/, or add this user to the 'input' "
+                  "group and log out/in"
                : "/dev/uinput not present — uinput kernel module unavailable");
     fl_value_set_string_take(map, "canPrompt", fl_value_new_bool(FALSE));
     return map;

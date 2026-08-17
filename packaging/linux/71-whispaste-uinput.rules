@@ -1,0 +1,22 @@
+# Grants desktop-session users access to /dev/uinput, which WhisPaste's
+# Auto-Paste needs to synthesize a Ctrl+V keypress on Linux (uinput virtual
+# keyboard, linux/runner/desktop_paste_host.cc — visual-refresh-2026 ticket 30).
+#
+# Without this rule /dev/uinput is root:input 0660 on stock distro kernels,
+# and desktop users are not in "input" by default — DesktopPasteHost's
+# CheckCapability() then reports `permission_missing` and Auto-Paste falls
+# back to clipboard-only.
+#
+# TAG+="uaccess" grants the user at the active logind seat access dynamically
+# (no group membership/re-login needed, the modern systemd-udev default on
+# Fedora/Arch/most current distros). GROUP="input" is kept as a fallback for
+# systems without systemd-logind ACLs.
+#
+# Manual install (no packaging-postinst wiring yet — this file is not
+# referenced by packaging/deb/build-deb.sh, packaging/appimage/,
+# packaging/flatpak/, or packaging/snap/ — see ticket 30's open ACs):
+#   sudo cp packaging/linux/71-whispaste-uinput.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   sudo usermod -aG input "$USER"   # only needed as the GROUP= fallback
+#   # then log out/in (or reboot) for the group membership to take effect
+KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", TAG+="uaccess"
