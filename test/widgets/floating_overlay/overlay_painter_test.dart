@@ -145,10 +145,11 @@ void main() {
       );
     });
 
-    test('transcribing ≈ 0.758', () {
+    test('transcribing = 1.0 (keeps the recording stage — the label floats '
+        'in the full-width processing stream)', () {
       expect(
         OverlayDesignSpec.pillWidthRatio(OverlayDesignState.transcribing),
-        closeTo(0.758, 0.001),
+        1.0,
       );
     });
 
@@ -159,7 +160,7 @@ void main() {
       );
     });
 
-    test('error ≈ 0.758 (same as transcribing)', () {
+    test('error ≈ 0.758', () {
       expect(
         OverlayDesignSpec.pillWidthRatio(OverlayDesignState.error),
         closeTo(0.758, 0.001),
@@ -376,6 +377,51 @@ void main() {
     });
   });
 
+  group('WpOverlayPainter.notchAttenuation — label-in-the-stream envelope', () {
+    const start = 100.0;
+    const end = 200.0;
+
+    test('full ripple well outside the label band', () {
+      const ramp = OverlayDesignSpec.transcribingWaveNotchRampPx;
+      expect(
+        WpOverlayPainter.notchAttenuation(start - ramp - 1, start, end),
+        1.0,
+      );
+      expect(
+        WpOverlayPainter.notchAttenuation(end + ramp + 1, start, end),
+        1.0,
+      );
+    });
+
+    test('floor (calm beads, never a dead gap) inside the label band', () {
+      const floor = OverlayDesignSpec.transcribingWaveNotchFloor;
+      expect(WpOverlayPainter.notchAttenuation(start, start, end), floor);
+      expect(
+        WpOverlayPainter.notchAttenuation((start + end) / 2, start, end),
+        floor,
+      );
+      expect(WpOverlayPainter.notchAttenuation(end, start, end), floor);
+    });
+
+    test('smoothstep shoulders: monotonic rise across the ramp, symmetric '
+        'on both sides', () {
+      const ramp = OverlayDesignSpec.transcribingWaveNotchRampPx;
+      var previous = WpOverlayPainter.notchAttenuation(end, start, end);
+      for (var i = 1; i <= 10; i++) {
+        final x = end + ramp * i / 10;
+        final value = WpOverlayPainter.notchAttenuation(x, start, end);
+        expect(value, greaterThanOrEqualTo(previous));
+        // Mirror symmetry around the band.
+        expect(
+          WpOverlayPainter.notchAttenuation(start - (x - end), start, end),
+          closeTo(value, 1e-12),
+        );
+        previous = value;
+      }
+      expect(previous, 1.0);
+    });
+  });
+
   group('WpOverlayPainter — mini (waveform-first) wiring', () {
     test('painterFor resolves the mini spec + layout from the snapshot', () {
       final painter = WpFloatingOverlayView.painterFor(
@@ -389,18 +435,18 @@ void main() {
       expect(painter.sizeSpec.minimalContent, isTrue);
     });
 
-    test('mini pill: full width while the live waveform runs, fitted floor '
-        'for transcribing (label grows it), shrinks for done/error', () {
+    test('mini pill: full width through both waveform states (recording AND '
+        'transcribing — label-in-the-stream), shrinks for done/error', () {
       const m = OverlaySizeSpec.mini;
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, m),
         m.width,
       );
-      // Transcribing floor (state-distinction pass): pillWidthForText grows
-      // the pill to fit the status label mini now paints in this state.
+      // Waveform+text pass: transcribing keeps the recording stage so the
+      // amber processing stream spans the full width behind the label.
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
-        closeTo(m.width * 0.42, 1e-9),
+        m.width,
       );
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, m),

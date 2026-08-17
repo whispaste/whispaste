@@ -534,15 +534,21 @@ class WpOverlayPainter extends CustomPainter {
 
     _drawClose(canvas, Offset(base + layout.closeOffset, cy));
 
-    // Leading glyph: pulsing accent dot (recording), rotating amber spinner
-    // (transcribing — the "working" register, state-distinction pass) or the
-    // done/error status icon.
+    // Transcribing has its own shared composition (label in the amber
+    // processing stream) — identical across all three sizes.
+    if (state == OverlayDesignState.transcribing) {
+      _drawTranscribing(canvas, pill);
+      return;
+    }
+
+    // Leading glyph: pulsing accent dot (recording) or the done/error
+    // status icon (transcribing returned above).
     final leadCenter = Offset(base + layout.dotInset, cy);
     switch (state) {
       case OverlayDesignState.recording:
         _drawDot(canvas, leadCenter);
       case OverlayDesignState.transcribing:
-        _drawSpinner(canvas, leadCenter);
+        break; // Handled by _drawTranscribing above.
       case OverlayDesignState.done:
         _drawCheckIcon(canvas, leadCenter, colors.success, iconRevealFraction);
       case OverlayDesignState.error:
@@ -565,19 +571,13 @@ class WpOverlayPainter extends CustomPainter {
       maxWidth: maxTextWidth,
     );
 
-    // Waveform + stop square: recording (live) and transcribing (faint flat).
-    if (state == OverlayDesignState.recording ||
-        state == OverlayDesignState.transcribing) {
+    // Waveform + stop square (recording only — live bars).
+    if (_isRecording) {
       final stopSize = layout.stopSize;
       final waveLeft = textLeft + textWidth + layout.waveStartGap;
-      final waveRight = _isRecording
-          ? pill.right - layout.padH - stopSize - layout.waveEndGap
-          : pill.right - layout.padH;
+      final waveRight = pill.right - layout.padH - stopSize - layout.waveEndGap;
       _drawWaveform(canvas, waveLeft, waveRight, cy, pill.height);
-
-      if (_isRecording) {
-        _drawStop(canvas, Offset(pill.right - layout.padH - stopSize / 2, cy));
-      }
+      _drawStop(canvas, Offset(pill.right - layout.padH - stopSize / 2, cy));
     }
 
     // Inset accent progress timeline (recording only).
@@ -588,13 +588,11 @@ class WpOverlayPainter extends CustomPainter {
 
   /// Mini (waveform-first) content: the waveform IS the overlay while
   /// recording — a small pulsing dot plus live bars spanning the remaining
-  /// width. Transcribing (state-distinction pass, 2026-08-17) morphs into a
-  /// compact fitted status pill: the amber rotating spinner plus the
-  /// localized status label — the one text mini paints, because the
-  /// ever-moving waveform alone did not distinguish transcribing from
-  /// recording here. Done/error collapse to a single centred status icon.
-  /// No close glyph, no timer, no stop square. The thin progress timeline is
-  /// kept: it is the only max-duration feedback.
+  /// width. Transcribing renders the shared label-in-the-stream composition
+  /// ([_drawTranscribing]) — the same one normal/compact paint, so all three
+  /// sizes speak one language. Done/error collapse to a single centred
+  /// status icon. No close glyph, no timer, no stop square. The thin
+  /// progress timeline is kept: it is the only max-duration feedback.
   void _drawMinimalContent(Canvas canvas, Rect pill) {
     final cy = pill.center.dy;
     final base = pill.left + layout.padH;
@@ -614,17 +612,7 @@ class WpOverlayPainter extends CustomPainter {
           maxHeight: sizeSpec.waveformMaxHeight,
         );
       case OverlayDesignState.transcribing:
-        final spinnerCenter = Offset(base + layout.dotInset, cy);
-        _drawSpinner(canvas, spinnerCenter);
-        final textLeft = spinnerCenter.dx + layout.timerGap;
-        _drawText(
-          canvas,
-          statusText,
-          Offset(textLeft, cy),
-          layout.timerFontSize,
-          OverlayDesignSpec.contentGlyphFill,
-          maxWidth: pill.right - layout.padH - textLeft,
-        );
+        _drawTranscribing(canvas, pill);
       case OverlayDesignState.done:
         _drawCheckIcon(canvas, pill.center, colors.success, iconRevealFraction);
       case OverlayDesignState.error:
@@ -633,6 +621,63 @@ class WpOverlayPainter extends CustomPainter {
 
     if (_isRecording && progress > 0) {
       _drawTimeline(canvas, pill);
+    }
+  }
+
+  /// The transcribing composition, shared by ALL three sizes (waveform+text
+  /// pass, 2026-08-17): the amber rotating spinner leads, the localized
+  /// status label follows, and the amber processing-ripple waveform spans
+  /// the FULL remaining zone BEHIND the label. The bars directly beneath the
+  /// label sink toward the rest baseline through a smoothstep notch envelope
+  /// ([notchAttenuation]) — the stream visibly parts around the label and
+  /// the travelling ripple flows through the notch, so text and waveform
+  /// coexist without an ellipsis fight over the width (the label keeps its
+  /// full measured width; the earlier text-only cut read as "nur reiner
+  /// Text" on mini/compact).
+  ///
+  /// Paint cost stays hot-path-neutral: the label is laid out exactly once
+  /// (the same single fill layout [_drawText] always did — it is built early
+  /// only because the notch needs its width before the bars are painted),
+  /// and the notch itself is one smoothstep per bar.
+  void _drawTranscribing(Canvas canvas, Rect pill) {
+    final cy = pill.center.dy;
+    final base = pill.left + layout.padH;
+    final spinnerCenter = Offset(base + layout.dotInset, cy);
+    _drawSpinner(canvas, spinnerCenter);
+
+    final textLeft = spinnerCenter.dx + layout.timerGap;
+    final maxTextWidth = pill.right - layout.padH - textLeft;
+    final baseStyle = _textStyle(layout.timerFontSize);
+    final fillTp = statusText.isEmpty
+        ? null
+        : _layoutTextPainter(
+            statusText,
+            baseStyle.copyWith(color: OverlayDesignSpec.contentGlyphFill),
+            maxTextWidth,
+          );
+    final textWidth = fillTp?.width ?? 0.0;
+
+    _drawWaveform(
+      canvas,
+      textLeft,
+      pill.right - layout.padH,
+      cy,
+      pill.height,
+      maxHeight: sizeSpec.minimalContent ? sizeSpec.waveformMaxHeight : null,
+      notchStart: textLeft - OverlayDesignSpec.transcribingWaveNotchPadPx,
+      notchEnd:
+          textLeft + textWidth + OverlayDesignSpec.transcribingWaveNotchPadPx,
+    );
+
+    if (fillTp != null) {
+      _paintLaidOutText(
+        canvas,
+        statusText,
+        fillTp,
+        Offset(textLeft, cy),
+        baseStyle,
+        maxTextWidth,
+      );
     }
   }
 
@@ -774,6 +819,23 @@ class WpOverlayPainter extends CustomPainter {
             (0.5 + 0.5 * ripple);
   }
 
+  /// Notch envelope for the transcribing label-in-the-stream composition:
+  /// attenuation factor (`[transcribingWaveNotchFloor, 1]`) applied to a
+  /// bar's ripple amplitude at position [x]. `1.0` outside the label band
+  /// `[start, end]`, [OverlayDesignSpec.transcribingWaveNotchFloor] inside
+  /// it, joined by smoothstep shoulders of
+  /// [OverlayDesignSpec.transcribingWaveNotchRampPx] on either side. Pure —
+  /// directly unit-testable.
+  @visibleForTesting
+  static double notchAttenuation(double x, double start, double end) {
+    final distOutside = x < start ? start - x : (x > end ? x - end : 0.0);
+    final t = (distOutside / OverlayDesignSpec.transcribingWaveNotchRampPx)
+        .clamp(0.0, 1.0);
+    final smooth = t * t * (3 - 2 * t);
+    const floor = OverlayDesignSpec.transcribingWaveNotchFloor;
+    return floor + (1 - floor) * smooth;
+  }
+
   void _drawWaveform(
     Canvas canvas,
     double left,
@@ -781,6 +843,8 @@ class WpOverlayPainter extends CustomPainter {
     double cy,
     double pillHeight, {
     double? maxHeight,
+    double? notchStart,
+    double? notchEnd,
   }) {
     final waveW = right - left;
     if (waveW <= 20) return;
@@ -823,15 +887,24 @@ class WpOverlayPainter extends CustomPainter {
     final activePaint = Paint()
       ..shader = coreShader(OverlayDesignSpec.waveformCoreActiveLightFraction);
     for (var i = 0; i < count; i++) {
-      final rawLevel = _isRecording
+      final x = left + i * barW + barW / 2;
+      var rawLevel = _isRecording
           ? (i < waveformBars.length ? waveformBars[i].clamp(0.0, 1.0) : 0.0)
           : transcribingBarLevel(i, count, glassPhase);
+      // Transcribing label notch: the ripple amplitude (never the rest
+      // baseline) ducks beneath the status label so the stream parts around
+      // the text instead of running through it.
+      if (!_isRecording && notchStart != null && notchEnd != null) {
+        rawLevel =
+            OverlayDesignSpec.waveformRestLevel +
+            (rawLevel - OverlayDesignSpec.waveformRestLevel) *
+                notchAttenuation(x, notchStart, notchEnd);
+      }
       // Perceptual display gamma: lifts quiet syllables so the waveform
       // dances instead of idling near the floor (display-only mapping).
       final level = _isRecording
           ? math.pow(rawLevel, OverlayDesignSpec.waveformLevelGamma).toDouble()
           : rawLevel;
-      final x = left + i * barW + barW / 2;
       final active =
           _isRecording && i > count - OverlayDesignSpec.waveformActiveCount;
       // Playhead encoding: wider bar + hotter core — never a washed history.
@@ -977,6 +1050,65 @@ class WpOverlayPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// The shared single-line status/timer text style at [fontSize].
+  TextStyle _textStyle(double fontSize) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: fontSize,
+    fontWeight: OverlayDesignSpec.primaryFontWeight,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
+
+  /// Lays [text] out single-line in [style], ellipsised at [maxWidth].
+  TextPainter _layoutTextPainter(
+    String text,
+    TextStyle style,
+    double? maxWidth,
+  ) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    );
+    tp.layout(
+      maxWidth: maxWidth != null && maxWidth > 0 ? maxWidth : double.infinity,
+    );
+    return tp;
+  }
+
+  /// Paints an already laid-out [fillTp] left-anchored at [leftCenter],
+  /// beneath the universal-legibility soft glyph shadow (a blurred dark pass
+  /// of the same [text] that keeps the white glyphs readable over any
+  /// desktop). Split from [_drawText] so [_drawTranscribing] can measure the
+  /// label before the waveform is painted behind it, at the same total
+  /// layout cost.
+  void _paintLaidOutText(
+    Canvas canvas,
+    String text,
+    TextPainter fillTp,
+    Offset leftCenter,
+    TextStyle baseStyle,
+    double? maxWidth,
+  ) {
+    final origin = Offset(leftCenter.dx, leftCenter.dy - fillTp.height / 2);
+    final shadowTp = _layoutTextPainter(
+      text,
+      baseStyle.copyWith(
+        foreground: Paint()
+          ..color = OverlayDesignSpec.glyphShadowColor.withValues(
+            alpha: OverlayDesignSpec.glyphShadowOpacity,
+          )
+          ..maskFilter = const MaskFilter.blur(
+            BlurStyle.normal,
+            OverlayDesignSpec.glyphShadowBlurSigma,
+          ),
+      ),
+      maxWidth,
+    );
+    shadowTp.paint(canvas, origin + OverlayDesignSpec.glyphShadowOffset);
+    fillTp.paint(canvas, origin);
+  }
+
   /// Draws single-line [text] left-anchored at [leftCenter] and returns the
   /// laid-out width. Text is always fully opaque (accessibility).
   double _drawText(
@@ -988,43 +1120,13 @@ class WpOverlayPainter extends CustomPainter {
     double? maxWidth,
   }) {
     if (text.isEmpty) return 0;
-    TextPainter build(TextStyle style) {
-      final tp = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-        ellipsis: '…',
-      );
-      tp.layout(
-        maxWidth: maxWidth != null && maxWidth > 0 ? maxWidth : double.infinity,
-      );
-      return tp;
-    }
-
-    final baseStyle = TextStyle(
-      fontFamily: 'Inter',
-      fontSize: fontSize,
-      fontWeight: OverlayDesignSpec.primaryFontWeight,
-      fontFeatures: const [FontFeature.tabularFigures()],
+    final baseStyle = _textStyle(fontSize);
+    final fillTp = _layoutTextPainter(
+      text,
+      baseStyle.copyWith(color: color),
+      maxWidth,
     );
-    // Universal-legibility text (final: soft shadow) — a blurred dark pass
-    // beneath the white fill keeps the glyphs readable over any desktop.
-    final fillTp = build(baseStyle.copyWith(color: color));
-    final origin = Offset(leftCenter.dx, leftCenter.dy - fillTp.height / 2);
-    final shadowTp = build(
-      baseStyle.copyWith(
-        foreground: Paint()
-          ..color = OverlayDesignSpec.glyphShadowColor.withValues(
-            alpha: OverlayDesignSpec.glyphShadowOpacity,
-          )
-          ..maskFilter = const MaskFilter.blur(
-            BlurStyle.normal,
-            OverlayDesignSpec.glyphShadowBlurSigma,
-          ),
-      ),
-    );
-    shadowTp.paint(canvas, origin + OverlayDesignSpec.glyphShadowOffset);
-    fillTp.paint(canvas, origin);
+    _paintLaidOutText(canvas, text, fillTp, leftCenter, baseStyle, maxWidth);
     return fillTp.width;
   }
 

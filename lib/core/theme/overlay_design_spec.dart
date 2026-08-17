@@ -1325,6 +1325,30 @@ abstract final class OverlayDesignSpec {
   /// trailing-alpha register as [timelineEndOpacity].
   static const double transcribingSpinnerTrackOpacity = 0.25;
 
+  // Label-in-the-stream composition (waveform+text pass, 2026-08-17): the
+  // first cut of the state-distinction pass replaced the mini/compact
+  // waveform with the status label alone, which read as "nur reiner Text"
+  // (maintainer feedback). Transcribing now composes BOTH in every size:
+  // the amber ripple waveform spans the full zone behind the label, and the
+  // bars directly beneath the label sink toward the rest baseline through a
+  // smoothstep envelope — the stream visibly parts around the label and
+  // the travelling ripple flows through the notch. The label keeps its full
+  // measured width (no ellipsis pressure from a reserved wave zone), and
+  // the notch needs no new controller — it is a pure per-bar attenuation.
+
+  /// Remaining fraction of the processing-ripple amplitude directly beneath
+  /// the status label. Deliberately > 0: the bars sink to calm amber beads,
+  /// never to a dead gap — the stream stays continuous under the label.
+  static const double transcribingWaveNotchFloor = 0.18;
+
+  /// Width of the smoothstep ramp on each side of the label notch, in
+  /// logical pixels — soft shoulders, no hard cut into the ripple.
+  static const double transcribingWaveNotchRampPx = 12.0;
+
+  /// Horizontal clearance between the label's measured edge and the start
+  /// of the notch ramp.
+  static const double transcribingWaveNotchPadPx = 6.0;
+
   // -- Font weights (theme-wide, not scaled) ---------------------------------
 
   /// Recording timer weight (bold).
@@ -1520,33 +1544,39 @@ abstract final class OverlayDesignSpec {
   /// | State        | Ratio  | Normal px (≈) |
   /// |---|---|---|
   /// | recording    | 1.000  | 330           |
-  /// | transcribing | 0.758  | 250           |
+  /// | transcribing | 1.000  | 330           |
   /// | done         | 0.606  | 200           |
   /// | error        | 0.758  | 250           |
+  ///
+  /// Transcribing keeps the recording stage (waveform+text pass, 2026-08-17):
+  /// the label-in-the-stream composition needs the full waveform zone, and a
+  /// widthless `recording → transcribing` hand-over lets the bars stay in
+  /// place while the content crossfade re-colours them cyan → amber — the
+  /// collapse morph is saved for the done/error end states.
   ///
   /// Both normal (330) and compact (220) sizes scale automatically because the
   /// ratio is applied against [OverlaySizeSpec.width], not a literal pixel value.
   static double pillWidthRatio(OverlayDesignState state) => switch (state) {
     OverlayDesignState.recording => 1.0,
-    OverlayDesignState.transcribing => 0.758,
+    OverlayDesignState.transcribing => 1.0,
     OverlayDesignState.done => 0.606,
     OverlayDesignState.error => 0.758,
   };
 
   /// Width ratio for a [OverlaySizeSpec.minimalContent] (mini) pill.
   ///
-  /// While the live waveform runs (recording) mini keeps its full width. For
-  /// the done/error end states the capsule shrinks around the single centred
-  /// status icon (impeccable pass) — a 150 px capsule holding one 14 px glyph
-  /// read as an empty shell, and the width-morph spring is the overlay's most
-  /// elegant motion; mini now shares it. Transcribing (state-distinction
-  /// pass, 2026-08-17) uses the same floor: the ratio is only the lower
-  /// bound, [pillWidthForText] grows the pill to fit the status label mini
-  /// now paints in that state, so the capsule morphs from the full-width
-  /// waveform into a compact fitted status pill.
+  /// While the live waveform runs (recording) AND while transcribing mini
+  /// keeps its full width: the transcribing composition is the status label
+  /// floating inside the full-width amber processing stream (waveform+text
+  /// pass, 2026-08-17 — the earlier fitted text-only pill read as "nur
+  /// reiner Text"), so the stage never narrows between the two waveform
+  /// states. For the done/error end states the capsule shrinks around the
+  /// single centred status icon (impeccable pass) — a 150 px capsule holding
+  /// one 14 px glyph read as an empty shell, and the width-morph spring is
+  /// the overlay's most elegant motion; mini shares it there.
   static double miniPillWidthRatio(OverlayDesignState state) => switch (state) {
     OverlayDesignState.recording => 1.0,
-    OverlayDesignState.transcribing => 0.42,
+    OverlayDesignState.transcribing => 1.0,
     OverlayDesignState.done => 0.42,
     OverlayDesignState.error => 0.42,
   };

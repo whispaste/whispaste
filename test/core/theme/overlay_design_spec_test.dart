@@ -252,20 +252,20 @@ void main() {
       );
     });
 
-    test('mini pill width: full while the live waveform runs, fitted to the '
-        'status label while transcribing, shrinks around the status glyph '
-        'for done/error', () {
+    test('mini pill width: full through both waveform states (recording AND '
+        'transcribing — the label floats in the full-width stream), shrinks '
+        'around the status glyph for done/error', () {
       const m = OverlayDesignSpec.miniSize;
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, m),
         m.width,
       );
-      // Transcribing floor (state-distinction pass): the ratio is only the
-      // lower bound — pillWidthForText grows the pill to fit the status
-      // label mini now paints in this state.
+      // Waveform+text pass (2026-08-17): transcribing keeps the recording
+      // stage — the amber processing ripple needs the full zone behind the
+      // status label, and the width morph is saved for the end states.
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
-        closeTo(m.width * 0.42, 1e-9),
+        m.width,
       );
       expect(
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, m),
@@ -275,28 +275,10 @@ void main() {
         OverlayDesignSpec.pillWidthFor(OverlayDesignState.error, m),
         closeTo(m.width * 0.42, 1e-9),
       );
-      // Mini paints status text ONLY while transcribing — there the label
-      // grows the pill (clamped to the full width); every other state stays
-      // glyph-only and text never grows it.
+      // No state's text may push mini beyond its full width, and the
+      // glyph-only end states never grow at all.
       const label = 'some long status text that would grow a normal pill';
-      final transcribingWidth = OverlayDesignSpec.pillWidthForText(
-        OverlayDesignState.transcribing,
-        m,
-        OverlayLayoutSpec.mini,
-        label,
-      );
-      expect(
-        transcribingWidth,
-        greaterThan(
-          OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
-        ),
-      );
-      expect(transcribingWidth, lessThanOrEqualTo(m.width));
-      for (final state in const [
-        OverlayDesignState.recording,
-        OverlayDesignState.done,
-        OverlayDesignState.error,
-      ]) {
+      for (final state in OverlayDesignState.values) {
         expect(
           OverlayDesignSpec.pillWidthForText(
             state,
@@ -304,7 +286,9 @@ void main() {
             OverlayLayoutSpec.mini,
             label,
           ),
-          OverlayDesignSpec.pillWidthFor(state, m),
+          state == OverlayDesignState.transcribing
+              ? m.width
+              : OverlayDesignSpec.pillWidthFor(state, m),
         );
       }
     });
@@ -640,6 +624,21 @@ void main() {
       expect(
         OverlayDesignSpec.transcribingSpinnerTrackOpacity,
         inExclusiveRange(0.0, 1.0),
+      );
+    });
+
+    test('label notch keeps the stream alive beneath the label (floor > 0) '
+        'and joins it with soft shoulders (waveform+text pass)', () {
+      // Floor strictly inside (0, 1): 0 would cut a dead gap into the
+      // stream, 1 would disable the notch entirely.
+      expect(
+        OverlayDesignSpec.transcribingWaveNotchFloor,
+        inExclusiveRange(0.0, 1.0),
+      );
+      expect(OverlayDesignSpec.transcribingWaveNotchRampPx, isPositive);
+      expect(
+        OverlayDesignSpec.transcribingWaveNotchPadPx,
+        greaterThanOrEqualTo(0),
       );
     });
   });
