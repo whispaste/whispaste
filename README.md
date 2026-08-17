@@ -7,7 +7,7 @@
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
   Stop typing — speak, and your words land at the cursor in any app.<br>
-  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop app — offline by default, cloud providers optional, no subscription.<br>
+  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop voice-input tool — offline by default, cloud providers optional, no subscription.<br>
   Windows · macOS · Linux · MIT-licensed.
 </p>
 

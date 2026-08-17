@@ -20,11 +20,18 @@
 // Kanonische Begriffe (PRD §D)
 // ---------------------------------------------------------------------------
 
-/** Produktkategorie auf Deutsch — verwendet in Hero, Schema, Title-Tags. */
-export const productCategoryDE = "Sprach-Eingabe-Tool" as const;
+/**
+ * Produktkategorie auf Deutsch — verwendet in Hero, Schema, Title-Tags.
+ * Mit „Desktop-" Präfix (2026-08-17): deckt sich mit der bereits etablierten
+ * Formulierung in `meta.description.default`/`schema.app.description` (den
+ * SEO-gewichtigsten Strings der Site) und macht explizit, dass es KEINE
+ * Mobile-Version gibt — passender Suchbegriff, keine Verwässerung der
+ * bewussten Abgrenzung von „Diktier-Software".
+ */
+export const productCategoryDE = "Desktop-Sprach-Eingabe-Tool" as const;
 
-/** Produktkategorie auf Englisch — verwendet in Hero, Schema, Title-Tags. */
-export const productCategoryEN = "voice-input tool" as const;
+/** Produktkategorie auf Englisch — verwendet in Hero, Schema, Title-Tags. Siehe DE-Pendant. */
+export const productCategoryEN = "Desktop voice-input tool" as const;
 
 /** Tätigkeit auf Deutsch — was der Nutzer tut. */
 export const actionDE = "Spracheingabe" as const;
