@@ -40,9 +40,13 @@ import os.log
 class SnippetPickerHost: NSObject, NSWindowDelegate {
   private static let logger = OSLog(subsystem: "com.whispaste.snippet_picker", category: "SnippetPickerHost")
 
-  /// Fixed panel content size — the placeholder Dart UI doesn't yet report a
-  /// measured size back, so this host picks a reasonable default. Revisit
-  /// once the Fable design pass lands (ticket 06) if it needs to vary.
+  /// Fixed panel content size — part of the cross-platform Snippet-Picker
+  /// contract (visual-refresh-2026 ticket 28), not a stopgap: every native
+  /// shell (this one, and the Windows/Linux shells that reuse the same Dart
+  /// panel) hosts the same 360×420 surface. The Dart panel itself
+  /// (`lib/snippet_picker_render_entrypoint.dart`) does not report a
+  /// measured size back to its host, so each shell fixes this size rather
+  /// than sizing to content.
   private static let contentSize = NSSize(width: 360, height: 420)
 
   private var channel: FlutterMethodChannel

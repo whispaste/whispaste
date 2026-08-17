@@ -16,6 +16,35 @@ import 'snippet_picker_events.dart';
 /// recording pipeline: dispatch must return promptly so it can reach its
 /// `done` state without waiting on user interaction (ticket 06's dispatch
 /// AC).
+///
+/// ## Cross-platform shell contract (visual-refresh-2026 ticket 28)
+///
+/// Every native shell that hosts this controller — today only
+/// [MacOSSnippetPickerController] via `SnippetPickerHost.swift`, with
+/// Windows/Linux counterparts to follow behind this same interface — must
+/// honor two fixed points so the Dart panel's assumptions hold everywhere:
+///
+/// - **Panel size is fixed at 360×420** (logical px). The Dart panel
+///   (`lib/snippet_picker_render_entrypoint.dart`) never reports a measured
+///   size back to its host, so a shell that sizes to content instead of
+///   this fixed value would clip or letterbox the panel.
+/// - **Position is read natively by the shell itself**, anchored at the
+///   cursor — never passed from Dart. See [show] below for why.
+///
+/// **Second-engine boot, verified per platform:** macOS and Windows resolve
+/// a *named* Dart entrypoint against the root library
+/// (`runWithEntrypoint:`/`set_dart_entrypoint`, both used today by the
+/// floating-button/-overlay shells for `floatingButtonMain`/
+/// `floatingOverlayMain`) — a Windows Snippet-Picker shell can boot
+/// `snippetPickerMain` (`lib/main.dart`) the same way. **Linux has no such
+/// API**: its GTK embedder only exposes
+/// `fl_dart_project_set_dart_entrypoint_arguments`, so
+/// `linux/runner/floating_button_window.cc`/`floating_overlay_window.cc`
+/// instead pass a marker argument (`--floating-button`/`--floating-overlay`)
+/// that `lib/main.dart`'s `main()` branches on before `runApp()`. A future
+/// Linux shell cannot call `snippetPickerMain` by name; it needs the same
+/// args-branch pattern (e.g. `--snippet-picker`) added to `main()`, not a
+/// second named pragma-vm-entry function.
 abstract class SnippetPickerController {
   /// Shows the panel near the current mouse position.
   ///
