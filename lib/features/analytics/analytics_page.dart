@@ -1078,8 +1078,6 @@ class _CostPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const success = WpColors.success;
-    const warning = WpColors.warning;
     final l10n = L10n.of(context);
 
     final savingsStr = '\$${localSavingsUsd.toStringAsFixed(2)}';
@@ -1097,40 +1095,43 @@ class _CostPanel extends StatelessWidget {
         // Local savings
         _CostRow(
           icon: LucideIcons.shieldCheck,
-          iconColor: success,
           title: l10n.analyticsLocalSavings,
           value: l10n.analyticsSavedAmount(savingsStr),
-          valueColor: success,
         ),
         const SizedBox(height: WpSpacing.sm),
 
         // Cloud cost
         _CostRow(
           icon: LucideIcons.cloud,
-          iconColor: warning,
           title: l10n.analyticsCloudCost,
           value: l10n.analyticsSpentAmount(costStr),
-          valueColor: warning,
         ),
       ],
     );
   }
 }
 
+/// One line of the cost panel: an icon, what the number counts, the number.
+///
+/// Both rows used to be colour-coded — savings in `success` green, cloud spend
+/// in `warning` amber — and neither is a status. These are running totals over
+/// the whole selected period: money that was never spent because dictation ran
+/// locally, and money that was. Green here says "that just worked" about a
+/// figure that has been true for weeks (the Earned-Green Rule, `lib/DESIGN.md`),
+/// and amber says "look out" about a bill the user chose to run up. Ticket 32,
+/// finding B5. The row therefore takes no colour parameters at all any more:
+/// there is no per-row decision left to make, which is the point — the label
+/// says which number this is, and both numbers read in the same voice.
 class _CostRow extends StatelessWidget {
   const _CostRow({
     required this.icon,
-    required this.iconColor,
     required this.title,
     required this.value,
-    required this.valueColor,
   });
 
   final IconData icon;
-  final Color iconColor;
   final String title;
   final String value;
-  final Color valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1138,7 +1139,7 @@ class _CostRow extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(icon, size: WpIconSize.sm, color: iconColor),
+        Icon(icon, size: WpIconSize.sm, color: WpColors.textMuted),
         const SizedBox(width: WpSpacing.xs),
         Expanded(
           child: Text(
@@ -1151,10 +1152,10 @@ class _CostRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w700,
-            color: valueColor,
+            color: textPrimary,
           ),
         ),
       ],

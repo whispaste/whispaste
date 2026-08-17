@@ -684,6 +684,7 @@
   "modelServerMissing": "Speech service not installed",
   "modelServerWhisper": "Local speech service",
   "modelReady": "Ready",
+  "modelDownloadComplete": "Model ready to use",
   "modelUse": "Use",
   "modelDownload": "Download",
   "modelDownloading": "Downloading…",

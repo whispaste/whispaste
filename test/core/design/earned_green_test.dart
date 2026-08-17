@@ -64,10 +64,12 @@ void main() {
     // Each row names the ticket that owes its removal. When that ticket
     // clears the file, it deletes the row here too — the stale-entry test
     // below fails otherwise.
-    'lib/features/settings/stt_model_selector.dart':
-        'resting green on downloaded-model rows — Ticket 14 (settings family)',
-    'lib/features/analytics/analytics_page.dart':
-        'resting green on a dashboard metric — Ticket 14 (analytics)',
+    //
+    // Empty as of Ticket 14: the last two rows (the model selector's
+    // downloaded-tier green and the analytics cost panel's savings figure)
+    // were the debt this ticket owed, and both files now live under
+    // `refreshedScreenDirs` below — a stricter guarantee than an allowlist
+    // row, because it forbids the token instead of excusing it.
   };
 
   /// The screens the refresh has already brought through. Held separately
@@ -78,7 +80,8 @@ void main() {
   ///
   /// Ticket 13 put the four list screens here. Ticket 15 added the narrative
   /// family (onboarding and About) — the same guarantee, extended rather than
-  /// reinvented, which is what that ticket asked for.
+  /// reinvented, which is what that ticket asked for. Ticket 14 closes the
+  /// list with the form family, which is where the last two debt rows lived.
   const refreshedScreenDirs = <String>[
     // Ticket 13 — the list-panel family.
     'lib/features/history',
@@ -88,6 +91,13 @@ void main() {
     // Ticket 15 — the narrative family.
     'lib/features/onboarding',
     'lib/features/about',
+    // Ticket 14 — the form family. Settings had three resting greens on one
+    // row (tier icon, size badge, "Ready" chip), all saying the same
+    // already-true thing; analytics had an all-time savings total wearing the
+    // colour of a thing that just happened.
+    'lib/features/settings',
+    'lib/features/feedback',
+    'lib/features/analytics',
   ];
 
   /// The third screen Ticket 15 covers is a single widget rather than a

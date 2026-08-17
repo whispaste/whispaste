@@ -258,7 +258,6 @@ class _TierRowState extends State<_TierRow> {
     const accentBorder30 = WpColors.accentBorder30;
     const textMuted = WpColors.textMuted;
     const hoverBg = WpColors.hover;
-    const success = WpColors.success;
 
     // Performance info is only shown on the current tier
     final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
@@ -324,7 +323,6 @@ class _TierRowState extends State<_TierRow> {
                       phase: _phase,
                       icon: _tierIcon,
                       accent: accent,
-                      success: success,
                       muted: textMuted,
                     ),
                     const SizedBox(width: WpSpacing.sm),
@@ -335,7 +333,6 @@ class _TierRowState extends State<_TierRow> {
                         label: _tierLabel(widget.l10n),
                         desc: _tierDesc(widget.l10n),
                         isRecommended: widget.isRecommended,
-                        isDownloaded: _isDownloaded,
                         isBenchmarking: widget.isBenchmarking,
                         infoMessage: infoMessage,
                         infoColor: infoColor,
@@ -343,7 +340,6 @@ class _TierRowState extends State<_TierRow> {
                         l10n: widget.l10n,
                         accent: accent,
                         textMuted: textMuted,
-                        success: success,
                       ),
                     ),
                     // Action
@@ -368,6 +364,21 @@ class _TierRowState extends State<_TierRow> {
     );
   }
 
+  /// The row's trailing slot: cancel while downloading, delete on hover,
+  /// otherwise the downloaded marker.
+  ///
+  /// This slot is now the *only* place the row says "on disk". It used to say
+  /// it three times in green — the tier icon, the size badge and a "Ready"
+  /// chip — which spent the app's one earned-green colour on a fact that is
+  /// true for as long as the file exists, i.e. never on anything that just
+  /// happened (the Earned-Green Rule, `lib/DESIGN.md`; Ticket 14). Two of the
+  /// three said it redundantly anyway. What is left is one neutral marker,
+  /// and it now appears on *every* downloaded tier rather than only the active
+  /// one: the green tier icon was what told the reader that an inactive tier
+  /// was already downloaded, so removing it without moving that information
+  /// here would have hidden it. The moment a download actually completes is
+  /// reported where a moment belongs — a success toast, fired by
+  /// `WpSttModelManager`.
   Widget _buildAction(Color accent, Color muted) {
     // Active download in this tier → Cancel button
     if (_isDownloading &&
@@ -383,60 +394,45 @@ class _TierRowState extends State<_TierRow> {
       );
     }
 
-    if (widget.isCurrentTier) {
-      // Current active tier
-      if (_isDownloaded) {
-        // Downloaded + active → show ready / delete on hover
-        if (_isHovered) {
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
-          return _ActionChip(
-            label: widget.l10n.actionDelete,
-            icon: LucideIcons.trash2,
-            color: WpColors.error,
-            onTap: widget.onDelete,
-          );
-        }
-        const success = WpColors.success;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              LucideIcons.circleCheck,
-              size: WpIconSize.xs,
-              color: success,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              widget.l10n.modelReady,
-              style: const TextStyle(
-                fontSize: WpTypography.caption,
-                fontWeight: FontWeight.w500,
-                color: success,
-              ),
-            ),
-          ],
+    // Downloaded, whichever tier — delete on hover, otherwise the one place
+    // this row states that the model is on disk.
+    if (_isDownloaded) {
+      if (_isHovered) {
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
+        return _ActionChip(
+          label: widget.l10n.actionDelete,
+          icon: LucideIcons.trash2,
+          color: WpColors.error,
+          onTap: widget.onDelete,
         );
       }
-      // Active but not downloaded — show spinner only during active download.
-      if (_isDownloading) {
-        return SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2, color: accent),
-        );
-      }
-      // Not downloading (deleted or error) — no action indicator.
-      return const SizedBox.shrink();
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            LucideIcons.circleCheck,
+            size: WpIconSize.xs,
+            color: WpColors.textSecondary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            widget.l10n.modelReady,
+            style: const TextStyle(
+              fontSize: WpTypography.caption,
+              fontWeight: FontWeight.w500,
+              color: WpColors.textSecondary,
+            ),
+          ),
+        ],
+      );
     }
 
-    // Inactive tier — show delete on hover if downloaded
-    if (_isDownloaded && _isHovered) {
-      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
-      return _ActionChip(
-        label: widget.l10n.actionDelete,
-        icon: LucideIcons.trash2,
-        color: WpColors.error,
-        onTap: widget.onDelete,
+    // Active but not downloaded — show spinner only during active download.
+    if (widget.isCurrentTier && _isDownloading) {
+      return SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(strokeWidth: 2, color: accent),
       );
     }
 
@@ -454,7 +450,6 @@ class _TierRowInfo extends StatelessWidget {
     required this.label,
     required this.desc,
     required this.isRecommended,
-    required this.isDownloaded,
     required this.isBenchmarking,
     required this.infoMessage,
     required this.infoColor,
@@ -462,14 +457,12 @@ class _TierRowInfo extends StatelessWidget {
     required this.l10n,
     required this.accent,
     required this.textMuted,
-    required this.success,
   });
 
   final QualityTier tier;
   final String label;
   final String desc;
   final bool isRecommended;
-  final bool isDownloaded;
   final bool isBenchmarking;
   final String? infoMessage;
   final Color infoColor;
@@ -477,7 +470,6 @@ class _TierRowInfo extends StatelessWidget {
   final L10n l10n;
   final Color accent;
   final Color textMuted;
-  final Color success;
 
   @override
   Widget build(BuildContext context) {
@@ -539,17 +531,18 @@ class _TierRowInfo extends StatelessWidget {
               // its text.
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: isDownloaded
-                    ? success.withValues(alpha: 0.12)
-                    : textMuted.withValues(alpha: 0.12),
+                color: textMuted.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(WpRadius.full),
               ),
+              // Download size — a property of the model, not a status. It used
+              // to turn green once the tier was on disk, which made the *size*
+              // carry the download state a second time (see `_buildAction`).
               child: Text(
                 tierSizeLabel(tier),
                 style: TextStyle(
                   fontSize: WpTypography.micro,
                   fontWeight: FontWeight.w500,
-                  color: isDownloaded ? success : textMuted,
+                  color: textMuted,
                 ),
               ),
             ),
@@ -625,7 +618,6 @@ class _StatusIcon extends StatelessWidget {
     required this.phase,
     required this.icon,
     required this.accent,
-    required this.success,
     required this.muted,
   });
 
@@ -634,7 +626,6 @@ class _StatusIcon extends StatelessWidget {
   final DownloadPhase phase;
   final IconData icon;
   final Color accent;
-  final Color success;
   final Color muted;
 
   @override
@@ -650,10 +641,14 @@ class _StatusIcon extends StatelessWidget {
       );
     }
 
+    // Downloaded tiers read a step brighter than tiers that are not on disk
+    // yet — the same distinction the icon used to draw in green, made with
+    // the neutral ramp instead so the colour is free for things that just
+    // happened (`_buildAction`).
     return Icon(
       icon,
       size: WpIconSize.md,
-      color: isDownloaded ? success : muted,
+      color: isDownloaded ? WpColors.textPrimary : muted,
     );
   }
 }
