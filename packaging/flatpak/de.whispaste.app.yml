@@ -11,8 +11,9 @@
 # APPLICATION_ID, macOS PRODUCT_BUNDLE_IDENTIFIER). Do not invent a new one.
 #
 # Per-release the maintainer updates the `archive` source `url` + `sha256`
-# (see packaging/flatpak/README.md for the runbook). The `url`/`sha256` below
-# are placeholders pinned by the runbook at submission time.
+# (see packaging/flatpak/README.md for the runbook) — re-verify against the
+# latest GitHub release before submitting/resubmitting, this is not
+# auto-bumped by release.yml.
 app-id: de.whispaste.app
 # GNOME runtime (not bare freedesktop): it already ships GTK3, libsecret,
 # libnotify, libcurl and the ogg/opus/vorbis codecs the bundle links against.

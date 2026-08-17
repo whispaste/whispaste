@@ -21,6 +21,8 @@
 #
 # Per-release the maintainer bumps `version` + the `source` (tag URL) of the
 # `whispaste-bundle` part — see packaging/snap/README.md for the runbook.
+# Not auto-bumped by release.yml (unlike homebrew/scoop/winget); re-verify
+# against the latest GitHub release before submitting/resubmitting.
 name: whispaste
 title: WhisPaste
 base: core24
