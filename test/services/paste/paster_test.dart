@@ -397,8 +397,10 @@ void main() {
       'same-call fallback when the native paste shortcut fails to land '
       '(macOS/Windows) — assertions below branch on the actual host '
       'platform this suite runs on only for the fallback-specific cases; '
-      'Linux has no native typeText handler, so a failed paste there is '
-      'reported as-is', () {
+      'Linux skips the retry too — its typeText routes through the same '
+      'clipboard+uinput-Ctrl+V path as pasteClipboard, so retrying it after '
+      'a failed paste would just reproduce the same failure — a failed '
+      'paste there is reported as-is', () {
     test('native paste succeeds: typing is never attempted, on any '
         'platform', () async {
       final controller = _FakeController()
@@ -418,8 +420,8 @@ void main() {
     });
 
     test('native paste fails: falls back to direct typing on macOS/Windows; '
-        'stays failed on Linux, which has no native typeText handler to '
-        'fall back to', () async {
+        'stays failed on Linux, which skips the retry (see group doc)',
+        () async {
       final controller = _FakeController()
         ..pasteResult = const NativePasteResult(
           status: NativePasteStatus.postFailed,

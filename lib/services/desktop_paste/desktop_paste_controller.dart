@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/build_config.dart';
 import 'desktop_paste_controller_interface.dart';
+import 'linux_desktop_paste_controller.dart';
 import 'macos_desktop_paste_controller.dart';
 import 'windows_desktop_paste_controller.dart';
 
@@ -20,6 +21,8 @@ final desktopPasteControllerProvider = Provider<DesktopPasteController?>((ref) {
       controller = WindowsDesktopPasteController();
     } else if (Platform.isMacOS) {
       controller = MacOSDesktopPasteController();
+    } else if (Platform.isLinux) {
+      controller = LinuxDesktopPasteController();
     }
   }
   ref.onDispose(() {

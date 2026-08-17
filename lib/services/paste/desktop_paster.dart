@@ -165,8 +165,12 @@ class DesktopPaster implements Paster {
       // retry regardless of platform: CGEvent Unicode-typing delivers
       // "\n"/"\r" as a literal Return keydown, which chat UIs (ChatGPT,
       // Slack, ...) read as "submit" — better to report the paste failure
-      // than risk an unwanted send. Linux has no native typeText handler,
-      // so a failed paste there is reported as-is.
+      // than risk an unwanted send. Linux's typeText routes through the
+      // exact same clipboard+uinput-Ctrl+V path as pasteClipboard (no
+      // layout-independent direct-typing primitive exists there either —
+      // see desktop_paste_host.cc), so retrying it after a failed paste
+      // would just reproduce the same failure; a failed paste there is
+      // reported as-is.
       if ((Platform.isMacOS || Platform.isWindows) &&
           !requiresRealPaste(text)) {
         final typeOutcome = await _typeTextCore(text, options);

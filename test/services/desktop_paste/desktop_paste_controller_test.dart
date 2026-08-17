@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/linux_desktop_paste_controller.dart';
 import 'package:whispaste/services/desktop_paste/macos_desktop_paste_controller.dart';
 import 'package:whispaste/services/desktop_paste/windows_desktop_paste_controller.dart';
 
@@ -255,6 +256,88 @@ void main() {
       expect((calls.single.arguments as Map)['text'], 'hello');
       expect((calls.single.arguments as Map)['delayMs'], 50);
       expect(result.status, NativePasteStatus.success);
+    });
+  });
+
+  group('LinuxDesktopPasteController', () {
+    test('repairTccEntries reports unsupported without a channel call', () async {
+      setHandler((call) async {
+        fail('unexpected channel call: ${call.method}');
+      });
+      final controller = LinuxDesktopPasteController();
+      final result = await controller.repairTccEntries();
+      expect(result.isSupported, isFalse);
+      expect(result.error, 'unsupported_platform');
+    });
+
+    test(
+      'diagnosticPaste forwards demoText and parses success',
+      () async {
+        final calls = <MethodCall>[];
+        setHandler((call) async {
+          if (call.method == 'diagnosticPaste') {
+            return {'status': 'success'};
+          }
+          return null;
+        }, recordedCalls: calls);
+
+        final controller = LinuxDesktopPasteController();
+        final outcome = await controller.diagnosticPaste('hi');
+
+        expect(calls.single.method, 'diagnosticPaste');
+        expect((calls.single.arguments as Map)['demoText'], 'hi');
+        expect(outcome, isA<TestPasteOutcomeSuccess>());
+      },
+    );
+
+    test(
+      'pasteClipboard parses the uinput permission_missing status',
+      () async {
+        setHandler(
+          (call) async => {
+            'status': 'permission_missing',
+            'detail': 'no write access to /dev/uinput',
+          },
+        );
+        final controller = LinuxDesktopPasteController();
+        final result = await controller.pasteClipboard(delay: Duration.zero);
+        expect(result.status, NativePasteStatus.permissionMissing);
+      },
+    );
+
+    test('typeText forwards text and delayMs, parses success', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async {
+        if (call.method == 'typeText') {
+          return {'status': 'success'};
+        }
+        return null;
+      }, recordedCalls: calls);
+
+      final controller = LinuxDesktopPasteController();
+      final result = await controller.typeText(
+        'hello',
+        delay: const Duration(milliseconds: 50),
+      );
+
+      expect(calls.single.method, 'typeText');
+      expect((calls.single.arguments as Map)['text'], 'hello');
+      expect((calls.single.arguments as Map)['delayMs'], 50);
+      expect(result.status, NativePasteStatus.success);
+    });
+
+    test('checkCapability parses unsupported status', () async {
+      setHandler(
+        (call) async => {
+          'status': 'unsupported',
+          'detail': '/dev/uinput not present',
+          'canPrompt': false,
+        },
+      );
+      final controller = LinuxDesktopPasteController();
+      final result = await controller.checkCapability();
+      expect(result.status, NativeCapabilityStatus.unsupported);
+      expect(result.canPrompt, isFalse);
     });
   });
 }

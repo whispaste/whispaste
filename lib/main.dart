@@ -147,6 +147,13 @@ Future<void> main(List<String> args) async {
     runFloatingButtonEngine();
     return;
   }
+  if (args.contains('--snippet-picker')) {
+    // Same Linux args-branch fast-path as above, for the Snippet-Picker's
+    // second engine (visual-refresh-2026 ticket 30) — macOS/Windows instead
+    // boot it by name via the snippetPickerMain() pragma function above.
+    runSnippetPickerEngine();
+    return;
+  }
 
   // NOTE: WidgetsFlutterBinding.ensureInitialized() is called INSIDE the
   // bootstrap callback so that the binding and runApp() share the same zone.

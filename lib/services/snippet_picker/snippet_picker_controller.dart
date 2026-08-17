@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'linux_snippet_picker_controller.dart';
 import 'macos_snippet_picker_controller.dart';
 import 'snippet_picker_controller_interface.dart';
 import 'windows_snippet_picker_controller.dart';
@@ -18,12 +19,10 @@ export 'snippet_picker_controller_interface.dart';
 /// once, so both the hotkey dispatch path (ticket 26) and later UI (tickets
 /// 27/29/30) read the same answer instead of re-deriving it.
 ///
-/// macOS and Windows (visual-refresh-2026 tickets 06/29). Linux support
-/// (ticket 30) is in progress — the native shell/backend land first, and
-/// this flips to include `Platform.isLinux` in the same change that wires
-/// [createSnippetPickerController]'s Linux branch below.
+/// macOS, Windows, and Linux (visual-refresh-2026 tickets 06/29/30) — full
+/// three-platform parity.
 bool get snippetPickerAvailableOnPlatform =>
-    Platform.isMacOS || Platform.isWindows;
+    Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
 /// [snippetPickerAvailableOnPlatform] as a provider — the same answer, reached
 /// the way the UI reaches everything else.
@@ -43,6 +42,7 @@ final snippetPickerAvailabilityProvider = Provider<bool>(
 SnippetPickerController? createSnippetPickerController() {
   if (Platform.isMacOS) return MacOSSnippetPickerController();
   if (Platform.isWindows) return WindowsSnippetPickerController();
+  if (Platform.isLinux) return LinuxSnippetPickerController();
   return null;
 }
 

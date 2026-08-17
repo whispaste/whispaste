@@ -6,8 +6,10 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
+#include "snippet_picker_host.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -20,6 +22,14 @@ struct _MyApplication {
   // Owns the public button MethodChannel and lazily manages the button engine
   // window. Same lifecycle as floating_overlay_host above.
   FloatingButtonHost* floating_button_host;
+  // Owns the public desktop-paste MethodChannel and the uinput virtual
+  // keyboard (visual-refresh-2026 ticket 30). Same lifecycle as the hosts
+  // above — no 2nd engine involved, so no window to create.
+  DesktopPasteHost* desktop_paste_host;
+  // Owns the public Snippet-Picker MethodChannel and lazily manages the
+  // picker's 2nd-engine window (visual-refresh-2026 ticket 30). Same
+  // lifecycle as floating_overlay_host/floating_button_host above.
+  SnippetPickerHost* snippet_picker_host;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -94,6 +104,8 @@ static void my_application_activate(GApplication* application) {
       fl_engine_get_binary_messenger(main_engine);
   self->floating_overlay_host = new FloatingOverlayHost(main_messenger);
   self->floating_button_host = new FloatingButtonHost(main_messenger);
+  self->desktop_paste_host = new DesktopPasteHost(main_messenger);
+  self->snippet_picker_host = new SnippetPickerHost(main_messenger);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -145,6 +157,10 @@ static void my_application_dispose(GObject* object) {
   self->floating_overlay_host = nullptr;
   delete self->floating_button_host;
   self->floating_button_host = nullptr;
+  delete self->desktop_paste_host;
+  self->desktop_paste_host = nullptr;
+  delete self->snippet_picker_host;
+  self->snippet_picker_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

@@ -13,6 +13,9 @@ add_executable(${BINARY_NAME}
   "floating_overlay_host.cc"
   "floating_button_window.cc"
   "floating_button_host.cc"
+  "desktop_paste_host.cc"
+  "snippet_picker_window.cc"
+  "snippet_picker_host.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 
