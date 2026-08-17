@@ -85,6 +85,35 @@ export function computeWordErrorRate(reference, hypothesis) {
 }
 
 /**
+ * Corpus-level (micro-averaged) WER across multiple utterances: sums edits
+ * and reference word counts first, then divides — NOT the mean of
+ * per-utterance WER values, which over-weights short utterances.
+ *
+ * @param {{ reference: string, hypothesis: string }[]} pairs
+ */
+export function computeCorpusWer(pairs) {
+  if (pairs.length === 0) {
+    throw new Error("computeCorpusWer: pairs must not be empty");
+  }
+  let totalEdits = 0;
+  let totalRefWords = 0;
+  for (const { reference, hypothesis } of pairs) {
+    const { substitutions, deletions, insertions, refWordCount } = computeWordErrorRate(
+      reference,
+      hypothesis,
+    );
+    totalEdits += substitutions + deletions + insertions;
+    totalRefWords += refWordCount;
+  }
+  return {
+    wer: totalEdits / totalRefWords,
+    totalEdits,
+    totalRefWords,
+    sampleSize: pairs.length,
+  };
+}
+
+/**
  * @param {number} processingMs wall-clock time to transcribe (excludes one-time model load)
  * @param {number} audioDurationMs duration of the input audio
  */

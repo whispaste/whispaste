@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRtf, computeWordErrorRate } from "../benchmark-engines-wer.mjs";
+import { computeCorpusWer, computeRtf, computeWordErrorRate } from "../benchmark-engines-wer.mjs";
 
 describe("computeWordErrorRate", () => {
   it("returns 0 for an exact match, ignoring case and punctuation", () => {
@@ -36,6 +36,32 @@ describe("computeWordErrorRate", () => {
 
   it("throws on an empty reference (WER is undefined without a denominator)", () => {
     expect(() => computeWordErrorRate("", "anything")).toThrow();
+  });
+});
+
+describe("computeCorpusWer", () => {
+  it("micro-averages across utterances (sums edits and ref words, not per-utterance WER)", () => {
+    // Utterance A: 1 substitution in 5 ref words -> WER 0.2.
+    // Utterance B: 1 deletion in 9 ref words -> WER 1/9.
+    // A naive mean of the two WERs would be (0.2 + 1/9) / 2 ≈ 0.1556. The
+    // corpus (micro-average) WER instead sums edits/ref-words across
+    // utterances first: 2 edits / 14 ref words ≈ 0.1429 — the two disagree,
+    // which is exactly what this test pins down.
+    const result = computeCorpusWer([
+      { reference: "ask not what your country", hypothesis: "ask not what our country" },
+      {
+        reference: "the quick brown fox jumps over the lazy dog",
+        hypothesis: "the quick brown fox jumps over lazy dog",
+      },
+    ]);
+    expect(result.wer).toBeCloseTo(2 / 14);
+    expect(result.totalRefWords).toBe(14);
+    expect(result.totalEdits).toBe(2);
+    expect(result.sampleSize).toBe(2);
+  });
+
+  it("throws on an empty utterance list", () => {
+    expect(() => computeCorpusWer([])).toThrow();
   });
 });
 

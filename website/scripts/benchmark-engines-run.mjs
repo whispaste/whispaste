@@ -5,8 +5,12 @@
  *
  * Times a whisper.cpp `whisper-cli` transcription of a fixed reference clip
  * and reports RTF + WER for that run. Meant to be re-run on every hardware
- * class the maintainer has access to (NVIDIA/CUDA, AMD/Vulkan, Windows CPU,
- * …) — each run appends one row to `src/data/engine-benchmarks.json`.
+ * class the maintainer has access to. Use the exact `hardwareClass` strings
+ * from the `matrix` in `src/pages/engine-benchmarks.astro` (Vulkan covers
+ * NVIDIA/AMD/Intel — there is no separate CUDA backend, CONTEXT.md §4.4) so
+ * the row actually matches a page slot instead of showing as "pending" next
+ * to an unmatched one — each run appends one row to
+ * `src/data/engine-benchmarks.json`.
  *
  * Usage:
  *   node scripts/benchmark-engines-run.mjs \
@@ -14,7 +18,7 @@
  *     --model /path/to/ggml-base.en.bin \
  *     --audio /path/to/jfk.wav \
  *     --reference "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country." \
- *     --hardware-class "NVIDIA RTX 4080 (CUDA)" \
+ *     --hardware-class "Vulkan (Windows/Linux, NVIDIA/AMD/Intel)" \
  *     --engine "whisper.cpp" \
  *     --model-name "base.en" \
  *     --runs 3
