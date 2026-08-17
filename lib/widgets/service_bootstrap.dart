@@ -5,6 +5,8 @@
 /// (tray, hotkeys, autostart, STT) are alive for the app lifetime.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +19,7 @@ import '../services/autostart_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
 import '../services/hotkey_service.dart';
+import '../services/paste/paste_capability_notifier.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/recording_trigger_handler.dart';
 import '../services/tray_service.dart';
@@ -106,10 +109,25 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       ref.read(activePageProvider.notifier).setPage(page);
     };
     tray.onActionNeededTap = (key) {
-      // Currently the only action-needed item is the paste-failure entry
-      // — jump straight to the Auto-Paste settings so the user lands on
-      // the capability indicator + "Continue" buttons.
-      if (key == 'paste_action_needed') {
+      // A blocked Auto-Paste permission is handled where it broke, not in
+      // settings: run the same recovery the failed-paste notification and
+      // the in-app toast offer. Sending the user to a settings page to find
+      // the fix themselves is what made this flow feel unguided, and the
+      // tray is the surface that outlives the other two — a notification
+      // expires, so this entry is often the only one still there when the
+      // user gets around to acting.
+      if (key == kTrayPastePermissionActionNeededKey) {
+        unawaited(
+          ref
+              .read(pasteCapabilityNotifierProvider.notifier)
+              .runMissingPermissionRecovery(),
+        );
+        return;
+      }
+      // Every other action-needed item is a paste failure the user resolves
+      // by changing a setting (no target app, elevation, unknown), so those
+      // still jump to the Auto-Paste settings and its capability indicator.
+      if (key == kTrayPasteActionNeededKey) {
         ref
             .read(settingsScrollTargetProvider.notifier)
             .set('afterTranscription');

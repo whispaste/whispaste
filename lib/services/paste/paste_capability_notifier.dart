@@ -750,6 +750,29 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     await requestGrant(pollInterval: pollInterval, pollTimeout: pollTimeout);
   }
 
+  /// The recovery a missing Auto-Paste permission needs, resolved for the
+  /// state the app is in *at the moment the user acts* — not the state it was
+  /// in when the failure was reported. Every failure-moment surface routes
+  /// here: the failed-paste OS notification, the in-app toast, and the tray's
+  /// "action needed" entry.
+  ///
+  /// Resolving late matters most for the tray, which is the only one of the
+  /// three that persists. A notification is transient and the Dock bounce
+  /// stops, but the tray entry waits until the user comes back — by then they
+  /// may already have flipped the toggle, or restarted. Capturing an arm at
+  /// report time would run yesterday's recovery.
+  ///
+  /// The arms are ordered by how much they assume. A pending restart is the
+  /// narrowest, most certain case, so it wins; the entry reset only applies
+  /// where a live probe rules out the "this process can't see the grant yet"
+  /// reading (see [grantRequiresEntryReset]); the Settings deep-link is the
+  /// fallback that assumes nothing.
+  Future<void> runMissingPermissionRecovery() {
+    if (needsRestart) return restartForGrant();
+    if (grantRequiresEntryReset) return repairAndRequestGrant();
+    return openAccessibilitySettings();
+  }
+
   /// Runs the diagnostic paste flow — the explicit "prove Auto-Paste works"
   /// step in onboarding. Delegates to the platform desktop paste controller
   /// and emits PII-free Sentry breadcrumbs around the call so funnels can

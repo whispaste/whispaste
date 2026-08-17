@@ -24,6 +24,26 @@ import 'tray_mic_menu.dart';
 import 'window_activation.dart';
 
 // ---------------------------------------------------------------------------
+// Action-needed menu-item keys
+// ---------------------------------------------------------------------------
+
+/// Default "action needed" tray entry: tapping it takes the user to the
+/// after-transcription settings, where the relevant switches live.
+const String kTrayPasteActionNeededKey = 'paste_action_needed';
+
+/// The "action needed" entry for a *blocked Auto-Paste permission*, kept
+/// separate from [kTrayPasteActionNeededKey] so its tap can run the recovery
+/// directly instead of opening settings.
+///
+/// This is the one paste failure the user cannot resolve by reading a settings
+/// page — it needs a TCC grant. The tray is also the only failure surface that
+/// persists (a notification expires, the Dock bounce stops), so it is the one
+/// most likely to be tapped long after the fact, and therefore the one that
+/// must not dead-end.
+const String kTrayPastePermissionActionNeededKey =
+    'paste_permission_action_needed';
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 

@@ -18,7 +18,9 @@ import 'package:whispaste/services/floating_button/floating_button_controller.da
 import 'package:whispaste/services/floating_button/floating_button_service.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
+import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/tray_service.dart';
 import 'package:whispaste/widgets/service_bootstrap.dart';
@@ -81,6 +83,21 @@ class _CounterOrchestrator extends RecordingOrchestrator {
 class _FakeTrayService extends TrayService {
   @override
   void build() {}
+}
+
+/// Capability notifier that only counts the recovery call — the recovery
+/// itself talks to TCC and System Settings, neither of which exists here.
+/// What these tests check is which of the two tray branches was taken.
+class _RecoveryCountingCapabilityNotifier extends PasteCapabilityNotifier {
+  int recoveryCalls = 0;
+
+  @override
+  PasteCapabilityState build() => const PasteCapabilityState();
+
+  @override
+  Future<void> runMissingPermissionRecovery() async {
+    recoveryCalls++;
+  }
 }
 
 /// No-op autostart service — avoids platform-channel calls in tests.
@@ -164,9 +181,12 @@ Widget _makeApp({
   required _CounterOrchestrator orchestrator,
   required _FakeSettingsNotifier settings,
   GlobalKey<_RebuildHarnessState>? harnessKey,
+  PasteCapabilityNotifier Function()? capabilityNotifier,
 }) {
   return ProviderScope(
     overrides: [
+      if (capabilityNotifier != null)
+        pasteCapabilityNotifierProvider.overrideWith(capabilityNotifier),
       hotkeyServiceProvider.overrideWith(() => hotkeySvc),
       recordingOrchestratorProvider.overrideWith(() => orchestrator),
       trayServiceProvider.overrideWith(_FakeTrayService.new),
@@ -389,5 +409,79 @@ void main() {
         expect(orchestrator.toggleCalls, equals(1));
       },
     );
+  });
+
+  // =========================================================================
+  // Tray "action needed" routing. The tray entry outlives the other two
+  // paste-failure surfaces (the notification expires, the Dock bounce stops),
+  // so for a blocked Auto-Paste permission it is usually the only one left
+  // when the user gets around to acting — and it must fix the thing rather
+  // than drop the user on a settings page to find the fix themselves.
+  // =========================================================================
+  group('WpServiceBootstrap — tray "action needed" routing', () {
+    Future<(ProviderContainer, _RecoveryCountingCapabilityNotifier)> pumpApp(
+      WidgetTester tester,
+    ) async {
+      final capability = _RecoveryCountingCapabilityNotifier();
+      await tester.pumpWidget(
+        _makeApp(
+          hotkeySvc: _FakeHotkeyService(),
+          orchestrator: _CounterOrchestrator(),
+          settings: _FakeSettingsNotifier(pushToTalk: false),
+          capabilityNotifier: () => capability,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MaterialApp)),
+      );
+      await container.read(settingsProvider.future);
+      return (container, capability);
+    }
+
+    testWidgets('the permission entry runs the recovery in place', (
+      tester,
+    ) async {
+      final (container, capability) = await pumpApp(tester);
+
+      container.read(trayServiceProvider.notifier).onActionNeededTap!(
+        kTrayPastePermissionActionNeededKey,
+      );
+      await tester.pumpAndSettle();
+
+      expect(capability.recoveryCalls, equals(1));
+      expect(
+        container.read(activePageProvider),
+        isNot('settings'),
+        reason:
+            'Navigating to settings is exactly the hunt-for-it-yourself dead '
+            'end this branch exists to remove.',
+      );
+    });
+
+    testWidgets('other entries still jump to the Auto-Paste settings', (
+      tester,
+    ) async {
+      final (container, capability) = await pumpApp(tester);
+
+      container.read(trayServiceProvider.notifier).onActionNeededTap!(
+        kTrayPasteActionNeededKey,
+      );
+      await tester.pumpAndSettle();
+
+      expect(container.read(activePageProvider), 'settings');
+      expect(
+        container.read(settingsScrollTargetProvider),
+        'afterTranscription',
+      );
+      expect(
+        capability.recoveryCalls,
+        equals(0),
+        reason:
+            'A missing target app or an elevated window is not a permission '
+            'problem — running the TCC recovery there would prompt for '
+            'nothing.',
+      );
+    });
   });
 }

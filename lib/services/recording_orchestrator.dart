@@ -1958,11 +1958,20 @@ class RecordingOrchestrator extends Notifier<void> {
           trayLabel: staleGrant
               ? 'Auto-Einfügen blockiert — Neustart nötig'
               : 'Auto-Einfügen blockiert — Systemeinstellungen öffnen',
-          onClick: staleGrant
-              ? capNotifier.restartForGrant
-              : resetEntryFirst
-              ? capNotifier.repairAndRequestGrant
-              : capNotifier.openAccessibilitySettings,
+          // The arms above pick the *wording*; the click itself re-resolves
+          // the arm when it fires. A notification can sit unread and the tray
+          // entry waits indefinitely, so the state at click time is the one
+          // that counts.
+          onClick: capNotifier.runMissingPermissionRecovery,
+          // Own tray key, so the persistent surface runs this recovery too
+          // instead of the default "open the after-transcription settings"
+          // jump — being sent to a settings page to hunt for a fix is the
+          // dead end this whole branch exists to remove.
+          trayMenuItemKey: kTrayPastePermissionActionNeededKey,
+          // Own tray key, so the persistent surface runs this recovery too
+          // instead of the default "open the after-transcription settings"
+          // jump — being sent to a settings page to hunt for a fix is the
+          // dead end this whole branch exists to remove.
         );
         return false;
       case PasteOutcome.elevationBlocked:
@@ -2001,6 +2010,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required String body,
     required String trayLabel,
     void Function()? onClick,
+    String trayMenuItemKey = kTrayPasteActionNeededKey,
   }) {
     ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
 
@@ -2034,7 +2044,7 @@ class RecordingOrchestrator extends Notifier<void> {
           .setActionNeeded(
             label: trayLabel,
             tooltip: 'WhisPaste — $trayLabel',
-            menuItemKey: 'paste_action_needed',
+            menuItemKey: trayMenuItemKey,
           );
     } on Exception catch (e) {
       _log.warning('Tray action-needed update failed', e);

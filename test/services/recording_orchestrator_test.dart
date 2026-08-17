@@ -342,6 +342,7 @@ class FakeModelDownloadNotifier extends ModelDownloadNotifier {
 /// platform channel (which isn't available in the test host process).
 class FakeTrayActionService extends TrayService {
   final setActionNeededCalls = <String>[];
+  final setActionNeededKeys = <String?>[];
   int clearActionNeededCalls = 0;
 
   @override
@@ -356,6 +357,7 @@ class FakeTrayActionService extends TrayService {
     String? menuItemKey,
   }) {
     setActionNeededCalls.add(label);
+    setActionNeededKeys.add(menuItemKey);
   }
 
   @override
@@ -3964,6 +3966,62 @@ void main() {
       },
       skip: !Platform.isMacOS,
     );
+
+    // The tray entry is the only failure surface that persists — the
+    // notification expires and the Dock bounce stops — so it is the one most
+    // likely to be tapped, and it must run the recovery rather than dropping
+    // the user on a settings page to hunt for the fix. It gets its own menu
+    // key for that; every other paste failure keeps the settings jump.
+    //
+    // Split across two tests on purpose: the shared fakes carry per-run state,
+    // so two failures inside one test would not both reach the paste path.
+    Future<void> failPasteWith(NativePasteStatus status) async {
+      // Both seams: a failed paste can fall back to typing, and a successful
+      // fallback would report no failure at all.
+      fakeDesktopPaste.pasteStatusOverride = status;
+      fakeDesktopPaste.typeStatusOverride = status;
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'tray key routing test';
+      await orch.stopRecording();
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('a blocked permission claims its own tray key', () async {
+      await failPasteWith(NativePasteStatus.permissionMissing);
+
+      expect(
+        fakeTray.setActionNeededKeys.single,
+        kTrayPastePermissionActionNeededKey,
+        reason:
+            'Tapping this entry has to run the permission recovery. On the '
+            'default key it would only open the after-transcription settings '
+            '— the "go to Settings and find it yourself" dead end.',
+      );
+    });
+
+    test('other paste failures keep the settings-jump tray key', () async {
+      await failPasteWith(NativePasteStatus.noTarget);
+
+      expect(
+        fakeTray.setActionNeededKeys.single,
+        kTrayPasteActionNeededKey,
+        reason:
+            'A missing target app IS resolved in settings, so this one must '
+            'keep the settings jump.',
+      );
+    });
 
     // =========================================================================
     // Error-sound wiring (issue 09-fehlerton-verdrahten). Keys off the same
