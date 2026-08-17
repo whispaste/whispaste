@@ -260,10 +260,19 @@ void main() {
   // clips the moment the system font grows. It needs seeded data to say
   // anything at all — with an empty database it renders the empty state and
   // none of those boxes exist, so the size sweep above never sees them.
+  //
+  // Feedback joins them for Ticket 14, which is the ticket that owes this
+  // project's enlarged-system-font check on the form family. Settings and
+  // Analytics were already here; Feedback was the one screen of the three
+  // that had only ever run at 1.0×. All three now carry the card material,
+  // and a card costs `WpSpacing.lg` of padding on each side — 40 px of width
+  // the rows inside used to have and no longer do, which is exactly the
+  // budget an accessibility text size spends first.
   for (final page in const <MapEntry<String, Widget>>[
     MapEntry('About', AboutPage()),
     MapEntry('Settings', SettingsPage()),
     MapEntry('Analytics', AnalyticsPage()),
+    MapEntry('Feedback', FeedbackPage()),
   ]) {
     testWidgets('${page.key} at textScaler 1.5', (tester) async {
       const size = Size(1280, 800);
@@ -303,6 +312,19 @@ void main() {
           find.byType(WpEmptyState),
           findsNothing,
           reason: 'Analytics must render seeded data, not the empty state',
+        );
+      }
+      // The same guard for Feedback. It is constructed without a submission
+      // service here, and the interesting geometry — the card that holds the
+      // category grid, the rating row and the comment box — only exists while
+      // the form is on screen; the thank-you state that replaces it is three
+      // short lines. If this page ever degrades to something else, the case
+      // below stops measuring what it was added for.
+      if (page.key == 'Feedback') {
+        expect(
+          find.byKey(const Key('feedbackCommentField')),
+          findsOneWidget,
+          reason: 'Feedback must render the form, not a degraded tree',
         );
       }
 
