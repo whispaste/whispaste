@@ -2563,14 +2563,14 @@ class L10nHe extends L10n {
       'עדיין לא תומך בשפה שבחרת';
 
   @override
-  String get onboardingTestRecordingTitle => 'Give it a try';
+  String get onboardingTestRecordingTitle => 'נסה עכשיו';
 
   @override
   String get onboardingTestRecordingSubtitle =>
       'לחץ על הכפתור למטה ואמור משפט. הטקסט מופיע בשדה הבדיקה. גם הקיצור שלך עובד.';
 
   @override
-  String get onboardingTestRecordingHotkeyLabel => 'Your hotkey';
+  String get onboardingTestRecordingHotkeyLabel => 'הקיצור שלך';
 
   @override
   String get onboardingTestRecordingStartCta => 'התחל הקלטה';
@@ -2591,19 +2591,19 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingTestRecordingPlaceholder =>
-      'Your spoken text will appear here …';
+      'הטקסט המדובר שלך יופיע כאן…';
 
   @override
   String get onboardingTestRecordingInProgress =>
-      'Recording: just start talking. Press again to stop.';
+      'מקליט: פשוט התחל לדבר. לחץ שוב כדי לעצור.';
 
   @override
   String get onboardingTestRecordingDoneMessage =>
-      'That\'s it! This is exactly how it works in every app.';
+      'זהו! כך זה עובד בדיוק בכל אפליקציה.';
 
   @override
   String get onboardingTestRecordingReassurance =>
-      'Just a test, the text stays in this field.';
+      'רק בדיקה, הטקסט נשאר בשדה הזה.';
 
   @override
   String onboardingTestRecordingReassuranceWithDuration(
