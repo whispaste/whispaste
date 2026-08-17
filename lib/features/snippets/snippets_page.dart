@@ -152,8 +152,17 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   // unextracted duplication.
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    // Narrowed to the one field this page renders: `settingsProvider` emits
+    // on every settings write anywhere in the app, and watching the whole
+    // value here rebuilt this entire page (list included) for changes that
+    // have nothing to do with the picker trigger.
     final trigger =
-        ref.watch(settingsProvider).value?.behavior.snippetPickerTrigger ?? '';
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.value?.behavior.snippetPickerTrigger,
+          ),
+        ) ??
+        '';
     // `?? true` while the list is still loading — the "trigger does nothing
     // yet" warning must not flash before the first read lands.
     final hasSnippets = ref.watch(snippetsProvider).value?.isNotEmpty ?? true;
@@ -738,6 +747,12 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 // Snippet tile
 // ---------------------------------------------------------------------------
 
+/// Collapses runs of whitespace in a snippet body preview — hoisted so the
+/// pattern compiles once instead of on every `_SnippetTileState._bodyPreview`
+/// recompute, the same house idiom as `search_query_parser.dart`'s
+/// module-level patterns.
+final RegExp _whitespaceRun = RegExp(r'\s+');
+
 class _SnippetTile extends StatefulWidget {
   const _SnippetTile({
     required this.snippet,
@@ -780,8 +795,25 @@ class _SnippetTileState extends State<_SnippetTile> {
   /// than by the author's line breaks: a snippet whose body starts with a
   /// short salutation would otherwise spend its whole preview on it.
   /// The Text renders `maxLines: 2` (same as the replacements row).
-  String get _bodyPreview =>
-      widget.snippet.body.trim().replaceAll(RegExp(r'\s+'), ' ');
+  ///
+  /// Memoized once per `widget.snippet` change (initState + didUpdateWidget),
+  /// not recomputed on every build — hover/focus toggles rebuild this row via
+  /// its own `setState` without a new snippet, and re-running the trim +
+  /// regex collapse on each of those was repeated work for an unchanged
+  /// result. Same shape as the memoized fields in `HistoryEntryRow`
+  /// (`history_list_tile.dart`).
+  late String _bodyPreview = _computeBodyPreview(widget.snippet);
+
+  static String _computeBodyPreview(SnippetItem snippet) =>
+      snippet.body.trim().replaceAll(_whitespaceRun, ' ');
+
+  @override
+  void didUpdateWidget(_SnippetTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snippet != widget.snippet) {
+      _bodyPreview = _computeBodyPreview(widget.snippet);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
