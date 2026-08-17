@@ -361,7 +361,8 @@ void main() {
           expect(
             snap.size,
             OverlaySizeVariant.mini,
-            reason: 'the pre-sync must carry the NEW size so the hidden '
+            reason:
+                'the pre-sync must carry the NEW size so the hidden '
                 'shell can resize off the hot path',
           );
         } finally {
