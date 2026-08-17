@@ -41,6 +41,10 @@ void main() {
       expect(section, findsOneWidget);
 
       final before = tester.getRect(section);
+      final borderAtRest =
+          (tester.widget<AnimatedContainer>(_highlightBoxOf(section)).decoration
+                  as BoxDecoration?)
+              ?.border;
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(SettingsPage)),
@@ -70,12 +74,18 @@ void main() {
         isA<BoxDecoration>().having((d) => d.border, 'border', isNotNull),
         reason: 'the highlight ring belongs in the foreground decoration',
       );
+      // The background decoration is not empty any more — Ticket 14 put the
+      // section on the card material, and a card's rim is a `Border` there by
+      // definition. What matters is that it does not *change*: a constant
+      // border costs its inset once, at every moment, which is exactly the
+      // layout the section already had. The ring must add nothing to it.
       expect(
         (highlighted.decoration as BoxDecoration?)?.border,
-        isNull,
+        borderAtRest,
         reason:
-            'nothing may sit in the background decoration — that is the '
-            'layer that costs layout',
+            'the background decoration changed when the ring arrived — that '
+            'is the layer that costs layout, so anything that moves in it '
+            'moves the section with it',
       );
 
       // …and back out again when the page clears the target 1.5 s later.

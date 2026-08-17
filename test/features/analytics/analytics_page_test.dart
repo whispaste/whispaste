@@ -547,9 +547,7 @@ void main() {
       );
     });
 
-    testWidgets('the brand gradient stays on the hero pills alone', (
-      tester,
-    ) async {
+    testWidgets('the brand gradient is off this page entirely', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const AnalyticsPage(),
@@ -559,27 +557,32 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Four, and each one accounted for: the four hero pills (no latency
-      // sample in `colorData`, so four rather than five). The eight bars that
-      // used to wear it — three model, five duration — are flat now. The
-      // gradient is the brand's own moment; when everything wore it, nothing
-      // on the page was emphatic any more.
+      // Zero. This number has only ever gone down, and each step had the same
+      // reason: the gradient marks a *selection*, and nothing on a dashboard
+      // is selected.
       //
-      // It used to be seven: the three `WpSection`s each hung a 3 px
-      // accent-gradient bar beside their heading. Ticket 08 removed that bar —
-      // a *generic* interaction accent on a heading that is not interactive,
-      // spending the brand's loudest gradient on "here is a section". The
-      // accent still marks selection (the sidebar's active rail item); it no
-      // longer marks structure.
+      // It was seven — the three `WpSection`s each hung a 3 px accent bar
+      // beside their heading, which Ticket 08 removed as a generic
+      // interaction accent on a non-interactive heading. It was then four,
+      // one 2 px strip per hero pill, and those were the last: a pill is not
+      // tappable either, so the strip promised the same interaction the
+      // removed hover highlight had promised, and wearing it on every tile
+      // meant the row had four equally loud cells and no lead (ticket 32,
+      // finding B4). The lead pill is now marked by the elevated rung of the
+      // card material instead — a difference in weight rather than a badge.
+      //
+      // Guarded here rather than trusted: `analytics_page.dart` still names
+      // the token in its comments, so a source grep would not see the
+      // difference between explaining the removal and undoing it.
       expect(
         decorationGradients(
           tester,
         ).where((g) => g == WpColorsDark.accentWarmGradient).length,
-        4,
+        0,
         reason:
-            'the accent gradient escaped the hero pills — the model and '
-            'duration bars are flat by decision, not by accident, and a '
-            'section heading no longer wears it at all',
+            'the accent gradient is back on the analytics page. It marks the '
+            'sidebar\'s active rail item and nothing else — a statistic is '
+            'not a selection, and neither is a section heading',
       );
     });
   });

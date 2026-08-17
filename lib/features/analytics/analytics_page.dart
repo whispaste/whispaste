@@ -196,18 +196,22 @@ class _AnalyticsDashboard extends StatelessWidget {
             title: l10n.analyticsActivity,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _ActivityChartPanel(values: data.weeklyActivity),
-              right: _ModelUsagePanel(
-                models: data.modelUsage
-                    .map(
-                      (m) => _ModelUsage(
-                        m.model,
-                        _displayNameForModel(m.model, l10n),
-                        m.count,
-                        m.fraction,
-                      ),
-                    )
-                    .toList(),
+              left: _AnalyticsPanelCard(
+                child: _ActivityChartPanel(values: data.weeklyActivity),
+              ),
+              right: _AnalyticsPanelCard(
+                child: _ModelUsagePanel(
+                  models: data.modelUsage
+                      .map(
+                        (m) => _ModelUsage(
+                          m.model,
+                          _displayNameForModel(m.model, l10n),
+                          m.count,
+                          m.fraction,
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
             ),
           ),
@@ -219,12 +223,16 @@ class _AnalyticsDashboard extends StatelessWidget {
             title: l10n.analyticsInsights,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _DurationDistPanel(
-                buckets: _buildBuckets(l10n, data.durationBuckets),
+              left: _AnalyticsPanelCard(
+                child: _DurationDistPanel(
+                  buckets: _buildBuckets(l10n, data.durationBuckets),
+                ),
               ),
-              right: _CostPanel(
-                localSavingsUsd: data.localSavingsUsd,
-                cloudCostUsd: data.cloudCostUsd,
+              right: _AnalyticsPanelCard(
+                child: _CostPanel(
+                  localSavingsUsd: data.localSavingsUsd,
+                  cloudCostUsd: data.cloudCostUsd,
+                ),
               ),
             ),
           ),
@@ -293,21 +301,21 @@ List<String> _activityDayLabels(L10n l10n) => [
 ];
 
 // ---------------------------------------------------------------------------
-// Panel header with accent underline (renders directly on surface)
+// Panel header (renders inside a panel card)
 // ---------------------------------------------------------------------------
 
-/// Section header inside a flat panel — icon + title with thin accent underline.
+/// Header inside a panel card — icon + title.
 ///
-/// A third header vocabulary alongside [WpSection] and `SettingRow`, and the
-/// accent underline is the very decoration ticket 07 removed from the About
-/// page. Kept anyway, as a deliberate exception: this is a genuine *second*
-/// level, a panel head nested inside a [WpSection] that already spent its
-/// accent bar on the level above. About had no such need — its `_AboutCard`
-/// border already framed the group, so there the underline was decoration on
-/// top of decoration. Here it is the only thing separating two header ranks.
-///
-/// Making it a `WpSection` instead would mean two accent bars stacked eight
-/// pixels apart, which is worse than the small inconsistency it would fix.
+/// It used to hang a 1.5 × 40 px accent gradient under the title, kept as a
+/// deliberate exception on the argument that the underline was "the only thing
+/// separating two header ranks" here, whereas on About the `_AboutCard` border
+/// already framed the group and the same underline would have been decoration
+/// on top of decoration. Ticket 14 gives these panels that border, so the
+/// exception's own condition no longer holds: [_AnalyticsPanelCard] now says
+/// where a panel begins and ends, and the underline went back to being the
+/// second mark for one boundary. The header keeps its accent *icon*, which is
+/// what actually distinguishes a panel head from the [WpSection] title above
+/// it, at no cost in paint.
 class _PanelHeader extends StatelessWidget {
   const _PanelHeader({required this.icon, required this.title, this.trailing});
 
@@ -318,40 +326,58 @@ class _PanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const accent = WpColors.accent;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Icon(icon, size: WpIconSize.sm, color: accent),
-            const SizedBox(width: WpSpacing.xs),
-            Expanded(
-              child: Text(
-                title,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: WpColors.textPrimary,
-                ),
-              ),
+        Icon(icon, size: WpIconSize.sm, color: accent),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            title,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: WpTypography.body,
+              fontWeight: FontWeight.w600,
+              color: WpColors.textPrimary,
             ),
-            if (trailing != null) ...[
-              const SizedBox(width: WpSpacing.xs),
-              trailing!,
-            ],
-          ],
-        ),
-        const SizedBox(height: WpSpacing.xs),
-        Container(
-          height: 1.5,
-          width: 40,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [accent, accent.withAlpha(0)]),
-            borderRadius: WpRadius.borderFull,
           ),
         ),
+        if (trailing != null) ...[
+          const SizedBox(width: WpSpacing.xs),
+          trailing!,
+        ],
       ],
+    );
+  }
+}
+
+/// The card the four analytics panels stand on.
+///
+/// Same recipe as `_AboutCard` (`about_page.dart`), and for the same reason:
+/// translucent [WpColors.cardFill] because this card sits inside the main
+/// content panel rather than on its own ground, a [WpColors.cardEdgeHighlight]
+/// rim, and no shadow — depth in this app comes from the fill step, not from a
+/// drop shadow (the Depth-Source Rule, `lib/DESIGN.md`).
+///
+/// Before Ticket 14 the panels painted no material at all: four content blocks
+/// floating on the page surface, separated only by a 16 px gap and each one's
+/// accent underline. Two panels side by side in a [WpTwoPanel] had nothing
+/// between them but that gap, so a reader scanning across the row could not
+/// see where the activity chart stopped and the model list started.
+class _AnalyticsPanelCard extends StatelessWidget {
+  const _AnalyticsPanelCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(WpSpacing.lg),
+      decoration: BoxDecoration(
+        color: WpColors.cardFill,
+        borderRadius: WpRadius.borderLg,
+        border: Border.all(color: WpColors.cardEdgeHighlight),
+      ),
+      child: child,
     );
   }
 }
@@ -378,6 +404,7 @@ class _HeroStatsRow extends StatelessWidget {
         final narrow = constraints.maxWidth < 520;
         final pills = [
           _HeroPill(
+            isLead: true,
             icon: LucideIcons.mic,
             rawValue: data.totalRecordings,
             formatter: formatCount,
@@ -443,23 +470,46 @@ class _HeroStatsRow extends StatelessWidget {
   }
 }
 
-/// Pill-shaped stat block: flat, subtle border, gradient accent strip at top
-/// and a number that counts up once on entry. Deliberately not interactive —
-/// the doc used to promise a "hover interaction" that the widget no longer
-/// has, and a stat card that lights up under the pointer would imply a click
-/// target this app does not offer here.
+/// Pill-shaped stat block on the app's card material, with a number that counts
+/// up once on entry. Deliberately not interactive — the doc used to promise a
+/// "hover interaction" that the widget no longer has, and a stat card that
+/// lights up under the pointer would imply a click target this app does not
+/// offer here.
+///
+/// Every pill used to carry a 2 px `accentWarmGradient` strip along its top
+/// edge (ticket 32, finding B4). Two things were wrong with it. It was the
+/// brand's loudest gradient, the one the app otherwise spends only where it
+/// marks a real selection, sitting on a tile that cannot be selected or even
+/// clicked — the same broken promise the removed hover highlight made, in
+/// paint instead of motion. And it was on *all* of them, so the row was four
+/// (sometimes five) identically weighted tiles: nothing in it answered "what
+/// is this dashboard about", which is the job of the first thing a reader
+/// meets on a page.
+///
+/// Rank replaces the strip. The row's [isLead] tile — the count of the thing
+/// the whole app exists to do — sits on the elevated rung of the card material
+/// and keeps the accent icon; the rest sit on the base rung with a muted icon
+/// and read as the supporting detail they are. Geometry, padding and type are
+/// untouched, so the per-locale width measurements in `analytics_page_test.dart`
+/// still describe the tile they were taken from: this is a difference in
+/// weight, not in size, which is the only kind a row of equally sized cells can
+/// carry without one of them jumping out of the grid.
 class _HeroPill extends StatefulWidget {
   const _HeroPill({
     required this.icon,
     required this.rawValue,
     required this.formatter,
     required this.label,
+    this.isLead = false,
   });
 
   final IconData icon;
   final int rawValue;
   final String Function(int) formatter;
   final String label;
+
+  /// Whether this is the row's lead statistic. Exactly one pill sets it.
+  final bool isLead;
 
   @override
   State<_HeroPill> createState() => _HeroPillState();
@@ -509,9 +559,7 @@ class _HeroPillState extends State<_HeroPill>
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
     const textSecondary = WpColors.textSecondary;
-    const borderColor = WpColors.borderSubtle;
 
     // One stat, one node. The number and its caption were two unrelated
     // fragments in the semantics tree, so the value arrived without ever
@@ -527,28 +575,22 @@ class _HeroPillState extends State<_HeroPill>
           vertical: WpSpacing.sm,
         ),
         decoration: BoxDecoration(
+          color: widget.isLead ? WpColors.cardFillElevated : WpColors.cardFill,
           borderRadius: WpRadius.borderMd,
-          border: Border.all(color: borderColor),
+          border: Border.all(color: WpColors.cardEdgeHighlight),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Gradient accent strip at top
-            Container(
-              height: 2,
-              margin: const EdgeInsets.only(bottom: WpSpacing.sm),
-              decoration: BoxDecoration(
-                gradient: WpColors.accentWarmGradient,
-                borderRadius: WpRadius.borderFull,
+            // Icon — accent on the lead statistic, muted on the rest.
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Icon(
+                widget.icon,
+                size: WpIconSize.sm,
+                color: widget.isLead ? WpColors.accent : WpColors.textMuted,
               ),
-            ),
-            // Icon
-            Row(
-              children: [
-                Icon(widget.icon, size: WpIconSize.sm, color: accent),
-                const Spacer(),
-              ],
             ),
             const SizedBox(height: WpSpacing.sm),
             // Animated number — counts up, but only for the eye. The node

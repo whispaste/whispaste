@@ -550,10 +550,16 @@ Widget settingsTextField({
 /// was not load-bearing: a settings section already announces itself with a
 /// heading, and a rule drawn across the page is a second, weaker answer to a
 /// question the heading has already answered — while being one more edge
-/// cutting across the one ambient gradient the window is painted on. The
-/// vertical budget is unchanged (the old divider row also came to 32 dp), so
-/// only the line is gone, not the air.
-const Widget settingsSectionBreak = SizedBox(height: WpSpacing.xxl);
+/// cutting across the one ambient gradient the window is painted on. Ticket 08
+/// left the vertical budget alone (the old divider row also came to 32 dp), so
+/// only the line went, not the air.
+///
+/// Ticket 14 spends some of that air back. Sections now stand on the card
+/// material (`settings_page.dart`), and a card draws its own boundary — 32 dp
+/// of gap on *top* of a rim is the same doubling the divider was, just made of
+/// emptiness. 20 dp is what About puts between its cards, and Settings is the
+/// same page shape one screen over.
+const Widget settingsSectionBreak = SizedBox(height: WpSpacing.lg);
 
 /// Break between conditional sub-groups *within* one settings section (e.g.
 /// local- vs. cloud-mode STT fields, or an overlay section's

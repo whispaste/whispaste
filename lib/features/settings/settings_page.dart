@@ -147,7 +147,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
 
-    Widget sectionWithHighlight(String sectionKey, Widget child) {
+    /// One settings section, on the app's card material, plus the transient
+    /// locator ring a search hit paints over it.
+    ///
+    /// The card is Ticket 14's half. Before it, the sixteen sections were
+    /// sixteen headings and their rows laid straight onto the page ground,
+    /// separated by 32 px of nothing — which is a lot of air to spend on a
+    /// boundary that air alone has to carry, and it still left the reader
+    /// working out by eye where "Audio" ended and "After transcription"
+    /// began. The same recipe as `_AboutCard` and the analytics panels: the
+    /// translucent [WpColors.cardFill] because these cards sit inside the
+    /// content panel rather than on their own ground, a
+    /// [WpColors.cardEdgeHighlight] rim, and no shadow (the Depth-Source
+    /// Rule, `lib/DESIGN.md`). With the boundary drawn, the gap between two
+    /// cards drops to `WpSpacing.lg`, matching About.
+    Widget sectionCard(String sectionKey, Widget child) {
       final isHighlighted = highlightTarget == sectionKey;
       // Its own token, deliberately above the tint ladder's 30 % ceiling — the
       // ring has to be caught in peripheral vision and clears itself after
@@ -159,16 +173,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           context,
           const Duration(milliseconds: 200),
         ),
-        // `foregroundDecoration`, never `decoration`: a `Border` in the
-        // background decoration is laid out, not just painted — the container
-        // insets its child by the border width. The ring is transient (it
-        // arrives with a search hit and clears itself 1.5 s later), so a
-        // background border made the whole section jump 2 px inward on
-        // arrival and 2 px back on expiry, twice per search. Painted in the
-        // foreground the ring costs zero layout and the section holds still.
+        padding: const EdgeInsets.all(WpSpacing.lg),
+        // The card's own border lives here, in the background decoration, and
+        // is safe there precisely because it never changes: a `Border` in
+        // `decoration` is laid out, not just painted, so the container insets
+        // its child by the border width — constant cost, no movement.
+        decoration: BoxDecoration(
+          color: WpColors.cardFill,
+          borderRadius: WpRadius.borderLg,
+          border: Border.all(color: WpColors.cardEdgeHighlight),
+        ),
+        // The *ring*, by contrast, goes in `foregroundDecoration`, never in
+        // `decoration`: it is transient (it arrives with a search hit and
+        // clears itself 1.5 s later), so laying it out made the whole section
+        // jump 2 px inward on arrival and 2 px back on expiry, twice per
+        // search. Painted in the foreground it costs zero layout and the
+        // section holds still.
         foregroundDecoration: isHighlighted
             ? BoxDecoration(
-                borderRadius: WpRadius.borderMd,
+                borderRadius: WpRadius.borderLg,
                 border: Border.all(color: ringColor, width: 2),
               )
             : const BoxDecoration(),
@@ -180,91 +203,88 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final allSections = <(String, Widget Function())>[
       (
         'interface',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'interface',
           InterfaceSection(key: _sectionKeys['interface']),
         ),
       ),
       (
         'stt',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'stt',
           SpeechRecognitionSection(key: _sectionKeys['stt']),
         ),
       ),
       (
         'audio',
-        () => sectionWithHighlight(
-          'audio',
-          AudioSection(key: _sectionKeys['audio']),
-        ),
+        () => sectionCard('audio', AudioSection(key: _sectionKeys['audio'])),
       ),
       (
         'afterTranscription',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'afterTranscription',
           AfterTranscriptionSection(key: _sectionKeys['afterTranscription']),
         ),
       ),
       (
         'overlay',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'overlay',
           OverlaySection(key: _sectionKeys['overlay']),
         ),
       ),
       (
         'floatingButton',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'floatingButton',
           FloatingButtonSection(key: _sectionKeys['floatingButton']),
         ),
       ),
       (
         'hotkey',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'hotkey',
           KeyboardShortcutSection(key: _sectionKeys['hotkey']),
         ),
       ),
       (
         'sound',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'sound',
           SoundFeedbackSection(key: _sectionKeys['sound']),
         ),
       ),
       (
         'recordingSafety',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'recordingSafety',
           RecordingSafetySection(key: _sectionKeys['recordingSafety']),
         ),
       ),
       (
         'history',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'history',
           HistorySection(key: _sectionKeys['history']),
         ),
       ),
       (
         'settingsPortability',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'settingsPortability',
           SettingsPortabilitySection(key: _sectionKeys['settingsPortability']),
         ),
       ),
       (
         'advanced',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'advanced',
           AdvancedSection(key: _sectionKeys['advanced']),
         ),
       ),
       (
         'updates',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'updates',
           UpdatesSection(key: _sectionKeys['updates']),
         ),
@@ -276,21 +296,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (onboardingCompleted)
         (
           'onboardingReview',
-          () => sectionWithHighlight(
+          () => sectionCard(
             'onboardingReview',
             OnboardingReviewSection(key: _sectionKeys['onboardingReview']),
           ),
         ),
       (
         'reviewSupport',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'reviewSupport',
           ReviewSupportSection(key: _sectionKeys['reviewSupport']),
         ),
       ),
       (
         'privacy',
-        () => sectionWithHighlight(
+        () => sectionCard(
           'privacy',
           PrivacySection(key: _sectionKeys['privacy']),
         ),

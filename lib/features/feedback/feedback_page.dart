@@ -208,112 +208,120 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
                   const SizedBox(height: WpSpacing.xxl),
 
-                  // Category selection
-                  Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
-                  // `- _chipRowSlack` on both sides of the row: the chips'
-                  // tap surfaces are taller than their pills, and the eye
-                  // measures from the pill. See [_chipRowSlack].
-                  const SizedBox(height: WpSpacing.md - _chipRowSlack),
-                  // `WpFilterChip`, not a local chip class: this row picks one
-                  // of a set, which is exactly the job History, Notes and the
-                  // analytics period selector already use it for. The private
-                  // `_CategoryChip` it replaces was the fifth reimplementation
-                  // of that widget and repeated the same two defects the
-                  // analytics one had — a bare `GestureDetector`, so the
-                  // control was unreachable by keyboard, and a `label:` on a
-                  // `Semantics` whose child renders the same text, so each chip
-                  // announced its name twice. It also hand-mixed its active
-                  // border at `accent` 30%, which is the `accentBorder30` rung
-                  // spelled out longhand.
-                  Wrap(
-                    spacing: WpSpacing.sm,
-                    // Not `sm` again: horizontally the gap is measured pill to
-                    // pill, vertically it would be measured box to box, and
-                    // the two boxes bring ~20px of slack between them on their
-                    // own. Spelling both tokens the same would have put 32px
-                    // between two runs against 12px inside one — and the four
-                    // German labels do wrap onto a second run once the OS text
-                    // size is turned up. Zero leaves 12px within a run and
-                    // ~20px between them: a step up, which is what separates
-                    // runs from each other, but a far smaller one than 32.
-                    runSpacing: 0,
+                  _FeedbackCard(
                     children: [
-                      for (final (value, icon, label)
-                          in <(String, IconData, String)>[
-                            ('bug', LucideIcons.bug, l10n.feedbackCategoryBug),
-                            (
-                              'feature',
-                              LucideIcons.lightbulb,
-                              l10n.feedbackCategoryFeature,
+                      // Category selection
+                      Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
+                      // `- _chipRowSlack` on both sides of the row: the chips'
+                      // tap surfaces are taller than their pills, and the eye
+                      // measures from the pill. See [_chipRowSlack].
+                      const SizedBox(height: WpSpacing.md - _chipRowSlack),
+                      // `WpFilterChip`, not a local chip class: this row picks one
+                      // of a set, which is exactly the job History, Notes and the
+                      // analytics period selector already use it for. The private
+                      // `_CategoryChip` it replaces was the fifth reimplementation
+                      // of that widget and repeated the same two defects the
+                      // analytics one had — a bare `GestureDetector`, so the
+                      // control was unreachable by keyboard, and a `label:` on a
+                      // `Semantics` whose child renders the same text, so each chip
+                      // announced its name twice. It also hand-mixed its active
+                      // border at `accent` 30%, which is the `accentBorder30` rung
+                      // spelled out longhand.
+                      Wrap(
+                        spacing: WpSpacing.sm,
+                        // Not `sm` again: horizontally the gap is measured pill to
+                        // pill, vertically it would be measured box to box, and
+                        // the two boxes bring ~20px of slack between them on their
+                        // own. Spelling both tokens the same would have put 32px
+                        // between two runs against 12px inside one — and the four
+                        // German labels do wrap onto a second run once the OS text
+                        // size is turned up. Zero leaves 12px within a run and
+                        // ~20px between them: a step up, which is what separates
+                        // runs from each other, but a far smaller one than 32.
+                        runSpacing: 0,
+                        children: [
+                          for (final (value, icon, label)
+                              in <(String, IconData, String)>[
+                                (
+                                  'bug',
+                                  LucideIcons.bug,
+                                  l10n.feedbackCategoryBug,
+                                ),
+                                (
+                                  'feature',
+                                  LucideIcons.lightbulb,
+                                  l10n.feedbackCategoryFeature,
+                                ),
+                                (
+                                  'general',
+                                  LucideIcons.messageCircle,
+                                  l10n.feedbackCategoryGeneral,
+                                ),
+                                (
+                                  'ai',
+                                  LucideIcons.sparkles,
+                                  l10n.feedbackCategoryAiQuality,
+                                ),
+                              ])
+                            WpFilterChip(
+                              icon: icon,
+                              label: label,
+                              isActive: _category == value,
+                              onTap: () => setState(() => _category = value),
                             ),
-                            (
-                              'general',
-                              LucideIcons.messageCircle,
-                              l10n.feedbackCategoryGeneral,
-                            ),
-                            (
-                              'ai',
-                              LucideIcons.sparkles,
-                              l10n.feedbackCategoryAiQuality,
-                            ),
-                          ])
-                        WpFilterChip(
-                          icon: icon,
-                          label: label,
-                          isActive: _category == value,
-                          onTap: () => setState(() => _category = value),
-                        ),
+                        ],
+                      ),
+
+                      const SizedBox(height: WpSpacing.xxxl - _chipRowSlack),
+
+                      // Emoji rating
+                      Text(l10n.feedbackRatingLabel, style: ts.titleSmall),
+                      const SizedBox(height: WpSpacing.md),
+                      _EmojiRatingRow(
+                        rating: _rating,
+                        onChanged: (v) => setState(() => _rating = v),
+                      ),
+
+                      const SizedBox(height: WpSpacing.xxxl),
+
+                      // Comment field — chat-styled
+                      Text(l10n.feedbackCommentsLabel, style: ts.titleSmall),
+                      const SizedBox(height: WpSpacing.md),
+                      // A form field, so it looks like every other form field —
+                      // it used to sit borderless inside a warm-gradient box of
+                      // its own, which gave it a third field look *and* no focus
+                      // indicator at all.
+                      WpTextField(
+                        key: const Key('feedbackCommentField'),
+                        controller: _commentController,
+                        variant: WpTextFieldVariant.form,
+                        hintText: _category == 'bug'
+                            ? l10n.feedbackPlaceholderBug
+                            : _category == 'feature'
+                            ? l10n.feedbackPlaceholderFeature
+                            : _category == 'ai'
+                            ? l10n.feedbackPlaceholderAi
+                            : l10n.feedbackPlaceholderGeneral,
+                        minLines: 3,
+                        maxLines: 5,
+                        maxLength: 1000,
+                        onChanged: (_) => setState(() {}),
+                      ),
+
+                      const SizedBox(height: WpSpacing.xxl),
+
+                      // Optional contact email + preferred reply language
+                      _ContactEmailSection(
+                        emailController: _emailController,
+                        contactLocale: _contactLocale,
+                        // The email text lives on the parent's controller and
+                        // feeds _canSubmit + the submit payload, so a change
+                        // must re-run the parent's build, not just the child's.
+                        onEmailChanged: () => setState(() {}),
+                        onContactLocaleChanged: (code) =>
+                            setState(() => _contactLocale = code),
+                      ),
                     ],
-                  ),
-
-                  const SizedBox(height: WpSpacing.xxxl - _chipRowSlack),
-
-                  // Emoji rating
-                  Text(l10n.feedbackRatingLabel, style: ts.titleSmall),
-                  const SizedBox(height: WpSpacing.md),
-                  _EmojiRatingRow(
-                    rating: _rating,
-                    onChanged: (v) => setState(() => _rating = v),
-                  ),
-
-                  const SizedBox(height: WpSpacing.xxxl),
-
-                  // Comment field — chat-styled
-                  Text(l10n.feedbackCommentsLabel, style: ts.titleSmall),
-                  const SizedBox(height: WpSpacing.md),
-                  // A form field, so it looks like every other form field —
-                  // it used to sit borderless inside a warm-gradient box of
-                  // its own, which gave it a third field look *and* no focus
-                  // indicator at all.
-                  WpTextField(
-                    key: const Key('feedbackCommentField'),
-                    controller: _commentController,
-                    variant: WpTextFieldVariant.form,
-                    hintText: _category == 'bug'
-                        ? l10n.feedbackPlaceholderBug
-                        : _category == 'feature'
-                        ? l10n.feedbackPlaceholderFeature
-                        : _category == 'ai'
-                        ? l10n.feedbackPlaceholderAi
-                        : l10n.feedbackPlaceholderGeneral,
-                    minLines: 3,
-                    maxLines: 5,
-                    maxLength: 1000,
-                    onChanged: (_) => setState(() {}),
-                  ),
-
-                  const SizedBox(height: WpSpacing.xxl),
-
-                  // Optional contact email + preferred reply language
-                  _ContactEmailSection(
-                    emailController: _emailController,
-                    contactLocale: _contactLocale,
-                    // The email text lives on the parent's controller and
-                    // feeds _canSubmit + the submit payload, so a change
-                    // must re-run the parent's build, not just the child's.
-                    onEmailChanged: () => setState(() {}),
-                    onContactLocaleChanged: (code) =>
-                        setState(() => _contactLocale = code),
                   ),
 
                   const SizedBox(height: WpSpacing.xxl),
@@ -491,6 +499,43 @@ class _FeedbackPageState extends State<FeedbackPage> {
 // _FeedbackPageState.build to keep its cyclomatic complexity down.
 // ---------------------------------------------------------------------------
 
+/// The card the feedback form stands on.
+///
+/// Same recipe as `_AboutCard` and the settings sections: translucent
+/// [WpColors.cardFill] because it sits inside the content panel rather than on
+/// its own ground, a [WpColors.cardEdgeHighlight] rim, no shadow (the
+/// Depth-Source Rule, `lib/DESIGN.md`).
+///
+/// One card, not one per group. The four groups inside it — category, rating,
+/// comment, contact — are not four things a reader chooses between; they are
+/// four questions in a single act, and the act ends at the submit button below
+/// the card. Boxing each group would have drawn three boundaries where the
+/// form has none, and the submit stays outside because a form's action is what
+/// you do *to* the form, not one more field in it.
+class _FeedbackCard extends StatelessWidget {
+  const _FeedbackCard({
+    required this.children,
+    this.crossAxisAlignment = CrossAxisAlignment.start,
+  });
+
+  final List<Widget> children;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.lg),
+      decoration: BoxDecoration(
+        color: WpColors.cardFill,
+        borderRadius: WpRadius.borderLg,
+        border: Border.all(color: WpColors.cardEdgeHighlight),
+      ),
+      child: Column(crossAxisAlignment: crossAxisAlignment, children: children),
+    );
+  }
+}
+
 class _ContactEmailSection extends StatelessWidget {
   const _ContactEmailSection({
     required this.emailController,
@@ -624,7 +669,15 @@ class _ThankYouView extends StatelessWidget {
                   onPressed: onReset,
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
-                _ReviewSupportCtas(ts: ts, isWindows: isWindows),
+                // The one group on this screen that is a bounded offer rather
+                // than a sentence addressed to the reader, so it is the one
+                // that gets card material. The celebration above it — mark,
+                // headline, message, "send another" — is narrative and stands
+                // on the page ground, the way the onboarding steps do.
+                _FeedbackCard(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [_ReviewSupportCtas(ts: ts, isWindows: isWindows)],
+                ),
               ],
             ),
           ),
@@ -672,10 +725,20 @@ class _ReviewSupportCtas extends StatelessWidget {
           ),
           const SizedBox(height: WpSpacing.xs),
         ],
+        // The loud action of the thank-you state on the platforms that have no
+        // store listing. It used to be `secondary` on all three, which meant a
+        // Windows reader met a screen with one obvious next step and a macOS
+        // reader met the same screen with none — the same code branch quietly
+        // deciding whether the page had a point (the One-Loud-Action Rule,
+        // `lib/DESIGN.md`, and `one_loud_action_test.dart` pins both branches).
+        // Windows keeps GitHub as the quieter second option, because there the
+        // store rating is the bigger ask and two loud buttons are none.
         // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
         WpButton(
           label: l10n.reviewPromptStarGitHub,
-          variant: WpButtonVariant.secondary,
+          variant: isWindows
+              ? WpButtonVariant.secondary
+              : WpButtonVariant.primary,
           onPressed: () => _launchExternalUrl(kGitHubRepoUrl),
         ),
       ],
