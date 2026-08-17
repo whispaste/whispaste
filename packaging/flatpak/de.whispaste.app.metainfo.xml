@@ -58,10 +58,9 @@
   <!-- Per-release: prepend a <release> entry with the tag version + date.
        See packaging/flatpak/README.md (runbook). -->
   <releases>
-    <release version="0.0.0" date="2026-06-12">
+    <release version="1.2.65" date="2026-07-30">
       <description>
-        <p>Placeholder release entry — replaced with the real tag version and
-          date at Flathub submission time.</p>
+        <p>See the full changelog at https://whispaste.de/changelog/.</p>
       </description>
     </release>
   </releases>

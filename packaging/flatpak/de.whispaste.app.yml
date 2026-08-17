@@ -175,12 +175,10 @@ modules:
     sources:
       # ── Prebuilt Linux x86_64 release bundle from release.yml `build-linux` ──
       # Per-release: bump `url` to the tag's asset and `sha256` to its digest
-      # (runbook step in README.md). Until the first Linux release tag exists
-      # these are documented placeholders — CI validates manifest *shape*, the
-      # real archive is pinned at submission time.
+      # (runbook step in README.md).
       - type: archive
-        url: https://github.com/whispaste/whispaste/releases/download/v0.0.0/WhisPaste-0.0.0-linux-x64.tar.gz
-        sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+        url: https://github.com/whispaste/whispaste/releases/download/v1.2.65/WhisPaste-1.2.65-linux-x64.tar.gz
+        sha256: 209f13fe0d4ff74e2fca0ba7cadaf4dbcd6ed9d95d7f2915531a3916b64c7454
         # The tarball root IS the Flutter bundle (no leading bundle/ dir).
         strip-components: 0
       - type: file

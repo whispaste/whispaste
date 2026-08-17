@@ -24,7 +24,7 @@
 name: whispaste
 title: WhisPaste
 base: core24
-version: '0.0.0'
+version: '1.2.65'
 license: MIT
 website: https://whispaste.de/
 contact: https://github.com/whispaste/whispaste/issues
@@ -112,11 +112,9 @@ parts:
 
   # Stage the prebuilt Linux x86_64 release bundle (no Flutter rebuild) under
   # $SNAP/whispaste. Per-release: bump `source` to the tag's tarball asset.
-  # Until the first Linux release tag exists this is a documented placeholder —
-  # CI validates the manifest *shape*; the real archive is pinned at submission.
   whispaste-bundle:
     plugin: dump
-    source: https://github.com/whispaste/whispaste/releases/download/v0.0.0/WhisPaste-0.0.0-linux-x64.tar.gz
+    source: https://github.com/whispaste/whispaste/releases/download/v1.2.65/WhisPaste-1.2.65-linux-x64.tar.gz
     source-type: tar
     # The tarball root contains a file named `whispaste` alongside lib/ and
     # data/, so `organize: '*': whispaste/` collides with that file
