@@ -141,62 +141,68 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header row — clickable to start adding a note
-            GestureDetector(
-              onTap: _isAdding ? null : () => setState(() => _isAdding = true),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  // `textSecondary`, not the accent — same correction as the
-                  // tag section's glyph directly above it (Ticket 32, B3):
-                  // the section label is inert, and the two controls that
-                  // *are* operable (microphone, "+") sit on the same line and
-                  // keep the accent to themselves.
-                  const Icon(
-                    LucideIcons.stickyNote,
-                    size: WpIconSize.sm,
-                    color: textSecondary,
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      noteList.isEmpty
-                          ? l10n.historyAddNote
-                          : '${l10n.historyNotes} (${noteList.length})',
-                      style: const TextStyle(
-                        fontSize: WpTypography.body,
-                        fontWeight: FontWeight.w600,
-                        color: textSecondary,
-                        letterSpacing: 0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  VoiceNoteButton(entryId: widget.entryId),
-                  const SizedBox(width: WpSpacing.xxs),
-                  if (!_isAdding)
-                    Semantics(
-                      label: l10n.historyAddNote,
-                      button: true,
-                      child: Tooltip(
-                        message: l10n.historyAddNote,
-                        child: InkWell(
-                          onTap: () => setState(() => _isAdding = true),
-                          borderRadius: WpRadius.borderSm,
-                          child: const Padding(
-                            padding: EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.plus,
-                              size: WpIconSize.md,
-                              color: accent,
+            Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    button: !_isAdding,
+                    label: l10n.historyAddNote,
+                    child: GestureDetector(
+                      onTap: _isAdding ? null : () => setState(() => _isAdding = true),
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        children: [
+                          // `textSecondary`, not the accent — same correction as the
+                          // tag section's glyph directly above it (Ticket 32, B3):
+                          // the section label is inert, and the two controls that
+                          // *are* operable (microphone, "+") sit on the same line and
+                          // keep the accent to themselves.
+                          const Icon(
+                            LucideIcons.stickyNote,
+                            size: WpIconSize.sm,
+                            color: textSecondary,
+                          ),
+                          const SizedBox(width: WpSpacing.xs),
+                          Flexible(
+                            child: Text(
+                              noteList.isEmpty
+                                  ? l10n.historyAddNote
+                                  : '${l10n.historyNotes} (${noteList.length})',
+                              style: const TextStyle(
+                                fontSize: WpTypography.body,
+                                fontWeight: FontWeight.w600,
+                                color: textSecondary,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                VoiceNoteButton(entryId: widget.entryId),
+                const SizedBox(width: WpSpacing.xxs),
+                if (!_isAdding)
+                  Tooltip(
+                    message: l10n.historyAddNote,
+                    child: InkWell(
+                      onTap: () => setState(() => _isAdding = true),
+                      borderRadius: WpRadius.borderSm,
+                      child: const Padding(
+                        padding: EdgeInsets.all(WpSpacing.xs),
+                        child: Icon(
+                          LucideIcons.plus,
+                          size: WpIconSize.md,
+                          color: accent,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
             // Add note input
             if (_isAdding) ...[
