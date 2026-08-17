@@ -52,8 +52,8 @@ class WpSearchableListPage<T> extends StatefulWidget {
   final AsyncValue<List<T>> asyncAll;
 
   /// Whether [item] matches the search query. Called only for non-empty
-  /// queries; `query` is already lowercased.
-  final bool Function(T item, String query) searchMatches;
+  /// queries.
+  final bool Function(T item, RegExp queryRegex) searchMatches;
 
   /// Hint text of the toolbar search field.
   final String searchHint;
@@ -270,8 +270,13 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
 
   List<T> _filtered(List<T> all) {
     if (_searchQuery.isEmpty) return all;
-    final q = _searchQuery.toLowerCase();
-    return all.where((item) => widget.searchMatches(item, q)).toList();
+    // ⚡ Bolt: Performance optimization
+    // Compile a case-insensitive RegExp once per query instead of calling
+    // String.toLowerCase() inside the filtering tight loop. This avoids
+    // excessive memory allocation overhead when filtering large lists on
+    // every keystroke. RegExp.escape prevents crashes from special characters.
+    final queryRegex = RegExp(RegExp.escape(_searchQuery), caseSensitive: false);
+    return all.where((item) => widget.searchMatches(item, queryRegex)).toList();
   }
 
   /// The filtered list as the *key handler* sees it. `build` derives the same

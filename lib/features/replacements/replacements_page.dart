@@ -196,8 +196,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       ),
       asyncAll: ref.watch(replacementsProvider),
       searchMatches: (r, q) =>
-          r.triggers.any((t) => t.toLowerCase().contains(q)) ||
-          r.replacement.toLowerCase().contains(q),
+          r.triggers.any(q.hasMatch) ||
+          q.hasMatch(r.replacement),
       searchHint: l10n.replacementsSearch,
       searchFieldLabel: l10n.replacementsSearchFieldLabel,
       addLabel: l10n.replacementsAdd,
