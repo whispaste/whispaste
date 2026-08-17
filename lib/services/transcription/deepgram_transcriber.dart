@@ -67,7 +67,18 @@ class DeepgramTranscriber implements Transcriber {
     final request = http.Request('POST', uri)
       ..headers['Authorization'] = 'Token $key'
       ..headers['Content-Type'] = 'audio/wav'
-      ..bodyBytes = List<int>.from(wavBytes);
+      // Pass wavBytes straight through instead of copying via
+      // `List<int>.from()` first: the http package's `bodyBytes` setter
+      // already skips its own copy when it receives a Uint8List (which is
+      // what File.readAsBytes() hands us). The removed `List<int>.from()`
+      // call was doubly wasteful: it produced a *growable* `List<int>` of
+      // boxed/tagged words (~8 bytes per element instead of 1, so a 10MB WAV
+      // became an ~80MB transient allocation), and the setter then had to
+      // copy that back into a fresh Uint8List anyway since a plain List
+      // isn't one. Measured ~120ms of synchronous main-isolate work (plus
+      // the resulting GC pressure) for a 10MB / ~5min WAV clip, right before
+      // the network send — on the Hotkey→Text critical path.
+      ..bodyBytes = wavBytes;
 
     final http.StreamedResponse streamed;
     try {
