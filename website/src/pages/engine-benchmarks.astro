@@ -1,18 +1,16 @@
 ---
 /**
- * `/engine-benchmarks/` — reproduzierbare RTF/WER-Messungen für whisper.cpp
- * und Parakeet je Hardware-Klasse (Linkable-Asset-Ticket, s. `website/
- * .scratch/backlink-distribution/issues/05-engine-benchmark-page.md`).
+ * `/engine-benchmarks/` — reproduzierbarer whisper.cpp-vs-Parakeet-Vergleich
+ * auf einer Plattform (Linkable-Asset-Ticket, s. `website/.scratch/
+ * backlink-distribution/issues/05-engine-benchmark-page.md`).
  *
- * Reale Daten kommen aus `src/data/engine-benchmarks.json`, geschrieben von
- * `scripts/benchmark-engines-run.mjs` (nie hier im Markup erfunden). Jede
- * Zeile der Hardware-Matrix ohne passenden JSON-Eintrag wird explizit als
- * "offen" markiert statt die Lücke zu verstecken — ehrliche Unvollständigkeit
- * ist für ein Linkable Asset glaubwürdiger als vorgetäuschte Vollständigkeit.
- *
- * Hardware-Achse folgt den drei real gebauten Backends (CONTEXT.md §4.4:
- * Metal/Vulkan/CPU-Fallback) statt Hersteller-Namen — Vulkan deckt NVIDIA/
- * AMD/Intel einheitlich ab, es gibt kein eigenes CUDA-Backend.
+ * Bewusst auf Apple Silicon beschränkt (Maintainer-Entscheidung 2026-08-17,
+ * nicht auf weitere Hardware-Klassen ausgebaut) — eine ehrliche Einzelmessung
+ * auf einer konkreten, benannten Maschine statt einer Matrix mit "pending"-
+ * Lücken. Reale Daten kommen aus `src/data/engine-benchmarks.json`,
+ * geschrieben von `scripts/benchmark-engines-testset.mjs` (whisper.cpp) und
+ * `scripts/benchmark-engines-parakeet.mjs` (Parakeet) — nie hier im Markup
+ * erfunden.
  */
 import LandingPageLayout from "../layouts/LandingPageLayout.astro";
 import { t, localePath } from "../scripts/i18n.ts";
@@ -47,21 +45,18 @@ const relatedPages = [
   { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
 ];
 
-// Vollständige Matrix: jede Zeile ohne `measured` bleibt "offen" ([Hand]-Slot
-// laut Ticket 05 — NVIDIA/AMD/Windows-CPU-Läufe liegen außerhalb dieser
-// Session, siehe website/.scratch/backlink-distribution/issues/05-*.md).
 const matrix = [
   { engine: "whisper.cpp", model: "base.en", hardwareClass: "Apple Silicon (Metal)" },
-  { engine: "whisper.cpp", model: "base.en", hardwareClass: "Vulkan (Windows/Linux, NVIDIA/AMD/Intel)" },
-  { engine: "whisper.cpp", model: "base.en", hardwareClass: "CPU-Fallback (jede Plattform)" },
-  { engine: "Parakeet (sherpa-onnx)", model: "parakeet-tdt-0.6b-v3", hardwareClass: "CPU (jede Plattform)" },
+  { engine: "Parakeet (sherpa-onnx)", model: "parakeet-tdt-0.6b-v3", hardwareClass: "Apple Silicon (CPU)" },
 ] as const;
 
 const rows = matrix.map((cell) => {
   const measured = benchmarkData.rows.find(
     (r) => r.engine === cell.engine && r.model === cell.model && r.hardwareClass === cell.hardwareClass,
   );
-  return { ...cell, measured };
+  const speedMultiplier = measured ? Math.round(1 / measured.rtf) : null;
+  const accuracyPercent = measured ? (100 - measured.wer * 100).toFixed(1) : null;
+  return { ...cell, measured, speedMultiplier, accuracyPercent };
 });
 ---
 
@@ -87,8 +82,8 @@ const rows = matrix.map((cell) => {
             <th>{t(lang, "explainer.engineBenchmarks.table.hardwareClass")}</th>
             <th>{t(lang, "explainer.engineBenchmarks.table.engine")}</th>
             <th>{t(lang, "explainer.engineBenchmarks.table.model")}</th>
-            <th>{t(lang, "explainer.engineBenchmarks.table.rtf")}</th>
-            <th>{t(lang, "explainer.engineBenchmarks.table.wer")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.speed")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.accuracy")}</th>
             <th></th>
           </tr>
         </thead>
@@ -98,8 +93,16 @@ const rows = matrix.map((cell) => {
               <td>{row.hardwareClass}</td>
               <td>{row.engine}</td>
               <td>{row.model}</td>
-              <td>{row.measured ? `${row.measured.rtf}×` : "—"}</td>
-              <td>{row.measured ? `${(row.measured.wer * 100).toFixed(1)} %` : "—"}</td>
+              <td title={row.measured ? `RTF ${row.measured.rtf}×` : undefined}>
+                {row.measured
+                  ? `${row.speedMultiplier}${t(lang, "explainer.engineBenchmarks.table.speedSuffix")}`
+                  : "—"}
+              </td>
+              <td title={row.measured ? `WER ${(row.measured.wer * 100).toFixed(1)} %` : undefined}>
+                {row.measured
+                  ? `${row.accuracyPercent}${t(lang, "explainer.engineBenchmarks.table.accuracySuffix")}`
+                  : "—"}
+              </td>
               <td>
                 {row.measured ? (
                   <span class="status-badge status-badge--measured">
@@ -119,20 +122,15 @@ const rows = matrix.map((cell) => {
   </section>
 
   <section>
-    <h2>{t(lang, "explainer.engineBenchmarks.backends.heading")}</h2>
-    <p>{t(lang, "explainer.engineBenchmarks.backends.body")}</p>
-  </section>
-
-  <section>
     <h2>{t(lang, "explainer.engineBenchmarks.reproduce.heading")}</h2>
     <p>{t(lang, "explainer.engineBenchmarks.reproduce.body")}</p>
     <p>
-      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-run.mjs">
-        {t(lang, "explainer.engineBenchmarks.reproduce.linkLabel")}
-      </a>
-      {" · "}
       <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-testset.mjs">
         {t(lang, "explainer.engineBenchmarks.reproduce.testsetLinkLabel")}
+      </a>
+      {" · "}
+      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-parakeet.mjs">
+        {t(lang, "explainer.engineBenchmarks.reproduce.parakeetLinkLabel")}
       </a>
     </p>
   </section>

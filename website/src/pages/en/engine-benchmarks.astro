@@ -1,7 +1,8 @@
 ---
 /**
  * `/en/engine-benchmarks/` — English counterpart of `/engine-benchmarks/`.
- * See the DE page for the full rationale comment.
+ * Deliberately scoped to Apple Silicon (Maintainer decision 2026-08-17) —
+ * see the DE page for the full rationale comment.
  */
 import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
 import { t, localePath } from "../../scripts/i18n.ts";
@@ -38,16 +39,16 @@ const relatedPages = [
 
 const matrix = [
   { engine: "whisper.cpp", model: "base.en", hardwareClass: "Apple Silicon (Metal)" },
-  { engine: "whisper.cpp", model: "base.en", hardwareClass: "Vulkan (Windows/Linux, NVIDIA/AMD/Intel)" },
-  { engine: "whisper.cpp", model: "base.en", hardwareClass: "CPU fallback (any platform)" },
-  { engine: "Parakeet (sherpa-onnx)", model: "parakeet-tdt-0.6b-v3", hardwareClass: "CPU (any platform)" },
+  { engine: "Parakeet (sherpa-onnx)", model: "parakeet-tdt-0.6b-v3", hardwareClass: "Apple Silicon (CPU)" },
 ] as const;
 
 const rows = matrix.map((cell) => {
   const measured = benchmarkData.rows.find(
     (r) => r.engine === cell.engine && r.model === cell.model && r.hardwareClass === cell.hardwareClass,
   );
-  return { ...cell, measured };
+  const speedMultiplier = measured ? Math.round(1 / measured.rtf) : null;
+  const accuracyPercent = measured ? (100 - measured.wer * 100).toFixed(1) : null;
+  return { ...cell, measured, speedMultiplier, accuracyPercent };
 });
 ---
 
@@ -73,8 +74,8 @@ const rows = matrix.map((cell) => {
             <th>{t(lang, "explainer.engineBenchmarks.table.hardwareClass")}</th>
             <th>{t(lang, "explainer.engineBenchmarks.table.engine")}</th>
             <th>{t(lang, "explainer.engineBenchmarks.table.model")}</th>
-            <th>{t(lang, "explainer.engineBenchmarks.table.rtf")}</th>
-            <th>{t(lang, "explainer.engineBenchmarks.table.wer")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.speed")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.accuracy")}</th>
             <th></th>
           </tr>
         </thead>
@@ -84,8 +85,16 @@ const rows = matrix.map((cell) => {
               <td>{row.hardwareClass}</td>
               <td>{row.engine}</td>
               <td>{row.model}</td>
-              <td>{row.measured ? `${row.measured.rtf}×` : "—"}</td>
-              <td>{row.measured ? `${(row.measured.wer * 100).toFixed(1)} %` : "—"}</td>
+              <td title={row.measured ? `RTF ${row.measured.rtf}×` : undefined}>
+                {row.measured
+                  ? `${row.speedMultiplier}${t(lang, "explainer.engineBenchmarks.table.speedSuffix")}`
+                  : "—"}
+              </td>
+              <td title={row.measured ? `WER ${(row.measured.wer * 100).toFixed(1)} %` : undefined}>
+                {row.measured
+                  ? `${row.accuracyPercent}${t(lang, "explainer.engineBenchmarks.table.accuracySuffix")}`
+                  : "—"}
+              </td>
               <td>
                 {row.measured ? (
                   <span class="status-badge status-badge--measured">
@@ -105,20 +114,15 @@ const rows = matrix.map((cell) => {
   </section>
 
   <section>
-    <h2>{t(lang, "explainer.engineBenchmarks.backends.heading")}</h2>
-    <p>{t(lang, "explainer.engineBenchmarks.backends.body")}</p>
-  </section>
-
-  <section>
     <h2>{t(lang, "explainer.engineBenchmarks.reproduce.heading")}</h2>
     <p>{t(lang, "explainer.engineBenchmarks.reproduce.body")}</p>
     <p>
-      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-run.mjs">
-        {t(lang, "explainer.engineBenchmarks.reproduce.linkLabel")}
-      </a>
-      {" · "}
       <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-testset.mjs">
         {t(lang, "explainer.engineBenchmarks.reproduce.testsetLinkLabel")}
+      </a>
+      {" · "}
+      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-parakeet.mjs">
+        {t(lang, "explainer.engineBenchmarks.reproduce.parakeetLinkLabel")}
       </a>
     </p>
   </section>

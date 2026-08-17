@@ -34,11 +34,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeCorpusWer, computeRtf } from "./benchmark-engines-wer.mjs";
+import { loadTestset } from "./librispeech-testset.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_PATH = join(__dirname, "..", "src", "data", "engine-benchmarks.json");
-const TESTSET_DIR = join(__dirname, "librispeech-sample");
-const TRANS_FILE = join(TESTSET_DIR, "2277-149896.trans.txt");
 
 function parseArgs(argv) {
   const args = {};
@@ -52,17 +51,6 @@ function requireArg(args, name) {
   const value = args[name];
   if (!value) throw new Error(`missing required --${name}`);
   return value;
-}
-
-/** Parses `<id> <TRANSCRIPT>` lines from the LibriSpeech .trans.txt format. */
-function loadTestset() {
-  const lines = readFileSync(TRANS_FILE, "utf8").trim().split("\n");
-  return lines.map((line) => {
-    const spaceIdx = line.indexOf(" ");
-    const id = line.slice(0, spaceIdx);
-    const reference = line.slice(spaceIdx + 1);
-    return { id, reference, audio: join(TESTSET_DIR, `${id}.wav`) };
-  });
 }
 
 /** Parses whisper-cli's stderr diagnostic lines (timings + audio duration). */

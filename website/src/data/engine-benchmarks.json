@@ -10,6 +10,16 @@
       "sampleSize": 20,
       "measuredAt": "2026-08-17",
       "methodology": "measured on Apple M5, corpus WER (micro-averaged) + aggregate RTF over 20 LibriSpeech dev-clean utterances (94.1s total audio), processing time excludes one-time model load"
+    },
+    {
+      "engine": "Parakeet (sherpa-onnx)",
+      "model": "parakeet-tdt-0.6b-v3",
+      "hardwareClass": "Apple Silicon (CPU)",
+      "rtf": 0.0288,
+      "wer": 0.0187,
+      "sampleSize": 20,
+      "measuredAt": "2026-08-17",
+      "methodology": "measured on Apple M5 (CPU, 8 threads), corpus WER (micro-averaged) + aggregate RTF over 20 LibriSpeech dev-clean utterances (94.0s total audio), processing time excludes one-time model load"
     }
   ]
 }
