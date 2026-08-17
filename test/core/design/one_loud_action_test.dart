@@ -26,8 +26,10 @@
 /// supposed to have one. A state that legitimately loses its loud action has
 /// to come here and say so.
 ///
-/// Ticket 13 brings the four list screens under the rule. Tickets 14 and 15
-/// extend this file to the remaining pages.
+/// Ticket 13 brings the four list screens under the rule. Tickets 15 and 14
+/// extend this file to the remaining pages — the narrative family and then
+/// the form family, each as a block at the bottom rather than as a change to
+/// the four groups above or to the shared helper.
 ///
 /// **Ticket 15 (the narrative family) is the extension at the bottom of this
 /// file.** It reads differently from the four groups above, because the three
@@ -44,23 +46,40 @@
 ///    the two CTAs Ticket 15 demoted.
 ///  * **Recording** — the 3-px bar above the content panel is the main
 ///    window's whole recording surface, and it carries no action at all.
+///
+/// **Ticket 14 (the form family) is the block after it** — Settings, Feedback
+/// and Analytics. Two of the three turn out to be zero-form screens in their
+/// populated state for the same reason About is, and the group's own header
+/// comment says why; Feedback is the one true form here, and its thank-you
+/// state is the one place this ticket changed a variant rather than recording
+/// one.
 library;
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/analytics/analytics_page.dart';
+import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/features/settings/search/settings_search_provider.dart';
+import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/services/feedback_submission_service.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
@@ -653,6 +672,262 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
 
       expect(find.byType(WpButton), findsNothing);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Ticket 14 — the form family
+  // ---------------------------------------------------------------------------
+  //
+  // Settings, Feedback and Analytics. The rule reads differently on a form
+  // than on a list, and the difference is worth stating once here rather than
+  // in each group below.
+  //
+  // A list screen always has one thing to do (add an item), so its states only
+  // argue about *which* button carries the volume. A form has one thing to do
+  // only while it is unfinished — and two of these three screens are not forms
+  // at all. Settings is sixteen independent controls; Analytics is a page of
+  // numbers. Neither has a single next step to point at, so both spend the
+  // zero form of the rule in their populated state, the way About does, and
+  // both get a loud action back the moment an empty state puts a CTA in the
+  // middle of a blank page. That asymmetry is the finding, not a gap: it is
+  // why these tests assert zero explicitly instead of leaving the states out.
+
+  /// The labels of every loud button currently on screen.
+  List<String> loudActionLabels(WidgetTester tester) => tester
+      .widgetList<WpButton>(find.byType(WpButton))
+      .where((b) => b.variant == WpButtonVariant.primary)
+      .map((b) => b.label)
+      .toList();
+
+  group('Settings', () {
+    Future<ProviderContainer> pump(WidgetTester tester) async {
+      await tester.pumpWidget(
+        makeTestable(const SettingsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      return ProviderScope.containerOf(
+        tester.element(find.byType(SettingsPage)),
+      );
+    }
+
+    testWidgets('the page of controls is deliberately quiet', (tester) async {
+      await pump(tester);
+
+      // Non-vacuity: an empty loud list also describes a page that failed to
+      // build at all.
+      expect(find.text(l10n.settingsInterface), findsOneWidget);
+
+      expect(
+        loudActionLabels(tester),
+        isEmpty,
+        reason:
+            'The zero form of the rule, and a decision — spelled out here '
+            'rather than by relaxing `_expectOneLoudAction` for everybody. '
+            'Settings is sixteen sections of independent controls, and a loud '
+            'button on it would have to answer "what am I supposed to do '
+            'here" for a page whose whole point is that the reader already '
+            'knows: they came for one switch. Every control is its own action '
+            'and none of them outranks the others. Found '
+            '${loudActionLabels(tester)}.',
+      );
+    });
+
+    testWidgets('a search that finds nothing hands the volume to "Clear '
+        'search"', (tester) async {
+      final container = await pump(tester);
+      // Through the provider, not the field: `SettingsSearchField` debounces,
+      // and the debounce is not what this test is about (see
+      // `settings_live_filter_test.dart`, which owns that path).
+      container.read(settingsSearchQueryProvider.notifier).set(_noMatch);
+      await tester.pumpAndSettle();
+
+      _expectOneLoudAction(
+        tester,
+        state: 'Settings with a query that matched no section',
+        expectedLabel: l10n.actionClearSearch,
+      );
+    });
+  });
+
+  group('Feedback', () {
+    /// Drives the form to the thank-you state on the platform [isWindows]
+    /// describes.
+    Future<void> pumpAndSubmit(
+      WidgetTester tester, {
+      required bool isWindows,
+    }) async {
+      SharedPreferences.setMockInitialValues({});
+      feedbackPlatformIsWindowsOverride = isWindows;
+      addTearDown(() => feedbackPlatformIsWindowsOverride = null);
+
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(
+            submissionService: FeedbackSubmissionService(
+              client: MockClient((_) async => http.Response('', 201)),
+              supabaseUrl: 'https://example.supabase.co',
+              supabasePublishableKey: 'test-key',
+              breadcrumbSink: (_) {},
+            ),
+          ),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.feedbackCategoryGeneral));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('🤩'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('feedbackCommentField')),
+        'Test feedback',
+      );
+      await tester.pumpAndSettle();
+
+      final submit = find.widgetWithText(WpButton, l10n.feedbackSubmit);
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the unsent form points at "Send feedback"', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(
+        makeTestable(const FeedbackPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      // Disabled until all three inputs are filled, and still the loud one:
+      // the rule counts what the screen *points at*, and a greyed-out submit
+      // is what the form is for even before it can be pressed.
+      _expectOneLoudAction(
+        tester,
+        state: 'Feedback with the form still empty',
+        expectedLabel: l10n.feedbackSubmit,
+      );
+    });
+
+    testWidgets('the thank-you state asks Windows readers for a store rating', (
+      tester,
+    ) async {
+      await pumpAndSubmit(tester, isWindows: true);
+
+      expect(find.text(l10n.feedbackThankYou), findsOneWidget);
+      _expectOneLoudAction(
+        tester,
+        state: 'Feedback after sending, on Windows',
+        expectedLabel: l10n.reviewPromptRateStore,
+      );
+    });
+
+    testWidgets('and everyone else for a GitHub star', (tester) async {
+      await pumpAndSubmit(tester, isWindows: false);
+
+      expect(find.text(l10n.feedbackThankYou), findsOneWidget);
+      // The half this ticket changed. macOS and Linux have no store listing,
+      // so the store CTA is absent — and while GitHub stayed `secondary` on
+      // those platforms, the same screen handed a Windows reader one obvious
+      // next step and everyone else none, decided by a platform branch rather
+      // than by anything about the page. One loud action per state means per
+      // state, not per platform.
+      _expectOneLoudAction(
+        tester,
+        state: 'Feedback after sending, on macOS/Linux',
+        expectedLabel: l10n.reviewPromptStarGitHub,
+      );
+    });
+  });
+
+  group('Analytics', () {
+    Future<void> pump(WidgetTester tester, Object override) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: [override],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    const data = AnalyticsData(
+      totalRecordings: 42,
+      totalDurationMinutes: 120,
+      totalWords: 5000,
+      timeSavedMinutes: 80,
+      weeklyActivity: [1, 2, 3, 4, 5, 6, 7],
+      modelUsage: <AnalyticsModelUsage>[],
+      durationBuckets: [5, 3, 2, 1, 0],
+      localSavingsUsd: 2.5,
+      cloudCostUsd: 0.75,
+    );
+
+    testWidgets('a dashboard full of numbers is quiet', (tester) async {
+      await pump(tester, analyticsProvider.overrideWith((ref) async => data));
+
+      // Non-vacuity, as above.
+      expect(find.text(l10n.analyticsOverview), findsOneWidget);
+
+      expect(
+        loudActionLabels(tester),
+        isEmpty,
+        reason:
+            'The zero form again, for the same reason About and Settings '
+            'spend it: this page is read, not acted on. Its one control is '
+            '"Reset statistics", which is destructive — the last button on '
+            'the app that should be the one the page points at, and it is '
+            '`secondary` with the `danger` tone for exactly that reason. '
+            'Found ${loudActionLabels(tester)}.',
+      );
+    });
+
+    testWidgets('so is the empty state — there is nothing to press', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        analyticsProvider.overrideWith((ref) async => AnalyticsData.empty),
+      );
+
+      // Non-vacuity, as above.
+      expect(find.text(l10n.analyticsEmptyTitle), findsOneWidget);
+
+      expect(
+        loudActionLabels(tester),
+        isEmpty,
+        reason:
+            'The one empty state in the app that deliberately carries no CTA, '
+            'and the exception that proves the list screens\' rule: their '
+            'empty states offer "Add" because adding is what fills them. '
+            'Statistics fill themselves, by dictating — which happens on a '
+            'hotkey, in another app, and a button here could only send the '
+            'reader somewhere that is not the answer. Found '
+            '${loudActionLabels(tester)}.',
+      );
+    });
+
+    testWidgets('a load error hands it to "Try again"', (tester) async {
+      await pump(
+        tester,
+        // An `Error` subclass rather than an `Exception`: Riverpod retries the
+        // latter and would leave the page in `AsyncLoading` forever (see
+        // `analytics_page_test.dart`).
+        analyticsProvider.overrideWith(
+          (ref) => Future<AnalyticsData>.error(
+            StateError('test error'),
+            StackTrace.empty,
+          ),
+        ),
+      );
+
+      _expectOneLoudAction(
+        tester,
+        state: 'Analytics after a failed load',
+        expectedLabel: l10n.actionRetry,
+      );
     });
   });
 }
