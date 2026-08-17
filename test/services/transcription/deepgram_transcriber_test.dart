@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +43,21 @@ ProviderContainer _makeContainer(Map<String, String> keys) {
 }
 
 List<int> _silentWav() => List.filled(44, 0); // minimal WAV bytes
+
+/// Captures the finalized [http.BaseRequest] before responding, so a test can
+/// assert on the exact object identity of `bodyBytes` — unlike [MockClient],
+/// which reconstructs a fresh [http.Request] from the collected bytes and so
+/// cannot observe whether the original buffer was aliased or copied.
+class _CapturingClient extends http.BaseClient {
+  http.BaseRequest? lastRequest;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    lastRequest = request;
+    final bodyBytes = utf8.encode(_deepgramResponse('captured'));
+    return http.StreamedResponse(Stream.value(bodyBytes), 200);
+  }
+}
 
 /// Builds a valid Deepgram JSON response body.
 String _deepgramResponse(String transcript) => jsonEncode({
@@ -270,6 +286,29 @@ void main() {
 
       expect(capturedAuth, 'Token my-dg-key');
     });
+
+    test(
+      'sends the WAV Uint8List straight through without copying it '
+      '(regression: avoid the List<int>.from() + http-internal double copy)',
+      () async {
+        final wavBytes = Uint8List.fromList(List.filled(44, 7));
+        final client = _CapturingClient();
+        final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+        addTearDown(container.dispose);
+
+        final transcriber = container.read(_testTranscriberProvider(client));
+        await transcriber.prepare();
+        await transcriber.transcribe(wavBytes);
+
+        final sent = client.lastRequest;
+        expect(sent, isA<http.Request>());
+        final sentBytes = (sent! as http.Request).bodyBytes;
+        // Zero-copy: the exact same buffer instance reaches the request.
+        expect(identical(sentBytes, wavBytes), isTrue);
+        // Content stays correct regardless of the identity check above.
+        expect(sentBytes, wavBytes);
+      },
+    );
 
     test(
       'throws unknown on unexpected HTTP status with body in message',
