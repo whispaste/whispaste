@@ -152,8 +152,17 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   // unextracted duplication.
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    // Narrowed to the one field this page renders: `settingsProvider` emits
+    // on every settings write anywhere in the app, and watching the whole
+    // value here rebuilt this entire page (list included) for changes that
+    // have nothing to do with the picker trigger.
     final trigger =
-        ref.watch(settingsProvider).value?.behavior.snippetPickerTrigger ?? '';
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.value?.behavior.snippetPickerTrigger,
+          ),
+        ) ??
+        '';
     // `?? true` while the list is still loading — the "trigger does nothing
     // yet" warning must not flash before the first read lands.
     final hasSnippets = ref.watch(snippetsProvider).value?.isNotEmpty ?? true;

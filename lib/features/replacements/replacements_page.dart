@@ -166,8 +166,15 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final settings = ref.watch(settingsProvider).value;
-    final enabled = settings?.textReplacementsEnabled ?? true;
+    // Narrowed to the one field this page renders: `settingsProvider` emits
+    // on every settings write anywhere in the app, and watching the whole
+    // value here rebuilt this entire page (list included) for changes that
+    // have nothing to do with the replacements master switch.
+    final enabled =
+        ref.watch(
+          settingsProvider.select((s) => s.value?.textReplacementsEnabled),
+        ) ??
+        true;
 
     return WpSearchableListPage<Replacement>(
       // The master switch lives in a header card, not in the toolbar.
