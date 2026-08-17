@@ -1899,6 +1899,12 @@ abstract class L10n {
   /// **'Copy'**
   String get actionCopy;
 
+  /// No description provided for @actionDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get actionDuplicate;
+
   /// No description provided for @actionDelete.
   ///
   /// In en, this message translates to:

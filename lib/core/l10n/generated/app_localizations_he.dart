@@ -1036,6 +1036,9 @@ class L10nHe extends L10n {
   String get actionCopy => 'העתק';
 
   @override
+  String get actionDuplicate => 'שכפל';
+
+  @override
   String get actionDelete => 'מחק';
 
   @override

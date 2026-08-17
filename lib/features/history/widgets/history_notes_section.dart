@@ -157,7 +157,9 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                     button: !_isAdding,
                     label: l10n.historyAddNote,
                     child: GestureDetector(
-                      onTap: _isAdding ? null : () => setState(() => _isAdding = true),
+                      onTap: _isAdding
+                          ? null
+                          : () => setState(() => _isAdding = true),
                       behavior: HitTestBehavior.opaque,
                       child: Row(
                         children: [
