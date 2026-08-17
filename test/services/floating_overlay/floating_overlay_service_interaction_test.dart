@@ -18,8 +18,10 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -326,5 +328,85 @@ void main() {
         });
       },
     );
+  });
+
+  group('FloatingOverlayService — idle size pre-sync (blank-overlay fix)', () {
+    // Regression tests for the log-evidenced blank-overlay-at-recording-start
+    // bug (whispaste.log 2026-08-17T03:25:57 ff.): a size switched in Settings
+    // while idle used to reach the native shell only inside the FIRST visible
+    // snapshot of the next recording, putting the shell's synchronous ~1 s
+    // resize stall (and the shell rebuild it triggers) right on the
+    // hotkey→overlay hot path. The service now pushes a hidden snapshot
+    // carrying the new size immediately, so the shell resizes while hidden.
+    test('a size switched while idle reaches the shell immediately as a '
+        'hidden snapshot', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          h.container
+              .read(settingsProvider.notifier)
+              .updateSettings(
+                (s) => s.copyWith(overlaySize: FloatingOverlaySize.mini.value),
+              );
+          async.elapse(const Duration(milliseconds: 5));
+          async.flushMicrotasks();
+
+          final snap = h.fake.lastSnapshot;
+          expect(snap, isNotNull, reason: 'idle settings change must pre-sync');
+          expect(
+            snap!.visible,
+            isFalse,
+            reason: 'the pre-sync must never show the overlay',
+          );
+          expect(
+            snap.size,
+            OverlaySizeVariant.mini,
+            reason: 'the pre-sync must carry the NEW size so the hidden '
+                'shell can resize off the hot path',
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('the pre-sync does not cut the lingering done overlay short', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          final rec = h.container.read(recordingProvider.notifier);
+          rec.startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          rec.stopRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          rec.completeTranscription('hello world'); // → done, 2 s linger
+          async.elapse(const Duration(milliseconds: 5));
+          // The orchestrator resets done → idle while the auto-hide timer is
+          // still pending — the overlay deliberately keeps lingering.
+          rec.reset();
+          async.elapse(const Duration(milliseconds: 5));
+          expect(h.fake.lastSnapshot?.visible, isTrue);
+
+          // A settings change inside the linger window must NOT hide early.
+          h.container
+              .read(settingsProvider.notifier)
+              .updateSettings((s) => s.copyWith(soundVolume: 0));
+          async.elapse(const Duration(milliseconds: 5));
+          async.flushMicrotasks();
+          expect(
+            h.fake.lastSnapshot?.visible,
+            isTrue,
+            reason: 'the paste confirmation must finish its linger',
+          );
+
+          // After the linger the normal auto-hide still lands.
+          async.elapse(const Duration(seconds: 2, milliseconds: 100));
+          async.flushMicrotasks();
+          expect(h.fake.lastSnapshot?.visible, isFalse);
+        } finally {
+          h.dispose();
+        }
+      });
+    });
   });
 }

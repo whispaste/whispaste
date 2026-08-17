@@ -191,6 +191,25 @@ class FloatingOverlayService
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {
       _sendSnapshot(s, phase);
+      return;
+    }
+
+    // Idle size pre-sync (log-evidenced fix, 2026-08-17): a size switched in
+    // Settings while idle used to reach the native shell only inside the FIRST
+    // visible snapshot of the next recording — the shell then ran its
+    // synchronous `resizePanelToContent` right on the hotkey→overlay hot path,
+    // where the known ~1 s Flutter resize-synchronizer stall (see
+    // FloatingOverlayHost.swift, `panelOperationStallThreshold`) blanked the
+    // overlay for the first ~1.3 s of the recording and triggered a full shell
+    // rebuild (whispaste.log 2026-08-17T03:25:57 ff., three consecutive
+    // `resizePanelToContent took ~1s` rebuilds, each at a recording start
+    // right after a size switch). Pushing a hidden snapshot now lets the
+    // shell resize while hidden, during settings interaction — off the hot
+    // path. Skipped while the done-state overlay is still lingering
+    // (auto-hide pending): hiding it early would cut the paste confirmation
+    // short.
+    if (!(_autoHideTimer?.isActive ?? false)) {
+      _hideOverlay();
     }
   }
 
