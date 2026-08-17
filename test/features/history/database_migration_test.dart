@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -721,6 +723,108 @@ void main() {
       );
     },
   );
+
+  group('entry_notes index (perf: per-entry "Anmerkung" lookups)', () {
+    test('idx_entry_notes_entry_id is created on a fresh database', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
+
+      final indexes = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE type = 'index' AND tbl_name = 'entry_notes'",
+          )
+          .get();
+      expect(
+        indexes.map((r) => r.data['name'] as String),
+        contains('idx_entry_notes_entry_id'),
+      );
+
+      await db.close();
+    });
+
+    test('notesForEntry only returns rows for the requested entry '
+        '(index does not change query results)', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2026, 1, 1),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e2',
+          timestamp: DateTime(2026, 1, 1),
+        ),
+      );
+      final now = DateTime(2026, 1, 1);
+      await db.upsertNote(
+        EntryNotesCompanion.insert(
+          id: 'n1',
+          entryId: 'e1',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await db.upsertNote(
+        EntryNotesCompanion.insert(
+          id: 'n2',
+          entryId: 'e2',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      final notesForE1 = await db.notesForEntry('e1');
+      expect(notesForE1.map((n) => n.id), ['n1']);
+
+      await db.close();
+    });
+  });
+
+  group('backfillDailyStats (perf: transaction-wrapped loop)', () {
+    test('reopening a file-backed DB with real history entries and an empty '
+        'DailyStats table backfills correctly (exercises the '
+        'transaction-wrapped loop with non-empty rows, not just the '
+        'no-op/empty case)', () async {
+      final dir = await Directory.systemTemp.createTemp('wp_backfill_test');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final file = File('${dir.path}/test.sqlite');
+
+      var db = HistoryDatabase.forTesting(NativeDatabase(file));
+      for (var i = 0; i < 5; i++) {
+        await db.upsertEntry(
+          HistoryEntriesCompanion.insert(
+            id: 'e$i',
+            timestamp: DateTime(2026, 1, 1),
+            content: const Value('hello world'),
+            model: const Value('whisper-small'),
+          ),
+        );
+      }
+      // backfillDailyStats already ran once on open (entries were empty
+      // at that point, so it was a no-op) — confirm the entries
+      // themselves exist. DailyStats is populated only by
+      // recordDailyStat/backfillDailyStats, not by upsertEntry, so
+      // analyticsEntryCount() (which reads DailyStats) is still 0 here.
+      expect(await db.select(db.historyEntries).get(), hasLength(5));
+      expect(await db.analyticsEntryCount(), 0);
+
+      await db.resetDailyStats();
+      await db.close();
+
+      // Reopen the same file: beforeOpen re-runs backfillDailyStats, this
+      // time with 5 real history entries and an empty DailyStats table —
+      // exactly the "reset stats, then relaunch" scenario the
+      // transaction-wrap fix targets. This exercises the loop with
+      // actual rows, not an empty transaction.
+      db = HistoryDatabase.forTesting(NativeDatabase(file));
+      expect(await db.analyticsEntryCount(), 5);
+
+      await db.close();
+    });
+  });
 }
 
 /// Mock query executor user for manual schema creation

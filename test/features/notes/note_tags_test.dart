@@ -235,6 +235,22 @@ void main() {
         expect(remaining.map((t) => t.name), isNot(contains('truly-unused')));
       },
     );
+
+    test('deletes every unused tag in one batched call (perf: single DELETE '
+        'instead of one per tag), leaving used tags untouched', () async {
+      final note = await db.createNote();
+      final used = await db.createTag('used');
+      await db.createTag('unused-1');
+      await db.createTag('unused-2');
+      await db.createTag('unused-3');
+      await db.tagNote(note.id, used.id);
+
+      final deletedCount = await db.deleteUnusedTags();
+      expect(deletedCount, 3);
+
+      final remaining = await db.allTags();
+      expect(remaining.map((t) => t.id), [used.id]);
+    });
   });
 
   group('deleteTag — cleans up both junction tables', () {
