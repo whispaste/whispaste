@@ -539,9 +539,22 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     super.dispose();
   }
 
-  /// 1.0 while the liquid glass animates; 0.0 under reduced motion or in
-  /// the static preview — the painter then renders the rigid capsule.
-  double get _liquidMotion => (_reducedMotion || !widget.animate) ? 0.0 : 1.0;
+  /// 1.0 while the liquid glass animates; 0.0 under reduced motion, in the
+  /// static preview, or while transcribing — the painter then renders the
+  /// rigid capsule. Transcribing runs whisper's own worker threads at up to
+  /// `cores` concurrency (see `WhisperFfiEngine._threadCount`), which — even
+  /// with cores free on paper — measurably stalls unrelated concurrent CPU
+  /// work with sporadic multi-ms to ~100 ms tail latency (real-workload
+  /// benchmark, not reproducible with a synthetic busy-loop). The rigid path
+  /// skips the two-per-frame `PathMetrics`/Catmull-Rom resample that is this
+  /// painter's most expensive step, shrinking the exposure window during the
+  /// one state where that contention is expected.
+  double get _liquidMotion =>
+      (_reducedMotion ||
+          !widget.animate ||
+          widget.snapshot.state == OverlayVisualState.transcribing)
+      ? 0.0
+      : 1.0;
 
   /// Smoothed live audio level for the louder-speech wobble share: mean of
   /// the most recent waveform bars (already attack/release-smoothed by the

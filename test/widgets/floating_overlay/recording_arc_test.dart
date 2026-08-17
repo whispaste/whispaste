@@ -772,6 +772,70 @@ void main() {
     );
 
     testWidgets(
+      'liquid-glass wobble is suppressed while transcribing (animate=true) — '
+      'regression guard for the "overlay stutters during transcription" '
+      'report: transcribing runs whisper.cpp\'s own worker threads '
+      'concurrently, which measurably stalls unrelated CPU work; the '
+      'per-frame PathMetrics/Catmull-Rom wobble resample is the most '
+      'expensive step in the painter and carries no information during '
+      'transcribing (the spinner/ripple already signal "working"), so it is '
+      'skipped in that state to shrink the exposure window',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            WpFloatingOverlayView(
+              snapshot: _snap(OverlayVisualState.recording),
+              animate: true,
+            ),
+          ),
+        );
+        await tester.pump();
+        final recordingPainter =
+            tester.widget<CustomPaint>(find.byType(CustomPaint).last).painter
+                as WpOverlayPainter;
+        expect(
+          recordingPainter.liquidMotion,
+          1.0,
+          reason: 'recording keeps the full liquid-glass drift',
+        );
+
+        await tester.pumpWidget(
+          _wrap(
+            WpFloatingOverlayView(
+              snapshot: _snap(OverlayVisualState.transcribing),
+              animate: true,
+            ),
+          ),
+        );
+        // Let the recording→transcribing state-transition crossfade finish
+        // (releaseOutDuration = 300 ms) so a single steady-state CustomPaint
+        // remains — the crossfade's outgoing/incoming *content* layers don't
+        // receive liquidMotion at all (it only affects the fill layer), so
+        // reading a painter mid-crossfade would trivially read 0.0 no matter
+        // what `_liquidMotion` resolves to.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.byType(CustomPaint),
+          findsOneWidget,
+          reason: 'crossfade must have settled to a single steady-state paint',
+        );
+        final transcribingPainter =
+            tester.widget<CustomPaint>(find.byType(CustomPaint)).painter
+                as WpOverlayPainter;
+        expect(
+          transcribingPainter.liquidMotion,
+          0.0,
+          reason:
+              'liquid-glass drift must be off while transcribing — this is '
+              'the fix, not an incidental value',
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
+    testWidgets(
       'appear animation does not run under reduced-motion (scale stays at 1.0)',
       (tester) async {
         await tester.pumpWidget(
