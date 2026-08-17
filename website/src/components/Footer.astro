@@ -21,6 +21,7 @@ const year = new Date().getFullYear();
 // ohne ein einziges internes <a href> — siehe seo-audit vom 2026-07-02.
 const whisperDesktopHref = lang === 'de' ? '/whisper-desktop/' : '/en/whisper-desktop/';
 const enginesHref = lang === 'de' ? '/engines/' : '/en/engines/';
+const engineBenchmarksHref = lang === 'de' ? '/engine-benchmarks/' : '/en/engine-benchmarks/';
 const offlineSttHref = lang === 'de' ? '/offline-speech-to-text/' : '/en/offline-speech-to-text/';
 const privacyExplainerHref = lang === 'de' ? '/privatsphaere-spracherkennung/' : '/en/privacy-speech-recognition/';
 const dictationAlternativesHref = lang === 'de' ? '/vergleich/diktiersoftware-alternativen/' : '/en/comparison/voice-input-tool-alternatives/';
@@ -57,6 +58,7 @@ const linuxSttHref = lang === 'de' ? '/linux-spracherkennung/' : '/en/linux-spee
         <nav class="flex flex-col gap-2.5 text-sm">
           <p class="text-ink-subtle text-xs font-semibold uppercase tracking-wider mb-1" data-i18n="footer.col.resources">{t(lang, "footer.col.resources")}</p>
           <a href={enginesHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.engines.breadcrumb">{t(lang, "explainer.engines.breadcrumb")}</a>
+          <a href={engineBenchmarksHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.engineBenchmarks.breadcrumb">{t(lang, "explainer.engineBenchmarks.breadcrumb")}</a>
           <a href={offlineSttHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.offlineStt.breadcrumb">{t(lang, "explainer.offlineStt.breadcrumb")}</a>
           <a href={whisperDesktopHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.whisperDesktop.breadcrumb">{t(lang, "explainer.whisperDesktop.breadcrumb")}</a>
           <a href={gpuCheckHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="gpuCheck.breadcrumb">{t(lang, "gpuCheck.breadcrumb")}</a>
