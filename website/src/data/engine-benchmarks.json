@@ -3,13 +3,23 @@
   "rows": [
     {
       "engine": "whisper.cpp",
-      "model": "base.en",
+      "model": "small (Compact)",
       "hardwareClass": "Apple Silicon (Metal)",
-      "rtf": 0.0305,
-      "wer": 0.0312,
+      "rtf": 0.1173,
+      "wer": 0.0343,
       "sampleSize": 20,
       "measuredAt": "2026-08-17",
       "methodology": "measured on Apple M5, corpus WER (micro-averaged) + aggregate RTF over 20 LibriSpeech dev-clean utterances (94.1s total audio), processing time excludes one-time model load"
+    },
+    {
+      "engine": "whisper.cpp",
+      "model": "small (Compact)",
+      "hardwareClass": "Apple Silicon (CPU)",
+      "rtf": 0.3068,
+      "wer": 0.0343,
+      "sampleSize": 20,
+      "measuredAt": "2026-08-17",
+      "methodology": "measured on Apple M5 (CPU, 4 threads, GPU disabled via -ng), corpus WER (micro-averaged) + aggregate RTF over 20 LibriSpeech dev-clean utterances (94.1s total audio), processing time excludes one-time model load"
     },
     {
       "engine": "Parakeet (sherpa-onnx)",

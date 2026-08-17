@@ -13,15 +13,32 @@
  * (speaker 2277, chapter 149896), converted to 16kHz mono WAV. See
  * `scripts/librispeech-sample/ATTRIBUTION.md` for license + provenance.
  *
+ * IMPORTANT: point `--model` at one of the three tiers WhisPaste actually
+ * ships (`sttModels` in `lib/services/model_download_service.dart`:
+ * `ggml-small-q5_1.bin` "Compact", `ggml-medium-q5_0.bin` "Balanced",
+ * `ggml-large-v3-turbo-q5_0.bin` "Premium"), not an unquantized upstream
+ * model like `ggml-base.en.bin` — that model isn't selectable in the app at
+ * all and measures noticeably faster/lighter than anything a real user
+ * runs, which understates whisper.cpp's actual cost against Parakeet.
+ *
  * Usage (use the exact `hardwareClass` strings from the `matrix` in
  * `src/pages/engine-benchmarks.astro` so the row matches a page slot instead
  * of showing as "pending" next to an unmatched one):
  *   node scripts/benchmark-engines-testset.mjs \
  *     --binary /path/to/whisper-cli \
- *     --model /path/to/ggml-base.en.bin \
+ *     --model /path/to/ggml-small-q5_1.bin \
  *     --hardware-class "Apple Silicon (Metal)" \
  *     --engine "whisper.cpp" \
- *     --model-name "base.en"
+ *     --model-name "small (Compact)"
+ *
+ * Pass `--no-gpu` to force whisper-cli's `-ng` flag (GPU explicitly
+ * disabled), producing the CPU-only row that makes the Parakeet comparison
+ * fair — Parakeet has no GPU backend at all, so comparing it against
+ * GPU-accelerated whisper.cpp alone understates whisper.cpp's CPU cost:
+ *   node scripts/benchmark-engines-testset.mjs \
+ *     --binary /path/to/whisper-cli --model /path/to/ggml-small-q5_1.bin \
+ *     --hardware-class "Apple Silicon (CPU)" --engine "whisper.cpp" \
+ *     --model-name "small (Compact)" --no-gpu
  *
  * Writes/updates `src/data/engine-benchmarks.json` in place (adds or
  * replaces the row matching { engine, model, hardwareClass }), same schema
@@ -41,8 +58,14 @@ const RESULTS_PATH = join(__dirname, "..", "src", "data", "engine-benchmarks.jso
 
 function parseArgs(argv) {
   const args = {};
-  for (let i = 0; i < argv.length; i += 2) {
-    args[argv[i].replace(/^--/, "")] = argv[i + 1];
+  for (let i = 0; i < argv.length; i += 1) {
+    const key = argv[i].replace(/^--/, "");
+    if (key === "no-gpu") {
+      args[key] = true;
+      continue;
+    }
+    args[key] = argv[i + 1];
+    i += 1;
   }
   return args;
 }
@@ -75,6 +98,7 @@ function main() {
   const hardwareClass = requireArg(args, "hardware-class");
   const engine = args.engine ?? "whisper.cpp";
   const modelName = requireArg(args, "model-name");
+  const gpuFlags = args["no-gpu"] ? ["-ng"] : [];
 
   const testset = loadTestset();
   const werPairs = [];
@@ -82,7 +106,7 @@ function main() {
   let totalAudioMs = 0;
 
   for (const { id, reference, audio } of testset) {
-    const proc = spawnSync(binary, ["-m", model, "-f", audio, "-nt"], { encoding: "utf8" });
+    const proc = spawnSync(binary, ["-m", model, "-f", audio, "-nt", ...gpuFlags], { encoding: "utf8" });
     if (proc.status !== 0) {
       throw new Error(`whisper-cli exited ${proc.status} on ${id}: ${proc.stderr}`);
     }
