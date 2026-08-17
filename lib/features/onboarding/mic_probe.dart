@@ -276,5 +276,6 @@ class OnboardingMicProbe {
     } catch (e) {
       _log.debug('MicProbe recorder dispose failed (non-fatal): $e');
     }
+    _level.dispose();
   }
 }
