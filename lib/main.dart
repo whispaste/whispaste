@@ -42,6 +42,7 @@ import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/sound_feedback_service.dart';
 import 'services/stt/whisper/gpu_load_crash_guard.dart';
+import 'services/stt_parakeet/parakeet_model_registry.dart';
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
 import 'services/update_channel_service.dart';
@@ -257,6 +258,14 @@ Future<void> _runApp(List<String> args) async {
   // (fire-and-forget). At app-start no download is active, so the
   // active-downloads set is empty — any aged .tmp is safe to delete.
   unawaited(sweepOrphanedTmpFiles(directory: sttDir()));
+  // `sweepOrphanedTmpFiles` lists `directory` non-recursively, so the sweep
+  // above never reaches the Parakeet bundle's own subdirectory
+  // (`sttDir()/parakeet-tdt-0.6b-v3/` — see parakeet_model_registry.dart).
+  // An abandoned Parakeet download (app crash, force-quit, or a cancel the
+  // user never resumes) leaves a `.tmp` fragment there — up to ~650 MB for
+  // the encoder alone — that nothing else ever cleans up. Sweep it
+  // explicitly so orphaned Parakeet fragments don't accumulate forever.
+  unawaited(sweepOrphanedTmpFiles(directory: parakeetModelDir()));
 
   // Remove pre-FFI whisper-server residue left behind by an upgrade across
   // the whisper-ffi-engine migration (fire-and-forget, runs at most once per

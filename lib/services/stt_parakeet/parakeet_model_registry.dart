@@ -88,6 +88,18 @@ const List<ParakeetModelFile> parakeetModelFiles = [
   ),
 ];
 
+/// Test seam — overrides [parakeetModelFiles] for [ParakeetDownloadNotifier].
+/// Production code leaves this `null`. The real bundle files are
+/// multi-hundred-MB, so tests exercising the full download loop substitute a
+/// small fake list here instead of writing real-sized fixtures to disk.
+@visibleForTesting
+List<ParakeetModelFile>? parakeetModelFilesOverride;
+
+/// The bundle file list [ParakeetDownloadNotifier] should download —
+/// [parakeetModelFilesOverride] in tests, [parakeetModelFiles] otherwise.
+List<ParakeetModelFile> effectiveParakeetModelFiles() =>
+    parakeetModelFilesOverride ?? parakeetModelFiles;
+
 /// Total download size across all four files, for UI display.
 int get parakeetModelTotalBytes =>
     parakeetModelFiles.fold(0, (sum, f) => sum + f.sizeBytes);
@@ -160,6 +172,14 @@ String parakeetModelFilePath(String filename) =>
 bool Function(String path)? parakeetFileExistsOverride;
 
 /// Whether every bundle file is present on disk.
+///
+/// Deliberately checks the real [parakeetModelFiles] list, not
+/// [effectiveParakeetModelFiles] — this "already installed?" guard must
+/// reflect the real bundle regardless of [parakeetModelFilesOverride], so a
+/// test substituting a fake file list for `downloadBundle()`'s download loop
+/// doesn't also fake out its own already-installed check. In production
+/// [parakeetModelFilesOverride] is always `null`, so the two lists are
+/// identical and this distinction has no runtime effect.
 bool parakeetModelFilesExistSync() {
   final checker =
       parakeetFileExistsOverride ?? (path) => File(path).existsSync();

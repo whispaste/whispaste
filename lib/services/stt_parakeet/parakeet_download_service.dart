@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../http_model_fetcher.dart';
+import '../tmp_reaper.dart';
 import 'parakeet_model_registry.dart';
 
 final _log = AppLogger('ParakeetDownload');
@@ -110,8 +111,9 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       errorMessage: null,
     );
 
-    for (var i = 0; i < parakeetModelFiles.length; i++) {
-      final file = parakeetModelFiles[i];
+    final files = effectiveParakeetModelFiles();
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
       final destPath = parakeetModelFilePath(file.filename);
 
       if (File(destPath).existsSync() &&
@@ -174,6 +176,12 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       progressPercent: 100,
       installed: true,
     );
+
+    // Mirrors `ModelDownloadNotifier._markModelDone`'s post-download sweep:
+    // reap any OTHER orphaned `.tmp` fragment left in the bundle directory
+    // (e.g. from an earlier abandoned attempt) now that this download
+    // finished cleanly (fire-and-forget).
+    unawaited(sweepOrphanedTmpFiles(directory: parakeetModelDir()));
   }
 
   void cancelDownload() {
