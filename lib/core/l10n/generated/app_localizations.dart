@@ -3243,6 +3243,12 @@ abstract class L10n {
   /// **'Ready'**
   String get modelReady;
 
+  /// No description provided for @modelDownloadComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Model ready to use'**
+  String get modelDownloadComplete;
+
   /// No description provided for @modelUse.
   ///
   /// In en, this message translates to:

@@ -1791,6 +1791,9 @@ class L10nDe extends L10n {
   String get modelReady => 'Bereit';
 
   @override
+  String get modelDownloadComplete => 'Modell einsatzbereit';
+
+  @override
   String get modelUse => 'Verwenden';
 
   @override

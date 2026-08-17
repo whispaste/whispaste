@@ -1755,6 +1755,9 @@ class L10nHe extends L10n {
   String get modelReady => 'מוכן';
 
   @override
+  String get modelDownloadComplete => 'המודל מוכן לשימוש';
+
+  @override
   String get modelUse => 'השתמש';
 
   @override
