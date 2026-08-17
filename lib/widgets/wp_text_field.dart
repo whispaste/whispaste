@@ -32,13 +32,18 @@
 /// looks onto the other". The deciding test is whether anything else shares
 /// the surface:
 ///
-///  * [WpTextFieldVariant.heading] and [WpTextFieldVariant.passage] sit in a
-///    document flow among other sections — a header row with an avatar,
-///    metadata and actions; a panel that also carries tags, notes and a word
-///    count. Nothing there says "this block is a field now" unless the field
-///    says it itself, and both of them appear only when edit mode opens, so
-///    the box is also the mode indicator. They are boxed, per `lib/DESIGN.md`
-///    ("Inputs / Fields"): filled surface, 8 dp radius, 1 dp subtle hairline.
+///  * [WpTextFieldVariant.heading] sits in a document flow among other things
+///    — a header row with an avatar, a timestamp and six actions. Nothing
+///    there says "this block is a field now" unless the field says it itself,
+///    and it appears only when edit mode opens, so the box is also the mode
+///    indicator. It is boxed, per `lib/DESIGN.md` ("Inputs / Fields"): filled
+///    surface, 8 dp radius, 1 dp subtle hairline.
+///  * [WpTextFieldVariant.passage] is a whole paragraph of prose, and since
+///    Ticket 09 it is **card material rather than a box** (see "What the
+///    surfaces are made of"). A transcript is the one thing on that panel a
+///    reader is actually reading; a hairline drawn all the way around it
+///    frames the reading itself, and the 8 dp filled rectangle already says
+///    "editable region" without one.
 ///  * [WpTextFieldVariant.form] is the plain 13 dp field a *form* is made of —
 ///    an API key, a snippet title, a trigger phrase, a feedback comment. It
 ///    stands alone under its own label with nothing else on its line, so it
@@ -57,9 +62,9 @@
 ///    region below the Notes divider, so a resting border would only draw a
 ///    box inside a box, and the writing area would end up smaller than the
 ///    space it owns. It keeps the fill — the writing surface is the same
-///    colour everywhere — and drops the stroke while idle. Only while idle:
-///    on focus it takes the same accent stroke as everyone else, see "one
-///    highlight per state" below.
+///    material as `passage`'s — and drops the stroke while idle. Only while
+///    idle: on focus it takes the same accent stroke as everyone else, see
+///    "one highlight per state" below.
 ///
 /// The axis carries typography and inset with it rather than exposing them,
 /// because free `fontSize`/`contentPadding` parameters would reproduce exactly
@@ -89,6 +94,37 @@
 /// `embedded` is 12 dp / 14 dp: narrower, because its host is a 12 dp-inset
 /// list row rather than a standalone field.
 ///
+/// ## What the surfaces are made of
+///
+/// Two materials, and which one a variant takes is decided by what it stands
+/// on (Ticket 09, following Ticket 08's in-plane/floating split):
+///
+///  * `heading` and `form` keep the **opaque** `surfaceVariant`. Both live in
+///    dialogs and header rows on top of already-opaque grounds, where a 3–5 %
+///    translucent tint is not a material, it is a rounding error.
+///  * `passage` and `bare` take the **card material** — `WpColors.cardFill`,
+///    the same translucent tint every other card in the app is made of. Both
+///    own a whole region of a panel, and both panels now paint no ground of
+///    their own: the page's one ambient shows through the field, which is the
+///    One-Atmosphere Rule's whole point. That is also why the fill stays a
+///    *single* frost layer rather than a panel card with a field card on top:
+///    stacking two rungs drops the hint text (`textMuted`) to 4.43:1 over the
+///    lightest ambient stop, below AA. Unstacked it measures 4.76:1.
+///  * `embedded` paints nothing at all; its host row already did.
+///
+/// ### The hover lift
+///
+/// Dropping `passage`'s resting hairline also drops the "I can write here"
+/// affordance that hairline was carrying. The replacement is a **lift of the
+/// fill**, not a new contour: `cardFill` → `cardFillElevated` under the
+/// pointer, on both card variants. It is the palette's own declared depth
+/// source (`colors.dart`: depth is a brightness delta, not a shadow), it uses
+/// the existing rungs of the tint ladder rather than a hand-rolled alpha, and
+/// it cannot be confused with focus because focus is a *contour* and this is a
+/// *surface*. Hover and focus are two different states, so they are allowed to
+/// be visible at once — "one highlight per state" counts markings per state,
+/// not markings on screen.
+///
 /// ## Read mode has to match
 ///
 /// Both History fields toggle between a read view and an edit view of the same
@@ -97,6 +133,18 @@
 /// each variant's style so the read view can render at exactly the field's
 /// metrics — the two can no longer drift apart, and the call site still sets
 /// no font size of its own.
+///
+/// Metrics were only half of it. Until Ticket 16 the read view borrowed the
+/// *text style* and nothing else, which was invisible while `passage` was a
+/// hairline box — read mode simply had no box — and became the whole problem
+/// the moment Ticket 09 gave the variant a real fill: the same paragraph was
+/// bare prose on the ambient while reading and a frosted card while editing,
+/// so the material changed under the reader on a toggle that changes nothing
+/// about the text. [WpTextFieldSurface] closes that half. It paints the
+/// variant's **resting** box — the same [_WpTextFieldSpec] fill, radius, inset
+/// and hover lift the field itself asks that spec for — around whatever the
+/// read view renders, so the two views are one material and cannot drift into
+/// two.
 ///
 /// ## One highlight per state
 ///
@@ -109,6 +157,15 @@
 /// come out of one predicate on the spec ([_WpTextFieldSpec.strokeAt]) and one
 /// paint site, so there is no second focus treatment to keep in step with the
 /// first.
+///
+/// [WpTextFieldVariant.passage] is the third case and the reason
+/// [_WpFieldRestingStroke] has three values rather than two: it shows no
+/// contour at rest, but it still paints a 1 dp stroke in `Colors.transparent`
+/// there. That is [WpSearchField]'s idiom — a resting border left transparent
+/// rather than absent, so the focus transition animates a *colour* instead of
+/// appearing out of nothing. `passage` used to cross-fade `borderSubtle` →
+/// accent, and going to a null decoration at rest would have silently
+/// downgraded that to `bare`'s snap.
 ///
 /// `bare` used to show focus by the caret alone, on the argument that a stroke
 /// there would frame the whole lower half of the Notes panel for as long as
@@ -154,7 +211,9 @@ enum WpTextFieldVariant {
   heading,
 
   /// A passage of prose that is one section among several on its surface
-  /// (History's transcript in edit mode). Boxed, multi-line, prose metrics.
+  /// (History's transcript in edit mode). Multi-line, prose metrics, and a
+  /// contour-free card surface: 8 dp of card material, no resting hairline,
+  /// a lift under the pointer, the accent contour on focus.
   passage,
 
   /// A form value under its own label, alone on its line (Settings, the
@@ -322,6 +381,9 @@ class _WpTextFieldState extends State<WpTextField> {
   /// it to keep it honest.
   bool _hasFocus = false;
 
+  /// Pointer state, tracked only on the card variants — see [_setHovered].
+  bool _hovered = false;
+
   @override
   void initState() {
     super.initState();
@@ -386,6 +448,14 @@ class _WpTextFieldState extends State<WpTextField> {
     setState(() => _hasFocus = _focusNode.hasFocus);
   }
 
+  /// Only ever called on the card variants — the [MouseRegion] is not even
+  /// mounted on the others, so an opaque field costs no extra hit-test layer
+  /// and can never rebuild for a pointer that changes nothing about it.
+  void _setHovered(bool value) {
+    if (!mounted || _hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     const palette = _WpTextFieldPalette._palette;
@@ -444,12 +514,13 @@ class _WpTextFieldState extends State<WpTextField> {
       );
     }
 
-    final Widget box = AnimatedContainer(
+    Widget box = AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.normal),
       curve: WpMotion.defaultCurve,
       decoration: BoxDecoration(
-        // `embedded` paints nothing: its host already painted the row.
-        color: spec.filled ? palette.surface : null,
+        // `embedded` paints nothing: its host already painted the row. The
+        // card variants lift a rung under the pointer; see "the hover lift".
+        color: spec.fillAt(hovered: _hovered, palette: palette),
         borderRadius: spec.radius,
       ),
       // Painted over the child, so the stroke can thicken on focus without
@@ -458,13 +529,21 @@ class _WpTextFieldState extends State<WpTextField> {
           ? BoxDecoration(
               borderRadius: spec.radius,
               border: Border.all(
-                color: _hasFocus ? palette.accent : palette.border,
-                width: _hasFocus ? 1.5 : 1,
+                color: spec.strokeColor(focused: _hasFocus, palette: palette),
+                width: _hasFocus && spec.focusStroke ? 1.5 : 1,
               ),
             )
           : null,
       child: field,
     );
+
+    if (spec.liftsOnHover) {
+      box = MouseRegion(
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
+        child: box,
+      );
+    }
 
     if (widget.maxLength == null) return box;
     return Column(
@@ -509,6 +588,99 @@ class _WpTextFieldState extends State<WpTextField> {
 }
 
 // ---------------------------------------------------------------------------
+// Read-mode surface
+// ---------------------------------------------------------------------------
+
+/// The resting box of a [WpTextFieldVariant], around something that is not a
+/// field — a read-only rendering of the very text the field would edit.
+///
+/// The counterpart to [WpTextField.styleFor], and it exists for the same
+/// reason: a surface that toggles between reading and editing must not change
+/// under the reader. `styleFor` keeps the two views at one set of *metrics*;
+/// this keeps them on one *material*. See "Read mode has to match" in the
+/// library docs.
+///
+/// Everything it paints comes out of the same [_WpTextFieldSpec] the field
+/// asks — fill, radius, resting stroke, inset and the hover lift — so there is
+/// no second copy of the variant's look to keep in step. What it deliberately
+/// does *not* have is a focus state: a read view holds no caret, so the accent
+/// contour, the app's single focus signal, would be a lie here.
+class WpTextFieldSurface extends StatefulWidget {
+  const WpTextFieldSurface({
+    super.key,
+    required this.variant,
+    required this.child,
+    this.liftsOnHover = true,
+  });
+
+  /// Which field this surface is the read view of. Same value the edit view
+  /// passes to [WpTextField], and passing a different one is exactly the drift
+  /// this widget exists to prevent.
+  final WpTextFieldVariant variant;
+
+  /// The read-only rendering — a `Text`, a highlighted paragraph, a rich span.
+  final Widget child;
+
+  /// Whether the pointer lift is offered. It is the "you can write here"
+  /// affordance the resting hairline used to carry (see "The hover lift"), so
+  /// it belongs on a read view that opens edit mode on tap and must be off
+  /// where the text is read-only — History's trash view, where the same
+  /// paragraph is shown but nothing can be edited. Ignored on the variants
+  /// that never lift at all.
+  final bool liftsOnHover;
+
+  @override
+  State<WpTextFieldSurface> createState() => _WpTextFieldSurfaceState();
+}
+
+class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
+  bool _hovered = false;
+
+  void _setHovered(bool value) {
+    if (!mounted || _hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const palette = _WpTextFieldPalette._palette;
+    final spec = _WpTextFieldSpec.of(widget.variant);
+    final lifts = spec.liftsOnHover && widget.liftsOnHover;
+
+    // The field's own box, minus the focus state — same duration and curve, so
+    // a hover that crosses from the read view into the edit view (or back)
+    // does not change speed halfway.
+    Widget box = AnimatedContainer(
+      duration: WpMotion.durationFor(context, WpMotion.normal),
+      curve: WpMotion.defaultCurve,
+      padding: spec.padding,
+      decoration: BoxDecoration(
+        color: spec.fillAt(hovered: lifts && _hovered, palette: palette),
+        borderRadius: spec.radius,
+      ),
+      foregroundDecoration: spec.strokeAt(focused: false)
+          ? BoxDecoration(
+              borderRadius: spec.radius,
+              border: Border.all(
+                color: spec.strokeColor(focused: false, palette: palette),
+              ),
+            )
+          : null,
+      child: widget.child,
+    );
+
+    if (lifts) {
+      box = MouseRegion(
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
+        child: box,
+      );
+    }
+    return box;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Resolved tokens
 // ---------------------------------------------------------------------------
 
@@ -518,15 +690,25 @@ class _WpTextFieldState extends State<WpTextField> {
 class _WpTextFieldPalette {
   const _WpTextFieldPalette({
     required this.surface,
+    required this.cardFill,
+    required this.cardFillHover,
     required this.border,
     required this.textPrimary,
     required this.textMuted,
     required this.accent,
   });
 
-  /// The writing surface itself — the same fill in every variant, bordered or
-  /// not, so the two panels' editing areas read as one material.
+  /// The opaque writing surface, for the variants that stand on an already
+  /// opaque ground (`heading`, `form`).
   final Color surface;
+
+  /// The shared card material, for the variants that own a region of a panel
+  /// and let the app's one ambient show through (`passage`, `bare`).
+  final Color cardFill;
+
+  /// One rung up the same ladder — the hover lift, and the app's declared
+  /// depth source. Never a hand-rolled alpha: both rungs are tokens.
+  final Color cardFillHover;
 
   final Color border;
   final Color textPrimary;
@@ -543,11 +725,48 @@ class _WpTextFieldPalette {
   /// dark palette paints the near-black background colour.
   static const _palette = _WpTextFieldPalette(
     surface: WpColors.surfaceVariant,
+    cardFill: WpColors.cardFill,
+    cardFillHover: WpColors.cardFillElevated,
     border: WpColors.borderSubtle,
     textPrimary: WpColors.textPrimary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
   );
+}
+
+/// What a variant's box is made of.
+///
+/// The discriminator is Ticket 08's, applied to fields: what does this thing
+/// stand on? On an opaque dialog or header, a 3–5 % tint is a rounding error
+/// and the field needs a real fill; on a panel that paints no ground of its
+/// own, the translucent card material is what lets the app's one ambient show
+/// through. See "What the surfaces are made of" in the library docs.
+enum _WpFieldMaterial {
+  /// `WpColors.surfaceVariant` — `heading`, `form`.
+  opaque,
+
+  /// `WpColors.cardFill`, lifting to `cardFillElevated` on hover — `passage`,
+  /// `bare`.
+  card,
+
+  /// Nothing at all: the host row already painted it — `embedded`.
+  none,
+}
+
+/// What a variant's contour is while nothing is happening to it.
+enum _WpFieldRestingStroke {
+  /// A visible 1 dp `borderSubtle` hairline — the box a form field draws
+  /// around itself.
+  hairline,
+
+  /// A 1 dp stroke painted in `Colors.transparent`: invisible, but present,
+  /// so the focus stroke animates a colour instead of appearing out of
+  /// nothing. [WpSearchField]'s idiom.
+  invisible,
+
+  /// No `foregroundDecoration` at all. The focus stroke, where there is one,
+  /// then snaps in rather than fading — deliberate, see the library docs.
+  none,
 }
 
 /// Everything [WpTextFieldVariant] actually decides.
@@ -558,11 +777,12 @@ class _WpTextFieldSpec {
     required this.fontWeight,
     required this.lineHeight,
     required this.padding,
-    required this.bordered,
+    required this.material,
+    required this.restingStroke,
+    required this.rounded,
     required this.multiline,
     required this.fillsItsBox,
-    this.focusStrokeOnly = false,
-    this.filled = true,
+    this.focusStroke = true,
     this.linesFromCallSite = false,
   });
 
@@ -575,17 +795,18 @@ class _WpTextFieldSpec {
 
   final EdgeInsets padding;
 
-  /// Draws its own box: the resting hairline, and with it the radius. Whether
-  /// the *focused* stroke appears is a separate question — see [strokeAt].
-  final bool bordered;
+  /// What the box is filled with — the axis that used to be a `filled` bool
+  /// back when there was only one fill to be had.
+  final _WpFieldMaterial material;
 
-  /// Takes the focus stroke without taking a resting one: no contour while
-  /// idle, the same accent stroke as the boxed variants while focused. True
-  /// only on [WpTextFieldVariant.bare], which owns its surface outright and
-  /// would look like a box inside a box if it carried a hairline at rest —
-  /// but which is still a field, and a field that cannot be seen to have
-  /// focus is the one exception "one highlight per state" never licensed.
-  final bool focusStrokeOnly;
+  /// What the contour is at rest. Decoupled from [rounded] in Ticket 09:
+  /// `passage` drops its hairline and keeps its 8 dp corner, which the old
+  /// single `bordered` flag made impossible to express.
+  final _WpFieldRestingStroke restingStroke;
+
+  /// Square only where the field *is* the surface — a rounded corner there
+  /// would imply a card floating on something else.
+  final bool rounded;
 
   /// Takes Enter as a newline rather than as submit. Ignored where
   /// [linesFromCallSite] holds — there the line count decides it.
@@ -594,25 +815,52 @@ class _WpTextFieldSpec {
   /// Expands to the height it is given instead of growing with its content.
   final bool fillsItsBox;
 
-  /// Paints the writing surface. False only where the host already painted
-  /// it and a second fill would show as a lighter patch inside the row.
-  final bool filled;
+  /// Whether focus is shown by this field's own contour. False only on
+  /// `embedded`, where the one contour on the row belongs to the host and a
+  /// second accent inside it would be two markings for one state.
+  final bool focusStroke;
 
   /// `minLines`/`maxLines` come from the call site, because how much room a
   /// *value* needs is not a property of the field family. See the library
   /// docs on optical vs. functional parameters.
   final bool linesFromCallSite;
 
-  /// Square when the field *is* the surface — a rounded corner would imply a
-  /// card floating on something else.
-  BorderRadius get radius => bordered ? WpRadius.borderSm : BorderRadius.zero;
+  /// Only the card variants lift under the pointer: the opaque ones still
+  /// carry a resting hairline, so they never lost the affordance the lift is
+  /// there to replace.
+  bool get liftsOnHover => material == _WpFieldMaterial.card;
+
+  BorderRadius get radius => rounded ? WpRadius.borderSm : BorderRadius.zero;
+
+  /// The box's fill in this state — `null` where the host already painted it.
+  Color? fillAt({
+    required bool hovered,
+    required _WpTextFieldPalette palette,
+  }) => switch (material) {
+    _WpFieldMaterial.opaque => palette.surface,
+    _WpFieldMaterial.card => hovered ? palette.cardFillHover : palette.cardFill,
+    _WpFieldMaterial.none => null,
+  };
 
   /// Whether a stroke is painted at all in this state — the single source the
   /// one paint site in `build` asks, so the focused look of every variant that
   /// has one is literally the same three lines of code and cannot drift into a
   /// second, parallel focus treatment.
   bool strokeAt({required bool focused}) =>
-      bordered || (focusStrokeOnly && focused);
+      restingStroke != _WpFieldRestingStroke.none || (focusStroke && focused);
+
+  /// And what colour that stroke is. `Colors.transparent` is the resting
+  /// value of [_WpFieldRestingStroke.invisible] — a real stroke that happens
+  /// to be see-through, so [AnimatedContainer] has something to tween from.
+  Color strokeColor({
+    required bool focused,
+    required _WpTextFieldPalette palette,
+  }) {
+    if (focused && focusStroke) return palette.accent;
+    return restingStroke == _WpFieldRestingStroke.hairline
+        ? palette.border
+        : Colors.transparent;
+  }
 
   TextStyle textStyle(Color color) => TextStyle(
     fontSize: fontSize,
@@ -632,36 +880,43 @@ class _WpTextFieldSpec {
       horizontal: WpSpacing.xs,
       vertical: WpSpacing.xxs,
     ),
-    bordered: true,
+    material: _WpFieldMaterial.opaque,
+    restingStroke: _WpFieldRestingStroke.hairline,
+    rounded: true,
     multiline: false,
     fillsItsBox: false,
   );
 
   /// Prose metrics: 16 dp at 1.65, the measure the History panel already caps
-  /// at 720 dp (~85 characters) for exactly this size.
+  /// at 720 dp (~85 characters) for exactly this size. Card material and no
+  /// resting contour since Ticket 09 — a transcript is what the reader came
+  /// for, and a hairline all the way around it frames the reading.
   static const _passage = _WpTextFieldSpec(
     fontSize: WpTypography.heading,
     fontWeight: FontWeight.w400,
     lineHeight: 1.65,
     padding: EdgeInsets.all(WpSpacing.sm),
-    bordered: true,
+    material: _WpFieldMaterial.card,
+    restingStroke: _WpFieldRestingStroke.invisible,
+    rounded: true,
     multiline: true,
     fillsItsBox: false,
   );
 
-  /// The same prose metrics as [_passage] — one writing surface, one text
-  /// size — with the *resting* stroke dropped and the inset opened up to
-  /// 24 dp, because here the padding is the only thing holding the text off
-  /// the panel edge. The focused stroke it keeps: see [focusStrokeOnly].
+  /// The same prose metrics and the same material as [_passage] — one writing
+  /// surface, one text size, one fill — with the resting stroke gone entirely
+  /// and the inset opened up to 24 dp, because here the padding is the only
+  /// thing holding the text off the panel edge.
   static const _bare = _WpTextFieldSpec(
     fontSize: WpTypography.heading,
     fontWeight: FontWeight.w400,
     lineHeight: 1.65,
     padding: EdgeInsets.all(WpSpacing.xl),
-    bordered: false,
+    material: _WpFieldMaterial.card,
+    restingStroke: _WpFieldRestingStroke.none,
+    rounded: false,
     multiline: true,
     fillsItsBox: true,
-    focusStrokeOnly: true,
   );
 
   /// 13 dp, and the inset that *is* the field's height: 14 dp above and below
@@ -677,7 +932,9 @@ class _WpTextFieldSpec {
       horizontal: WpSpacing.md,
       vertical: WpSpacing.sm + 2,
     ),
-    bordered: true,
+    material: _WpFieldMaterial.opaque,
+    restingStroke: _WpFieldRestingStroke.hairline,
+    rounded: true,
     multiline: false,
     fillsItsBox: false,
     linesFromCallSite: true,
@@ -696,10 +953,12 @@ class _WpTextFieldSpec {
       horizontal: WpSpacing.sm,
       vertical: WpSpacing.sm + 2,
     ),
-    bordered: false,
+    material: _WpFieldMaterial.none,
+    restingStroke: _WpFieldRestingStroke.none,
+    rounded: false,
     multiline: false,
     fillsItsBox: false,
-    filled: false,
+    focusStroke: false,
     linesFromCallSite: true,
   );
 

@@ -143,7 +143,7 @@ void main() {
       },
     );
 
-    test('toMap() includes all 12 keys', () {
+    test('toMap() includes all 13 keys', () {
       const snap = FloatingOverlaySnapshot(
         visible: false,
         state: OverlayVisualState.recording,
@@ -151,11 +151,12 @@ void main() {
       );
 
       final map = snap.toMap();
-      expect(map.keys, hasLength(12));
+      expect(map.keys, hasLength(13));
       expect(map.keys.toSet(), {
         'visible',
         'state',
         'size',
+        'style',
         'compact',
         'label',
         'elapsed',
@@ -189,6 +190,7 @@ void main() {
         visible: true,
         state: OverlayVisualState.done,
         size: OverlaySizeVariant.compact,
+        style: OverlayStyleVariant.solid,
         label: 'Done',
         elapsed: '0:07',
         hint: 'Press ⌘ to stop',
@@ -204,6 +206,7 @@ void main() {
       expect(restored.visible, original.visible);
       expect(restored.state, original.state);
       expect(restored.size, original.size);
+      expect(restored.style, original.style);
       expect(restored.label, original.label);
       expect(restored.elapsed, original.elapsed);
       expect(restored.hint, original.hint);
@@ -243,6 +246,25 @@ void main() {
         'label': '',
       });
       expect(normal.size, OverlaySizeVariant.normal);
+    });
+
+    test('fromMap() falls back to glass style without a style key', () {
+      final snap = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'label': '',
+      });
+      expect(snap.style, OverlayStyleVariant.glass);
+    });
+
+    test('fromMap() resolves an unknown style name to glass', () {
+      final snap = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'style': 'not-a-real-style',
+        'label': '',
+      });
+      expect(snap.style, OverlayStyleVariant.glass);
     });
 
     test('fromMap() falls back to safe defaults on a malformed payload', () {

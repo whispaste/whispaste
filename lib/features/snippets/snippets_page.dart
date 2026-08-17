@@ -301,8 +301,12 @@ class _SnippetPickerHeader extends ConsumerWidget {
       ),
       child: Container(
         padding: const EdgeInsets.all(WpSpacing.xxs),
+        // Card material, not the flat `surfaceElevated` it used to be: this
+        // header is a plate on the content plane like every list row below
+        // it, and the frost fill lets the one ambient gradient keep running
+        // underneath instead of cutting an opaque band across the page.
         decoration: BoxDecoration(
-          color: WpColors.surfaceElevated,
+          color: WpColors.cardFill,
           borderRadius: WpRadius.borderMd,
           border: Border.all(color: WpColors.borderSubtle),
         ),

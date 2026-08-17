@@ -9,4 +9,4 @@ Floating Button: always-on-top, draggable recording button above other apps
 Transcription history with full-text search, tags, pin, and archive
 Export to TXT, Markdown, JSON, CSV, and Word (.docx)
 Voice Shortcuts: spoken triggers that expand into full text before pasting
-System tray, auto-start with Windows, Light / Dark / System theme
+System tray, auto-start with Windows

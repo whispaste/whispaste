@@ -14,7 +14,11 @@ import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
 import '../../core/theme/overlay_design_spec.dart'
-    show OverlayArcMotion, OverlayDesignSpec, OverlaySizeVariant;
+    show
+        OverlayArcMotion,
+        OverlayDesignSpec,
+        OverlaySizeVariant,
+        OverlayStyleVariant;
 import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
@@ -363,6 +367,7 @@ class FloatingOverlayService
 
     final l10n = _l10n ?? _resolveL10n();
     final sizeVariant = s.overlaySizeType.variant;
+    final styleVariant = s.overlayStyleType.variant;
     final elapsed = ref.read(recordingElapsedProvider);
     final recording = ref.read(recordingProvider);
     final isLocal = s.sttProviderType.isLocal;
@@ -382,6 +387,7 @@ class FloatingOverlayService
       visible: true,
       state: _mapPhase(phase),
       size: sizeVariant,
+      style: styleVariant,
       label: _labelFor(phase, l10n, target),
       elapsed: phase == RecordingPhase.recording
           ? _recordingTextFor(elapsed, sizeVariant, target, l10n)
@@ -418,10 +424,13 @@ class FloatingOverlayService
     // never flips. Falls back to normal only if settings are unavailable.
     final s = ref.read(settingsProvider).value;
     final sizeVariant = s?.overlaySizeType.variant ?? OverlaySizeVariant.normal;
+    final styleVariant =
+        s?.overlayStyleType.variant ?? OverlayStyleVariant.glass;
     final hidden = FloatingOverlaySnapshot(
       visible: false,
       state: OverlayVisualState.recording,
       size: sizeVariant,
+      style: styleVariant,
       label: '',
     );
 

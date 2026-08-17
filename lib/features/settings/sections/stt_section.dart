@@ -200,7 +200,7 @@ class _SpeechRecognitionSectionState
                       ),
                 ),
               ),
-            settingsInlineDivider(context),
+            settingsInlineBreak,
           ],
 
           // ----- Cloud mode: inline API key + sub-provider ------------------

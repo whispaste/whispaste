@@ -15,12 +15,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import 'package:whispaste/widgets/dialog.dart';
 import 'package:whispaste/widgets/find_replace_bar.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_text_field.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -83,6 +86,74 @@ void main() {
       );
       expect(find.text(l10n.snippetsTitleLabel), findsOneWidget);
       expect(find.text(l10n.snippetsBodyLabel), findsOneWidget);
+    });
+
+    // Ticket 16's third editor. Its acceptance criterion is a *verification*,
+    // not a change: the dialog is supposed to get its material for free —
+    // the card from the form-dialog shell (Ticket 08), the fields from the
+    // `form` variant (Ticket 09) — and the thing worth pinning is that it
+    // takes them rather than painting anything of its own. If this ever fails
+    // by finding a second surface, the fix is to delete that surface, not to
+    // widen the expectation.
+    testWidgets('the dialog inherits its material from the shell and the form '
+        'fields', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      // Scoped to the dialog throughout: the page behind it carries its own
+      // fields and its own card material (the picker-trigger field, the
+      // search field), and none of that is what this test is about.
+      final inDialog = find.descendant(
+        of: find.byType(WpFormDialogShell),
+        matching: find.byType(WpTextField),
+      );
+      final fields = tester.widgetList<WpTextField>(inDialog).toList();
+      expect(fields, hasLength(2), reason: 'title + body');
+      expect(
+        fields.map((f) => f.variant).toSet(),
+        {WpTextFieldVariant.form},
+        reason:
+            'both dialog fields are form values under their own label — the '
+            'variant that owns that shape, and the one whose box the dialog '
+            'must not redraw itself',
+      );
+
+      // What the dialog card is made of, collected off the painted boxes
+      // rather than off a source read: the shell's floating surface, with the
+      // tinted rim, and exactly one of it.
+      final dialogBoxes = tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(WpFormDialogShell),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((b) => b.decoration)
+          .whereType<BoxDecoration>()
+          .toList();
+
+      expect(
+        dialogBoxes.where((d) => d.color == WpColors.floatingSurface),
+        hasLength(1),
+        reason:
+            'the dialog stands on one floating surface — the shell\'s. A '
+            'second one is a card on a card.',
+      );
+
+      // And nothing in it stacks the in-plane card material on top of that
+      // floating one — the "Fläche auf einer Fläche" Ticket 16 exists to
+      // remove, in the one editor that never had it.
+      final stackedCards = dialogBoxes.where(
+        (d) =>
+            d.color == WpColors.cardFill ||
+            d.color == WpColors.cardFillElevated,
+      );
+      expect(stackedCards, isEmpty);
     });
 
     testWidgets('the dialog carries the editor toolbar, find bar included', (

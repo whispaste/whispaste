@@ -51,6 +51,7 @@ class WpOverlayPainter extends CustomPainter {
     this.glassPhase = 0.0,
     this.liquidMotion = 0.0,
     this.liquidLevel = 0.0,
+    this.style = OverlayStyleVariant.glass,
   });
 
   /// The visual state being rendered.
@@ -128,6 +129,12 @@ class WpOverlayPainter extends CustomPainter {
   /// wish, 2026-07-30 interview). 0 outside recording.
   final double liquidLevel;
 
+  /// The chrome style to render — [OverlayStyleVariant.glass] (default) or
+  /// [OverlayStyleVariant.solid]. Only affects [_drawFill]/[_drawGlassSheen];
+  /// the shadow, border, content, waveform and liquid silhouette wobble are
+  /// identical in both styles and for all three [sizeSpec] variants.
+  final OverlayStyleVariant style;
+
   bool get _isRecording => state == OverlayDesignState.recording;
 
   @override
@@ -162,7 +169,9 @@ class WpOverlayPainter extends CustomPainter {
     if (paintFill) {
       _drawShadow(canvas, shape);
       _drawFill(canvas, shape, pill);
-      _drawGlassSheen(canvas, shape, rrect, baseAmp, audioAmp, pill);
+      if (style == OverlayStyleVariant.glass) {
+        _drawGlassSheen(canvas, shape, rrect, baseAmp, audioAmp, pill);
+      }
       _drawBorder(canvas, shape);
     }
 
@@ -270,6 +279,16 @@ class WpOverlayPainter extends CustomPainter {
   }
 
   void _drawFill(Canvas canvas, Path shape, Rect pill) {
+    if (style == OverlayStyleVariant.solid) {
+      // Fully opaque brand fill — same gradient for all three sizes, no
+      // per-size tuning (mirrors the glass fill's "one material" rule).
+      canvas.drawPath(
+        shape,
+        Paint()
+          ..shader = OverlayDesignSpec.solidFillGradient.createShader(pill),
+      );
+      return;
+    }
     // ONE glass material for all three sizes (impeccable pass) — the sizes
     // must read as the same slab of glass, only smaller.
     const a = OverlayDesignSpec.fillOpacityFactor;
@@ -937,6 +956,7 @@ class WpOverlayPainter extends CustomPainter {
         old.glassPhase != glassPhase ||
         old.liquidMotion != liquidMotion ||
         old.liquidLevel != liquidLevel ||
+        old.style != style ||
         !identical(old.waveformBars, waveformBars);
   }
 }

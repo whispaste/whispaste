@@ -18,6 +18,14 @@ import '../core/theme/tokens.dart';
 /// An optional [header] pins a strip above the content (see SettingsPage's
 /// search field), which is what makes the shell usable for pages that would
 /// otherwise hand-roll their own sticky row plus scroll view.
+///
+/// **No ground of its own, on purpose.** Ticket 08 put the card material on
+/// the shared primitives and deliberately stopped short of this one: the shell
+/// is padding and scroll behaviour, and the app has exactly one light source,
+/// painted once in `app.dart`. A fill here would be a second ground under
+/// every page — the One-Atmosphere Rule's failure case, and the reason
+/// `settings_page.dart` already carries the same note. Cards go *inside* the
+/// shell, never around it.
 class WpPageShell extends StatelessWidget {
   const WpPageShell({
     super.key,

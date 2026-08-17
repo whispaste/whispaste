@@ -1,8 +1,13 @@
 /// Thin animated bar at the top of the content panel.
 ///
-/// Pulses red during recording, amber during transcribing, hidden otherwise.
-/// 3 px tall — visible but non-intrusive, signalling active recording at a
-/// glance without competing with content.
+/// Pulses in the recording cyan while a recording or its transcription is in
+/// flight, hidden otherwise. 3 px tall — visible but non-intrusive, signalling
+/// an active recording at a glance without competing with content.
+///
+/// This is the main window's whole recording surface: the in-window FAB is
+/// gone (`test/widgets/no_fab_regression_test.dart` keeps it gone) and the
+/// floating overlay is a separate window with its own material. So the bar is
+/// what Ticket 15 means by "the recording screen".
 library;
 
 import 'package:flutter/material.dart';
@@ -17,17 +22,29 @@ class WpRecordingIndicatorBar extends StatefulWidget {
 
   final RecordingPhase phase;
 
-  /// Returns the bar colour for [phase].
+  /// Returns the bar colour for [phase] — always the recording family.
   ///
-  /// Recording → error token (red), transcribing → warning token (amber).
+  /// Both in-flight phases resolve to [WpColors.recordingAccent], whose one
+  /// documented job is "a recording *or its transcription* is in flight".
+  /// They used to be red and amber, which spent the two colours the Quiet
+  /// Status Rule reserves for real failures and for not-yet-granted states on
+  /// a bar that reports neither. The phase *detail* (recording vs.
+  /// transcribing) is the status bar chip's job; this bar reports that
+  /// something is running at all.
+  ///
+  /// Not folded into a constant: the method is the seam the colour mapping is
+  /// pinned through, and a future phase that legitimately needs its own hue
+  /// has somewhere to land.
+  ///
+  /// Deliberately *not* [WpColors.accent]: the generic accent means "you can
+  /// act on this", and a state that the user cannot press would put a second
+  /// job on it (*The Two-Accent-Two-Jobs Rule*).
+  ///
   /// Exposed `@visibleForTesting` so the colour-token mapping can be pinned
   /// without depending on the full widget/render pipeline.
   @visibleForTesting
   static Color colorFor(RecordingPhase phase) {
-    if (phase == RecordingPhase.recording) {
-      return WpColors.error;
-    }
-    return WpColors.warning;
+    return WpColors.recordingAccent;
   }
 
   @override
@@ -97,16 +114,15 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
           ? AnimatedBuilder(
               animation: _opacity,
               builder: (context, _) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        color.withValues(alpha: _opacity.value * 0.8),
-                        color.withValues(alpha: _opacity.value),
-                        color.withValues(alpha: _opacity.value * 0.8),
-                      ],
-                    ),
-                  ),
+                // Flat, not a gradient. The three-stop LinearGradient this
+                // replaces faded the same hue out towards both ends, which is
+                // a light falling on the bar — a second light source, three
+                // pixels tall, over the one ambient the whole app stands on
+                // (*The One-Atmosphere Rule*). The pulse alone carries the
+                // "something is running" signal; the alpha is animated, the
+                // hue is not, and nothing here paints a shape of its own.
+                return ColoredBox(
+                  color: color.withValues(alpha: _opacity.value),
                 );
               },
             )

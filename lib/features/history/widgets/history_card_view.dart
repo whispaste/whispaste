@@ -194,7 +194,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     Color textPrimary,
     Color textSecondary,
     Color textMuted,
-    Color surfaceElevated,
+    Color fill,
     Color borderColor,
   })
   _resolveColors() {
@@ -204,7 +204,10 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
         : widget.isFocused
         ? accent.withValues(alpha: 0.4)
         : (WpColors.borderSubtle);
-    const restingSurface = WpColors.surfaceElevated;
+    // The card material, same as `WpListTileSurface`'s card variant paints
+    // for the list rows this grid is an alternative view of: a translucent
+    // frost plate over the one ambient gradient, not an opaque tile.
+    const restingSurface = WpColors.cardFill;
     return (
       accent: accent,
       textPrimary: WpColors.textPrimary,
@@ -212,11 +215,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
       textMuted: WpColors.textMuted,
       // Selected cards get the same accent wash the list tile paints
       // (history_list_tile.dart:114) — composited over the card's own
-      // elevated fill rather than replacing it, so the grid keeps its
+      // frost fill rather than replacing it, so the grid keeps its
       // material. Without a fill the only selection cue was a 0.5-alpha
       // hairline border, which is far too quiet to scan a 4-column grid
       // for "what did Ctrl+A just check?".
-      surfaceElevated: widget.isSelected
+      fill: widget.isSelected
           ? Color.alphaBlend(WpColors.accentSubtle, restingSurface)
           : restingSurface,
       borderColor: borderColor,
@@ -230,7 +233,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     final textPrimary = colors.textPrimary;
     final textSecondary = colors.textSecondary;
     final textMuted = colors.textMuted;
-    final surfaceElevated = colors.surfaceElevated;
+    final fill = colors.fill;
     final borderColor = colors.borderColor;
 
     final semanticLabel = widget.entry.title.isNotEmpty
@@ -261,7 +264,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
             height: _cardHeight,
             padding: const EdgeInsets.all(WpSpacing.md),
             decoration: BoxDecoration(
-              color: surfaceElevated,
+              color: fill,
               borderRadius: WpRadius.borderLg,
               border: Border.all(color: borderColor),
               // Weiche Ambient-Elevation: die Kachel trägt immer einen

@@ -301,8 +301,10 @@ class _ReplacementsToggleCard extends StatelessWidget {
       ),
       child: Container(
         padding: const EdgeInsets.all(WpSpacing.xxs),
+        // Card material, same correction as the snippets header opposite it:
+        // a plate on the content plane, frost rather than an opaque band.
         decoration: BoxDecoration(
-          color: WpColors.surfaceElevated,
+          color: WpColors.cardFill,
           borderRadius: WpRadius.borderMd,
           border: Border.all(color: WpColors.borderSubtle),
         ),

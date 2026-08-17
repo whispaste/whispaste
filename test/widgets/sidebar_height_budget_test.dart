@@ -66,14 +66,20 @@ void main() {
     test('the enforced window minimum leaves the rail its full budget', () {
       // The window minimum is derived from this number, so this assertion is
       // trivially true by construction — what it guards is the arithmetic in
-      // the token itself: 8 rows of 58 + one 17 dp group break + 16 dp bottom
-      // inset = 497, plus 64 dp title bar and 48 dp status bar.
+      // the token itself: 8 rows of 58 + one 24 dp group break + 16 dp bottom
+      // inset = 504, plus 64 dp title bar and 48 dp status bar.
+      //
+      // The group break was 17 dp (a 1 px hairline in 2 × 8 dp of padding)
+      // until Ticket 08 removed the line. Spacing has to say what the line
+      // said, so it got 7 dp more — and the enforced window minimum grew with
+      // it, 621 → 628, which is the direction this file's second test says to
+      // take when the rail legitimately needs more room.
       expect(WpNavRail.rowHeight, 58);
-      expect(WpNavRail.dividerRowHeight, 17);
-      expect(WpNavRail.productionContentHeight, 497);
+      expect(WpNavRail.groupBreakHeight, 24);
+      expect(WpNavRail.productionContentHeight, 504);
       expect(WpLayout.frameChromeHeight, 112);
       expect(WpLayout.windowFrameAllowance, 12);
-      expect(WpLayout.minWindowHeight, 621);
+      expect(WpLayout.minWindowHeight, 628);
       expect(
         WpLayout.minWindowHeight -
             WpLayout.frameChromeHeight -

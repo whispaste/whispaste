@@ -12,8 +12,11 @@
 /// AC7 — an external focus node is neither adopted nor disposed
 /// AC8 — an accessibility text size does not clip or overflow the `bare`
 ///        editor surface, nor `heading` in the narrow row it lives in
+/// AC9 — the card variants lift their fill under the pointer, the opaque ones
+///        do not, and the lift is never mistakable for the focus contour
 library;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
@@ -41,6 +44,26 @@ BoxDecoration _boxDecoration(WidgetTester tester) =>
 /// layout. `null` on the variant that has no stroke at all.
 BoxDecoration? _strokeDecoration(WidgetTester tester) =>
     _box(tester).foregroundDecoration as BoxDecoration?;
+
+/// Parks a mouse pointer over [target], settles the fill transition, runs
+/// [expectations] while the pointer is still there, then lifts it again.
+///
+/// The pointer has to be removed inside the helper rather than on tear-down
+/// because the loops below hover twice in one test, and two live mouse
+/// devices trip `MouseTracker`'s add/remove assertion.
+Future<void> _whileHovering(
+  WidgetTester tester,
+  Finder target,
+  void Function() expectations,
+) async {
+  final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await gesture.addPointer(location: Offset.zero);
+  await gesture.moveTo(tester.getCenter(target));
+  await tester.pumpAndSettle();
+  expectations();
+  await gesture.removePointer();
+  await tester.pump();
+}
 
 TextStyle _renderedStyle(WidgetTester tester) =>
     tester.widget<TextField>(find.byType(TextField)).style!;
@@ -136,9 +159,13 @@ void main() {
     testWidgets('boxed variants: 8 dp radius, 1 dp subtle hairline, filled', (
       tester,
     ) async {
+      // Ticket 09 left these two exactly as they were: both stand on an
+      // already-opaque ground (a header row, a dialog), where a 3–5 % frost
+      // would be a rounding error rather than a material. `form` in
+      // particular is the ticket's explicit "deliberately unchanged".
       for (final variant in [
         WpTextFieldVariant.heading,
-        WpTextFieldVariant.passage,
+        WpTextFieldVariant.form,
       ]) {
         final controller = TextEditingController();
         addTearDown(controller.dispose);
@@ -156,6 +183,29 @@ void main() {
       }
     });
 
+    testWidgets('passage at rest: card material, 8 dp, no visible contour', (
+      tester,
+    ) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        makeTestable(
+          _field(controller: controller, variant: WpTextFieldVariant.passage),
+        ),
+      );
+
+      expect(_boxDecoration(tester).color, WpColorsDark.cardFill);
+      expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
+
+      // A stroke is still *painted* — transparent, so the focus stroke has a
+      // colour to animate from rather than appearing out of nothing. What the
+      // ticket removes is the visible hairline, not the tween.
+      final stroke = _strokeDecoration(tester)!.border! as Border;
+      expect(stroke.top.color, Colors.transparent);
+      expect(stroke.top.width, 1);
+    });
+
     testWidgets('bare at rest: no stroke, square, same writing-surface fill', (
       tester,
     ) async {
@@ -170,9 +220,10 @@ void main() {
 
       expect(_strokeDecoration(tester), isNull);
       expect(_boxDecoration(tester).borderRadius, BorderRadius.zero);
-      // The fill is deliberately shared with the boxed variants: `bare` drops
-      // the stroke, not the material.
-      expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
+      // The fill is deliberately shared with `passage`: the two prose
+      // surfaces are one material, and `bare` drops the stroke, not the
+      // material.
+      expect(_boxDecoration(tester).color, WpColorsDark.cardFill);
     });
 
     testWidgets('no call site can be handed a contentPadding or a font size', (
@@ -275,6 +326,88 @@ void main() {
     );
   });
 
+  // -------------------------------------------------------------------------
+  // AC9 — the hover lift
+  // -------------------------------------------------------------------------
+  group('AC9 — hover lift', () {
+    testWidgets('passage and bare lift one card rung under the pointer', (
+      tester,
+    ) async {
+      for (final variant in [
+        WpTextFieldVariant.passage,
+        WpTextFieldVariant.bare,
+      ]) {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          makeTestable(_field(controller: controller, variant: variant)),
+        );
+        expect(_boxDecoration(tester).color, WpColorsDark.cardFill);
+
+        await _whileHovering(tester, find.byType(WpTextField), () {
+          // The affordance the resting hairline used to carry, re-expressed
+          // as the app's declared depth source: a brightness delta on the
+          // fill, both ends of it existing tokens rather than a hand-rolled
+          // alpha.
+          expect(
+            _boxDecoration(tester).color,
+            WpColorsDark.cardFillElevated,
+            reason: '$variant should lift its fill on hover',
+          );
+        });
+      }
+    });
+
+    testWidgets('the lift is a surface, not a contour', (tester) async {
+      // "One highlight per state" counts markings *per state*. Hover and
+      // focus are two states, so both may be visible — but they must not be
+      // the same marking, or the field would read as focused on hover.
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        makeTestable(
+          _field(controller: controller, variant: WpTextFieldVariant.passage),
+        ),
+      );
+
+      await _whileHovering(tester, find.byType(WpTextField), () {
+        final stroke = _strokeDecoration(tester)!.border! as Border;
+        expect(
+          stroke.top.color,
+          Colors.transparent,
+          reason: 'hover must not borrow the focus contour',
+        );
+        expect(stroke.top.width, 1);
+      });
+    });
+
+    testWidgets('the opaque variants do not lift', (tester) async {
+      // They never lost a resting hairline, so they have no affordance to
+      // replace — and `form` is the ticket's explicit "unchanged".
+      for (final variant in [
+        WpTextFieldVariant.form,
+        WpTextFieldVariant.heading,
+      ]) {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          makeTestable(_field(controller: controller, variant: variant)),
+        );
+
+        await _whileHovering(tester, find.byType(WpTextField), () {
+          expect(
+            _boxDecoration(tester).color,
+            WpColorsDark.surfaceVariant,
+            reason: '$variant should be unmoved by the pointer',
+          );
+        });
+      }
+    });
+  });
+
   // Removed 2026-08-11 (dark-only build): 'AC4 — light theme resolves light
   // tokens only' pumped the field with Brightness.light and asserted it
   // resolved the light-theme surface/text/border/focus tokens. The app now
@@ -314,6 +447,124 @@ void main() {
       expect(passage.fontSize, bare.fontSize);
       expect(passage.height, bare.height);
       expect(passage.fontWeight, bare.fontWeight);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AC10 — the read-mode surface (Ticket 16)
+  // -------------------------------------------------------------------------
+  group('AC10 — WpTextFieldSurface', () {
+    BoxDecoration surfaceDecoration(WidgetTester tester) =>
+        tester
+                .widget<AnimatedContainer>(
+                  find.descendant(
+                    of: find.byType(WpTextFieldSurface),
+                    matching: find.byType(AnimatedContainer),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+
+    testWidgets('paints the variant\'s own resting box, not a copy of it', (
+      tester,
+    ) async {
+      // Captured from a live field rather than pinned as a literal: two
+      // literals agree forever while the surfaces they describe drift apart,
+      // which is precisely the failure this widget exists to prevent.
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        makeTestable(
+          _field(controller: controller, variant: WpTextFieldVariant.passage),
+        ),
+      );
+      final fieldFill = _boxDecoration(tester);
+      final fieldInset = tester
+          .widget<TextField>(find.byType(TextField))
+          .decoration!
+          .contentPadding;
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+
+      expect(surfaceDecoration(tester).color, fieldFill.color);
+      expect(surfaceDecoration(tester).borderRadius, fieldFill.borderRadius);
+      expect(
+        tester
+            .widget<AnimatedContainer>(
+              find.descendant(
+                of: find.byType(WpTextFieldSurface),
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .padding,
+        fieldInset,
+        reason:
+            'the read view must sit at the field\'s inset, or the text '
+            'shifts sideways the moment edit mode opens',
+      );
+    });
+
+    testWidgets('lifts under the pointer like the field, and not when the '
+        'call site says the text is read-only', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+      await _whileHovering(tester, find.byType(WpTextFieldSurface), () {
+        expect(surfaceDecoration(tester).color, WpColorsDark.cardFillElevated);
+      });
+
+      // History's trash view: the same paragraph, but no tap opens an editor
+      // behind it, so the "you can write here" affordance would be a promise
+      // the screen cannot keep.
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            liftsOnHover: false,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+      await _whileHovering(tester, find.byType(WpTextFieldSurface), () {
+        expect(surfaceDecoration(tester).color, WpColorsDark.cardFill);
+      });
+    });
+
+    testWidgets('never shows the focus contour — a read view holds no caret', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpTextFieldSurface(
+            variant: WpTextFieldVariant.passage,
+            child: Text('Ein gelesener Absatz.'),
+          ),
+        ),
+      );
+
+      final stroke =
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: find.byType(WpTextFieldSurface),
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .foregroundDecoration
+              as BoxDecoration?;
+      expect((stroke!.border! as Border).top.color, Colors.transparent);
     });
   });
 

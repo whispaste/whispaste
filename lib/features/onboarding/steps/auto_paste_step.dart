@@ -10,7 +10,7 @@
 ///
 /// On Windows: Auto-Paste needs no extra permission in the 99% case, so
 /// the step renders a minimal verify-only surface: "Ready to paste" with a
-/// green checkmark and a one-line explanation. The remaining edge case is
+/// accent checkmark and a one-line explanation. The remaining edge case is
 /// UIPI/UAC-protected windows (e.g. Auto-Paste running un-elevated while
 /// the focused target is an elevated process) — there the probe surfaces as
 /// `permissionMissing` and the step shows a non-blocking warn card plus the
@@ -47,7 +47,6 @@ import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_button.dart';
-import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Edge of the square status badge, from DESIGN.md's Quiet Status Rule
@@ -317,8 +316,12 @@ class _MacOsBody extends StatelessWidget {
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
     const textMuted = WpColors.textMuted;
-    const accentGradient = WpColors.accentWarmGradient;
-    const successColor = WpColors.success;
+    // Ticket 15: `okColor` where `successColor` used to be. A granted
+    // permission is a state at rest — it is still granted tomorrow — and the
+    // repair banner reports on a run that is over by the time it is read.
+    // Neither is the instant *The Earned-Green Rule* keeps green for, and
+    // both are the succeeding-flow register DESIGN.md answers with accent.
+    const okColor = WpColors.accent;
     const warningColor = WpColors.warning;
     const errorColor = WpColors.error;
 
@@ -339,8 +342,7 @@ class _MacOsBody extends StatelessWidget {
           textPrimary: textPrimary,
           textSecondary: textSecondary,
           textMuted: textMuted,
-          accentGradient: accentGradient,
-          successColor: successColor,
+          okColor: okColor,
           warningColor: warningColor,
           errorColor: errorColor,
         ),
@@ -354,8 +356,7 @@ class _MacOsBody extends StatelessWidget {
     required Color textPrimary,
     required Color textSecondary,
     required Color textMuted,
-    required LinearGradient accentGradient,
-    required Color successColor,
+    required Color okColor,
     required Color warningColor,
     required Color errorColor,
   }) {
@@ -428,8 +429,8 @@ class _MacOsBody extends StatelessWidget {
       ),
       _AutoPastePhase.granted => (
         LucideIcons.circleCheck,
-        successColor,
-        WpColors.successActiveFill,
+        okColor,
+        WpColors.accentActiveFill,
         l10n.onboardingPasteChipReady,
       ),
       _AutoPastePhase.waiting => (
@@ -473,12 +474,20 @@ class _MacOsBody extends StatelessWidget {
 
     final actions = switch (phase) {
       _AutoPastePhase.intro => <Widget>[
+        // A `primary` WpButton, not the gradient WpHeroButton it used to be
+        // (Ticket 15, *The One-Loud-Action Rule*). The shell's own Next button
+        // is a hero and sits eight pixels below this one, wearing the identical
+        // `accentWarmGradient` — two heroes on one page is two answers to
+        // "what am I supposed to do here", which is the same as none. The
+        // ladder now reads off the components: gradient hero for the flow CTA
+        // in the chrome, filled accent button for the page's own action, ghost
+        // for the escape hatch. Same split `test_recording_step.dart` already
+        // made for exactly this reason.
         SizedBox(
           width: double.infinity,
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-          child: WpHeroButton(
+          child: WpButton(
             label: l10n.onboardingPasteGrantCta,
-            gradient: accentGradient,
+            variant: WpButtonVariant.primary,
             onPressed: grantInFlight ? null : onGrant,
           ),
         ),
@@ -508,7 +517,7 @@ class _MacOsBody extends StatelessWidget {
           _RepairResultBanner(
             result: lastRepairResult!,
             errorColor: errorColor,
-            successColor: successColor,
+            okColor: okColor,
             textSecondary: textSecondary,
             l10n: l10n,
             onRestart: () => notifier.restartForGrant(),
@@ -601,7 +610,8 @@ class _WindowsBody extends StatelessWidget {
 
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
-    const successColor = WpColors.success;
+    // Accent, not green — see the macOS body above (Ticket 15).
+    const okColor = WpColors.accent;
     const warningColor = WpColors.warning;
 
     // Same object as the macOS body renders, on purpose: this is one page in
@@ -630,8 +640,8 @@ class _WindowsBody extends StatelessWidget {
           )
         : _PermissionStatusCard(
             icon: LucideIcons.circleCheck,
-            color: successColor,
-            tint: WpColors.successActiveFill,
+            color: okColor,
+            tint: WpColors.accentActiveFill,
             title: l10n.onboardingPasteChipReady,
             detail: l10n.onboardingPasteWhyWin,
             textPrimary: textPrimary,
@@ -716,8 +726,27 @@ class _PermissionStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
-    const border = WpColors.borderSubtle;
+    // ── Why onboarding takes `floatingSurface` and not `cardFill` ─────────
+    //
+    // Ticket 15 puts the narrative screens on the card material. About takes
+    // the translucent `cardFill`, because it sits inside the content panel
+    // with the one ambient running live underneath it. Onboarding cannot:
+    // the flow covers the whole window with a flat, opaque
+    // `WpColors.background` (`onboarding_overlay.dart`, deliberately no blur
+    // and no scrim), and a 3–5 % frost tint over near-black is the "rounding
+    // error, not a material" case `floatingSurface`'s own doc comment
+    // describes. So these surfaces take the *pre-composited* spelling of the
+    // same recipe — same hue, same `cardEdgeHighlight` rim.
+    //
+    // No shadow, though. `floatingSurface` is where the app's one remaining
+    // shadow is spent, but that is a property of *floating*, not of the
+    // colour: these cards sit in the page's own plane, and depth here is
+    // still position plus the lit rim (*The Depth-Source Rule*).
+    //
+    // Two spellings of one material, because the grounds differ. Do not
+    // "fix" this back to `cardFill`.
+    const surface = WpColors.floatingSurface;
+    const border = WpColors.cardEdgeHighlight;
 
     return Container(
       width: double.infinity,
@@ -797,7 +826,7 @@ class _RepairResultBanner extends StatelessWidget {
   const _RepairResultBanner({
     required this.result,
     required this.errorColor,
-    required this.successColor,
+    required this.okColor,
     required this.textSecondary,
     required this.l10n,
     required this.onRestart,
@@ -805,7 +834,10 @@ class _RepairResultBanner extends StatelessWidget {
 
   final TccRepairResult result;
   final Color errorColor;
-  final Color successColor;
+
+  /// Accent, not green (Ticket 15). By the time this banner is read the
+  /// repair run is over and its result is a standing fact on the page.
+  final Color okColor;
   final Color textSecondary;
   final L10n l10n;
 
@@ -817,7 +849,7 @@ class _RepairResultBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ok = result.isSupported;
-    final color = ok ? successColor : errorColor;
+    final color = ok ? okColor : errorColor;
     final icon = ok ? LucideIcons.circleCheck : LucideIcons.circleAlert;
     // Special-case "supported but nothing actually cleared": the generic
     // pluralised "0 entries removed" copy reads as a no-op, while the

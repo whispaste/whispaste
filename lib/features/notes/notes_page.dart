@@ -668,6 +668,16 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             children: [
               NotesSearchBar(
                 onCreate: _createNote,
+                // *The One-Loud-Action Rule*: every state the content area
+                // below can be in except the populated list and the loading
+                // skeleton puts a CTA of its own on screen — "New note" (same
+                // label as this button), "Clear search", "Try again". The
+                // trash is the exception that keeps this button loud: it has
+                // no main action of its own, so its empty state offers none.
+                createIsLoud:
+                    !(notesAsync.hasError ||
+                        (notesAsync.value?.isEmpty == true &&
+                            (hasQuery || !isTrash))),
                 currentFilter: filter,
                 onFilterChanged: _setFilter,
                 searchController: _searchController,

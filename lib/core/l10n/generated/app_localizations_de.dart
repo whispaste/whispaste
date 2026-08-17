@@ -2969,6 +2969,19 @@ class L10nDe extends L10n {
   String get settingsOverlaySizeMini => 'Mini';
 
   @override
+  String get settingsOverlayStyle => 'Overlay-Stil';
+
+  @override
+  String get settingsOverlayStyleSubtitle =>
+      'Wähle zwischen Glas-Effekt oder volldeckender Darstellung';
+
+  @override
+  String get settingsOverlayStyleGlass => 'Glas';
+
+  @override
+  String get settingsOverlayStyleSolid => 'Volldeckend';
+
+  @override
   String get overlayRetry => 'Erneut versuchen';
 
   @override

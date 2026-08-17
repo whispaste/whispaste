@@ -121,9 +121,9 @@ export function defaultScreenshotsFor(locale: Locale): readonly string[] {
   const slug = locale === "de" ? "de" : "en";
   return [
     `${SITE_ORIGIN}/screenshots/${slug}/dark/01_workspace_overview.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/light/02_workspace_detail.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/02_workspace_detail.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/03_voice_shortcuts.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/light/04_settings.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/04_settings.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/05_analytics.png`,
   ];
 }

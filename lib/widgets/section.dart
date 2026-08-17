@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
 
 /// Content section with header — flat, clean, with optional collapse.
 ///
-/// Premium: subtle accent line on header, refined typography, smooth expand.
+/// Deliberately paints **no surface of its own** (Ticket 08). "Card material on
+/// the shared primitives" stops at the section head: a section is a grouping of
+/// content, and several of its call sites already hand it children that *are*
+/// cards (`analytics_page.dart` puts `WpTwoPanel` and the hero stats row inside
+/// three sections). A fill here would card-in-a-card every one of them. Which
+/// screens wrap section content in a card is a per-screen decision and belongs
+/// to the screen tickets, not to this widget.
 ///
 /// [padding] defaults to zero because the page owns the inset, not the
 /// section: every section in the app sits inside a [WpPageShell], whose
@@ -78,27 +83,32 @@ class WpSection extends StatelessWidget {
   }
 }
 
-/// Accent-bar geometry, split out because the *sum* is the load-bearing part.
+/// The section head's reading edge — the one number this header owes the rows
+/// beneath it.
 ///
-/// A settings section used to present four competing left edges: 0 (accent
-/// bar and row hover surface), 15 (section title), 12 (row icon) and 40 (row
+/// A settings section used to present four competing left edges: 0 (accent bar
+/// and row hover surface), 15 (section title), 12 (row icon) and 40 (row
 /// label). 15-against-12 was the worst of them — near enough to look like a
 /// mistake, far enough to see. `settings_widgets.dart` exports
 /// `kSettingRowInset` (12) as the app's shared reading edge, and
 /// `onboarding_headings.dart` deliberately pins its headings to it; only the
 /// section head that sits directly above those rows ignored it.
 ///
-/// 3 + 9 = 12 puts the title text on exactly that edge, so the bar hangs in
-/// the gutter as decoration and everything that carries meaning — section
-/// title, row icon — starts on one line. Two edges instead of four.
+/// This used to be a *sum*: a 3 px warm-gradient accent bar plus a 9 px gutter,
+/// so the bar hung in the margin as decoration while the title landed on 12.
+/// Ticket 08 removed the bar — it was a generic interaction accent on a
+/// non-interactive heading, and the app now spends `accentWarmGradient` only
+/// where it marks a real selection (the sidebar's active rail marker). The
+/// title's edge is unchanged; only the way it is produced is, which is why the
+/// constant is now stated directly instead of assembled from two halves.
 ///
-/// Off the spacing scale on purpose: the constraint is the sum, not the gap,
-/// and `WpSpacing.sm` (12) for the gutter is what produced the 15 in the first
-/// place. Not imported from `settings_widgets.dart` — a shared widget must not
-/// depend on a feature — so the number is restated here with its reason, and
-/// `section_test.dart` pins it so the two cannot drift apart silently.
-const double _accentBarWidth = 3;
-const double _accentBarGutter = 9;
+/// Off the spacing scale on purpose: `WpSpacing.sm` happens to be 12 as well,
+/// but the constraint here is *equality with `kSettingRowInset`*, not a
+/// spacing-scale step. Not imported from `settings_widgets.dart` — a shared
+/// widget must not depend on a feature — so the number is restated here with
+/// its reason, and `section_test.dart` pins it so the two cannot drift apart
+/// silently.
+const double _headerTextInset = 12;
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
@@ -134,19 +144,16 @@ class _SectionHeader extends StatelessWidget {
       focusColor: Colors.transparent,
       highlightColor: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+        // Left inset only: the ink of the (collapsible) header still spans the
+        // full section width, the *text* starts on the shared reading edge.
+        padding: const EdgeInsets.fromLTRB(
+          _headerTextInset,
+          WpSpacing.xxs,
+          0,
+          WpSpacing.xxs,
+        ),
         child: Row(
           children: [
-            // Accent bar — warm gradient vertical line
-            Container(
-              width: _accentBarWidth,
-              height: 18,
-              margin: const EdgeInsets.only(right: _accentBarGutter),
-              decoration: BoxDecoration(
-                gradient: WpColors.accentWarmGradient,
-                borderRadius: WpRadius.borderFull,
-              ),
-            ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

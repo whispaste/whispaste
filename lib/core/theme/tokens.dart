@@ -214,6 +214,45 @@ abstract final class WpMotion {
   }
 }
 
+/// Drop-in [AnimatedSize] that a zero [duration] passes straight through
+/// instead of animating.
+///
+/// [AnimatedSize] restarts its internal [AnimationController] from inside its
+/// own `performLayout` whenever the child's size changes while it is
+/// `stable`. With [duration] resolved to [Duration.zero] (as
+/// [WpMotion.durationFor] does under reduced motion) that restart completes
+/// synchronously and calls `markNeedsLayout` on itself while still being laid
+/// out — a hard Flutter assertion ("A RenderObject must not re-dirty itself
+/// while still being laid out"), reproduced in
+/// `test/core/theme/motion_test.dart`. A zero-duration transition is not an
+/// animation to begin with, so skipping [AnimatedSize] for that case is the
+/// correct behavior, not merely a workaround for the assertion.
+class WpAnimatedSize extends StatelessWidget {
+  const WpAnimatedSize({
+    super.key,
+    required this.duration,
+    this.curve = Curves.linear,
+    this.alignment = Alignment.center,
+    required this.child,
+  });
+
+  final Duration duration;
+  final Curve curve;
+  final Alignment alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (duration == Duration.zero) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: curve,
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Layout dimensions
 // ---------------------------------------------------------------------------
@@ -310,8 +349,15 @@ abstract final class WpNavRail {
   /// Full vertical space one rail row occupies, padding included.
   static const double rowHeight = itemHeight + 2 * rowPadding;
 
-  /// Full vertical space one group-break hairline occupies, padding included.
-  static const double dividerRowHeight = dividerThickness + 2 * rowPadding;
+  /// Vertical space one group break occupies.
+  ///
+  /// Ticket 08 removed the hairline that used to sit here; the break is now
+  /// pure spacing. It is deliberately *more* than the 17 dp the old
+  /// `dividerThickness + 2 * rowPadding` came to: a line can mark a break at
+  /// any distance, spacing cannot. At 24 dp the gap between two groups is
+  /// 8 + 24 + 8 = 40 dp against the 16 dp between siblings — a ratio the eye
+  /// reads as a break without a rule being drawn.
+  static const double groupBreakHeight = WpSpacing.xl;
 
   /// Gap the rail keeps between its last (bottom-pinned) row and the status
   /// bar underneath it.
@@ -321,12 +367,12 @@ abstract final class WpNavRail {
   /// rows from `wpNavItems`, the one group break from `wpNavDividerAfterIds`,
   /// the pinned settings row from `wpSettingsNavItem`, plus [bottomInset].
   ///
-  /// 8 × 58 + 17 + 16 = 497. The rail itself never reads this number — it
+  /// 8 × 58 + 24 + 16 = 504. The rail itself never reads this number — it
   /// lays out from the rows above — but [WpLayout.minWindowHeight] does, and
   /// `sidebar_height_budget_test.dart` measures the real rail against it so
   /// the two cannot drift apart unnoticed.
   static const double productionContentHeight =
-      8 * rowHeight + dividerRowHeight + bottomInset;
+      8 * rowHeight + groupBreakHeight + bottomInset;
 
   /// The rounded square behind the icon. Every item wears one in every state —
   /// it is the rail's material, not the selection mark (see *The One Highlight
@@ -338,10 +384,11 @@ abstract final class WpNavRail {
   static const double indicatorWidth = 3;
   static const double indicatorHeight = 22;
 
-  /// Group-break hairline between nav sections. Deliberately narrower than
-  /// [pillSize] so it reads as a quiet break, not a full-width rule.
-  static const double dividerWidth = 36;
-  static const double dividerThickness = 1;
+  // Removed with Ticket 08: `dividerWidth` (36) and `dividerThickness` (1),
+  // the geometry of the rail's group-break hairline. The break is now carried
+  // by [groupBreakHeight] alone — a line that only says "these are two groups"
+  // is a line the spacing can say instead, and every line the chrome does not
+  // draw is one less edge competing with the frame's ambient.
 
   /// Unread/attention dot rendered at the pill's reading-end top corner.
   static const double badgeSize = 8;

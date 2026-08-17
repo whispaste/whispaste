@@ -59,6 +59,37 @@ bool shouldShowAutoPasteOffHint({
   }
 }
 
+/// Figure space (U+2007) — the one blank whose advance width equals a
+/// *tabular* digit's. In the bundled Inter it is byte-identical to the `.tf`
+/// digit glyphs at every shipped weight (1328 / 1327 / 1325 font units at
+/// Regular / Medium / SemiBold); a plain space is less than half that
+/// (546–576) and would not hold a numeric column.
+const String _figureSpace = '\u2007';
+
+/// Label of the far-right backend chip — `'CPU'` before a reading exists,
+/// `'CPU · ␣␣9%'` / `'CPU · 100%'` once one does.
+///
+/// The percent is right-aligned in a fixed three-character column so the chip
+/// keeps one width across every digit-count change (0 → 9 → 10 → 99 → 100).
+/// That matters because this chip is a real layout participant of the status
+/// bar row: any width change of its own shifts the *centred* chip group
+/// (see [WpStatusBar.build]) sideways, un-damped.
+///
+/// The padding is only half the job — it fixes the character *count*. The
+/// width *per character* is fixed by [FontFeature.tabularFigures], applied at
+/// the call site: Inter's default proportional digits run from 833 (`1`) to
+/// 1292 (`0`) units, so `'11%'` and `'99%'` would still differ at equal
+/// length. Both together, and only both together, make the width constant —
+/// dropping either one brings the shift back.
+///
+/// Wp naming — deliberately unprefixed, same rule as
+/// [shouldShowAutoPasteOffHint]: this is a pure string format, not something
+/// anyone puts in a widget tree.
+String backendUtilizationChipLabel(String backendKind, double? percent) =>
+    percent == null
+    ? backendKind
+    : '$backendKind · ${percent.round().toString().padLeft(3, _figureSpace)}%';
+
 /// Bottom status bar — sits on the app frame, full width.
 ///
 /// Shows only essential runtime state: STT engine status.
@@ -199,109 +230,156 @@ class WpStatusBar extends StatelessWidget {
         children: [
           // Sidebar-width spacer — chips start in the content area
           const SizedBox(width: WpLayout.sidebarWidth),
-          // Content-area span.
+          // Content-area span — the chip group is *centred* over the content
+          // column, so the bar reads as balanced rather than heaped against
+          // one edge.
           //
-          // Start-aligned, not centred: the chip row's membership changes at
+          // This reverses the decision that used to be recorded here. The old
+          // comment rejected centring because the row's membership changes at
           // runtime (microphone, after-action, update, Auto-Paste hint all
-          // come and go), and a centred row re-flows every chip sideways each
-          // time one appears — the STT chip, the one that is always there,
-          // never sits still. Anchored to the start, an arriving chip only
-          // grows the row to the right and every chip before it stays put.
+          // come and go) and a centred row re-flows every chip sideways each
+          // time one arrives — the STT chip, the one that is always there,
+          // would never sit still. That objection was about the *jump*, not
+          // about centring: wrapped in an [AnimatedSize], an arriving or
+          // leaving chip now resolves as one damped ~200 ms reflow
+          // (`WpMotion.normal` / `defaultCurve`, and `Duration.zero` under
+          // "Reduce Motion"). A group that glides stays readable; a group that
+          // snaps does not. So the objection is answered rather than
+          // overruled.
           //
-          // The `start: xl` inset puts the first chip on the same gutter
-          // `WpPageShell`'s default `fromLTRB(xl, …)` padding gives page
-          // content, so the status line reads as the same column as the page
-          // above it rather than as a second, narrower one.
+          // The far-right backend chip is a real layout participant, so any
+          // width change of its own narrows this span and shifts the centred
+          // group sideways, un-damped. Its polled percent used to do exactly
+          // that at every digit boundary ("CPU · 9%" → "CPU · 10%"): a measured
+          // 5.6 px snap. Fixed at the source rather than damped — the percent
+          // now sits in a fixed three-character numeric column (figure-space
+          // padding + tabular figures, see `backendUtilizationChipLabel`), so
+          // no reading between 0 % and 100 % changes the chip's width at all,
+          // and the chip stays shrink-wrapped (no reserved layout slot).
+          //
+          // What is left un-damped on purpose: the chip appearing or
+          // disappearing entirely (once per model load, not on the 3 s poll,
+          // so it cannot flap). `backendKind` flipping CPU↔GPU is not a second
+          // case — the icon sits in a fixed `WpIconSize.xs` box, and 'C' vs
+          // 'G' differ by 29 font units, i.e. 0.16 px at this size.
+          //
+          // Mechanics, in the one order that works: [LayoutBuilder] must sit
+          // outside the scroll view (inside, `maxWidth` is infinite), and
+          // [Align] must sit between the [ConstrainedBox] and the
+          // [AnimatedSize] — it re-loosens the `minWidth`, which would
+          // otherwise pin the animated box to the viewport and leave it no
+          // delta to animate. Once the chips outgrow the viewport `maxWidth`
+          // goes infinite, [Align] shrink-wraps, and scrolling is unchanged.
+          //
+          // The symmetric `WpSpacing.xl` gutter sits *outside* the scroll view
+          // rather than in its `padding`, where it would count as scrollable
+          // content and leave the bar permanently scrollable and off-centre by
+          // half a gutter. (The former asymmetric `start: xl` matched
+          // `WpPageShell`'s page gutter — that only meant something while the
+          // first chip was the anchor.)
           Expanded(
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsetsDirectional.only(start: WpSpacing.xl),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _SttChip.build
-                    _SttChip(
-                      modeLabel: sttModeLabel,
-                      state: sttState,
-                      startingSince: sttStartingSince,
-                      recordingPhase: recordingPhase,
-                      textStyle: textStyle,
-                      l10n: l10n,
-                      onTap: onSttTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Align(
+                      child: WpAnimatedSize(
+                        duration: WpMotion.durationFor(
+                          context,
+                          WpMotion.normal,
+                        ),
+                        curve: WpMotion.defaultCurve,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // loam-ignore: a11y-interactive-semantics – semantics provided in _SttChip.build
+                            _SttChip(
+                              modeLabel: sttModeLabel,
+                              state: sttState,
+                              startingSince: sttStartingSince,
+                              recordingPhase: recordingPhase,
+                              textStyle: textStyle,
+                              l10n: l10n,
+                              onTap: onSttTap,
+                            ),
+                            if (microphoneLabel != null &&
+                                microphoneOptions != null &&
+                                onMicrophoneChanged != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              _MicrophoneChip(
+                                current: microphoneLabel!,
+                                options: microphoneOptions!,
+                                textStyle: textStyle,
+                                l10n: l10n,
+                                onChanged: onMicrophoneChanged!,
+                                onOpened: onMicrophoneMenuOpened,
+                              ),
+                            ],
+                            if (afterActionLabel != null &&
+                                afterAction != null &&
+                                onAfterActionChanged != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              _AfterActionChip(
+                                label: afterActionLabel!,
+                                current: afterAction!,
+                                textStyle: textStyle,
+                                l10n: l10n,
+                                onChanged: onAfterActionChanged!,
+                              ),
+                            ],
+                            if (showAutoPasteOffHint) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _AutoPasteOffHintChip.build
+                              _AutoPasteOffHintChip(
+                                textStyle: textStyle,
+                                l10n: l10n,
+                                onTap: onAutoPasteOffHintTap,
+                                onDismiss: onAutoPasteOffHintDismiss,
+                              ),
+                            ],
+                            if (hotkeyLabel != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon: hotkeyEnabled
+                                    ? LucideIcons.keyboard
+                                    : LucideIcons.keyboardOff,
+                                label: hotkeyLabel!,
+                                textStyle: textStyle,
+                                tooltip: l10n.statusBarHotkeyTooltip,
+                                onTap: onHotkeyTap,
+                                dimmed: !hotkeyEnabled,
+                              ),
+                            ],
+                            if (updateReadyToInstall) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon: LucideIcons.packageCheck,
+                                label: l10n.updateInstall,
+                                textStyle: textStyle,
+                                tooltip: l10n.updateInstall,
+                                onTap: onUpdateTap,
+                              ),
+                            ] else if (updateVersion != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon: LucideIcons.download,
+                                label: l10n.updateStatusBarChip(updateVersion!),
+                                textStyle: textStyle,
+                                tooltip: l10n.updateAvailable(updateVersion!),
+                                onTap: onUpdateTap,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                    if (microphoneLabel != null &&
-                        microphoneOptions != null &&
-                        onMicrophoneChanged != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _MicrophoneChip(
-                        current: microphoneLabel!,
-                        options: microphoneOptions!,
-                        textStyle: textStyle,
-                        l10n: l10n,
-                        onChanged: onMicrophoneChanged!,
-                        onOpened: onMicrophoneMenuOpened,
-                      ),
-                    ],
-                    if (afterActionLabel != null &&
-                        afterAction != null &&
-                        onAfterActionChanged != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _AfterActionChip(
-                        label: afterActionLabel!,
-                        current: afterAction!,
-                        textStyle: textStyle,
-                        l10n: l10n,
-                        onChanged: onAfterActionChanged!,
-                      ),
-                    ],
-                    if (showAutoPasteOffHint) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _AutoPasteOffHintChip.build
-                      _AutoPasteOffHintChip(
-                        textStyle: textStyle,
-                        l10n: l10n,
-                        onTap: onAutoPasteOffHintTap,
-                        onDismiss: onAutoPasteOffHintDismiss,
-                      ),
-                    ],
-                    if (hotkeyLabel != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
-                      _StatusChip(
-                        icon: hotkeyEnabled
-                            ? LucideIcons.keyboard
-                            : LucideIcons.keyboardOff,
-                        label: hotkeyLabel!,
-                        textStyle: textStyle,
-                        tooltip: l10n.statusBarHotkeyTooltip,
-                        onTap: onHotkeyTap,
-                        dimmed: !hotkeyEnabled,
-                      ),
-                    ],
-                    if (updateReadyToInstall) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
-                      _StatusChip(
-                        icon: LucideIcons.packageCheck,
-                        label: l10n.updateInstall,
-                        textStyle: textStyle,
-                        tooltip: l10n.updateInstall,
-                        onTap: onUpdateTap,
-                      ),
-                    ] else if (updateVersion != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
-                      _StatusChip(
-                        icon: LucideIcons.download,
-                        label: l10n.updateStatusBarChip(updateVersion!),
-                        textStyle: textStyle,
-                        tooltip: l10n.updateAvailable(updateVersion!),
-                        onTap: onUpdateTap,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -310,10 +388,18 @@ class WpStatusBar extends StatelessWidget {
             // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
             _StatusChip(
               icon: backendKind == 'GPU' ? LucideIcons.zap : LucideIcons.cpu,
-              label: backendUtilizationPercent != null
-                  ? '$backendKind · ${backendUtilizationPercent!.round()}%'
-                  : backendKind!,
-              textStyle: textStyle,
+              label: backendUtilizationChipLabel(
+                backendKind!,
+                backendUtilizationPercent,
+              ),
+              // Tabular figures *only* here — the other half of the
+              // constant-width rule (see backendUtilizationChipLabel). Not on
+              // the shared `textStyle`: the update-version chip also carries
+              // digits, but its label is fixed for the lifetime of the chip,
+              // so it needs no numeric column.
+              textStyle: textStyle.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
               tooltip: backendKind == 'GPU'
                   ? '${l10n.statusBarSttBackendTooltip('GPU')}\n'
                         '${l10n.statusBarBackendGpuUtilizationUnavailable}'

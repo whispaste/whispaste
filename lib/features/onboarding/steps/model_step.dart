@@ -14,7 +14,6 @@ import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
-import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -272,7 +271,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
 
     const textMuted = WpColors.textMuted;
     const accent = WpColors.accent;
-    const accentGradient = WpColors.accentWarmGradient;
 
     final whisperModel = _effectiveWhisperModel;
 
@@ -429,7 +427,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             isError: isError,
             isDone: isDone,
             accent: accent,
-            accentGradient: accentGradient,
             sizeLabel: selectedSizeLabel,
             l10n: l10n,
             onStartDownload: _startDownload,
@@ -490,7 +487,6 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     required this.isError,
     required this.isDone,
     required this.accent,
-    required this.accentGradient,
     required this.sizeLabel,
     required this.l10n,
     required this.onStartDownload,
@@ -503,7 +499,6 @@ class _ModelStepDownloadStatus extends StatelessWidget {
   final bool isError;
   final bool isDone;
   final Color accent;
-  final LinearGradient accentGradient;
   final String sizeLabel;
   final L10n l10n;
   final VoidCallback onStartDownload;
@@ -526,7 +521,12 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       );
     }
     if (isDone) {
-      const success = WpColors.success;
+      // Accent, not `success` (Ticket 15, *The Earned-Green Rule*). The
+      // download is finished *and stays finished*: re-open the page and the
+      // row is still here, reporting a fact rather than an event. Green is
+      // the app's one word for "that worked just now", and a permanent row
+      // wearing it leaves nothing to say it with.
+      const ready = WpColors.accent;
       // Start-aligned like every other status row in the app (settings,
       // history and notes rows are all CrossAxisAlignment.start; no centred
       // status state exists anywhere else) and like the full-width CTA,
@@ -536,7 +536,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
           const Icon(
             LucideIcons.circleCheck,
             size: WpIconSize.sm,
-            color: success,
+            color: ready,
           ),
           const SizedBox(width: WpSpacing.xs),
           Text(
@@ -544,7 +544,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
             style: const TextStyle(
               fontSize: WpTypography.subheading,
               fontWeight: FontWeight.w600,
-              color: success,
+              color: ready,
             ),
           ),
         ],
@@ -556,19 +556,24 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     // A CTA that out-measures the thing it acts on stops reading as that
     // thing's action. One card's width is the honest size, and it lines the
     // button up with the leading card's edge rather than with nothing.
+    // A `primary` WpButton, not the gradient WpHeroButton it used to be
+    // (Ticket 15, *The One-Loud-Action Rule*). The shell's Next button is a
+    // hero wearing the identical `accentWarmGradient` and sits directly below
+    // this one; two heroes on one page is two answers to "what am I supposed
+    // to do here", which is the same as none. Rank now reads off the
+    // components: gradient hero for the flow CTA in the chrome, filled accent
+    // button for the page's own action.
     return Row(
       children: [
         Expanded(
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-          child: WpHeroButton(
+          child: WpButton(
             label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
-            gradient: accentGradient,
+            variant: WpButtonVariant.primary,
             onPressed: onStartDownload,
-            // Full-height CTA again: the shortened padding here was paid for
-            // by the merged Model & Hotkey page, which no longer exists — the
-            // model page has ~150 px of spare height now, so the primary
-            // action of the page has no reason to sit below the 48-px
-            // touch-target floor.
+            // Full-height CTA: the shortened padding here was paid for by the
+            // merged Model & Hotkey page, which no longer exists — the model
+            // page has ~150 px of spare height now, so the loud action of the
+            // page has no reason to sit below the 48-px touch-target floor.
           ),
         ),
         const SizedBox(width: WpSpacing.md),
@@ -628,7 +633,7 @@ class _EngineCardColors {
     required bool isTappable,
   }) {
     const accent = WpColors.accent;
-    const surface = WpColors.surfaceVariant;
+    const surface = WpColors.floatingSurface;
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
     const textMuted = WpColors.textMuted;
@@ -642,7 +647,12 @@ class _EngineCardColors {
           ? (WpColors.accentButtonFill)
           : hovering
           ? accentSix
-          : surface.withValues(alpha: 0.5),
+          // Ticket 15: the card material in its pre-composited spelling —
+          // see [_PermissionStatusCard] in `auto_paste_step.dart` for why
+          // onboarding takes `floatingSurface` rather than `cardFill`. Only
+          // the resting rung moves; selected and hover are already tint-ladder
+          // tokens and stay as they are.
+          : surface,
       border: isSelected
           ? accent
           : hovering
@@ -1032,6 +1042,19 @@ class _DownloadProgress extends StatelessWidget {
           style: const TextStyle(
             fontSize: WpTypography.small,
             color: textSecondary,
+            // The one number in the flow that changes in place, several times
+            // a second, for minutes. Inter's proportional digits are not the
+            // same width, so "38%" → "39%" reflows the glyphs under a bar
+            // that is itself perfectly steady, and the counter shimmers.
+            // Tabular figures give it a fixed numeric column — the same
+            // vocabulary the status bar's backend chip already uses, and the
+            // only spelling *The One-Family Rule* leaves for "monospace" (an
+            // actual second family is forbidden outright).
+            //
+            // Here it needs no figure-space padding: the label is left-aligned
+            // and nothing sits beside it, so only the per-character width has
+            // to be fixed, not the character count.
+            fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
       ],

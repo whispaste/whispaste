@@ -31,6 +31,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import 'colors.dart' show WpColorsDark;
+
 /// The four real recording states the overlay and button render.
 ///
 /// Mirrors `OverlayVisualState` (recording/transcribing/done/error). There is
@@ -65,6 +67,25 @@ enum OverlaySizeVariant {
 
 /// Theme variants the spec provides a complete colour set for.
 enum OverlayDesignTheme { dark, light }
+
+/// The two chrome styles the overlay pill can render.
+///
+/// [glass] is the default translucent no-blur "Dock glass" chrome. [solid] is
+/// the fully opaque alternative (Settings: "Overlay-Stil") — same geometry,
+/// same waveform, same liquid silhouette wobble, but the sheen/rim/specular
+/// glass layers are skipped and the fill is the app's own [WpColorsDark.
+/// frameGradient] instead of a near-clear tint. Applies identically to all
+/// three [OverlaySizeVariant]s.
+enum OverlayStyleVariant {
+  glass,
+  solid;
+
+  /// Resolves a persisted/serialised name; unknown or null → [glass].
+  static OverlayStyleVariant fromName(String? name) => values.firstWhere(
+    (v) => v.name == name,
+    orElse: () => OverlayStyleVariant.glass,
+  );
+}
 
 /// Supported anchor positions for the overlay window.
 ///
@@ -860,6 +881,12 @@ abstract final class OverlayDesignSpec {
   /// no longer depends on the fill at all: every dark-ink glyph became a
   /// white glyph with a dark outline — see [contentGlyphFill].)
   static const double fillOpacityFactor = 0.14;
+
+  /// Fill gradient for [OverlayStyleVariant.solid] — reuses
+  /// [WpColorsDark.frameGradient] verbatim (the same navy→violet arc the
+  /// title bar/nav rail/status bar paint) so the "solid" overlay reads as cut
+  /// from the same brand chrome rather than inventing a nearby blue.
+  static const LinearGradient solidFillGradient = WpColorsDark.frameGradient;
 
   /// Alpha of the white glass sheen painted over the capsule fill (task #38):
   /// a top-down highlight that reads as light on curved glass. Lowered with

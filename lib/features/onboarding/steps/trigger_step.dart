@@ -292,7 +292,14 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
     // Use the theme's danger/error semantic so the box clearly reads as a
     // blocker — matches the rest of WhisPaste's destructive surfaces.
     const dangerColor = WpColors.error;
-    final bgColor = dangerColor.withValues(alpha: 0.12);
+    // 12 % is the error ladder's own rung, spelled as the token instead of
+    // hand-rolled at the call site (pixel-identical: 0.12 x 255 rounds to the
+    // 0x1F the token carries).
+    const bgColor = WpColors.errorActiveFill;
+    // Still hand-rolled, and knowingly so: the ladder tops out at 30 %
+    // (`errorBorder30`) and this outline is at 40. Dropping it to the
+    // sanctioned ceiling is a visible change to a blocker's outline, which is
+    // a maintainer call rather than a token swap — Ticket 15 finding.
     final borderColor = dangerColor.withValues(alpha: 0.40);
     const textPrimary = WpColors.textPrimary;
 

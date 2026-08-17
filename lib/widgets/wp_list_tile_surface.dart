@@ -21,11 +21,11 @@ import '../core/theme/tokens.dart';
 // The split is not cosmetic — it follows the surface a list sits on:
 //
 //   * [WpListTileVariant.card] — full-width page lists (replacements,
-//     snippets) inside `WpSearchableListPage`. The row is an opaque card on
-//     the page background: it carries a visible resting border and an
-//     elevated fill, because with nothing else on the page an invisible row
-//     edge would leave the list shapeless. No selection state — these rows
-//     open a dialog, they are never "the current one".
+//     snippets) inside `WpSearchableListPage`. The row is a card on the page
+//     ground: it carries a visible resting border and a frost fill, because
+//     with nothing else on the page an invisible row edge would leave the list
+//     shapeless. No selection state — these rows open a dialog, they are never
+//     "the current one".
 //   * [WpListTileVariant.panel] — narrow split-view panels (history, notes).
 //     The row is transparent at rest so a dense list stays quiet
 //     (DESIGN.md "Quiet Signal"), and spends its ink on the states that
@@ -33,19 +33,28 @@ import '../core/theme/tokens.dart';
 //     cursor, both drawn in accent.
 //
 // Everything the two share is fixed here and cannot drift again: radius
-// (`WpRadius.borderLg`), resting border width (1.5), the shadow fade, and
-// the hover-in/hover-out motion. Guarded by
-// `test/widgets/list_tile_surface_consistency_test.dart`, which compares the
-// four real call sites *against each other* rather than against numbers.
+// (`WpRadius.borderLg`), resting border width (1.5) and the hover-in/hover-out
+// motion. Guarded by `test/widgets/list_tile_surface_consistency_test.dart`,
+// which compares the four real call sites *against each other* rather than
+// against numbers.
 //
-// ## Why border and shadow are never null
+// ## Why there is no shadow (Ticket 08)
 //
-// Both are always present and animate their *alpha*. `Border.lerp(a, null,
-// t)` scales the width toward zero at fixed colour, and a null-to-value
-// `boxShadow` lerp scales blur the same way — for one frame that reads as a
-// flash, not a fade. `WpShadows.subtleTransparent` and a zero-alpha
-// `Border.all` exist for exactly this, and the whole app depends on them
-// being used rather than re-derived.
+// Until the visual refresh the card variant lifted itself on hover with
+// `WpShadows.subtle` *on top of* a fill change — two depth cues on one
+// element. On the app's single dark ground depth comes from the brightness
+// delta alone; a drop shadow under a row that sits *in* the plane rather than
+// above it only muddies the ambient gradient it is supposed to let through.
+// The row's state now reads entirely off its fill and its edge. (Shadows are
+// not banned app-wide: an element that genuinely floats over unknown content —
+// dialog, toast, dropdown popup — still gets exactly one.)
+//
+// ## Why the border is never null
+//
+// It is always present and animates its *alpha*. `Border.lerp(a, null, t)`
+// scales the width toward zero at fixed colour, which for one frame reads as a
+// flash, not a fade. A zero-alpha `Border.all` exists for exactly this, and
+// the whole app depends on it being used rather than re-derived.
 //
 // ## The actions slot
 //
@@ -137,7 +146,13 @@ class WpListTileSurface extends StatelessWidget {
   Color _fill() {
     switch (variant) {
       case WpListTileVariant.card:
-        return _isActive ? (WpColors.hover) : (WpColors.surfaceElevated);
+        // Frost, not `surfaceElevated`/`hover`: a card row is a translucent
+        // tinted plate over the one ambient gradient, so the ground keeps
+        // running underneath the list instead of being cut into opaque bands.
+        // The hover delta is deliberately quiet (~1.03:1) — it is carried
+        // jointly by the fill and the tinted edge in [_border], and the row's
+        // real hover affordance is the action slot it reveals.
+        return _isActive ? WpColors.cardFillElevated : WpColors.cardFill;
       case WpListTileVariant.panel:
         if (isSelected) {
           return WpColors.accentSubtle;
@@ -152,10 +167,12 @@ class WpListTileSurface extends StatelessWidget {
   Border _border() {
     switch (variant) {
       case WpListTileVariant.card:
+        // Active edge is the tinted `cardEdgeHighlight` rather than the
+        // neutral `cardActiveBorder`: on a frost plate the rim is what carries
+        // the shape, and a white rim over a chromatic fill is the exact
+        // "reads grey" failure the frost material was introduced to fix.
         return Border.all(
-          color: _isActive
-              ? (WpColors.cardActiveBorder)
-              : (WpColors.borderSubtle),
+          color: _isActive ? WpColors.cardEdgeHighlight : WpColors.borderSubtle,
           width: borderWidth,
         );
       case WpListTileVariant.panel:
@@ -236,10 +253,8 @@ class WpListTileSurface extends StatelessWidget {
         color: _fill(),
         borderRadius: WpRadius.borderLg,
         border: _border(),
-        // Soft ambient lift on interaction only — the resting row stays flat
-        // (density, perf). `subtleTransparent` rather than null: see the
-        // library comment's flash-mechanism note.
-        boxShadow: _isActive ? WpShadows.subtle : WpShadows.subtleTransparent,
+        // No `boxShadow` at all — see the library comment. A row lives in the
+        // plane; its depth is the brightness delta.
       ),
       child: content,
     );

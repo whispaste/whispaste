@@ -1,7 +1,9 @@
 # MS Store Listing Content
 
-Store listing texts for WhisPaste. Checked into the repo so changes are versioned
-and deployed automatically on every `v*` tag push.
+Store listing texts for WhisPaste. Checked into the repo so changes are versioned.
+Most fields are pushed to Partner Center via a manual local CSV import (see below);
+`ReleaseNotes` alone is refreshed automatically during a real MSIX release, via the
+release API.
 
 ## Structure
 
@@ -44,9 +46,9 @@ contain just the rows you edit); every other field — screenshots, logos, capti
 hardware requirements — stays untouched in Partner Center.
 
 "What's new" (ReleaseNotes) can follow two paths: the local CSV path above
-(`release-notes.txt`), or the AI-generated notes injected by the release API
-(see Automation below). During a normal MSIX release the API path wins; the CSV
-path is for standalone listing-text refreshes.
+(`release-notes.txt`), or the AI-generated notes injected automatically by the
+release API during a real MSIX release. The API path wins during a normal
+release; the CSV path is for standalone listing-text refreshes.
 
 ## Release / submission
 

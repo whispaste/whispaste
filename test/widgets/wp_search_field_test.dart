@@ -203,7 +203,7 @@ void main() {
   // AC4 — the variant carries the whole surface treatment
   // -------------------------------------------------------------------------
   group('AC4 — variant surface treatment', () {
-    testWidgets('outlined: sm radius, opaque fill, visible resting hairline', (
+    testWidgets('outlined: sm radius, card frost, tinted resting hairline', (
       tester,
     ) async {
       final controller = TextEditingController();
@@ -218,12 +218,16 @@ void main() {
         ),
       );
 
+      // Ticket 08: the in-window variant is on the shared card material —
+      // a translucent frost with the tinted card rim. The capsule below is
+      // deliberately *not*, because it lives in the floating overlay, which
+      // has no ambient of the main window's to be translucent against.
       expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
-      expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
+      expect(_boxDecoration(tester).color, WpColorsDark.cardFillElevated);
       expect(_boxDecoration(tester).boxShadow, isNull);
       expect(
         _borderDecoration(tester).border!.top.color,
-        WpColorsDark.borderSubtle,
+        WpColorsDark.cardEdgeHighlight,
       );
     });
 

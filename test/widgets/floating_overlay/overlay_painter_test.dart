@@ -21,11 +21,13 @@ import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
   OverlaySizeVariant size = OverlaySizeVariant.normal,
+  OverlayStyleVariant style = OverlayStyleVariant.glass,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
     size: size,
+    style: style,
     label: switch (state) {
       OverlayVisualState.recording => 'Press Ctrl+Shift+D to stop',
       OverlayVisualState.transcribing => 'Transcribing…',
@@ -381,6 +383,74 @@ void main() {
               child: Center(
                 child: WpFloatingOverlayView(
                   snapshot: _snap(state, size: size),
+                  waveformBars: bars,
+                ),
+              ),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+
+          expect(find.byType(CustomPaint), findsWidgets);
+          expect(tester.takeException(), isNull);
+
+          // Tear down the repeating animation cleanly.
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      }
+    }
+  });
+
+  group('OverlayStyleVariant — glass vs. solid (Overlay-Stil setting)', () {
+    test('default style is glass', () {
+      final painter = WpFloatingOverlayView.painterFor(
+        snapshot: _snap(OverlayVisualState.recording),
+      );
+      expect(painter.style, OverlayStyleVariant.glass);
+    });
+
+    test('painterFor forwards snapshot.style to the painter', () {
+      final painter = WpFloatingOverlayView.painterFor(
+        snapshot: _snap(
+          OverlayVisualState.recording,
+          style: OverlayStyleVariant.solid,
+        ),
+      );
+      expect(painter.style, OverlayStyleVariant.solid);
+    });
+
+    test('shouldRepaint detects a style change', () {
+      final glass = WpFloatingOverlayView.painterFor(
+        snapshot: _snap(OverlayVisualState.recording),
+      );
+      final solid = WpFloatingOverlayView.painterFor(
+        snapshot: _snap(
+          OverlayVisualState.recording,
+          style: OverlayStyleVariant.solid,
+        ),
+      );
+      expect(solid.shouldRepaint(glass), isTrue);
+      expect(glass.shouldRepaint(glass), isFalse);
+    });
+
+    for (final state in OverlayVisualState.values) {
+      for (final size in OverlaySizeVariant.values) {
+        testWidgets('solid · ${state.name} · ${size.name} builds & paints', (
+          tester,
+        ) async {
+          final bars = List<double>.generate(
+            OverlayDesignSpec.waveform.barCount,
+            (i) => (i % 7) / 7.0,
+          );
+          await tester.pumpWidget(
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Center(
+                child: WpFloatingOverlayView(
+                  snapshot: _snap(
+                    state,
+                    size: size,
+                    style: OverlayStyleVariant.solid,
+                  ),
                   waveformBars: bars,
                 ),
               ),

@@ -344,94 +344,92 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       },
       child: Focus(
         focusNode: _panelFocusNode,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(gradient: WpColors.surfaceGradient),
-          child: Column(
-            children: [
-              // Header bar
-              _DetailPanelHeader(
-                entry: entry,
-                isTrashView: isTrashView,
-                isEditingTitle: _isEditingTitle,
-                titleController: _titleController,
-                titleFocusNode: _titleFocusNode,
-                timestamp: _fullTimestamp(context),
-                onStartTitleEdit: _startTitleEdit,
-                onSaveTitle: _saveTitle,
-                onCopy: onCopy,
-                onPin: onPin,
-                onDelete: onDelete,
-                onArchive: onArchive,
-                onRestore: onRestore,
-                onDuplicate: onDuplicate,
-                onCopyMarkdown: onCopyMarkdown,
-                onExport: _exportEntry,
-                onClose: onClose,
+        child: Column(
+          children: [
+            // Header bar
+            _DetailPanelHeader(
+              entry: entry,
+              isTrashView: isTrashView,
+              isEditingTitle: _isEditingTitle,
+              titleController: _titleController,
+              titleFocusNode: _titleFocusNode,
+              timestamp: _fullTimestamp(context),
+              onStartTitleEdit: _startTitleEdit,
+              onSaveTitle: _saveTitle,
+              onCopy: onCopy,
+              onPin: onPin,
+              onDelete: onDelete,
+              onArchive: onArchive,
+              onRestore: onRestore,
+              onDuplicate: onDuplicate,
+              onCopyMarkdown: onCopyMarkdown,
+              onExport: _exportEntry,
+              onClose: onClose,
+            ),
+            // No rule between header and content. The header's own bottom
+            // inset and the content's top padding already leave 32 dp here,
+            // and a line drawn across a gap that wide separates nothing that
+            // the gap has not separated already — it only adds one more
+            // horizontal to count on a screen meant to read as one task.
+            // Content
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact =
+                      constraints.maxWidth < WpLayout.breakpointMobile;
+                  final contentPad = isCompact ? WpSpacing.md : WpSpacing.xl;
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.all(contentPad),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Context zone: metadata + tags ──
+                        _DetailMetaChips(
+                          entry: entry,
+                          durationLabel: _durationLabel,
+                        ),
+                        const SizedBox(height: WpSpacing.sm),
+                        // Tags — label + chips in a single inline flow
+                        _TagSection(
+                          key: _tagSectionKey,
+                          entryId: entry.id,
+                          tags: tags,
+                          content: entry.content,
+                          searchQuery: _tagSearchQuery,
+                          onSearchChanged: (q) =>
+                              setState(() => _tagSearchQuery = q),
+                        ),
+                        // ── Context zone ends, content zone begins ──
+                        // Whitespace, not a rule: one `xl` gap says the same
+                        // thing the `md`/line/`md` sandwich said, in the same
+                        // vertical space, without a second horizontal
+                        // competing with the transcript's own head.
+                        const SizedBox(height: WpSpacing.xl),
+                        // ── Content zone: transcript + edit controls ──
+                        _DetailTranscriptZone(
+                          entry: entry,
+                          isTrashView: isTrashView,
+                          isEditing: _isEditingTranscript,
+                          transcriptController: _transcriptController,
+                          editorFocusNode: _editorFocusNode,
+                          wordCountLabel: _wordCountLabel(l10n),
+                          onToggleEdit: _toggleEdit,
+                          onSaveTranscript: _saveTranscript,
+                        ),
+                        // ── Notes section ──
+                        const SizedBox(height: WpSpacing.lg),
+                        HistoryNotesSection(
+                          key: _notesSectionKey,
+                          entryId: entry.id,
+                        ),
+                        const SizedBox(height: WpSpacing.xl),
+                      ],
+                    ),
+                  );
+                },
               ),
-              // Divider
-              Container(
-                height: 1,
-                margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-                color: WpColors.borderSubtle,
-              ),
-              // Content
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isCompact =
-                        constraints.maxWidth < WpLayout.breakpointMobile;
-                    final contentPad = isCompact ? WpSpacing.md : WpSpacing.xl;
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.all(contentPad),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── Context zone: metadata + tags ──
-                          _DetailMetaChips(
-                            entry: entry,
-                            durationLabel: _durationLabel,
-                          ),
-                          const SizedBox(height: WpSpacing.sm),
-                          // Tags — label + chips in a single inline flow
-                          _TagSection(
-                            key: _tagSectionKey,
-                            entryId: entry.id,
-                            tags: tags,
-                            content: entry.content,
-                            searchQuery: _tagSearchQuery,
-                            onSearchChanged: (q) =>
-                                setState(() => _tagSearchQuery = q),
-                          ),
-                          // ── Divider between context and content ──
-                          const SizedBox(height: WpSpacing.md),
-                          Container(height: 1, color: WpColors.borderSubtle),
-                          const SizedBox(height: WpSpacing.md),
-                          // ── Content zone: transcript + edit controls ──
-                          _DetailTranscriptZone(
-                            entry: entry,
-                            isTrashView: isTrashView,
-                            isEditing: _isEditingTranscript,
-                            transcriptController: _transcriptController,
-                            editorFocusNode: _editorFocusNode,
-                            wordCountLabel: _wordCountLabel(l10n),
-                            onToggleEdit: _toggleEdit,
-                            onSaveTranscript: _saveTranscript,
-                          ),
-                          // ── Notes section ──
-                          const SizedBox(height: WpSpacing.lg),
-                          HistoryNotesSection(
-                            key: _notesSectionKey,
-                            entryId: entry.id,
-                          ),
-                          const SizedBox(height: WpSpacing.xl),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -760,7 +758,9 @@ class _DetailOverflowMenu extends StatelessWidget {
       tooltip: '',
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      color: WpColors.surfaceElevated,
+      // A popup menu floats over arbitrary content — pre-composited card
+      // material, see `WpColors.floatingSurface`.
+      color: WpColors.floatingSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WpRadius.md),
       ),
@@ -942,16 +942,43 @@ class _DetailTranscriptZone extends StatelessWidget {
                               cursor: isTrashView
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
-                              child: HighlightedText(
-                                text: entry.content.isEmpty
-                                    ? '\u200B'
-                                    : entry.content,
-                                // Same metrics as the edit view above, so
-                                // toggling edit mode doesn't reflow the
-                                // paragraph the user is looking at.
-                                style: WpTextField.styleFor(
-                                  WpTextFieldVariant.passage,
-                                  color: textPrimary,
+                              // Same *material* as the edit view above, not
+                              // just the same metrics (Ticket 16). Matching
+                              // the metrics alone was enough while `passage`
+                              // was a hairline box the read view simply did
+                              // without; once the variant took the card fill
+                              // (Ticket 09) the two views became two
+                              // materials, and the paragraph a reader is
+                              // reading changed substance on a toggle that
+                              // changes nothing about the text. The surface
+                              // is the field's own resting box, taken from
+                              // the same spec, so it also carries the field's
+                              // 12 dp inset — which is what stops the
+                              // paragraph from shifting sideways when edit
+                              // mode opens. The 720 dp measure above is
+                              // unchanged and still caps both views.
+                              //
+                              // No lift in the trash view: the lift is the
+                              // "you can write here" affordance, and there
+                              // the tap that would open edit mode is gone.
+                              child: WpTextFieldSurface(
+                                variant: WpTextFieldVariant.passage,
+                                liftsOnHover: !isTrashView,
+                                child: HighlightedText(
+                                  // An empty transcript renders a
+                                  // zero-width space, so this now shows an
+                                  // empty card rather than nothing at all.
+                                  // Deliberate: the edit view of the same
+                                  // empty entry draws exactly that card, and
+                                  // the point of this ticket is that the two
+                                  // are one surface.
+                                  text: entry.content.isEmpty
+                                      ? '\u200B'
+                                      : entry.content,
+                                  style: WpTextField.styleFor(
+                                    WpTextFieldVariant.passage,
+                                    color: textPrimary,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1424,7 +1451,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   Widget build(BuildContext context) {
     final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
     const textSecondary = WpColors.textSecondary;
     const textMuted = WpColors.textMuted;
 
@@ -1442,7 +1468,18 @@ class _TagSectionState extends ConsumerState<_TagSection> {
           inlineLabel: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
+              // `textSecondary`, not the accent: this glyph labels a section,
+              // it does not trigger anything — the two controls that do (the
+              // "+" trigger and the chips' remove buttons) sit two pixels to
+              // its right and are the accent's job here. Same correction
+              // Ticket 08 made to the settings section heads (Ticket 32, B3):
+              // an interaction accent on an inert element is what turns the
+              // detail screen's accent into wallpaper.
+              const Icon(
+                LucideIcons.tags,
+                size: WpIconSize.sm,
+                color: textSecondary,
+              ),
               const SizedBox(width: WpSpacing.xxs),
               Text(
                 l10n.historyTags,

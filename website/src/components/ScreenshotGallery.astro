@@ -5,7 +5,12 @@
  *
  * Theme per screenshot is fixed by the storyboard (see
  * `test/screenshots/store_screenshots_test.dart`): goldens are only produced
- * in one theme each, so there is nothing to toggle to at runtime.
+ * in one theme each, so there is nothing to toggle to at runtime. All five are
+ * `dark` — the app's light theme was removed, so `store_screenshots_test.dart`
+ * no longer produces a `light` variant at all. `GalleryTheme` keeps the
+ * `'light'` member for now rather than collapsing the type, since the
+ * per-screen `theme` field is still what a reader checks to know what a given
+ * screenshot shows.
  */
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
 import { t } from '../scripts/i18n.ts';
@@ -22,9 +27,9 @@ const screens: Array<{
   deLabel: string;
 }> = [
   { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick' },
-  { id: '02_workspace_detail',   theme: 'light', i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern' },
+  { id: '02_workspace_detail',   theme: 'dark',  i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern' },
   { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice Snippets that save keystrokes', deLabel: 'Sprach-Snippets, die Tippen ersparen' },
-  { id: '04_settings',           theme: 'light', i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow' },
+  { id: '04_settings',           theme: 'dark',  i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow' },
   { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', defaultLabel: 'Track how you use your voice', deLabel: 'Verfolge, wie du deine Stimme nutzt' },
 ];
 ---

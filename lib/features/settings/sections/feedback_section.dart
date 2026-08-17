@@ -196,15 +196,13 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: kSettingRowInset),
-            child: Divider(
-              height: 1,
-              thickness: 1,
-              color: WpColors.borderSubtle,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xs),
+          // Ticket 08: this was a hand-rolled `borderSubtle` hairline — the
+          // same inline settings rule `settingsInlineBreak` replaced
+          // everywhere else, just never routed through the helper. The
+          // indentation below already carries the subordination (see the
+          // comment on it); the line only restated it, in the one register
+          // that cuts across the window's single ambient gradient.
+          settingsInlineBreak,
           Padding(
             // Die Einrückung, die den Block als Unterpunkt des Haupt-Hotkeys
             // liest — dasselbe Idiom, mit dem Betriebssystem-Einstellungen
@@ -349,15 +347,13 @@ class _SnippetPickerHotkeyBlockState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: kSettingRowInset),
-            child: Divider(
-              height: 1,
-              thickness: 1,
-              color: WpColors.borderSubtle,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xs),
+          // Ticket 08: this was a hand-rolled `borderSubtle` hairline — the
+          // same inline settings rule `settingsInlineBreak` replaced
+          // everywhere else, just never routed through the helper. The
+          // indentation below already carries the subordination (see the
+          // comment on it); the line only restated it, in the one register
+          // that cuts across the window's single ambient gradient.
+          settingsInlineBreak,
           Padding(
             // `EdgeInsetsDirectional` wie oben: die Einrückung trägt die
             // Unterordnung und muss deshalb der Leserichtung folgen.

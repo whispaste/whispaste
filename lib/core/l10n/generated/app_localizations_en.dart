@@ -2944,6 +2944,19 @@ class L10nEn extends L10n {
   String get settingsOverlaySizeMini => 'Mini';
 
   @override
+  String get settingsOverlayStyle => 'Overlay style';
+
+  @override
+  String get settingsOverlayStyleSubtitle =>
+      'Choose between glass or a solid opaque look';
+
+  @override
+  String get settingsOverlayStyleGlass => 'Glass';
+
+  @override
+  String get settingsOverlayStyleSolid => 'Solid';
+
+  @override
   String get overlayRetry => 'Retry';
 
   @override

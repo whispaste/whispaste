@@ -122,7 +122,16 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
     // Recording family: this colour has exactly one job below — the live
     // border of the sandbox field while the test recording runs.
     const recordingAccent = WpColors.recordingAccent;
-    const success = WpColors.success;
+    // Accent, not `success` (Ticket 15, *The Earned-Green Rule*). This is
+    // the closest thing in the app to an earned green — the user pressed
+    // record, spoke, and the transcript arrived — but the line does not
+    // *pass* with the moment: it stands on the page for as long as the user
+    // reads the quick-start column beside it, and it is a bare Row rather
+    // than one of the three components (status chip, badge, toast) the rule
+    // sanctions for reporting an outcome. Green that sits there is green
+    // spent. The completion itself is still unmistakable: the sandbox field
+    // fills with what was said, and the shell's Next button unlocks.
+    const done = WpColors.accent;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -237,7 +246,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               const Icon(
                 LucideIcons.circleCheck,
                 size: WpIconSize.sm,
-                color: success,
+                color: done,
               ),
               const SizedBox(width: WpSpacing.xs),
               // Flexible so long translations wrap instead of overflowing
@@ -249,7 +258,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                   style: const TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
-                    color: success,
+                    color: done,
                   ),
                 ),
               ),

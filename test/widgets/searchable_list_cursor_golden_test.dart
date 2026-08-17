@@ -8,7 +8,19 @@
 /// *middle* row on purpose, so the sight-check in Batch L sees it between its
 /// two resting neighbours and can judge the one thing that is actually new:
 /// how far the shared `WpListTileSurface` "focused" step (border, fill,
-/// shadow, revealed row action) reads on a card row, in both themes.
+/// revealed row action) reads on a card row.
+///
+/// **Read the re-baselined images knowing what the frame does not contain.**
+/// Ticket 08 put the card variant on the translucent frost, and
+/// `matchesGoldenFile` rasterises the `ListView`'s own layer subtree — not the
+/// ambient gradient painted far above it in `app.dart`. So the rows here
+/// composite against nothing and come out pale; on screen they composite
+/// against the one atmosphere and come out tinted. The *relative* step between
+/// the cursor row and its two neighbours, which is what this golden exists to
+/// show, is unaffected. For the absolute material, read the store screenshots
+/// in `test/screenshots/` — those capture the whole window, ambient included.
+/// (The step also no longer includes a shadow: a row lives in the plane, and
+/// its depth is the fill/edge delta alone.)
 ///
 /// Driven by the keyboard like the behaviour tests next door — the cursor has
 /// no other way in.
@@ -39,39 +51,35 @@ Future<void> _loadFonts(WidgetTester tester) => tester.loadAssets(
 
 void main() {
   group('searchable-list keyboard cursor', () {
-    testWidgets(
-      'Snippets, dark — cursor on the middle row',
-      (tester) async {
-        const page = SnippetsPage();
-        await tester.pumpWidget(
-          makeTestable(
-            page,
-            locale: const Locale('en'),
-            size: const Size(900, 620),
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('Snippets, dark — cursor on the middle row', (tester) async {
+      const page = SnippetsPage();
+      await tester.pumpWidget(
+        makeTestable(
+          page,
+          locale: const Locale('en'),
+          size: const Size(900, 620),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final notifier = ProviderScope.containerOf(
-          tester.element(find.byWidget(page)),
-        ).read(snippetsProvider.notifier);
-        await notifier.add('Signature', 'Best regards,\nSilvio');
-        await notifier.add('Address', 'Musterstraße 1, 12345 Musterstadt');
-        await notifier.add('Standup', 'Yesterday: … Today: … Blockers: …');
-        await tester.pumpAndSettle();
-        await _loadFonts(tester);
+      final notifier = ProviderScope.containerOf(
+        tester.element(find.byWidget(page)),
+      ).read(snippetsProvider.notifier);
+      await notifier.add('Signature', 'Best regards,\nSilvio');
+      await notifier.add('Address', 'Musterstraße 1, 12345 Musterstadt');
+      await notifier.add('Standup', 'Yesterday: … Today: … Blockers: …');
+      await tester.pumpAndSettle();
+      await _loadFonts(tester);
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
 
-        await expectLater(
-          find.byType(ListView),
-          matchesGoldenFile('goldens/searchable_list_cursor_snippets_dark.png'),
-        );
-      },
-      skip: 'Needs golden update for new duplicate action',
-    );
+      await expectLater(
+        find.byType(ListView),
+        matchesGoldenFile('goldens/searchable_list_cursor_snippets_dark.png'),
+      );
+    });
 
     // This case used to pump at `Brightness.light`, so the pair covered both
     // pages *and* both themes at once. The theme half of that went with the

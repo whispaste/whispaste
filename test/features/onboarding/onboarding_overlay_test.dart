@@ -22,12 +22,12 @@
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
 ///  - the layout survives a window *below* the size the app enforces (800×550;
-///    the real floor is `WpLayout.minWindowHeight`, 800×621) and an enlarged
+///    the real floor is `WpLayout.minWindowHeight`, 800×628) and an enlarged
 ///    system text scale without overflow errors.
 library;
 
 import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride;
+    show debugDefaultTargetPlatformOverride, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderShiftedBox;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
@@ -777,7 +777,7 @@ void main() {
     // same pattern as `test/core/design/responsive_overflow_test.dart`.
     //
     // 800×550 is one notch *below* the window minimum the app enforces
-    // (`WpLayout.minWindowHeight`, 800×621) — kept there on purpose after the
+    // (`WpLayout.minWindowHeight`, 800×628) — kept there on purpose after the
     // minimum was raised: a floor that is harsher than reality stays a valid
     // floor, and the onboarding overlay covers the whole window anyway, so
     // none of the chrome that sets that minimum is on screen here.
@@ -1885,5 +1885,126 @@ void main() {
         );
       },
     );
+  });
+
+  // ── The One-Loud-Action Rule, applied to the flow ───────────────────────
+  //
+  // *The shared gate for this rule lives in
+  // `test/core/design/one_loud_action_test.dart`. This half sits here because
+  // it needs `_pumpOverlay`'s fixtures, and the shared file says so.*
+  //
+  // **The chrome/content boundary, once, for all seven pages.** The shell's
+  // Next button is a `WpHeroButton` and it is *not* the page's loud action —
+  // it is navigation, the same on every page, and it lives in
+  // `kOnboardingNavRowKey` outside the scrolling content. So the count runs
+  // over everything except that row.
+  //
+  // **Hero and `primary` are counted together.** Counting only `primary`
+  // WpButtons would let a step re-introduce a gradient hero and still pass —
+  // which is exactly the shape the violation had before Ticket 15
+  // (`auto_paste_step.dart` and `model_step.dart` each carried one, eight
+  // pixels above the shell's).
+  group('OnboardingOverlay — one loud action per page (Ticket 15)', () {
+    /// Loud things in the page body: `primary` WpButtons plus every
+    /// WpHeroButton, with the shell's navigation row excluded by scope.
+    int loudActionsInContent(WidgetTester tester) {
+      final navRow = find.byKey(kOnboardingNavRowKey);
+      bool inNavRow(Finder of) =>
+          find.ancestor(of: of, matching: navRow).evaluate().isNotEmpty;
+
+      final loudButtons = tester
+          .elementList(find.byType(WpButton))
+          .where(
+            (e) =>
+                (e.widget as WpButton).variant == WpButtonVariant.primary &&
+                !inNavRow(find.byWidget(e.widget)),
+          )
+          .length;
+      final heroes = tester
+          .elementList(find.byType(WpHeroButton))
+          .where((e) => !inNavRow(find.byWidget(e.widget)))
+          .length;
+      return loudButtons + heroes;
+    }
+
+    testWidgets('no page of the flow carries a second loud action', (
+      tester,
+    ) async {
+      await _pumpOverlay(tester);
+      final total = _totalSteps(defaultTargetPlatform);
+      var pagesWithALoudAction = 0;
+
+      for (var page = 1; page <= total; page++) {
+        final loud = loudActionsInContent(tester);
+        if (loud == 1) pagesWithALoudAction++;
+        expect(
+          loud,
+          lessThanOrEqualTo(1),
+          reason:
+              '*The One-Loud-Action Rule* — onboarding page $page of $total.\n'
+              'The page body carries more than one loud action while the '
+              'shell\'s hero Next button is already on screen. Demote the one '
+              'the page is not pointing at: gradient hero for the flow CTA in '
+              'the chrome, `primary` WpButton for the page\'s own action, '
+              'ghost for the escape hatch.',
+        );
+        if (page < total) await _tapNext(tester);
+      }
+
+      // Non-vacuity: `lessThanOrEqualTo(1)` passes trivially on a flow where
+      // no page has an action at all, which is a different bug with the same
+      // symptom.
+      //
+      // Exactly one page clears it under these fixtures, and that is a
+      // property of the fixtures rather than of the flow: flutter_test runs
+      // as Android unless told otherwise, so the sequence is the six-step
+      // one (no Auto-Paste page), and the model page defaults to a state
+      // with no engine picked and therefore no Download CTA. Try & Go's
+      // record button is the one that always renders. The *source*-level half
+      // of this rule — no step body may build a hero at all — is what pins
+      // the two demoted CTAs, and it lives in
+      // `test/core/design/one_loud_action_test.dart`.
+      expect(
+        pagesWithALoudAction,
+        greaterThanOrEqualTo(1),
+        reason:
+            'The walk found $pagesWithALoudAction pages with a loud action. '
+            'Either the fixtures stopped reaching the states that have one, '
+            'or the pages lost theirs — both make the bound above vacuous.',
+      );
+    });
+
+    testWidgets('the hero is the shell\'s alone — no step body builds one', (
+      tester,
+    ) async {
+      await _pumpOverlay(tester);
+      final total = _totalSteps(defaultTargetPlatform);
+
+      for (var page = 1; page <= total; page++) {
+        final navRow = find.byKey(kOnboardingNavRowKey);
+        final heroesOutsideNav = tester
+            .elementList(find.byType(WpHeroButton))
+            .where(
+              (e) => find
+                  .ancestor(of: find.byWidget(e.widget), matching: navRow)
+                  .evaluate()
+                  .isEmpty,
+            )
+            .length;
+
+        expect(
+          heroesOutsideNav,
+          0,
+          reason:
+              'Page $page builds a WpHeroButton of its own. The hero is one '
+              'step *above* the button ladder and the flow spends it exactly '
+              'once, on the shell\'s Next/completion CTA — a second one '
+              'wearing the identical `accentWarmGradient` a few pixels away '
+              'makes the page\'s own action outshout the one that ends the '
+              'flow.',
+        );
+        if (page < total) await _tapNext(tester);
+      }
+    });
   });
 }

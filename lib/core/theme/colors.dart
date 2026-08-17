@@ -63,9 +63,8 @@
 /// > argued-for positions, not defaults, and a rule that quietly disappears
 /// > cannot be audited.
 ///
-/// The two-accent and one-depth-source splits are stated in this file rather
-/// than cited: `lib/DESIGN.md` still carries the superseded single-accent
-/// doctrine and is rewritten in a follow-up ticket.
+/// The two-accent and one-depth-source splits are stated in this file and
+/// mirrored in `lib/DESIGN.md` (synced to this state 2026-08-16, Ticket 17).
 library;
 
 import 'dart:math' as math;
@@ -155,11 +154,14 @@ abstract final class WpColorsDark {
   static const Color borderSubtle = Color(0x1EFFFFFF);
   static const Color borderDefault = Color(0x30FFFFFF);
 
-  /// Hairline of an *active* card tile. This was one of the few structural
-  /// translucents that carried the *same* alpha byte in both themes rather
-  /// than stepping between them; with one theme left, that exemption no
-  /// longer distinguishes it from anything.
-  static const Color cardActiveBorder = Color(0x24FFFFFF);
+  // Removed with Ticket 08: `cardActiveBorder` (0x24FFFFFF), the hairline of
+  // an *active* card tile. Its one call site — `wp_list_tile_surface.dart` —
+  // now draws [cardEdgeHighlight] there instead. Same alpha byte, but tinted:
+  // on a translucent frost fill the rim is the card's shape, and a neutral
+  // white rim over a chromatic fill desaturates it toward grey, which is the
+  // failure the frost material was introduced to fix. Recorded rather than
+  // deleted silently, because "a neutral hairline on an active card" was a
+  // deliberate choice once and has to be visibly overruled.
 
   /// Text — readable, not overly bright to avoid harshness
   static const Color textPrimary = Color(0xFFF0F4FA);
@@ -282,6 +284,29 @@ abstract final class WpColorsDark {
   /// own. On dark this rim is now the *primary* separator between them, not a
   /// finishing touch on top of a brightness step.
   static const Color cardEdgeHighlight = Color(0x24D7C8F9);
+
+  /// The same frost, **pre-composited** for surfaces that float over content
+  /// the material cannot see through.
+  ///
+  /// [cardFill]/[cardFillElevated] are translucent by definition: they only
+  /// read as frost because the one ambient gradient runs underneath them. A
+  /// dialog does not sit on that ambient — it sits on a 92 %-opaque barrier of
+  /// [background] — and a toast or a dropdown popup sits on whatever the user
+  /// happens to have scrolled underneath it. A 4.7 % tint over an unknown or
+  /// near-opaque ground is not a material, it is a rounding error, and it would
+  /// leave those three the only surfaces in the app still reading as raw
+  /// [surfaceElevated].
+  ///
+  /// So the composite is done once, here, instead of at paint time:
+  /// `Color.alphaBlend(cardFillElevated, surfaceElevated)` = #18274D. Same
+  /// recipe, same hue, same rim ([cardEdgeHighlight]) — a floating surface is
+  /// the *result* of the card material rather than a second material.
+  ///
+  /// This is also the one place in the app where a shadow is still spent
+  /// (Ticket 08): an element that floats above arbitrary content has no
+  /// brightness reference to be read against, so it gets exactly one neutral
+  /// drop shadow and never a second, never a tinted one.
+  static const Color floatingSurface = Color(0xFF18274D);
 
   /// Wash for a large decorative background glyph — its own category, *below*
   /// the 6/12/30% tint ladder above. The two themes used to carry different
@@ -1065,49 +1090,52 @@ WpCategorySlot _categorySlotForIdentity(String identity) {
   return WpCategorySlot.categories[hash % WpCategorySlot.categories.length];
 }
 
-/// Theme-paired rendering recipe for the history-entry avatar disc.
+/// Rendering recipe for the history-entry avatar disc.
 ///
 /// The base is a [WpCategorySlot] color, so it already darkens per theme — but
-/// the disc is a *translucent* tint over its ground, and a theme pair solved for
-/// equal luminance is not the same thing as a pair solved for equal presence
-/// through 20–36 % alpha. Every value below is therefore still mirrored rather
-/// than merely scaled: on dark the hue is pushed **toward light** and the fill
-/// kept thin; on light it is pushed **toward ink** and the fill made *denser*.
-/// The denser light fill is the opposite of the usual "light theme needs less
-/// ink" compensation, and it is what the measurement asks for: a light slot
-/// clears its pearl ground by ≈4.0:1 where a dark one clears navy by ≈5.8:1, so
-/// equal alpha would leave the light disc the weaker of the two.
+/// the disc is a *translucent* tint over its ground, and a pair solved for equal
+/// luminance is not the same thing as a pair solved for equal presence through
+/// alpha. The theme pair is gone (see the retraction below); what outlived it is
+/// the reason these values were never a scale of one another — presence has to
+/// be solved against the ground the tint actually stands on, and the answer for
+/// navy is a *dense* fill whose hue runs **toward ink**, not the thin one pushed
+/// toward light this recipe shipped with. Ticket 32/B2 turned it; the paragraph
+/// on [dark] carries the measurement.
 ///
 /// The lightness shifts are clamped into a legibility band. The band is what
 /// keeps the recipe hue-agnostic: a pure shift drives already-dark hues to
-/// near-black glyphs on light and washes pale hues out on dark, so the band
-/// caps both ends without flattening the hues that sit in between. On today's
-/// slots the light bands hold `fern`, `brass`, `moss` and `ember` — the four
-/// whose light twins already sit low — while the dark bands never bind at all.
+/// near-black and washes pale ones out, so the band caps both ends without
+/// flattening the hues that sit in between. On today's slots [fillLightnessMin]
+/// holds `fern`, `brass` and `moss` — the three that already sit lowest — and
+/// the glyph band binds at both ends (`brass` at the floor, `iris`, `azure`,
+/// `plum` and `orchid` at the ceiling). [fillLightnessMax] binds on nothing:
+/// with the shift running toward ink the fill cannot reach it, and it is kept
+/// as the guard against a future edit turning the shift back around.
 ///
-/// Calibrated against two contrast targets, verified per slot and per theme in
+/// Calibrated against two contrast targets, verified per slot and per ground in
 /// `test/core/theme/wcag_contrast_test.dart`:
 /// * disc vs. `surface`/`surfaceElevated` ≥ 1.5:1 (WCAG 1.4.11, graphical
 ///   object) — the disc has to be *seen*;
 /// * glyph vs. disc ≥ 3:1 — the icon has to be *read*.
 ///
-/// Both targets pull against each other on light (a denser disc drags the glyph
-/// further toward ink), which is why they are calibrated together.
+/// The two pull against each other — every step that makes the disc denser
+/// moves the floor the glyph has to clear — which is why they are calibrated
+/// together rather than one after the other.
 ///
 /// **The disc is the nav rail's chip material, on a circle (2026-08-11).** The
 /// maintainer asked for the rail's icon chips on the entry avatars, so the
 /// recipe grew the one thing it was missing: a *precomposited* crown on the
 /// first [glossStop] of a vertical ramp ([gloss], [discGradient]) instead of a
 /// flat two-stop diagonal fill. Nothing about the calibration above moved —
-/// [fillTop], [fillBottom], [edge] and [glyph] are the same colors at the same
-/// alphas, the crown sits above them, and the disc's own numbers are therefore
-/// unchanged by construction. What did change is *where they are measured*:
-/// the row the avatar sits in paints no fill of its own, so the ground is the
-/// content plane ([WpColorsDark.warmSurfaceGradient]), not the flat `surface`
-/// token the gate used to stand in for it. On dark that plane is the brighter
-/// and therefore tighter ground, and the disc clears it with margin (worst
-/// slot `fern`, 1.62:1 against the plane's brightest stop vs. 1.68:1 against
-/// flat `surface`).
+/// [fillTop], [fillBottom], [edge] and [glyph] were the same colors at the same
+/// alphas, the crown sat above them, and the disc's own numbers were therefore
+/// unchanged by construction. (True of *that* change only: Ticket 32/B2 moved
+/// all four, and the crown still sits above them — see [dark].) What did change
+/// is *where they are measured*: the row the avatar sits in paints no fill of
+/// its own, so the ground is the content plane
+/// ([WpColorsDark.warmSurfaceGradient]), not the flat `surface` token the gate
+/// used to stand in for it. That plane is the brighter and therefore tighter
+/// ground, and the disc clears it with margin.
 final class WpAvatarTint {
   const WpAvatarTint._({
     required this.fillTopAlpha,
@@ -1138,21 +1166,33 @@ final class WpAvatarTint {
   final double glyphAlpha;
 
   /// Lightness shift applied to the palette hue before it fills the disc.
-  /// Positive on dark, negative on light — the mirror that makes the fill
-  /// separate from its ground instead of dissolving into it.
+  ///
+  /// **Negative** — the fill runs toward ink. It read "positive on dark,
+  /// negative on light" while the disc was a veil and the ground did most of
+  /// the work; Ticket 32/B2 inverted it, because a dense fill pushed toward
+  /// white leaves the glyph, which owes it 3:1, nowhere left to go. Separation
+  /// from the ground is not this dial's job any more — the composite still
+  /// lands lighter than the plane by construction, and the density does the
+  /// rest.
   final double fillLightnessShift;
 
   /// Legibility band for the shifted fill lightness.
   final double fillLightnessMin;
   final double fillLightnessMax;
 
-  /// Extra lightness delta of the lit stop over the shaded one. Carries the
-  /// same sign as [fillLightnessShift]: "lit" means away from the ground.
+  /// Extra lightness delta of the lit stop over the shaded one. Always
+  /// **positive**, whatever [fillLightnessShift] does: "lit" means lit, and the
+  /// gloss gate requires the crown and the lit stop to come out brighter than
+  /// the shaded one. It used to be stated as "carries the same sign as
+  /// [fillLightnessShift]", which said the same thing only for as long as that
+  /// shift was positive and became wrong the moment Ticket 32/B2 turned it.
   final double topStopLightnessDelta;
 
-  /// Lightness shift applied to the palette hue for the glyph. Same sign as
-  /// [fillLightnessShift] but larger, so the icon separates from the disc it
-  /// sits on. Keep it clear of `fillLightnessShift + topStopLightnessDelta` —
+  /// Lightness shift applied to the palette hue for the glyph. Runs *against*
+  /// [fillLightnessShift] and far enough past it that the icon clears the disc
+  /// it sits on by 3:1 — the fill is pushed toward ink precisely so the glyph
+  /// has somewhere to go. Keep it clear of
+  /// `fillLightnessShift + topStopLightnessDelta` —
   /// at equality the glyph and the lit stop collapse onto the same color and
   /// only their alphas still tell them apart.
   final double glyphLightnessShift;
@@ -1186,19 +1226,80 @@ final class WpAvatarTint {
   /// light at the same place.
   static const double glossStop = 0.1;
 
-  /// Dark theme: thin fill, hue pushed lighter, glyph lighter still.
+  /// Dense fill, hue pushed toward ink, glyph lifted clear of it.
+  ///
+  /// **Recalibrated 2026-08-16 — Ticket 32/B2, "the eight hues collapse into
+  /// one".** The disc was a 0.28/0.20 veil, and at that alpha the navy plane
+  /// under it, not the slot, decided what the eye got. Composited on the
+  /// content plane the eight slots came out **0.4° apart at the worst pair**
+  /// (`ember`/`plum`, 247.9° and 247.5° — a terracotta and a pink, both
+  /// rendering as the plane's own violet), `moss` **0.7° from
+  /// [WpColorsDark.recordingAccent]** —
+  /// the cyan *Two Accents, Two Jobs* reserves for "recording" — and as low as
+  /// **7.4 % saturation** (`brass`). The worst slot landed **161° from its own
+  /// palette hue**: `brass`, a gold, was painting a blue-grey. A rotation whose
+  /// only job is to keep a long list scannable was rendering as one hue with a
+  /// wobble.
+  ///
+  /// Density is the fix. Composite hue follows the chroma vectors, roughly
+  /// `w_f·C_f / (w_f·C_f + w_g·C_g)`, so the dial that moves all three numbers
+  /// the same way is the fill's share of the sum: 0.70/0.62 puts the slot in
+  /// the majority instead of the fifth it held. The same three measurements
+  /// become **27.2°** (`iris`/`azure`), **35.1°** (`fern` against the accent)
+  /// and **26.8 %** (`brass`), while drift falls to 20.4° — and the tightest of
+  /// the two older floors is the glyph at 3.45:1 against its 3:1. Every one of
+  /// those is read off a `reason:` string, gated per slot and per plane stop in
+  /// `test/core/theme/wcag_contrast_test.dart`; only the drift figure is a
+  /// diagnostic rather than a gate.
+  ///
+  /// *Why not lay the tint on an opaque neutral bed first* — the other
+  /// direction the ticket offered: measured, it loses on the very check it was
+  /// meant to win. The plane is chromatic, and a thin tint over it *borrows*
+  /// that chroma; a grey bed takes the loan away before the tint is laid on. A
+  /// full sweep (bed alpha 0.55–0.88 × bed lightness 0.10–0.22 × tint alpha
+  /// 0.28–0.46) returned **no** feasible combination — composited saturation
+  /// came out at 3–8 %, at or below the 7.4 % this ticket exists to fix, even
+  /// where the hue gap passed.
+  ///
+  /// What density costs, and what pays for it:
+  /// * [fillLightnessShift] turns negative and the glyph band climbs to
+  ///   0.74–0.95. At a veil's alpha the disc's own lightness barely reached the
+  ///   surface, so pushing the hue up was free; at 0.70 the disc *is* the
+  ///   surface, and a hue pushed toward white leaves nothing above it for the
+  ///   icon. The composite still sits lighter than the plane (L ≈ 26–45 % over
+  ///   its 19 %) — the disc separates by density and chroma now, not by being
+  ///   the palest thing in the row.
+  /// * [edgeAlpha] follows the shaded stop up by the same +0.10 it always
+  ///   carried over it (0.20/0.30 became 0.62/0.72). Left at 0.30 the rim would
+  ///   have been the thinnest paint on a dense disc — a groove cut toward the
+  ///   ground rather than the hue-tinted edge it is meant to be.
+  /// * The plane still shows through, 30 % of it, so the disc keeps reading
+  ///   against the ambient instead of punching a sticker into it. That is why
+  ///   this stops at 0.70 and not at the 0.80 the sweep also cleared.
+  ///
+  /// Left standing, and outside this ticket: composited `ember` (≈11.5°) and
+  /// `fern` (≈150–155°) still fall inside hue bands this file reserves for
+  /// error and success. Nothing gates that — the reserved band the tests do
+  /// gate is `recordingAccent`'s, and the disc clears it by 35° — but the drift
+  /// is real, it shrinks as density rises, and closing it the rest of the way
+  /// would mean moving base hexes that Ticket 32 freezes.
+  ///
+  /// Superseded: the predecessor ticket's figures for this defect (261.7°,
+  /// 254.0°, an occupied band of 244–285°) were taken against the violet
+  /// ambient. Ticket 33 put ambient and accent back on navy/cyan, so every
+  /// number above is re-measured against the plane that actually ships.
   static const WpAvatarTint dark = WpAvatarTint._(
-    fillTopAlpha: 0.28,
-    fillBottomAlpha: 0.20,
-    edgeAlpha: 0.30,
+    fillTopAlpha: 0.70,
+    fillBottomAlpha: 0.62,
+    edgeAlpha: 0.72,
     glyphAlpha: 0.95,
-    fillLightnessShift: 0.12,
-    fillLightnessMin: 0.45,
-    fillLightnessMax: 0.86,
-    topStopLightnessDelta: 0.12,
-    glyphLightnessShift: 0.20,
-    glyphLightnessMin: 0.55,
-    glyphLightnessMax: 0.92,
+    fillLightnessShift: -0.16,
+    fillLightnessMin: 0.30,
+    fillLightnessMax: 0.62,
+    topStopLightnessDelta: 0.08,
+    glyphLightnessShift: 0.32,
+    glyphLightnessMin: 0.74,
+    glyphLightnessMax: 0.95,
     glossLightness: 0.90,
     glossAlpha: 0.20,
   );

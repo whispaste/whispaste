@@ -18,13 +18,15 @@
 /// Three things are measured, and each answers for one acceptance criterion of
 /// that ticket:
 ///
-///  * **The painted envelope** (radius, border width, shadow recipe) — the
-///    extraction's whole point. Measured at rest *and* while hovered, because
-///    the resting border and the resting shadow are the two values that must
-///    stay present-but-transparent: `Border.lerp(a, null, t)` scales width
-///    toward zero and a null-to-value shadow lerp scales blur, both of which
-///    read as a one-frame flash instead of a fade. A tile that drops either to
-///    `null` at rest passes a naive "looks the same" check and fails here.
+///  * **The painted envelope** (radius, border width, absence of a shadow) —
+///    the extraction's whole point. Measured at rest *and* while hovered,
+///    because the resting border is the value that must stay
+///    present-but-transparent: `Border.lerp(a, null, t)` scales width toward
+///    zero, which reads as a one-frame flash instead of a fade. A tile that
+///    drops it to `null` at rest passes a naive "looks the same" check and
+///    fails here. Since Ticket 08 the shadow is measured for the opposite
+///    reason: a row lives in the plane and must carry *no* shadow, so its lift
+///    is the fill/edge delta alone.
 ///  * **The horizontal inset** from the enclosing panel's edge to the tile's
 ///    edge. This is the last open box of the search-bar geometry work: history
 ///    sat on a 8 px tile inset under a 24 px bar while the other three areas
@@ -70,8 +72,8 @@ typedef _Envelope = ({
   BorderRadius radius,
   double borderWidth,
   bool hasRestingBorder,
-  bool hasRestingShadow,
-  List<BoxShadow> restingShadow,
+  bool hasShadow,
+  Color? fill,
 });
 
 /// Width every area is probed at.
@@ -101,15 +103,14 @@ BoxDecoration _decoration(WidgetTester tester) =>
 _Envelope _measureEnvelope(WidgetTester tester) {
   final d = _decoration(tester);
   final border = d.border! as Border;
-  final shadow = d.boxShadow ?? const <BoxShadow>[];
   return (
     radius: d.borderRadius! as BorderRadius,
     borderWidth: border.top.width,
-    // "Present" means the widget hands a real Border/BoxShadow rather than
-    // null — the alpha is what varies between rest and hover.
+    // "Present" means the widget hands a real Border rather than null — the
+    // alpha is what varies between rest and hover.
     hasRestingBorder: d.border != null,
-    hasRestingShadow: d.boxShadow != null,
-    restingShadow: shadow,
+    hasShadow: (d.boxShadow ?? const <BoxShadow>[]).isNotEmpty,
+    fill: d.color,
   );
 }
 
@@ -298,9 +299,7 @@ void main() {
       await probe('replacements', () => _pumpReplacements(tester));
     }
 
-    testWidgets('radius, border width and shadow recipe are identical', (
-      tester,
-    ) async {
+    testWidgets('radius and border width are identical', (tester) async {
       await measureAll(tester);
 
       final radii = envelopes.map((k, v) => MapEntry(k, v.radius));
@@ -333,7 +332,8 @@ void main() {
     });
 
     testWidgets(
-      'border and shadow exist at rest so the hover transition fades alpha',
+      'the border exists at rest so the hover transition fades alpha, and no '
+      'area carries a shadow',
       (tester) async {
         await measureAll(tester);
 
@@ -346,27 +346,25 @@ void main() {
                 'lerps width toward zero instead of fading alpha, which reads '
                 'as a one-frame flash — see WpListTileSurface\'s library docs.',
           );
+          // Ticket 08: a list row lives *in* the plane, so its depth is the
+          // brightness delta of its fill and edge — never a drop shadow on top
+          // of that delta. Before the refresh the row lifted itself with
+          // `WpShadows.subtle` on hover *and* changed fill, which is two depth
+          // cues on one element.
           expect(
-            entry.value.hasRestingShadow,
-            isTrue,
+            entry.value.hasShadow,
+            isFalse,
             reason:
-                '"${entry.key}" has no boxShadow at rest. Same flash '
-                'mechanism as the border above; WpShadows.subtleTransparent '
-                'exists precisely so this stays non-null.',
-          );
-          expect(
-            entry.value.restingShadow,
-            WpShadows.subtleTransparent,
-            reason:
-                '"${entry.key}" rests on a visible shadow. The resting row is '
-                'flat by design (density, perf) — only hover/focus/selection '
-                'lift it.',
+                '"${entry.key}" paints a shadow. On the app\'s single dark '
+                'ground depth comes from one source only: the fill/edge '
+                'delta. Shadows are for things that float over unknown '
+                'content (dialog, toast, dropdown popup), not for rows.',
           );
         }
       },
     );
 
-    testWidgets('hovering lifts the shadow rather than growing the border', (
+    testWidgets('hovering brightens the fill rather than growing the border', (
       tester,
     ) async {
       await _pumpPlain(tester, _historyList());
@@ -387,11 +385,17 @@ void main() {
             'width change is what makes the transition read as a flash.',
       );
       expect(
-        hovered.restingShadow,
-        isNot(WpShadows.subtleTransparent),
-        reason: 'hovering a row must lift it; the shadow stayed transparent',
+        hovered.hasShadow,
+        isFalse,
+        reason:
+            'hovering must not add a shadow — the lift is the fill delta '
+            '(Ticket 08, one depth source).',
       );
-      expect(hovered.restingShadow, WpShadows.subtle);
+      expect(
+        hovered.fill,
+        isNot(atRest.fill),
+        reason: 'hovering a row must change something; the fill stayed put',
+      );
     });
 
     testWidgets('every area indents its tiles by the same amount', (

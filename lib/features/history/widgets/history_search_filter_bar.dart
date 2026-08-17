@@ -71,6 +71,7 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
     required this.onSortOrderChanged,
     this.searchFocusNode,
     this.onEmptyTrash,
+    this.newRecordingIsLoud = true,
   });
 
   final TextEditingController controller;
@@ -86,6 +87,22 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
   final ValueChanged<HistorySortOrder> onSortOrderChanged;
   final FocusNode? searchFocusNode;
   final VoidCallback? onEmptyTrash;
+
+  /// Whether "New recording" is this screen's one loud action.
+  ///
+  /// False while the content area below shows an empty state that carries a
+  /// CTA of its own — "Clear search" when a query found nothing, "Try again"
+  /// after a load error. *The One-Loud-Action Rule* allows one `primary` per
+  /// screen and a centred CTA on an otherwise blank page is the louder of the
+  /// two, so the button gives up the volume and keeps the action.
+  ///
+  /// The other empty states — trash, archive, favourites, today, this week,
+  /// and a history that has simply never been filled — deliberately offer no
+  /// action of their own (see [WpEmptyState]'s rule: the history fills from a
+  /// recording run, and its hint says so). On those this button stays loud,
+  /// which is exactly right: starting a recording is what an empty history
+  /// wants next.
+  final bool newRecordingIsLoud;
 
   @override
   ConsumerState<HistorySearchFilterBar> createState() =>
@@ -668,8 +685,12 @@ class _HistorySearchFilterBarState
 
     const accent = WpColors.accent;
     const textMuted = WpColors.textMuted;
-    const surface = WpColors.surfaceElevated;
-    const borderCol = WpColors.borderDefault;
+    // The suggestion panel floats over whatever the list happens to show, so
+    // it takes the *pre-composited* card material and the tinted rim that
+    // goes with it — the same recipe `WpDropdown` uses for its menu. A
+    // translucent frost over unknown content is not a material.
+    const surface = WpColors.floatingSurface;
+    const borderCol = WpColors.cardEdgeHighlight;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -703,7 +724,7 @@ class _HistorySearchFilterBarState
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),
-              const _NewRecordingButton(),
+              _NewRecordingButton(isLoud: widget.newRecordingIsLoud),
             ],
           ),
 
@@ -728,7 +749,7 @@ class _HistorySearchFilterBarState
           // alternative: the panel belongs to the search *area*, it ends
           // flush with the button, and nothing about it has to know how wide
           // that button's label made it.
-          AnimatedSize(
+          WpAnimatedSize(
             duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,
@@ -1118,7 +1139,9 @@ class HistoryMultiSelectBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     const accent = WpColors.accent;
-    const bg = WpColors.surfaceElevated;
+    // Card material at its elevated rung: this bar is a mode band laid over
+    // the list, and the frost keeps the ambient running under it.
+    const bg = WpColors.cardFillElevated;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -1381,7 +1404,10 @@ class HistoryViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = WpColors.surfaceVariant;
+    // The track is card material like the filter chips beside it, not the
+    // old `surfaceVariant` tile: at the resting rung, so the active segment's
+    // accent fill is the only thing in this control that reads as raised.
+    const bgColor = WpColors.cardFill;
     return Container(
       // Off-scale on purpose: classic 2px segmented-control inset between the
       // track and its segments; xxs would make the track look chunky.
@@ -1540,7 +1566,10 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
 /// way through the pipeline, and nothing sensible remains to stop. The
 /// spinner says so, the tooltip names the phase.
 class _NewRecordingButton extends ConsumerWidget {
-  const _NewRecordingButton();
+  const _NewRecordingButton({required this.isLoud});
+
+  /// See [HistorySearchFilterBar.newRecordingIsLoud].
+  final bool isLoud;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1551,7 +1580,11 @@ class _NewRecordingButton extends ConsumerWidget {
 
     return WpButton(
       label: isRecording ? l10n.historyStopRecording : l10n.historyNewRecording,
-      variant: WpButtonVariant.primary,
+      // Recording never quiets down: a running recording is the loudest thing
+      // on any screen it appears on, whatever the list behind it is showing.
+      variant: (isLoud || isRecording)
+          ? WpButtonVariant.primary
+          : WpButtonVariant.secondary,
       tone: isRecording ? WpButtonTone.danger : WpButtonTone.accent,
       icon: isRecording ? LucideIcons.square : LucideIcons.mic,
       isLoading: isTranscribing,
@@ -1580,7 +1613,9 @@ class _SearchHelpButton extends StatelessWidget {
     final l10n = L10n.of(context);
     const textMuted = WpColors.textMuted;
     const textPrimary = WpColors.textPrimary;
-    const surface = WpColors.surfaceElevated;
+    // A popup menu floats over arbitrary content — pre-composited card
+    // material, see `WpColors.floatingSurface`.
+    const surface = WpColors.floatingSurface;
 
     return IconButton(
       icon: const Icon(LucideIcons.info, size: 15, color: textMuted),

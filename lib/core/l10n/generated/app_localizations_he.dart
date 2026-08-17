@@ -2899,6 +2899,19 @@ class L10nHe extends L10n {
   String get settingsOverlaySizeMini => 'מיני';
 
   @override
+  String get settingsOverlayStyle => 'סגנון שכבה';
+
+  @override
+  String get settingsOverlayStyleSubtitle =>
+      'בחר בין מראה זכוכית למראה אטום מלא';
+
+  @override
+  String get settingsOverlayStyleGlass => 'זכוכית';
+
+  @override
+  String get settingsOverlayStyleSolid => 'אטום';
+
+  @override
   String get overlayRetry => 'נסה שוב';
 
   @override

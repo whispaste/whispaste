@@ -76,7 +76,8 @@ class WpSidebar extends StatelessWidget {
             isActive: item.id == activeId,
             onTap: () => onItemTap(item.id),
           ),
-          if (dividerAfterIds.contains(item.id)) const _SidebarGroupDivider(),
+          if (dividerAfterIds.contains(item.id))
+            const SizedBox(height: WpNavRail.groupBreakHeight),
         ],
         const Spacer(flex: 6),
         // Bottom items pinned to bottom
@@ -144,30 +145,16 @@ class WpSidebar extends StatelessWidget {
   }
 }
 
-/// Subtle horizontal hairline separating nav-item groups.
-///
-/// Purely decorative (no semantics, not focusable): narrower than the icon
-/// pill so it reads as a quiet group break, not a full-width rule. Stays a
-/// hairline rather than a tinted group plate — the rail's vertical budget is
-/// already tight at the enforced minimum window size.
-class _SidebarGroupDivider extends StatelessWidget {
-  const _SidebarGroupDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: WpNavRail.rowPadding),
-      child: Container(
-        width: WpNavRail.dividerWidth,
-        height: WpNavRail.dividerThickness,
-        // `borderDefault`, not `borderSubtle`: at 36 px wide and 1 px tall
-        // between two icon groups, the subtle tone read as a rendering
-        // artifact rather than as a deliberate break.
-        color: WpColors.borderDefault,
-      ),
-    );
-  }
-}
+// Removed with Ticket 08: `_SidebarGroupDivider`, a 36 × 1 px `borderDefault`
+// hairline between nav groups.
+//
+// It was not load-bearing — it separated two groups that a gap separates just
+// as well — and it was a *line on the ambient*: the frame's gradient runs
+// uninterrupted from the title bar through the rail to the status bar, and a
+// horizontal rule across it is the one mark that reads as a seam in that
+// surface. `WpNavRail.groupBreakHeight` (24 dp, up from the hairline's 17 dp
+// row) now carries the break on its own; see the comment on that token for
+// why it is *more* space rather than the same amount.
 
 class _NavItemWidget extends StatefulWidget {
   const _NavItemWidget({

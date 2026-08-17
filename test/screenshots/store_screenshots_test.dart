@@ -11,6 +11,8 @@
 @Tags(<String>['golden'])
 library;
 
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +24,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart' show WpCategorySlot;
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
@@ -100,6 +103,91 @@ void main() {
         _screenshotTest(screen, locale);
       }
     }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Ticket 32, B1 — the color rotation never reached this fixture: every demo
+  // entry landed on the `color_slot` column default (0, `iris`) because
+  // neither `_DemoEntry` nor `_seedDemoData` carried the field. The rotation
+  // itself is exercised at runtime by `HistoryDatabase._drawColorSlot`
+  // (`lib/core/data/database.dart`), which guarantees a slot never repeats on
+  // two consecutive inserts — these tests hold the *fixture* to the same
+  // "visibly varied, never twice in a row" bar without re-testing the random
+  // draw.
+  // ---------------------------------------------------------------------------
+  group('Demo data color-slot rotation (Ticket 32, B1)', () {
+    const categorySlotCount = 8; // WpCategorySlot.categories.length
+
+    test('WpCategorySlot.categories has not drifted from 8', () {
+      expect(
+        WpCategorySlot.categories.length,
+        categorySlotCount,
+        reason:
+            'this fixture assumes 8 rotation-eligible slots — if that moved, '
+            'the coverage assertions below need to move with it',
+      );
+    });
+
+    for (final (localeName, entries) in [
+      ('en', _demoEntriesEn),
+      ('de', _demoEntriesDe),
+    ]) {
+      test(
+        '$localeName: at least 6 of 8 categorical slots are represented',
+        () {
+          final distinctSlots = entries.map((e) => e.colorSlot).toSet();
+          expect(
+            distinctSlots.length,
+            greaterThanOrEqualTo(6),
+            reason:
+                '$localeName demo entries cover only $distinctSlots '
+                '(${distinctSlots.length}/$categorySlotCount) — the store '
+                'screenshots would show a near-identical column of avatars '
+                'again',
+          );
+        },
+      );
+
+      test('$localeName: no two consecutive entries share a color slot', () {
+        for (var i = 1; i < entries.length; i++) {
+          expect(
+            entries[i].colorSlot,
+            isNot(entries[i - 1].colorSlot),
+            reason:
+                '$localeName entries ${entries[i - 1].id} and ${entries[i].id} '
+                'both draw slot ${entries[i].colorSlot} — '
+                'HistoryDatabase._drawColorSlot never repeats a slot on '
+                'consecutive inserts, and the fixture should not either',
+          );
+        }
+      });
+    }
+
+    test('no demo entry insert relies on the color_slot column default', () {
+      final source = File(
+        'test/screenshots/store_screenshots_test.dart',
+      ).readAsStringSync();
+
+      final companionMatch = RegExp(
+        r'HistoryEntriesCompanion\(([\s\S]*?)\),\s*\);',
+      ).firstMatch(source);
+      expect(
+        companionMatch,
+        isNotNull,
+        reason:
+            'the HistoryEntriesCompanion insert this test targets was not '
+            'found — the sweep below would pass vacuously',
+      );
+
+      expect(
+        companionMatch!.group(1),
+        contains('colorSlot: Value(entry.colorSlot)'),
+        reason:
+            'the demo-entry Companion insert no longer names colorSlot '
+            'explicitly — every entry would silently fall back to the '
+            'column default (0, iris) again',
+      );
+    });
   });
 }
 
@@ -282,6 +370,7 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
             isLocal: const Value(true),
             pinned: Value(entry.pinned),
             source: const Value('dictation'),
+            colorSlot: Value(entry.colorSlot),
           ),
         );
 
@@ -334,6 +423,7 @@ const _demoEntriesEn = <_DemoEntry>[
     tags: ['Work', 'Meeting'],
     model: 'Whisper Large v3',
     pinned: true,
+    colorSlot: 5,
   ),
   _DemoEntry(
     id: 'demo-2',
@@ -346,6 +436,7 @@ const _demoEntriesEn = <_DemoEntry>[
     minutesAgo: 45,
     tags: ['Work', 'Email'],
     model: 'Whisper Large v3',
+    colorSlot: 6,
   ),
   _DemoEntry(
     id: 'demo-3',
@@ -359,6 +450,7 @@ const _demoEntriesEn = <_DemoEntry>[
     tags: ['Idea'],
     model: 'Whisper Medium',
     pinned: true,
+    colorSlot: 0,
   ),
   _DemoEntry(
     id: 'demo-4',
@@ -370,6 +462,7 @@ const _demoEntriesEn = <_DemoEntry>[
     minutesAgo: 180,
     tags: ['Personal'],
     model: 'Whisper Medium',
+    colorSlot: 1,
   ),
   _DemoEntry(
     id: 'demo-5',
@@ -382,6 +475,43 @@ const _demoEntriesEn = <_DemoEntry>[
     minutesAgo: 360,
     tags: ['Work', 'Meeting'],
     model: 'Whisper Large v3',
+    colorSlot: 3,
+  ),
+  _DemoEntry(
+    id: 'demo-6',
+    title: 'Quick reminder — dentist appointment',
+    content:
+        'Dentist appointment moved to Friday at nine. Ask reception whether '
+        'the parking garage validation still works for early visits.',
+    durationSec: 8.2,
+    minutesAgo: 25,
+    tags: ['Personal'],
+    model: 'Whisper Medium',
+    colorSlot: 7,
+  ),
+  _DemoEntry(
+    id: 'demo-7',
+    title: 'Interview debrief — backend candidate',
+    content:
+        'Strong on distributed systems, thinner on frontend collaboration. '
+        'Leaning yes, but loop in the frontend lead before the offer call.',
+    durationSec: 61.4,
+    minutesAgo: 300,
+    tags: ['Work', 'Meeting'],
+    model: 'Whisper Large v3',
+    colorSlot: 2,
+  ),
+  _DemoEntry(
+    id: 'demo-8',
+    title: 'Travel note — conference next month',
+    content:
+        'Book the flight before prices climb, and check whether the hotel '
+        'block for the conference is still open for early registration.',
+    durationSec: 15.0,
+    minutesAgo: 500,
+    tags: ['Idea'],
+    model: 'Whisper Medium',
+    colorSlot: 4,
   ),
 ];
 
@@ -398,6 +528,7 @@ const _demoEntriesDe = <_DemoEntry>[
     tags: ['Arbeit', 'Meeting'],
     model: 'Whisper Large v3',
     pinned: true,
+    colorSlot: 5,
   ),
   _DemoEntry(
     id: 'demo-2',
@@ -410,6 +541,7 @@ const _demoEntriesDe = <_DemoEntry>[
     minutesAgo: 45,
     tags: ['Arbeit', 'E-Mail'],
     model: 'Whisper Large v3',
+    colorSlot: 6,
   ),
   _DemoEntry(
     id: 'demo-3',
@@ -423,6 +555,7 @@ const _demoEntriesDe = <_DemoEntry>[
     tags: ['Idee'],
     model: 'Whisper Medium',
     pinned: true,
+    colorSlot: 0,
   ),
   _DemoEntry(
     id: 'demo-4',
@@ -434,6 +567,7 @@ const _demoEntriesDe = <_DemoEntry>[
     minutesAgo: 180,
     tags: ['Privat'],
     model: 'Whisper Medium',
+    colorSlot: 1,
   ),
   _DemoEntry(
     id: 'demo-5',
@@ -446,6 +580,43 @@ const _demoEntriesDe = <_DemoEntry>[
     minutesAgo: 360,
     tags: ['Arbeit', 'Meeting'],
     model: 'Whisper Large v3',
+    colorSlot: 3,
+  ),
+  _DemoEntry(
+    id: 'demo-6',
+    title: 'Kurze Erinnerung — Zahnarzttermin',
+    content:
+        'Zahnarzttermin auf Freitag neun Uhr verschoben. An der Rezeption '
+        'fragen, ob die Parkhaus-Validierung auch für frühe Termine gilt.',
+    durationSec: 8.2,
+    minutesAgo: 25,
+    tags: ['Privat'],
+    model: 'Whisper Medium',
+    colorSlot: 7,
+  ),
+  _DemoEntry(
+    id: 'demo-7',
+    title: 'Interview-Nachbesprechung — Backend-Kandidat',
+    content:
+        'Stark bei verteilten Systemen, dünner bei Frontend-Zusammenarbeit. '
+        'Tendenz ja, aber vor dem Angebot noch die Frontend-Leitung einbeziehen.',
+    durationSec: 61.4,
+    minutesAgo: 300,
+    tags: ['Arbeit', 'Meeting'],
+    model: 'Whisper Large v3',
+    colorSlot: 2,
+  ),
+  _DemoEntry(
+    id: 'demo-8',
+    title: 'Reisenotiz — Konferenz nächsten Monat',
+    content:
+        'Flug buchen, bevor die Preise steigen, und prüfen, ob das '
+        'Hotelkontingent für die Konferenz noch für Frühbucher offen ist.',
+    durationSec: 15.0,
+    minutesAgo: 500,
+    tags: ['Idee'],
+    model: 'Whisper Medium',
+    colorSlot: 4,
   ),
 ];
 
@@ -472,6 +643,7 @@ class _DemoEntry {
     required this.minutesAgo,
     required this.tags,
     required this.model,
+    required this.colorSlot,
     this.pinned = false,
   });
 
@@ -482,6 +654,7 @@ class _DemoEntry {
   final int minutesAgo;
   final List<String> tags;
   final String model;
+  final int colorSlot;
   final bool pinned;
 }
 

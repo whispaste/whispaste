@@ -87,7 +87,10 @@ void main() {
     await tester.pump();
 
     expect(find.byIcon(LucideIcons.cpu), findsOneWidget);
-    expect(find.text('CPU · 38%'), findsOneWidget);
+    // The percent sits in a fixed three-character column — one leading figure
+    // space (U+2007) for a two-digit reading, so the chip keeps one width
+    // across every digit boundary (see `backendUtilizationChipLabel`).
+    expect(find.text('CPU · \u200738%'), findsOneWidget);
   });
 
   testWidgets('shows "GPU · N%" with the zap icon — the percent is still a '
@@ -101,7 +104,7 @@ void main() {
 
     expect(find.byIcon(LucideIcons.zap), findsOneWidget);
     expect(find.byIcon(LucideIcons.cpu), findsNothing);
-    expect(find.text('GPU · 12%'), findsOneWidget);
+    expect(find.text('GPU · \u200712%'), findsOneWidget);
     expect(find.textContaining('Metal'), findsNothing);
   });
 }

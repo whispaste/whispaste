@@ -6,15 +6,22 @@
       "fingerprint": "c01c5e0a3f3b3a8a",
       "ruleId": "complexity-hotspots",
       "filePath": "lib/core/config/settings_provider.dart",
-      "line": 485,
+      "line": 490,
       "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=22, cognitive=21 (cyclomatic 22 > 20)"
     },
     {
-      "fingerprint": "342815c92bec8a90",
+      "fingerprint": "be691ff77efa33cb",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1074,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1074, lib/core/config/settings_sections.dart:1173"
+      "line": 537,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/config/settings_sections.dart:537, lib/core/config/settings_sections.dart:674"
+    },
+    {
+      "fingerprint": "d528a557f0666e7f",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1084,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1084, lib/core/config/settings_sections.dart:1183"
     },
     {
       "fingerprint": "db025df49473810e",

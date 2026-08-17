@@ -119,6 +119,15 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     setState(() => _editingNoteId = null);
   }
 
+  void _copyNote(String noteContent) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: noteContent,
+      category: 'history_note',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -128,7 +137,10 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     const textMuted = WpColors.textMuted;
     const accent = WpColors.accent;
     const borderColor = WpColors.borderSubtle;
-    const surfaceElevated = WpColors.surfaceElevated;
+    // Card material for both the add-note row and every saved note below it
+    // — the notes are plates inside the detail panel, and `surfaceElevated`
+    // was the last opaque fill left in this panel.
+    const cardFill = WpColors.cardFill;
 
     return notes.when(
       loading: () => const SizedBox.shrink(),
@@ -138,57 +150,68 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header row — clickable to start adding a note
-            GestureDetector(
-              onTap: _isAdding ? null : () => setState(() => _isAdding = true),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.stickyNote,
-                    size: WpIconSize.sm,
-                    color: accent,
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      noteList.isEmpty
-                          ? l10n.historyAddNote
-                          : '${l10n.historyNotes} (${noteList.length})',
-                      style: const TextStyle(
-                        fontSize: WpTypography.body,
-                        fontWeight: FontWeight.w600,
-                        color: textSecondary,
-                        letterSpacing: 0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  VoiceNoteButton(entryId: widget.entryId),
-                  const SizedBox(width: WpSpacing.xxs),
-                  if (!_isAdding)
-                    Semantics(
-                      label: l10n.historyAddNote,
-                      button: true,
-                      child: Tooltip(
-                        message: l10n.historyAddNote,
-                        child: InkWell(
-                          onTap: () => setState(() => _isAdding = true),
-                          borderRadius: WpRadius.borderSm,
-                          child: const Padding(
-                            padding: EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.plus,
-                              size: WpIconSize.md,
-                              color: accent,
+            Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    button: !_isAdding,
+                    label: l10n.historyAddNote,
+                    child: GestureDetector(
+                      onTap: _isAdding ? null : () => setState(() => _isAdding = true),
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        children: [
+                          // `textSecondary`, not the accent — same correction as the
+                          // tag section's glyph directly above it (Ticket 32, B3):
+                          // the section label is inert, and the two controls that
+                          // *are* operable (microphone, "+") sit on the same line and
+                          // keep the accent to themselves.
+                          const Icon(
+                            LucideIcons.stickyNote,
+                            size: WpIconSize.sm,
+                            color: textSecondary,
+                          ),
+                          const SizedBox(width: WpSpacing.xs),
+                          Flexible(
+                            child: Text(
+                              noteList.isEmpty
+                                  ? l10n.historyAddNote
+                                  : '${l10n.historyNotes} (${noteList.length})',
+                              style: const TextStyle(
+                                fontSize: WpTypography.body,
+                                fontWeight: FontWeight.w600,
+                                color: textSecondary,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                VoiceNoteButton(entryId: widget.entryId),
+                const SizedBox(width: WpSpacing.xxs),
+                if (!_isAdding)
+                  Tooltip(
+                    message: l10n.historyAddNote,
+                    child: InkWell(
+                      onTap: () => setState(() => _isAdding = true),
+                      borderRadius: WpRadius.borderSm,
+                      child: const Padding(
+                        padding: EdgeInsets.all(WpSpacing.xs),
+                        child: Icon(
+                          LucideIcons.plus,
+                          size: WpIconSize.md,
+                          color: accent,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
             // Add note input
             if (_isAdding) ...[
@@ -198,7 +221,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
               // state — see `_NoteItem`.
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: surfaceElevated,
+                  color: cardFill,
                   borderRadius: WpRadius.borderSm,
                   border: Border.all(color: accent),
                 ),
@@ -279,12 +302,13 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 accent: accent,
                 textPrimary: textPrimary,
                 textMuted: textMuted,
-                surfaceElevated: surfaceElevated,
+                cardFill: cardFill,
                 borderColor: borderColor,
                 onSave: () => _saveEditedNote(note.id),
                 onCancel: _cancelEditing,
                 onStartEdit: () => _startEditing(note.id, note.content),
                 onDelete: () => _deleteNote(note.id, note.content),
+                onCopy: () => _copyNote(note.content),
               ),
             ],
           ],
@@ -307,12 +331,13 @@ class _NoteItem extends StatefulWidget {
     required this.accent,
     required this.textPrimary,
     required this.textMuted,
-    required this.surfaceElevated,
+    required this.cardFill,
     required this.borderColor,
     required this.onSave,
     required this.onCancel,
     required this.onStartEdit,
     required this.onDelete,
+    required this.onCopy,
   });
 
   final EntryNote note;
@@ -321,12 +346,13 @@ class _NoteItem extends StatefulWidget {
   final Color accent;
   final Color textPrimary;
   final Color textMuted;
-  final Color surfaceElevated;
+  final Color cardFill;
   final Color borderColor;
   final VoidCallback onSave;
   final VoidCallback onCancel;
   final VoidCallback onStartEdit;
   final VoidCallback onDelete;
+  final VoidCallback onCopy;
 
   @override
   State<_NoteItem> createState() => _NoteItemState();
@@ -354,7 +380,10 @@ class _NoteItemState extends State<_NoteItem> {
 
   @override
   Widget build(BuildContext context) {
-    const hoverBg = WpColors.surfaceVariant;
+    // The card material's hover rung, the same one `WpListTileSurface`
+    // lifts a card row to — not `surfaceVariant`, which was an opaque tile
+    // colour from the old system.
+    const hoverBg = WpColors.cardFillElevated;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -375,9 +404,7 @@ class _NoteItemState extends State<_NoteItem> {
                 vertical: WpSpacing.sm + 2,
               ),
         decoration: BoxDecoration(
-          color: _hovered && !widget.isEditing
-              ? hoverBg
-              : widget.surfaceElevated,
+          color: _hovered && !widget.isEditing ? hoverBg : widget.cardFill,
           borderRadius: WpRadius.borderSm,
         ),
         // Painted over the row rather than around it — the same reason
@@ -480,6 +507,25 @@ class _NoteItemState extends State<_NoteItem> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Semantics(
+                          label: L10n.of(context).notesCopy,
+                          button: true,
+                          child: Tooltip(
+                            message: L10n.of(context).notesCopy,
+                            child: InkWell(
+                              onTap: widget.onCopy,
+                              borderRadius: WpRadius.borderSm,
+                              child: Padding(
+                                padding: const EdgeInsets.all(WpSpacing.xs),
+                                child: Icon(
+                                  LucideIcons.copy,
+                                  size: WpIconSize.sm,
+                                  color: widget.textMuted,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         Semantics(
                           label: L10n.of(context).actionEdit,
                           button: true,

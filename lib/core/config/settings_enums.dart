@@ -4,7 +4,8 @@
 /// SQLite (`toStorageMap` / `fromStorageMap`) without breaking existing data.
 library;
 
-import '../theme/overlay_design_spec.dart' show OverlaySizeVariant;
+import '../theme/overlay_design_spec.dart'
+    show OverlaySizeVariant, OverlayStyleVariant;
 
 // ---------------------------------------------------------------------------
 // STT Provider
@@ -198,6 +199,42 @@ extension FloatingOverlaySizeVariantX on FloatingOverlaySize {
     FloatingOverlaySize.normal => OverlaySizeVariant.normal,
     FloatingOverlaySize.compact => OverlaySizeVariant.compact,
     FloatingOverlaySize.mini => OverlaySizeVariant.mini,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Floating Overlay Style
+// ---------------------------------------------------------------------------
+
+/// Chrome style for the floating overlay pill — independent of
+/// [FloatingOverlaySize], applies identically to all three sizes.
+enum OverlayStyle {
+  /// The default translucent no-blur "Dock glass" chrome (see
+  /// [OverlayDesignSpec]'s glass constants).
+  glass('glass'),
+
+  /// Fully opaque pill filled with the app's own frame gradient (the same
+  /// blue as the app header/sidebar) — no sheen, no rim light, no specular
+  /// drift. The waveform and the liquid silhouette wobble stay unchanged.
+  solid('solid');
+
+  const OverlayStyle(this.value);
+  final String value;
+
+  static OverlayStyle fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return glass;
+  }
+}
+
+/// Maps the persisted settings enum onto the design-spec style variant.
+extension OverlayStyleVariantX on OverlayStyle {
+  /// The design-spec variant for this settings value.
+  OverlayStyleVariant get variant => switch (this) {
+    OverlayStyle.glass => OverlayStyleVariant.glass,
+    OverlayStyle.solid => OverlayStyleVariant.solid,
   };
 }
 

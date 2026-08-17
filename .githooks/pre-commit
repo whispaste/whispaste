@@ -330,11 +330,22 @@ WEBSITE_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/' || true)
 if [ -n "$WEBSITE_STAGED" ] && command -v npm >/dev/null 2>&1 && [ -d "$ROOT/website/node_modules" ]; then
   echo ""
   echo "Website CI check..."
+  # CI=true + PLAYWRIGHT_PORT: same reasoning as the pre-push hook's website
+  # gate (see its comment) — without this, playwright.config.ts's webServer
+  # silently reuses whatever long-lived `astro dev` server a developer
+  # already has on 4321 (reuseExistingServer: !process.env.CI). That server
+  # is typically started via `scripts/dev.sh` with no --host flag, which on
+  # this machine binds IPv6-only (`::1`); Playwright always probes the
+  # IPv4-explicit `127.0.0.1`, so the probe never succeeds and the gate
+  # hangs until the 120s webServer timeout — a silent false block unrelated
+  # to the actual commit. A fresh, isolated port sidesteps the collision
+  # entirely instead of chasing the IPv4/IPv6 mismatch itself.
+  website_ci_port="$(node "$ROOT/website/scripts/find-free-port.mjs")"
   if ! (
     cd "$ROOT/website" &&
       npm run build &&
       npx playwright install chromium webkit &&
-      npm run test:ci
+      CI=true PLAYWRIGHT_PORT="$website_ci_port" npm run test:ci
   ) 2>&1; then
     cat >&2 <<EOF
 
