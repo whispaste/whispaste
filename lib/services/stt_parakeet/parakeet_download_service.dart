@@ -110,8 +110,9 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       errorMessage: null,
     );
 
-    for (var i = 0; i < parakeetModelFiles.length; i++) {
-      final file = parakeetModelFiles[i];
+    final files = effectiveParakeetModelFiles();
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
       final destPath = parakeetModelFilePath(file.filename);
 
       if (File(destPath).existsSync() &&
