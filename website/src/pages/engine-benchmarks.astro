@@ -94,15 +94,27 @@ const rows = matrix.map((cell) => {
               <td>{row.hardwareClass}</td>
               <td>{row.engine}</td>
               <td>{row.model}</td>
-              <td title={row.measured ? `RTF ${row.measured.rtf}×` : undefined}>
-                {row.measured
-                  ? `${row.speedMultiplier}${t(lang, "explainer.engineBenchmarks.table.speedSuffix")}`
-                  : "—"}
+              <td>
+                {row.measured ? (
+                  <>
+                    {row.speedMultiplier}{t(lang, "explainer.engineBenchmarks.table.speedSuffix")}
+                    <br />
+                    <small class="benchmark-table-raw">RTF {row.measured.rtf}×</small>
+                  </>
+                ) : (
+                  "—"
+                )}
               </td>
-              <td title={row.measured ? `WER ${(row.measured.wer * 100).toFixed(1)} %` : undefined}>
-                {row.measured
-                  ? `${row.accuracyPercent}${t(lang, "explainer.engineBenchmarks.table.accuracySuffix")}`
-                  : "—"}
+              <td>
+                {row.measured ? (
+                  <>
+                    {row.accuracyPercent}{t(lang, "explainer.engineBenchmarks.table.accuracySuffix")}
+                    <br />
+                    <small class="benchmark-table-raw">WER {(row.measured.wer * 100).toFixed(1)} %</small>
+                  </>
+                ) : (
+                  "—"
+                )}
               </td>
               <td>
                 {row.measured ? (
@@ -173,5 +185,9 @@ const rows = matrix.map((cell) => {
   .status-badge--pending {
     color: var(--color-ink-subtle);
     background: color-mix(in srgb, var(--color-ink-subtle) 12%, transparent);
+  }
+  .benchmark-table-raw {
+    color: var(--color-ink-subtle);
+    font-size: 0.8em;
   }
 </style>
