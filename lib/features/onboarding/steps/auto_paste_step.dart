@@ -232,7 +232,17 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     final state = ref.watch(pasteCapabilityNotifierProvider);
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     _cachedNotifier = notifier;
-    final showTccMismatchBanner = notifier.needsRestart;
+    // The grant hand-off happened and the permission still reads missing —
+    // the state the recovery phase exists for. Formerly `notifier.needsRestart`,
+    // which ties the whole phase to one *recovery* rather than to the
+    // *situation*: on a live-probe (Developer-ID) build that flag is never
+    // true, so the repair button — the only fix for a stale TCC entry pinned
+    // to an older build's cdhash — became unreachable on exactly the build
+    // that suffers from it.
+    final showTccMismatchBanner = notifier.grantDidNotTakeEffect;
+    // Whether a relaunch is a real recovery here. Only the cached-probe (MAS)
+    // build can learn anything from a fresh process; see [needsRestart].
+    final restartCanRecover = notifier.needsRestart;
     // Sticky-latch the `restart_hint.surfaced` breadcrumb so it fires exactly
     // once per step mount the first time the banner becomes visible — repeat
     // rebuilds while the banner is up must not spam Sentry. The latch is an
@@ -248,6 +258,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       grantInFlight: _grantInFlight,
       lastRepairResult: _lastRepairResult,
       showTccMismatchBanner: showTccMismatchBanner,
+      restartCanRecover: restartCanRecover,
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
@@ -267,6 +278,7 @@ class _MacOsBody extends StatelessWidget {
     required this.grantInFlight,
     required this.lastRepairResult,
     required this.showTccMismatchBanner,
+    required this.restartCanRecover,
     required this.onGrant,
     required this.onRepair,
     required this.onSkip,
@@ -278,12 +290,19 @@ class _MacOsBody extends StatelessWidget {
   final bool grantInFlight;
   final TccRepairResult? lastRepairResult;
 
-  /// True when the parent has decided the restart banner should be visible
-  /// (driven by [PasteCapabilityNotifier.needsRestart]). Threaded as a flag
-  /// rather than recomputed inline so the parent owns the single source of
-  /// truth and can co-locate the sticky-latch breadcrumb emission with the
+  /// True when the parent has decided the recovery phase should be visible
+  /// (driven by [PasteCapabilityNotifier.grantDidNotTakeEffect]). Threaded as
+  /// a flag rather than recomputed inline so the parent owns the single source
+  /// of truth and can co-locate the sticky-latch breadcrumb emission with the
   /// render decision.
   final bool showTccMismatchBanner;
+
+  /// Whether a relaunch can actually recover the grant on this build
+  /// ([PasteCapabilityNotifier.needsRestart]). Splits the recovery phase in
+  /// two: the cached-probe (MAS) leg leads with the restart banner, the
+  /// live-probe leg leads with the status card carrying the reset-the-entry
+  /// hint, since a relaunch would only re-read the same stale TCC entry.
+  final bool restartCanRecover;
 
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
@@ -459,6 +478,13 @@ class _MacOsBody extends StatelessWidget {
     // permission the user has just granted.
     final String? detail = switch (phase) {
       _AutoPastePhase.waiting => l10n.onboardingPasteWaitingForGrantHint,
+      // Live-probe leg of the recovery phase: no restart banner leads here, so
+      // the card is the status object and has to say what went wrong. The
+      // repair hint is exactly that sentence ("macOS remembers an old entry
+      // and forgets the new approval") and it already names the fix the button
+      // below performs.
+      _AutoPastePhase.troubleshoot when !restartCanRecover =>
+        l10n.pasteCapabilityRepairHint,
       _ => null,
     };
 
@@ -493,15 +519,17 @@ class _MacOsBody extends StatelessWidget {
         ),
       ],
       _AutoPastePhase.troubleshoot => <Widget>[
-        WpPasteCapabilityRestartBanner(
-          onRestart: () => notifier.restartForGrant(),
-        ),
-        // `sm`, not the page's `md`: these three are one recovery stack —
-        // the problem, the fix, and the fallback with its outcome — so they
-        // group tighter than the blocks the page separates with `md`. It is
-        // also the only branch where that matters, because it is the only
-        // one that stacks four things at once.
-        const SizedBox(height: WpSpacing.sm),
+        if (restartCanRecover) ...[
+          WpPasteCapabilityRestartBanner(
+            onRestart: () => notifier.restartForGrant(),
+          ),
+          // `sm`, not the page's `md`: these three are one recovery stack —
+          // the problem, the fix, and the fallback with its outcome — so they
+          // group tighter than the blocks the page separates with `md`. It is
+          // also the only branch where that matters, because it is the only
+          // one that stacks four things at once.
+          const SizedBox(height: WpSpacing.sm),
+        ],
         // Secondary fallback: reset the entry instead of restarting.
         // Surfaces the existing repair flow without giving it equal weight.
         WpButton(
@@ -541,7 +569,11 @@ class _MacOsBody extends StatelessWidget {
       // stacks banner + repair + result + skip and was the tallest state on
       // the page before any of this). The shape is unchanged: one status
       // object, then the action, then why, then the way out.
-      if (phase != _AutoPastePhase.troubleshoot) ...[
+      // …which is why the suppression follows the banner, not the phase: on
+      // the live-probe leg no banner leads, so dropping the card too would
+      // leave the recovery with no status object at all — just a lone "Reset
+      // entry" button under the page header, with nothing saying why.
+      if (phase != _AutoPastePhase.troubleshoot || !restartCanRecover) ...[
         card,
         const SizedBox(height: WpSpacing.md),
       ],

@@ -275,6 +275,30 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         : PastePermissionAction.grant;
   }
 
+  /// `true` once the user has been handed to the OS grant flow this process
+  /// and the permission still reads missing with no poll left running — "you
+  /// granted it and it did not take", independent of which recovery applies.
+  ///
+  /// Deliberately build-agnostic, and deliberately *not* derived from
+  /// [requiredAction]: on a cached-probe build that resolver answers
+  /// [PastePermissionAction.restart] for exactly this state, on a live-probe
+  /// build it answers [PastePermissionAction.grant], so reading it back would
+  /// make the predicate true on only one leg. Reading the state directly keeps
+  /// one condition for one situation.
+  ///
+  /// This is what the recovery surfaces must key off, because the recovery
+  /// itself ([repair]) is valid on both builds. Observed on a Developer-ID
+  /// install: the Accessibility entry for `de.whispaste.app` was pinned to
+  /// `cdhash H"7774a6cc…"` from an earlier ad-hoc dev build, so System
+  /// Settings showed the toggle ON while `AXIsProcessTrusted()` read false
+  /// for every binary actually on disk. `tccutil reset` clears that entry so
+  /// the next grant binds to the running code — the one fix that works here,
+  /// and the one a [needsRestart]-gated surface would have hidden.
+  bool get grantDidNotTakeEffect =>
+      state.capability?.status == PasteCapabilityStatus.permissionMissing &&
+      state.sentToOsGrantFlow &&
+      state.pollingPhase != PollingPhase.awaitingGrant;
+
   /// Convenience: the current [requiredAction] is [PastePermissionAction.restart].
   /// The single flag every surface keys its restart affordance off — the
   /// former `suspectedTccMismatch` heuristic, minus the fragile

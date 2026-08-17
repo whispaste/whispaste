@@ -48,6 +48,7 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     PasteCapabilityState? afterCheck,
     this._afterPromptCheck,
     this._repairResult,
+    this.cachedProbe = true,
   }) : _afterRepair = null,
        _initial = initial,
        _afterCheck = afterCheck ?? initial;
@@ -66,6 +67,11 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   // Optional state to apply right after a repair() completes — simulates a
   // post-repair re-check or follow-up grant flow updating the notifier.
   final PasteCapabilityState? _afterRepair;
+
+  /// Which permission-probe flavour to emulate. `true` (default) keeps every
+  /// pre-existing test on the cached-probe (Mac App Store) leg it was written
+  /// against; `false` exercises the live-probe (Developer-ID) build.
+  final bool cachedProbe;
 
   final List<bool> checkCalls = <bool>[];
   int startPollingCalls = 0;
@@ -94,8 +100,10 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     // `test/services/paste/paste_capability_notifier_test.dart`. States that
     // keep `needsRestart` false (ready / awaitingGrant / never-sent) resolve
     // identically on both legs, so the hidden-banner cases below are
-    // unaffected by this.
-    usesCachedPermissionProbe = true;
+    // unaffected by this. Set [cachedProbe] to false to render the recovery
+    // phase's live-probe leg instead (status card + reset-entry hint, no
+    // restart banner).
+    usesCachedPermissionProbe = cachedProbe;
     return _initial;
   }
 
@@ -778,6 +786,50 @@ void main() {
       // Title is rendered (shared restart banner, accent-styled).
       expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
     });
+
+    testWidgets(
+      'live-probe build still reaches the reset-entry recovery — no restart '
+      'banner, but the repair button and its hint are on screen',
+      (tester) async {
+        // Regression guard for the gap the restart gate opened: this phase
+        // used to hang off `needsRestart`, which is permanently false on a
+        // Developer-ID build, so the one fix for a TCC entry pinned to an
+        // older build's cdhash was unreachable on exactly the build that
+        // suffers from it. Observed live: the Accessibility row for
+        // `de.whispaste.app` held `cdhash H"7774a6cc…"` while no binary on
+        // disk hashed to it — System Settings showed the toggle ON and
+        // `AXIsProcessTrusted()` read false.
+        final paste = _FakePasteCapabilityNotifier(
+          cachedProbe: false,
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            sentToOsGrantFlow: true,
+            pollingPhase: PollingPhase.timedOut,
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        expect(
+          find.text(l10n.pasteCapabilityRepairButton),
+          findsOneWidget,
+          reason: 'the reset-entry fix must be reachable on this build',
+        );
+        expect(
+          find.text(l10n.pasteCapabilityRepairHint),
+          findsOneWidget,
+          reason: 'the card carries the why, since no banner leads here',
+        );
+        expect(
+          find.text(l10n.pasteCapabilityRestartTitle),
+          findsNothing,
+          reason: 'a relaunch would only re-read the same stale TCC entry',
+        );
+      },
+    );
 
     testWidgets(
       'restart banner is visible when missing + sent + idle — stopping the '
