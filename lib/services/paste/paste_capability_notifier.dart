@@ -310,6 +310,18 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// fresh grant — until a `ready` probe finally clears the marker, because
   /// [requiredAction] now always resolves to [PastePermissionAction.grant]
   /// here.
+  ///
+  /// This deliberately moves the startup gate too, not just copy. Its other
+  /// consumer is `_readAutoPasteGateStatus` in `app.dart`, which maps this
+  /// flag onto `AutoPasteGateStatus.missingAfterIneffectiveRestart` — a
+  /// dead-end native alert that starts no grant flow and no poll, because on
+  /// a cached probe there is genuinely nothing left to wait for. On the
+  /// live-probe build that premise is simply false, so the gate now takes the
+  /// actionable `missing` branch instead: `requestGrant()` plus a poll that
+  /// does resolve within the running process (verified live — a probe went
+  /// `trusted=false` → `trusted=true` inside one PID with no relaunch).
+  /// Routing a live-probe user into the dead end would strand them on the one
+  /// build where waiting actually works.
   bool get restartWasIneffective =>
       usesCachedPermissionProbe &&
       state.restartAttempted &&
