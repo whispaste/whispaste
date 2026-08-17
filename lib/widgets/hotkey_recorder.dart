@@ -10,7 +10,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -197,6 +197,11 @@ final Set<LogicalKeyboardKey> singleKeyWhitelist = {
   LogicalKeyboardKey.mediaStop,
   LogicalKeyboardKey.audioVolumeMute,
 };
+
+/// The card's own fixed width, regardless of how much width it is offered —
+/// see [_IntrinsicWidthClamp], which stops `getMaxIntrinsicHeight` from
+/// answering with the *offered* width instead of this one.
+const double _kCardWidth = 420;
 
 class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   /// User-visible label rendered inside the key cap (e.g. `'D'`, `'Ö'`,
@@ -489,7 +494,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
       child: AnimatedContainer(
         duration: WpMotion.durationFor(context, WpMotion.smooth),
         curve: WpMotion.defaultCurve,
-        width: 420,
+        width: _kCardWidth,
         padding: const EdgeInsets.all(WpSpacing.xl),
         decoration: BoxDecoration(
           color: bg,
@@ -631,30 +636,87 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
       ),
     );
 
-    return Center(
-      child: KeyboardListener(
-        focusNode: _focusNode,
-        autofocus: true,
-        onKeyEvent: _handleKeyEvent,
-        // The blur backdrop only makes sense in modal mode, where it frosts
-        // the modal barrier behind the card. Two exceptions render the card
-        // bare instead:
-        //   • Windows — BackdropFilter + ImageFilter.blur is broken on
-        //     frameless windows (see _WpDialogBarrier in dialog.dart), so the
-        //     blur would show up as a visibly broken dialog.
-        //   • Inline mode (onSubmit != null, e.g. the onboarding trigger page)
-        //     — there is no barrier back there, just real page content. The
-        //     blur would smear the heading and the conflict warning that
-        //     explain why the recorder appeared in the first place.
-        child: Platform.isWindows || widget.onSubmit != null
-            ? card
-            : BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: card,
-              ),
+    return _IntrinsicWidthClamp(
+      width: _kCardWidth,
+      child: Center(
+        child: KeyboardListener(
+          focusNode: _focusNode,
+          autofocus: true,
+          onKeyEvent: _handleKeyEvent,
+          // The blur backdrop only makes sense in modal mode, where it frosts
+          // the modal barrier behind the card. Two exceptions render the card
+          // bare instead:
+          //   • Windows — BackdropFilter + ImageFilter.blur is broken on
+          //     frameless windows (see _WpDialogBarrier in dialog.dart), so
+          //     the blur would show up as a visibly broken dialog.
+          //   • Inline mode (onSubmit != null, e.g. the onboarding trigger
+          //     page) — there is no barrier back there, just real page
+          //     content. The blur would smear the heading and the conflict
+          //     warning that explain why the recorder appeared in the first
+          //     place.
+          child: Platform.isWindows || widget.onSubmit != null
+              ? card
+              : BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: card,
+                ),
+        ),
       ),
     );
   }
+}
+
+/// Clamps the width an intrinsic-height query is answered for to [width],
+/// regardless of how much width the query itself offers.
+///
+/// [WpHotkeyRecorderDialog] renders its card at a fixed [_kCardWidth]
+/// (`AnimatedContainer(width: _kCardWidth, …)`), but `Center`'s default
+/// `computeMaxIntrinsicHeight(width)` passes the *offered* width straight
+/// through to its child — an [IntrinsicHeight] ancestor asking "how tall are
+/// you at 640 px?" got an answer sized for a 640-px-wide box, 17 px short of
+/// what the card's own fixed 420-px width actually needs. Wrapping the whole
+/// subtree in this clamp makes every intrinsic-height query answer as if it
+/// had been asked at [width], which is what a box that never actually grows
+/// past [width] should do.
+class _IntrinsicWidthClamp extends SingleChildRenderObjectWidget {
+  const _IntrinsicWidthClamp({required this.width, required super.child});
+
+  final double width;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderIntrinsicWidthClamp(width: width);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    (renderObject as _RenderIntrinsicWidthClamp).width = width;
+  }
+}
+
+class _RenderIntrinsicWidthClamp extends RenderProxyBox {
+  // `this._width` would make the constructor's named parameter `_width`
+  // itself — callable from outside this class within the library, which
+  // reads as accidental privacy leakage at the one call site above.
+  // ignore: prefer_initializing_formals
+  _RenderIntrinsicWidthClamp({required double width}) : _width = width;
+
+  double _width;
+
+  set width(double value) {
+    if (_width == value) return;
+    _width = value;
+    markNeedsLayout();
+  }
+
+  double _clamp(double width) => width < _width ? width : _width;
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      super.computeMinIntrinsicHeight(_clamp(width));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      super.computeMaxIntrinsicHeight(_clamp(width));
 }
 
 // ---------------------------------------------------------------------------

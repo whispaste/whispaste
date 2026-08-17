@@ -926,4 +926,47 @@ void main() {
       expect(find.byKey(const Key('hotkeyConflictWarning')), findsNothing);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Intrinsic height at the card's own fixed width, not the offered width
+  // ---------------------------------------------------------------------------
+  //
+  // The dialog always renders at a fixed 420-px card width regardless of how
+  // much width it is offered. Before the fix, `getMaxIntrinsicHeight(width)`
+  // answered with the *offered* width instead of clamping to the card's own
+  // 420 px — at a 640-px offered width (the hotkey onboarding page's content
+  // width) that under-measured the card's true height by 17 px, which let the
+  // conflict branch clip invisibly (`RenderFlex` overflow without a scroll
+  // affordance) at 800×621.
+
+  testWidgets(
+    'getMaxIntrinsicHeight(640) matches the height the fixed-width card '
+    'actually needs, not the height a 640-px-wide box of the same content '
+    'would need',
+    (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpHotkeyRecorderDialog(
+            initialKey: 'L',
+            initialModifiers: 'meta',
+          ),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      final box = tester.renderObject<RenderBox>(
+        find.byType(WpHotkeyRecorderDialog),
+      );
+      expect(
+        box.getMaxIntrinsicHeight(640),
+        box.getMaxIntrinsicHeight(420),
+        reason:
+            'The card is fixed at 420 px wide, so the height it reports for '
+            'a wider offer must be identical to the height it reports at its '
+            'own width — a wider offer must never be read as more room to '
+            'lay out in.',
+      );
+    },
+  );
 }
