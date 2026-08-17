@@ -86,7 +86,20 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
   void _syncPulse() {
     if (widget.phase == RecordingPhase.recording ||
         widget.phase == RecordingPhase.transcribing) {
-      _pulse.repeat(reverse: true);
+      // `AnimationController.repeat()` asserts its period is > 0; reduced
+      // motion (`WpMotion.durationFor` in didChangeDependencies) sets
+      // `_pulse.duration` to `Duration.zero`, which would violate that
+      // assertion. A thrown exception here lands inside the ancestor
+      // rebuild pass (didUpdateWidget, called from Element.updateChildren)
+      // and aborts it partway through, desyncing the Element/RenderObject
+      // child lists for everything built after this bar — so skip the
+      // animation and land on the fully-lit static state instead, which is
+      // what reduced motion should show anyway.
+      if (_pulse.duration == Duration.zero) {
+        _pulse.value = 1.0;
+      } else {
+        _pulse.repeat(reverse: true);
+      }
     } else {
       _pulse.stop();
       _pulse.reset();

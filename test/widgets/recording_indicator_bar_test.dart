@@ -127,6 +127,66 @@ void main() {
     // single dark theme only, so there is no light mode left to build.
   });
 
+  // ---------------------------------------------------------------------------
+  // Regression: starting a recording under disableAnimations must not throw.
+  //
+  // On Linux, the GTK/AT-SPI embedder reports
+  // `PlatformDispatcher.accessibilityFeatures.disableAnimations == true`
+  // regardless of the desktop's actual "enable animations" preference.
+  // `WpMotion.durationFor` honours that by handing this bar's pulse
+  // controller a `Duration.zero`. `_syncPulse` used to call
+  // `_pulse.repeat(reverse: true)` unconditionally, which asserts its period
+  // is > 0 — the assertion threw inside `didUpdateWidget`, itself called
+  // from `Element.updateChildren`, aborting that rebuild pass partway
+  // through and desyncing the Element/RenderObject child lists for
+  // everything built after this bar in the tree. Repeated recording toggles
+  // repeated the throw, each one leaving another stale render subtree
+  // behind — the observed Linux-only duplicated ("zweigeteilte") History
+  // pane.
+  // ---------------------------------------------------------------------------
+
+  group('WpRecordingIndicatorBar — reduced motion (disableAnimations)', () {
+    Widget buildReducedMotionBar(RecordingPhase phase) {
+      return makeTestable(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: WpRecordingIndicatorBar(phase: phase),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('starting a recording under disableAnimations does not throw', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildReducedMotionBar(RecordingPhase.idle));
+      await tester.pump();
+
+      await tester.pumpWidget(buildReducedMotionBar(RecordingPhase.recording));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'toggling recording on/off repeatedly under disableAnimations never '
+      'throws',
+      (tester) async {
+        for (var i = 0; i < 3; i++) {
+          await tester.pumpWidget(
+            buildReducedMotionBar(RecordingPhase.recording),
+          );
+          await tester.pump();
+          await tester.pumpWidget(buildReducedMotionBar(RecordingPhase.idle));
+          await tester.pump();
+        }
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   // -------------------------------------------------------------------------
   // Ticket 15 / AC3 — no component paints its own gradient
   // -------------------------------------------------------------------------
