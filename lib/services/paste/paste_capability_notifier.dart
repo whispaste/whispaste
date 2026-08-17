@@ -296,8 +296,24 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// framing to "the last restart didn't apply the permission — re-check it in
   /// System Settings", so the user is never shown the naive "Erlauben" card
   /// again right after they restarted (the exact confusion reported).
+  ///
+  /// Cached-probe (Mac App Store) builds only — "a restart did not take" is
+  /// a cached-probe concept by construction. On the live-probe Developer-ID
+  /// build a relaunch never carried permission information in the first
+  /// place, so blaming one for the missing grant misdirects the user. That
+  /// leg is reachable, not just legacy: the settings troubleshoot section
+  /// offers its restart button unconditionally on macOS (see
+  /// `paste_capability_indicator.dart`), and pressing it persists
+  /// [kAutoPasteRestartMarkerKey]. Without this gate that single press would
+  /// latch the "the last restart didn't apply the permission" copy onto every
+  /// later `permissionMissing` state — including the moments right after a
+  /// fresh grant — until a `ready` probe finally clears the marker, because
+  /// [requiredAction] now always resolves to [PastePermissionAction.grant]
+  /// here.
   bool get restartWasIneffective =>
-      state.restartAttempted && requiredAction == PastePermissionAction.grant;
+      usesCachedPermissionProbe &&
+      state.restartAttempted &&
+      requiredAction == PastePermissionAction.grant;
 
   /// Runs one capability probe through the [Paster].
   ///

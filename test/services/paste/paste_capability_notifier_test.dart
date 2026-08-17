@@ -1049,35 +1049,32 @@ void main() {
       );
     });
 
-    test(
-      'cold-start missing probe after a restart resolves to '
-      'restartWasIneffective (grant action, honest copy) — not a naive restart',
-      () async {
-        SharedPreferences.setMockInitialValues({
-          kAutoPasteRestartMarkerKey: true,
-        });
-        final paster = _FakePaster(
-          initial: const PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-        );
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
-        final notifier = container.read(
-          pasteCapabilityNotifierProvider.notifier,
-        );
+    test('cold-start missing probe after a restart resolves to '
+        'restartWasIneffective (grant action, honest copy) — not a naive '
+        'restart — on a cached-probe (MAS) build', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+      });
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.usesCachedPermissionProbe = true;
 
-        await notifier.hydrateRestartMarker();
-        await notifier.check();
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
 
-        // Fresh process: sentToOsGrantFlow is false, so the plain resolver
-        // yields grant — but the persisted marker upgrades the *copy* to the
-        // honest "restart didn't take" surface.
-        expect(notifier.requiredAction, PastePermissionAction.grant);
-        expect(notifier.restartWasIneffective, isTrue);
-      },
-    );
+      // Fresh process: sentToOsGrantFlow is false, so the plain resolver
+      // yields grant — but the persisted marker upgrades the *copy* to the
+      // honest "restart didn't take" surface.
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.restartWasIneffective, isTrue);
+    });
 
     test('a ready probe clears the persisted restart marker', () async {
       SharedPreferences.setMockInitialValues({
@@ -1324,6 +1321,51 @@ void main() {
         );
         expect(notifier.requiredAction, PastePermissionAction.restart);
         expect(notifier.needsRestart, isTrue);
+      },
+    );
+
+    test(
+      'a restart marker never latches the "restart did not take" copy onto a '
+      'live-probe build, not even after the always-on troubleshoot restart',
+      () async {
+        // Reachable, not legacy: `paste_capability_indicator.dart` offers its
+        // troubleshoot restart button unconditionally on macOS, so one press
+        // persists kAutoPasteRestartMarkerKey even on a Developer-ID build.
+        // Since requiredAction now always resolves to `grant` here, an
+        // ungated restartWasIneffective would blame that one press for every
+        // later missing state — including right after a fresh grant — until a
+        // `ready` probe cleared the marker.
+        SharedPreferences.setMockInitialValues({
+          kAutoPasteRestartMarkerKey: true,
+        });
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.hydrateRestartMarker();
+        await notifier.check();
+
+        expect(
+          container.read(pasteCapabilityNotifierProvider).restartAttempted,
+          isTrue,
+          reason: 'the marker itself still hydrates — only the copy is gated',
+        );
+        expect(notifier.requiredAction, PastePermissionAction.grant);
+        expect(
+          notifier.restartWasIneffective,
+          isFalse,
+          reason:
+              'a relaunch never carried permission information on this build, '
+              'so it cannot be what failed — show the plain grant copy',
+        );
       },
     );
   });
