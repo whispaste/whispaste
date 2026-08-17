@@ -723,15 +723,7 @@ class _AppShellState extends ConsumerState<_AppShell>
           ? AutoPasteGateHooks(
               readStatus: _readAutoPasteGateStatus,
               showGrantAlert: _showAutoPasteGateGrantAlert,
-              // Repair-aware, exactly like [_grantAccessibilityFromNotice]:
-              // this branch is only reached when the capability already reads
-              // `permissionMissing`, i.e. the same stale-entry situation, and
-              // a bare requestGrant() would send the user to a Settings row
-              // that is already switched on (reported dead end, verified: no
-              // `repairTccEntries` ever appeared in the native log).
-              startGrantFlow: () => ref
-                  .read(pasteCapabilityNotifierProvider.notifier)
-                  .runMissingPermissionRecovery(),
+              startGrantFlow: _startAutoPasteGateGrantFlow,
               showManualGrantAlert: _showManualGrantAlert,
             )
           : null,
@@ -871,6 +863,27 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
     if (!dispatched) return false;
     return choice.future;
+  }
+
+  /// The gate's grant handoff. Splits on the same predicate as
+  /// [_readAutoPasteGateStatus] so the "who shows the dialog" decision and the
+  /// "how do we hand off" decision can never drift apart:
+  ///
+  /// * live-probe build (Developer-ID / ad-hoc) → [repairAndRequestGrant], the
+  ///   repair-aware pendant of [_grantAccessibilityFromNotice]. A bare
+  ///   `requestGrant()` would send the user to a Settings row that is already
+  ///   switched on (live-reported dead end, verified: `repairTccEntries` never
+  ///   appeared in the native log).
+  /// * cached-probe build (MAS) → [requestGrant], deliberately unchanged. It
+  ///   writes `sentToOsGrantFlow` + `awaitingGrant` in one atomic step and arms
+  ///   the poll; `openAccessibilitySettings()` sets only the handoff bit, which
+  ///   the already-armed restart watch would read as "restart required" before
+  ///   the user has even reached System Settings.
+  Future<void> _startAutoPasteGateGrantFlow() {
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    return notifier.grantRequiresEntryReset
+        ? notifier.repairAndRequestGrant()
+        : notifier.requestGrant();
   }
 
   @override

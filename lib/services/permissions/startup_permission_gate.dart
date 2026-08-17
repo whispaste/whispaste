@@ -84,9 +84,12 @@ enum AutoPasteGateOutcome {
   /// user's after-transcription action doesn't paste at all.
   notNeeded,
 
-  /// Permission missing on first contact — the guided grant alert was
-  /// confirmed and the existing grant flow (request + exact Settings pane +
-  /// poll + auto-restart where required) has taken over.
+  /// Permission missing on first contact and the existing grant flow (request
+  /// + exact Settings pane + poll + auto-restart where required) has taken
+  /// over — either after the guided alert was confirmed
+  /// ([AutoPasteGateStatus.missing]) or straight away, because macOS raises
+  /// its own alert inside that flow
+  /// ([AutoPasteGateStatus.missingWithOsPrompt]).
   grantFlowStarted,
 
   /// A grant-driven restart already ran and the permission is STILL
