@@ -107,8 +107,14 @@ void SnippetPickerHost::ComputePanelRect(int* px, int* py, int* pwidth,
     // Manual min/max clamp rather than std::clamp: if the panel is wider/
     // taller than the work area, std::clamp's lo<=hi precondition would be
     // violated (asserts in debug builds).
-    x = std::max(wa.left, std::min(x, wa.right - width));
-    y = std::max(wa.top, std::min(y, wa.bottom - height));
+    // RECT fields are LONG, not int — std::min/std::max need matching
+    // template arguments, hence the explicit casts (LLP64: same width,
+    // different type, so implicit conversion doesn't satisfy template
+    // deduction and MSVC rejects the call outright, C2672).
+    x = std::max(static_cast<int>(wa.left),
+                 std::min(x, static_cast<int>(wa.right) - width));
+    y = std::max(static_cast<int>(wa.top),
+                 std::min(y, static_cast<int>(wa.bottom) - height));
   }
 
   *px = x;
