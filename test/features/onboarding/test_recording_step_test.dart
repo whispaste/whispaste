@@ -138,10 +138,13 @@ void main() {
   });
 
   group('TestRecordingStep — Default state', () {
-    testWidgets('renders title, hotkey chip, and placeholder', (tester) async {
+    testWidgets('renders hotkey chip and placeholder', (tester) async {
       await _pumpStep(tester);
 
-      expect(find.text(l10n.onboardingTestRecordingTitle), findsOneWidget);
+      // No page title here: the Try & Go page owns the heading (the overlay
+      // wraps this step in an OnboardingPage like every other page) — the
+      // bare-mounted step is content only.
+      expect(find.text(l10n.onboardingTestRecordingTitle), findsNothing);
       expect(find.byType(HotkeyDisplay), findsOneWidget);
       // The microphone status sits beside the hotkey, on the page that
       // actually needs a microphone — it used to announce itself on page 1,

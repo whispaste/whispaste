@@ -285,28 +285,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     _ => _readingMeasure,
   };
 
-  /// Whether the page hands its leftover height to its body block
-  /// ([OnboardingPageFill] plus the page's own [OnboardingPageBody]).
-  ///
-  /// Every page does, including page 1: its brand lockup is that page's
-  /// header, and it has to start at the same height as every other page's
-  /// heading. Centring the page as a whole — which is what page 1 used to do —
-  /// made the lockup's position depend on how tall the rest of the page was,
-  /// so the logo sat visibly lower than page 2's title. Including the tight
-  /// pages costs nothing: the fill can never shrink a gap below its minimum,
-  /// so the hotkey page's conflict branch (13 px of slack in German) simply
-  /// keeps its minimum gaps.
-  ///
-  /// [OnboardingStepId.tryAndGo] is the one exclusion. It is not a header
-  /// over a body but two side-by-side columns of unequal height, and its
-  /// heading is the first block of the *left* column (bounded to that
-  /// column's measure), already sitting at the same height as every other
-  /// page's. With ~32 px of slack (German, after the page's two ambient
-  /// muted lines merged into one), centring the pair as one block would move
-  /// that heading off the shared line to buy half of that, which nobody can
-  /// see.
-  bool _fillsViewport(OnboardingStepId id) => id != OnboardingStepId.tryAndGo;
-
   int _currentStep = 0;
   int _previousStep = 0;
 
@@ -638,11 +616,24 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // Page builder — merged page contents; navigation stays with the shell.
   // ---------------------------------------------------------------------------
 
+  /// Every page hands its leftover height to its body block
+  /// ([OnboardingPageFill] plus the page's own [OnboardingPageBody]).
+  ///
+  /// Including page 1: its brand lockup is that page's header, and it has to
+  /// start at the same height as every other page's heading. Centring the
+  /// page as a whole — which is what page 1 used to do — made the lockup's
+  /// position depend on how tall the rest of the page was, so the logo sat
+  /// visibly lower than page 2's title. Including the tight pages costs
+  /// nothing: the fill can never shrink a gap below its minimum, so the
+  /// hotkey page's conflict branch simply keeps its minimum gaps.
+  /// Try & Go used to be the one exclusion (its heading was the left
+  /// column's first block); since the page adopted the shared
+  /// [OnboardingPage] header treatment there is no exception left.
   Widget _buildStep(OnboardingStepId id, double availableHeight) {
-    final page = _buildStepContent(id);
-    return _fillsViewport(id)
-        ? OnboardingPageFill(availableHeight: availableHeight, child: page)
-        : page;
+    return OnboardingPageFill(
+      availableHeight: availableHeight,
+      child: _buildStepContent(id),
+    );
   }
 
   /// The Hotkey page. Split out of the page switch because it is the one page
@@ -721,32 +712,40 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // scrolling. `start` cross-alignment keeps both column tops on the same
       // line; the plain Row mirrors for free under RTL.
       //
-      // The one page that is not a header over a centred body: its heading is
-      // the first block of the left column, which puts it on the same line as
-      // every other page's heading already. See [_fillsViewport].
+      // One [OnboardingPage] like every other step: the page owns the
+      // heading and the header gap, the two columns are the body. The
+      // heading used to be the first block of the left column, which crammed
+      // title, subtitle and the whole recording apparatus into one 6/9-wide
+      // strip while the page's own header line stayed empty — the one page
+      // of the flow that didn't share the family's header treatment, and it
+      // read exactly that way. The subtitle now wraps on the page's full
+      // measure (capped at 640 like every heading) instead of the left
+      // column's, which pays for most of the header gap this adds.
+      //
       // 6 : 3, not the 5 : 4 this started on. The split is a height decision
       // wearing a width parameter: the two columns are wildly unequal in what
       // they carry (the left one runs status line → record button → sandbox
       // field → caption → completion gate; the right one is three short
       // instruction rows) but 5 : 4 gave them near-equal width, so the left
-      // column wrapped everything and ran 262 px past the bottom of the right
-      // one. Widening it to 6 : 3 lets those lines unwrap: measured on the
-      // fixed window at text scale 1.3 the page comes to 589 px in German
-      // instead of 658, and 562 instead of 610 in English/Hebrew — the single
-      // largest contribution to getting the microphone-bypass button back
-      // above the fold, and the reason this page needed no text cut to do it.
-      //
-      // 7 : 2 was measured too and is *worse* (595 px in German): past 6 : 3
-      // the right column starts wrapping faster than the left one unwraps,
-      // and since the row's height is the taller of the two, the win flips.
-      // 6 : 3 is the floor of that curve, not a round number.
-      OnboardingStepId.tryAndGo => const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: 6, child: TestRecordingStep()),
-          SizedBox(width: WpSpacing.xxl),
-          Expanded(flex: 3, child: ReadyStep()),
-        ],
+      // column wrapped everything and ran far past the bottom of the right
+      // one. 7 : 2 was measured too and is *worse*: past 6 : 3 the right
+      // column starts wrapping faster than the left one unwraps, and since
+      // the row's height is the taller of the two, the win flips. The
+      // binding heights live in `onboarding_overlay_test.dart`'s
+      // fixed-window group — re-measure there before touching the split.
+      OnboardingStepId.tryAndGo => OnboardingPage(
+        header: OnboardingPageHeading(
+          title: l10n.onboardingTestRecordingTitle,
+          subtitle: l10n.onboardingTestRecordingSubtitle,
+        ),
+        body: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 6, child: TestRecordingStep()),
+            SizedBox(width: WpSpacing.xxl),
+            Expanded(flex: 3, child: ReadyStep()),
+          ],
+        ),
       ),
     };
   }

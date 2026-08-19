@@ -9,7 +9,6 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
 import 'mic_permission_chip.dart';
-import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_button.dart';
 import '../onboarding_completion_gate.dart';
@@ -137,19 +136,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OnboardingPageHeading(
-          title: l10n.onboardingTestRecordingTitle,
-          subtitle: l10n.onboardingTestRecordingSubtitle,
-        ),
-        // `lg`, not the `kOnboardingHeaderGap` (`xxl`) every other page uses.
-        // Two reasons, both specific to this page: it is the only one whose
-        // heading is not the *page* header but the left column's own — the
-        // right column starts with an [OnboardingSectionLabel] + `lg`, and
-        // `xxl` here would offset the two columns against each other — and
-        // tryAndGo is the one page that does not fill the viewport, with
-        // ~32 px of slack left to spend in German (was ~6 px until the two
-        // stacked ambient muted lines below merged into one).
-        const SizedBox(height: WpSpacing.md),
+        // No heading here any more: the Try & Go page owns its
+        // [OnboardingPageHeading] like every other page (see the overlay's
+        // page composition) — this widget is the left column's *content*
+        // only, which is what lets the page share the header treatment and
+        // header gap the rest of the flow uses.
 
         // Current hotkey and microphone status — the two preconditions of the
         // recording this page asks for, on one line. Label and key caps are
@@ -214,35 +205,47 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // for the page's own action, ghost for the escape hatch below.
         // Left-aligned rather than stretched, because a button that spans the
         // full column reads as a banner and inherits none of that ladder.
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: WpButton(
-            key: kTestRecordingStepRecordButtonKey,
-            label: phase == RecordingPhase.recording
-                ? l10n.onboardingTestRecordingStopCta
-                : l10n.onboardingTestRecordingStartCta,
-            variant: WpButtonVariant.primary,
-            onPressed: phase == RecordingPhase.transcribing
-                ? null
-                : _onRecordPressed,
+        // Start-inset like the status line above and the captions below: the
+        // filled button's box is a visible object and sits on the column's
+        // shared `kSettingRowInset` reading edge, not the bare frame edge.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: WpButton(
+              key: kTestRecordingStepRecordButtonKey,
+              label: phase == RecordingPhase.recording
+                  ? l10n.onboardingTestRecordingStopCta
+                  : l10n.onboardingTestRecordingStartCta,
+              variant: WpButtonVariant.primary,
+              onPressed: phase == RecordingPhase.transcribing
+                  ? null
+                  : _onRecordPressed,
+            ),
           ),
         ),
         const SizedBox(height: WpSpacing.xs),
 
-        // Sandbox field
-        _SandboxField(
-          key: kTestRecordingStepFieldKey,
-          isDone: isDone,
-          isRecording: isRecording,
-          sandboxText: _sandboxText,
-          recordingAccent: recordingAccent,
-          l10n: l10n,
+        // Sandbox field — same start inset as the button above it: the
+        // field's border is the column's most visible left edge, and it used
+        // to overhang the reading edge by the full inset.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: _SandboxField(
+            key: kTestRecordingStepFieldKey,
+            isDone: isDone,
+            isRecording: isRecording,
+            sandboxText: _sandboxText,
+            recordingAccent: recordingAccent,
+            l10n: l10n,
+          ),
         ),
 
         if (isDone) ...[
           const SizedBox(height: WpSpacing.xs),
           Row(
             children: [
+              const SizedBox(width: kSettingRowInset),
               const Icon(
                 LucideIcons.circleCheck,
                 size: WpIconSize.sm,
@@ -382,10 +385,12 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             ),
           ] else
             // Honest consequence note: no recording works until a microphone
-            // does, and where to catch up later.
+            // does, and where to catch up later. Start-inset like the
+            // reassurance line above — the two are the same register.
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const SizedBox(width: kSettingRowInset),
                 const Padding(
                   padding: EdgeInsets.only(top: 1),
                   child: Icon(
