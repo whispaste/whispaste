@@ -97,8 +97,8 @@ const SCREENS = [
   {
     id: 'workspace-detail',
     screenshot: {
-      en: 'en/light/02_workspace_detail.png',
-      de: 'de/light/02_workspace_detail.png',
+      en: 'en/dark/02_workspace_detail.png',
+      de: 'de/dark/02_workspace_detail.png',
     },
     composition: 'left',
     windowScale: 0.86,
@@ -111,7 +111,7 @@ const SCREENS = [
       en: 'Review one recording, clean it up, and keep the final text ready to paste.',
       de: 'Prüfe eine Aufnahme, bring sie in Form und halte den finalen Text direkt einsatzbereit.',
     },
-    theme: 'light',
+    theme: 'dark',
   },
   {
     id: 'voice-shortcuts',
@@ -135,8 +135,8 @@ const SCREENS = [
   {
     id: 'hotkey-settings',
     screenshot: {
-      en: 'en/light/04_settings.png',
-      de: 'de/light/04_settings.png',
+      en: 'en/dark/04_settings.png',
+      de: 'de/dark/04_settings.png',
     },
     composition: 'left',
     windowScale: 0.9,
@@ -149,7 +149,7 @@ const SCREENS = [
       en: 'Keep recording one key combo away and turn it off whenever you do not need it.',
       de: 'Halte die Aufnahme nur eine Tastenkombination entfernt und schalte sie ab, wenn du sie nicht brauchst.',
     },
-    theme: 'light',
+    theme: 'dark',
   },
   {
     id: 'time-saved',
