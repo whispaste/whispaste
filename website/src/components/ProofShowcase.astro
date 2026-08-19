@@ -104,10 +104,6 @@ const alts = [
             </picture>
           ))}
         </div>
-        <figcaption class="proof-chip">
-          <span class="proof-rec" aria-hidden="true"></span>
-          <span data-i18n="proof.chip">{t(lang, 'proof.chip')}</span>
-        </figcaption>
       </figure>
 
       {/* Beat tiles — all three titles/captions always in the DOM, inactive
@@ -203,40 +199,6 @@ const alts = [
     object-fit: cover;
   }
 
-  /* ---- "Screen recording" chip — authenticity marker over the capture ---- */
-  .proof-chip {
-    position: absolute;
-    top: 0.75rem;
-    inset-inline-start: 0.75rem;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 999px;
-    background: rgba(5, 8, 14, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    pointer-events: none;
-  }
-  .proof-rec {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #f8615c;
-    animation: proof-rec-pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes proof-rec-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
-  }
-
   /* ---- Beat tiles ---- */
   .proof-tiles {
     display: flex;
@@ -296,9 +258,6 @@ const alts = [
     .proof-media,
     .proof-media.is-active {
       transition: none;
-    }
-    .proof-rec {
-      animation: none;
     }
     .proof-tile,
     .proof-tile-title,

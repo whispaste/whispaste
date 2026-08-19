@@ -17,8 +17,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
  * Media honesty follows the ProofShowcase rules:
  * - The Replacements card shows the REAL app screenshot
  *   (`/screenshots/{lang}/dark/03_voice_shortcuts.webp` — despite the
- *   legacy "voice_shortcuts" filename it captures the Replacements page),
- *   labelled with an "App screenshot" chip.
+ *   legacy "voice_shortcuts" filename it captures the Replacements page).
  * - No capture of the snippet picker panel exists (it is a small transient
  *   panel near the text cursor), so that card gets a deliberately stylised
  *   HTML/CSS illustration of the mechanism (caret → panel → pick), the same
@@ -34,8 +33,8 @@ const shots = {
   en: '/screenshots/en/dark/03_voice_shortcuts.webp',
 };
 const shotAlt = {
-  en: 'Screenshot: the Replacements page in WhisPaste, four trigger phrases with their stored texts',
-  de: 'Screenshot: die Ersetzungen-Seite in WhisPaste, vier Trigger-Phrasen mit ihren hinterlegten Texten',
+  en: 'Screenshot: the Replacements page in WhisPaste, four short triggers with their stored texts',
+  de: 'Screenshot: die Ersetzungen-Seite in WhisPaste, vier Kurzformen mit ihren hinterlegten Texten',
 };
 ---
 
@@ -72,9 +71,6 @@ const shotAlt = {
               decoding="async"
             />
           </div>
-          <figcaption class="tx-chip">
-            <span data-i18n="expand.repl.chip">{t(lang, 'expand.repl.chip')}</span>
-          </figcaption>
         </figure>
         <div class="tx-copy">
           <h3 class="tx-name" data-i18n="expand.repl.name">{t(lang, 'expand.repl.name')}</h3>
@@ -187,28 +183,6 @@ const shotAlt = {
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-
-  /* Authenticity chip over the real screenshot (mirrors .proof-chip) */
-  .tx-chip {
-    position: absolute;
-    top: 0.75rem;
-    inset-inline-start: 0.75rem;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.7rem;
-    border-radius: 999px;
-    background: rgba(5, 8, 14, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    pointer-events: none;
   }
 
   /* ---- Snippet-picker illustration (fixed dark palette — the app is
