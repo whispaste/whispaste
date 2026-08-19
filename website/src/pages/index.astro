@@ -5,11 +5,9 @@ import Hero from "../components/Hero.astro";
 import UseCaseCards from "../components/UseCaseCards.astro";
 import MarketingMoment from "../components/MarketingMoment.astro";
 import AppPasteDemo from "../components/AppPasteDemo.astro";
-import ProofShowcase from "../components/ProofShowcase.astro";
 import SpeedComparison from "../components/SpeedComparison.astro";
 import Engines from "../components/Engines.astro";
 import AppScreenshots from "../components/AppScreenshots.astro";
-import TextExpansion from "../components/TextExpansion.astro";
 import Privacy from "../components/Privacy.astro";
 import Pricing from "../components/Pricing.astro";
 import Languages from "../components/Languages.astro";
@@ -53,27 +51,17 @@ const faqKeys = [
       AppPasteDemo ist die EINE Erklärstrecke für den Hotkey→Sprechen→Text-
       Mechanismus (das frühere HowItWorks erzählte denselben Ablauf ein zweites
       Mal und wurde entfernt; das Storyboard mit dem echten Overlay-Rendering
-      ist der stärkere Beweis); ProofShowcase direkt danach ist bewusst KEINE
-      zweite Erklärung, sondern der Beleg: echte Bildschirmaufnahmen der
-      echten App (dark-only Captures im theme-unabhängigen Rahmen).
+      ist der stärkere Beweis).
       UseCaseCards und MarketingMoment folgen danach als klar eigenständige
       Blöcke (UseCaseCards vor MarketingMoment, damit kein raised↔raised-Stoß
       mit SpeedComparison entsteht):
         Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
-        ProofShowcase     deep     (band-deep, in ProofShowcase.astro)
         UseCaseCards  raised   (band-raised, in UseCaseCards.astro)
         MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
         SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
         Engines           spotlight (band-spotlight, in Engines.astro)
         AppScreenshots    deep     (band-deep, in AppScreenshots.astro)
-        TextExpansion     raised   (band-raised, in TextExpansion.astro —
-                                     Ersetzungen + Sprach-Snippets, direkt nach
-                                     den App-Screens: die Replacements-Karte
-                                     zeigt selbst einen echten App-Screenshot,
-                                     und der Pricing-Listenpunkt „Sprach-
-                                     Snippets" weiter unten hat damit eine
-                                     vorausgehende Erklärung)
         Privacy           spotlight (band-spotlight, in Privacy.astro)
         Pricing           raised   (band-raised, in Pricing.astro)
         Languages         deep     (band-deep, in Languages.astro)
@@ -88,13 +76,11 @@ const faqKeys = [
     */}
     <Hero />
     <AppPasteDemo />
-    <ProofShowcase />
     <UseCaseCards />
     <MarketingMoment />
     <SpeedComparison />
     <Engines />
     <AppScreenshots />
-    <TextExpansion />
     <Privacy />
     <Pricing />
     <Languages />

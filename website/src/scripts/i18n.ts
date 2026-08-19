@@ -749,43 +749,6 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.scene.reply': 'Yes, 3 pm works for me.',
     'appdemo.scene.inserted': 'inserted at cursor',
     'appdemo.sameEverywhere': 'The same in every app',
-    'proof.label': 'Real recordings',
-    'proof.titleLead': 'Three moments, ',
-    'proof.titleAccent': 'straight off the screen',
-    'proof.titleTail': '',
-    'proof.subtitle':
-      'Not a mockup: screen recordings from a real desktop, unedited.',
-    'proof.tilesAria': 'Choose which recording to show',
-    'proof.beat1.title': 'Speak. It lands.',
-    'proof.beat1.caption':
-      'Empty editor, hotkey pressed, one sentence spoken: the text is at the cursor.',
-    'proof.beat2.title': 'The badge is the proof.',
-    'proof.beat2.caption':
-      'A transcript is marked “On device” when it was processed locally. The audio never left your machine.',
-    'proof.beat3.title': 'Any field is a text field',
-    'proof.beat3.caption':
-      'Browser address bar, same hotkey: speak, and the text is there.',
-    // TextExpansion — Replacements + Voice Snippets (stored-text features)
-    'expand.label': 'Replacements & snippets',
-    'expand.titleLead': 'Say the short version, ',
-    'expand.titleAccent': 'the full text comes back',
-    'expand.titleTail': '',
-    'expand.subtitle':
-      'Your email address, or the answer you send five times a day: none of that needs to be spoken word for word. Store the text once, and a short phrase brings it back.',
-    'expand.repl.name': 'Replacements',
-    'expand.repl.mode': 'Automatic, during transcription',
-    'expand.repl.body':
-      'Define a short trigger and the text it stands for. Say “my email” mid-sentence, and the finished transcript already has the full address. Only the trigger gets replaced — the rest of your sentence stays exactly as you spoke it.',
-    'expand.snip.name': 'Voice Snippets',
-    'expand.snip.mode': 'You pick, in a panel at the cursor',
-    'expand.snip.body':
-      'Snippets are longer blocks you keep on file: a support reply, a code template, directions to the office. A spoken cue or the snippet hotkey opens a panel at your cursor; one click drops the block in.',
-    'expand.snip.mockAria':
-      'Illustration: the snippet picker, a small searchable panel next to the text cursor',
-    'expand.snip.mock.search': 'Search snippets…',
-    'expand.snip.mock.item1': 'Support reply',
-    'expand.snip.mock.item2': 'Directions to the office',
-    'expand.snip.mock.item3': 'Invoice footer',
     // UseCaseCards (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'useCaseCards.label': 'For your workflow',
     'useCaseCards.more': 'Learn more',
@@ -1586,43 +1549,6 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.scene.reply': 'Ja, 15 Uhr passt gut.',
     'appdemo.scene.inserted': 'am Cursor eingefügt',
     'appdemo.sameEverywhere': 'Dasselbe in jeder App',
-    'proof.label': 'Echte Aufnahmen',
-    'proof.titleLead': 'Drei Momente, ',
-    'proof.titleAccent': 'direkt vom Bildschirm',
-    'proof.titleTail': '',
-    'proof.subtitle':
-      'Kein Mockup: Bildschirmaufnahmen von einem echten Desktop, unbearbeitet.',
-    'proof.tilesAria': 'Aufnahme zum Anzeigen wählen',
-    'proof.beat1.title': 'Sprechen. Es landet.',
-    'proof.beat1.caption':
-      'Leerer Editor, Hotkey gedrückt, ein Satz gesprochen: Der Text steht am Cursor.',
-    'proof.beat2.title': 'Das Badge ist der Beweis.',
-    'proof.beat2.caption':
-      'Am Transkript steht „On device“, wenn die Verarbeitung lokal lief. Das Audio hat deinen Rechner nie verlassen.',
-    'proof.beat3.title': 'Jedes Feld ist ein Textfeld',
-    'proof.beat3.caption':
-      'Adressleiste im Browser, derselbe Hotkey: Sprechen, und der Text steht da.',
-    // TextExpansion — Ersetzungen + Sprach-Snippets (hinterlegte Texte)
-    'expand.label': 'Ersetzungen & Snippets',
-    'expand.titleLead': 'Die Kurzform sagen, ',
-    'expand.titleAccent': 'der ganze Text kommt zurück',
-    'expand.titleTail': '',
-    'expand.subtitle':
-      'Deine Mail-Adresse oder die Antwort, die du fünfmal am Tag schickst: Nichts davon musst du Wort für Wort sprechen. Einmal hinterlegen, und eine kurze Phrase holt den Text zurück.',
-    'expand.repl.name': 'Ersetzungen',
-    'expand.repl.mode': 'Automatisch, während der Transkription',
-    'expand.repl.body':
-      'Du legst eine Kurzform fest und den Text, für den sie steht. Sag mitten im Satz „meine Mail“, und im fertigen Transkript steht die ganze Adresse. Ersetzt wird nur die Kurzform, der Rest bleibt genau so, wie du ihn gesprochen hast.',
-    'expand.snip.name': 'Sprach-Snippets',
-    'expand.snip.mode': 'Du wählst aus, im Panel am Cursor',
-    'expand.snip.body':
-      'Snippets sind längere Bausteine, die du dir anlegst: eine Support-Antwort, ein Code-Gerüst, eine Wegbeschreibung. Ein gesprochenes Stichwort oder der Snippet-Hotkey öffnet ein Panel am Cursor; ein Klick fügt den Baustein ein.',
-    'expand.snip.mockAria':
-      'Illustration: der Snippet-Picker, ein kleines durchsuchbares Panel neben dem Text-Cursor',
-    'expand.snip.mock.search': 'Snippets durchsuchen…',
-    'expand.snip.mock.item1': 'Support-Antwort',
-    'expand.snip.mock.item2': 'Wegbeschreibung ins Büro',
-    'expand.snip.mock.item3': 'Rechnungs-Fußzeile',
     // UseCaseCards (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'useCaseCards.label': 'Für deinen Workflow',
     'useCaseCards.more': 'Mehr erfahren',

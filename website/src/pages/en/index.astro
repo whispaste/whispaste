@@ -5,11 +5,9 @@ import Hero from "../../components/Hero.astro";
 import UseCaseCards from "../../components/UseCaseCards.astro";
 import MarketingMoment from "../../components/MarketingMoment.astro";
 import AppPasteDemo from "../../components/AppPasteDemo.astro";
-import ProofShowcase from "../../components/ProofShowcase.astro";
 import SpeedComparison from "../../components/SpeedComparison.astro";
 import Engines from "../../components/Engines.astro";
 import AppScreenshots from "../../components/AppScreenshots.astro";
-import TextExpansion from "../../components/TextExpansion.astro";
 import Privacy from "../../components/Privacy.astro";
 import Pricing from "../../components/Pricing.astro";
 import Languages from "../../components/Languages.astro";
@@ -46,19 +44,16 @@ const faqKeys = [
   <main id="main-content">
     {/* Section order mirrors `pages/index.astro` (band rhythm + rationale
         documented there): AppPasteDemo is the single explanation arc for the
-        hotkey→speak→text mechanic, ProofShowcase right after it is the
-        proof (real screen recordings, deliberately NOT a second
-        explanation), UseCaseCards/MarketingMoment follow as standalone
-        blocks, Testimonials (social proof) before the Support ask. */}
+        hotkey→speak→text mechanic, UseCaseCards/MarketingMoment follow as
+        standalone blocks, Testimonials (social proof) before the Support
+        ask. */}
     <Hero />
     <AppPasteDemo />
-    <ProofShowcase />
     <UseCaseCards />
     <MarketingMoment />
     <SpeedComparison />
     <Engines />
     <AppScreenshots />
-    <TextExpansion />
     <Privacy />
     <Pricing />
     <Languages />
