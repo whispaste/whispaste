@@ -86,28 +86,40 @@ class TriggerStep extends ConsumerWidget {
         // same reason as the compressions above, not just for the 17 px of
         // slack it buys back — see its own comment.
         if (status == HotkeyRegistrationStatus.conflict) ...[
-          _HotkeyConflictWarnBox(
-            key: kTriggerStepConflictWarnBoxKey,
-            title: l10n.onboardingTriggerHotkeyConflictTitle,
-            body: l10n.onboardingTriggerHotkeyConflictBody,
+          // Start-inset like every text block on the page (the shared
+          // `kSettingRowInset` reading edge): the warn box and the inline
+          // recorder used to start at the bare frame edge, 12 px left of the
+          // heading and rows around them. Height-sensitive branch — re-run
+          // the fixed-window measurements in `onboarding_overlay_test.dart`
+          // before touching the widths again.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: _HotkeyConflictWarnBox(
+              key: kTriggerStepConflictWarnBoxKey,
+              title: l10n.onboardingTriggerHotkeyConflictTitle,
+              body: l10n.onboardingTriggerHotkeyConflictBody,
+            ),
           ),
           const SizedBox(height: WpSpacing.xs),
-          WpHotkeyRecorderDialog(
-            key: kTriggerStepInlineRecorderKey,
-            initialKey: hotkeyKey,
-            initialDisplayKey: hotkeyDisplay,
-            initialModifiers: hotkeyModifiers,
-            onSubmit: (result) async {
-              await ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWith(
-                      hotkeyKey: result.key,
-                      hotkeyKeyDisplay: result.displayKey,
-                      hotkeyModifiers: result.modifiers,
-                    ),
-                  );
-            },
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: WpHotkeyRecorderDialog(
+              key: kTriggerStepInlineRecorderKey,
+              initialKey: hotkeyKey,
+              initialDisplayKey: hotkeyDisplay,
+              initialModifiers: hotkeyModifiers,
+              onSubmit: (result) async {
+                await ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(
+                        hotkeyKey: result.key,
+                        hotkeyKeyDisplay: result.displayKey,
+                        hotkeyModifiers: result.modifiers,
+                      ),
+                    );
+              },
+            ),
           ),
           // `xxs`, not `sm`: the row underneath is a real `SettingRow` now
           // (see below) and brings 12 px of its own top padding, so the
@@ -209,8 +221,14 @@ class TriggerStep extends ConsumerWidget {
         // adding a third line there would contradict it before it's resolved.
         if (status != HotkeyRegistrationStatus.conflict) ...[
           const SizedBox(height: WpSpacing.lg),
-          _SystemWideHotkeyNotice(
-            message: l10n.onboardingTriggerSystemWideHint,
+          // Start-inset: the icon leads this line, and it sat at the bare
+          // frame edge while every text block around it starts on the shared
+          // `kSettingRowInset` reading edge.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: _SystemWideHotkeyNotice(
+              message: l10n.onboardingTriggerSystemWideHint,
+            ),
           ),
         ],
       ],

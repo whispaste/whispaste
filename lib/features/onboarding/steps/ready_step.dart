@@ -81,23 +81,32 @@ class ReadyStep extends ConsumerWidget {
         // page, which is cheaper than new deep-link navigation for a branch
         // this rare.
         if (hasConflict) ...[
-          Text(
-            l10n.onboardingTriggerHotkeyConflictTitle,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              fontWeight: FontWeight.w600,
-              color: WpColors.error,
+          // Start-inset like the section label above and the instruction rows
+          // below — these two lines used to start at the bare column edge,
+          // 12 px left of everything else in the column.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingTriggerHotkeyConflictTitle,
+              textAlign: TextAlign.start,
+              style: const TextStyle(
+                fontSize: WpTypography.small,
+                fontWeight: FontWeight.w600,
+                color: WpColors.error,
+              ),
             ),
           ),
           const SizedBox(height: WpSpacing.xs),
-          Text(
-            l10n.onboardingReadyHotkeyConflictBody,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              height: 1.35,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingReadyHotkeyConflictBody,
+              textAlign: TextAlign.start,
+              style: const TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                height: 1.35,
+              ),
             ),
           ),
           const SizedBox(height: WpSpacing.lg),
