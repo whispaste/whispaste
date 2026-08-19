@@ -25,6 +25,7 @@ import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -218,6 +219,43 @@ void main() {
       expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
       expect(find.byKey(kModelStepEngineWhisperCardKey), findsOneWidget);
     });
+
+    testWidgets(
+      'the download status sits under whichever engine card is selected — '
+      'it used to render on the left half regardless, so with Whisper '
+      '(the right card) selected it visibly belonged to the wrong card',
+      (tester) async {
+        await _pumpStep(tester, gpu: _appleM2, frameWidth: 720);
+
+        final ctaFinder = find.textContaining(
+          l10n.qualityTierDownloadAndContinue,
+        );
+        final parakeetLeft = tester
+            .getTopLeft(find.byKey(kModelStepEngineParakeetCardKey))
+            .dx;
+        final whisperLeft = tester
+            .getTopLeft(find.byKey(kModelStepEngineWhisperCardKey))
+            .dx;
+
+        // English dictation on this hardware recommends Parakeet, so the
+        // CTA starts on the Parakeet card's own start edge. The button box
+        // is the Expanded half itself, so the *button* edge (the text sits
+        // inside its padding) has to match the card edge — compare via the
+        // WpButton ancestor.
+        Offset ctaButtonTopLeft() => tester.getTopLeft(
+          find.ancestor(of: ctaFinder, matching: find.byType(WpButton)).first,
+        );
+        expect(ctaButtonTopLeft().dx, moreOrLessEquals(parakeetLeft));
+
+        await tester.tap(find.byKey(kModelStepEngineWhisperCardKey));
+        await tester.pumpAndSettle();
+        expect(ctaButtonTopLeft().dx, moreOrLessEquals(whisperLeft));
+
+        await tester.tap(find.byKey(kModelStepEngineParakeetCardKey));
+        await tester.pumpAndSettle();
+        expect(ctaButtonTopLeft().dx, moreOrLessEquals(parakeetLeft));
+      },
+    );
 
     testWidgets(
       'the recommended card shows its engine name in full at the real page '

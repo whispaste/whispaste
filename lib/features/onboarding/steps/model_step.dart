@@ -348,45 +348,56 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           // choice reads as two equal alternatives, not a ranked list.
           // IntrinsicHeight + stretch keeps both cards the same height even
           // when one description wraps to more lines than the other.
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
-                  child: _EngineCard(
-                    key: kModelStepEngineParakeetCardKey,
-                    icon: LucideIcons.zap,
-                    label: l10n.onboardingModelEngineParakeetLabel,
-                    description: l10n.onboardingModelEngineParakeetDesc,
-                    sizeLabel: parakeetModelSizeLabel,
-                    isRecommended:
-                        _recommendation?.engine == OnDeviceEngine.parakeet,
-                    isSelected: _selectedEngine == OnDeviceEngine.parakeet,
-                    isDisabled: !_parakeetEligible,
-                    disabledReason:
-                        l10n.onboardingModelEngineUnsupportedLanguage,
-                    onTap: () => _selectEngine(OnDeviceEngine.parakeet),
+          //
+          // Start-inset like the heading above and the footnote below: every
+          // text block on this page starts `kSettingRowInset` into the frame
+          // (the shared reading edge headings and frameless settings rows sit
+          // on), and the cards used to start at the bare frame edge — 12 px
+          // left of everything else, which read as the cards overhanging the
+          // page. The same inset wraps the fallback notice and the download
+          // status below so all three keep sharing the cards' half-widths.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
+                    child: _EngineCard(
+                      key: kModelStepEngineParakeetCardKey,
+                      icon: LucideIcons.zap,
+                      label: l10n.onboardingModelEngineParakeetLabel,
+                      description: l10n.onboardingModelEngineParakeetDesc,
+                      sizeLabel: parakeetModelSizeLabel,
+                      isRecommended:
+                          _recommendation?.engine == OnDeviceEngine.parakeet,
+                      isSelected: _selectedEngine == OnDeviceEngine.parakeet,
+                      isDisabled: !_parakeetEligible,
+                      disabledReason:
+                          l10n.onboardingModelEngineUnsupportedLanguage,
+                      onTap: () => _selectEngine(OnDeviceEngine.parakeet),
+                    ),
                   ),
-                ),
-                const SizedBox(width: WpSpacing.lg),
-                Expanded(
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
-                  child: _EngineCard(
-                    key: kModelStepEngineWhisperCardKey,
-                    icon: LucideIcons.globe,
-                    label: l10n.onboardingModelEngineWhisperLabel,
-                    description: l10n.onboardingModelEngineWhisperDesc,
-                    sizeLabel: whisperModel.sizeLabel,
-                    isRecommended:
-                        _recommendation?.engine == OnDeviceEngine.whisper,
-                    isSelected: _selectedEngine == OnDeviceEngine.whisper,
-                    isDisabled: false,
-                    disabledReason: null,
-                    onTap: () => _selectEngine(OnDeviceEngine.whisper),
+                  const SizedBox(width: WpSpacing.lg),
+                  Expanded(
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
+                    child: _EngineCard(
+                      key: kModelStepEngineWhisperCardKey,
+                      icon: LucideIcons.globe,
+                      label: l10n.onboardingModelEngineWhisperLabel,
+                      description: l10n.onboardingModelEngineWhisperDesc,
+                      sizeLabel: whisperModel.sizeLabel,
+                      isRecommended:
+                          _recommendation?.engine == OnDeviceEngine.whisper,
+                      isSelected: _selectedEngine == OnDeviceEngine.whisper,
+                      isDisabled: false,
+                      disabledReason: null,
+                      onTap: () => _selectEngine(OnDeviceEngine.whisper),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -399,17 +410,25 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           // to say which engine it belongs to.
           if (_gpu?.vendor == hw.GpuVendor.none) ...[
             const SizedBox(height: WpSpacing.xs),
-            Row(
-              children: [
-                const Expanded(child: SizedBox.shrink()),
-                const SizedBox(width: WpSpacing.md),
-                Expanded(
-                  child: _GpuCpuFallbackNotice(
-                    key: kModelStepGpuCpuFallbackKey,
-                    message: l10n.onboardingModelGpuCpuFallback,
+            // Same start inset and same `lg` gutter as the cards row above —
+            // the gutter used to be `md`, which put this notice 4 px left of
+            // the Whisper card's own start edge it claims to sit on.
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: kSettingRowInset,
+              ),
+              child: Row(
+                children: [
+                  const Expanded(child: SizedBox.shrink()),
+                  const SizedBox(width: WpSpacing.lg),
+                  Expanded(
+                    child: _GpuCpuFallbackNotice(
+                      key: kModelStepGpuCpuFallbackKey,
+                      message: l10n.onboardingModelGpuCpuFallback,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
 
@@ -419,17 +438,45 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           // block, not between it and the choice it belongs to (M2).
           const SizedBox(height: WpSpacing.xs),
 
-          _ModelStepDownloadStatus(
-            phase: selectedPhase,
-            progressPercent: progressPercent,
-            errorMessage: errorMessage,
-            isDownloading: isDownloading,
-            isError: isError,
-            isDone: isDone,
-            accent: accent,
-            sizeLabel: selectedSizeLabel,
-            l10n: l10n,
-            onStartDownload: _startDownload,
+          // Download status on the *selected* card's half, not the row's full
+          // width and not always the left half: the status (CTA, progress,
+          // error, "Model ready") is about the engine the user just picked,
+          // and it used to render left-aligned even with Whisper — the right
+          // card — selected, visibly belonging to the wrong card. Same
+          // spacer-Row geometry as [_GpuCpuFallbackNotice] above (same start
+          // inset, same `lg` gutter), so the status shares its card's exact
+          // start edge. With no engine selected yet the status renders a
+          // disabled-looking empty CTA on the left half, which is where the
+          // recommended card (Parakeet) sits — acceptable for a state the
+          // hydration logic leaves within one frame.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Row(
+              children: [
+                if (_selectedEngine == OnDeviceEngine.whisper) ...[
+                  const Expanded(child: SizedBox.shrink()),
+                  const SizedBox(width: WpSpacing.lg),
+                ],
+                Expanded(
+                  child: _ModelStepDownloadStatus(
+                    phase: selectedPhase,
+                    progressPercent: progressPercent,
+                    errorMessage: errorMessage,
+                    isDownloading: isDownloading,
+                    isError: isError,
+                    isDone: isDone,
+                    accent: accent,
+                    sizeLabel: selectedSizeLabel,
+                    l10n: l10n,
+                    onStartDownload: _startDownload,
+                  ),
+                ),
+                if (_selectedEngine != OnDeviceEngine.whisper) ...[
+                  const SizedBox(width: WpSpacing.lg),
+                  const Expanded(child: SizedBox.shrink()),
+                ],
+              ],
+            ),
           ),
         ],
 
@@ -531,7 +578,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       // mic-permission chip and the Auto-Paste status card (Ticket 04) — not
       // tappable, so no InkWell, just the material.
       return Align(
-        alignment: Alignment.centerLeft,
+        alignment: AlignmentDirectional.centerStart,
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.md,
@@ -569,12 +616,13 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         ),
       );
     }
-    // Half the row, not all of it (M6). At `double.infinity` this was 720 px
-    // wide — twice the width of the card whose model it downloads, and the
-    // widest button anywhere in the flow, including the shell's own Next.
+    // One card's width, not the row's (M6). At `double.infinity` this was
+    // 720 px wide — twice the width of the card whose model it downloads, and
+    // the widest button anywhere in the flow, including the shell's own Next.
     // A CTA that out-measures the thing it acts on stops reading as that
-    // thing's action. One card's width is the honest size, and it lines the
-    // button up with the leading card's edge rather than with nothing.
+    // thing's action. The halving itself moved up into [ModelStep]'s build
+    // (the spacer Row that sides every download-status state with the
+    // *selected* card), so here the CTA simply fills the half it is given.
     // A `primary` WpButton, not the gradient WpHeroButton it used to be
     // (Ticket 15, *The One-Loud-Action Rule*). The shell's Next button is a
     // hero wearing the identical `accentWarmGradient` and sits directly below
@@ -582,22 +630,17 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     // to do here", which is the same as none. Rank now reads off the
     // components: gradient hero for the flow CTA in the chrome, filled accent
     // button for the page's own action.
-    return Row(
-      children: [
-        Expanded(
-          child: WpButton(
-            label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
-            variant: WpButtonVariant.primary,
-            onPressed: onStartDownload,
-            // Full-height CTA: the shortened padding here was paid for by the
-            // merged Model & Hotkey page, which no longer exists — the model
-            // page has ~150 px of spare height now, so the loud action of the
-            // page has no reason to sit below the 48-px touch-target floor.
-          ),
-        ),
-        const SizedBox(width: WpSpacing.md),
-        const Expanded(child: SizedBox.shrink()),
-      ],
+    return SizedBox(
+      width: double.infinity,
+      child: WpButton(
+        label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
+        variant: WpButtonVariant.primary,
+        onPressed: onStartDownload,
+        // Full-height CTA: the shortened padding here was paid for by the
+        // merged Model & Hotkey page, which no longer exists — the model
+        // page has ~150 px of spare height now, so the loud action of the
+        // page has no reason to sit below the 48-px touch-target floor.
+      ),
     );
   }
 }
