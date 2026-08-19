@@ -1,0 +1,374 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+/**
+ * ProofShowcase — three REAL screen recordings of the app at work.
+ *
+ * Job of this section (distinct from its neighbours): `AppPasteDemo` is the
+ * one synthetic storyboard that EXPLAINS the hotkey→speak→text mechanic;
+ * this section PROVES it with actual captures of the real app on a real
+ * desktop. It must never grow into a second explanation of the mechanic.
+ *
+ * Interaction mirrors the in-app onboarding reference
+ * (`lib/features/onboarding/steps/welcome_step.dart`, `_BeatShowcase`): a
+ * start-aligned list of title+caption tiles beside ONE large media stage
+ * that cross-fades between the three clips. Only the active beat's loop is
+ * ever loaded/rendered (the loops are ~130–240 KB each; loading all three
+ * up front would tax LCP for nothing). Beats 2/3 hydrate their <picture>
+ * lazily on first activation.
+ *
+ * Reduced motion is honoured the same way the app does it: animated WebP
+ * cannot be paused, so a `(prefers-reduced-motion: reduce)` <source> swaps
+ * in the genuinely static `_still_` file instead of the loop — handled
+ * natively by the browser, including runtime preference changes.
+ *
+ * The clips are dark-only (the app has no light theme). Like the MacBook
+ * chrome in `AppScreenshots`, the stage frames them in a theme-independent
+ * dark bezel so they read as "a screen" on both site themes.
+ */
+const beats = [1, 2, 3].map((n) => ({
+  loop: `/captures/beat_${n}_loop_dark.webp`,
+  still: `/captures/beat_${n}_still_dark.webp`,
+  titleKey: `proof.beat${n}.title`,
+  captionKey: `proof.beat${n}.caption`,
+}));
+
+// Alt texts follow the AppScreenshots data-alt pattern (synced on <html lang>
+// change by this component's own script) — `applyLang()` has no alt handler.
+const alts = [
+  {
+    en: 'Screen recording: a spoken sentence is transcribed and pasted into an empty text editor',
+    de: 'Bildschirmaufnahme: Ein gesprochener Satz wird transkribiert und in einen leeren Editor eingefügt',
+  },
+  {
+    en: 'Screen recording: the On device badge on a transcript in the WhisPaste history',
+    de: 'Bildschirmaufnahme: das On-device-Badge an einem Transkript im WhisPaste-Verlauf',
+  },
+  {
+    en: 'Screen recording: spoken words land in the address bar of a browser',
+    de: 'Bildschirmaufnahme: Gesprochene Wörter landen in der Adressleiste eines Browsers',
+  },
+];
+---
+
+<section id="proof" class="band band-deep relative py-20 sm:py-28 scroll-mt-20">
+  <div class="relative max-w-6xl mx-auto px-6">
+    <div class="max-w-2xl mx-auto text-center mb-12 scroll-reveal">
+      <SectionEyebrow key="proof.label" />
+      <h2 class="section-title headline-serif">
+        <span data-i18n="proof.titleLead">{t(lang, 'proof.titleLead')}</span><span
+          class="text-gradient-brand"
+          data-i18n="proof.titleAccent"
+        >{t(lang, 'proof.titleAccent')}</span><span data-i18n="proof.titleTail">{t(lang, 'proof.titleTail')}</span>
+      </h2>
+      <p class="mt-4 text-ink-muted text-lg" data-i18n="proof.subtitle">
+        {t(lang, 'proof.subtitle')}
+      </p>
+    </div>
+
+    <div class="proof-grid scroll-reveal">
+      {/* ONE media stage — only the active beat's clip is loaded/visible. */}
+      <figure class="proof-stage wp-clip-reveal" id="proof-stage">
+        <div class="proof-frame">
+          {beats.map((beat, i) => (
+            <picture class:list={['proof-media', { 'is-active': i === 0 }]}>
+              {/* Reduced motion loads the genuinely static still — animated
+                  WebP has no pause control (same rule as in the app). */}
+              {i === 0 ? (
+                <source
+                  media="(prefers-reduced-motion: reduce)"
+                  srcset={beat.still}
+                  type="image/webp"
+                />
+              ) : (
+                <source
+                  media="(prefers-reduced-motion: reduce)"
+                  data-srcset={beat.still}
+                  type="image/webp"
+                />
+              )}
+              <img
+                src={i === 0 ? beat.loop : undefined}
+                data-src={i === 0 ? undefined : beat.loop}
+                alt={alts[i][lang]}
+                data-alt-en={alts[i].en}
+                data-alt-de={alts[i].de}
+                width="920"
+                height="566"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+          ))}
+        </div>
+        <figcaption class="proof-chip">
+          <span class="proof-rec" aria-hidden="true"></span>
+          <span data-i18n="proof.chip">{t(lang, 'proof.chip')}</span>
+        </figcaption>
+      </figure>
+
+      {/* Beat tiles — all three titles/captions always in the DOM, inactive
+          ones only visually de-emphasised (mirrors the app's a11y contract). */}
+      <div
+        class="proof-tiles"
+        role="group"
+        aria-label={t(lang, 'proof.tilesAria')}
+        data-i18n-aria="proof.tilesAria"
+      >
+        {beats.map((beat, i) => (
+          <button
+            type="button"
+            class="proof-tile"
+            aria-pressed={i === 0 ? 'true' : 'false'}
+            aria-controls="proof-stage"
+          >
+            <span class="proof-tile-title" data-i18n={beat.titleKey}>{t(lang, beat.titleKey)}</span>
+            <span class="proof-tile-caption" data-i18n={beat.captionKey}>{t(lang, beat.captionKey)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .proof-grid {
+    display: grid;
+    gap: 2rem;
+    align-items: center;
+    max-width: 64rem;
+    margin: 0 auto;
+  }
+  @media (min-width: 1024px) {
+    .proof-grid {
+      /* Media : text = 5 : 4, the app reference's deliberate asymmetry — the
+         stage is the subject, the tiles are its index. */
+      grid-template-columns: 4fr 5fr;
+      gap: 3rem;
+    }
+    .proof-stage {
+      order: 2;
+    }
+  }
+
+  /* ---- Stage: theme-independent dark bezel around dark-only captures ---- */
+  .proof-stage {
+    position: relative;
+    margin: 0;
+    /* End radius past the soft shadow, like the AppScreenshots teaser cards —
+       the persistent clip-path would otherwise shave the glow. */
+    --wp-clip-end: 140%;
+  }
+  .proof-frame {
+    position: relative;
+    aspect-ratio: 920 / 566;
+    overflow: hidden;
+    border-radius: 14px;
+    /* Fixed dark chrome — independent of the site theme, the same move as
+       the MacBook frame in AppScreenshots. */
+    background: #05070d;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 28px 70px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(56, 217, 240, 0.08);
+  }
+  html.light .proof-frame {
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow:
+      0 18px 48px rgba(15, 23, 42, 0.16),
+      0 0 0 1px rgba(8, 145, 178, 0.08);
+  }
+
+  .proof-media {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.45s var(--ease-flow),
+      visibility 0s linear 0.45s;
+  }
+  .proof-media.is-active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.45s var(--ease-flow);
+  }
+  .proof-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ---- "Screen recording" chip — authenticity marker over the capture ---- */
+  .proof-chip {
+    position: absolute;
+    top: 0.75rem;
+    inset-inline-start: 0.75rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(5, 8, 14, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  .proof-rec {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #f8615c;
+    animation: proof-rec-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes proof-rec-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  /* ---- Beat tiles ---- */
+  .proof-tiles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .proof-tile {
+    display: block;
+    width: 100%;
+    text-align: start;
+    padding: 0.85rem 1rem;
+    border: none;
+    border-radius: 14px;
+    background: transparent;
+    cursor: pointer;
+    transition:
+      background-color 0.3s var(--ease-flow),
+      color 0.3s var(--ease-flow);
+  }
+  .proof-tile:hover {
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  }
+  .proof-tile[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  }
+  .proof-tile:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+  html.light .proof-tile:focus-visible {
+    outline-color: #0891b2;
+  }
+  .proof-tile-title {
+    display: block;
+    font-weight: 700;
+    font-size: 1.05rem;
+    line-height: 1.3;
+    color: var(--color-ink-muted);
+    transition: color 0.3s var(--ease-flow);
+  }
+  .proof-tile[aria-pressed='true'] .proof-tile-title {
+    color: var(--color-ink);
+  }
+  .proof-tile-caption {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--color-ink-subtle);
+    transition: color 0.3s var(--ease-flow);
+  }
+  .proof-tile[aria-pressed='true'] .proof-tile-caption {
+    color: var(--color-ink-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .proof-media,
+    .proof-media.is-active {
+      transition: none;
+    }
+    .proof-rec {
+      animation: none;
+    }
+    .proof-tile,
+    .proof-tile-title,
+    .proof-tile-caption {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const root = document.getElementById('proof');
+  if (root) {
+    const tiles = Array.from(root.querySelectorAll<HTMLButtonElement>('.proof-tile'));
+    const medias = Array.from(root.querySelectorAll<HTMLElement>('.proof-media'));
+    let active = 0;
+
+    // First activation of beats 2/3 moves data-src/data-srcset into the live
+    // attributes — nothing beyond the first clip is fetched before the user
+    // asks for it.
+    const hydrate = (media: HTMLElement): HTMLImageElement | null => {
+      const source = media.querySelector('source');
+      const img = media.querySelector('img');
+      if (source?.dataset.srcset) {
+        source.srcset = source.dataset.srcset;
+        delete source.dataset.srcset;
+      }
+      if (img?.dataset.src) {
+        img.src = img.dataset.src;
+        delete img.dataset.src;
+      }
+      return img;
+    };
+
+    const activate = async (index: number) => {
+      if (index === active) return;
+      active = index;
+      const img = hydrate(medias[index]);
+      // Cross-fade only once the incoming clip can paint — otherwise the
+      // stage would fade to an empty surface while the file downloads.
+      if (img) {
+        try {
+          await img.decode();
+        } catch {
+          /* decode unsupported/failed — swap anyway */
+        }
+      }
+      if (active !== index) return; // superseded by a faster click
+      medias.forEach((m, i) => m.classList.toggle('is-active', i === index));
+      tiles.forEach((t, i) =>
+        t.setAttribute('aria-pressed', i === index ? 'true' : 'false'),
+      );
+    };
+
+    tiles.forEach((tile, index) => {
+      tile.addEventListener('click', () => void activate(index));
+    });
+
+    // Keep the alt texts in the visitor's language (same pattern as
+    // AppScreenshots — applyLang() has no data-alt handler).
+    const syncAlts = () => {
+      const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
+      root.querySelectorAll<HTMLImageElement>('img[data-alt-en]').forEach((img) => {
+        const alt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
+        if (alt) img.setAttribute('alt', alt);
+      });
+    };
+    syncAlts();
+    new MutationObserver(syncAlts).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['lang'],
+    });
+  }
+</script>
