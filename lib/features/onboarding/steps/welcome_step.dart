@@ -798,9 +798,18 @@ class _BeatMediaPlaceholder extends StatelessWidget {
             index: index,
             still: MediaQuery.of(context).disableAnimations,
           ),
-          // The clip is recorded to the panel's exact aspect ratio (see
-          // [onboardingBeatAssetPath]); `cover` keeps a slightly-off crop
-          // filling the surface instead of letterboxing it against the fill.
+          // Explicit width/height, not just `fit`: this sits inside
+          // AnimatedSwitcher's default Stack layout, which hands its child
+          // *loose* constraints. Without a forced size, `Image` falls back to
+          // its own intrinsic aspect ratio and can render shorter than
+          // [kOnboardingBeatMediaHeight] whenever a delivered clip's aspect
+          // ratio drifts even slightly off the panel's 460:288 — exactly what
+          // happened when a beat_1 re-render landed at 920×566 (1.625) against
+          // the panel's 1.597 and silently shrank the media panel by 5 px.
+          // `cover` still does the cropping; this just makes the box itself
+          // immune to the source aspect ratio.
+          width: double.infinity,
+          height: double.infinity,
           fit: BoxFit.cover,
           excludeFromSemantics: true,
           errorBuilder: (context, error, stackTrace) => placeholder,
