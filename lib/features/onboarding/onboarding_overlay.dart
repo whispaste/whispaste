@@ -85,6 +85,24 @@ const kOnboardingRevisionExitButtonKey = Key('onboardingRevisionExitButton');
 /// here.
 const double _kOnboardingTopBarHeight = 32;
 
+/// Distance from the window edges to the exit *glyph* — the visible X — on
+/// both axes.
+///
+/// One number for top and side on purpose: inside the old top strip the
+/// glyph sat 6 px from the top edge (centred in the 32-px band) but 18 px
+/// from the side (the strip's 12-px padding plus the button's own 6), which
+/// on the frameless Windows/Linux window read as the X hugging the top edge
+/// while floating off the corner. The exit controls float in their own
+/// corner layer now (see `_buildExitControls`) precisely so this inset can
+/// be symmetric without growing the strip or shifting the page below it.
+const double _kOnboardingExitGlyphInset = WpSpacing.sm;
+
+/// Where the exit button's *box* is positioned so its glyph lands on
+/// [_kOnboardingExitGlyphInset]: the 32-px hit box extends
+/// `(32 − WpIconSize.md) / 2 = 6 px` beyond the glyph on every side.
+const double _kOnboardingExitBoxInset =
+    _kOnboardingExitGlyphInset - (_kOnboardingTopBarHeight - WpIconSize.md) / 2;
+
 /// Air under the step counter, i.e. between the last thing on screen and the
 /// window's bottom edge — the counterpart to the empty top bar above the
 /// header.
@@ -750,125 +768,123 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     };
   }
 
-  /// The top bar: the close (X), and a drag handle wherever it is empty.
+  /// The top strip: a pure drag handle with a fixed height.
   ///
-  /// The window runs with `TitleBarStyle.hidden`, which means two
-  /// different things per platform: macOS keeps the native traffic
-  /// lights in exactly this corner (only the bar's chrome is gone),
-  /// while Windows/Linux get a fully frameless window with no
-  /// native close control at all. So the custom X is the *only*
-  /// close affordance there and would be a second, overlapping one
-  /// on macOS. The bar itself is unconditional and keeps its fixed
-  /// height either way — it is still the drag handle, and nothing
-  /// below it may shift.
-  ///
-  /// A review breaks that platform split, and renders the X on
-  /// macOS too: there it does not close the *window* but leaves
-  /// the review, which is a different action than the traffic
-  /// lights offer and therefore not a duplicate of them. It is
-  /// also the mode's required visible exit — the first run has
-  /// none on purpose, because there closing means quitting.
-  ///
-  /// Extracted from [build] rather than inlined: with three modes deciding
-  /// what the strip holds, it was the block that pushed the build method
-  /// past loam's complexity gate.
-  Widget _buildTopBar(L10n l10n, Color textMuted) {
-    // One condition, read twice: the X and the gap that precedes it. Held
-    // apart they drifted — the gap hung off `revisionRun` alone and stayed
-    // behind as the row's last child on macOS, where the X is not drawn,
-    // leaving the revision run's exit button 4 px short of the right edge
-    // the review's X sits flush against.
-    final showExitIcon =
-        widget.manualReview || defaultTargetPlatform != TargetPlatform.macOS;
+  /// The window runs with `TitleBarStyle.hidden`, so this strip is what
+  /// stands in for the title bar as the window's drag area. It is
+  /// unconditional and keeps its fixed height in every mode — nothing below
+  /// it may shift. The exit controls that used to live inside it (the
+  /// close/leave X and the revision run's labelled exit) float in
+  /// [_buildExitControls]'s corner layer now; see that method for the
+  /// per-platform and per-mode rules of when an exit is drawn at all.
+  Widget _buildTopBar() {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onPanStart: (_) => windowManager.startDragging(),
-      child: Padding(
-        // Horizontal only. The strip's own vertical padding used to
-        // add 16 px to a band that is empty on macOS and carries a
-        // single 32-px icon button elsewhere, which is what pushed
-        // every page's header 68 px down the window — see
-        // [_kOnboardingBottomGap].
-        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-        child: SizedBox(
-          // Tight, not a floor: the X is an [IconButton], whose
-          // Material tap-target padding reports 48 px unless a
-          // tight height clamps it — relaxing this to a minHeight
-          // pushes every page's header 16 px down the window, which
-          // the welcome screenshot golden catches immediately. The
-          // revision run's exit button is `dense` (32 px) for
-          // exactly this reason: it is the one labelled control
-          // that fits the strip as it stands.
-          height: _kOnboardingTopBarHeight,
-          child: Row(
-            // A review's exit sits at the physical right on every
-            // platform and in every locale. The physical left is
-            // where macOS draws the native traffic lights under
-            // TitleBarStyle.hidden — they do not move for Hebrew —
-            // and a review is the one mode that carries an X on
-            // macOS too, so a *logical* placement would land on top
-            // of them in RTL. The revision run's exit rides along
-            // for exactly the same reason: it, too, is drawn on
-            // macOS. Only the first run keeps the ambient
-            // direction, its X being drawn only where the whole
-            // title bar is gone and that corner is free.
-            textDirection: widget.manualReview || widget.revisionRun
-                ? TextDirection.ltr
-                : null,
-            children: [
-              if (widget.manualReview || widget.revisionRun) const Spacer(),
-              // The revision run's named exit, on every step of the
-              // flow. A ghost button in the neutral tone: visible
-              // and reachable, but never competing with the accent
-              // "Next" — leaving is the rarer intent, and the
-              // gradient hero button below stays the one obvious
-              // way forward.
-              if (widget.revisionRun) ...[
-                WpButton(
-                  key: kOnboardingRevisionExitButtonKey,
-                  label: l10n.onboardingRevisionExit,
-                  variant: WpButtonVariant.ghost,
-                  tone: WpButtonTone.neutral,
-                  size: WpButtonSize.dense,
-                  icon: LucideIcons.logOut,
-                  onPressed: _exitRevisionRun,
-                ),
-                // Only a separator, never a trailing margin: it exists to
-                // keep the labelled exit off the X, so it is drawn under
-                // exactly the condition the X is.
-                if (showExitIcon) const SizedBox(width: WpSpacing.xxs),
-              ],
-              if (showExitIcon)
-                IconButton(
-                  key: kOnboardingReviewExitButtonKey,
-                  onPressed: widget.manualReview
-                      ? _exitManualReview
-                      : () => windowManager.close(),
-                  icon: Icon(
-                    LucideIcons.x,
-                    // `md`, the floor DESIGN.md sets for an
-                    // interactive icon; 18 was off the scale in
-                    // both directions. The 32-px top bar sets the
-                    // button's own box, so this costs no height.
-                    size: WpIconSize.md,
-                    color: textMuted,
-                  ),
-                  tooltip: widget.manualReview
-                      ? l10n.onboardingReviewExit
-                      : MaterialLocalizations.of(context).closeButtonTooltip,
-                  splashRadius: 16,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: _kOnboardingTopBarHeight,
-                    minHeight: _kOnboardingTopBarHeight,
-                  ),
-                ),
-              if (!widget.manualReview && !widget.revisionRun) const Spacer(),
-            ],
-          ),
-        ),
+      // Tight, not a floor: relaxing this to a minHeight pushes every page's
+      // header down the window, which the welcome screenshot golden catches
+      // immediately. The strip carries no controls any more — the exit
+      // controls float in [_buildExitControls]'s corner layer so their
+      // insets never depend on this strip's geometry — so the strip is a
+      // pure drag handle with the fixed height nothing below may shift for.
+      child: const SizedBox(
+        height: _kOnboardingTopBarHeight,
+        width: double.infinity,
       ),
     );
+  }
+
+  /// The floating exit controls — the revision run's labelled exit and the
+  /// close/leave X — as a corner layer above the page (see the [Stack] in
+  /// [build]).
+  ///
+  /// A layer and not children of the 32-px top strip, for one measured
+  /// reason: inside the strip the X's glyph sat 6 px from the top edge
+  /// (centred in the 32-px band) but 18 px from the side (the strip's 12-px
+  /// padding plus the button's own 6), which on the frameless Windows/Linux
+  /// window read as the X hugging the top while floating off the corner.
+  /// The layer gives the glyph the same [_kOnboardingExitGlyphInset] on both
+  /// axes, and — because it overlays instead of occupying — moves nothing
+  /// below it. The strip keeps its height and stays the drag handle.
+  ///
+  /// Returns `null` when no exit control is drawn (the macOS first run: the
+  /// native traffic lights are the close affordance there and the custom X
+  /// would duplicate them).
+  Widget? _buildExitControls(L10n l10n, Color textMuted) {
+    // One condition, read twice: the X and the gap that precedes it. Held
+    // apart they drifted — the gap hung off `revisionRun` alone and stayed
+    // behind on macOS, where the X is not drawn, leaving the revision run's
+    // exit button 4 px short of where the review's X sits.
+    final showExitIcon =
+        widget.manualReview || defaultTargetPlatform != TargetPlatform.macOS;
+    if (!showExitIcon && !widget.revisionRun) return null;
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The revision run's named exit, on every step of the flow. A ghost
+        // button in the neutral tone: visible and reachable, but never
+        // competing with the accent "Next" — leaving is the rarer intent,
+        // and the gradient hero button below stays the one obvious way
+        // forward.
+        if (widget.revisionRun) ...[
+          WpButton(
+            key: kOnboardingRevisionExitButtonKey,
+            label: l10n.onboardingRevisionExit,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            size: WpButtonSize.dense,
+            icon: LucideIcons.logOut,
+            onPressed: _exitRevisionRun,
+          ),
+          // Only a separator, never a trailing margin: it exists to keep the
+          // labelled exit off the X, so it is drawn under exactly the
+          // condition the X is.
+          if (showExitIcon) const SizedBox(width: WpSpacing.xxs),
+        ],
+        if (showExitIcon)
+          IconButton(
+            key: kOnboardingReviewExitButtonKey,
+            onPressed: widget.manualReview
+                ? _exitManualReview
+                : () => windowManager.close(),
+            icon: Icon(
+              LucideIcons.x,
+              // `md`, the floor DESIGN.md sets for an interactive icon; 18
+              // was off the scale in both directions. The 32-px constraints
+              // below set the button's own box.
+              size: WpIconSize.md,
+              color: textMuted,
+            ),
+            tooltip: widget.manualReview
+                ? l10n.onboardingReviewExit
+                : MaterialLocalizations.of(context).closeButtonTooltip,
+            splashRadius: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: _kOnboardingTopBarHeight,
+              minHeight: _kOnboardingTopBarHeight,
+            ),
+          ),
+      ],
+    );
+    // A review's (and revision run's) exit sits at the physical right on
+    // every platform and in every locale. The physical left is where macOS
+    // draws the native traffic lights under TitleBarStyle.hidden — they do
+    // not move for Hebrew — and those two modes carry the exit on macOS too,
+    // so a *logical* placement would land on top of them in RTL. Only the
+    // first run keeps the ambient direction, its X being drawn only where
+    // the whole title bar is gone and that leading corner is free.
+    return widget.manualReview || widget.revisionRun
+        ? Positioned(
+            top: _kOnboardingExitBoxInset,
+            right: _kOnboardingExitBoxInset,
+            child: controls,
+          )
+        : PositionedDirectional(
+            top: _kOnboardingExitBoxInset,
+            start: _kOnboardingExitBoxInset,
+            child: controls,
+          );
   }
 
   // ---------------------------------------------------------------------------
@@ -936,158 +952,170 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           // no blur and no dimmed scrim (and therefore no Windows
           // frameless-window blur fallback either).
           decoration: const BoxDecoration(gradient: WpColors.frameGradient),
-          child: Column(
+          // A Stack, because the exit controls (revision exit + close X) are
+          // a floating corner layer rather than children of the top strip —
+          // the one way their glyph can sit symmetrically in the corner
+          // without growing the 32-px strip or shifting the page below it
+          // (see [_buildExitControls]).
+          child: Stack(
             children: [
-              _buildTopBar(l10n, textMuted),
+              Column(
+                children: [
+                  _buildTopBar(),
 
-              // -- Page content — scrolls when the window shrinks. ----------
-              //
-              // The LayoutBuilder is what lets a page know how much room it
-              // has: inside the scroll view the height is unbounded, so the
-              // measurement has to happen above it and be handed down (see
-              // [OnboardingPageFill]).
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final availableHeight =
-                        constraints.maxHeight - WpSpacing.lg * 2;
-                    // Every page anchors to the top: each one carries its own
-                    // fixed header and centres its body underneath
-                    // ([OnboardingPageBody]), so nothing here needs a
-                    // per-page anchor any more — page 1 used to be centred as
-                    // a whole and that is exactly what pushed its logo below
-                    // the other pages' headings.
-                    //
-                    // The Align itself is load-bearing and not decoration: it
-                    // hands the scroll view *loose* constraints. That is what
-                    // lets the page shrink-wrap (so a window smaller than the
-                    // fixed one actually reports a scroll extent) and what
-                    // lets `frame`'s maxWidth cap bind at all — under the
-                    // tight width it would otherwise receive, the
-                    // ConstrainedBox is enforced away and page 1's 860-px
-                    // frame would silently run the full window width.
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.xl,
-                          vertical: WpSpacing.lg,
-                        ),
-                        child: frame(
-                          child: AnimatedSwitcher(
-                            duration: WpMotion.durationFor(
-                              context,
-                              WpMotion.smooth,
+                  // -- Page content — scrolls when the window shrinks. ----------
+                  //
+                  // The LayoutBuilder is what lets a page know how much room it
+                  // has: inside the scroll view the height is unbounded, so the
+                  // measurement has to happen above it and be handed down (see
+                  // [OnboardingPageFill]).
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final availableHeight =
+                            constraints.maxHeight - WpSpacing.lg * 2;
+                        // Every page anchors to the top: each one carries its own
+                        // fixed header and centres its body underneath
+                        // ([OnboardingPageBody]), so nothing here needs a
+                        // per-page anchor any more — page 1 used to be centred as
+                        // a whole and that is exactly what pushed its logo below
+                        // the other pages' headings.
+                        //
+                        // The Align itself is load-bearing and not decoration: it
+                        // hands the scroll view *loose* constraints. That is what
+                        // lets the page shrink-wrap (so a window smaller than the
+                        // fixed one actually reports a scroll extent) and what
+                        // lets `frame`'s maxWidth cap bind at all — under the
+                        // tight width it would otherwise receive, the
+                        // ConstrainedBox is enforced away and page 1's 860-px
+                        // frame would silently run the full window width.
+                        return Align(
+                          alignment: Alignment.topCenter,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.xl,
+                              vertical: WpSpacing.lg,
                             ),
-                            switchInCurve: WpMotion.smooth_,
-                            switchOutCurve: WpMotion.smooth_,
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: Offset(0.05 * direction, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
+                            child: frame(
+                              child: AnimatedSwitcher(
+                                duration: WpMotion.durationFor(
+                                  context,
+                                  WpMotion.smooth,
                                 ),
-                              );
-                            },
-                            child: KeyedSubtree(
-                              key: ValueKey<OnboardingStepId>(
-                                steps[safeCurrent],
-                              ),
-                              child: _buildStep(
-                                steps[safeCurrent],
-                                availableHeight,
+                                switchInCurve: WpMotion.smooth_,
+                                switchOutCurve: WpMotion.smooth_,
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: Offset(0.05 * direction, 0),
+                                        end: Offset.zero,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: KeyedSubtree(
+                                  key: ValueKey<OnboardingStepId>(
+                                    steps[safeCurrent],
+                                  ),
+                                  child: _buildStep(
+                                    steps[safeCurrent],
+                                    availableHeight,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+                        );
+                      },
+                    ),
+                  ),
 
-              // -- Shell-owned navigation: exactly two actions per page. ----
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-                child: frame(
-                  child: Row(
-                    key: kOnboardingNavRowKey,
-                    children: [
-                      WpButton(
-                        key: kOnboardingBackButtonKey,
-                        label: l10n.onboardingBack,
-                        variant: WpButtonVariant.ghost,
-                        tone: WpButtonTone.neutral,
-                        onPressed: safeCurrent > 0 ? _goBack : null,
+                  // -- Shell-owned navigation: exactly two actions per page. ----
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.xl,
+                    ),
+                    child: frame(
+                      child: Row(
+                        key: kOnboardingNavRowKey,
+                        children: [
+                          WpButton(
+                            key: kOnboardingBackButtonKey,
+                            label: l10n.onboardingBack,
+                            variant: WpButtonVariant.ghost,
+                            tone: WpButtonTone.neutral,
+                            onPressed: safeCurrent > 0 ? _goBack : null,
+                          ),
+                          const Spacer(),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 140),
+                            // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+                            child: WpHeroButton(
+                              key: kOnboardingNextButtonKey,
+                              label: isLastStep
+                                  ? ((widget.manualReview || widget.revisionRun)
+                                        ? l10n.onboardingReviewDone
+                                        : l10n.onboardingStartUsing)
+                                  : l10n.onboardingNext,
+                              gradient: accentGradient,
+                              // The two completion gates guard the *first* run
+                              // from ending in a half-configured app. A review or
+                              // a revision run opens on an app that already
+                              // works, so gating its way out on a fresh test
+                              // recording would only trap a returning user who
+                              // came to look at a page — and would make the
+                              // no-data-loss promise (a full run with zero user
+                              // input must be completable) impossible to keep.
+                              onPressed: isLastStep
+                                  ? ((completionEnabled ||
+                                            widget.manualReview ||
+                                            widget.revisionRun)
+                                        ? _complete
+                                        : null)
+                                  : _goNext,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Spacer(),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 140),
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-                        child: WpHeroButton(
-                          key: kOnboardingNextButtonKey,
-                          label: isLastStep
-                              ? ((widget.manualReview || widget.revisionRun)
-                                    ? l10n.onboardingReviewDone
-                                    : l10n.onboardingStartUsing)
-                              : l10n.onboardingNext,
-                          gradient: accentGradient,
-                          // The two completion gates guard the *first* run
-                          // from ending in a half-configured app. A review or
-                          // a revision run opens on an app that already
-                          // works, so gating its way out on a fresh test
-                          // recording would only trap a returning user who
-                          // came to look at a page — and would make the
-                          // no-data-loss promise (a full run with zero user
-                          // input must be completable) impossible to keep.
-                          onPressed: isLastStep
-                              ? ((completionEnabled ||
-                                        widget.manualReview ||
-                                        widget.revisionRun)
-                                    ? _complete
-                                    : null)
-                              : _goNext,
+                    ),
+                  ),
+
+                  // -- Stepper dots + step counter, on ONE line. ----------------
+                  //
+                  // These two say the same thing: N dots with the current one
+                  // filled, and then "Step N of M" spelled out directly beneath.
+                  // Both earn their place — the dots are the glanceable shape of
+                  // the flow, the counter is the part a screen reader and a
+                  // text-scaled UI can actually read — but stacked they cost two
+                  // lines to say it once, and the second line came out of the
+                  // page above. Side by side they read as one caption and cost
+                  // one line. See `_kOnboardingBottomGap` for why this stack was
+                  // the binding constraint on Try & Go rather than a cosmetic.
+                  const SizedBox(height: WpSpacing.md),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _StepperDots(
+                        currentStep: safeCurrent,
+                        totalSteps: totalSteps,
+                      ),
+                      const SizedBox(width: WpSpacing.sm),
+                      Text(
+                        l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
+                        style: const TextStyle(
+                          fontSize: WpTypography.small,
+                          color: textMuted,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-
-              // -- Stepper dots + step counter, on ONE line. ----------------
-              //
-              // These two say the same thing: N dots with the current one
-              // filled, and then "Step N of M" spelled out directly beneath.
-              // Both earn their place — the dots are the glanceable shape of
-              // the flow, the counter is the part a screen reader and a
-              // text-scaled UI can actually read — but stacked they cost two
-              // lines to say it once, and the second line came out of the
-              // page above. Side by side they read as one caption and cost
-              // one line. See `_kOnboardingBottomGap` for why this stack was
-              // the binding constraint on Try & Go rather than a cosmetic.
-              const SizedBox(height: WpSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _StepperDots(
-                    currentStep: safeCurrent,
-                    totalSteps: totalSteps,
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  Text(
-                    l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
-                    style: const TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textMuted,
-                    ),
-                  ),
+                  const SizedBox(height: _kOnboardingBottomGap),
                 ],
               ),
-              const SizedBox(height: _kOnboardingBottomGap),
+              ?_buildExitControls(l10n, textMuted),
             ],
           ),
         ),
