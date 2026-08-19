@@ -754,34 +754,32 @@ export const i18n: Record<string, Record<string, string>> = {
     'proof.titleAccent': 'straight off the screen',
     'proof.titleTail': '',
     'proof.subtitle':
-      'Not a mockup: screen recordings of WhisPaste doing its job on a real desktop.',
-    'proof.chip': 'Screen recording',
+      'Not a mockup: screen recordings from a real desktop, unedited.',
     'proof.tilesAria': 'Choose which recording to show',
     'proof.beat1.title': 'Speak. It lands.',
     'proof.beat1.caption':
-      'An empty notepad. One hotkey and one spoken sentence later, the text sits at the cursor.',
-    'proof.beat2.title': 'On device means on device',
+      'Empty editor, hotkey pressed, one sentence spoken: the text is at the cursor.',
+    'proof.beat2.title': 'The badge is the proof.',
     'proof.beat2.caption':
-      'The “On device” badge on a transcript means exactly that: transcribed on your machine, and the audio never left it.',
+      'A transcript is marked “On device” when it was processed locally. The audio never left your machine.',
     'proof.beat3.title': 'Any field is a text field',
     'proof.beat3.caption':
-      'The browser’s address bar, the same hotkey: speak, and the words appear in the search field.',
+      'Browser address bar, same hotkey: speak, and the text is there.',
     // TextExpansion — Replacements + Voice Snippets (stored-text features)
     'expand.label': 'Replacements & snippets',
     'expand.titleLead': 'Say the short version, ',
-    'expand.titleAccent': 'the full text lands',
+    'expand.titleAccent': 'the full text comes back',
     'expand.titleTail': '',
     'expand.subtitle':
       'Your email address, or the answer you send five times a day: none of that needs to be spoken word for word. Store the text once, and a short phrase brings it back.',
     'expand.repl.name': 'Replacements',
-    'expand.repl.chip': 'App screenshot',
     'expand.repl.mode': 'Automatic, during transcription',
     'expand.repl.body':
-      'Define a trigger phrase and the text it stands for. Say “my email” mid-sentence, and the transcript arrives with the full address already in place. WhisPaste swaps the phrase 1:1 and leaves the rest of your sentence exactly as you spoke it.',
+      'Define a short trigger and the text it stands for. Say “my email” mid-sentence, and the finished transcript already has the full address. Only the trigger gets replaced — the rest of your sentence stays exactly as you spoke it.',
     'expand.snip.name': 'Voice Snippets',
     'expand.snip.mode': 'You pick, in a panel at the cursor',
     'expand.snip.body':
-      'Snippets are longer blocks you keep on file: a support answer, a code template, directions to your office. A spoken trigger word or the snippet hotkey opens a searchable panel right where you write, and one click drops the block into your text. Unlike replacements, nothing happens on its own here; the panel waits for your pick.',
+      'Snippets are longer blocks you keep on file: a support reply, a code template, directions to the office. A spoken cue or the snippet hotkey opens a panel at your cursor; one click drops the block in.',
     'expand.snip.mockAria':
       'Illustration: the snippet picker, a small searchable panel next to the text cursor',
     'expand.snip.mock.search': 'Search snippets…',
@@ -1593,34 +1591,32 @@ export const i18n: Record<string, Record<string, string>> = {
     'proof.titleAccent': 'direkt vom Bildschirm',
     'proof.titleTail': '',
     'proof.subtitle':
-      'Kein Mockup: Bildschirmaufnahmen von WhisPaste bei der Arbeit, auf einem echten Desktop.',
-    'proof.chip': 'Bildschirmaufnahme',
+      'Kein Mockup: Bildschirmaufnahmen von einem echten Desktop, unbearbeitet.',
     'proof.tilesAria': 'Aufnahme zum Anzeigen wählen',
     'proof.beat1.title': 'Sprechen. Es landet.',
     'proof.beat1.caption':
-      'Ein leerer Editor. Einen Hotkey und einen gesprochenen Satz später steht der Text am Cursor.',
-    'proof.beat2.title': 'On device heißt on device',
+      'Leerer Editor, Hotkey gedrückt, ein Satz gesprochen: Der Text steht am Cursor.',
+    'proof.beat2.title': 'Das Badge ist der Beweis.',
     'proof.beat2.caption':
-      'Das „On device“-Badge am Transkript meint genau das: transkribiert auf deinem Rechner, und das Audio hat ihn nie verlassen.',
+      'Am Transkript steht „On device“, wenn die Verarbeitung lokal lief. Das Audio hat deinen Rechner nie verlassen.',
     'proof.beat3.title': 'Jedes Feld ist ein Textfeld',
     'proof.beat3.caption':
-      'Adressleiste im Browser, derselbe Hotkey: sprechen, und die Wörter stehen im Suchfeld.',
+      'Adressleiste im Browser, derselbe Hotkey: Sprechen, und der Text steht da.',
     // TextExpansion — Ersetzungen + Sprach-Snippets (hinterlegte Texte)
     'expand.label': 'Ersetzungen & Snippets',
-    'expand.titleLead': 'Sag die Kurzform, ',
-    'expand.titleAccent': 'eingefügt wird der ganze Text',
+    'expand.titleLead': 'Die Kurzform sagen, ',
+    'expand.titleAccent': 'der ganze Text kommt zurück',
     'expand.titleTail': '',
     'expand.subtitle':
       'Deine Mail-Adresse oder die Antwort, die du fünfmal am Tag schickst: Nichts davon musst du Wort für Wort sprechen. Einmal hinterlegen, und eine kurze Phrase holt den Text zurück.',
     'expand.repl.name': 'Ersetzungen',
-    'expand.repl.chip': 'App-Screenshot',
     'expand.repl.mode': 'Automatisch, während der Transkription',
     'expand.repl.body':
-      'Du legst eine Trigger-Phrase fest und den Text, für den sie steht. Sag mitten im Satz „meine Mail“, und im fertigen Transkript steht schon die ganze Adresse. Ersetzt wird 1:1 nur die Phrase; der Rest bleibt so, wie du ihn gesprochen hast.',
+      'Du legst eine Kurzform fest und den Text, für den sie steht. Sag mitten im Satz „meine Mail“, und im fertigen Transkript steht die ganze Adresse. Ersetzt wird nur die Kurzform, der Rest bleibt genau so, wie du ihn gesprochen hast.',
     'expand.snip.name': 'Sprach-Snippets',
     'expand.snip.mode': 'Du wählst aus, im Panel am Cursor',
     'expand.snip.body':
-      'Snippets sind längere Bausteine, die du dir anlegst: eine Support-Antwort, ein Code-Gerüst, die Wegbeschreibung ins Büro. Ein gesprochenes Trigger-Wort oder der Snippet-Hotkey öffnet ein durchsuchbares Panel direkt dort, wo du schreibst; ein Klick setzt den Baustein in deinen Text. Anders als bei Ersetzungen passiert hier nichts von allein: Das Panel wartet auf deine Wahl.',
+      'Snippets sind längere Bausteine, die du dir anlegst: eine Support-Antwort, ein Code-Gerüst, eine Wegbeschreibung. Ein gesprochenes Stichwort oder der Snippet-Hotkey öffnet ein Panel am Cursor; ein Klick fügt den Baustein ein.',
     'expand.snip.mockAria':
       'Illustration: der Snippet-Picker, ein kleines durchsuchbares Panel neben dem Text-Cursor',
     'expand.snip.mock.search': 'Snippets durchsuchen…',

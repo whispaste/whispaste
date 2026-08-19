@@ -19,13 +19,12 @@ test.describe('TextExpansion', () => {
     await expect(section.locator('article.tx-card')).toHaveCount(2);
 
     // Card 1 carries the REAL app screenshot in the page's locale (the DE
-    // landing page ships the DE capture) plus the authenticity chip.
+    // landing page ships the DE capture).
     const shot = section.locator('img[data-shot-en]');
     await expect(shot).toHaveAttribute(
       'src',
       '/screenshots/de/dark/03_voice_shortcuts.webp',
     );
-    await expect(section.locator('.tx-chip')).toContainText('App-Screenshot');
 
     // Card 2 is the snippet-picker illustration: search field + three rows,
     // no <img> (there is no real capture of the transient picker panel).
