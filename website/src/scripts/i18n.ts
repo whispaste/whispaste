@@ -766,6 +766,28 @@ export const i18n: Record<string, Record<string, string>> = {
     'proof.beat3.title': 'Any field is a text field',
     'proof.beat3.caption':
       'The browser’s address bar, the same hotkey: speak, and the words appear in the search field.',
+    // TextExpansion — Replacements + Voice Snippets (stored-text features)
+    'expand.label': 'Replacements & snippets',
+    'expand.titleLead': 'Say the short version, ',
+    'expand.titleAccent': 'the full text lands',
+    'expand.titleTail': '',
+    'expand.subtitle':
+      'Your email address, or the answer you send five times a day: none of that needs to be spoken word for word. Store the text once, and a short phrase brings it back.',
+    'expand.repl.name': 'Replacements',
+    'expand.repl.chip': 'App screenshot',
+    'expand.repl.mode': 'Automatic, during transcription',
+    'expand.repl.body':
+      'Define a trigger phrase and the text it stands for. Say “my email” mid-sentence, and the transcript arrives with the full address already in place. WhisPaste swaps the phrase 1:1 and leaves the rest of your sentence exactly as you spoke it.',
+    'expand.snip.name': 'Voice Snippets',
+    'expand.snip.mode': 'You pick, in a panel at the cursor',
+    'expand.snip.body':
+      'Snippets are longer blocks you keep on file: a support answer, a code template, directions to your office. A spoken trigger word or the snippet hotkey opens a searchable panel right where you write, and one click drops the block into your text. Unlike replacements, nothing happens on its own here; the panel waits for your pick.',
+    'expand.snip.mockAria':
+      'Illustration: the snippet picker, a small searchable panel next to the text cursor',
+    'expand.snip.mock.search': 'Search snippets…',
+    'expand.snip.mock.item1': 'Support reply',
+    'expand.snip.mock.item2': 'Directions to the office',
+    'expand.snip.mock.item3': 'Invoice footer',
     // UseCaseCards (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'useCaseCards.label': 'For your workflow',
     'useCaseCards.more': 'Learn more',
@@ -1583,6 +1605,28 @@ export const i18n: Record<string, Record<string, string>> = {
     'proof.beat3.title': 'Jedes Feld ist ein Textfeld',
     'proof.beat3.caption':
       'Adressleiste im Browser, derselbe Hotkey: sprechen, und die Wörter stehen im Suchfeld.',
+    // TextExpansion — Ersetzungen + Sprach-Snippets (hinterlegte Texte)
+    'expand.label': 'Ersetzungen & Snippets',
+    'expand.titleLead': 'Sag die Kurzform, ',
+    'expand.titleAccent': 'eingefügt wird der ganze Text',
+    'expand.titleTail': '',
+    'expand.subtitle':
+      'Deine Mail-Adresse oder die Antwort, die du fünfmal am Tag schickst: Nichts davon musst du Wort für Wort sprechen. Einmal hinterlegen, und eine kurze Phrase holt den Text zurück.',
+    'expand.repl.name': 'Ersetzungen',
+    'expand.repl.chip': 'App-Screenshot',
+    'expand.repl.mode': 'Automatisch, während der Transkription',
+    'expand.repl.body':
+      'Du legst eine Trigger-Phrase fest und den Text, für den sie steht. Sag mitten im Satz „meine Mail“, und im fertigen Transkript steht schon die ganze Adresse. Ersetzt wird 1:1 nur die Phrase; der Rest bleibt so, wie du ihn gesprochen hast.',
+    'expand.snip.name': 'Sprach-Snippets',
+    'expand.snip.mode': 'Du wählst aus, im Panel am Cursor',
+    'expand.snip.body':
+      'Snippets sind längere Bausteine, die du dir anlegst: eine Support-Antwort, ein Code-Gerüst, die Wegbeschreibung ins Büro. Ein gesprochenes Trigger-Wort oder der Snippet-Hotkey öffnet ein durchsuchbares Panel direkt dort, wo du schreibst; ein Klick setzt den Baustein in deinen Text. Anders als bei Ersetzungen passiert hier nichts von allein: Das Panel wartet auf deine Wahl.',
+    'expand.snip.mockAria':
+      'Illustration: der Snippet-Picker, ein kleines durchsuchbares Panel neben dem Text-Cursor',
+    'expand.snip.mock.search': 'Snippets durchsuchen…',
+    'expand.snip.mock.item1': 'Support-Antwort',
+    'expand.snip.mock.item2': 'Wegbeschreibung ins Büro',
+    'expand.snip.mock.item3': 'Rechnungs-Fußzeile',
     // UseCaseCards (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'useCaseCards.label': 'Für deinen Workflow',
     'useCaseCards.more': 'Mehr erfahren',
