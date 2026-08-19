@@ -749,6 +749,23 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.scene.reply': 'Yes, 3 pm works for me.',
     'appdemo.scene.inserted': 'inserted at cursor',
     'appdemo.sameEverywhere': 'The same in every app',
+    'proof.label': 'Real recordings',
+    'proof.titleLead': 'Three moments, ',
+    'proof.titleAccent': 'straight off the screen',
+    'proof.titleTail': '',
+    'proof.subtitle':
+      'Not a mockup: screen recordings of WhisPaste doing its job on a real desktop.',
+    'proof.chip': 'Screen recording',
+    'proof.tilesAria': 'Choose which recording to show',
+    'proof.beat1.title': 'Speak. It lands.',
+    'proof.beat1.caption':
+      'An empty notepad. One hotkey and one spoken sentence later, the text sits at the cursor.',
+    'proof.beat2.title': 'On device means on device',
+    'proof.beat2.caption':
+      'The “On device” badge on a transcript means exactly that: transcribed on your machine, and the audio never left it.',
+    'proof.beat3.title': 'Any field is a text field',
+    'proof.beat3.caption':
+      'The browser’s address bar, the same hotkey: speak, and the words appear in the search field.',
     // UseCaseCards (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'useCaseCards.label': 'For your workflow',
     'useCaseCards.more': 'Learn more',
@@ -1549,6 +1566,23 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.scene.reply': 'Ja, 15 Uhr passt gut.',
     'appdemo.scene.inserted': 'am Cursor eingefügt',
     'appdemo.sameEverywhere': 'Dasselbe in jeder App',
+    'proof.label': 'Echte Aufnahmen',
+    'proof.titleLead': 'Drei Momente, ',
+    'proof.titleAccent': 'direkt vom Bildschirm',
+    'proof.titleTail': '',
+    'proof.subtitle':
+      'Kein Mockup: Bildschirmaufnahmen von WhisPaste bei der Arbeit, auf einem echten Desktop.',
+    'proof.chip': 'Bildschirmaufnahme',
+    'proof.tilesAria': 'Aufnahme zum Anzeigen wählen',
+    'proof.beat1.title': 'Sprechen. Es landet.',
+    'proof.beat1.caption':
+      'Ein leerer Editor. Einen Hotkey und einen gesprochenen Satz später steht der Text am Cursor.',
+    'proof.beat2.title': 'On device heißt on device',
+    'proof.beat2.caption':
+      'Das „On device“-Badge am Transkript meint genau das: transkribiert auf deinem Rechner, und das Audio hat ihn nie verlassen.',
+    'proof.beat3.title': 'Jedes Feld ist ein Textfeld',
+    'proof.beat3.caption':
+      'Adressleiste im Browser, derselbe Hotkey: sprechen, und die Wörter stehen im Suchfeld.',
     // UseCaseCards (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'useCaseCards.label': 'Für deinen Workflow',
     'useCaseCards.more': 'Mehr erfahren',
