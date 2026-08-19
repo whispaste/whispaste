@@ -8,9 +8,12 @@
 /// polls for the capability to flip to [PasteCapabilityStatus.ready] while
 /// the user toggles the setting in System Settings.
 ///
-/// On Windows: Auto-Paste needs no extra permission in the 99% case, so
-/// the step renders a minimal verify-only surface: "Ready to paste" with a
-/// accent checkmark and a one-line explanation. The remaining edge case is
+/// On Windows: Auto-Paste needs no extra permission in the 99% case — but
+/// the factory default after-transcription action is clipboard-only, so the
+/// step is where the feature is actually switched on. It renders the probe
+/// verdict as a status card and a real, reversible choice: with Auto-Paste
+/// off, an enable CTA (persists `clipboard_and_paste`); with it on, the
+/// ghost opt-out back to clipboard-only. The remaining edge case is
 /// UIPI/UAC-protected windows (e.g. Auto-Paste running un-elevated while
 /// the focused target is an elevated process) — there the probe surfaces as
 /// `permissionMissing` and the step shows a non-blocking warn card plus the
@@ -168,6 +171,23 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     }
   }
 
+  /// Windows only: turns Auto-Paste on by persisting the after-transcription
+  /// action. `clipboardAndPaste`, not `paste`: the clipboard keeps a copy of
+  /// every transcript as the fallback for targets the keystroke bridge cannot
+  /// reach (elevated/UIPI-protected windows), which is also what the step's
+  /// caveat line promises.
+  Future<void> _onEnableAutoPastePressed() async {
+    _emitBreadcrumb('enabled');
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(
+            afterTranscription:
+                AfterTranscriptionAction.clipboardAndPaste.value,
+          ),
+        );
+  }
+
   Future<void> _onSkipPressed() async {
     // Capture the grant-handoff bit BEFORE persisting the skip so the
     // breadcrumb describes the state the user actually skipped from.
@@ -224,8 +244,22 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     // user-driven taps the Windows branch never exposes.
     final isWindows = defaultTargetPlatform == TargetPlatform.windows;
     if (isWindows) {
+      // Whether Auto-Paste is actually ON — i.e. the after-transcription
+      // action injects the transcript at the cursor. The factory default is
+      // clipboard-only, so a first run lands here with Auto-Paste *off*;
+      // this page is where the choice is made (see [_WindowsBody]).
+      final settings =
+          ref.watch(settingsProvider).value ?? AppSettings.defaults;
+      final autoPasteEnabled = switch (settings.afterTranscriptionAction) {
+        AfterTranscriptionAction.paste ||
+        AfterTranscriptionAction.clipboardAndPaste => true,
+        AfterTranscriptionAction.clipboard ||
+        AfterTranscriptionAction.nothing => false,
+      };
       return _WindowsBody(
         state: ref.watch(pasteCapabilityNotifierProvider),
+        autoPasteEnabled: autoPasteEnabled,
+        onEnable: _onEnableAutoPastePressed,
         onSkip: _onSkipPressed,
       );
     }
@@ -509,19 +543,29 @@ class _MacOsBody extends StatelessWidget {
         // in the chrome, filled accent button for the page's own action, ghost
         // for the escape hatch. Same split `test_recording_step.dart` already
         // made for exactly this reason.
-        SizedBox(
-          width: double.infinity,
-          child: WpButton(
-            label: l10n.onboardingPasteGrantCta,
-            variant: WpButtonVariant.primary,
-            onPressed: grantInFlight ? null : onGrant,
+        // Start-inset like the card above it — the filled button's box is a
+        // visible object on the shared `kSettingRowInset` reading edge.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: SizedBox(
+            width: double.infinity,
+            child: WpButton(
+              label: l10n.onboardingPasteGrantCta,
+              variant: WpButtonVariant.primary,
+              onPressed: grantInFlight ? null : onGrant,
+            ),
           ),
         ),
       ],
       _AutoPastePhase.troubleshoot => <Widget>[
         if (restartCanRecover) ...[
-          WpPasteCapabilityRestartBanner(
-            onRestart: () => notifier.restartForGrant(),
+          // Start-inset like the status card — the banner is the branch's
+          // status object and shares the same reading edge.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: WpPasteCapabilityRestartBanner(
+              onRestart: () => notifier.restartForGrant(),
+            ),
           ),
           // `sm`, not the page's `md`: these three are one recovery stack —
           // the problem, the fix, and the fallback with its outcome — so they
@@ -532,23 +576,29 @@ class _MacOsBody extends StatelessWidget {
         ],
         // Secondary fallback: reset the entry instead of restarting.
         // Surfaces the existing repair flow without giving it equal weight.
-        WpButton(
-          label: l10n.pasteCapabilityRepairButton,
-          variant: WpButtonVariant.secondary,
-          tone: WpButtonTone.neutral,
-          icon: LucideIcons.wrench,
-          isLoading: repairInFlight,
-          onPressed: onRepair,
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: WpButton(
+            label: l10n.pasteCapabilityRepairButton,
+            variant: WpButtonVariant.secondary,
+            tone: WpButtonTone.neutral,
+            icon: LucideIcons.wrench,
+            isLoading: repairInFlight,
+            onPressed: onRepair,
+          ),
         ),
         if (lastRepairResult != null) ...[
           const SizedBox(height: WpSpacing.sm),
-          _RepairResultBanner(
-            result: lastRepairResult!,
-            errorColor: errorColor,
-            okColor: okColor,
-            textSecondary: textSecondary,
-            l10n: l10n,
-            onRestart: () => notifier.restartForGrant(),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: _RepairResultBanner(
+              result: lastRepairResult!,
+              errorColor: errorColor,
+              okColor: okColor,
+              textSecondary: textSecondary,
+              l10n: l10n,
+              onRestart: () => notifier.restartForGrant(),
+            ),
           ),
         ],
       ],
@@ -625,9 +675,23 @@ enum _AutoPastePhase {
 // =============================================================================
 
 class _WindowsBody extends StatelessWidget {
-  const _WindowsBody({required this.state, required this.onSkip});
+  const _WindowsBody({
+    required this.state,
+    required this.autoPasteEnabled,
+    required this.onEnable,
+    required this.onSkip,
+  });
 
   final PasteCapabilityState state;
+
+  /// Whether the persisted after-transcription action currently injects the
+  /// transcript at the cursor. The factory default is clipboard-only, so the
+  /// first run arrives here with this `false` — which is exactly why the
+  /// page carries a real choice now: it used to announce "Auto-Paste ready /
+  /// nothing to do here" while the feature it announced was off, and stayed
+  /// off unless the user later found the Settings row for it.
+  final bool autoPasteEnabled;
+  final Future<void> Function() onEnable;
   final Future<void> Function() onSkip;
 
   @override
@@ -642,6 +706,7 @@ class _WindowsBody extends StatelessWidget {
 
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
+    const textMuted = WpColors.textMuted;
     // Accent, not green — see the macOS body above (Ticket 15).
     const okColor = WpColors.accent;
     const warningColor = WpColors.warning;
@@ -651,10 +716,18 @@ class _WindowsBody extends StatelessWidget {
     // 20-px-icon verify card and a warn card — that said the same kind of
     // thing in a third and fourth shape. Windows now shows the page's status
     // card with a Windows status in it, so the two platforms differ in what
-    // they say rather than in how the page is built. The explanation moves
-    // *into* the card as its secondary line, which is where the macOS body
-    // puts the waiting hint and what stops a full-width card from carrying
-    // three words.
+    // they say rather than in how the page is built.
+    //
+    // Two non-edge states, and the card flips between them so every tap on
+    // this page answers with a visible state change:
+    //  - Auto-Paste OFF (the factory default): "ready" card explaining what
+    //    turning it on does, plus the enable CTA.
+    //  - Auto-Paste ON: "on" card stating what now happens after each
+    //    dictation, plus the ghost opt-out (the same `onboardingPasteSkip`
+    //    wording the macOS flow and the UIPI edge use).
+    // Each state shows only the transition it can make, which is what keeps
+    // a mis-tap harmless — the card says what changed, and the way back is
+    // on the same page.
     final card = isUipiEdge
         ? _PermissionStatusCard(
             icon: LucideIcons.triangleAlert,
@@ -674,11 +747,31 @@ class _WindowsBody extends StatelessWidget {
             icon: LucideIcons.circleCheck,
             color: okColor,
             tint: WpColors.accentActiveFill,
-            title: l10n.onboardingPasteChipReady,
-            detail: l10n.onboardingPasteWhyWin,
+            title: autoPasteEnabled
+                ? l10n.onboardingPasteWinOnTitle
+                : l10n.onboardingPasteChipReady,
+            detail: autoPasteEnabled
+                ? l10n.onboardingPasteWinOnDetail
+                : l10n.onboardingPasteWhyWin,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
           );
+
+    // The elevated-apps caveat, in the macOS body's "why" register (muted,
+    // start-inset): it is the one Windows-specific fact worth knowing about
+    // Auto-Paste, and it holds in both non-edge states.
+    final adminCaveat = Padding(
+      padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+      child: Text(
+        l10n.onboardingPasteWinAdminCaveat,
+        textAlign: TextAlign.start,
+        style: const TextStyle(
+          fontSize: WpTypography.small,
+          color: textMuted,
+          height: 1.4,
+        ),
+      ),
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -686,12 +779,39 @@ class _WindowsBody extends StatelessWidget {
       children: [
         // No title — the page owns the heading (see the macOS body).
         card,
-        // Skip only in the UIPI edge — it sets afterTranscription=clipboard
-        // and uses the macOS wording (`onboardingPasteSkip`) so the option is
-        // recognisable across platforms. The 99 % branch has nothing to skip:
-        // Auto-Paste already works there, and offering the opt-out would only
-        // invite a mis-tap.
         if (isUipiEdge) ...[
+          // The UIPI edge keeps its original shape: warn card + the explicit
+          // opt-out, nothing else.
+          const SizedBox(height: WpSpacing.md),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: WpButton(
+              label: l10n.onboardingPasteSkip,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
+              onPressed: onSkip,
+            ),
+          ),
+        ] else if (!autoPasteEnabled) ...[
+          const SizedBox(height: WpSpacing.md),
+          // A `primary` WpButton, not a hero — same one-loud-action split as
+          // the macOS Grant CTA directly above in this file.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: SizedBox(
+              width: double.infinity,
+              child: WpButton(
+                label: l10n.onboardingPasteWinEnableCta,
+                variant: WpButtonVariant.primary,
+                onPressed: onEnable,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.md),
+          adminCaveat,
+        ] else ...[
+          const SizedBox(height: WpSpacing.md),
+          adminCaveat,
           const SizedBox(height: WpSpacing.md),
           Align(
             alignment: AlignmentDirectional.centerStart,
@@ -780,8 +900,15 @@ class _PermissionStatusCard extends StatelessWidget {
     const surface = WpColors.floatingSurface;
     const border = WpColors.cardEdgeHighlight;
 
+    // Start-inset like the page heading above and the why-line below: every
+    // text block on this page starts `kSettingRowInset` into the frame (the
+    // shared reading edge), and the card used to start at the bare frame
+    // edge — 12 px left of everything else, reading as an overhang. Inside
+    // the card class rather than at the call sites so every phase and both
+    // platform bodies stay on one edge.
     return Container(
       width: double.infinity,
+      margin: const EdgeInsetsDirectional.only(start: kSettingRowInset),
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.md,

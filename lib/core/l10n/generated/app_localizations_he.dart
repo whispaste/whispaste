@@ -643,7 +643,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteSubtitleWin =>
-      'אין כאן שום דבר לעשות — רק מוודאים שזה פועל.';
+      'ב-Windows לא נדרשת הרשאה — רק בחר אם WhisPaste ידביק עבורך את הטקסט המוכתב באופן אוטומטי.';
 
   @override
   String get onboardingPasteChipReady => 'הדבקה אוטומטית מוכנה';
@@ -666,11 +666,25 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteWhyWin =>
-      'Windows מאפשר שליחת הקשות ללא הרשאה נוספת. שלב זה רק מוודא שהחיבור פועל במכשירך.';
+      'Auto-Paste מקיש Ctrl+V עבורך אחרי כל הכתבה, כך שהטקסט מגיע ישירות למקום שבו אתה כותב. נבדק ופועל במחשב הזה — הפעל למטה.';
 
   @override
   String get onboardingPasteWhyWinUipi =>
       'באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד. הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.';
+
+  @override
+  String get onboardingPasteWinOnTitle => 'Auto-Paste פעיל';
+
+  @override
+  String get onboardingPasteWinOnDetail =>
+      'אחרי כל הכתבה WhisPaste מקיש Ctrl+V עבורך — הטקסט מגיע ישירות לסמן. עותק נשאר גם בלוח.';
+
+  @override
+  String get onboardingPasteWinEnableCta => 'הפעל את Auto-Paste';
+
+  @override
+  String get onboardingPasteWinAdminCaveat =>
+      'אפליקציות שרצות כמנהל מערכת לא מקבלות הקשות מדומות — שם הטקסט נשאר בלוח, מוכן להדבקה עם Ctrl+V.';
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>

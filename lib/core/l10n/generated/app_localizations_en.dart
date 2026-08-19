@@ -653,7 +653,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingPasteSubtitleWin =>
-      'Nothing to do here — just confirming it works.';
+      'No permission needed on Windows — just choose whether WhisPaste should insert dictated text for you.';
 
   @override
   String get onboardingPasteChipReady => 'Auto-Paste ready';
@@ -676,11 +676,25 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingPasteWhyWin =>
-      'Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.';
+      'Auto-Paste presses Ctrl+V for you after each dictation, so the text lands right where you\'re typing. Verified working on this machine — turn it on below.';
 
   @override
   String get onboardingPasteWhyWinUipi =>
       'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work. The text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.';
+
+  @override
+  String get onboardingPasteWinOnTitle => 'Auto-Paste is on';
+
+  @override
+  String get onboardingPasteWinOnDetail =>
+      'After each dictation, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.';
+
+  @override
+  String get onboardingPasteWinEnableCta => 'Turn on Auto-Paste';
+
+  @override
+  String get onboardingPasteWinAdminCaveat =>
+      'Apps running as administrator don\'t accept simulated keystrokes — there your text stays on the clipboard, ready to paste with Ctrl+V.';
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>

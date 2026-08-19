@@ -659,7 +659,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteSubtitleWin =>
-      'Hier gibt es nichts zu tun — wir bestätigen nur kurz, dass es funktioniert.';
+      'Unter Windows ist keine Berechtigung nötig — entscheide nur, ob WhisPaste diktierten Text automatisch für dich einfügen soll.';
 
   @override
   String get onboardingPasteChipReady => 'Auto-Einfügen bereit';
@@ -682,11 +682,25 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteWhyWin =>
-      'Windows erlaubt das Senden von Tasten ohne zusätzliche Berechtigung. Dieser Schritt prüft nur, dass die Verbindung auf deinem Gerät funktioniert.';
+      'Auto-Paste drückt nach jedem Diktat Strg+V für dich — der Text landet direkt dort, wo du gerade schreibst. Auf diesem Gerät geprüft, unten aktivieren.';
 
   @override
   String get onboardingPasteWhyWinUipi =>
       'In bestimmten Apps mit UIPI/UAC-Schutz wird Auto-Paste nicht funktionieren. Der Text liegt dann in der Zwischenablage und du fügst mit Ctrl+V ein.';
+
+  @override
+  String get onboardingPasteWinOnTitle => 'Auto-Paste ist aktiv';
+
+  @override
+  String get onboardingPasteWinOnDetail =>
+      'Nach jedem Diktat drückt WhisPaste Strg+V für dich — der Text landet direkt an deinem Cursor. Eine Kopie bleibt zusätzlich in der Zwischenablage.';
+
+  @override
+  String get onboardingPasteWinEnableCta => 'Auto-Paste aktivieren';
+
+  @override
+  String get onboardingPasteWinAdminCaveat =>
+      'Apps, die als Administrator laufen, nehmen simulierte Tastendrücke nicht an — dort bleibt dein Text in der Zwischenablage, bereit zum Einfügen mit Strg+V.';
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>

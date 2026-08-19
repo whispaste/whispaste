@@ -1047,8 +1047,9 @@ void main() {
   // Paster bridge stays untouched.
   // ---------------------------------------------------------------------------
   group('AutoPasteStep — Windows', () {
-    testWidgets('ready first-mount: verify card, NO macOS-specific '
-        'Grant/Repair/Skip affordances', (tester) async {
+    testWidgets('ready first-mount (factory default = clipboard-only): '
+        'ready card + enable CTA, no Skip, no macOS-specific '
+        'Grant/Repair affordances', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
         final paste = _FakePasteCapabilityNotifier(
@@ -1059,17 +1060,103 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        // Verify card shows the success label.
+        // Status card: capability verified, feature not yet on.
         expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteWhyWin), findsOneWidget);
 
-        // The Windows verify branch hides the macOS-specific Skip CTA —
-        // there is no action the user has to take, so offering Skip would
-        // only invite a mis-tap that disables Auto-Paste for no reason.
+        // The page's real choice: the enable CTA (the factory default is
+        // clipboard-only, so this state is where Auto-Paste gets turned on).
+        expect(find.text(l10n.onboardingPasteWinEnableCta), findsOneWidget);
+
+        // No Skip in the off state — staying off is what Next already does,
+        // and each state only shows the transition it can make.
         expect(find.text(l10n.onboardingPasteSkip), findsNothing);
 
         // macOS-only affordances must not bleed into the Windows surface.
         expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
         expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('ready + enable tap persists '
+        'afterTranscription=clipboard_and_paste and flips the card to the '
+        'on state with the ghost opt-out', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        );
+
+        final handles = await _pumpStep(tester, paste: paste);
+
+        await tester.tap(find.text(l10n.onboardingPasteWinEnableCta));
+        await tester.pumpAndSettle();
+
+        expect(handles.settings.updates, hasLength(1));
+        expect(
+          handles
+              .settings
+              .updates
+              .single
+              .afterTranscriptionSection
+              .afterTranscription,
+          'clipboard_and_paste',
+          reason:
+              'clipboard_and_paste, not paste: the clipboard keeps a copy '
+              'as the fallback for elevated/UIPI targets',
+        );
+
+        // Immediate visible feedback: the card flips to the on state and
+        // the way back (ghost opt-out) appears on the same page.
+        expect(find.text(l10n.onboardingPasteWinOnTitle), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteWinEnableCta), findsNothing);
+        expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('ready + Auto-Paste already on: skip tap reverts to '
+        'clipboard-only and flips the card back', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        );
+        final settings = _RecordingSettingsNotifier(
+          const AppSettings(
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard_and_paste',
+            ),
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste, settings: settings);
+
+        expect(find.text(l10n.onboardingPasteWinOnTitle), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteWinOnDetail), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteWinEnableCta), findsNothing);
+
+        await tester.tap(find.text(l10n.onboardingPasteSkip));
+        await tester.pumpAndSettle();
+
+        expect(settings.updates, hasLength(1));
+        expect(
+          settings
+              .updates
+              .single
+              .afterTranscriptionSection
+              .afterTranscription,
+          'clipboard',
+        );
+        expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteWinEnableCta), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

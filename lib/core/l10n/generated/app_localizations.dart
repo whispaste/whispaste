@@ -1236,7 +1236,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteSubtitleWin.
   ///
   /// In en, this message translates to:
-  /// **'Nothing to do here — just confirming it works.'**
+  /// **'No permission needed on Windows — just choose whether WhisPaste should insert dictated text for you.'**
   String get onboardingPasteSubtitleWin;
 
   /// No description provided for @onboardingPasteChipReady.
@@ -1278,7 +1278,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteWhyWin.
   ///
   /// In en, this message translates to:
-  /// **'Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.'**
+  /// **'Auto-Paste presses Ctrl+V for you after each dictation, so the text lands right where you\'re typing. Verified working on this machine — turn it on below.'**
   String get onboardingPasteWhyWin;
 
   /// No description provided for @onboardingPasteWhyWinUipi.
@@ -1286,6 +1286,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work. The text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.'**
   String get onboardingPasteWhyWinUipi;
+
+  /// No description provided for @onboardingPasteWinOnTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste is on'**
+  String get onboardingPasteWinOnTitle;
+
+  /// No description provided for @onboardingPasteWinOnDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'After each dictation, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.'**
+  String get onboardingPasteWinOnDetail;
+
+  /// No description provided for @onboardingPasteWinEnableCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on Auto-Paste'**
+  String get onboardingPasteWinEnableCta;
+
+  /// No description provided for @onboardingPasteWinAdminCaveat.
+  ///
+  /// In en, this message translates to:
+  /// **'Apps running as administrator don\'t accept simulated keystrokes — there your text stays on the clipboard, ready to paste with Ctrl+V.'**
+  String get onboardingPasteWinAdminCaveat;
 
   /// No description provided for @onboardingPasteWaitingForGrantTitle.
   ///
