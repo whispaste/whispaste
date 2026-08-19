@@ -147,24 +147,21 @@ void main() {
     });
 
     group('Floating Button section — platform gating', () {
-      testWidgets(
-        'is entirely absent on Linux, not just an empty card '
-        '(sectionCard wraps even a SizedBox.shrink() child in a padded, '
-        'bordered container, so hiding only the inner content still leaves '
-        'a bare outline)',
-        (tester) async {
-          debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      testWidgets('is entirely absent on Linux, not just an empty card '
+          '(sectionCard wraps even a SizedBox.shrink() child in a padded, '
+          'bordered container, so hiding only the inner content still leaves '
+          'a bare outline)', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
-          await tester.pumpWidget(
-            makeTestable(const SettingsPage(), locale: const Locale('en')),
-          );
-          await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          makeTestable(const SettingsPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
 
-          expect(find.byType(FloatingButtonSection), findsNothing);
+        expect(find.byType(FloatingButtonSection), findsNothing);
 
-          debugDefaultTargetPlatformOverride = null;
-        },
-      );
+        debugDefaultTargetPlatformOverride = null;
+      });
 
       testWidgets('is present on Windows', (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;

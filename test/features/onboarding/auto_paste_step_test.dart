@@ -1148,11 +1148,7 @@ void main() {
 
         expect(settings.updates, hasLength(1));
         expect(
-          settings
-              .updates
-              .single
-              .afterTranscriptionSection
-              .afterTranscription,
+          settings.updates.single.afterTranscriptionSection.afterTranscription,
           'clipboard',
         );
         expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);

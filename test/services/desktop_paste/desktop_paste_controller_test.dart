@@ -260,35 +260,35 @@ void main() {
   });
 
   group('LinuxDesktopPasteController', () {
-    test('repairTccEntries reports unsupported without a channel call', () async {
-      setHandler((call) async {
-        fail('unexpected channel call: ${call.method}');
-      });
-      final controller = LinuxDesktopPasteController();
-      final result = await controller.repairTccEntries();
-      expect(result.isSupported, isFalse);
-      expect(result.error, 'unsupported_platform');
-    });
-
     test(
-      'diagnosticPaste forwards demoText and parses success',
+      'repairTccEntries reports unsupported without a channel call',
       () async {
-        final calls = <MethodCall>[];
         setHandler((call) async {
-          if (call.method == 'diagnosticPaste') {
-            return {'status': 'success'};
-          }
-          return null;
-        }, recordedCalls: calls);
-
+          fail('unexpected channel call: ${call.method}');
+        });
         final controller = LinuxDesktopPasteController();
-        final outcome = await controller.diagnosticPaste('hi');
-
-        expect(calls.single.method, 'diagnosticPaste');
-        expect((calls.single.arguments as Map)['demoText'], 'hi');
-        expect(outcome, isA<TestPasteOutcomeSuccess>());
+        final result = await controller.repairTccEntries();
+        expect(result.isSupported, isFalse);
+        expect(result.error, 'unsupported_platform');
       },
     );
+
+    test('diagnosticPaste forwards demoText and parses success', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async {
+        if (call.method == 'diagnosticPaste') {
+          return {'status': 'success'};
+        }
+        return null;
+      }, recordedCalls: calls);
+
+      final controller = LinuxDesktopPasteController();
+      final outcome = await controller.diagnosticPaste('hi');
+
+      expect(calls.single.method, 'diagnosticPaste');
+      expect((calls.single.arguments as Map)['demoText'], 'hi');
+      expect(outcome, isA<TestPasteOutcomeSuccess>());
+    });
 
     test(
       'pasteClipboard parses the uinput permission_missing status',

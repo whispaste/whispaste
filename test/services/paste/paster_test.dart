@@ -419,32 +419,34 @@ void main() {
       expect(controller.typeCalls, 0);
     });
 
-    test('native paste fails: falls back to direct typing on macOS/Windows; '
-        'stays failed on Linux, which skips the retry (see group doc)',
-        () async {
-      final controller = _FakeController()
-        ..pasteResult = const NativePasteResult(
-          status: NativePasteStatus.postFailed,
-        )
-        ..typeResult = const NativePasteResult(
-          status: NativePasteStatus.success,
+    test(
+      'native paste fails: falls back to direct typing on macOS/Windows; '
+      'stays failed on Linux, which skips the retry (see group doc)',
+      () async {
+        final controller = _FakeController()
+          ..pasteResult = const NativePasteResult(
+            status: NativePasteStatus.postFailed,
+          )
+          ..typeResult = const NativePasteResult(
+            status: NativePasteStatus.success,
+          );
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
-      final paster = DesktopPaster(controller);
 
-      final outcome = await paster.paste(
-        'hello',
-        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
-      );
-
-      expect(controller.pasteCalls, 1);
-      if (Platform.isMacOS || Platform.isWindows) {
-        expect(outcome, PasteOutcome.success);
-        expect(controller.typeCalls, 1);
-      } else {
-        expect(outcome, PasteOutcome.failed);
-        expect(controller.typeCalls, 0);
-      }
-    });
+        expect(controller.pasteCalls, 1);
+        if (Platform.isMacOS || Platform.isWindows) {
+          expect(outcome, PasteOutcome.success);
+          expect(controller.typeCalls, 1);
+        } else {
+          expect(outcome, PasteOutcome.failed);
+          expect(controller.typeCalls, 0);
+        }
+      },
+    );
 
     test('native paste fails and the typing fallback also fails: reports '
         'the original paste failure, not the typing failure', () async {
