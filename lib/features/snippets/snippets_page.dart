@@ -203,6 +203,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
           onTap: () => _showAddEditDialog(existing: s),
           onDelete: () => _confirmDelete(s),
           onCopy: () => _copySnippet(s),
+          onDuplicate: () => _duplicateSnippet(s),
         );
       },
     );
@@ -243,6 +244,12 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       text: snippet.body,
       category: 'snippets',
     );
+  }
+
+  Future<void> _duplicateSnippet(SnippetItem item) async {
+    await ref
+        .read(snippetsProvider.notifier)
+        .add('${item.title} (copy)', item.body);
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────
@@ -760,6 +767,7 @@ class _SnippetTile extends StatefulWidget {
     required this.onTap,
     required this.onDelete,
     required this.onCopy,
+    required this.onDuplicate,
   });
 
   final SnippetItem snippet;
@@ -774,6 +782,7 @@ class _SnippetTile extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onCopy;
+  final VoidCallback onDuplicate;
 
   @override
   State<_SnippetTile> createState() => _SnippetTileState();
@@ -894,6 +903,12 @@ class _SnippetTileState extends State<_SnippetTile> {
                     icon: LucideIcons.copy,
                     tooltip: L10n.of(context).actionCopy,
                     onTap: widget.onCopy,
+                  ),
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.files,
+                    tooltip: L10n.of(context).actionDuplicate,
+                    onTap: widget.onDuplicate,
                   ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(

@@ -1077,6 +1077,9 @@ class L10nDe extends L10n {
   String get actionCopy => 'Kopieren';
 
   @override
+  String get actionDuplicate => 'Duplizieren';
+
+  @override
   String get actionDelete => 'Löschen';
 
   @override

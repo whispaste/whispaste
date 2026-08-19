@@ -337,6 +337,7 @@
   "recordingGuardFailed": "לא זוהה אודיו. נסה שוב. לפעמים המיקרופון צריך רגע להתחמם.",
   "recordingAutoStopped": "ההקלטה נעצרה: זוהה שקט.",
   "actionCopy": "העתק",
+  "actionDuplicate": "שכפל",
   "actionDelete": "מחק",
   "actionDismiss": "סגור",
   "actionEdit": "ערוך",

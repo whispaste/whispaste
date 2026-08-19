@@ -1,0 +1,3 @@
+## 2025-02-23 - Added Copy Button to History Notes
+**Learning:** Adding a copy button to a list item using existing helper functions (`copyToClipboardWithToast`) and existing string resources (`L10n.of(context).notesCopy`) is a highly valuable, low-risk product improvement that leverages existing infrastructure. It follows established Flutter UI patterns using `Semantics`, `Tooltip`, and `InkWell`.
+**Action:** When acting as Sprout, look for missing common actions (like copy, duplicate, or delete) on existing list items or detail views, and implement them using the same patterns and helpers already present in the codebase.

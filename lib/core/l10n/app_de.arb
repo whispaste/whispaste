@@ -331,6 +331,7 @@
   "recordingGuardFailed": "Kein Audio erkannt. Bitte versuche es erneut. Manchmal braucht das Mikrofon einen Moment.",
   "recordingAutoStopped": "Aufnahme gestoppt: Stille erkannt.",
   "actionCopy": "Kopieren",
+  "actionDuplicate": "Duplizieren",
   "actionDelete": "Löschen",
   "actionDismiss": "Schließen",
   "actionEdit": "Bearbeiten",

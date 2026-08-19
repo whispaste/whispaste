@@ -405,6 +405,7 @@
   "recordingGuardFailed": "No audio detected. Please try again. Sometimes the microphone needs a moment to warm up.",
   "recordingAutoStopped": "Recording stopped: silence detected.",
   "actionCopy": "Copy",
+  "actionDuplicate": "Duplicate",
   "actionDelete": "Delete",
   "actionDismiss": "Dismiss",
   "actionEdit": "Edit",
