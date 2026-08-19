@@ -20,19 +20,42 @@
 // keyboard channel, the same path every other WhisPaste text input on
 // Windows already relies on. The render engine's own `Shortcuts`/`Actions`
 // (Escape → `cancel`) and the search field's `onSubmitted` (Enter → select)
-// are expected to just work here. Flagged for confirmation during the
-// mandatory on-device verification pass (ticket 29's own AC) — if a Windows-
-// specific routing gap turns up live, add the native intercept then, the
-// same way the macOS file was hardened through several rounds of live tests.
+// are expected to just work here.
+//
+// Live on-device testing (ticket 29's own AC) DID turn up a routing gap,
+// confirmed via GetAsyncKeyState/GetGUIThreadInfo diagnostics: Down/Up-arrow
+// key presses were delivered correctly at the OS level (focus on the
+// FLUTTERVIEW child was always correct) but never reached the render
+// engine's LogicalKeyboardKey stream, while typing, Enter and Escape all
+// worked. `forward_to_flutter` (HandleTopLevelWindowProc, mirroring
+// flutter_window.cpp's FlutterWindow::MessageHandler — every other native
+// shell in this runner is deliberately non-activating/non-keyboard and never
+// needed it) turned out NOT to fix this: WM_KEYDOWN is sent by Windows
+// straight to whichever HWND has keyboard focus, which is `flutter_child_`
+// (a separate window with the engine's own registered WndProc), never this
+// shell's. HandleTopLevelWindowProc is still correct to forward (matches the
+// official template, needed for IME/DPI/font-change messages the SHELL
+// receives) but structurally can't see keystrokes at all.
+//
+// The actual fix: `SetWindowSubclass` directly on `flutter_child_` (see
+// Create()/Destroy()), intercepting WM_KEYDOWN for VK_UP/VK_DOWN before
+// Flutter's own WndProc ever sees them and driving `on_navigate` instead —
+// the same native-intercept pattern SnippetPickerHost.swift already uses for
+// Escape/Return on macOS, applied at the one Windows-specific layer
+// (LogicalKeyboardKey.arrowUp/Down) where the ordinary channel provably
+// doesn't reach the render engine. Escape/Enter/typing are unaffected and
+// keep using the normal channel — this narrow gap is Down/Up-arrow only.
 
 #ifndef SNIPPET_PICKER_WINDOW_H_
 #define SNIPPET_PICKER_WINDOW_H_
 
 #include <windows.h>
 
+#include <commctrl.h>
 #include <dwmapi.h>
 
 #include <functional>
+#include <optional>
 
 class SnippetPickerWindow {
  public:
@@ -84,10 +107,31 @@ class SnippetPickerWindow {
   // may safely fire during the shell's own Hide().
   std::function<void()> on_deactivate_cancel;
 
+  // Forwarded to the render engine's FlutterViewController::
+  // HandleTopLevelWindowProc before this window's own message handling (see
+  // the file comment above) — lets the embedder's keyboard/IME/DPI handling
+  // see every message this shell receives, the same as FlutterWindow does
+  // for the main window. A returned value means Flutter consumed the
+  // message; nullopt falls through to this window's own handling.
+  std::function<std::optional<LRESULT>(HWND, UINT, WPARAM, LPARAM)>
+      forward_to_flutter;
+
+  // Fired from the flutter_child_ subclass on VK_UP/VK_DOWN with -1/+1 —
+  // see the file comment. The owner (SnippetPickerHost) relays this to the
+  // render engine as a `moveHighlight` render-channel call.
+  std::function<void(int delta)> on_navigate;
+
  private:
   static bool EnsureClassRegistered();
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
   LRESULT HandleMessage(UINT msg, WPARAM wp, LPARAM lp);
+
+  // Subclass proc installed on flutter_child_ — intercepts WM_KEYDOWN for
+  // VK_UP/VK_DOWN (see file comment) and lets everything else fall through
+  // to Flutter's own WndProc via DefSubclassProc.
+  static LRESULT CALLBACK ChildSubclassProc(HWND hwnd, UINT msg, WPARAM wp,
+                                            LPARAM lp, UINT_PTR subclass_id,
+                                            DWORD_PTR ref_data);
 
   void ApplyChildSize(int pwidth, int pheight);
 

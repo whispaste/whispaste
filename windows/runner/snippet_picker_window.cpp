@@ -6,6 +6,10 @@ namespace {
 
 constexpr const wchar_t kClassName[] = L"WHISPASTE_SNIPPET_PICKER_V1";
 
+// Arbitrary but fixed — SetWindowSubclass/RemoveWindowSubclass identify a
+// subclass by (proc, id) pair, not by proc alone.
+constexpr UINT_PTR kChildSubclassId = 1;
+
 }  // namespace
 
 bool SnippetPickerWindow::class_registered_ = false;
@@ -74,6 +78,12 @@ bool SnippetPickerWindow::Create(HWND owner, int px, int py, int pwidth,
 
   ApplyChildSize(pwidth, pheight);
 
+  // Installed once, after the child is parented/sized — see the file
+  // comment for why this (not the shell's own WndProc) is the layer that
+  // must intercept VK_UP/VK_DOWN.
+  SetWindowSubclass(flutter_child_, ChildSubclassProc, kChildSubclassId,
+                    reinterpret_cast<DWORD_PTR>(this));
+
   OutputDebugStringW(L"[SnippetPicker] Shell window created\n");
   return true;
 }
@@ -83,10 +93,12 @@ void SnippetPickerWindow::Destroy() {
   shutting_down_ = true;
 
   on_deactivate_cancel = nullptr;
+  on_navigate = nullptr;
 
   // Un-parent the Flutter child before destroying the shell so the Flutter
   // embedder can destroy it cleanly via its own controller teardown.
   if (flutter_child_ && IsWindow(flutter_child_)) {
+    RemoveWindowSubclass(flutter_child_, ChildSubclassProc, kChildSubclassId);
     SetParent(flutter_child_, nullptr);
     flutter_child_ = nullptr;
   }
@@ -193,6 +205,17 @@ LRESULT CALLBACK SnippetPickerWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp,
 LRESULT SnippetPickerWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
   if (shutting_down_) return DefWindowProcW(hwnd_, msg, wp, lp);
 
+  // Give the render engine's Flutter embedder first refusal on every
+  // message this shell receives — mirrors FlutterWindow::MessageHandler's
+  // HandleTopLevelWindowProc call for the main window (IME/DPI/font-change
+  // messages the shell itself receives). Does NOT see keystrokes — see the
+  // file comment and ChildSubclassProc for where those are actually handled.
+  if (forward_to_flutter) {
+    if (auto result = forward_to_flutter(hwnd_, msg, wp, lp)) {
+      return *result;
+    }
+  }
+
   switch (msg) {
     // ── Click-outside detection ───────────────────────────────────────
     // WA_INACTIVE fires when some other top-level window (outside this
@@ -232,4 +255,24 @@ LRESULT SnippetPickerWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
   }
 
   return DefWindowProcW(hwnd_, msg, wp, lp);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// flutter_child_ subclass — VK_UP/VK_DOWN native intercept
+// ══════════════════════════════════════════════════════════════════════
+
+LRESULT CALLBACK SnippetPickerWindow::ChildSubclassProc(
+    HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR subclass_id,
+    DWORD_PTR ref_data) {
+  if (msg == WM_KEYDOWN && (wp == VK_UP || wp == VK_DOWN)) {
+    auto* self = reinterpret_cast<SnippetPickerWindow*>(ref_data);
+    if (self && self->on_navigate) {
+      self->on_navigate(wp == VK_DOWN ? 1 : -1);
+    }
+    return 0;
+  }
+  if (msg == WM_NCDESTROY) {
+    RemoveWindowSubclass(hwnd, ChildSubclassProc, subclass_id);
+  }
+  return DefSubclassProc(hwnd, msg, wp, lp);
 }

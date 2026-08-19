@@ -155,6 +155,7 @@ class _SnippetPickerRenderAppState
     }),
     onSubmit: () => _bodyKey.currentState?._submit(),
     onPanelHidden: () => setState(() => _panelVisible = false),
+    onMoveHighlight: (delta) => _bodyKey.currentState?._moveHighlight(delta),
   );
 
   @override

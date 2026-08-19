@@ -169,6 +169,28 @@ bool SnippetPickerHost::EnsureEngineAndShell() {
 
   shell->on_deactivate_cancel = [this]() { Dismiss(/*fire_cancelled=*/true); };
 
+  // Closes the keyboard-routing gap found during live on-device testing
+  // (ticket 29) — see snippet_picker_window.h's file comment. Captures the
+  // raw controller pointer, not a shared_ptr: render_controller_ outlives
+  // window_ (destroyed after it in both Destroy() and the "destroy" method
+  // handler), so the callback is never invoked past the controller's
+  // lifetime.
+  flutter::FlutterViewController* render_controller_ptr = controller.get();
+  shell->forward_to_flutter = [render_controller_ptr](
+                                  HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    return render_controller_ptr->HandleTopLevelWindowProc(hwnd, msg, wp, lp);
+  };
+
+  // VK_UP/VK_DOWN native intercept (see snippet_picker_window.h) — relayed
+  // to the render engine the same way setItems/panelHidden are.
+  shell->on_navigate = [this](int delta) {
+    if (!render_channel_) return;
+    EncodableMap m;
+    m[EncodableValue("delta")] = EncodableValue(delta);
+    render_channel_->InvokeMethod("moveHighlight",
+                                  std::make_unique<EncodableValue>(m));
+  };
+
   render_project_ = std::move(project);
   render_controller_ = std::move(controller);
   render_channel_ = std::move(render_ch);

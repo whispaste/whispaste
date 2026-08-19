@@ -43,6 +43,7 @@ class SnippetPickerRenderChannel implements RenderChannel {
     required this.onItems,
     required this.onSubmit,
     required this.onPanelHidden,
+    required this.onMoveHighlight,
     MethodChannel? channel,
   }) : _channel = channel ?? MethodChannel(name) {
     _channel.setMethodCallHandler(_handle);
@@ -74,6 +75,15 @@ class SnippetPickerRenderChannel implements RenderChannel {
   /// the app session. `setItems` is the matching "panel shown" signal.
   final VoidCallback onPanelHidden;
 
+  /// Called when the native shell's VK_UP/VK_DOWN subclass on the render
+  /// engine's own HWND (see `snippet_picker_window.h` on Windows) intercepts
+  /// an arrow key — Windows' Flutter embedder never delivers those as
+  /// `LogicalKeyboardKey` events to this engine's widget tree (confirmed via
+  /// on-device testing, ticket 29), the same routing gap Return/Escape hit
+  /// on macOS, just for a different pair of keys. [delta] is -1 (up) or +1
+  /// (down).
+  final void Function(int delta) onMoveHighlight;
+
   Future<dynamic> _handle(MethodCall call) async {
     switch (call.method) {
       case 'setItems':
@@ -92,6 +102,13 @@ class SnippetPickerRenderChannel implements RenderChannel {
         return null;
       case 'panelHidden':
         onPanelHidden();
+        return null;
+      case 'moveHighlight':
+        final args = call.arguments;
+        if (args is Map) {
+          final delta = args['delta'];
+          if (delta is int) onMoveHighlight(delta);
+        }
         return null;
       default:
         return null;

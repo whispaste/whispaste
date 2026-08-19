@@ -5,11 +5,17 @@ import 'package:whispaste/services/snippet_picker/snippet_picker_render_channel.
 void main() {
   group('SnippetPickerRenderChannel — incoming native calls', () {
     /// Simulates the native shell invoking [method] on the render channel.
-    Future<void> receiveNativeCall(String channelName, String method) async {
+    Future<void> receiveNativeCall(
+      String channelName,
+      String method, [
+      Object? arguments,
+    ]) async {
       await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .handlePlatformMessage(
             channelName,
-            const StandardMethodCodec().encodeMethodCall(MethodCall(method)),
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall(method, arguments),
+            ),
             (_) {},
           );
     }
@@ -22,6 +28,7 @@ void main() {
         onItems: (_) => fail('setItems must not fire'),
         onSubmit: () => fail('submitHighlighted must not fire'),
         onPanelHidden: () => hidden = true,
+        onMoveHighlight: (_) => fail('moveHighlight must not fire'),
       );
       addTearDown(channel.dispose);
 
@@ -29,6 +36,35 @@ void main() {
 
       expect(hidden, isTrue);
     });
+
+    test(
+      'moveHighlight invokes onMoveHighlight with the given delta',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+        final deltas = <int>[];
+        final channel = SnippetPickerRenderChannel(
+          name: 'test.snippet_picker_render_move',
+          onItems: (_) => fail('setItems must not fire'),
+          onSubmit: () => fail('submitHighlighted must not fire'),
+          onPanelHidden: () => fail('panelHidden must not fire'),
+          onMoveHighlight: deltas.add,
+        );
+        addTearDown(channel.dispose);
+
+        await receiveNativeCall(
+          'test.snippet_picker_render_move',
+          'moveHighlight',
+          {'delta': 1},
+        );
+        await receiveNativeCall(
+          'test.snippet_picker_render_move',
+          'moveHighlight',
+          {'delta': -1},
+        );
+
+        expect(deltas, [1, -1]);
+      },
+    );
   });
 
   group('SnippetPickerRenderItem.tryParse', () {
