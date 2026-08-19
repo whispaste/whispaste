@@ -28,11 +28,11 @@ Key onboardingBeatMediaKey(int index) => Key('onboardingBeatMedia$index');
 
 /// Asset path of the pre-rendered demo clip for beat [index] (0-based).
 ///
-/// ## Convention (assets do not exist yet — see `assets/onboarding/README.md`)
+/// ## Convention (see `assets/onboarding/README.md`)
 ///
 /// ```
-/// assets/onboarding/beat_{1..3}_loop_{dark,light}.webp   // animated, ~2–3 s
-/// assets/onboarding/beat_{1..3}_still_{dark,light}.webp  // single frame
+/// assets/onboarding/beat_{1..3}_loop_dark.webp   // animated, ~5 s
+/// assets/onboarding/beat_{1..3}_still_dark.webp  // single frame
 /// ```
 ///
 /// Two variants per beat, not one, because an **animated WebP cannot be
