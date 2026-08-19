@@ -185,7 +185,7 @@ class FloatingOverlayService
       return;
     }
 
-    _l10n = _resolveL10n();
+    _l10n = _resolveL10n(s.locale);
     _sendContextMenuItems();
 
     final phase = ref.read(recordingPhaseProvider);
@@ -777,8 +777,14 @@ class FloatingOverlayService
     return '$minutes:$seconds';
   }
 
-  L10n? _resolveL10n() {
-    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+  L10n? _resolveL10n([String? localeCode]) {
+    // Must follow the app's own language setting, not the OS locale — the
+    // overlay used to read platformDispatcher.locale directly, so it stayed
+    // in the system UI language even after switching WhisPaste's own
+    // Settings → Language to something else.
+    final locale = localeCode != null
+        ? Locale(localeCode)
+        : WidgetsBinding.instance.platformDispatcher.locale;
     try {
       return lookupL10n(locale);
     } catch (_) {
