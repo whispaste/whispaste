@@ -1,0 +1,182 @@
+---
+// MacStoreButton.astro — Brand-consistent Mac App Store download button.
+// Mirrors StoreButton.astro (Microsoft Store) layout/sizing/behaviour exactly
+// — same two-tier pattern: this is the primary/recommended CTA for macOS,
+// AppleButton.astro (direct DMG) is the secondary/free path.
+// Astro scopes <style> per component, so the CSS below is a deliberate
+// duplicate of StoreButton's — reusing its class names would not apply here.
+// URL sourced exclusively from the central platform config.
+import { t } from '../scripts/i18n.ts';
+import { MAC_APP_STORE_URL } from '../data/platforms.ts';
+
+interface Props {
+  size?: 'default' | 'lg';
+  class?: string;
+}
+
+const STORE_URL = MAC_APP_STORE_URL;
+
+const { size = 'default', class: className = '' } = Astro.props;
+const isLarge = size === 'lg';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+---
+
+<a
+  href={STORE_URL}
+  target="_blank"
+  rel="noopener"
+  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+  class:list={[
+    'wp-mac-store-btn',
+    { 'wp-mac-store-btn--lg': isLarge },
+    className,
+  ]}
+  data-testid="mac-store-button"
+>
+  <!-- Apple logo -->
+  <svg class="wp-mac-store-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+  </svg>
+
+  {isLarge ? (
+    <span class="wp-mac-store-btn__text">
+      <span class="wp-mac-store-btn__label" data-i18n="store.btn.getfrom">{t(lang, "store.btn.getfrom")}</span>
+      <span class="wp-mac-store-btn__store" data-i18n="store.btn.appstore">{t(lang, "store.btn.appstore")}</span>
+    </span>
+  ) : (
+    <span class="wp-mac-store-btn__text">
+      <span data-i18n="store.btn.singleMac">{t(lang, "store.btn.singleMac")}</span>
+    </span>
+  )}
+  <span class="sr-only" data-i18n="common.opensNewTab">{t(lang, "common.opensNewTab")}</span>
+</a>
+
+<style>
+  .wp-mac-store-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.5rem;
+    min-height: 44px;
+    border-radius: var(--radius-card);
+    border: 1px solid rgba(56, 217, 240, 0.2);
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.8) 0%, rgba(23, 29, 44, 0.6) 100%);
+    color: #fff;
+    text-decoration: none;
+    transition: transform var(--dur-base) var(--ease-flow),
+      box-shadow var(--dur-base) var(--ease-flow),
+      border-color var(--dur-base) var(--ease-flow);
+    cursor: pointer;
+  }
+
+  .wp-mac-store-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 217, 240, 0.4);
+    box-shadow: var(--shadow-pill);
+  }
+
+  .wp-mac-store-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-pill-active);
+  }
+
+  .wp-mac-store-btn:focus-visible {
+    outline: 2px solid #38D9F0;
+    outline-offset: 2px;
+  }
+
+  /* Large variant (Hero, Download page) — same quiet brand-cyan glow
+     treatment as StoreButton's --lg, so the two primary Store CTAs read as
+     one visual family. */
+  .wp-mac-store-btn--lg {
+    padding: 0.75rem 2rem;
+    min-height: 52px;
+    gap: 0.875rem;
+    border-color: rgba(56, 217, 240, 0.32);
+    box-shadow: var(--shadow-cta);
+  }
+
+  .wp-mac-store-btn--lg:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 217, 240, 0.55);
+    box-shadow: var(--shadow-cta-hover);
+  }
+
+  .wp-mac-store-btn__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: #fff;
+  }
+
+  .wp-mac-store-btn--lg .wp-mac-store-btn__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .wp-mac-store-btn__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  /* Default: single line */
+  .wp-mac-store-btn:not(.wp-mac-store-btn--lg) .wp-mac-store-btn__text {
+    flex-direction: row;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  /* Large: two lines */
+  .wp-mac-store-btn--lg .wp-mac-store-btn__label {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.01em;
+  }
+
+  .wp-mac-store-btn--lg .wp-mac-store-btn__store {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .wp-mac-store-btn {
+      transition: none;
+    }
+    .wp-mac-store-btn:hover {
+      transform: none;
+    }
+  }
+
+  /* Light theme */
+  :global(.light) .wp-mac-store-btn,
+  :root.light .wp-mac-store-btn {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+    border-color: rgba(10, 110, 148, 0.35);
+    color: #0c1425;
+  }
+
+  :global(.light) .wp-mac-store-btn:hover,
+  :root.light .wp-mac-store-btn:hover {
+    border-color: rgba(10, 110, 148, 0.55);
+  }
+
+  :global(.light) .wp-mac-store-btn__icon,
+  :root.light .wp-mac-store-btn__icon {
+    color: #0c1425;
+  }
+
+  :global(.light) .wp-mac-store-btn--lg .wp-mac-store-btn__label,
+  :root.light .wp-mac-store-btn--lg .wp-mac-store-btn__label {
+    color: rgba(12, 20, 37, 0.5);
+  }
+
+  :global(.light) .wp-mac-store-btn--lg .wp-mac-store-btn__store,
+  :root.light .wp-mac-store-btn--lg .wp-mac-store-btn__store {
+    color: #0c1425;
+  }
+</style>

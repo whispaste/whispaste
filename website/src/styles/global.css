@@ -629,14 +629,18 @@ html.light .illo-halo > img {
 }
 
 /* Store-hint gate — stricter than the default-visible platform rule above.
- * The hint copy refers ONLY to the Microsoft-Store flow (Windows), so it may
- * appear only when Windows is POSITIVELY detected. In the unknown-OS fallback
- * (no data-os: all three platform CTAs visible) it stays hidden — under three
- * equal-rank buttons a Store-only hint would read as applying to all of them. */
+ * The hint copy refers ONLY to the paid-store flows (Microsoft Store / Mac
+ * App Store — Windows and macOS), so it may appear only when one of those is
+ * POSITIVELY detected. In the unknown-OS fallback (no data-os: all three
+ * platform CTAs visible) it stays hidden — under three equal-rank buttons a
+ * Store-only hint would read as applying to all of them, including Linux
+ * which has no store listing. `~=` matches a token in the space-separated
+ * `data-requires-os` list (e.g. "windows macos"). */
 [data-requires-os] {
   display: none;
 }
-[data-os="windows"] [data-requires-os="windows"] {
+[data-os="windows"] [data-requires-os~="windows"],
+[data-os="macos"] [data-requires-os~="macos"] {
   display: block;
 }
 

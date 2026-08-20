@@ -6,10 +6,10 @@ import type { Page } from '@playwright/test';
  *
  * Verifies two engagement-tracking gaps closed by this issue:
  *
- * 1. ALL THREE download paths on /download/ (Store/Apple, Windows .exe,
- *    Linux) dispatch the `download:triggered` CustomEvent — previously only
- *    the Store/Apple buttons did, so Free-Downloader engagement fell through
- *    the tracking grid.
+ * 1. ALL download paths on /download/ (Microsoft Store, Mac App Store,
+ *    Windows .exe, macOS DMG, Linux) dispatch the `download:triggered`
+ *    CustomEvent — previously only the Store buttons did, so Free-Downloader
+ *    engagement fell through the tracking grid.
  * 2. The DownloadSupportModal's three interactions (star/support/dismiss)
  *    each push their OWN interaction-scoped Matomo `trackEvent` — not tied
  *    to CTA layout/position, so a later CTA-reweighting slice (Slice 12)
@@ -23,6 +23,7 @@ import type { Page } from '@playwright/test';
 
 const DOWNLOAD_TESTIDS = [
   'store-button',
+  'mac-store-button',
   'apple-button',
   'github-windows-button',
   'linux-appimage-button',
@@ -102,7 +103,7 @@ test.describe('download page — download:triggered dispatch', () => {
   }
 });
 
-const MODAL_OUTBOUND_TESTIDS = ['modal-star-github', 'modal-star-windows', 'modal-support'];
+const MODAL_OUTBOUND_TESTIDS = ['modal-star-github', 'modal-star-windows', 'modal-star-macos', 'modal-support'];
 
 // Same intent as preventDownloadNavigation above (module docstring: "neither
 // of which should hit the network in a fast, deterministic CI run"), but this
@@ -193,5 +194,36 @@ test.describe('download support modal — interaction-scoped Matomo events', () 
     const calls = await paqCalls(page);
     expect(calls).toContainEqual(['trackEvent', 'Engagement', 'Support-Modal Dismiss', 'later']);
     await expect(page.locator('#dl-support-modal')).toBeHidden();
+  });
+});
+
+// The `data-platform-btn="macos"` row is gated by data-os (global.css) and
+// stays hidden under this project's default "Desktop Chrome" UA (which
+// reports Windows) — the sibling `modal-star-windows` test above only works
+// BECAUSE that default happens to be Windows, without any explicit spoof.
+// Exercising the macOS row needs one, so this group gets its own describe
+// with a UA/Client-Hints override instead of reusing the shared beforeEach.
+test.describe('download support modal — macOS review row', () => {
+  test('Mac App Store rating click fires the SAME star-scoped event name', async ({ page }) => {
+    await blockRealMatomoScript(page);
+    await seedPaq(page);
+    await preventOutboundNavigation(page, ['modal-star-macos']);
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, 'userAgent', {
+        get: () => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      });
+      Object.defineProperty(window.navigator, 'userAgentData', {
+        get: () => ({ platform: 'macOS' }),
+      });
+    });
+
+    await page.goto('/download/');
+    await page.evaluate(() => {
+      (document.getElementById('dl-support-modal') as HTMLDialogElement).showModal();
+    });
+
+    await page.getByTestId('modal-star-macos').click();
+    const calls = await page.evaluate(() => (window as unknown as { _paq: unknown[][] })._paq);
+    expect(calls).toContainEqual(['trackEvent', 'Engagement', 'Support-Modal Sternklick', 'macos']);
   });
 });

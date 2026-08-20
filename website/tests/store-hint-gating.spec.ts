@@ -9,13 +9,15 @@ import type { Page } from '@playwright/test';
  * 1. The "Unterstützt das Projekt" / "Support the project" Store-hint under
  *    the Hero and Pricing CTAs used to render regardless of platform, so
  *    macOS/Linux visitors saw a Microsoft-Store-related hint under their free
- *    DMG/AppImage download (there is no Store path on those platforms). It is
- *    now gated with `data-requires-os="windows"` (global.css), which rides the
- *    same `data-os` detection as the platform-adaptive download buttons but is
- *    STRICTER: the hint shows only when Windows is positively detected. In the
- *    unknown-OS fallback (no data-os: all three CTAs visible) it stays hidden,
- *    because a Store-only hint under three equal-rank buttons would read as
- *    applying to all of them.
+ *    DMG/AppImage download (there was no Store path on those platforms). It is
+ *    gated with `data-requires-os="windows macos"` (global.css, `~=` token
+ *    match), which rides the same `data-os` detection as the platform-adaptive
+ *    download buttons but is STRICTER: the hint shows only when Windows or
+ *    macOS is positively detected — both now have a paid store listing
+ *    (Microsoft Store / Mac App Store) the hint refers to. Linux has neither,
+ *    so it stays hidden there. In the unknown-OS fallback (no data-os: all
+ *    three CTAs visible) it also stays hidden, because a Store-only hint under
+ *    three equal-rank buttons would read as applying to all of them.
  * 2. The "Warum zwei Wege" / "Why two ways" section on /download/ used to sit
  *    at the very bottom of the page, after all CTAs. It now renders BEFORE
  *    the two-/four-card platform decision, so visitors understand the
@@ -60,12 +62,14 @@ test.describe('Hero store-hint platform gating', () => {
       await page.goto('/');
       await setOs(page, os);
       const hint = page.getByTestId('hero-store-hint');
-      if (os === 'windows') {
+      if (os === 'windows' || os === 'macos') {
+        // Both have a paid store listing (Microsoft Store / Mac App Store)
+        // the hint refers to.
         await expect(hint).toBeVisible();
       } else {
-        // macOS, Linux AND "unbekannt" (no data-os = crawlers/bots/privacy
-        // tools): hidden. The hint refers only to the Microsoft-Store flow,
-        // so it never renders in the ungated all-three-buttons fallback.
+        // Linux (no store listing) AND "unbekannt" (no data-os =
+        // crawlers/bots/privacy tools): hidden — it never renders in the
+        // ungated all-three-buttons fallback.
         await expect(hint).toBeHidden();
       }
     });
@@ -74,7 +78,7 @@ test.describe('Hero store-hint platform gating', () => {
   test('hero store-hint visibility mirrors on the EN page', async ({ page }) => {
     await page.goto('/en/');
     await setOs(page, 'macos');
-    await expect(page.getByTestId('hero-store-hint')).toBeHidden();
+    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
     await setOs(page, 'windows');
     await expect(page.getByTestId('hero-store-hint')).toBeVisible();
   });
@@ -91,8 +95,10 @@ test.describe('Hero store-hint platform gating', () => {
   test('hero store-hint gating holds in light theme', async ({ page }) => {
     await page.goto('/');
     await page.evaluate(() => document.documentElement.classList.add('light'));
-    await setOs(page, 'macos');
+    await setOs(page, 'linux');
     await expect(page.getByTestId('hero-store-hint')).toBeHidden();
+    await setOs(page, 'macos');
+    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
     await setOs(page, 'windows');
     await expect(page.getByTestId('hero-store-hint')).toBeVisible();
   });
@@ -104,11 +110,11 @@ test.describe('Pricing store-hint platform gating', () => {
       await page.goto('/');
       await setOs(page, os);
       const hint = page.getByTestId('pricing-store-hint');
-      if (os === 'windows') {
+      if (os === 'windows' || os === 'macos') {
         await expect(hint).toBeVisible();
       } else {
-        // Same strict gate as the hero hint: hidden for macOS, Linux and
-        // the unknown-OS fallback.
+        // Same strict gate as the hero hint: hidden for Linux and the
+        // unknown-OS fallback (neither has a store listing).
         await expect(hint).toBeHidden();
       }
     });
@@ -118,6 +124,8 @@ test.describe('Pricing store-hint platform gating', () => {
     await page.goto('/en/');
     await setOs(page, 'linux');
     await expect(page.getByTestId('pricing-store-hint')).toBeHidden();
+    await setOs(page, 'macos');
+    await expect(page.getByTestId('pricing-store-hint')).toBeVisible();
     await setOs(page, 'windows');
     await expect(page.getByTestId('pricing-store-hint')).toBeVisible();
   });

@@ -1,6 +1,6 @@
 ---
 import StoreButton from './StoreButton.astro';
-import AppleButton from './AppleButton.astro';
+import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t } from '../scripts/i18n.ts';
@@ -84,13 +84,13 @@ const features = [
           <!-- Platform-adaptive download buttons: mirrors Hero CTA pattern -->
           <div class="flex flex-wrap items-stretch justify-center gap-3">
             <div data-platform-btn="windows"><StoreButton /></div>
-            <div data-platform-btn="macos"><AppleButton /></div>
+            <div data-platform-btn="macos"><MacStoreButton /></div>
             <div data-platform-btn="linux"><LinuxButton /></div>
           </div>
-          <!-- Store-Hint nur unter der Windows-Store-CTA (siehe Hero.astro) —
-               gleiches data-requires-os-Gate: nur bei positiv erkanntem
-               Windows sichtbar, nie im ungegateten Fallback. -->
-          <div data-requires-os="windows">
+          <!-- Store-Hint unter den Store-CTAs (Windows/macOS, siehe Hero.astro)
+               — gleiches data-requires-os-Gate: nur bei positiv erkanntem
+               Windows/macOS sichtbar, nie im ungegateten Fallback. -->
+          <div data-requires-os="windows macos">
             <p class="text-ink-subtle text-xs" data-testid="pricing-store-hint" data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</p>
           </div>
         </div>
