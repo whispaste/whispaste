@@ -174,8 +174,10 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
         showEmptyListHint: trigger.trim().isNotEmpty && !hasSnippets,
       ),
       asyncAll: ref.watch(snippetsProvider),
+      // ⚡ Bolt: Use precompiled case-insensitive RegExp to match fields instead
+      // of allocating lowercased strings repeatedly in tight loops.
       searchMatches: (s, q) =>
-          s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
+          q.hasMatch(s.title) || q.hasMatch(s.body),
       searchHint: l10n.snippetsSearch,
       searchFieldLabel: l10n.snippetsSearchFieldLabel,
       addLabel: l10n.snippetsAdd,
