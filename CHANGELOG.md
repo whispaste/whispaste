@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.2.67
+
+### New Features
+
+- **WhisPaste ist ab sofort offiziell im Mac App Store verfügbar** (signiert, sandboxed, automatische Updates über den Store — analog zum Microsoft Store unter Windows). Die kostenlose GitHub-DMG bleibt als gleichwertige Alternative bestehen, identischer Funktionsumfang, keine Einschränkungen.
+- **Linux zieht beim Textbaustein-Schnellzugriff mit Windows/macOS gleich, und Auto-Einfügen ist jetzt auch unter Linux möglich**: Transkribierter Text kann jetzt auch unter Linux automatisch eingefügt werden (über eine virtuelle Tastatur) — dafür ist einmalig eine udev-Regel manuell einzurichten (`packaging/linux/71-whispaste-uinput.rules`, Anleitung darin), ohne diesen Schritt bleibt es beim bisherigen Zwischenablage-Fallback. Der Textbaustein-Schnellzugriff öffnet sich unter Linux ab sofort als eigenes, systemintegriertes Fenster direkt an der Mausposition.
+- **Neue native Oberfläche für den Textbaustein-Schnellzugriff unter Windows** — öffnet sich jetzt ebenfalls als eigenes kleines Fenster an der Mausposition statt in der Haupt-App.
+- **Der Auto-Einfügen-Schritt in der Windows-Ersteinrichtung ist jetzt eine echte Ein/Aus-Entscheidung** statt einer wirkungslosen Info-Seite — vorher stand dort „Auto-Einfügen ist bereit", obwohl die Funktion standardmäßig aus war und sich in der Ersteinrichtung nirgends aktivieren ließ.
+- Ein Textbaustein lässt sich jetzt direkt aus der Liste heraus duplizieren.
+- Neue Kopieren-Aktion für einzelne Verlaufsnotizen, analog zu Bearbeiten/Löschen.
+- Überarbeitetes visuelles Erscheinungsbild in weiten Teilen der App (Einstellungen, Über-Seite, Verlauf, Aufnahme-Leiste, Ersteinrichtung) — konsistentere Materialsprache und ein aufgeräumteres, fokussierteres Erscheinungsbild.
+
+### Bug Fixes
+
+- **Auto-Einfügen erholte sich nach einer fehlenden oder entzogenen Berechtigung in manchen Fällen nicht zuverlässig** — mehrere zusammenhängende Stellen wurden gehärtet: Die Berechtigung wird jetzt direkt am Ort des Fehlschlags repariert statt nur über die Einstellungen, ein bereits behobener Zustand fragt nicht mehr unnötig doppelt nach, und die Mac-App-Store-Variante übergibt den Berechtigungs-Dialog jetzt zuverlässig an den richtigen Folgezustand.
+- Die transkribierende Wellenform im Overlay war teils eingefroren statt zu animieren.
+- Kurzes Aufblitzen des Overlays an der Bildschirmecke beim Öffnen behoben.
+- Overlay-Texte folgen jetzt der in der App eingestellten Sprache statt der Betriebssystem-Spracheinstellung.
+- Die „Schwebender Button"-Karte in den Einstellungen erschien fälschlich auch auf Plattformen, die diese Funktion gar nicht unterstützen.
+- Vereinzelte doppelte Sprachausgabe-Ansage im Verlaufsnotizen-Bereich (Bedienungshilfen) behoben.
+- Diverse Ausrichtungs- und Layout-Korrekturen in der überarbeiteten Ersteinrichtung, inklusive fehlender hebräischer Übersetzungen für den „Los geht's"-Schritt.
+
+### Maintenance
+
+- Mehrere interne Performance-Audits (Programmlebenszyklus/Speicherlecks, Umfang von UI-Neuaufbauten, Netzwerk/IPC, Ressourcen/Caches, UI-Rendering) haben unnötige Neuberechnungen, Speicher-Allokationen und Datei-Kopien entfernt — unter anderem im Verlauf mit vielen Einträgen, beim Hochladen an die Cloud-Spracherkennung und beim Aufräumen abgebrochener Modell-Downloads.
+
 ## 1.2.66
 
 ### Bug Fixes

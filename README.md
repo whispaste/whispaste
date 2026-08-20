@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=download" alt="Download"></a>&nbsp;
-  Windows users: also available on the <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0">Microsoft Store</a>.<br>
+  Also available on the <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0">Microsoft Store</a> (Windows) and the <a href="https://apps.apple.com/app/id6795319409">Mac App Store</a> (macOS).<br>
   <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">&nbsp;
   <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">&nbsp;
   <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">&nbsp;

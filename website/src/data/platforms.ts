@@ -7,8 +7,9 @@
  *      review URLs, store-listing flags).
  *   3. `resolvePrimary(os)` — returns the primary `PlatformOffer` for a given OS.
  *
- * Consumers (StoreButton, AppleButton, Layout head-script, platform.ts) read
- * exclusively from this file — no literal URLs or product IDs elsewhere.
+ * Consumers (StoreButton, MacStoreButton, AppleButton, Layout head-script,
+ * platform.ts) read exclusively from this file — no literal URLs or product
+ * IDs elsewhere.
  */
 
 // ---------------------------------------------------------------------------
@@ -108,6 +109,11 @@ export const MS_STORE_PRODUCT_ID = '9p22jvkrq2v0';
 export const MS_STORE_URL = `https://apps.microsoft.com/detail/${MS_STORE_PRODUCT_ID}`;
 export const MS_STORE_REVIEW_URL = `https://apps.microsoft.com/detail/${MS_STORE_PRODUCT_ID}?activetab=pivot:reviewsTab`;
 
+/** App Store Connect app ID — https://apps.apple.com/app/id6795319409 */
+export const MAC_APP_STORE_ID = '6795319409';
+export const MAC_APP_STORE_URL = `https://apps.apple.com/app/id${MAC_APP_STORE_ID}`;
+export const MAC_APP_STORE_REVIEW_URL = `${MAC_APP_STORE_URL}?action=write-review`;
+
 export const MACOS_DMG_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-macos-arm64.dmg`;
 
 /** Direct GitHub download for the Windows installer (.exe). */
@@ -129,7 +135,9 @@ export const LINUX_DEB_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-linux-x64.deb`;
  * Static per-platform metadata.
  *
  * `windows`: Microsoft Store is the primary distribution channel.
- * `macos`: GitHub DMG (arm64). No Apple App Store listing exists.
+ * `macos`: Mac App Store is the primary distribution channel (since v1.2.67,
+ *   Aug 2026). The GitHub DMG (arm64, `MACOS_DMG_URL`) remains available as a
+ *   secondary/free direct-download path — same two-tier pattern as Windows.
  * `linux`: GitHub AppImage (x86_64, self-contained, no install step). A .deb
  *   is also published (`LINUX_DEB_URL`) for users who prefer a system package;
  *   building from source remains available as a secondary option on the
@@ -145,7 +153,7 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
     hasStoreListing: true,
   },
   macos: {
-    downloadUrl: MACOS_DMG_URL,
+    downloadUrl: MAC_APP_STORE_URL,
     arch: ['arm64'],
     /**
      * Human-readable architecture label shown next to the macOS download.
@@ -153,18 +161,16 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
      * The i18n counterpart is `platform.macos.archLabel` (DE+EN).
      */
     archLabel: 'Apple Silicon (arm64)',
-    storeProductId: '',
-    // No Apple App Store listing exists. The review action for macOS users is
-    // a GitHub star — same as the existing "Star on GitHub" CTA in Support/Modal.
-    reviewUrl: GITHUB_REPO_URL,
-    hasStoreListing: false,
+    storeProductId: MAC_APP_STORE_ID,
+    reviewUrl: MAC_APP_STORE_REVIEW_URL,
+    hasStoreListing: true,
   },
   linux: {
     downloadUrl: LINUX_APPIMAGE_URL,
     arch: ['x64'],
     archLabel: '',
     storeProductId: '',
-    // No Linux app store listing exists. Same GitHub-star review action as macOS.
+    // No Linux app store listing exists. Review action is a GitHub star.
     reviewUrl: GITHUB_REPO_URL,
     hasStoreListing: false,
   },

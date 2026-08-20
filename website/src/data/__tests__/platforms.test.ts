@@ -18,6 +18,8 @@ import {
   getLivePkgManagers,
   getLivePkgManagersGroupedByPlatform,
   MS_STORE_PRODUCT_ID,
+  MAC_APP_STORE_ID,
+  MACOS_DMG_URL,
   GITHUB_REPO_URL,
   type OsDetectionInput,
 } from "../platforms.ts";
@@ -202,7 +204,7 @@ describe("STORES config invariants", () => {
   });
 
   it("macOS DMG URL references the arm64 artefact", () => {
-    expect(STORES.macos.downloadUrl).toContain("arm64");
+    expect(MACOS_DMG_URL).toContain("arm64");
   });
 
   it("macOS arch is ['arm64'] — only Apple Silicon build, no Intel/x64", () => {
@@ -224,14 +226,27 @@ describe("STORES config invariants", () => {
     expect(STORES.linux.archLabel).toBe("");
   });
 
-  it("macOS has no Apple Store listing (flag=false, no storeProductId)", () => {
-    expect(STORES.macos.hasStoreListing).toBe(false);
-    expect(STORES.macos.storeProductId).toBe("");
+  it("Linux has no app store listing; reviewUrl points to the GitHub repo", () => {
+    expect(STORES.linux.hasStoreListing).toBe(false);
+    expect(STORES.linux.storeProductId).toBe("");
+    expect(STORES.linux.reviewUrl).toBe(GITHUB_REPO_URL);
   });
 
-  it("macOS reviewUrl points to the GitHub repo (no Apple Store listing — GitHub star is the review path)", () => {
-    expect(STORES.macos.reviewUrl).toBe(GITHUB_REPO_URL);
-    expect(STORES.macos.reviewUrl).toMatch(/^https:\/\/github\.com\//);
+  it("macOS has a Mac App Store listing (flag=true, correct storeProductId)", () => {
+    expect(STORES.macos.hasStoreListing).toBe(true);
+    expect(STORES.macos.storeProductId).toBe(MAC_APP_STORE_ID);
+    expect(STORES.macos.storeProductId).toBe("6795319409");
+  });
+
+  it("macOS downloadUrl points to the Mac App Store listing", () => {
+    expect(STORES.macos.downloadUrl).toMatch(/^https:\/\/apps\.apple\.com\/app\/id\d+/);
+    expect(STORES.macos.downloadUrl).toContain(MAC_APP_STORE_ID);
+  });
+
+  it("macOS reviewUrl points to the Mac App Store write-review action", () => {
+    expect(STORES.macos.reviewUrl).toMatch(/^https:\/\/apps\.apple\.com\//);
+    expect(STORES.macos.reviewUrl).toContain(MAC_APP_STORE_ID);
+    expect(STORES.macos.reviewUrl).toContain("action=write-review");
   });
 });
 

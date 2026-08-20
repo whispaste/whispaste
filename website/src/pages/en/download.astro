@@ -5,6 +5,7 @@ import Nav from "../../components/Nav.astro";
 import heroDevice from "../../assets/hero-device/hero-device-clean-en.png";
 import Footer from "../../components/Footer.astro";
 import StoreButton from "../../components/StoreButton.astro";
+import MacStoreButton from "../../components/MacStoreButton.astro";
 import AppleButton from "../../components/AppleButton.astro";
 import DownloadSupportModal from "../../components/DownloadSupportModal.astro";
 import BreadcrumbListSchema from "../../components/schema/BreadcrumbListSchema.astro";
@@ -149,7 +150,9 @@ const breadcrumbItems = [
           </div>
         </div>
 
-        <!-- Section 2: macOS (recommended for macOS) -->
+        <!-- Section 2: Mac App Store (recommended for macOS) — mirrors
+             Section 1's Store framing/benefits exactly, same two-tier
+             pattern as Windows. -->
         <div id="macos" class="download-card hud-frame rounded-2xl border p-6 sm:p-8 mb-6 relative scroll-mt-24" data-platform-card="macos">
           <div class="absolute -top-3 left-6">
             <span class="items-center gap-1 px-3 py-1 rounded-full recommended-badge ring-1 ring-brand-cyan/30 text-brand-cyan text-xs font-semibold">
@@ -157,69 +160,45 @@ const breadcrumbItems = [
               <span data-i18n="download.store.recommended">{t(lang, "download.store.recommended")}</span>
             </span>
           </div>
+
           <div class="flex items-start gap-3 mb-5 mt-2">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
               <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
             </div>
             <div>
-              <h2 class="text-xl font-semibold text-white" data-i18n="download.macos.title">{t(lang, "download.macos.title")}</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.macos.desc">{t(lang, "download.macos.desc")}</p>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.macstore.title">{t(lang, "download.macstore.title")}</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.macstore.desc">{t(lang, "download.macstore.desc")}</p>
             </div>
           </div>
 
-          <div class="flex justify-center mb-4">
-            <AppleButton size="lg" />
+          <!-- Benefits grid -->
+          <div class="grid grid-cols-2 gap-2 mb-6">
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              <span data-i18n="download.macstore.benefit1">{t(lang, "download.macstore.benefit1")}</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+              <span data-i18n="download.macstore.benefit2">{t(lang, "download.macstore.benefit2")}</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span data-i18n="download.macstore.benefit3">{t(lang, "download.macstore.benefit3")}</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-pink-400/80 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span data-i18n="download.macstore.benefit4">{t(lang, "download.macstore.benefit4")}</span>
+            </div>
           </div>
 
-          <p class="text-center text-xs text-ink-subtle mb-4" data-i18n="download.macos.hint">{t(lang, "download.macos.hint")}</p>
-
-          <!-- Gatekeeper guide — demoted to secondary/collapsible (issue 13):
-               full Apple-style step-by-step stays available, just collapsed
-               by default so it doesn't compete with the primary download CTA. -->
-          <details class="smartscreen-box tech-helper group rounded-xl border border-amber-500/10 bg-amber-500/[0.03]">
-            <summary class="tech-helper__summary flex items-start gap-3 p-5 cursor-pointer select-none">
-              <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-              <div class="flex-1">
-                <h3 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.title">{t(lang, "download.macos.gatekeeper.title")}</h3>
-                <p class="text-gray-400 text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.step1.desc">{t(lang, "download.macos.gatekeeper.step1.desc")}</p>
-              </div>
-              <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-0.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </summary>
-
-            <div class="tech-helper__body px-5 pb-5">
-              <div class="space-y-3 ml-8">
-                <div class="flex gap-3">
-                  <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">1</div>
-                  <div>
-                    <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step2.title">{t(lang, "download.macos.gatekeeper.step2.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step2.desc">{t(lang, "download.macos.gatekeeper.step2.desc")}</p>
-                  </div>
-                </div>
-                <div class="flex gap-3">
-                  <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">2</div>
-                  <div>
-                    <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step3.title">{t(lang, "download.macos.gatekeeper.step3.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step3.desc">{t(lang, "download.macos.gatekeeper.step3.desc")}</p>
-                  </div>
-                </div>
-                <div class="flex gap-3">
-                  <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">3</div>
-                  <div>
-                    <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step4.title">{t(lang, "download.macos.gatekeeper.step4.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step4.desc">{t(lang, "download.macos.gatekeeper.step4.desc")}</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Why section -->
-              <div class="mt-4 ml-8 pt-4 border-t border-amber-500/10">
-                {/* text-ink-muted statt text-white/70: die Alpha-Klasse entgeht dem
-                    light-Override und wäre dort Weiß auf Weiß (1:1). */}
-                <h4 class="font-medium text-ink-muted text-xs uppercase tracking-wider mb-1" data-i18n="download.macos.gatekeeper.why.title">{t(lang, "download.macos.gatekeeper.why.title")}</h4>
-                <p class="text-ink-subtle text-xs leading-relaxed" data-i18n="download.macos.gatekeeper.why.desc">{t(lang, "download.macos.gatekeeper.why.desc")}</p>
-              </div>
-            </div>
-          </details>
+          <!-- Store button -->
+          <div class="flex flex-col items-center gap-3">
+            <MacStoreButton size="lg" />
+            <p class="text-xs text-ink-subtle flex items-center gap-1">
+              <svg class="w-3 h-3 text-ink-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              <span data-i18n="download.macstore.hint">{t(lang, "download.macstore.hint")}</span>
+            </p>
+          </div>
         </div>
 
         <!-- Section 3: Linux — direct download (AppImage / .deb) -->
@@ -396,6 +375,75 @@ const breadcrumbItems = [
                     <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step3.desc">{t(lang, "download.step3.desc")}</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Section 4b: Free from GitHub (macOS) — the free path, always
+             visible. Direct DMG download + the Gatekeeper guide that only
+             applies outside the notarized-by-the-Store install path. -->
+        <div id="macos-free" class="download-card hud-frame rounded-2xl border p-6 sm:p-8 mb-6 relative scroll-mt-24" data-platform-card="macos-free">
+          <div class="flex items-start gap-3 mb-5 mt-2">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.macos.title">{t(lang, "download.macos.title")}</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.macos.desc">{t(lang, "download.macos.desc")}</p>
+            </div>
+          </div>
+
+          <div class="flex justify-center mb-4">
+            <AppleButton size="lg" />
+          </div>
+
+          <p class="text-center text-xs text-ink-subtle mb-4" data-i18n="download.macos.hint">{t(lang, "download.macos.hint")}</p>
+
+          <!-- Gatekeeper guide — demoted to secondary/collapsible (issue 13):
+               full Apple-style step-by-step stays available, just collapsed
+               by default so it doesn't compete with the primary download CTA. -->
+          <details class="smartscreen-box tech-helper group rounded-xl border border-amber-500/10 bg-amber-500/[0.03]">
+            <summary class="tech-helper__summary flex items-start gap-3 p-5 cursor-pointer select-none">
+              <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+              <div class="flex-1">
+                <h3 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.title">{t(lang, "download.macos.gatekeeper.title")}</h3>
+                <p class="text-gray-400 text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.step1.desc">{t(lang, "download.macos.gatekeeper.step1.desc")}</p>
+              </div>
+              <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-0.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+
+            <div class="tech-helper__body px-5 pb-5">
+              <div class="space-y-3 ml-8">
+                <div class="flex gap-3">
+                  <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">1</div>
+                  <div>
+                    <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step2.title">{t(lang, "download.macos.gatekeeper.step2.title")}</h4>
+                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step2.desc">{t(lang, "download.macos.gatekeeper.step2.desc")}</p>
+                  </div>
+                </div>
+                <div class="flex gap-3">
+                  <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">2</div>
+                  <div>
+                    <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step3.title">{t(lang, "download.macos.gatekeeper.step3.title")}</h4>
+                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step3.desc">{t(lang, "download.macos.gatekeeper.step3.desc")}</p>
+                  </div>
+                </div>
+                <div class="flex gap-3">
+                  <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">3</div>
+                  <div>
+                    <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step4.title">{t(lang, "download.macos.gatekeeper.step4.title")}</h4>
+                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step4.desc">{t(lang, "download.macos.gatekeeper.step4.desc")}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Why section -->
+              <div class="mt-4 ml-8 pt-4 border-t border-amber-500/10">
+                {/* text-ink-muted statt text-white/70: die Alpha-Klasse entgeht dem
+                    light-Override und wäre dort Weiß auf Weiß (1:1). */}
+                <h4 class="font-medium text-ink-muted text-xs uppercase tracking-wider mb-1" data-i18n="download.macos.gatekeeper.why.title">{t(lang, "download.macos.gatekeeper.why.title")}</h4>
+                <p class="text-ink-subtle text-xs leading-relaxed" data-i18n="download.macos.gatekeeper.why.desc">{t(lang, "download.macos.gatekeeper.why.desc")}</p>
               </div>
             </div>
           </details>
@@ -739,10 +787,10 @@ const breadcrumbItems = [
    * OS-matched primary card above the fold without touching the DOM —
    * data-os is set synchronously before first paint (Layout.astro inline
    * head script), so there is no reflow/flash. Unknown OS (no data-os
-   * attribute on <html>) keeps the natural source order below: Store,
-   * macOS, Linux, GitHub-free — all four equally weighted, no forced
-   * Store CTA. The free path (`windows-free`) is never hidden, only
-   * reprioritised. */
+   * attribute on <html>) keeps the natural source order below: Windows
+   * Store, Mac App Store, Linux, GitHub-free (Windows), GitHub-free
+   * (macOS) — all equally weighted, no forced Store CTA. The free paths
+   * (`windows-free`, `macos-free`) are never hidden, only reprioritised. */
   .download-primary-group {
     display: flex;
     flex-direction: column;
@@ -750,17 +798,20 @@ const breadcrumbItems = [
   :global([data-os="windows"]) .download-primary-group [data-platform-card="windows"] { order: 1; }
   :global([data-os="windows"]) .download-primary-group [data-platform-card="windows-free"] { order: 2; }
   :global([data-os="windows"]) .download-primary-group [data-platform-card="macos"] { order: 3; }
-  :global([data-os="windows"]) .download-primary-group [data-platform-card="linux"] { order: 4; }
+  :global([data-os="windows"]) .download-primary-group [data-platform-card="macos-free"] { order: 4; }
+  :global([data-os="windows"]) .download-primary-group [data-platform-card="linux"] { order: 5; }
 
   :global([data-os="macos"]) .download-primary-group [data-platform-card="macos"] { order: 1; }
-  :global([data-os="macos"]) .download-primary-group [data-platform-card="linux"] { order: 2; }
-  :global([data-os="macos"]) .download-primary-group [data-platform-card="windows"] { order: 3; }
-  :global([data-os="macos"]) .download-primary-group [data-platform-card="windows-free"] { order: 4; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="macos-free"] { order: 2; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="linux"] { order: 3; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="windows"] { order: 4; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="windows-free"] { order: 5; }
 
   :global([data-os="linux"]) .download-primary-group [data-platform-card="linux"] { order: 1; }
   :global([data-os="linux"]) .download-primary-group [data-platform-card="macos"] { order: 2; }
-  :global([data-os="linux"]) .download-primary-group [data-platform-card="windows"] { order: 3; }
-  :global([data-os="linux"]) .download-primary-group [data-platform-card="windows-free"] { order: 4; }
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="macos-free"] { order: 3; }
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="windows"] { order: 4; }
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="windows-free"] { order: 5; }
   :root.light .smartscreen-box {
     background: rgba(245, 158, 11, 0.06);
     border-color: rgba(245, 158, 11, 0.15);

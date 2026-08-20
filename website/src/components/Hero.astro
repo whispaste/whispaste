@@ -1,7 +1,7 @@
 ---
 import HeroCarousel from './HeroCarousel.astro';
 import StoreButton from './StoreButton.astro';
-import AppleButton from './AppleButton.astro';
+import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
 import { t, localePath } from '../scripts/i18n.ts';
 // Inline-tintable OS glyphs for the platform-badge row (Issue 09). Raw-imported
@@ -108,16 +108,17 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
        equally weighted. -->
   <div class="flex flex-wrap items-stretch justify-center gap-3">
     <div data-platform-btn="windows"><StoreButton size="lg" /></div>
-    <div data-platform-btn="macos"><AppleButton size="lg" /></div>
+    <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
     <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
   </div>
 
-  <!-- Store-Hint gilt nur für den Microsoft-Store-Weg (Windows) — auf macOS/
-       Linux gibt es keinen Store-Download, den es zu bewerten gäbe. Gegatet
-       über data-requires-os (global.css, gleiche data-os-Konvention wie die
-       Plattform-Buttons): sichtbar NUR bei positiv erkanntem Windows, im
-       ungegateten Fallback (alle drei CTAs sichtbar) bewusst versteckt. -->
-  <div data-requires-os="windows">
+  <!-- Store-Hint gilt nur für die Store-Wege (Microsoft Store / Mac App
+       Store) — auf Linux gibt es keinen Store-Download, den es zu bewerten
+       gäbe. Gegatet über data-requires-os (global.css, gleiche data-os-
+       Konvention wie die Plattform-Buttons): sichtbar NUR bei positiv
+       erkanntem Windows/macOS, im ungegateten Fallback (alle drei CTAs
+       sichtbar) bewusst versteckt. -->
+  <div data-requires-os="windows macos">
     <p class="text-xs text-ink-subtle flex items-center gap-1" data-testid="hero-store-hint">
       <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
       <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
@@ -412,9 +413,9 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
      recognized" without changing the button's shape (Fidelity-Zone: no
      bracket/HUD chrome on functional surfaces). No pulse on unknown OS
      (bots, privacy tools) -- there's nothing true to confirm, so nothing
-     fires. `.wp-store-btn`/`.wp-apple-btn`/`.wp-linux-btn` are rendered by
-     child components (StoreButton/AppleButton/LinuxButton), so the whole
-     selector needs :global() -- Astro's scoping would otherwise add a
+     fires. `.wp-store-btn`/`.wp-mac-store-btn`/`.wp-linux-btn` are rendered
+     by child components (StoreButton/MacStoreButton/LinuxButton), so the
+     whole selector needs :global() -- Astro's scoping would otherwise add a
      data-astro-cid attribute these child-rendered elements never carry, and
      the rule would silently never match. */
   @keyframes wp-cta-affirm {
@@ -422,7 +423,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
     }
   }
-  :global([data-os="macos"] .wp-apple-btn),
+  :global([data-os="macos"] .wp-mac-store-btn),
   :global([data-os="windows"] .wp-store-btn),
   :global([data-os="linux"] .wp-linux-btn) {
     animation: wp-cta-affirm 900ms var(--ease-flow) 1100ms 1;
@@ -438,7 +439,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     .hero-logo-in {
       animation: none !important;
     }
-    :global([data-os="macos"] .wp-apple-btn),
+    :global([data-os="macos"] .wp-mac-store-btn),
     :global([data-os="windows"] .wp-store-btn),
     :global([data-os="linux"] .wp-linux-btn) {
       animation: none !important;

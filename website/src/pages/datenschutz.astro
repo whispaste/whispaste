@@ -159,8 +159,8 @@ const breadcrumbItems = [
                 Der Update-Mechanismus hängt vom Installationsweg ab:
               </p>
               <ul class="list-disc list-inside space-y-1 ml-4">
-                <li>Bei Installation über den <strong class="text-white">Microsoft Store</strong> übernimmt der Store die Update-Prüfung; die App selbst führt keine eigene Update-Prüfung durch. (Weitere Paketmanager wie Homebrew, Scoop, Snap oder Flatpak sind geplant, aktuell aber noch nicht verfügbar.)</li>
-                <li>Beim <strong class="text-white">Windows- oder macOS-Installer</strong> sowie der portablen Variante prüft die App über signierte Appcast-Feeds, die von GitHub bezogen werden, ob eine neue Version verfügbar ist.</li>
+                <li>Bei Installation über den <strong class="text-white">Microsoft Store</strong> oder den <strong class="text-white">Mac App Store</strong> übernimmt der jeweilige Store die Update-Prüfung; die App selbst führt keine eigene Update-Prüfung durch. (Weitere Paketmanager wie Homebrew, Scoop, Snap oder Flatpak sind geplant, aktuell aber noch nicht verfügbar.)</li>
+                <li>Beim <strong class="text-white">Windows-Installer</strong> (inkl. portabler Variante) sowie dem direkt von GitHub geladenen <strong class="text-white">macOS-DMG</strong> (außerhalb des Mac App Store) prüft die App über signierte Appcast-Feeds, die von GitHub bezogen werden, ob eine neue Version verfügbar ist.</li>
                 <li>Unter <strong class="text-white">Linux</strong> (AppImage/.deb) erfolgt die Prüfung direkt über die GitHub-Releases-API.</li>
               </ul>
               <p class="mt-3">

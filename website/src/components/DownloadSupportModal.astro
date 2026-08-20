@@ -6,6 +6,7 @@ import { STORES } from '../data/platforms.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 const msReviewUrl = STORES.windows.reviewUrl;
+const macReviewUrl = STORES.macos.reviewUrl;
 ---
 
 <dialog 
@@ -42,12 +43,17 @@ const msReviewUrl = STORES.windows.reviewUrl;
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
-      <!-- No macOS/Linux-specific row here: their reviewUrl is GITHUB_REPO_URL,
+      <li data-platform-btn="macos">
+        <a href={macReviewUrl} target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-macos" data-testid="modal-star-macos">
+          <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-i18n="downloadModal.rateAppStore">{t(lang, "downloadModal.rateAppStore")}</span>
+          <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </li>
+      <!-- No Linux-specific row here: its reviewUrl is GITHUB_REPO_URL,
            identical to the always-visible "star on GitHub" row above, and
-           data-platform-btn="macos" is NOT hidden on macOS (only hidden when
-           data-os is windows/linux) — so a macOS row here would just repeat
-           the exact same text+link a second time. Removed 2026-07-21 after a
-           user report of a visibly duplicated "Star on GitHub" entry. -->
+           data-platform-btn="linux" would not be hidden on Linux — so a
+           Linux row here would just repeat the exact same text+link. -->
     </ul>
 
     <!-- Muted sponsor row -->
@@ -260,6 +266,7 @@ const msReviewUrl = STORES.windows.reviewUrl;
 
     document.getElementById('dlm-star-github')?.addEventListener('click', () => track('Support-Modal Sternklick', 'github'));
     document.getElementById('dlm-star-windows')?.addEventListener('click', () => track('Support-Modal Sternklick', 'windows'));
+    document.getElementById('dlm-star-macos')?.addEventListener('click', () => track('Support-Modal Sternklick', 'macos'));
     document.getElementById('dlm-support')?.addEventListener('click', () => track('Support-Modal Support-Klick'));
 
     document.getElementById('dlm-close')?.addEventListener('click', () => {
