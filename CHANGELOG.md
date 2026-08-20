@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **Linux zieht bei Auto-Einfügen und dem Textbaustein-Schnellzugriff mit Windows/macOS gleich**: Transkribierter Text wird jetzt auch unter Linux automatisch eingefügt (über eine virtuelle Tastatur), und der Textbaustein-Schnellzugriff öffnet sich als eigenes, systemintegriertes Fenster direkt an der Mausposition.
+- **Linux zieht beim Textbaustein-Schnellzugriff mit Windows/macOS gleich, und Auto-Einfügen ist jetzt auch unter Linux möglich**: Transkribierter Text kann jetzt auch unter Linux automatisch eingefügt werden (über eine virtuelle Tastatur) — dafür ist einmalig eine udev-Regel manuell einzurichten (`packaging/linux/71-whispaste-uinput.rules`, Anleitung darin), ohne diesen Schritt bleibt es beim bisherigen Zwischenablage-Fallback. Der Textbaustein-Schnellzugriff öffnet sich unter Linux ab sofort als eigenes, systemintegriertes Fenster direkt an der Mausposition.
 - **Neue native Oberfläche für den Textbaustein-Schnellzugriff unter Windows** — öffnet sich jetzt ebenfalls als eigenes kleines Fenster an der Mausposition statt in der Haupt-App.
 - **Der Auto-Einfügen-Schritt in der Windows-Ersteinrichtung ist jetzt eine echte Ein/Aus-Entscheidung** statt einer wirkungslosen Info-Seite — vorher stand dort „Auto-Einfügen ist bereit", obwohl die Funktion standardmäßig aus war und sich in der Ersteinrichtung nirgends aktivieren ließ.
 - Ein Textbaustein lässt sich jetzt direkt aus der Liste heraus duplizieren.
