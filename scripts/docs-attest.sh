@@ -159,15 +159,18 @@ check_platform_store() {
     fi
   fi
 
-  # (B) Apple App Store: macOS hat KEIN Listing (hasStoreListing:false, reviewUrl=
-  #     GitHub). Ein `apps.apple.com`-Literal IRGENDWO im Quellcode ist immer ein
-  #     toter/falscher Link — sowohl in der Website als auch in der Flutter-App.
+  # (B) Apple App Store: macOS-Listing ist seit v1.2.67 (2026-08-19) live
+  #     (App Store Connect App-ID 6795319409). platforms.ts (MAC_APP_STORE_URL)
+  #     ist die SSoT — ein `apps.apple.com`-Literal AUSSERHALB dieser Datei ist
+  #     Drift (dieselbe Klasse wie die MS-Store-Product-ID-Duplikat-Prüfung
+  #     oben). In lib/ (Flutter) gibt es noch keine Mac-App-Store-Verwendung —
+  #     ein Treffer dort ist ebenfalls Drift, bis das bewusst nachgezogen wird.
   local applehits
   applehits="$(grep -rln --include='*.astro' --include='*.ts' --include='*.js' --include='*.dart' \
                --exclude-dir=__tests__ --exclude='*.test.ts' --exclude='*.spec.ts' \
-               -F 'apps.apple.com' "$WEBSRC" "$ROOT/lib" 2>/dev/null || true)"
+               -F 'apps.apple.com' "$WEBSRC" "$ROOT/lib" 2>/dev/null | grep -vF "$PLATFORMS" || true)"
   if [ -n "$applehits" ]; then
-    note "apps.apple.com-Literal gefunden (kein Mac-App-Store-Listing — toter Link):"
+    note "apps.apple.com-Literal außerhalb platforms.ts (SSoT verletzt):"
     echo "$applehits" | sed "s|$ROOT/|    |"
   fi
 
