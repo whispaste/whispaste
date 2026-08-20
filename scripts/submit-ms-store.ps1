@@ -31,10 +31,19 @@
   committed submission "simply carries forward whatever price is already
   live" as long as `priceId` was set to null. That is false and caused a
   real live price reset to Free — see the comment above the (now removed)
-  pricing block near "Update listings" for the full finding. `pricing` is
-  now passed through 100% untouched, and a manual live-price check after
-  every commit is mandatory (docs/store-release.md, release-windows-store
-  skill Phase 4).
+  pricing block near "Update listings" for the full finding.
+  CORRECTION AGAIN (2026-08-20): passing `pricing` through untouched from
+  the clone is now ALSO rejected by the API on the submission PUT itself
+  ("'Base' is not a valid PriceId for base price."), even though this
+  script never reads or writes it — confirmed the rejected value is the
+  account's own live, currently-serving price, not something corrupted by
+  this script. Omitting `pricing` entirely is rejected too ("Pricing data
+  was not provided"). This appears to be a Microsoft-side tightening with
+  no known safe payload left for this account on this classic API — see the
+  comment near "Replace application packages" for the full investigation,
+  and docs/store-release.md for current status. Until resolved, this script
+  cannot complete a submission update for this app; do not retry `pricing`
+  permutations against the live app without explicit user sign-off first.
 
   IMAGES (added 2026-07-29): despite docs/store-release.md's older claim that
   listing images aren't API-controllable, Microsoft's docs
@@ -140,6 +149,17 @@ function Invoke-Api {
     try {
       return Invoke-RestMethod @p
     } catch {
+      # A 4xx (other than 429 Too Many Requests) is a validation/auth/
+      # permission rejection, never a transient network blip — retrying it
+      # 3x just delays a real failure by 15s and buries the actual error
+      # under two identical warnings (verified live 2026-08-20: an
+      # InvalidParameterValue pricing rejection was retried twice for no
+      # reason before finally throwing). Fail fast on those; keep retrying
+      # everything else (network errors, 5xx, 429).
+      $statusCode = $_.Exception.Response?.StatusCode.value__
+      if ($statusCode -ge 400 -and $statusCode -lt 500 -and $statusCode -ne 429) {
+        throw
+      }
       if ($attempt -ge 3) { throw }
       $wait = 5 * $attempt
       Write-Warning "API call failed (attempt $attempt/3, retry in ${wait}s): $_"
@@ -378,13 +398,19 @@ foreach ($locale in $LOCALE_MAP.Values) {
 # `pricing.isAdvancedPricingModel` is genuinely read-only — verified live
 # 2026-07-30 by PUTting it explicitly to `$true` on a real draft submission:
 # the PUT was accepted (no error), but a fresh GET immediately after read it
-# back as `false` again. The API silently ignores any write to that flag. A
-# committed submission whose clone carries `isAdvancedPricingModel: false`
-# (which every fresh draft does, regardless of the account's real live
-# state) therefore has no way to be told "use the real Advanced Pricing
-# schedule" — writing ANY `priceId`, including `null`, on top of that is
+# back as `false` again — at the time, every fresh draft clone carried
+# `isAdvancedPricingModel: false` regardless of the account's real live
+# state, so it had no way to be told "use the real Advanced Pricing
+# schedule"; writing ANY `priceId`, including `null`, on top of that is
 # what forced the account into the legacy single-global-price interpretation
-# and reset the live price to Free/$0 on the last real submission.
+# and reset the live price to Free/$0 on that submission.
+# UPDATE (2026-08-20): this is no longer the account's state. A live GET now
+# reads `isAdvancedPricingModel: true` on both the published submission and
+# a fresh clone — the account has since genuinely completed its Pricing V2
+# migration. The mechanism above is kept for the historical record (git
+# blame trail), but do not reason from "clones always read back `false`"
+# any more; verify current state with a fresh GET instead of trusting this
+# comment's numbers.
 #
 # There is no known API-safe value for this field on a Pricing V2 account.
 # Per Microsoft's own docs (learn.microsoft.com/windows/uwp/monetize/
@@ -398,6 +424,36 @@ foreach ($locale in $LOCALE_MAP.Values) {
 # it shows Free/$0. See docs/store-release.md §"Microsoft-Store-
 # Automatisierung" and the release-windows-store skill's Phase 4 checklist —
 # both now carry this as a required post-release check, not an optional one.
+#
+# CORRECTED AGAIN (2026-08-20): "pass `pricing` through 100% untouched" was
+# never actually verified against a real commit cycle before now — the
+# v1.2.67 run was the first, and it disproved the premise. The PUT was
+# rejected with `InvalidParameterValue` / target `"pricing"` /
+# "'Base' is not a valid PriceId for base price." — even though nothing in
+# this script reads or writes `pricing`.
+#
+# Investigated locally (read-only GETs, no writes) the same day: BOTH the
+# live-published submission AND a fresh draft clone carry the identical
+# `pricing` object — `priceId: "Base"`, `isAdvancedPricingModel: true`,
+# same trialPeriod/marketSpecificPricings/sales. So the value being
+# rejected is not something this script or any prior run corrupted — it is
+# the account's own live, currently-serving price, rejected by Microsoft's
+# own API on PUT. Omitting the `pricing` property entirely was also tried
+# (locally, `-SkipCommit`, draft-only) and rejected the other way:
+# "Pricing data was not provided in the request." Neither "send it
+# untouched" nor "omit it" passes PUT validation any more for this account.
+#
+# This is a Microsoft-side regression/tightening, not a bug in this script's
+# logic — matches Microsoft's own docs ("You can't use this API with apps
+# or add-ons that are on Pricing Version 2"), now apparently enforced as a
+# hard rejection instead of the previous silent inconsistency. There is no
+# known safe payload shape left that lets this classic API's PUT succeed
+# for this account. DO NOT try further `pricing` field permutations against
+# the live app without explicit user sign-off first — this is the exact
+# field that caused a real live price reset on 2026-07-30. Until Microsoft
+# fixes this or a different submission API is adopted, this script cannot
+# complete a submission update for this app; see docs/store-release.md for
+# the current status and next steps.
 
 # ── Replace application packages ──────────────────────────────────────────────
 # The API rejects a PUT that just swaps in a new package array — existing

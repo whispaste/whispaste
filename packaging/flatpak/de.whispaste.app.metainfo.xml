@@ -58,9 +58,14 @@
   <!-- Per-release: prepend a <release> entry with the tag version + date.
        See packaging/flatpak/README.md (runbook). -->
   <releases>
+    <release version="1.2.67" date="2026-08-20">
+      <description>
+        <p>See the full changelog on the WhisPaste website.</p>
+      </description>
+    </release>
     <release version="1.2.65" date="2026-07-30">
       <description>
-        <p>See the full changelog at https://whispaste.de/changelog/.</p>
+        <p>See the full changelog on the WhisPaste website.</p>
       </description>
     </release>
   </releases>
