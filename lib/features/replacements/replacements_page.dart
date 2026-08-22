@@ -12,6 +12,7 @@ import '../../widgets/wp_list_tile_surface.dart';
 import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
+import '../../widgets/toast.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
@@ -232,6 +233,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           replacement: r,
           isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: r),
+          onCopy: () => _copyReplacement(r),
+          onDuplicate: () => _duplicateReplacement(r),
           onDelete: () => _confirmDelete(r),
         );
       },
@@ -260,6 +263,24 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           .read(telemetrySessionAggregatorProvider)
           .count(category: 'replacements', action: 'create');
     }
+  }
+
+  // ── Copy action ──────────────────────────────────────────────────────
+
+  void _copyReplacement(Replacement r) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: r.replacement,
+      category: 'replacements',
+    );
+  }
+
+  Future<void> _duplicateReplacement(Replacement r) async {
+    final firstTrigger = r.triggers.isNotEmpty ? r.triggers.first : 'trigger';
+    await ref
+        .read(replacementsProvider.notifier)
+        .add(['$firstTrigger (copy)'], r.replacement);
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────
@@ -557,6 +578,8 @@ class _ReplacementTile extends StatefulWidget {
     required this.replacement,
     required this.isCursor,
     required this.onTap,
+    required this.onCopy,
+    required this.onDuplicate,
     required this.onDelete,
   });
 
@@ -566,6 +589,8 @@ class _ReplacementTile extends StatefulWidget {
   /// and same reasoning as `_SnippetTile.isCursor`, which see.
   final bool isCursor;
   final VoidCallback onTap;
+  final VoidCallback onCopy;
+  final VoidCallback onDuplicate;
   final VoidCallback onDelete;
 
   @override
@@ -635,6 +660,18 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               actions: WpRowActions(
                 visible: _isActive,
                 children: [
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.copy,
+                    tooltip: L10n.of(context).actionCopy,
+                    onTap: widget.onCopy,
+                  ),
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.files,
+                    tooltip: L10n.of(context).actionDuplicate,
+                    onTap: widget.onDuplicate,
+                  ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(
                     icon: LucideIcons.trash2,
