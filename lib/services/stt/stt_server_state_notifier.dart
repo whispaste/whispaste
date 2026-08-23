@@ -197,7 +197,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// few-second grace this actually needs. Mutable + [visibleForTesting] so
   /// tests can shrink it further.
   @visibleForTesting
-  static Duration stopDrainTimeout = const Duration(seconds: 5);
+  static Duration stopDrainTimeout = const Duration(seconds: 1);
 
   /// Quiet period the dictation pipeline must hold before a deferred
   /// benchmark ([_scheduleBenchmark]) claims the worker, so a rapid follow-up
