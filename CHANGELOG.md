@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.68
+
+### New Features
+
+- Textbausteine lassen sich jetzt auch direkt aus der Liste heraus duplizieren und kopieren, analog zu den bereits vorhandenen Aktionen bei Verlaufsnotizen.
+
+### Bug Fixes
+
+- **Windows: die native Fensterleiste erschien seit Kurzem doppelt** (systemeigene Titelleiste zusätzlich zur eigenen App-Titelleiste) — ein interner Zustand wurde beim Programmstart nicht zurückgesetzt und blockierte dadurch dauerhaft die Unterdrückung der Windows-Titelleiste.
+- Windows: ein seltener Absturz beim Schließen des Fensters wurde behoben.
+- Das Beenden einer Sprachaufnahme konnte in seltenen Fällen mit einer noch laufenden Transkription kollidieren — jetzt zuverlässig sequenziert mit kurzer Timeout-Absicherung.
+- Der „Diesen Hinweis nicht mehr anzeigen"-Button war per Tastatur nicht erreichbar.
+
+### Maintenance
+
+- Performance: Listenfilterung (Einstellungssuche, Textbaustein- und Verlaufslisten) nutzt jetzt vorkompilierte reguläre Ausdrücke statt wiederholter `toLowerCase()`-Aufrufe in der Schleife.
+
 ## 1.2.67
 
 ### New Features
