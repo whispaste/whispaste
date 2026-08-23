@@ -16,3 +16,7 @@ to. **Do not propose this again without an actual before/after benchmark number 
 `gh pr list --state closed --search "<the widget/file name>"` and read the closing comments — merged
 `git log` on `dev` only shows *accepted* changes; it will never show you the 10 times this exact idea
 was already rejected, because rejected PRs never touch `dev`.
+
+## 2024-05-18 - Case-insensitive filtering in Dart tight loops
+**Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
+**Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
