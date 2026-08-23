@@ -6,9 +6,18 @@ Sentry.init({
 
   environment: import.meta.env.MODE === 'production' ? 'production' : 'development',
 
+  // Lokaler `astro dev` soll nicht ans Sentry-Quota gehen (WHISPASTE-WEBSITE-2:
+  // Vite-HMR-Modulfehler von 127.0.0.1:4321 landeten sonst als echte Issues).
+  enabled: import.meta.env.MODE === 'production',
+
   // Keine IP/Headers/User-Identität — Marketing-Site hat keinen Login und
   // wir wollen die Privacy-Latte konsistent mit der Flutter-App halten.
   sendDefaultPii: false,
+
+  // Bekannte Nicht-Bugs, die als Browser-/Netzwerk-Rauschen ankommen statt als
+  // echte Fehler unserer Seite: Edge/Outlook-SafeLinks-Objektfehler und
+  // Content-Injection durch Proxys/DPI-Filter (rohes HTML landet als "Skript").
+  ignoreErrors: [/Object Not Found Matching Id/, /illegal character/i],
 
   // Performance-Tracing: Marketing-Site hat wenig Traffic, aber wir wollen
   // nicht das Free-Tier-Span-Budget der Org sprengen. 10 % in Produktion,

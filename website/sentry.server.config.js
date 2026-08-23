@@ -9,6 +9,9 @@ Sentry.init({
 
   environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
 
+  // Lokaler `astro dev` soll nicht ans Sentry-Quota gehen.
+  enabled: process.env.NODE_ENV === 'production',
+
   sendDefaultPii: false,
 
   // Build-Errors sind selten — 100 % reicht und kostet praktisch nichts.
