@@ -17,7 +17,10 @@ Sentry.init({
   // Bekannte Nicht-Bugs, die als Browser-/Netzwerk-Rauschen ankommen statt als
   // echte Fehler unserer Seite: Edge/Outlook-SafeLinks-Objektfehler und
   // Content-Injection durch Proxys/DPI-Filter (rohes HTML landet als "Skript").
-  ignoreErrors: [/Object Not Found Matching Id/, /illegal character/i],
+  // Der zweite Filter ist bewusst eng auf den beobachteten Codepoint gefasst
+  // (statt generisch "illegal character"), damit ein echter SyntaxError aus
+  // unserem eigenen Bundle nicht mitgeschluckt wird.
+  ignoreErrors: [/Object Not Found Matching Id/, /illegal character U\+009E/],
 
   // Performance-Tracing: Marketing-Site hat wenig Traffic, aber wir wollen
   // nicht das Free-Tier-Span-Budget der Org sprengen. 10 % in Produktion,
