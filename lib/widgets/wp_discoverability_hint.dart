@@ -20,6 +20,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 final _log = AppLogger('DiscoverabilityHint');
 
@@ -47,11 +48,18 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
   // `null` while the persisted flag hasn't loaded yet — renders nothing to
   // avoid a one-frame flash before the real (possibly "seen") state is known.
   bool? _seen;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -110,14 +118,24 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
             button: true,
             child: Tooltip(
               message: L10n.of(context).hintDismiss,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
+              child: WpFocusRing(
+                focusNode: _focusNode,
+                radius: WpRadius.sm,
+                child: InkWell(
                   onTap: _dismiss,
-                  child: const Icon(
-                    LucideIcons.x,
-                    size: WpIconSize.xs,
-                    color: textMuted,
+                  focusNode: _focusNode,
+                  borderRadius: WpRadius.borderSm,
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: const Padding(
+                    padding: EdgeInsets.all(WpSpacing.xxs),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: WpIconSize.xs,
+                      color: textMuted,
+                    ),
                   ),
                 ),
               ),
