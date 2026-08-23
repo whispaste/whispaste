@@ -94,6 +94,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // `AsyncLoading` (`.value == null`) and fall back to a wrong locale.
     final settings = await ref.read(settingsProvider.future);
     if (!mounted) return;
+    // The Whisper branch of [_engineModelInstalled] reads
+    // [modelDownloadProvider]'s state directly — that provider's initial
+    // disk scan runs deferred (off the build frame), so without this wait
+    // an already-downloaded model can lose the race and get read as "not
+    // installed" here, permanently (this method runs once, in initState).
+    await ref.read(modelDownloadProvider.notifier).awaitInitialScan();
+    if (!mounted) return;
     final locale = settings.locale;
     final rec = recommendEngine(
       dictationLanguageCode: locale,

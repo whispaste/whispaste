@@ -451,11 +451,21 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // Public API
   // -----------------------------------------------------------------------
 
+  /// Waits for the initial async disk scan to finish (a no-op once it
+  /// already has). Callers that decide something based on
+  /// [ModelDownloadState.downloadedModels] must await this first — the
+  /// scan is deferred off the build frame (see [build]), so a read right
+  /// after provider creation can otherwise see the empty pre-scan state and
+  /// never revisit that decision once the real scan result arrives.
+  Future<void> awaitInitialScan() async {
+    await _initialScanCompleter?.future;
+  }
+
   /// Downloads an STT model file. Orchestrates: Fetch → Verify → Activate.
   Future<void> downloadModel(String modelId) async {
     // Ensure the initial disk scan has completed so downloadedModels reflects
     // the on-disk state before we decide whether a re-download is needed.
-    await _initialScanCompleter?.future;
+    await awaitInitialScan();
     if (!_mounted) return;
     if (state.isBusy) return;
 

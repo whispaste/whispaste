@@ -9,6 +9,8 @@
 /// shell and never gated here.
 library;
 
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -82,6 +84,34 @@ class _RecordingWhisperDownloadNotifier extends ModelDownloadNotifier {
         if (state.activeModelId != null) state.activeModelId!,
       },
     );
+  }
+}
+
+/// Simulates the deferred initial disk scan without touching real
+/// `dart:io` — [build] starts in the pre-scan empty state, and
+/// [awaitInitialScan] parks on [releaseScan] before revealing [scanResult],
+/// exactly like the real notifier parks on its disk scan's completer. Lets
+/// tests control the race between hardware detection and the scan directly,
+/// via plain `Completer`-based futures (safe under `testWidgets`, unlike the
+/// real notifier's `Directory`/`File` calls — see the "initial disk scan
+/// race" group below).
+class _RaceableWhisperDownloadNotifier extends ModelDownloadNotifier {
+  _RaceableWhisperDownloadNotifier(this.scanResult);
+
+  final ModelDownloadState scanResult;
+  final _scanCompleter = Completer<void>();
+
+  @override
+  ModelDownloadState build() => const ModelDownloadState();
+
+  @override
+  Future<void> awaitInitialScan() async {
+    await _scanCompleter.future;
+    state = scanResult;
+  }
+
+  void releaseScan() {
+    if (!_scanCompleter.isCompleted) _scanCompleter.complete();
   }
 }
 
@@ -658,6 +688,105 @@ void main() {
           rec.parakeet.downloadBundleCalls,
           1,
           reason: 'One tap adopts the recommendation.',
+        );
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Initial disk scan race (issue #78 root cause)
+  // -------------------------------------------------------------------------
+
+  group('ModelStep — initial disk scan race', () {
+    testWidgets(
+      'an already-downloaded configured Whisper model is still recognised '
+      'when the disk scan resolves after hardware detection would otherwise '
+      'have read the pre-scan empty state',
+      (tester) async {
+        // The configured model (whisper-medium) is genuinely already
+        // downloaded — this is the "already downloaded before onboarding
+        // ever scanned" case from issue #78 — but [notifier] withholds it
+        // from `downloadedModels` until [_RaceableWhisperDownloadNotifier
+        // .releaseScan] is called, reproducing the exact window in which
+        // `_detectHardware()` used to read the still-empty pre-scan state.
+        final notifier = _RaceableWhisperDownloadNotifier(
+          const ModelDownloadState(downloadedModels: {'whisper-medium'}),
+        );
+        final parakeet = _RecordingParakeetDownloadNotifier(
+          const ParakeetDownloadState(),
+        );
+        final settings = _FakeSettingsNotifier(
+          const AppSettings(
+            interface_: InterfaceSettings(locale: 'de'),
+            stt: SttSettings(model: 'whisper-medium'),
+            onboarding: OnboardingSettings(onboardingCompleted: false),
+          ),
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              historyDatabaseProvider.overrideWith((ref) {
+                final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+                ref.onDispose(db.close);
+                return db;
+              }),
+              // German dictation recommends Parakeet — deliberately the
+              // opposite of the configured Whisper engine, so a race that
+              // discards the configured choice is visible as "wrong engine
+              // selected" rather than a coincidental match.
+              hw.gpuInfoProvider.overrideWith((_) async => _cpuOnly),
+              settingsProvider.overrideWith(() => settings),
+              modelDownloadProvider.overrideWith(() => notifier),
+              parakeetDownloadProvider.overrideWith(() => parakeet),
+            ],
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: wpDarkTheme(),
+              locale: const Locale('en'),
+              localizationsDelegates: L10n.localizationsDelegates,
+              supportedLocales: L10n.supportedLocales,
+              home: const Scaffold(
+                body: Center(child: SizedBox(width: 720, child: ModelStep())),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Still parked on the scan — the step must not have decided on an
+        // engine yet (the pre-fix bug decided here, wrongly, on Parakeet).
+        expect(
+          find.byKey(kModelStepEngineWhisperCardKey),
+          findsNothing,
+          reason:
+              'ModelStep must wait for the disk scan before rendering a '
+              'decision, not resolve on the pre-scan empty state.',
+        );
+
+        notifier.releaseScan();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(kModelStepEngineWhisperCardKey),
+          findsOneWidget,
+          reason:
+              'The scan has now resolved and hardware detection can '
+              'proceed.',
+        );
+        expect(
+          settings.state.value!.stt.engine,
+          'whisper',
+          reason:
+              'The already-configured, already-on-disk engine must survive '
+              'the race, not get overwritten by the language recommendation.',
+        );
+        expect(
+          find.text(l10n.modelReady),
+          findsOneWidget,
+          reason:
+              'The model that was on disk all along must be recognised '
+              'as ready, not offered up for re-download.',
         );
       },
     );
