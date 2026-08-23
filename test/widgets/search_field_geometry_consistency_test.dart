@@ -284,7 +284,7 @@ Widget _settings() => const WpPageShell(
 /// covers the pair.
 Widget _searchableList() => WpSearchableListPage<String>(
   asyncAll: const AsyncValue.data(['item']),
-  searchMatches: (_, __) => true,
+  searchMatches: (_, _) => true,
   searchHint: 'Search',
   searchFieldLabel: 'Search items',
   addLabel: 'Add',

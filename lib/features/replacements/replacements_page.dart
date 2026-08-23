@@ -205,8 +205,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       // ⚡ Bolt: Use precompiled case-insensitive RegExp to match fields instead
       // of allocating lowercased strings repeatedly in tight loops.
       searchMatches: (r, q) =>
-          r.triggers.any((t) => q.hasMatch(t)) ||
-          q.hasMatch(r.replacement),
+          r.triggers.any((t) => q.hasMatch(t)) || q.hasMatch(r.replacement),
       searchHint: l10n.replacementsSearch,
       searchFieldLabel: l10n.replacementsSearchFieldLabel,
       addLabel: l10n.replacementsAdd,
