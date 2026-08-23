@@ -85,7 +85,7 @@ void main() {
     // pages *and* both themes at once. The theme half of that went with the
     // light stack (2026-08-11); the page half is the reason the case exists,
     // so it stays and now renders on the one ground the app has.
-    testWidgets('Replacements — cursor on the middle row', skip: true, (tester) async {
+    testWidgets('Replacements — cursor on the middle row', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const ReplacementsPage(),

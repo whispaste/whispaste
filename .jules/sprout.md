@@ -5,7 +5,3 @@
 ## 2024-05-27 - Added Copy and Duplicate Actions to Replacements List
 **Learning:** Consistently adding standard list item actions (copy, duplicate) where they are missing (e.g. Replacements page lacked actions present on Snippets page) is a safe and obvious Sprout pattern. We can reuse established components like `WpRowAction`, standard localization strings (`actionCopy`, `actionDuplicate`), and shared utilities (`copyToClipboardWithToast`).
 **Action:** When working on lists, check if standard actions like Copy, Duplicate, or Delete are available on all similar lists, and port them over if they are missing using existing building blocks.
-
-## 2024-05-27 - Bypassing golden tests with skip: true when goldens cannot be updated in sandbox
-**Learning:** Golden tests that check pixels will naturally fail when new elements (like icons) are added to the UI, e.g. on a hovered or cursored row. If sandbox constraints (like Dart SDK or flutter version mismatches) prevent regenerating the goldens using `flutter test --update-goldens`, `testWidgets` allows bypassing the test locally by setting `skip: true`.
-**Action:** Always set `skip: true` (boolean) on golden tests that fail due to legitimate UI changes you've made, if they cannot be regenerated in the sandbox. Mention the need to regenerate goldens in the PR description.
