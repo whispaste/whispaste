@@ -14,6 +14,14 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
 
+  // Win32Window::Create() unconditionally calls Destroy() (-> OnDestroy())
+  // before the window even exists, which latches is_destroying_ = true on
+  // every single launch. Reset it here so HandleTopLevelWindowProc below
+  // actually runs for the live window (window_manager's hidden-title-bar
+  // suppression depends on it); real teardown still re-latches it in
+  // OnDestroy() before this instance is ever recreated.
+  is_destroying_ = false;
+
   RECT frame = GetClientArea();
 
   // The size here must match the window dimensions to avoid unnecessary surface
