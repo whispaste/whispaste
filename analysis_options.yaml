@@ -31,12 +31,6 @@ analyzer:
     # probe and block an unrelated commit. Name throwaway files `zz_*` to get
     # them excluded automatically instead of racing to delete them in time.
     - "**/zz_*"
-    - android/**
-    - ios/**
-    - web/**
-    - windows/**
-    - macos/**
-    - linux/**
 
 linter:
   rules:
