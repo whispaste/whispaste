@@ -219,6 +219,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// notes, re-transcription from the history), which [_isRecordingActive]
   /// alone would miss.
   int _transcribeInFlight = 0;
+
+  /// Resolved once [_transcribeInFlight] drops back to zero. Lets [stop]
+  /// wait out a request already past the [transcribeBytes] readiness check
+  /// before freeing the native engine — see [stop] (FLUTTER_WHISPASTE-6X).
+  Completer<void>? _drainCompleter;
   Completer<void>? _startCompleter;
   final Set<String> _modelLoadFailedIds = {};
   Timer? _modelChangeDebounce;
@@ -390,6 +395,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       return await _transcribeBytesInner(wavBytes, language: language);
     } finally {
       _transcribeInFlight--;
+      if (_transcribeInFlight == 0) {
+        _drainCompleter?.complete();
+        _drainCompleter = null;
+      }
     }
   }
 
@@ -551,6 +560,20 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // only once the engine confirms it, for callers that need that
     // guarantee (app quit, see `app.dart`'s `onWindowClose`).
     _transition(const SttStatus());
+    // A caller can already be past transcribeBytes's readiness check (idle
+    // timer, model switch, and the OOM/cloud-switch fallback all call stop()
+    // without coordinating with in-flight requests) — unloading the native
+    // engine underneath that call raced it into "whisper_engine_not_loaded"
+    // (FLUTTER_WHISPASTE-6X). Wait for it to finish first; [stuckGuardTimeout]
+    // already bounds how long that request can take, so this can't hang
+    // longer than transcribeBytes itself already could.
+    if (_transcribeInFlight > 0) {
+      _drainCompleter ??= Completer<void>();
+      await _drainCompleter!.future.timeout(
+        stuckGuardTimeout,
+        onTimeout: () {},
+      );
+    }
     await (_engine?.unload() ?? Future<void>.value());
   }
 

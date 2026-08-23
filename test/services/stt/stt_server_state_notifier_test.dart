@@ -31,6 +31,22 @@ import 'package:whispaste/services/stt/stt_bundle.dart';
 // Fake helpers (self-contained; do not import from other test files)
 // ---------------------------------------------------------------------------
 
+/// Minimal header that passes the RIFF/WAVE pre-flight validator (see
+/// `inference_request_validator_test.dart`'s identical helper — kept
+/// duplicated per this file's self-contained-fakes convention above).
+Uint8List _validWavHeader({int totalLength = 44}) {
+  final bytes = Uint8List(totalLength);
+  bytes[0] = 0x52; // R
+  bytes[1] = 0x49; // I
+  bytes[2] = 0x46; // F
+  bytes[3] = 0x46; // F
+  bytes[8] = 0x57; // W
+  bytes[9] = 0x41; // A
+  bytes[10] = 0x56; // V
+  bytes[11] = 0x45; // E
+  return bytes;
+}
+
 class _FakeWhisperEngine implements WhisperEngine {
   bool _loaded = false;
   String? lastModelPath;
@@ -293,6 +309,37 @@ void main() {
       gate.complete();
       await stopFuture;
       expect(stopCompleted, isTrue);
+    });
+
+    test('stop() waits for an in-flight transcribeBytes() before unloading '
+        'the engine, instead of racing it into '
+        '"whisper_engine_not_loaded" (FLUTTER_WHISPASTE-6X)', () async {
+      final engine = _FakeWhisperEngine()
+        ..transcribeDelay = const Duration(milliseconds: 30);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      // Started but not yet awaited: transcribeBytes() has already passed
+      // its readiness check and incremented the in-flight counter by the
+      // time this call returns control (no await before that point).
+      final transcribeFuture = notifier.transcribeBytes(_validWavHeader());
+
+      // A concurrent trigger (idle timer, model switch, OOM fallback) calls
+      // stop() while the transcription above is still in flight.
+      await notifier.stop();
+
+      expect(
+        await transcribeFuture,
+        'fake transcript',
+        reason:
+            'the in-flight request must complete successfully — stop() must '
+            'not have torn down the engine out from under it',
+      );
+      expect(engine.unloadCalled, isTrue);
     });
   });
 
