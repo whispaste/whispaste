@@ -150,7 +150,13 @@ done
 B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
 SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
 AI_TRAILER_RE='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium|opencode)'
-BOT_RE='(co-?pilot|anthropic|claude|opencode|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com|noreply@github\.com)'
+# Kein bare `noreply@github\.com` hier: das ist die Committer-Identität, die
+# GitHubs eigener "Merge pull request"-Button JEDEM per Web-UI gemergten PR
+# gibt (Author bleibt der echte Mensch) -- kein Bot-Signal, sondern die
+# normale Signatur für jeden über GitHub gemergten Sprout/Bolt/Palette-PR
+# dieses Projekts. Echte Bot-Accounts (dependabot[bot], github-actions[bot])
+# nutzen `<id>+name[bot]@users.noreply.github.com`, weiterhin erfasst.
+BOT_RE='(co-?pilot|anthropic|claude|opencode|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com)'
 
 # beta-appcast-pointer ist eine reine CI-verwaltete Orphan-Branch (appcast-beta.xml,
 # force-gepusht von release.yml/publish_beta_fallback.sh) -- deren Commits sind
@@ -227,8 +233,18 @@ EOF
       exit 1
     fi
 
-    # Bot author/committer
+    # Bot author/committer -- skip commits already accepted onto some
+    # remote-tracking ref (e.g. a CI manifest-bump commit already live on
+    # origin/dev, or a github-actions[bot] commit from a past release
+    # cycle): those were never new content to review, they only surface
+    # here because this local push is the first one to carry that ref's
+    # history across into another branch (dev -> main fast-forward etc).
+    # Genuinely new bot-authored commits on THIS push are still caught,
+    # since they cannot yet be reachable from any remote-tracking ref.
     [ "$is_appcast_pointer" = "1" ] && continue
+    if [ -n "$(git branch -r --contains "$commit" 2>/dev/null)" ]; then
+      continue
+    fi
     ident=$(git log -1 --format='%an <%ae>%n%cn <%ce>' "$commit" 2>/dev/null || true)
     if echo "$ident" | grep -qiE "$BOT_RE"; then
       cat >&2 <<EOF
