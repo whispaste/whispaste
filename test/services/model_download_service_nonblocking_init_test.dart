@@ -124,6 +124,34 @@ void main() {
       );
     });
 
+    test('awaitInitialScan only resolves after downloadedModels reflects the '
+        'scan result — callers like ModelStep must never observe the '
+        'pre-scan empty state after awaiting it', () async {
+      final modelFile = File(p.join(tempDir.path, sttModels.first.filename));
+      await modelFile.writeAsBytes([0]);
+
+      // Delay every hook call so the scan is still in flight when
+      // awaitInitialScan() is invoked, not already finished by coincidence.
+      final container = _makeContainerWithHook((path) async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        return File(path).exists();
+      });
+      addTearDown(container.dispose);
+
+      final notifier = container.read(modelDownloadProvider.notifier);
+      await notifier.awaitInitialScan();
+
+      final state = container.read(modelDownloadProvider);
+      expect(
+        state.downloadedModels,
+        contains(sttModels.first.id),
+        reason:
+            'awaitInitialScan must not resolve before the scan result is '
+            'written to state — resolving the completer before the state '
+            'assignment would let a caller read the stale pre-scan state.',
+      );
+    });
+
     test(
       'downloadModel awaits initial scan before checking downloadedModels',
       () async {

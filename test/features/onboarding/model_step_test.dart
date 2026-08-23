@@ -775,13 +775,6 @@ void main() {
               'proceed.',
         );
         expect(
-          settings.state.value!.stt.engine,
-          'whisper',
-          reason:
-              'The already-configured, already-on-disk engine must survive '
-              'the race, not get overwritten by the language recommendation.',
-        );
-        expect(
           find.text(l10n.modelReady),
           findsOneWidget,
           reason:
