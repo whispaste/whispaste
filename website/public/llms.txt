@@ -41,6 +41,6 @@
 
 ## Source & Releases
 
-- [GitHub Repository](https://github.com/silvio-lindstedt/whispaste): MIT-licensed source, releases, and issue tracker
+- [GitHub Repository](https://github.com/whispaste/whispaste): MIT-licensed source, releases, and issue tracker
 - [Changelog (Deutsch)](https://whispaste.de/changelog/): Versionshistorie
 - [Changelog (English)](https://whispaste.de/en/changelog/): Release history

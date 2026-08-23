@@ -173,10 +173,7 @@ export function buildSoftwareApplicationSchema(
       // und hätte Locale-Mismatch-Hinweise im Validator ausgelöst.
     },
     license: "https://opensource.org/licenses/MIT",
-    author: {
-      "@type": "Person",
-      name: "Silvio Lindstedt",
-    },
+    author: { "@id": ORGANIZATION_ID },
     publisher: { "@id": ORGANIZATION_ID },
     downloadUrl: `${GITHUB_REPO_URL}/releases/latest`,
     screenshot,

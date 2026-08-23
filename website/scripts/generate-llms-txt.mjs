@@ -346,7 +346,7 @@ const LLMS_TXT_SECTIONS = Object.freeze([
     links: [
       {
         label: "GitHub Repository",
-        url: "https://github.com/silvio-lindstedt/whispaste",
+        url: "https://github.com/whispaste/whispaste",
         note: "MIT-licensed source, releases, and issue tracker",
       },
       {

@@ -41,7 +41,7 @@
  * @example
  *   const cleanup = hydrate({
  *     mountSelector: "#changelog-list",
- *     owner: "silvio-lindstedt",
+ *     owner: "whispaste",
  *     repo: "whispaste",
  *     cardRenderer: defaultCardRenderer,
  *     currentTopVersion: "v1.2.13",
@@ -66,7 +66,7 @@ export type Release = {
 export type HydrateOptions = {
   /** CSS selector for the container into which new cards are prepended. */
   mountSelector: string;
-  /** GitHub repository owner, e.g. `"silvio-lindstedt"`. */
+  /** GitHub repository owner, e.g. `"whispaste"`. */
   owner: string;
   /** GitHub repository name, e.g. `"whispaste"`. */
   repo: string;

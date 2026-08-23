@@ -13,7 +13,7 @@
  *
  * @example
  *   const releases = await fetchReleases({
- *     owner: "silvio-lindstedt",
+ *     owner: "whispaste",
  *     repo: "whispaste",
  *     count: 5,
  *     token: process.env.GITHUB_TOKEN,

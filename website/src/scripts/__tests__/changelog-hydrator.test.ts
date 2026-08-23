@@ -115,7 +115,7 @@ describe("AC3 — first page load (no cache): fetch, cache, prepend on newer", (
     const list = setupMount();
     hydrate({
       mountSelector: "#changelog-list",
-      owner: "silvio-lindstedt",
+      owner: "whispaste",
       repo: "whispaste",
       cardRenderer: (r) => {
         const li = document.createElement("li");

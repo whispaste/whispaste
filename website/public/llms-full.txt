@@ -81,7 +81,7 @@ _Avoid_: Aufnahme-Ziel als Synonym für „Ziel-App"/Paste-Ziel (die App, in die
 Kanonischer Feature-Begriff: „WhisPaste tippt nach der Transkription automatisch `⌘V`/`Ctrl+V`". Namensgebende Default-Erfahrung — Clipboard ist nur das Vehikel, nicht das Feature. Unterschied zu §2.4: §2.4 ist die Pipeline-**Phase**, Auto-Paste die User-sichtbare **Feature-Variante** davon (Gegenteil: „Nur Zwischenablage", `AfterTranscriptionAction.clipboard`). Gilt nur innerhalb des Aufnahme-Ziels `clipboard` (§2.6) — beim Ziel `quickNote` stellt sich die Frage nicht, da nie kopiert oder eingefügt wird.
 
 Code: `AfterTranscriptionAction` (`paste`/`clipboard`), `autoPasteAfterTranscription`, `lib/services/paste/` (`Paster`, `PasteCapability`, §3.6), `AutoPasteStep` (§5.6).
-Plattform: macOS (Accessibility-Permission nötig), Windows (meist keine, UIPI-Edge bei elevated Targets), Linux (nicht unterstützt).
+Plattform: macOS (Accessibility-Permission nötig), Windows (meist keine, UIPI-Edge bei elevated Targets), Linux (uinput-basiertes virtuelles Keyboard, `linux/runner/desktop_paste_host.cc` — braucht `/dev/uinput`-Zugriff, siehe `packaging/linux/71-whispaste-uinput.rules`; Code+Build ab 2026-08-17 verifiziert, interaktive On-Device-Prüfung steht noch aus, Ticket 30).
 
 ### 2.8 Hotkey-Registrations-Status
 
@@ -200,7 +200,7 @@ Code nutzt **`onDevice`**, nie „local".
 | Provider | Engine |
 |---|---|
 | onDevice → Whisper | whisper.cpp (`dart:ffi`/`libwhisper`), 99 Sprachen, GPU-beschleunigt |
-| onDevice → Parakeet | NVIDIA Parakeet-TDT via `sherpa-onnx` (in-process ONNX), ~25 europ. Sprachen, CPU-only, mehrfach schneller als whisper.cpp (RTF 0,10–0,13x vs. 0,43–1,16x) |
+| onDevice → Parakeet | NVIDIA Parakeet-TDT via `sherpa-onnx` (in-process ONNX), ~25 europ. Sprachen, CPU-only, mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
 | openAI | OpenAI Audio API |
 | deepgram | Deepgram Streaming/Batch API |
 
