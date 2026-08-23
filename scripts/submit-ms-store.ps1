@@ -446,14 +446,24 @@ foreach ($locale in $LOCALE_MAP.Values) {
 # This is a Microsoft-side regression/tightening, not a bug in this script's
 # logic — matches Microsoft's own docs ("You can't use this API with apps
 # or add-ons that are on Pricing Version 2"), now apparently enforced as a
-# hard rejection instead of the previous silent inconsistency. There is no
-# known safe payload shape left that lets this classic API's PUT succeed
-# for this account. DO NOT try further `pricing` field permutations against
-# the live app without explicit user sign-off first — this is the exact
-# field that caused a real live price reset on 2026-07-30. Until Microsoft
-# fixes this or a different submission API is adopted, this script cannot
-# complete a submission update for this app; see docs/store-release.md for
-# the current status and next steps.
+# hard rejection instead of the previous silent inconsistency. Confirmed
+# 2026-08-20 in the Partner Center UI itself: this account's real price
+# ($2.99, market group "Default", 240 markets) lives entirely in a
+# schedule/market-group model that has no `Tier<nnnn>` representation any
+# more — `priceId: "Base"` is a placeholder for that schedule, not a
+# writable legacy tier, which is why both "send it untouched" and "omit it"
+# fail on PUT: there is no valid *value* for `priceId` any more, in either
+# direction.
+#
+# TRIED AND REJECTED (2026-08-20, user sign-off obtained, verified via
+# -SkipCommit draft before ever committing): dropping only the `priceId`
+# sub-field while keeping the rest of `pricing` DOES make the PUT succeed —
+# but a GET of the resulting draft showed `priceId` had silently defaulted
+# to `"Free"` and `isAdvancedPricingModel` to `false`. That is the exact
+# 2026-07-30 incident shape. It was caught on a draft, nothing went live,
+# but committing this would have reset the real price again. DO NOT ship
+# this "fix" — there is still no known safe payload. `pricing` is passed
+# through 100% untouched, same as before this section was ever touched.
 
 # ── Replace application packages ──────────────────────────────────────────────
 # The API rejects a PUT that just swaps in a new package array — existing
