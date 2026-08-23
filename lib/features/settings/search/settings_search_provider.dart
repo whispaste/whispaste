@@ -76,11 +76,17 @@ List<SettingsSearchEntry> matchSettingsEntries(
 ) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return const [];
-  final needle = _fold(trimmed.toLowerCase());
+
+  // PERF (Bolt): Precompile RegExp with `caseSensitive: false` before the loop
+  // to avoid allocating hundreds of lowercase String objects via `toLowerCase()`
+  // on every keystroke during a search.
+  final needle = RegExp.escape(_fold(trimmed));
+  final regex = RegExp(needle, caseSensitive: false);
+
   return table.where((e) {
-    if (_fold(e.title(locale).toLowerCase()).contains(needle)) return true;
-    if (_fold(e.subtitle(locale).toLowerCase()).contains(needle)) return true;
-    return e.keywords.any((kw) => _fold(kw.toLowerCase()).contains(needle));
+    if (regex.hasMatch(_fold(e.title(locale)))) return true;
+    if (regex.hasMatch(_fold(e.subtitle(locale)))) return true;
+    return e.keywords.any((kw) => regex.hasMatch(_fold(kw)));
   }).toList();
 }
 
@@ -95,32 +101,32 @@ List<SettingsSearchEntry> matchSettingsEntries(
 /// typing `"Tastenkurzel"` still matches `"Tastenkürzel"`.
 String _fold(String s) {
   const table = <String, String>{
-    'ä': 'a',
-    'à': 'a',
-    'á': 'a',
-    'â': 'a',
-    'ã': 'a',
-    'å': 'a',
-    'ö': 'o',
-    'ò': 'o',
-    'ó': 'o',
-    'ô': 'o',
-    'õ': 'o',
-    'ü': 'u',
-    'ù': 'u',
-    'ú': 'u',
-    'û': 'u',
-    'é': 'e',
-    'è': 'e',
-    'ê': 'e',
-    'ë': 'e',
-    'ï': 'i',
-    'î': 'i',
-    'í': 'i',
-    'ì': 'i',
-    'ñ': 'n',
-    'ç': 'c',
-    'ß': 'ss',
+    'ä': 'a', 'Ä': 'A',
+    'à': 'a', 'À': 'A',
+    'á': 'a', 'Á': 'A',
+    'â': 'a', 'Â': 'A',
+    'ã': 'a', 'Ã': 'A',
+    'å': 'a', 'Å': 'A',
+    'ö': 'o', 'Ö': 'O',
+    'ò': 'o', 'Ò': 'O',
+    'ó': 'o', 'Ó': 'O',
+    'ô': 'o', 'Ô': 'O',
+    'õ': 'o', 'Õ': 'O',
+    'ü': 'u', 'Ü': 'U',
+    'ù': 'u', 'Ù': 'U',
+    'ú': 'u', 'Ú': 'U',
+    'û': 'u', 'Û': 'U',
+    'é': 'e', 'É': 'E',
+    'è': 'e', 'È': 'E',
+    'ê': 'e', 'Ê': 'E',
+    'ë': 'e', 'Ë': 'E',
+    'ï': 'i', 'Ï': 'I',
+    'î': 'i', 'Î': 'I',
+    'í': 'i', 'Í': 'I',
+    'ì': 'i', 'Ì': 'I',
+    'ñ': 'n', 'Ñ': 'N',
+    'ç': 'c', 'Ç': 'C',
+    'ß': 'ss', // Note: dart's toLowerCase doesn't convert ß to ss, regex case-insensitivity covers typical alpha case
   };
   final buf = StringBuffer();
   for (final rune in s.runes) {
