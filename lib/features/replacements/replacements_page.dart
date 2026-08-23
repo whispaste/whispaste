@@ -233,12 +233,19 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: r),
           onDelete: () => _confirmDelete(r),
+          onDuplicate: () => _duplicateReplacement(r),
         );
       },
     );
   }
 
   // ── Add / Edit dialog ────────────────────────────────────────────────
+
+  Future<void> _duplicateReplacement(Replacement r) async {
+    await ref
+        .read(replacementsProvider.notifier)
+        .add(r.triggers, '${r.replacement} (copy)');
+  }
 
   Future<void> _showAddEditDialog({Replacement? existing}) async {
     final result = await showWpFormDialog<(List<String>, String)>(
@@ -558,6 +565,7 @@ class _ReplacementTile extends StatefulWidget {
     required this.isCursor,
     required this.onTap,
     required this.onDelete,
+    required this.onDuplicate,
   });
 
   final Replacement replacement;
@@ -567,6 +575,7 @@ class _ReplacementTile extends StatefulWidget {
   final bool isCursor;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onDuplicate;
 
   @override
   State<_ReplacementTile> createState() => _ReplacementTileState();
@@ -635,6 +644,12 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               actions: WpRowActions(
                 visible: _isActive,
                 children: [
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    icon: LucideIcons.files,
+                    tooltip: L10n.of(context).actionDuplicate,
+                    onTap: widget.onDuplicate,
+                  ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(
                     icon: LucideIcons.trash2,
