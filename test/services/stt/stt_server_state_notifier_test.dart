@@ -341,6 +341,44 @@ void main() {
       );
       expect(engine.unloadCalled, isTrue);
     });
+
+    test('stop() gives up waiting on the short stopDrainTimeout rather than '
+        'blocking for as long as the in-flight transcription takes — app '
+        'quit must not stall behind a still-running transcription '
+        '(FLUTTER_WHISPASTE-6X)', () async {
+      final savedDrainTimeout = SttServerStateNotifier.stopDrainTimeout;
+      SttServerStateNotifier.stopDrainTimeout = const Duration(
+        milliseconds: 50,
+      );
+      addTearDown(
+        () => SttServerStateNotifier.stopDrainTimeout = savedDrainTimeout,
+      );
+
+      final engine = _FakeWhisperEngine()
+        ..transcribeDelay = const Duration(seconds: 2);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      unawaited(notifier.transcribeBytes(_validWavHeader()));
+
+      final stopwatch = Stopwatch()..start();
+      await notifier.stop();
+      stopwatch.stop();
+
+      expect(
+        stopwatch.elapsed,
+        lessThan(const Duration(milliseconds: 500)),
+        reason:
+            'stop() must give up waiting after stopDrainTimeout and unload '
+            'anyway — reusing the multi-minute stuckGuardTimeout budget here '
+            'would stall app quit behind a still-running transcription',
+      );
+      expect(engine.unloadCalled, isTrue);
+    });
   });
 
   group('SttServerStateNotifier — notify methods', () {

@@ -187,6 +187,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   @visibleForTesting
   static Duration stuckGuardTimeout = const Duration(minutes: 5);
 
+  /// Upper bound on how long [stop] waits for an in-flight [transcribeBytes]
+  /// call to drain before unloading the engine anyway (FLUTTER_WHISPASTE-6X).
+  /// The race being closed is a millisecond-scale window between the
+  /// readiness check and the engine call, not the multi-minute
+  /// [stuckGuardTimeout] budget an already-running inference can take —
+  /// reusing that budget here would block app quit (`app.dart`'s
+  /// `onWindowClose`) behind an in-flight transcription instead of the
+  /// few-second grace this actually needs. Mutable + [visibleForTesting] so
+  /// tests can shrink it further.
+  @visibleForTesting
+  static Duration stopDrainTimeout = const Duration(seconds: 5);
+
   /// Quiet period the dictation pipeline must hold before a deferred
   /// benchmark ([_scheduleBenchmark]) claims the worker, so a rapid follow-up
   /// dictation still wins the queue. Mutable + [visibleForTesting] so tests
@@ -564,15 +576,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // timer, model switch, and the OOM/cloud-switch fallback all call stop()
     // without coordinating with in-flight requests) — unloading the native
     // engine underneath that call raced it into "whisper_engine_not_loaded"
-    // (FLUTTER_WHISPASTE-6X). Wait for it to finish first; [stuckGuardTimeout]
-    // already bounds how long that request can take, so this can't hang
-    // longer than transcribeBytes itself already could.
+    // (FLUTTER_WHISPASTE-6X). Wait for it to finish first, bounded by
+    // [stopDrainTimeout] — a short grace for the readiness-check race, not
+    // [stuckGuardTimeout]'s multi-minute budget, which would otherwise stall
+    // app quit behind a still-running transcription.
     if (_transcribeInFlight > 0) {
       _drainCompleter ??= Completer<void>();
-      await _drainCompleter!.future.timeout(
-        stuckGuardTimeout,
-        onTimeout: () {},
-      );
+      await _drainCompleter!.future.timeout(stopDrainTimeout, onTimeout: () {});
     }
     await (_engine?.unload() ?? Future<void>.value());
   }
