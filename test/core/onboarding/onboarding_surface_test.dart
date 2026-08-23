@@ -6,6 +6,7 @@
 /// specifically, which is the seam ticket 03 actually builds on top of.
 library;
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -32,6 +33,31 @@ OnboardingRevisionEntry _entry(int version) => OnboardingRevisionEntry(
   version: version,
   reason: (l10n) => 'reason $version',
 );
+
+/// [leaveOnboardingSurface] takes a [WidgetRef], not a [ProviderContainer]
+/// (it is called from `WpRecordingBehavior`'s `ConsumerState`) — so exercising
+/// it here needs a real widget mounted against the test's own container,
+/// exactly the way production obtains its `ref`.
+Future<void> _tapLeaveOnboardingSurface(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        home: Consumer(
+          builder: (context, ref, _) => ElevatedButton(
+            onPressed: () => leaveOnboardingSurface(ref),
+            child: const Text('leave'),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.byType(ElevatedButton));
+  await tester.pumpAndSettle();
+}
 
 ProviderContainer _makeContainer({
   required AppSettings initial,
@@ -146,6 +172,111 @@ void main() {
         reason:
             'A run offered at most once per version must not still be '
             'due immediately after it ends, whichever way it ended.',
+      );
+    });
+  });
+
+  group('leaveOnboardingSurface', () {
+    testWidgets(
+      'first run in progress: stamps onboardingCompleted, resets the step '
+      'and the target content version — same as reaching the last step '
+      'normally, so the overlay unmounts (issue #78: an "Open Settings" '
+      'toast action fired from the test-recording step must make Settings '
+      'actually visible)',
+      (tester) async {
+        final container = _makeContainer(
+          initial: AppSettings.defaults.copyWithSections(
+            onboarding: const OnboardingSettings(
+              onboardingCompleted: false,
+              onboardingCurrentStep: 6,
+            ),
+          ),
+          registry: [_entry(1), _entry(2)],
+        );
+        await container.read(settingsProvider.future);
+
+        await _tapLeaveOnboardingSurface(tester, container);
+
+        final onboarding = container.read(settingsProvider).value!.onboarding;
+        expect(onboarding.onboardingCompleted, isTrue);
+        expect(onboarding.onboardingCurrentStep, 0);
+        expect(
+          onboarding.onboardingContentVersion,
+          targetOnboardingContentVersion([
+            _entry(1),
+            _entry(2),
+          ], currentOnboardingPlatform()),
+        );
+        expect(container.read(onboardingSurfaceActiveProvider), isFalse);
+      },
+    );
+
+    testWidgets(
+      'manual review open: closes the review, leaves onboardingCompleted '
+      'alone',
+      (tester) async {
+        final container = _makeContainer(
+          initial: AppSettings.defaults.copyWithSections(
+            onboarding: const OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        container.read(onboardingManuallyOpenProvider.notifier).open();
+        expect(container.read(onboardingSurfaceActiveProvider), isTrue);
+
+        await _tapLeaveOnboardingSurface(tester, container);
+
+        expect(container.read(onboardingManuallyOpenProvider), isFalse);
+        expect(
+          container
+              .read(settingsProvider)
+              .value!
+              .onboarding
+              .onboardingCompleted,
+          isTrue,
+        );
+        expect(container.read(onboardingSurfaceActiveProvider), isFalse);
+      },
+    );
+
+    testWidgets(
+      'revision run in progress: completes the run (stamps the registry\'s '
+      'target version) exactly like reading it to the end would',
+      (tester) async {
+        final container = _makeContainer(
+          initial: AppSettings.defaults.copyWithSections(
+            onboarding: const OnboardingSettings(
+              onboardingCompleted: true,
+              onboardingContentVersion: 1,
+            ),
+          ),
+          registry: [_entry(1), _entry(2)],
+        );
+        await container.read(settingsProvider.future);
+        await container.read(onboardingRevisionRunProvider.notifier).start();
+
+        await _tapLeaveOnboardingSurface(tester, container);
+
+        final onboarding = container.read(settingsProvider).value!.onboarding;
+        expect(onboarding.onboardingContentVersion, 2);
+        expect(container.read(onboardingRevisionRunProvider), isFalse);
+        expect(container.read(onboardingSurfaceActiveProvider), isFalse);
+      },
+    );
+
+    testWidgets('no onboarding surface active: no-op', (tester) async {
+      final container = _makeContainer(
+        initial: AppSettings.defaults.copyWithSections(
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+
+      await _tapLeaveOnboardingSurface(tester, container);
+
+      expect(
+        container.read(settingsProvider).value!.onboarding.onboardingCompleted,
+        isTrue,
       );
     });
   });

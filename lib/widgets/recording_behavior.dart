@@ -20,6 +20,7 @@ import '../core/navigation/page_state.dart'
         notesEditorTargetProvider,
         settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
+import '../core/onboarding/onboarding_surface.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_helpers.dart';
@@ -290,6 +291,13 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
   }
 
   void _openSettings(String target) {
+    // The final onboarding step's test recording runs the real pipeline
+    // (see TestRecordingStep), so this action can fire while the onboarding
+    // overlay still covers the app — switching the page alone would leave it
+    // invisible underneath. Issue #78.
+    if (ref.read(onboardingSurfaceActiveProvider)) {
+      unawaited(leaveOnboardingSurface(ref));
+    }
     ref.read(settingsScrollTargetProvider.notifier).set(target);
     ref.read(activePageProvider.notifier).setPage('settings');
   }
@@ -428,8 +436,14 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     Future.microtask(() => ref.read(recordingInfoProvider.notifier).clear());
   }
 
-  void _openSnippets() =>
-      ref.read(activePageProvider.notifier).setPage('snippets');
+  void _openSnippets() {
+    // Same reasoning as _openSettings above: this can fire from within the
+    // onboarding test recording, and the overlay would otherwise swallow it.
+    if (ref.read(onboardingSurfaceActiveProvider)) {
+      unawaited(leaveOnboardingSurface(ref));
+    }
+    ref.read(activePageProvider.notifier).setPage('snippets');
+  }
 
   @override
   Widget build(BuildContext context) {

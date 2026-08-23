@@ -145,3 +145,44 @@ final onboardingSurfaceActiveProvider = Provider<bool>((ref) {
     revisionRunning: ref.watch(onboardingRevisionRunProvider),
   );
 });
+
+/// Leaves whichever onboarding surface is currently on top — first-run,
+/// manual review, or an onboarding revision run — the same terminal state
+/// change each one's own "finish"/"exit" action already makes. A no-op if
+/// none of the three is active.
+///
+/// Needed by anything that lives *behind* the overlay and must make its own
+/// navigation actually visible: the final step's test recording
+/// (`TestRecordingStep`) runs the real recording pipeline, whose toasts can
+/// carry an "Open Settings"/"Open Snippets" action (`recording_behavior.dart`).
+/// Those only flip `activePageProvider` — which the overlay, still on top per
+/// [onboardingSurfaceActiveProvider], keeps invisible. Calling this first
+/// makes the overlay unmount so the requested page is actually seen.
+Future<void> leaveOnboardingSurface(WidgetRef ref) async {
+  if (ref.read(onboardingManuallyOpenProvider)) {
+    ref.read(onboardingManuallyOpenProvider.notifier).close();
+    return;
+  }
+  if (ref.read(onboardingRevisionRunProvider)) {
+    await ref.read(onboardingRevisionRunProvider.notifier).complete();
+    return;
+  }
+  final onboarding = ref.read(settingsProvider).value?.onboarding;
+  if (onboarding == null || onboarding.onboardingCompleted) return;
+  final registry = ref.read(onboardingRevisionRegistryProvider);
+  final targetVersion = targetOnboardingContentVersion(
+    registry,
+    currentOnboardingPlatform(),
+  );
+  await ref
+      .read(settingsProvider.notifier)
+      .updateSettings(
+        (s) => s.copyWithSections(
+          onboarding: s.onboarding.copyWith(
+            onboardingCompleted: true,
+            onboardingCurrentStep: 0,
+            onboardingContentVersion: targetVersion,
+          ),
+        ),
+      );
+}
