@@ -113,25 +113,29 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
             ),
           ),
           const SizedBox(width: WpSpacing.xxs),
-          Tooltip(
-            message: L10n.of(context).hintDismiss,
-            child: WpFocusRing(
-              focusNode: _focusNode,
-              radius: WpRadius.sm,
-              child: InkWell(
-                onTap: _dismiss,
+          Semantics(
+            label: L10n.of(context).hintDismiss,
+            button: true,
+            child: Tooltip(
+              message: L10n.of(context).hintDismiss,
+              child: WpFocusRing(
                 focusNode: _focusNode,
-                borderRadius: WpRadius.borderSm,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                child: const Padding(
-                  padding: EdgeInsets.all(WpSpacing.xxs),
-                  child: Icon(
-                    LucideIcons.x,
-                    size: WpIconSize.xs,
-                    color: textMuted,
+                radius: WpRadius.sm,
+                child: InkWell(
+                  onTap: _dismiss,
+                  focusNode: _focusNode,
+                  borderRadius: WpRadius.borderSm,
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: const Padding(
+                    padding: EdgeInsets.all(WpSpacing.xxs),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: WpIconSize.xs,
+                      color: textMuted,
+                    ),
                   ),
                 ),
               ),
