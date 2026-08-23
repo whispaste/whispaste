@@ -35,6 +35,14 @@ class FlutterWindow : public Win32Window {
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
 
+  // Set at the start of OnDestroy(), before flutter_controller_ is torn
+  // down. DestroyWindow() on the embedded Flutter child (inside the
+  // FlutterViewController destructor) can synchronously re-enter this
+  // window's WndProc (e.g. via WM_PARENTNOTIFY) while flutter_controller_
+  // is still non-null but its destructor is mid-execution. This guard
+  // stops MessageHandler from forwarding into it during that window.
+  bool is_destroying_ = false;
+
   // Native floating button (runner-owned, destroyed before engine teardown).
   std::unique_ptr<FloatingButtonHost> floating_button_host_;
 

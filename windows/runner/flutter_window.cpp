@@ -66,6 +66,11 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // Block reentrant forwarding into flutter_controller_ for the whole
+  // teardown, not just the engine-destruction step below: DestroyWindow()
+  // calls from the host teardowns below can also re-enter MessageHandler.
+  is_destroying_ = true;
+
   // Destroy overlay and button BEFORE engine teardown (Invariant #4).
   if (floating_overlay_host_) {
     floating_overlay_host_->Destroy();
@@ -121,7 +126,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.
-  if (flutter_controller_) {
+  // Skipped while tearing down: flutter_controller_ can be non-null but
+  // mid-destruction here (see is_destroying_ above).
+  if (flutter_controller_ && !is_destroying_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,
                                                       lparam);
@@ -130,7 +137,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     }
   }
 
-  if (message == WM_FONTCHANGE) {
+  if (message == WM_FONTCHANGE && flutter_controller_ && !is_destroying_) {
     flutter_controller_->engine()->ReloadSystemFonts();
   }
 
