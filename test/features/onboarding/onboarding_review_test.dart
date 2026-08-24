@@ -32,7 +32,9 @@ import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart'
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/settings/sections/onboarding_review_section.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -71,6 +73,20 @@ class _FakeMicPermissionChecker implements MicPermissionChecker {
   Future<bool> check({required bool request}) async => false;
 }
 
+/// Statically resolved — never the real notifier. `ModelStep._detectHardware`
+/// awaits `awaitInitialScan()`, and the real notifier's initial scan is real
+/// `Directory`/`File` I/O, which never resolves under `testWidgets` (see the
+/// override in `onboarding_overlay_test.dart`, which this mirrors).
+class _StaticWhisperDownload extends ModelDownloadNotifier {
+  @override
+  ModelDownloadState build() => const ModelDownloadState();
+}
+
+class _StaticParakeetDownload extends ParakeetDownloadNotifier {
+  @override
+  ParakeetDownloadState build() => const ParakeetDownloadState();
+}
+
 /// Settings of someone who finished setup a long time ago and got half-way
 /// through the flow once, back when they did.
 AppSettings _returningUser() => AppSettings.defaults.copyWithSections(
@@ -97,6 +113,8 @@ Future<_FakeSettingsNotifier> _pumpReview(
         micPermissionCheckerProvider.overrideWithValue(
           _FakeMicPermissionChecker(),
         ),
+        modelDownloadProvider.overrideWith(_StaticWhisperDownload.new),
+        parakeetDownloadProvider.overrideWith(_StaticParakeetDownload.new),
       ],
     ),
   );

@@ -354,24 +354,32 @@ Future<void> _pumpOverlay(
           ),
           hotkeyServiceProvider.overrideWith(_noopHotkeyService),
         ],
-        if (downloadFailed) ...[
-          modelDownloadProvider.overrideWith(
-            () => _StaticWhisperDownload(
-              const ModelDownloadState(
-                phase: DownloadPhase.error,
-                errorMessage: downloadError,
-              ),
-            ),
+        // Always statically overridden — never the real notifier. Its
+        // initial disk scan hits real `Directory`/`File` calls, which
+        // `ModelStep._detectHardware()` now awaits before its first
+        // `setState` (see `awaitInitialScan()`); those real calls never
+        // resolve under `testWidgets`, hanging every test that reaches
+        // ModelStep until `pumpAndSettle` times out.
+        modelDownloadProvider.overrideWith(
+          () => _StaticWhisperDownload(
+            downloadFailed
+                ? const ModelDownloadState(
+                    phase: DownloadPhase.error,
+                    errorMessage: downloadError,
+                  )
+                : const ModelDownloadState(),
           ),
-          parakeetDownloadProvider.overrideWith(
-            () => _StaticParakeetDownload(
-              const ParakeetDownloadState(
-                phase: ParakeetDownloadPhase.error,
-                errorMessage: downloadError,
-              ),
-            ),
+        ),
+        parakeetDownloadProvider.overrideWith(
+          () => _StaticParakeetDownload(
+            downloadFailed
+                ? const ParakeetDownloadState(
+                    phase: ParakeetDownloadPhase.error,
+                    errorMessage: downloadError,
+                  )
+                : const ParakeetDownloadState(),
           ),
-        ],
+        ),
       ],
     ),
   );
@@ -1876,6 +1884,12 @@ void main() {
               ),
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
               micPermissionNotifierProvider.overrideWith(() => mic),
+              modelDownloadProvider.overrideWith(
+                () => _StaticWhisperDownload(const ModelDownloadState()),
+              ),
+              parakeetDownloadProvider.overrideWith(
+                () => _StaticParakeetDownload(const ParakeetDownloadState()),
+              ),
             ],
           ),
         );

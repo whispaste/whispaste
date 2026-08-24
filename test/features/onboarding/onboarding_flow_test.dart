@@ -54,8 +54,10 @@ import 'package:whispaste/services/hotkey_service.dart'
         hotkeyRegistrationStatusProvider,
         hotkeyServiceProvider;
 import 'package:whispaste/services/keyboard_up_monitor.dart';
+import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
@@ -139,6 +141,20 @@ class _FakeMicPermissionChecker implements MicPermissionChecker {
   Future<bool> check({required bool request}) async => false;
 }
 
+/// Statically resolved — never the real notifier. `ModelStep._detectHardware`
+/// awaits `awaitInitialScan()`, and the real notifier's initial scan is real
+/// `Directory`/`File` I/O, which never resolves under `testWidgets` (see the
+/// override in `onboarding_overlay_test.dart`, which this mirrors).
+class _StaticWhisperDownload extends ModelDownloadNotifier {
+  @override
+  ModelDownloadState build() => const ModelDownloadState();
+}
+
+class _StaticParakeetDownload extends ParakeetDownloadNotifier {
+  @override
+  ParakeetDownloadState build() => const ParakeetDownloadState();
+}
+
 /// [HotkeyService] mit Fake-Registrar — TriggerStep liest `supportsKeyUp`.
 /// `false` passt zur simulierten Linux-Zielplattform.
 HotkeyService _fakeHotkeyService() {
@@ -179,6 +195,8 @@ Future<_OverlayHandles> _pumpOverlay(
         ),
         hotkeyServiceProvider.overrideWith(_fakeHotkeyService),
         recordingOrchestratorProvider.overrideWith(() => orchestrator),
+        modelDownloadProvider.overrideWith(_StaticWhisperDownload.new),
+        parakeetDownloadProvider.overrideWith(_StaticParakeetDownload.new),
       ],
     ),
   );
