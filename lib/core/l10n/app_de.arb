@@ -804,6 +804,8 @@
   "settingsMaxRecordDurationUnlimited": "Unbegrenzt",
   "settingsCloseToTray": "In den Infobereich minimieren",
   "settingsCloseToTraySubtitle": "Beim Schließen des Fensters im Infobereich weiterlaufen",
+  "settingsSidePanelEnabled": "Zwischenablage-Schnelleinfüge-Panel",
+  "settingsSidePanelEnabledSubtitle": "Ausklappbares Panel bei Hover am linken Bildschirmrand für Transkriptionen, Snippets und Zwischenablage-Verlauf",
   "settingsErrorReporting": "Fehlerberichte",
   "settingsErrorReportingSubtitle": "Hilf WhisPaste zu verbessern, indem du anonyme Absturzberichte sendest",
   "settingsAutoPasteDelay": "Auto-Einfüge-Verzögerung",
@@ -947,6 +949,7 @@
   "floatingButtonQuit": "Beenden",
   "a11yRecordingButton": "Aufnahmeknopf",
   "a11yRecordingOverlay": "Aufnahme-Overlay",
+  "a11ySidePanel": "Schnelleinfüge-Panel",
   "trayStatusRecording": "Aufnahme…",
   "trayStatusReady": "Bereit",
   "trayStartRecording": "Aufnahme starten",
@@ -1228,5 +1231,16 @@
       "current": { "type": "int", "example": "3" },
       "total": { "type": "int", "example": "12" }
     }
-  }
+  },
+
+  "sidePanelTranscriptionsTitle": "Transkriptionen",
+  "sidePanelSnippetsTitle": "Snippets",
+  "sidePanelClipboardHistoryTitle": "Zwischenablage-Verlauf",
+  "sidePanelClipboardHistoryEmpty": "Noch nichts kopiert",
+  "sidePanelClipboardHistoryEmptyHint": "Alles, was du kopierst während WhisPaste läuft, erscheint hier — wird beim Neustart der App gelöscht.",
+  "sidePanelClose": "Panel schließen",
+  "sidePanelSearchHint": "Suchen",
+  "sidePanelSearchFieldLabel": "Diese Liste durchsuchen",
+  "sidePanelNoMatches": "Keine Treffer",
+  "sidePanelNoMatchesHint": "Versuche einen anderen Suchbegriff."
 }

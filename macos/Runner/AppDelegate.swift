@@ -7,6 +7,8 @@ class AppDelegate: FlutterAppDelegate {
   private var desktopPasteHost: DesktopPasteHost?
   private var floatingButtonHost: FloatingButtonHost?
   private var floatingOverlayHost: FloatingOverlayHost?
+  private var sidePanelHost: SidePanelHost?
+  private var clipboardMonitorHost: ClipboardMonitorHost?
   private var snippetPickerHost: SnippetPickerHost?
   private var audioRoutingHost: AudioRoutingHost?
   private var bundleIdMigrationHost: BundleIdMigrationHost?
@@ -89,6 +91,8 @@ class AppDelegate: FlutterAppDelegate {
     desktopPasteHost = DesktopPasteHost(messenger: messenger)
     floatingButtonHost = FloatingButtonHost(messenger: messenger)
     floatingOverlayHost = FloatingOverlayHost(messenger: messenger)
+    sidePanelHost = SidePanelHost(messenger: messenger)
+    clipboardMonitorHost = ClipboardMonitorHost(messenger: messenger)
     snippetPickerHost = SnippetPickerHost(messenger: messenger)
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)

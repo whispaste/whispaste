@@ -2427,6 +2427,13 @@ class L10nHe extends L10n {
       'המשך לפעול במגש המערכת כשסוגרים את החלון';
 
   @override
+  String get settingsSidePanelEnabled => 'Clipboard Quick-Paste Panel';
+
+  @override
+  String get settingsSidePanelEnabledSubtitle =>
+      'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history';
+
+  @override
   String get settingsErrorReporting => 'דיווח שגיאות';
 
   @override
@@ -2816,6 +2823,9 @@ class L10nHe extends L10n {
 
   @override
   String get a11yRecordingOverlay => 'שכבת הקלטה';
+
+  @override
+  String get a11ySidePanel => 'Quick paste panel';
 
   @override
   String get trayStatusRecording => 'מקליט…';
@@ -3502,4 +3512,35 @@ class L10nHe extends L10n {
   String findReplaceMatchCount(int current, int total) {
     return '$current מתוך $total';
   }
+
+  @override
+  String get sidePanelTranscriptionsTitle => 'Transcriptions';
+
+  @override
+  String get sidePanelSnippetsTitle => 'Snippets';
+
+  @override
+  String get sidePanelClipboardHistoryTitle => 'Clipboard History';
+
+  @override
+  String get sidePanelClipboardHistoryEmpty => 'Nothing copied yet';
+
+  @override
+  String get sidePanelClipboardHistoryEmptyHint =>
+      'Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.';
+
+  @override
+  String get sidePanelClose => 'Close panel';
+
+  @override
+  String get sidePanelSearchHint => 'Search';
+
+  @override
+  String get sidePanelSearchFieldLabel => 'Search this list';
+
+  @override
+  String get sidePanelNoMatches => 'No matches';
+
+  @override
+  String get sidePanelNoMatchesHint => 'Try a different search term.';
 }

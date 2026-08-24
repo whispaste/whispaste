@@ -34,11 +34,16 @@ STAGE_DIR="$REPO_ROOT/.build/libwhisper/macos"
 echo "=== build-libwhisper-macos ($WHISPER_TAG) ==="
 
 # --- 1. Verify pinned source ------------------------------------------------
+# `.build/` is gitignored per-checkout state (Issue 01 originally fetched it
+# once into the main repo checkout, but a `git worktree add` checkout starts
+# with an empty `.build/` -- it doesn't inherit the main checkout's build
+# cache). Auto-clone here instead of erroring so a fresh worktree/checkout
+# self-heals on first build instead of silently shipping broken STT.
 if [[ ! -d "$WHISPER_SRC" ]]; then
-  echo "ERROR: whisper.cpp source not found at $WHISPER_SRC" >&2
-  echo "       Fetch it first (Issue 01): git clone --depth 1 --branch $WHISPER_TAG \\" >&2
-  echo "       https://github.com/ggml-org/whisper.cpp \"$WHISPER_SRC\"" >&2
-  exit 1
+  echo "note: whisper.cpp source not found at $WHISPER_SRC -- cloning pinned $WHISPER_TAG."
+  mkdir -p "$(dirname "$WHISPER_SRC")"
+  git clone --depth 1 --branch "$WHISPER_TAG" \
+    https://github.com/ggml-org/whisper.cpp "$WHISPER_SRC"
 fi
 ACTUAL_COMMIT="$(git -C "$WHISPER_SRC" rev-parse HEAD 2>/dev/null || echo 'unknown')"
 if [[ "$ACTUAL_COMMIT" != "$WHISPER_PINNED_COMMIT" ]]; then

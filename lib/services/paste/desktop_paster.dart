@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../clipboard_history/app_clipboard.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
 import 'paster.dart';
 
@@ -129,9 +130,7 @@ class DesktopPaster implements Paster {
 
     // 3. Write transcript to clipboard.
     try {
-      await Clipboard.setData(
-        ClipboardData(text: text),
-      ).timeout(const Duration(seconds: 5));
+      await AppClipboard.setText(text).timeout(const Duration(seconds: 5));
     } on Exception {
       return PasteOutcome.failed;
     }
@@ -190,8 +189,8 @@ class DesktopPaster implements Paster {
 
     // 6. Restore previous clipboard contents.
     try {
-      await Clipboard.setData(
-        ClipboardData(text: previousClipboard ?? ''),
+      await AppClipboard.setText(
+        previousClipboard ?? '',
       ).timeout(const Duration(seconds: 5));
     } on Exception catch (e) {
       // Non-fatal — clipboard restore is best-effort.

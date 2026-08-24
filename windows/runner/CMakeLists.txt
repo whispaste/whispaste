@@ -8,6 +8,7 @@ project(runner LANGUAGES CXX)
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
   "attention_host.cpp"
+  "clipboard_monitor_host.cpp"
   "desktop_paste_host.cpp"
   "flutter_window.cpp"
   "floating_button_host.cpp"
@@ -17,6 +18,8 @@ add_executable(${BINARY_NAME} WIN32
   "gdiplus_helper.cpp"
   "keyboard_monitor_host.cpp"
   "main.cpp"
+  "side_panel_host.cpp"
+  "side_panel_window.cpp"
   "snippet_picker_host.cpp"
   "snippet_picker_window.cpp"
   "utils.cpp"
@@ -43,7 +46,7 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Copy the dedicated tray icon next to the executable for dev runs.

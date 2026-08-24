@@ -59,6 +59,16 @@ bool FlutterWindow::OnCreate() {
   snippet_picker_host_ = std::make_unique<SnippetPickerHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the native side panel host AFTER plugins are registered (issue
+  // 04/09 Windows port).
+  side_panel_host_ = std::make_unique<SidePanelHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the native clipboard-history monitor AFTER plugins are
+  // registered (issue 05 Windows port).
+  clipboard_monitor_host_ = std::make_unique<ClipboardMonitorHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -104,6 +114,14 @@ void FlutterWindow::OnDestroy() {
     snippet_picker_host_->Destroy();
     snippet_picker_host_.reset();
   }
+  if (side_panel_host_) {
+    side_panel_host_->Destroy();
+    side_panel_host_.reset();
+  }
+  if (clipboard_monitor_host_) {
+    clipboard_monitor_host_->Destroy();
+    clipboard_monitor_host_.reset();
+  }
 
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -131,6 +149,24 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   if (message == WM_INPUT && keyboard_monitor_host_) {
     keyboard_monitor_host_->HandleRawInput(
         reinterpret_cast<HRAWINPUT>(lparam));
+  }
+
+  // Monitor/DPI topology changed — rebuild the side panel's per-monitor
+  // sensor strips (mirrors SidePanelHost.rebuildSensors's
+  // didChangeScreenParameters observer on macOS). WM_DISPLAYCHANGE is
+  // broadcast to every top-level window, so this main window's own
+  // WndProc is a valid place to observe it — never consumes the message.
+  if (message == WM_DISPLAYCHANGE && side_panel_host_) {
+    side_panel_host_->RebuildSensors();
+  }
+
+  // Clipboard content changed — forward to the native clipboard-history
+  // monitor (issue 05 Windows port). WM_CLIPBOARDUPDATE is delivered to
+  // every window registered via AddClipboardFormatListener, so this main
+  // window's own WndProc is a valid place to observe it — never consumes
+  // the message.
+  if (message == WM_CLIPBOARDUPDATE && clipboard_monitor_host_) {
+    clipboard_monitor_host_->HandleClipboardUpdate();
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.

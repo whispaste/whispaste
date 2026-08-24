@@ -279,9 +279,9 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
 
   Future<void> _duplicateReplacement(Replacement r) async {
     final firstTrigger = r.triggers.isNotEmpty ? r.triggers.first : 'trigger';
-    await ref
-        .read(replacementsProvider.notifier)
-        .add(['$firstTrigger (copy)'], r.replacement);
+    await ref.read(replacementsProvider.notifier).add([
+      '$firstTrigger (copy)',
+    ], r.replacement);
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────

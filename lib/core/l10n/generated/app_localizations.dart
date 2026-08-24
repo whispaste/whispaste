@@ -4383,6 +4383,18 @@ abstract class L10n {
   /// **'Keep running in the system tray when closing the window'**
   String get settingsCloseToTraySubtitle;
 
+  /// No description provided for @settingsSidePanelEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard Quick-Paste Panel'**
+  String get settingsSidePanelEnabled;
+
+  /// No description provided for @settingsSidePanelEnabledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history'**
+  String get settingsSidePanelEnabledSubtitle;
+
   /// No description provided for @settingsErrorReporting.
   ///
   /// In en, this message translates to:
@@ -5063,6 +5075,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Recording overlay'**
   String get a11yRecordingOverlay;
+
+  /// Accessibility label for the clipboard quick-paste side panel (screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Quick paste panel'**
+  String get a11ySidePanel;
 
   /// No description provided for @trayStatusRecording.
   ///
@@ -6269,6 +6287,66 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{current} of {total}'**
   String findReplaceMatchCount(int current, int total);
+
+  /// No description provided for @sidePanelTranscriptionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcriptions'**
+  String get sidePanelTranscriptionsTitle;
+
+  /// No description provided for @sidePanelSnippetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippets'**
+  String get sidePanelSnippetsTitle;
+
+  /// No description provided for @sidePanelClipboardHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard History'**
+  String get sidePanelClipboardHistoryTitle;
+
+  /// No description provided for @sidePanelClipboardHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing copied yet'**
+  String get sidePanelClipboardHistoryEmpty;
+
+  /// No description provided for @sidePanelClipboardHistoryEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.'**
+  String get sidePanelClipboardHistoryEmptyHint;
+
+  /// Accessibility label for the side panel's close button (screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Close panel'**
+  String get sidePanelClose;
+
+  /// No description provided for @sidePanelSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get sidePanelSearchHint;
+
+  /// Accessibility label for the side panel's search field (screen readers) -- the visible hint text (sidePanelSearchHint) is not section-specific, so this names what it searches instead
+  ///
+  /// In en, this message translates to:
+  /// **'Search this list'**
+  String get sidePanelSearchFieldLabel;
+
+  /// No description provided for @sidePanelNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get sidePanelNoMatches;
+
+  /// No description provided for @sidePanelNoMatchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different search term.'**
+  String get sidePanelNoMatchesHint;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

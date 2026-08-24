@@ -14,11 +14,26 @@
 # warning, so a checkout that has not built libwhisper still compiles.
 set -euo pipefail
 
-STAGE_DIR="${SRCROOT}/../.build/libwhisper/macos"
+REPO_ROOT="${SRCROOT}/.."
+STAGE_DIR="${REPO_ROOT}/.build/libwhisper/macos"
 DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 
+# Self-heal: a fresh worktree checkout (git worktree, not a full clone) never
+# inherits .build/ — it's gitignored, per-checkout build cache. Rather than
+# silently skipping (which used to leave transcription broken with no signal
+# until someone noticed at runtime), build it now if the pinned whisper.cpp
+# source is already present. Only skip-with-warning if even that is missing,
+# so CI/lint-only checkouts without the source tree still compile.
 if [[ ! -d "$STAGE_DIR" ]]; then
-  echo "warning: libwhisper staging dir not found ($STAGE_DIR) — run scripts/build-libwhisper-macos.sh. Skipping embed."
+  echo "note: libwhisper staging dir not found ($STAGE_DIR) — attempting to build it now."
+  if ! "${REPO_ROOT}/scripts/build-libwhisper-macos.sh"; then
+    echo "warning: libwhisper auto-build failed — see log above. Skipping embed; run scripts/build-libwhisper-macos.sh manually."
+    exit 0
+  fi
+fi
+
+if [[ ! -d "$STAGE_DIR" ]]; then
+  echo "warning: libwhisper staging dir still not found after auto-build attempt — skipping embed."
   exit 0
 fi
 

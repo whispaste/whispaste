@@ -126,7 +126,8 @@ String _fold(String s) {
     'ì': 'i', 'Ì': 'I',
     'ñ': 'n', 'Ñ': 'N',
     'ç': 'c', 'Ç': 'C',
-    'ß': 'ss', // Note: dart's toLowerCase doesn't convert ß to ss, regex case-insensitivity covers typical alpha case
+    'ß':
+        'ss', // Note: dart's toLowerCase doesn't convert ß to ss, regex case-insensitivity covers typical alpha case
   };
   final buf = StringBuffer();
   for (final rune in s.runes) {

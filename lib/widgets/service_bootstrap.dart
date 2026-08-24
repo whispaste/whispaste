@@ -16,12 +16,14 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
 import '../core/recording/recording_state.dart' show RecordingTarget;
 import '../services/autostart_service.dart';
+import '../services/clipboard_history/clipboard_history_monitor_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/recording_trigger_handler.dart';
+import '../services/side_panel/side_panel_service.dart';
 import '../services/tray_service.dart';
 
 /// Invisible wrapper that eagerly boots keepAlive service providers.
@@ -161,6 +163,29 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     ref.watch(autostartServiceProvider);
     ref.watch(floatingButtonServiceProvider);
     ref.watch(floatingOverlayServiceProvider);
+    // Without this watch, nothing in production ever reads
+    // sidePanelServiceProvider, so it gets disposed immediately after each
+    // native hover-trigger call -- tearing down its onControllerReady
+    // ref.listen subscriptions and losing the row-content maps between
+    // open() and the next row click.
+    //
+    // Gated on the setting on purpose, not just watched unconditionally: a
+    // user who turns the panel off wants its native edge sensors gone, not
+    // merely unreachable. Dropping the watch lets the (autoDispose) provider
+    // tear down through the same disposeController -> controller.dispose()
+    // path a hover-triggered auto-dispose already exercises; flipping the
+    // setting back on re-runs build() and recreates the native host.
+    final sidePanelEnabled = ref.watch(
+      settingsProvider.select(
+        (s) => s.value?.interface_.sidePanelEnabled ?? true,
+      ),
+    );
+    if (sidePanelEnabled) {
+      ref.watch(sidePanelServiceProvider);
+    }
+    // Registers the clipEntryDetected method-call handler for the native
+    // clipboard monitors (issues 04-06); same keepAlive rationale as above.
+    ref.watch(clipboardHistoryMonitorServiceProvider);
 
     return widget.child;
   }

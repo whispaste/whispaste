@@ -2490,6 +2490,13 @@ class L10nDe extends L10n {
       'Beim Schließen des Fensters im Infobereich weiterlaufen';
 
   @override
+  String get settingsSidePanelEnabled => 'Zwischenablage-Schnelleinfüge-Panel';
+
+  @override
+  String get settingsSidePanelEnabledSubtitle =>
+      'Ausklappbares Panel bei Hover am linken Bildschirmrand für Transkriptionen, Snippets und Zwischenablage-Verlauf';
+
+  @override
   String get settingsErrorReporting => 'Fehlerberichte';
 
   @override
@@ -2884,6 +2891,9 @@ class L10nDe extends L10n {
 
   @override
   String get a11yRecordingOverlay => 'Aufnahme-Overlay';
+
+  @override
+  String get a11ySidePanel => 'Schnelleinfüge-Panel';
 
   @override
   String get trayStatusRecording => 'Aufnahme…';
@@ -3584,4 +3594,35 @@ class L10nDe extends L10n {
   String findReplaceMatchCount(int current, int total) {
     return '$current von $total';
   }
+
+  @override
+  String get sidePanelTranscriptionsTitle => 'Transkriptionen';
+
+  @override
+  String get sidePanelSnippetsTitle => 'Snippets';
+
+  @override
+  String get sidePanelClipboardHistoryTitle => 'Zwischenablage-Verlauf';
+
+  @override
+  String get sidePanelClipboardHistoryEmpty => 'Noch nichts kopiert';
+
+  @override
+  String get sidePanelClipboardHistoryEmptyHint =>
+      'Alles, was du kopierst während WhisPaste läuft, erscheint hier — wird beim Neustart der App gelöscht.';
+
+  @override
+  String get sidePanelClose => 'Panel schließen';
+
+  @override
+  String get sidePanelSearchHint => 'Suchen';
+
+  @override
+  String get sidePanelSearchFieldLabel => 'Diese Liste durchsuchen';
+
+  @override
+  String get sidePanelNoMatches => 'Keine Treffer';
+
+  @override
+  String get sidePanelNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
 }

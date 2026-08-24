@@ -18,6 +18,7 @@ import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/wp_list_skeleton.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../services/clipboard_history/app_clipboard.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
 import 'data/history_detail_provider.dart';
 import 'data/providers.dart';
@@ -730,7 +731,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   void _copyAsMarkdown(HistoryEntry entry) {
-    Clipboard.setData(ClipboardData(text: _formatEntryAsMarkdown(entry)));
+    AppClipboard.setText(_formatEntryAsMarkdown(entry));
     if (!mounted) return;
     WpToast.show(
       context,
@@ -746,7 +747,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (selected.isEmpty) return;
 
     final md = selected.map(_formatEntryAsMarkdown).join('\n');
-    Clipboard.setData(ClipboardData(text: md));
+    AppClipboard.setText(md);
     if (!mounted) return;
     WpToast.show(
       context,
@@ -859,7 +860,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final selected = flat.where((e) => _selectedIds.contains(e.id)).toList();
     if (selected.isEmpty) return;
     final text = selected.map((e) => e.content).join('\n\n');
-    Clipboard.setData(ClipboardData(text: text));
+    AppClipboard.setText(text);
     if (!mounted) return;
     WpToast.show(
       context,

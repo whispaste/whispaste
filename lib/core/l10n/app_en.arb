@@ -941,6 +941,8 @@
   "settingsMaxRecordDurationUnlimited": "Unlimited",
   "settingsCloseToTray": "Close to Tray",
   "settingsCloseToTraySubtitle": "Keep running in the system tray when closing the window",
+  "settingsSidePanelEnabled": "Clipboard Quick-Paste Panel",
+  "settingsSidePanelEnabledSubtitle": "Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history",
   "settingsErrorReporting": "Error Reporting",
   "settingsErrorReportingSubtitle": "Help improve WhisPaste by sending anonymous crash reports",
   "settingsAutoPasteDelay": "Auto-Paste Delay",
@@ -1099,6 +1101,10 @@
   "a11yRecordingOverlay": "Recording overlay",
   "@a11yRecordingOverlay": {
     "description": "Accessibility label for the floating recording overlay (screen readers)"
+  },
+  "a11ySidePanel": "Quick paste panel",
+  "@a11ySidePanel": {
+    "description": "Accessibility label for the clipboard quick-paste side panel (screen readers)"
   },
   "trayStatusRecording": "Recording…",
   "trayStatusReady": "Ready",
@@ -1402,5 +1408,22 @@
       "current": { "type": "int", "example": "3" },
       "total": { "type": "int", "example": "12" }
     }
-  }
+  },
+
+  "sidePanelTranscriptionsTitle": "Transcriptions",
+  "sidePanelSnippetsTitle": "Snippets",
+  "sidePanelClipboardHistoryTitle": "Clipboard History",
+  "sidePanelClipboardHistoryEmpty": "Nothing copied yet",
+  "sidePanelClipboardHistoryEmptyHint": "Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.",
+  "sidePanelClose": "Close panel",
+  "@sidePanelClose": {
+    "description": "Accessibility label for the side panel's close button (screen readers)"
+  },
+  "sidePanelSearchHint": "Search",
+  "sidePanelSearchFieldLabel": "Search this list",
+  "@sidePanelSearchFieldLabel": {
+    "description": "Accessibility label for the side panel's search field (screen readers) -- the visible hint text (sidePanelSearchHint) is not section-specific, so this names what it searches instead"
+  },
+  "sidePanelNoMatches": "No matches",
+  "sidePanelNoMatchesHint": "Try a different search term."
 }

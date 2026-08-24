@@ -9,7 +9,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -24,6 +23,7 @@ import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
 import 'audio_service.dart';
+import 'clipboard_history/app_clipboard.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'recording/oom_recovery_handler.dart';
@@ -1756,7 +1756,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
   Future<bool> _copyTranscriptToClipboard(String transcript) async {
     try {
-      await Clipboard.setData(ClipboardData(text: transcript)).timeout(
+      await AppClipboard.setText(transcript).timeout(
         const Duration(seconds: 5),
         onTimeout: () {
           _log.warning('Clipboard.setData timed out after 5s');

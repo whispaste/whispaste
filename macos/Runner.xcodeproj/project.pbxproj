@@ -33,6 +33,9 @@
 		AA0003012044A3C60003C045 /* FloatingButtonHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0003002044A3C60003C045 /* FloatingButtonHost.swift */; };
 		AA0004012044A3C60003C045 /* FloatingOverlayWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004002044A3C60003C045 /* FloatingOverlayWindow.swift */; };
 		AA0005012044A3C60003C045 /* FloatingOverlayHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0005002044A3C60003C045 /* FloatingOverlayHost.swift */; };
+		AA0008012044A3C60003C045 /* SidePanelWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0008002044A3C60003C045 /* SidePanelWindow.swift */; };
+		AA0009012044A3C60003C045 /* SidePanelHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0009002044A3C60003C045 /* SidePanelHost.swift */; };
+		AA000A012044A3C60003C045 /* ClipboardMonitorHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000A002044A3C60003C045 /* ClipboardMonitorHost.swift */; };
 		7AA84E5B35FA4516BC66090E /* SnippetPickerPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5F778C9B774D99AA5ADE03 /* SnippetPickerPanel.swift */; };
 		56E0E49240AC49B1A7F27C32 /* SnippetPickerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0486CFCB9C24358A216F09D /* SnippetPickerHost.swift */; };
 		AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0006002044A3C60003C045 /* AudioRoutingHost.swift */; };
@@ -105,6 +108,9 @@
 		AA0003002044A3C60003C045 /* FloatingButtonHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingButtonHost.swift; sourceTree = "<group>"; };
 		AA0004002044A3C60003C045 /* FloatingOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingOverlayWindow.swift; sourceTree = "<group>"; };
 		AA0005002044A3C60003C045 /* FloatingOverlayHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingOverlayHost.swift; sourceTree = "<group>"; };
+		AA0008002044A3C60003C045 /* SidePanelWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidePanelWindow.swift; sourceTree = "<group>"; };
+		AA0009002044A3C60003C045 /* SidePanelHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidePanelHost.swift; sourceTree = "<group>"; };
+		AA000A002044A3C60003C045 /* ClipboardMonitorHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardMonitorHost.swift; sourceTree = "<group>"; };
 		CD5F778C9B774D99AA5ADE03 /* SnippetPickerPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetPickerPanel.swift; sourceTree = "<group>"; };
 		B0486CFCB9C24358A216F09D /* SnippetPickerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetPickerHost.swift; sourceTree = "<group>"; };
 		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
@@ -210,6 +216,9 @@
 				AA0003002044A3C60003C045 /* FloatingButtonHost.swift */,
 				AA0004002044A3C60003C045 /* FloatingOverlayWindow.swift */,
 				AA0005002044A3C60003C045 /* FloatingOverlayHost.swift */,
+				AA0008002044A3C60003C045 /* SidePanelWindow.swift */,
+				AA0009002044A3C60003C045 /* SidePanelHost.swift */,
+				AA000A002044A3C60003C045 /* ClipboardMonitorHost.swift */,
 				CD5F778C9B774D99AA5ADE03 /* SnippetPickerPanel.swift */,
 				B0486CFCB9C24358A216F09D /* SnippetPickerHost.swift */,
 				AA0006002044A3C60003C045 /* AudioRoutingHost.swift */,
@@ -556,6 +565,9 @@
 				AA0003012044A3C60003C045 /* FloatingButtonHost.swift in Sources */,
 				AA0004012044A3C60003C045 /* FloatingOverlayWindow.swift in Sources */,
 				AA0005012044A3C60003C045 /* FloatingOverlayHost.swift in Sources */,
+				AA0008012044A3C60003C045 /* SidePanelWindow.swift in Sources */,
+				AA0009012044A3C60003C045 /* SidePanelHost.swift in Sources */,
+				AA000A012044A3C60003C045 /* ClipboardMonitorHost.swift in Sources */,
 				7AA84E5B35FA4516BC66090E /* SnippetPickerPanel.swift in Sources */,
 				56E0E49240AC49B1A7F27C32 /* SnippetPickerHost.swift in Sources */,
 				AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */,

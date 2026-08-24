@@ -160,6 +160,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // its own portable 'history_*' preferences above).
   'retain_recent_audio',
   'share_usage_stats',
+  // Clipboard quick-paste side panel toggle — a display preference like the
+  // other 'show_*' keys below it.
+  'side_panel_enabled',
   // Ticket: status-bar CPU/GPU backend-utilization chip — a display
   // preference like the other 'show_*' keys around it.
   'show_backend_utilization',

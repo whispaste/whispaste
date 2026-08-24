@@ -93,6 +93,7 @@ class InterfaceSettings {
     this.startMinimized = false,
     this.showNotifications = true,
     this.showBackendUtilization = true,
+    this.sidePanelEnabled = true,
   });
 
   final String locale;
@@ -106,6 +107,12 @@ class InterfaceSettings {
   /// discoverable by the user only because they happened to notice slower
   /// transcription — most users would never think to look.
   final bool showBackendUtilization;
+
+  /// Whether the clipboard quick-paste side panel's hover trigger is armed
+  /// at all (`SidePanelService`/native edge sensors). Default on, but an
+  /// always-on-top hover-activated edge zone is exactly the kind of thing
+  /// some users want to turn off entirely rather than just tolerate.
+  final bool sidePanelEnabled;
 
   static const InterfaceSettings defaults = InterfaceSettings();
 
@@ -127,6 +134,11 @@ class InterfaceSettings {
       'show_backend_utilization',
       defaults.showBackendUtilization,
     ),
+    sidePanelEnabled: _readBool(
+      v,
+      'side_panel_enabled',
+      defaults.sidePanelEnabled,
+    ),
   );
 
   // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
@@ -139,6 +151,7 @@ class InterfaceSettings {
     'start_minimized': '$startMinimized',
     'show_notifications': '$showNotifications',
     'show_backend_utilization': '$showBackendUtilization',
+    'side_panel_enabled': '$sidePanelEnabled',
   };
 
   InterfaceSettings copyWith({
@@ -147,6 +160,8 @@ class InterfaceSettings {
     bool? startMinimized,
     bool? showNotifications,
     bool? showBackendUtilization,
+    bool? sidePanelEnabled,
+    // loam-ignore: code-duplicates – every settings-section class in this file shares this exact copyWith(field: field ?? this.field, ...) return shape by deliberate convention, established repo-wide boilerplate.
   }) => InterfaceSettings(
     locale: locale ?? this.locale,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
@@ -154,6 +169,7 @@ class InterfaceSettings {
     showNotifications: showNotifications ?? this.showNotifications,
     showBackendUtilization:
         showBackendUtilization ?? this.showBackendUtilization,
+    sidePanelEnabled: sidePanelEnabled ?? this.sidePanelEnabled,
   );
 
   @override
@@ -164,7 +180,8 @@ class InterfaceSettings {
           launchAtStartup == other.launchAtStartup &&
           startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications &&
-          showBackendUtilization == other.showBackendUtilization;
+          showBackendUtilization == other.showBackendUtilization &&
+          sidePanelEnabled == other.sidePanelEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -173,6 +190,7 @@ class InterfaceSettings {
     startMinimized,
     showNotifications,
     showBackendUtilization,
+    sidePanelEnabled,
   );
 }
 
@@ -1081,6 +1099,7 @@ class QuickNoteHotkeySettings {
 
   static const QuickNoteHotkeySettings defaults = QuickNoteHotkeySettings();
 
+  // loam-ignore: code-duplicates – same repo-wide fromMap(v) shape shared by every settings-section class in this file, established boilerplate.
   factory QuickNoteHotkeySettings.fromMap(Map<String, String> v) =>
       QuickNoteHotkeySettings(
         quickNoteHotkeyEnabled: _readBool(

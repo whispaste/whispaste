@@ -14,6 +14,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/autostart_service.dart';
+import 'package:whispaste/services/clipboard_history/clipboard_history_monitor_service.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller.dart';
 import 'package:whispaste/services/floating_button/floating_button_service.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
@@ -22,6 +23,8 @@ import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/side_panel/side_panel_controller_interface.dart';
+import 'package:whispaste/services/side_panel/side_panel_service.dart';
 import 'package:whispaste/services/tray_service.dart';
 import 'package:whispaste/widgets/service_bootstrap.dart';
 
@@ -118,6 +121,20 @@ class _FakeFloatingOverlayService extends FloatingOverlayService {
   FloatingOverlayController? createController() => null;
 }
 
+/// No-op side panel service.
+class _FakeSidePanelService extends SidePanelService {
+  @override
+  SidePanelController? createController() => null;
+}
+
+/// No-op clipboard-history monitor service: skips registering the real
+/// MethodChannel handler entirely.
+class _FakeClipboardHistoryMonitorService
+    extends ClipboardHistoryMonitorService {
+  @override
+  void build() {}
+}
+
 /// Fake settings notifier that returns a fixed [AppSettings] synchronously
 /// and exposes a [setPushToTalk] setter to flip the value at runtime.
 ///
@@ -196,6 +213,10 @@ Widget _makeApp({
       ),
       floatingOverlayServiceProvider.overrideWith(
         _FakeFloatingOverlayService.new,
+      ),
+      sidePanelServiceProvider.overrideWith(_FakeSidePanelService.new),
+      clipboardHistoryMonitorServiceProvider.overrideWith(
+        _FakeClipboardHistoryMonitorService.new,
       ),
       settingsProvider.overrideWith(() => settings),
     ],

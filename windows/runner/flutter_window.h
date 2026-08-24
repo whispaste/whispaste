@@ -7,10 +7,12 @@
 #include <memory>
 
 #include "attention_host.h"
+#include "clipboard_monitor_host.h"
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
 #include "keyboard_monitor_host.h"
+#include "side_panel_host.h"
 #include "snippet_picker_host.h"
 #include "win32_window.h"
 
@@ -55,6 +57,14 @@ class FlutterWindow : public Win32Window {
   // Native Snippet-Picker panel (runner-owned, destroyed before engine
   // teardown — visual-refresh-2026 ticket 29).
   std::unique_ptr<SnippetPickerHost> snippet_picker_host_;
+
+  // Native clipboard quick-paste side panel (runner-owned, destroyed before
+  // engine teardown — issue 04/09 Windows port).
+  std::unique_ptr<SidePanelHost> side_panel_host_;
+
+  // Native clipboard-history monitor (runner-owned, destroyed before engine
+  // teardown — issue 05 Windows port).
+  std::unique_ptr<ClipboardMonitorHost> clipboard_monitor_host_;
 
   // Taskbar-flash attention bridge for cross-platform parity with the
   // macOS Dock-bounce request — used to surface action items when the

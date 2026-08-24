@@ -29,6 +29,7 @@ import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
 import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
+import 'side_panel_render_entrypoint.dart';
 import 'snippet_picker_render_entrypoint.dart';
 import 'services/audio_service.dart';
 import 'services/auto_updater_service.dart';
@@ -76,6 +77,15 @@ void floatingButtonMain() => runFloatingButtonEngine();
 /// keeps it out of the tree-shaker.
 @pragma('vm:entry-point')
 void snippetPickerMain() => runSnippetPickerEngine();
+
+/// Secondary Dart entrypoint booted by name from the native side-panel
+/// shell (clipboard quick-paste side panel). macOS/Windows run a dedicated
+/// Flutter engine with `runWithEntrypoint: "sidePanelMain"`, which resolves
+/// the name only against this root library -- so the entrypoint MUST live
+/// here. It delegates straight into [runSidePanelEngine]; it is never
+/// called from Dart, and the pragma keeps it out of the tree-shaker.
+@pragma('vm:entry-point')
+void sidePanelMain() => runSidePanelEngine();
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -152,6 +162,13 @@ Future<void> main(List<String> args) async {
     // second engine (visual-refresh-2026 ticket 30) — macOS/Windows instead
     // boot it by name via the snippetPickerMain() pragma function above.
     runSnippetPickerEngine();
+    return;
+  }
+  if (args.contains('--side-panel')) {
+    // Same Linux args-branch fast-path as above, for the side panel's
+    // second engine — macOS/Windows instead boot it by name via the
+    // sidePanelMain() pragma function above.
+    runSidePanelEngine();
     return;
   }
 

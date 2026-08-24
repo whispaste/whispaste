@@ -69,6 +69,15 @@ void main() {
         'app\'s own frame gradient carried into that other window, not a '
         'second light source in this one',
 
+    // Same shape as the snippet-picker exemption above: the clipboard
+    // quick-paste side panel is its own always-on-top window (see
+    // side_panel_render_entrypoint.dart), hover-triggered from the left
+    // screen edge rather than nested inside app.dart's Stack, so it brings
+    // its own ground rather than standing on the main window's.
+    'lib/widgets/side_panel/side_panel_view.dart':
+        'the side panel is a separate window, not a second light source in '
+        'this one',
+
     // *The Preflight-Screen Exception* (lib/DESIGN.md): the blocking
     // low-RAM screen renders *instead of* the app, never inside it. It is the
     // app's ground painted where `app.dart` is not running — the rule's

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
@@ -17,6 +16,7 @@ import '../../core/platform/display_bounds.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
+import '../clipboard_history/app_clipboard.dart';
 import '../floating_platform_service_base.dart';
 import '../graceful_shutdown.dart';
 import '../recording_orchestrator.dart';
@@ -358,7 +358,7 @@ class FloatingButtonService
     if (entry == null) return;
 
     try {
-      await Clipboard.setData(ClipboardData(text: entry.content));
+      await AppClipboard.setText(entry.content);
       _log.info('Copied history entry to clipboard: ${entry.id}');
     } catch (e, st) {
       _log.error('Failed to copy to clipboard', e, st);
