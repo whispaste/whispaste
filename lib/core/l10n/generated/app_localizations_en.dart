@@ -1549,7 +1549,7 @@ class L10nEn extends L10n {
   String get aboutCopied => 'Copied!';
 
   @override
-  String get aboutMadeWith => 'Made with ♥ by Silvio Lindstedt';
+  String get aboutMadeWith => 'Made with ♥ by WhisPaste';
 
   @override
   String get aboutOpenSource => 'Open source under the MIT License';

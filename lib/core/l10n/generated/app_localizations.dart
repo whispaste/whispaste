@@ -2820,7 +2820,7 @@ abstract class L10n {
   /// No description provided for @aboutMadeWith.
   ///
   /// In en, this message translates to:
-  /// **'Made with ♥ by Silvio Lindstedt'**
+  /// **'Made with ♥ by WhisPaste'**
   String get aboutMadeWith;
 
   /// No description provided for @aboutOpenSource.

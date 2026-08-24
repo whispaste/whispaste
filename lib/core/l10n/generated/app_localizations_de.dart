@@ -1563,7 +1563,7 @@ class L10nDe extends L10n {
   String get aboutCopied => 'Kopiert!';
 
   @override
-  String get aboutMadeWith => 'Gemacht mit ♥ von Silvio Lindstedt';
+  String get aboutMadeWith => 'Gemacht mit ♥ von WhisPaste';
 
   @override
   String get aboutOpenSource => 'Open Source unter der MIT-Lizenz';

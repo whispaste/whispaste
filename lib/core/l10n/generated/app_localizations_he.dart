@@ -1535,7 +1535,7 @@ class L10nHe extends L10n {
   String get aboutCopied => 'הועתק!';
 
   @override
-  String get aboutMadeWith => 'נוצר ב♥ על ידי Silvio Lindstedt';
+  String get aboutMadeWith => 'נוצר ב♥ על ידי WhisPaste';
 
   @override
   String get aboutOpenSource => 'קוד פתוח תחת רישיון MIT';
