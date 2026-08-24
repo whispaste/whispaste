@@ -56,13 +56,7 @@ class WpFindMatches {
 abstract final class WpFindReplace {
   /// Every non-overlapping occurrence of [query] in [text], left to right.
   ///
-  /// Case-insensitive by default, via a lowercased copy of both sides. That
-  /// copy is only trusted when it is the *same length* as its original:
-  /// a handful of code points (Turkish `İ`, for one) lowercase into more
-  /// characters than they came from, which would shift every offset after
-  /// them onto the wrong character. Where that happens the search silently
-  /// falls back to matching case-sensitively — a couple of missed hits beats
-  /// replacing the wrong span of text.
+  /// Case-insensitive by default.
   static WpFindMatches locate(
     String text,
     String query, {
@@ -70,26 +64,27 @@ abstract final class WpFindReplace {
   }) {
     if (query.isEmpty || text.isEmpty) return WpFindMatches.none;
 
-    var haystack = text;
-    var needle = query;
-    if (!caseSensitive) {
-      final lowerText = text.toLowerCase();
-      final lowerQuery = query.toLowerCase();
-      if (lowerText.length == text.length &&
-          lowerQuery.length == query.length) {
-        haystack = lowerText;
-        needle = lowerQuery;
+    final starts = <int>[];
+
+    if (caseSensitive) {
+      var index = text.indexOf(query);
+      while (index != -1) {
+        starts.add(index);
+        // Step past the whole match: overlapping hits ("aa" in "aaa") would
+        // make replace-all produce text that depends on iteration order.
+        index = text.indexOf(query, index + query.length);
+      }
+    } else {
+      // ⚡ Bolt: Use RegExp for case-insensitive search to avoid allocating
+      // a lowercased copy of the entire text on every keystroke. This reduces
+      // search time for missing terms and avoids GC spikes in long notes.
+      // It also naturally avoids offset-shifting bugs with characters like Turkish 'İ'.
+      final regex = RegExp(RegExp.escape(query), caseSensitive: false);
+      for (final match in regex.allMatches(text)) {
+        starts.add(match.start);
       }
     }
 
-    final starts = <int>[];
-    var index = haystack.indexOf(needle);
-    while (index != -1) {
-      starts.add(index);
-      // Step past the whole match: overlapping hits ("aa" in "aaa") would
-      // make replace-all produce text that depends on iteration order.
-      index = haystack.indexOf(needle, index + needle.length);
-    }
     if (starts.isEmpty) return WpFindMatches.none;
     return WpFindMatches(
       starts: List<int>.unmodifiable(starts),
