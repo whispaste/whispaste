@@ -100,6 +100,23 @@ def attach_latest_build_to_editable_version(bundle_id:, platform:)
   UI.success("App Store Connect version #{version.version_string} now points at build #{build.app_version} (#{build.version}).")
 end
 
+# Deterministically cleans up duplicate Mac App Store screenshots via
+# tools/appstore/dedupe-mas-screenshots.py — see that script's own docstring
+# for the root cause (an eventual-consistency race in `deliver`'s
+# delete-then-reupload dance, NOT prevented by `overwrite_screenshots: true`,
+# confirmed live at least three times: 2026-07-29, 2026-08-19/20, 2026-08-24).
+# `expect:` asserts the final per-locale count and raises via UI.user_error!
+# if it's ever wrong — this must fail loudly rather than silently ship a
+# broken screenshot set.
+def dedupe_mas_screenshots(expect: nil)
+  args = ["python3", File.join(PROJECT_ROOT, "tools/appstore/dedupe-mas-screenshots.py"), "--dedupe"]
+  args += ["--expect", expect.to_s] if expect
+  Dir.chdir(PROJECT_ROOT) do
+    ok = system(*args)
+    UI.user_error!("dedupe-mas-screenshots.py failed — screenshot state on App Store Connect may still be wrong, check manually before proceeding") unless ok
+  end
+end
+
 default_platform(:mac)
 
 platform :mac do
@@ -125,6 +142,8 @@ platform :mac do
   desc "Push fastlane/screenshots/{en-US,de-DE} only — no rebuild, no binary/metadata upload. Safety net for fixing a wrong/stale screenshot (e.g. hero) without a full mas_release"
   lane :mac_screenshots_only do
     load_asc_api_key
+    # Clean baseline first — see dedupe_mas_screenshots' own comment above.
+    dedupe_mas_screenshots
     upload_to_app_store(
       platform:                 "osx",
       skip_binary_upload:       true,
@@ -136,6 +155,10 @@ platform :mac do
       precheck_include_in_app_purchases: false,
       force: true
     )
+    # deliver's delete-then-reupload is not atomic on Apple's side — assert
+    # (and self-heal) the final state rather than trusting overwrite_screenshots
+    # alone. 6 = the fixed number of composites tools/appstore-screens produces.
+    dedupe_mas_screenshots(expect: 6)
   end
 
   desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
@@ -231,6 +254,11 @@ platform :mac do
       }
     )
 
+    # Clean baseline before touching screenshots at all — in case a prior
+    # run left duplicates behind (see dedupe_mas_screenshots' own comment).
+    # ASC API key already loaded at this lane's start.
+    dedupe_mas_screenshots
+
     upload_to_app_store(
       platform:          "osx",
       pkg:               lane_context[SharedValues::PKG_OUTPUT_PATH],
@@ -281,6 +309,12 @@ platform :mac do
       # Store submission gate.
       force: true
     )
+
+    # deliver's delete-then-reupload above is not atomic on Apple's side —
+    # assert (and self-heal) the final screenshot state rather than trusting
+    # overwrite_screenshots alone (see dedupe_mas_screenshots' own comment).
+    # 6 = the fixed number of composites tools/appstore-screens produces.
+    dedupe_mas_screenshots(expect: 6)
 
     # upload_to_app_store's own build-selection logic only runs when
     # submit_for_review: true (verified against fastlane 2.237.0 source,
