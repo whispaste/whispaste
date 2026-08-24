@@ -56,7 +56,7 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
-**Productivity** — Voice Snippets (spoken triggers → text expansion) · Audio feedback sounds
+**Productivity** — Voice Snippets (spoken triggers → text expansion) · Quick-paste side panel (hover the left screen edge for transcriptions, snippets and clipboard history — macOS/Windows) · Audio feedback sounds
 
 **History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
 

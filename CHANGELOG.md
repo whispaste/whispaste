@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.69
+
+### New Features
+
+- **Neues, per Hover am linken Bildschirmrand ausklappbares Schnelleinfüge-Panel** (macOS und Windows): schneller Zugriff auf Transkriptionen, Textbausteine und einen neuen Zwischenablage-Verlauf, ohne die App in den Vordergrund zu holen. Der Zwischenablage-Verlauf läuft rein im Arbeitsspeicher und wird beim Neustart der App gelöscht. Ein neuer Schalter in den Einstellungen deaktiviert das Panel bei Bedarf vollständig.
+- **Neuer Hinweis-Mechanismus „Neu in WhisPaste"**: nach einem Update erscheint einmalig ein Dialog, der neue Funktionen mit Screenshot vorstellt (aktuell: das Schnelleinfüge-Panel und der Textbaustein-Schnellzugriff) — jederzeit über die Einstellungen erneut aufrufbar, inklusive Link zu diesem Änderungsprotokoll.
+- Link zum X-Profil des Maintainers auf der Über-Seite und im Website-Footer ergänzt.
+
+### Maintenance
+
+- Der „Gemacht mit ♥ von …"-Hinweis auf der Über-Seite ist jetzt an WhisPaste selbst statt an eine einzelne Person adressiert.
+
 ## 1.2.68
 
 ### New Features
