@@ -50,19 +50,17 @@ class WpFindMatches {
 
 /// The string half of find-and-replace: locate, replace one, replace all.
 ///
-/// Literal matching only — never `RegExp(query)`. A user typing `(` into a
-/// find field is typing a parenthesis, not an unbalanced capture group, and
-/// the regex would throw on them mid-keystroke.
+/// Literal matching only — a user typing `(` into a find field is typing a
+/// parenthesis, not an unbalanced capture group. The case-insensitive path
+/// below uses `RegExp.escape(query)` internally to get Dart's case-folding
+/// for free, but the escaping keeps every character literal.
 abstract final class WpFindReplace {
   /// Every non-overlapping occurrence of [query] in [text], left to right.
   ///
-  /// Case-insensitive by default, via a lowercased copy of both sides. That
-  /// copy is only trusted when it is the *same length* as its original:
-  /// a handful of code points (Turkish `İ`, for one) lowercase into more
-  /// characters than they came from, which would shift every offset after
-  /// them onto the wrong character. Where that happens the search silently
-  /// falls back to matching case-sensitively — a couple of missed hits beats
-  /// replacing the wrong span of text.
+  /// Case-insensitive by default. Matches against [text] directly rather
+  /// than a lowercased copy of it, so offsets never need correcting for code
+  /// points that lowercase into a different number of characters (Turkish
+  /// `İ`, for one).
   static WpFindMatches locate(
     String text,
     String query, {
@@ -70,25 +68,20 @@ abstract final class WpFindReplace {
   }) {
     if (query.isEmpty || text.isEmpty) return WpFindMatches.none;
 
-    var haystack = text;
-    var needle = query;
-    if (!caseSensitive) {
-      final lowerText = text.toLowerCase();
-      final lowerQuery = query.toLowerCase();
-      if (lowerText.length == text.length &&
-          lowerQuery.length == query.length) {
-        haystack = lowerText;
-        needle = lowerQuery;
-      }
-    }
-
     final starts = <int>[];
-    var index = haystack.indexOf(needle);
-    while (index != -1) {
-      starts.add(index);
-      // Step past the whole match: overlapping hits ("aa" in "aaa") would
-      // make replace-all produce text that depends on iteration order.
-      index = haystack.indexOf(needle, index + needle.length);
+    if (caseSensitive) {
+      var index = text.indexOf(query);
+      while (index != -1) {
+        starts.add(index);
+        // Step past the whole match: overlapping hits ("aa" in "aaa") would
+        // make replace-all produce text that depends on iteration order.
+        index = text.indexOf(query, index + query.length);
+      }
+    } else {
+      final pattern = RegExp(RegExp.escape(query), caseSensitive: false);
+      for (final match in pattern.allMatches(text)) {
+        starts.add(match.start);
+      }
     }
     if (starts.isEmpty) return WpFindMatches.none;
     return WpFindMatches(
