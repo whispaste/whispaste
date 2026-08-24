@@ -1511,6 +1511,9 @@ class L10nHe extends L10n {
   String get aboutGitHubRepo => 'מאגר GitHub';
 
   @override
+  String get aboutFollowOnX => 'עקבו ב-X';
+
+  @override
   String get aboutMitLicense => 'רישיון MIT';
 
   @override

@@ -39,3 +39,7 @@ const String kGitHubSponsorsUrl = 'https://github.com/sponsors/silvio-l';
 /// Ko-fi support page for the maintainer. Used by the About page's support
 /// section.
 const String kKofiUrl = 'https://ko-fi.com/silviol';
+
+/// Maintainer's X (Twitter) profile. Used by the About page's links section
+/// and the public website's footer.
+const String kMaintainerXUrl = 'https://x.com/silviolindstedt';

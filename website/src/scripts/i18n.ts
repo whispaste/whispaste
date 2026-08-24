@@ -61,6 +61,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'nav.toggleThemeAria': 'Toggle theme',
     'nav.toggleThemeTitle': 'Toggle theme',
     'nav.githubAria': 'WhisPaste on GitHub',
+    'nav.xAria': 'Follow on X',
     'nav.sponsorAria': 'Support WhisPaste',
     // howitworks.* — the visible HowItWorks section was removed (AppPasteDemo
     // is the single on-page explanation of the mechanic); the remaining keys
@@ -866,6 +867,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'nav.toggleThemeAria': 'Designmodus wechseln',
     'nav.toggleThemeTitle': 'Designmodus wechseln',
     'nav.githubAria': 'WhisPaste auf GitHub',
+    'nav.xAria': 'Auf X folgen',
     'nav.sponsorAria': 'WhisPaste unterstützen',
     // howitworks.* — die sichtbare HowItWorks-Sektion wurde entfernt
     // (AppPasteDemo ist die einzige On-Page-Erklärung der Mechanik); die

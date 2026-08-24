@@ -2769,6 +2769,12 @@ abstract class L10n {
   /// **'GitHub Repository'**
   String get aboutGitHubRepo;
 
+  /// No description provided for @aboutFollowOnX.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow on X'**
+  String get aboutFollowOnX;
+
   /// No description provided for @aboutMitLicense.
   ///
   /// In en, this message translates to:

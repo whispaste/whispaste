@@ -293,6 +293,12 @@ class AboutPage extends ConsumerWidget {
                 displayUrl: kGitHubRepoUrl.replaceFirst('https://', ''),
               ),
               _LinkRow(
+                icon: FontAwesomeIcons.xTwitter.data,
+                label: l10n.aboutFollowOnX,
+                url: kMaintainerXUrl,
+                displayUrl: kMaintainerXUrl.replaceFirst('https://', ''),
+              ),
+              _LinkRow(
                 icon: LucideIcons.scale,
                 label: l10n.aboutMitLicense,
                 url: '$kGitHubRepoUrl/blob/main/LICENSE',

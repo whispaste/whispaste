@@ -1538,6 +1538,9 @@ class L10nDe extends L10n {
   String get aboutGitHubRepo => 'GitHub-Repository';
 
   @override
+  String get aboutFollowOnX => 'Auf X folgen';
+
+  @override
   String get aboutMitLicense => 'MIT-Lizenz';
 
   @override
