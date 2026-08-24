@@ -22,8 +22,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/feature_spotlight/feature_spotlight.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/onboarding/onboarding_revision.dart'
+    show currentOnboardingPlatform;
 import '../../../core/onboarding/onboarding_surface.dart';
+import '../../../widgets/feature_spotlight_notice.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
@@ -34,19 +38,44 @@ class OnboardingReviewSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
+    // Every registered feature spotlight for this platform, seen or not —
+    // unlike the automatic once-per-update showing, this manual re-view (see
+    // [showFeatureSpotlightPreview]) exists precisely so someone who already
+    // dismissed it can pull it back up, so filtering by seen state would
+    // defeat the point.
+    final platform = currentOnboardingPlatform();
+    final spotlightEntries = ref
+        .watch(featureSpotlightRegistryProvider)
+        .where((entry) => entry.appliesTo(platform))
+        .toList();
     return WpSection(
       title: l10n.onboardingReviewEntry,
       subtitle: l10n.onboardingReviewSubtitle,
       padding: EdgeInsets.zero,
-      child: SettingRow(
-        icon: LucideIcons.compass,
-        label: l10n.onboardingReviewLabel,
-        trailing: WpButton(
-          label: l10n.onboardingReviewAction,
-          variant: WpButtonVariant.secondary,
-          onPressed: () =>
-              ref.read(onboardingManuallyOpenProvider.notifier).open(),
-        ),
+      child: Column(
+        children: [
+          SettingRow(
+            icon: LucideIcons.compass,
+            label: l10n.onboardingReviewLabel,
+            trailing: WpButton(
+              label: l10n.onboardingReviewAction,
+              variant: WpButtonVariant.secondary,
+              onPressed: () =>
+                  ref.read(onboardingManuallyOpenProvider.notifier).open(),
+            ),
+          ),
+          if (spotlightEntries.isNotEmpty)
+            SettingRow(
+              icon: LucideIcons.sparkles,
+              label: l10n.featureSpotlightReviewLabel,
+              trailing: WpButton(
+                label: l10n.featureSpotlightReviewAction,
+                variant: WpButtonVariant.secondary,
+                onPressed: () =>
+                    showFeatureSpotlightPreview(context, spotlightEntries),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -3337,6 +3337,35 @@ class L10nHe extends L10n {
   String get storeThankYouDismiss => 'סגור';
 
   @override
+  String get featureSpotlightHeading => 'חדש ב-WhisPaste';
+
+  @override
+  String get featureSpotlightDismiss => 'הבנתי';
+
+  @override
+  String get featureSpotlightSnippetPickerTitle => 'בורר קטעים';
+
+  @override
+  String get featureSpotlightSnippetPickerDescription =>
+      'שמור קטעי טקסט לשימוש חוזר והכנס אותם בכל מקום בלחיצה על מקש קיצור או במילת הפעלה קולית – בלי להקליד שוב.';
+
+  @override
+  String get featureSpotlightSidePanelTitle => 'סרגל לוח הגזירים';
+
+  @override
+  String get featureSpotlightSidePanelDescription =>
+      'העבר את העכבר לקצה המסך כדי לפתוח את היסטוריית לוח הגזירים שלך וגרור כל פריט ישירות למסמך.';
+
+  @override
+  String get featureSpotlightChangelogLink => 'צפייה ביומן השינויים המלא';
+
+  @override
+  String get featureSpotlightReviewLabel => 'צפייה חוזרת בתכונות החדשות';
+
+  @override
+  String get featureSpotlightReviewAction => 'הצגה';
+
+  @override
   String get notesNewNote => 'פתק חדש';
 
   @override

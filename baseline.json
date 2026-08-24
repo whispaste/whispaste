@@ -10,20 +10,6 @@
       "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=22, cognitive=21 (cyclomatic 22 > 20)"
     },
     {
-      "fingerprint": "be691ff77efa33cb",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 537,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/config/settings_sections.dart:537, lib/core/config/settings_sections.dart:674"
-    },
-    {
-      "fingerprint": "d528a557f0666e7f",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1084,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/core/config/settings_sections.dart:1084, lib/core/config/settings_sections.dart:1183"
-    },
-    {
       "fingerprint": "52df5ea417369933",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
@@ -92,6 +78,20 @@
       "filePath": "lib/services/hotkey_service.dart",
       "line": 560,
       "message": "2 occurrences of duplicated block (87 tokens): lib/services/hotkey_service.dart:560, lib/services/hotkey_service.dart:582"
+    },
+    {
+      "fingerprint": "688bcf13f0d6cc9f",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/widgets/feature_spotlight_notice.dart",
+      "line": 110,
+      "message": "2 occurrences of duplicated block (51 tokens): lib/widgets/feature_spotlight_notice.dart:110, lib/widgets/store_thank_you_dialog.dart:76"
+    },
+    {
+      "fingerprint": "bb1c36d5553d7ad6",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/widgets/feature_spotlight_notice.dart",
+      "line": 187,
+      "message": "2 occurrences of duplicated block (93 tokens): lib/widgets/feature_spotlight_notice.dart:187, lib/widgets/store_thank_you_dialog.dart:186"
     }
   ]
 }

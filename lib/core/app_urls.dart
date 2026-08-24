@@ -14,6 +14,11 @@ const String kGitHubRepoUrl = 'https://github.com/whispaste/whispaste';
 /// `astro.config.ts` `site`). Note: this is `.de`, not `.com`.
 const String kWebsiteUrl = 'https://whispaste.de';
 
+/// WhisPaste changelog on the public website. Used by the About page's
+/// "What's new" quick action and the feature-spotlight dialog's changelog
+/// link.
+const String kChangelogUrl = '$kWebsiteUrl/changelog';
+
 /// Language-aware home URL of the public website. German UI maps to the
 /// default site root; every other UI language maps to the `/en/` site.
 String websiteHomeUrl(String languageCode) =>

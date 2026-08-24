@@ -70,6 +70,12 @@ const Set<String> settingsPortabilityDenyList = {
   // to import, since a foreign install's revision history has nothing to
   // do with what this one has already seen.
   'onboarding_content_version',
+  // Feature-spotlight registry (`.scratch/feature-spotlight/issues/01`):
+  // ids of hints this installation has already been shown. Same category as
+  // `onboarding_content_version` above — progress/seen-state, not a
+  // preference — and just as wrong to import: a foreign install's spotlight
+  // history has nothing to do with what this one has already seen.
+  'seen_feature_spotlight_ids',
   'auto_paste_off_hint_dismissed',
   // AudioInputSettings — gerätegebundener Mikrofonname.
   'microphone',

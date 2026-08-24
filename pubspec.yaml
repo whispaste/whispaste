@@ -162,6 +162,9 @@ flutter:
     # see assets/onboarding/README.md. Until then the directory holds only
     # that README and page 1 renders its icon placeholders.
     - assets/onboarding/
+    # See assets/feature_spotlight/README.md. A missing file degrades
+    # gracefully (FeatureSpotlightEntry.image's doc comment).
+    - assets/feature_spotlight/
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
     - assets/flags/

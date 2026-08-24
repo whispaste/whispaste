@@ -68,6 +68,11 @@ const _documentedExceptions = <String, String>{
   'showRecoveryToast': 'call site of WpToast, not a component',
   'showCpuFallbackToast': 'call site of WpToast, not a component',
 
+  // lib/widgets/feature_spotlight_notice.dart — call site of the existing
+  // _FeatureSpotlightDialog component, not a component of its own.
+  'showFeatureSpotlightPreview':
+      'call site of _FeatureSpotlightDialog, not a component',
+
   // Test seams — not public component API.
   'platformIsWindowsOverride': '@visibleForTesting seam',
   'storeThankYouPlatformIsWindowsOverride': '@visibleForTesting seam',

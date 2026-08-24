@@ -1401,6 +1401,7 @@ class OnboardingSettings {
     this.onboardingCurrentStep = 0,
     this.onboardingFlowVersion = 0,
     this.onboardingContentVersion = 0,
+    this.seenFeatureSpotlightIds = '',
   });
 
   final bool onboardingCompleted;
@@ -1437,6 +1438,15 @@ class OnboardingSettings {
   /// real entries at `1`; see `lib/core/onboarding/onboarding_revision.dart`.
   final int onboardingContentVersion;
 
+  /// Comma-separated ids of feature-spotlight registry entries
+  /// (`lib/core/feature_spotlight/feature_spotlight.dart`) this user has
+  /// already been shown. Same storage convention as
+  /// [BehaviorSettings.autoPasteBlocklist] — parsed via
+  /// `parseFeatureSpotlightSeenIds` at the point of use, not on this class.
+  /// Only written once a spotlight showing actually happens — never while
+  /// it stays pending behind onboarding, a manual review, or a revision run.
+  final String seenFeatureSpotlightIds;
+
   static const OnboardingSettings defaults = OnboardingSettings();
 
   factory OnboardingSettings.fromMap(Map<String, String> v) =>
@@ -1466,6 +1476,8 @@ class OnboardingSettings {
           'onboarding_content_version',
           defaults.onboardingContentVersion,
         ),
+        seenFeatureSpotlightIds:
+            v['seen_feature_spotlight_ids'] ?? defaults.seenFeatureSpotlightIds,
       );
 
   Map<String, String> toMap() => {
@@ -1474,14 +1486,20 @@ class OnboardingSettings {
     'onboarding_current_step': '$onboardingCurrentStep',
     'onboarding_flow_version': '$onboardingFlowVersion',
     'onboarding_content_version': '$onboardingContentVersion',
+    'seen_feature_spotlight_ids': seenFeatureSpotlightIds,
   };
 
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the ~15 other section classes in this file);
+  // it is established repo-wide boilerplate, not accidental duplication.
   OnboardingSettings copyWith({
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
     int? onboardingCurrentStep,
     int? onboardingFlowVersion,
     int? onboardingContentVersion,
+    String? seenFeatureSpotlightIds,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
@@ -1490,6 +1508,8 @@ class OnboardingSettings {
     onboardingFlowVersion: onboardingFlowVersion ?? this.onboardingFlowVersion,
     onboardingContentVersion:
         onboardingContentVersion ?? this.onboardingContentVersion,
+    seenFeatureSpotlightIds:
+        seenFeatureSpotlightIds ?? this.seenFeatureSpotlightIds,
   );
 
   @override
@@ -1500,7 +1520,8 @@ class OnboardingSettings {
           autoPasteOffHintDismissed == other.autoPasteOffHintDismissed &&
           onboardingCurrentStep == other.onboardingCurrentStep &&
           onboardingFlowVersion == other.onboardingFlowVersion &&
-          onboardingContentVersion == other.onboardingContentVersion;
+          onboardingContentVersion == other.onboardingContentVersion &&
+          seenFeatureSpotlightIds == other.seenFeatureSpotlightIds;
 
   @override
   int get hashCode => Object.hash(
@@ -1509,6 +1530,7 @@ class OnboardingSettings {
     onboardingCurrentStep,
     onboardingFlowVersion,
     onboardingContentVersion,
+    seenFeatureSpotlightIds,
   );
 }
 

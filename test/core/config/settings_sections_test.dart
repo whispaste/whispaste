@@ -59,4 +59,62 @@ void main() {
       expect(a == b, isFalse);
     });
   });
+
+  group('OnboardingSettings.seenFeatureSpotlightIds', () {
+    test('defaults to the empty string', () {
+      expect(OnboardingSettings.defaults.seenFeatureSpotlightIds, '');
+    });
+
+    test('toMap -> fromMap round-trip preserves a comma-separated id list', () {
+      const settings = OnboardingSettings(seenFeatureSpotlightIds: 'a,b,c');
+      final restored = OnboardingSettings.fromMap(settings.toMap());
+      expect(restored.seenFeatureSpotlightIds, 'a,b,c');
+    });
+
+    test('toMap -> fromMap round-trip preserves the empty default', () {
+      const settings = OnboardingSettings();
+      final restored = OnboardingSettings.fromMap(settings.toMap());
+      expect(restored.seenFeatureSpotlightIds, '');
+    });
+
+    test('missing key in map falls back to the default (empty string)', () {
+      final map = Map<String, String>.from(OnboardingSettings.defaults.toMap())
+        ..remove('seen_feature_spotlight_ids');
+      final restored = OnboardingSettings.fromMap(map);
+      expect(restored.seenFeatureSpotlightIds, '');
+    });
+
+    test('copyWith(seenFeatureSpotlightIds: ...) changes no other field', () {
+      const original = OnboardingSettings();
+      final updated = original.copyWith(seenFeatureSpotlightIds: 'x');
+
+      expect(updated.seenFeatureSpotlightIds, 'x');
+      expect(updated.onboardingCompleted, original.onboardingCompleted);
+      expect(
+        updated.autoPasteOffHintDismissed,
+        original.autoPasteOffHintDismissed,
+      );
+      expect(updated.onboardingCurrentStep, original.onboardingCurrentStep);
+      expect(updated.onboardingFlowVersion, original.onboardingFlowVersion);
+      expect(
+        updated.onboardingContentVersion,
+        original.onboardingContentVersion,
+      );
+    });
+
+    test('copyWith() without arguments keeps the previous value', () {
+      const original = OnboardingSettings(seenFeatureSpotlightIds: 'x');
+      final updated = original.copyWith();
+      expect(updated.seenFeatureSpotlightIds, 'x');
+    });
+
+    test(
+      'two instances differing only in seenFeatureSpotlightIds are unequal',
+      () {
+        const a = OnboardingSettings(seenFeatureSpotlightIds: 'a');
+        const b = OnboardingSettings(seenFeatureSpotlightIds: 'b');
+        expect(a == b, isFalse);
+      },
+    );
+  });
 }

@@ -107,7 +107,7 @@ class AboutPage extends ConsumerWidget {
                 variant: WpButtonVariant.secondary,
                 tone: WpButtonTone.neutral,
                 icon: LucideIcons.sparkles,
-                onPressed: () => _launchUrl('https://whispaste.de/changelog'),
+                onPressed: () => _launchUrl(kChangelogUrl),
               ),
               WpButton(
                 label: l10n.aboutGitHub,

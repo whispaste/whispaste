@@ -3416,6 +3416,35 @@ class L10nDe extends L10n {
   String get storeThankYouDismiss => 'Schließen';
 
   @override
+  String get featureSpotlightHeading => 'Neu in WhisPaste';
+
+  @override
+  String get featureSpotlightDismiss => 'Verstanden';
+
+  @override
+  String get featureSpotlightSnippetPickerTitle => 'Snippet-Picker';
+
+  @override
+  String get featureSpotlightSnippetPickerDescription =>
+      'Speichere wiederverwendbare Textbausteine und füge sie per Hotkey oder gesprochenem Trigger überall ein – ganz ohne erneutes Tippen.';
+
+  @override
+  String get featureSpotlightSidePanelTitle => 'Clipboard-Seitenleiste';
+
+  @override
+  String get featureSpotlightSidePanelDescription =>
+      'Fahre an den Bildschirmrand, um deinen letzten Clipboard-Verlauf zu öffnen, und ziehe jeden Eintrag direkt in dein Dokument.';
+
+  @override
+  String get featureSpotlightChangelogLink => 'Vollständiges Changelog ansehen';
+
+  @override
+  String get featureSpotlightReviewLabel => 'Neue Funktionen erneut ansehen';
+
+  @override
+  String get featureSpotlightReviewAction => 'Anzeigen';
+
+  @override
   String get notesNewNote => 'Neue Notiz';
 
   @override

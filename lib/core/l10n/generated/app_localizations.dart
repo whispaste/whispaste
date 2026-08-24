@@ -5976,6 +5976,60 @@ abstract class L10n {
   /// **'Close'**
   String get storeThankYouDismiss;
 
+  /// No description provided for @featureSpotlightHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'New in WhisPaste'**
+  String get featureSpotlightHeading;
+
+  /// No description provided for @featureSpotlightDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get featureSpotlightDismiss;
+
+  /// No description provided for @featureSpotlightSnippetPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet Picker'**
+  String get featureSpotlightSnippetPickerTitle;
+
+  /// No description provided for @featureSpotlightSnippetPickerDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Save reusable text blocks and insert them anywhere with a hotkey or a spoken trigger — no retyping needed.'**
+  String get featureSpotlightSnippetPickerDescription;
+
+  /// No description provided for @featureSpotlightSidePanelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard Side Panel'**
+  String get featureSpotlightSidePanelTitle;
+
+  /// No description provided for @featureSpotlightSidePanelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Hover the screen edge to open your recent clipboard history and drag any item straight into your document.'**
+  String get featureSpotlightSidePanelDescription;
+
+  /// No description provided for @featureSpotlightChangelogLink.
+  ///
+  /// In en, this message translates to:
+  /// **'View full changelog'**
+  String get featureSpotlightChangelogLink;
+
+  /// No description provided for @featureSpotlightReviewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the new features'**
+  String get featureSpotlightReviewLabel;
+
+  /// No description provided for @featureSpotlightReviewAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get featureSpotlightReviewAction;
+
   /// No description provided for @notesNewNote.
   ///
   /// In en, this message translates to:

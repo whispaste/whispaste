@@ -3386,6 +3386,35 @@ class L10nEn extends L10n {
   String get storeThankYouDismiss => 'Close';
 
   @override
+  String get featureSpotlightHeading => 'New in WhisPaste';
+
+  @override
+  String get featureSpotlightDismiss => 'Got it';
+
+  @override
+  String get featureSpotlightSnippetPickerTitle => 'Snippet Picker';
+
+  @override
+  String get featureSpotlightSnippetPickerDescription =>
+      'Save reusable text blocks and insert them anywhere with a hotkey or a spoken trigger — no retyping needed.';
+
+  @override
+  String get featureSpotlightSidePanelTitle => 'Clipboard Side Panel';
+
+  @override
+  String get featureSpotlightSidePanelDescription =>
+      'Hover the screen edge to open your recent clipboard history and drag any item straight into your document.';
+
+  @override
+  String get featureSpotlightChangelogLink => 'View full changelog';
+
+  @override
+  String get featureSpotlightReviewLabel => 'Review the new features';
+
+  @override
+  String get featureSpotlightReviewAction => 'Show';
+
+  @override
   String get notesNewNote => 'New note';
 
   @override
