@@ -14,21 +14,23 @@ import 'side_panel_snapshot.dart';
 /// again" requirement and the natural behaviour before the user has typed
 /// anything.
 ///
-/// Matching is a plain `contains` on lowercased text. Unlike
-/// `WpFindReplace.locate`, this never reports match *offsets* back into the
-/// original string, so the handful of code points that lowercase into a
-/// different number of characters (e.g. Turkish `İ`) cannot misalign
-/// anything here -- only `WpFindReplace`'s highlight/replace use case needed
-/// the offset-preserving `RegExp.escape` rewrite.
+/// Matching uses a case-insensitive `RegExp`. Unlike `WpFindReplace.locate`,
+/// this never reports match *offsets* back into the original string, so the
+/// handful of code points that lowercase into a different number of characters
+/// (e.g. Turkish `İ`) cannot misalign anything here. Using a precompiled
+/// `RegExp` here prevents large GC spikes from repeatedly calling
+/// `toLowerCase` on every row string.
 List<SidePanelRow> filterSidePanelRows(List<SidePanelRow> rows, String query) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return rows;
 
-  final needle = trimmed.toLowerCase();
+  // Precompiled outside the loop - vastly more memory-efficient than calling
+  // .toLowerCase().contains() on every row's title and subtitle, bypassing
+  // the need to allocate lowercased string copies and preventing GC spikes.
+  final queryRegex = RegExp(RegExp.escape(trimmed), caseSensitive: false);
   return [
     for (final row in rows)
-      if (row.title.toLowerCase().contains(needle) ||
-          row.subtitle.toLowerCase().contains(needle))
+      if (queryRegex.hasMatch(row.title) || queryRegex.hasMatch(row.subtitle))
         row,
   ];
 }
