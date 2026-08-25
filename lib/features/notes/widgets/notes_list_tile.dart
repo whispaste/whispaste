@@ -32,6 +32,7 @@ class NotesListTile extends StatefulWidget {
     required this.onQuickNoteClear,
     required this.onRestore,
     required this.onDeleteForever,
+    required this.onCopy,
   });
 
   final Note note;
@@ -61,6 +62,7 @@ class NotesListTile extends StatefulWidget {
   final VoidCallback onQuickNoteClear;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
+  final VoidCallback onCopy;
 
   @override
   State<NotesListTile> createState() => _NotesListTileState();
@@ -285,17 +287,24 @@ class _NotesListTileState extends State<NotesListTile> {
                         color: textMuted,
                       ),
                     ),
-                    if (!widget.isTrashView && !widget.note.isQuickNote) ...[
-                      const SizedBox(width: WpSpacing.xxs),
-                      // Setting the mark is an ordinary trailing row action —
-                      // revealed on hover/focus like every other one, and
-                      // absent from the note that already holds the mark, so
-                      // "marking it again" is structurally impossible instead
-                      // of being a behavioural special case.
-                      WpRowActions(
-                        visible: _isHovered || widget.isFocused,
-                        dense: true,
-                        children: [
+                    const SizedBox(width: WpSpacing.xxs),
+                    WpRowActions(
+                      visible: _isHovered || widget.isFocused,
+                      dense: true,
+                      children: [
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        WpRowAction(
+                          icon: LucideIcons.copy,
+                          tooltip: l10n.actionCopy,
+                          onTap: widget.onCopy,
+                          dense: true,
+                        ),
+                        if (!widget.isTrashView && !widget.note.isQuickNote)
+                          // Setting the mark is an ordinary trailing row action —
+                          // revealed on hover/focus like every other one, and
+                          // absent from the note that already holds the mark, so
+                          // "marking it again" is structurally impossible instead
+                          // of being a behavioural special case.
                           // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                           WpRowAction(
                             icon: LucideIcons.zap,
@@ -303,15 +312,7 @@ class _NotesListTileState extends State<NotesListTile> {
                             onTap: widget.onQuickNoteSet,
                             dense: true,
                           ),
-                        ],
-                      ),
-                    ],
-                    if (widget.isTrashView) ...[
-                      const SizedBox(width: WpSpacing.xxs),
-                      WpRowActions(
-                        visible: _isHovered || widget.isFocused,
-                        dense: true,
-                        children: [
+                        if (widget.isTrashView) ...[
                           // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                           WpRowAction(
                             // Same restore glyph as the editor toolbar and
@@ -330,8 +331,8 @@ class _NotesListTileState extends State<NotesListTile> {
                             dense: true,
                           ),
                         ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ],
                 ),
                 // Row 2: content preview — hidden when the note is title-only

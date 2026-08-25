@@ -574,6 +574,15 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     );
   }
 
+  void _onCopyNote(Note note) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: note.content,
+      category: 'notes',
+    );
+  }
+
   /// Only reachable from the trash view (list tile / editor toolbar there).
   Future<void> _deleteForever(Note note) async {
     // Flush first, same as favourite/trash: any pending autosave write
@@ -868,6 +877,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             }
           },
           onVoiceTranscript: _insertVoiceTranscript,
+          onCopy: _onCopyNote,
         );
       },
       loading: () => const WpListSkeleton(rowHeight: _notesSkeletonRowHeight),
