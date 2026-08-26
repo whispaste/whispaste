@@ -29,6 +29,7 @@ class HistoryEntryRow extends StatefulWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     this.multiSelectMode = false,
     this.isChecked = false,
     this.isTrashView = false,
@@ -42,6 +43,7 @@ class HistoryEntryRow extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isTrashView;
@@ -198,6 +200,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                     onCopy: widget.onCopy,
                     onPin: widget.onPin,
                     onDelete: widget.onDelete,
+                    onDuplicate: widget.onDuplicate,
                     onTagTap: widget.onTagTap,
                   ),
                 ),
@@ -225,6 +228,7 @@ class _EntryRowContent extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     this.onTagTap,
   });
 
@@ -237,6 +241,7 @@ class _EntryRowContent extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
   final void Function(String tag)? onTagTap;
 
   @override
@@ -310,6 +315,13 @@ class _EntryRowContent extends StatelessWidget {
                   dense: true,
                 ),
                 // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                if (onDuplicate != null)
+                  WpRowAction(
+                    icon: LucideIcons.files,
+                    tooltip: l10n.actionDuplicate,
+                    onTap: onDuplicate,
+                    dense: true,
+                  ),
                 WpRowAction(
                   icon: LucideIcons.trash2,
                   tooltip: l10n.actionDelete,
