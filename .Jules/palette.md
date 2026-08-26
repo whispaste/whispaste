@@ -1,0 +1,3 @@
+## 2024-05-24 - Interactive tag chips use bare GestureDetector instead of keyboard-accessible InkWell
+**Learning:** In `lib/widgets/tag_input.dart`, the `_TagChip` widget uses a bare `GestureDetector` wrapped in `Semantics(button: true)` for its remove action. While this makes it visible to screen readers, it lacks the visual focus state (`WpFocusRing`) and keyboard interactivity (Enter/Space) that `InkWell` provides. The codebase standard for composed interactive elements is to use `InkWell` + `WpFocusRing` sharing the same `FocusNode` to guarantee full keyboard accessibility.
+**Action:** Replace `GestureDetector` in `_TagChip` with `InkWell` + `WpFocusRing`, mirroring the pattern used in `_EntryTagChip` and `WpRowAction`.

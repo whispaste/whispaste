@@ -416,6 +416,13 @@ class _TagChip extends StatefulWidget {
 
 class _TagChipState extends State<_TagChip> {
   bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'TagChipRemove');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -451,23 +458,32 @@ class _TagChipState extends State<_TagChip> {
             Semantics(
               button: true,
               label: 'Remove ${widget.tag.name}',
-              child: GestureDetector(
-                onTap: widget.onRemove,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  // 2px pad enlarges the remove icon's tap area without
-                  // inflating the compact chip height.
-                  padding: const EdgeInsets.all(2),
-                  child: AnimatedOpacity(
-                    opacity: _isHovered ? 0.9 : 0.35,
-                    duration: WpMotion.durationFor(
-                      context,
-                      _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-                    ),
-                    child: const Icon(
-                      LucideIcons.x,
-                      size: WpIconSize.xs,
-                      color: accent,
+              child: WpFocusRing(
+                focusNode: _focusNode,
+                radius: WpRadius.sm,
+                child: InkWell(
+                  onTap: widget.onRemove,
+                  focusNode: _focusNode,
+                  borderRadius: WpRadius.borderFull,
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: Padding(
+                    // 2px pad enlarges the remove icon's tap area without
+                    // inflating the compact chip height.
+                    padding: const EdgeInsets.all(2),
+                    child: AnimatedOpacity(
+                      opacity: _isHovered ? 0.9 : 0.35,
+                      duration: WpMotion.durationFor(
+                        context,
+                        _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+                      ),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: WpIconSize.xs,
+                        color: accent,
+                      ),
                     ),
                   ),
                 ),
