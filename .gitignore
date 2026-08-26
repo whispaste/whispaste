@@ -218,3 +218,6 @@ __pycache__/
 /lib/DESIGN.md
 /lib/PRODUCT.md
 *.pyc
+
+# Pi: loads AGENTS.override.md (-> CLAUDE.md) instead of AGENTS.md
+AGENTS.override.md
