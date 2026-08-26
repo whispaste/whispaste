@@ -5,6 +5,7 @@ import Hero from "../../components/Hero.astro";
 import UseCaseCards from "../../components/UseCaseCards.astro";
 import MarketingMoment from "../../components/MarketingMoment.astro";
 import AppPasteDemo from "../../components/AppPasteDemo.astro";
+import SpatialJourney from "../../components/SpatialJourney.astro";
 import SpeedComparison from "../../components/SpeedComparison.astro";
 import Engines from "../../components/Engines.astro";
 import AppScreenshots from "../../components/AppScreenshots.astro";
@@ -49,6 +50,7 @@ const faqKeys = [
         ask. */}
     <Hero />
     <AppPasteDemo />
+    <SpatialJourney />
     <UseCaseCards />
     <MarketingMoment />
     <SpeedComparison />
@@ -98,7 +100,6 @@ const faqKeys = [
 
   <script>
     import { applyLang } from '../../scripts/i18n';
-    import { updateThemeIcon } from '../../scripts/theme';
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -157,6 +158,5 @@ const faqKeys = [
     })();
 
     applyLang();
-    updateThemeIcon();
   </script>
 </Layout>

@@ -12,27 +12,21 @@ import { expect, test } from '@playwright/test';
  * and Chromium diverged on radius, shadow, gradient, waveform or the progress
  * timeline, one of the two runs would fail against the shared baseline.
  *
- * Determinism: reduced motion + a forced light theme make the renderer draw its
- * frozen frame (the spike-verified 22-bar snapshot, timer 0:07, progress 60%),
- * so the only variable left is the rendering engine.
+ * Determinism: reduced motion makes the renderer draw its frozen frame (the
+ * spike-verified 22-bar snapshot, timer 0:07, progress 60%), so the only
+ * variable left is the rendering engine. The capsule renders the app's real
+ * `OverlayStyleVariant.solid` (2026-08-26) — an opaque `WpColorsDark.
+ * frameGradient` fill (navy→violet, `#051A3E`→`#140A2F`), no glass/backdrop
+ * effects — so there is nothing theme-dependent left to force either.
  */
 
-// Force the canonical V4 light theme before any page script runs, so the
-// capsule shows the #F7FAFD→#E6EEF5 tint named in the design spec.
 test.use({
-  colorScheme: 'light',
   // Top-level viewport + deviceScaleFactor override the per-project device
   // presets, so chromium and webkit render the canvas at the SAME pixel size
   // (a prerequisite for comparing them against one shared baseline).
   viewport: { width: 900, height: 700 },
   deviceScaleFactor: 2,
   contextOptions: { reducedMotion: 'reduce' },
-});
-
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem('whispaste-theme', 'light');
-  });
 });
 
 test('overlay mockup renders identically in WebKit and Chromium', async ({ page }) => {
@@ -49,15 +43,13 @@ test('overlay mockup renders identically in WebKit and Chromium', async ({ page 
   await page.waitForTimeout(300);
 
   await expect(canvas).toHaveScreenshot('overlay-mockup.png', {
-    // Linux CI measures ~7% renderer variance on the canvas snapshot (mostly
-    // font/text anti-aliasing) since the Liquid Glass rebuild added more
-    // gradient/blur layers to the paint (Fresnel rim, specular streak,
-    // silhouette wobble) - each one is a bit more surface for cross-platform
-    // antialiasing to differ on, even though the frame itself is
-    // deterministic under reduced motion. Consistently ~7% across multiple
-    // CI runs (not a one-off flake) - 8% gives that real margin room while
-    // still catching actual structural drift: radius, shadow, gradient,
-    // waveform, and progress.
+    // Linux CI measured ~7% renderer variance on the canvas snapshot (mostly
+    // font/text anti-aliasing), consistently across multiple runs (not a
+    // one-off flake) - kept at 8% margin post-2026-08-26 solid-fill switch:
+    // the 4-stop frameGradient plus the accent border stroke are still real
+    // cross-engine antialiasing surface even with the glass sheen/rim/
+    // specular layers no longer painted. Still enough to catch actual
+    // structural drift: radius, shadow, gradient, waveform, and progress.
     maxDiffPixelRatio: 0.08,
     animations: 'disabled',
   });

@@ -166,7 +166,7 @@ test.describe('screenshot section', () => {
 
   test('"See all" link points to gallery page', async ({ page }) => {
     await page.goto('/');
-    const link = page.locator('#app-screenshots a[href="/screenshots"]');
+    const link = page.locator('#app-screenshots a[href="/screenshots/"]');
     await expect(link).toBeVisible();
   });
 });

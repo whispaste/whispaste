@@ -29,10 +29,10 @@ test('language toggle switches the landing page between DE and EN', async ({ pag
   await page.goto('/');
 
   const heroHeading = page.locator('section h1').first();
-  await expect(heroHeading).toContainText('Drücken. Sprechen.');
+  await expect(heroHeading).toContainText('Sprechen statt');
   await page.getByTestId('lang-toggle').click();
   await page.waitForURL(/\/en\/?$/);
-  await expect(page.locator('section h1').first()).toContainText('Press. Speak.');
+  await expect(page.locator('section h1').first()).toContainText('Speak instead of');
 });
 
 test('FAQ section is visible and has accordion items', async ({ page }) => {

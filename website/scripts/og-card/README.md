@@ -38,8 +38,8 @@ Screenshot wieder löschen — sie dürfen nicht ausgeliefert werden. Die kanoni
 Assets sind ausschließlich `og-image-de.png` und `og-image.png`.
 
 ## Bezug zur Site
-- Tagline aus `src/scripts/i18n.ts`: `hero.title1/2` (DE: „Drücken. Sprechen.
-  Fertig." / EN: „Press. Speak. Done.").
+- Tagline aus `src/scripts/i18n.ts`: `hero.title1/2` (DE: „Sprechen statt
+  tippen." / EN: „Speak instead of typing.").
 - Meta-Wiring: `src/layouts/Layout.astro` (`ogImage = lang === "en" ? "/og-image.png" : "/og-image-de.png"`).
 - Marken-Tokens: `src/styles/global.css` (`--color-brand-cyan/teal/darker`,
   `--font-serif`/`--font-display`).

@@ -54,20 +54,21 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     gap: 0.75rem;
     padding: 0.625rem 1.5rem;
     min-height: 44px;
-    border-radius: var(--radius-card);
-    border: 1px solid rgba(56, 217, 240, 0.2);
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.8) 0%, rgba(23, 29, 44, 0.6) 100%);
-    color: #fff;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    /* Dark, not white: white text measures ~1.6:1 against the gradient's
+       light-cyan stop (#6FDDF0) — well under WCAG AA's 4.5:1. Dark navy
+       clears >6:1 across the whole gradient, matching the __label span
+       below which already uses dark text for the same reason. */
+    color: var(--color-brand-darker);
     text-decoration: none;
     transition: transform var(--dur-base) var(--ease-flow),
-      box-shadow var(--dur-base) var(--ease-flow),
-      border-color var(--dur-base) var(--ease-flow);
+      box-shadow var(--dur-base) var(--ease-flow);
     cursor: pointer;
   }
 
   .wp-store-btn:hover {
     transform: translateY(-1px);
-    border-color: rgba(56, 217, 240, 0.4);
     box-shadow: var(--shadow-pill);
   }
 
@@ -77,32 +78,27 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   }
 
   .wp-store-btn:focus-visible {
-    outline: 2px solid #38D9F0;
+    outline: 2px solid #fff;
     outline-offset: 2px;
   }
 
-  /* Large variant (Hero, Download page) — the primary CTA gets more visual
-     weight: a quiet brand-cyan glow at rest that blooms on hover/lift, so it
-     reads as *the* button to press without shouting. */
+  /* Large variant (Hero, Download page) — same accent-gradient CTA, just
+     bigger; the size difference alone carries the extra visual weight. */
   .wp-store-btn--lg {
     padding: 0.75rem 2rem;
     min-height: 52px;
     gap: 0.875rem;
-    border-color: rgba(56, 217, 240, 0.32);
-    box-shadow: var(--shadow-cta);
   }
 
   .wp-store-btn--lg:hover {
     transform: translateY(-2px);
-    border-color: rgba(56, 217, 240, 0.55);
-    box-shadow: var(--shadow-cta-hover);
   }
 
   .wp-store-btn__icon {
     width: 1.25rem;
     height: 1.25rem;
     flex-shrink: 0;
-    color: #38D9F0;
+    color: var(--color-brand-darker);
   }
 
   .wp-store-btn--lg .wp-store-btn__icon {
@@ -127,14 +123,14 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   .wp-store-btn--lg .wp-store-btn__label {
     font-size: 0.75rem;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.6);
+    color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
     letter-spacing: 0.01em;
   }
 
   .wp-store-btn--lg .wp-store-btn__store {
     font-size: 1.0625rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--color-brand-darker);
   }
 
   /* Reduced motion */
@@ -145,35 +141,5 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     .wp-store-btn:hover {
       transform: none;
     }
-  }
-
-  /* Light theme */
-  :global(.light) .wp-store-btn,
-  :root.light .wp-store-btn {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
-    border-color: rgba(10, 110, 148, 0.35);
-    color: #0c1425;
-  }
-
-  :global(.light) .wp-store-btn:hover,
-  :root.light .wp-store-btn:hover {
-    border-color: rgba(10, 110, 148, 0.55);
-  }
-
-
-
-  :global(.light) .wp-store-btn__icon,
-  :root.light .wp-store-btn__icon {
-    color: #0A6E94;
-  }
-
-  :global(.light) .wp-store-btn--lg .wp-store-btn__label,
-  :root.light .wp-store-btn--lg .wp-store-btn__label {
-    color: rgba(12, 20, 37, 0.5);
-  }
-
-  :global(.light) .wp-store-btn--lg .wp-store-btn__store,
-  :root.light .wp-store-btn--lg .wp-store-btn__store {
-    color: #0c1425;
   }
 </style>

@@ -40,8 +40,7 @@ const linuxSttHref = lang === 'de' ? '/linux-spracherkennung/' : '/en/linux-spee
         <!-- Brand + tagline -->
         <div class="max-w-xs">
           <div class="flex items-center gap-2 mb-3">
-            <img src="/wordmark-dark.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto nav-logo-dark" />
-            <img src="/wordmark-light.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto nav-logo-light hidden" />
+            <img src="/wordmark-dark.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto" />
           </div>
           <p class="text-ink-muted text-sm leading-relaxed" data-i18n="footer.tagline">{t(lang, "footer.tagline")}</p>
         </div>
@@ -104,7 +103,7 @@ const linuxSttHref = lang === 'de' ? '/linux-spracherkennung/' : '/en/linux-spee
   </footer>
 ) : (
   <footer class="py-6 border-t border-white/5" role="contentinfo">
-    <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+    <div class="max-w-4xl mx-auto px-6 text-center text-sm text-ink-subtle flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
       <a href={downloadHref} class="hover:text-white transition-colors" data-i18n="footer.download">{t(lang, "footer.download")}</a>
       <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
     </div>

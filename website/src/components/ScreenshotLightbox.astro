@@ -4,6 +4,7 @@
  * Open via: window.openScreenshotLightbox(images, startIndex)
  * images: Array<{ src: string, alt: string }>
  */
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
 <div
@@ -11,21 +12,21 @@
   class="lightbox"
   role="dialog"
   aria-modal="true"
-  aria-label="Screenshot viewer"
+  aria-label={lang === 'en' ? 'Screenshot viewer' : 'Screenshot-Ansicht'}
   data-aria-label-en="Screenshot viewer"
   data-aria-label-de="Screenshot-Ansicht"
   hidden
 >
   <div class="lightbox-backdrop" data-lightbox-close></div>
 
-  <button class="lightbox-close" aria-label="Close" data-aria-label-en="Close" data-aria-label-de="Schließen" data-lightbox-close>
+  <button class="lightbox-close" aria-label={lang === 'en' ? 'Close' : 'Schließen'} data-aria-label-en="Close" data-aria-label-de="Schließen" data-lightbox-close>
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
   </button>
 
-  <button class="lightbox-nav lightbox-nav--prev" aria-label="Previous" data-aria-label-en="Previous" data-aria-label-de="Zurück" data-lightbox-prev>
+  <button class="lightbox-nav lightbox-nav--prev" aria-label={lang === 'en' ? 'Previous screenshot' : 'Vorheriger Screenshot'} data-aria-label-en="Previous screenshot" data-aria-label-de="Vorheriger Screenshot" data-lightbox-prev>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="15 18 9 12 15 6"></polyline>
     </svg>
@@ -41,7 +42,7 @@
     alt=""
   />
 
-  <button class="lightbox-nav lightbox-nav--next" aria-label="Next" data-aria-label-en="Next" data-aria-label-de="Weiter" data-lightbox-next>
+  <button class="lightbox-nav lightbox-nav--next" aria-label={lang === 'en' ? 'Next screenshot' : 'Nächster Screenshot'} data-aria-label-en="Next screenshot" data-aria-label-de="Nächster Screenshot" data-lightbox-next>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="9 18 15 12 9 6"></polyline>
     </svg>
@@ -68,12 +69,11 @@
     visibility: visible;
   }
 
+  /* Plain dimming, no blur -- no glass/frost material sitewide. */
   .lightbox-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: rgba(0, 0, 0, 0.92);
   }
 
   .lightbox-image {
@@ -106,16 +106,20 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.9);
+    /* Solid --color-brand-floating, same floating-chrome material as the
+       Nav pill/DownloadSupportModal -- not a translucent white chip (the
+       app's own DESIGN.md documents why a neutral alpha over a chromatic
+       ground reads grey, "Lesson: why painted glass reads grey"). */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--color-brand-floating);
+    color: var(--color-ink);
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
   }
 
   .lightbox-close:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, var(--color-brand-floating));
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .lightbox-nav {
@@ -129,16 +133,16 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--color-brand-floating);
+    color: var(--color-ink);
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s, opacity 0.2s;
   }
 
   .lightbox-nav:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, var(--color-brand-floating));
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .lightbox-nav:disabled {
@@ -157,12 +161,11 @@
     z-index: 2;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--color-ink-muted);
     letter-spacing: 0.05em;
     padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
+    border-radius: var(--radius-pill);
+    background: var(--color-brand-floating);
   }
 
   @media (max-width: 640px) {

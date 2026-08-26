@@ -101,19 +101,19 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
           `BreadcrumbList`-Schema (Google Rich Results verlangt
           Übereinstimmung zwischen sichtbarem Text und JSON-LD).
         */}
-        <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
+        <nav aria-label="Breadcrumb" class="mb-8 text-sm text-ink-subtle">
           <ol class="flex flex-wrap items-center gap-2">
             {breadcrumbs.map((crumb, index) => {
               const isLast = index === breadcrumbs.length - 1;
               return (
                 <li class="flex items-center gap-2">
                   {isLast ? (
-                    <span class="text-gray-300" aria-current="page">{crumb.name}</span>
+                    <span class="text-ink-muted" aria-current="page">{crumb.name}</span>
                   ) : (
-                    <a href={crumb.item} class="hover:text-gray-300 transition-colors">{crumb.name}</a>
+                    <a href={crumb.item} class="hover:text-ink-muted transition-colors">{crumb.name}</a>
                   )}
                   {!isLast && (
-                    <span class="text-gray-600" aria-hidden="true">/</span>
+                    <span class="text-ink-subtle/60" aria-hidden="true">/</span>
                   )}
                 </li>
               );
@@ -124,7 +124,7 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
         {/* Hero — H1 + Lackmustest-Antwort im ersten Absatz */}
         <header class="mb-12">
           {heroImage && (
-            <div class="illo-halo illo-float mx-auto mb-8 w-full max-w-[240px] sm:max-w-[280px]">
+            <div class="illo-float mx-auto mb-8 w-full max-w-[240px] sm:max-w-[280px]">
               <img
                 src={heroImage.src}
                 alt={heroImage.alt}
@@ -132,7 +132,7 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
                 height="1024"
                 loading="eager"
                 decoding="async"
-                class="w-full h-auto"
+                class="w-full h-auto lp-hero-illustration"
               />
             </div>
           )}
@@ -191,9 +191,7 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
   */}
   <script>
     import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
     applyLang();
-    updateThemeIcon();
 
     // Engagement-Event „Inhalt gelesen" (cookieless, einmalig): feuert, sobald der
     // CTA-Block am Seitenende sichtbar wird — Beleg, dass die Long-Tail-Seite bis
@@ -219,11 +217,12 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
 </Layout>
 
 <style>
-  /* Editorial serif accent for the hero title; adaptive ink tokens. */
+  .lp-hero-illustration {
+    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
+  }
   .lp-hero-title {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-variation-settings: "opsz" 144, "wght" 600;
+    font-family: var(--font-display);
+    font-weight: 700;
     letter-spacing: -0.015em;
     color: var(--color-ink);
   }
@@ -233,9 +232,9 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
   }
 
   /* Long-tail / use-case body: airy editorial sections.
-     Colours come from adaptive theme tokens (--color-ink / -muted / brand),
-     so both light and dark render with correct contrast. A slim cyan rail
-     replaces the old flat panel for a lighter, more editorial rhythm. */
+     Colours come from the dark-only theme tokens (--color-ink / -muted /
+     brand). A slim cyan rail replaces the old flat panel for a lighter,
+     more editorial rhythm. */
   .landing-content :global(section) {
     position: relative;
     background: color-mix(in srgb, var(--color-brand-card) 42%, transparent);
@@ -257,9 +256,8 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
     );
   }
   .landing-content :global(section h2) {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-variation-settings: "opsz" 80, "wght" 600;
+    font-family: var(--font-display);
+    font-weight: 700;
     font-size: 1.5rem;
     letter-spacing: -0.01em;
     color: var(--color-ink);
@@ -283,12 +281,5 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
   }
   .landing-content :global(section ul li + li) {
     margin-top: 0.4rem;
-  }
-
-  /* Light canvas: crisp white cards instead of the translucent dark panel. */
-  :global(html.light) .landing-content :global(section) {
-    background: rgba(255, 255, 255, 0.75);
-    border-color: rgba(15, 23, 42, 0.08);
-    box-shadow: var(--shadow-card);
   }
 </style>

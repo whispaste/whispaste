@@ -23,21 +23,18 @@ const cards = [
 <!-- Privacy Section (dark block) -->
 <section class="band band-spotlight py-24 sm:py-32 relative">
   <div class="relative max-w-5xl mx-auto px-6">
-    <!-- Header row: a floating cut-out trust illustration integrated beside the
-         copy (no boxed tile) — voice stays private, offline. -->
+    <!-- Header row: trust emblem beside the copy — shield + voice waveform +
+         amber padlock, line-art in the same instrument/precision vocabulary as
+         the Support and MarketingMoment emblems (the pastel cut-out register
+         was retired across the redesign; this was its last holdout). -->
     <div class="grid items-center gap-8 md:gap-12 md:grid-cols-[0.72fr_1fr] mb-14">
-      <div class="illo-halo illo-float wp-clip-reveal mx-auto md:mx-0 w-52 sm:w-64 md:w-full max-w-[17rem]">
-        <img
-          src="/illustrations/private-local.webp"
-          alt={lang === 'en'
-            ? 'A shield holding a voice waveform, with a padlock and an offline cloud: your voice stays private and local'
-            : 'Ein Schild mit Sprach-Wellenform, Vorhängeschloss und Offline-Wolke: deine Stimme bleibt privat und lokal'}
-          width="1024"
-          height="1024"
-          loading="lazy"
-          decoding="async"
-          class="block w-full h-auto"
-        />
+      <div class="illo-float wp-clip-reveal privacy-emblem mx-auto md:mx-0 w-44 sm:w-52 md:w-full max-w-[15rem]" aria-hidden="true">
+        <svg class="privacy-emblem__svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M100 178c-3-2-62-30-62-88V54l62-24 62 24v36c0 58-59 86-62 88Z" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+          <path d="M64 96h6M82 82v28M100 68v56M118 78v36M136 92h6" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linecap="round" />
+          <rect x="140" y="34" width="36" height="30" rx="7" fill="#F59E0B" />
+          <path d="M147 34v-7a11 11 0 0 1 22 0v7" stroke="#F59E0B" stroke-width="6" stroke-linecap="round" />
+        </svg>
       </div>
       <div class="text-center md:text-left">
         <SectionEyebrow key="privacy.label" class="reveal-up" />
@@ -56,3 +53,12 @@ const cards = [
     </div>
   </div>
 </section>
+
+<style>
+  .privacy-emblem__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
+  }
+</style>

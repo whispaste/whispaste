@@ -81,14 +81,17 @@ function escapeHtml(s: string): string {
 <style>
   .testimonial-card {
     position: relative;
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.6) 0%, rgba(23, 29, 44, 0.3) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-brand-card);
+    /* 12% wie alle Strukturkanten der Seite (Flutter borderSubtle, global.css) */
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--radius-card);
     padding: 1.5rem;
-    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow), box-shadow 0.3s var(--ease-flow);
   }
   .testimonial-card:hover {
-    border-color: rgba(56, 217, 240, 0.2);
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
+    box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
   }
   /* Lit-edge-Sheen auf Hover — dieselbe obere Lichtkante wie feature-card
@@ -100,7 +103,7 @@ function escapeHtml(s: string): string {
     inset-inline: 1.25rem;
     top: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(56, 217, 240, 0.55), transparent);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-brand-cyan) 55%, transparent), transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
@@ -127,21 +130,5 @@ function escapeHtml(s: string): string {
     font-size: 0.9375rem;
     line-height: 1.6;
     margin-top: 0.75rem;
-  }
-
-  /* Light theme overrides */
-  :root.light .testimonial-card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.5) 100%);
-    border-color: rgba(0, 0, 0, 0.08);
-  }
-  :root.light .testimonial-card:hover {
-    border-color: rgba(10, 110, 148, 0.4);
-  }
-  /* Hover-Lichtkante in Light im tiefen Akzent statt unsichtbarem Bright-Cyan. */
-  :root.light .testimonial-card::after {
-    background: linear-gradient(90deg, transparent, rgba(10, 110, 148, 0.5), transparent);
-  }
-  :root.light .testimonial-text {
-    color: rgba(0, 0, 0, 0.6);
   }
 </style>

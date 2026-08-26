@@ -1,0 +1,249 @@
+---
+// "Spatial Journey" — the redesign's one signature WebGL/GSAP moment
+// (maintainer brief: GSAP + Scrollytelling + Spatial Web Design +
+// WebGL/Three.js). A camera dollies through floating app-window panels in
+// Z-depth as the visitor scrolls, closing on the platform-parity claim no
+// competitor can make (macOS + Windows + Linux, CUDA/Vulkan/CPU).
+//
+// The panel copy below is the single source of truth: the static grid here
+// is always server-rendered (SEO, no-JS, reduced-motion), and the client
+// bootstrap script (inline below) reads its text straight out of that DOM to
+// build the WebGL scene — no copy is duplicated into a second data format.
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+const appPanels = [
+  { id: 'editor', labelKey: 'spatial.panel.editor', captionKey: 'spatial.caption.editor' },
+  { id: 'terminal', labelKey: 'spatial.panel.terminal', captionKey: 'spatial.caption.terminal' },
+  { id: 'browser', labelKey: 'spatial.panel.browser', captionKey: 'spatial.caption.browser' },
+  { id: 'mail', labelKey: 'spatial.panel.mail', captionKey: 'spatial.caption.mail' },
+  { id: 'notes', labelKey: 'spatial.panel.notes', captionKey: 'spatial.caption.notes' },
+] as const;
+---
+
+<section
+  id="spatial-journey"
+  class="band band-deep py-24 sm:py-32 relative scroll-mt-20"
+>
+  <div class="relative max-w-5xl mx-auto px-6">
+    <div class="text-center mb-14 scroll-reveal">
+      <SectionEyebrow key="spatial.label" />
+      <h2 class="section-title">
+        <span data-i18n="spatial.titleLead">{t(lang, 'spatial.titleLead')}</span><span
+          class="text-gradient-brand"
+          data-i18n="spatial.titleAccent"
+        >{t(lang, 'spatial.titleAccent')}</span><span
+          data-i18n="spatial.titleTail"
+        >{t(lang, 'spatial.titleTail')}</span>
+      </h2>
+      <p
+        class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto"
+        data-i18n="spatial.subtitle"
+      >{t(lang, 'spatial.subtitle')}</p>
+    </div>
+
+    <!-- Static fallback — always rendered, hidden by JS only once the WebGL
+         scene mounts. Source of truth for the client-side panel data. -->
+    <div class="spj-static-grid" id="spj-static-grid">
+      {appPanels.map((p) => (
+        <div class="spj-static-card hud-frame" data-id={p.id}>
+          <p class="spj-static-label" data-i18n={p.labelKey}>{t(lang, p.labelKey)}</p>
+          <p class="spj-static-caption" data-i18n={p.captionKey}>{t(lang, p.captionKey)}</p>
+        </div>
+      ))}
+      <div class="spj-static-card spj-static-platform hud-frame" data-id="platform">
+        <p class="spj-static-label" data-i18n="spatial.panel.platform">{t(lang, 'spatial.panel.platform')}</p>
+        <p class="spj-static-caption-lg" data-i18n="spatial.outro.title">{t(lang, 'spatial.outro.title')}</p>
+        <p class="spj-static-caption" data-i18n="spatial.outro.subtitle">{t(lang, 'spatial.outro.subtitle')}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-bleed WebGL stage — outside the reading column, hidden until the
+       bootstrap script confirms motion is allowed and WebGL is available. -->
+  <div class="spj-stage-outer" id="spj-stage-outer" hidden>
+    <div class="spj-stage-sticky">
+      <canvas class="spj-canvas" id="spj-canvas" aria-hidden="true"></canvas>
+      <!-- The caption is drawn into the canvas itself (part of the "window"
+           being flown past) — this pair only mirrors it as real text for
+           assistive tech, since canvas content otherwise has none. -->
+      <div class="spj-overlay sr-only" aria-live="off">
+        <p id="spj-label"></p>
+        <p id="spj-caption"></p>
+      </div>
+      <div class="spj-dots" id="spj-dots" aria-hidden="true">
+        {appPanels.map(() => <span class="spj-dot" />)}
+        <span class="spj-dot spj-dot-platform" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .spj-static-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+  .spj-static-card {
+    padding: 1.5rem;
+    border-radius: var(--radius-card);
+    /* --color-brand-card, not --surface-dark (the page/band-background
+       family) -- these are content cards like every other card on the
+       site (FAQ, Engines, Pricing, Testimonials, UseCaseCards), and using
+       the wrong token family made them render a visibly different,
+       more indigo/violet navy than the shared flat-card material. */
+    background: color-mix(in srgb, var(--color-brand-cyan) 4%, var(--color-brand-card));
+  }
+  .spj-static-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-brand-cyan);
+    margin: 0 0 0.5rem;
+  }
+  .spj-static-caption {
+    color: var(--color-ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .spj-static-platform {
+    grid-column: 1 / -1;
+    text-align: center;
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, var(--color-brand-card));
+  }
+  .spj-static-caption-lg {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.1rem + 1.5vw, 2.25rem);
+    font-weight: 700;
+    color: var(--color-brand-cyan);
+    margin: 0 0 0.5rem;
+  }
+  .spj-hidden {
+    display: none;
+  }
+
+  /* --- WebGL stage --------------------------------------------------------- */
+  .spj-stage-outer {
+    position: relative;
+    min-height: 620vh;
+    margin-top: 4rem;
+  }
+  .spj-stage-sticky {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .spj-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .spj-dots {
+    position: absolute;
+    left: 50%;
+    bottom: 8vh;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .spj-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+    transition: background var(--dur-base) var(--ease-flow), transform var(--dur-base) var(--ease-flow);
+  }
+  .spj-dot.is-active {
+    background: var(--color-brand-cyan);
+    transform: scale(1.4);
+  }
+  .spj-dot-platform {
+    margin-left: 0.375rem;
+  }
+</style>
+
+<script>
+  function supportsWebGL(): boolean {
+    try {
+      const c = document.createElement('canvas');
+      return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    } catch {
+      return false;
+    }
+  }
+
+  const section = document.getElementById('spatial-journey');
+  const staticGrid = document.getElementById('spj-static-grid');
+  const stageOuter = document.getElementById('spj-stage-outer');
+  const canvas = document.getElementById('spj-canvas') as HTMLCanvasElement | null;
+  const labelEl = document.getElementById('spj-label');
+  const captionEl = document.getElementById('spj-caption');
+  const dotsEl = document.getElementById('spj-dots');
+
+  if (
+    section &&
+    staticGrid &&
+    stageOuter &&
+    canvas &&
+    labelEl &&
+    captionEl &&
+    dotsEl &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+    supportsWebGL()
+  ) {
+    const panels = Array.from(
+      staticGrid.querySelectorAll<HTMLElement>('.spj-static-card'),
+    ).map((card) => {
+      const isPlatform = card.classList.contains('spj-static-platform');
+      const label = card.querySelector('.spj-static-label')?.textContent?.trim() ?? '';
+      const caption =
+        card
+          .querySelector(isPlatform ? '.spj-static-caption-lg' : '.spj-static-caption')
+          ?.textContent?.trim() ?? '';
+      return {
+        id: card.dataset.id ?? label,
+        label,
+        caption,
+        variant: (isPlatform ? 'platform' : 'app') as 'platform' | 'app',
+      };
+    });
+
+    let mounted = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && !mounted) {
+            mounted = true;
+            io.disconnect();
+            import('../scripts/spatial-journey').then(({ initSpatialJourney }) => {
+              staticGrid.classList.add('spj-hidden');
+              stageOuter.hidden = false;
+              initSpatialJourney({
+                triggerEl: stageOuter,
+                canvas,
+                labelEl,
+                captionEl,
+                dotsEl,
+                panels,
+              });
+            });
+          }
+        }
+      },
+      { rootMargin: '600px 0px' },
+    );
+    io.observe(section);
+  }
+</script>

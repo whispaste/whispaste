@@ -52,14 +52,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
         alt="WhisPaste"
         width="199"
         height="64"
-        class="h-7 w-auto nav-logo-dark"
-      />
-      <img
-        src="/wordmark-light.png"
-        alt="WhisPaste"
-        width="199"
-        height="64"
-        class="h-7 w-auto nav-logo-light hidden"
+        class="h-7 w-auto"
       />
     </a>
     {/* Desktop-Link-Zeile erst ab lg (1024px): die volle Zeile braucht mit den
@@ -68,7 +61,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
         kollabierte Lücken, CTA-Überlauf aus der Pill). 640–1023px nutzt jetzt
         das Kompakt-Muster: Hamburger + sichtbarer Download-CTA. */}
     {variant === "landing" && (
-      <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-gray-400">
+      <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-ink-muted">
         <a href="#app-paste-demo" class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
         <a href="#engines" class="hover:text-white transition-colors" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
         <a href="#languages" class="hover:text-white transition-colors" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
@@ -80,33 +73,21 @@ const backHref = lang === 'de' ? '/' : '/en/';
         der Download-CTA schon ab sm (640–1023px behält so die eine primäre
         Aktion sichtbar in der Pill), Hamburger bis unter lg. */}
     {variant === "landing" && (
-      <div class="flex shrink-0 items-center gap-3 lg:gap-5 text-sm text-gray-400">
-      <div class="hidden lg:flex shrink-0 items-center gap-5 text-sm text-gray-400">
+      <div class="flex shrink-0 items-center gap-3 lg:gap-5 text-sm text-ink-muted">
+      <div class="hidden lg:flex shrink-0 items-center gap-5 text-sm text-ink-muted">
         <button
           id="langToggle"
           data-testid="lang-toggle"
           aria-label={t(lang, "nav.switchLanguageAria")}
           data-i18n-aria="nav.switchLanguageAria"
-          class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium"
+          class="lang-toggle-btn text-ink-muted hover:text-white transition-colors text-sm font-medium"
         >{langToggleLabel}</button>
-        <button
-          id="themeToggle"
-          aria-label={t(lang, "nav.toggleThemeAria")}
-          data-i18n-aria="nav.toggleThemeAria"
-          class="text-gray-400 hover:text-white transition-colors"
-          title={t(lang, "nav.toggleThemeTitle")}
-          data-i18n-title="nav.toggleThemeTitle"
-        >
-          <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        </button>
-        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub" title="GitHub">
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub" title="GitHub">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
         </a>
         <span class="nav-divider" aria-hidden="true"></span>
       </div>
-        <a href={downloadHref} class="nav-download-btn hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all">
+        <a href={downloadHref} class="nav-download-btn hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-[0.98] transition-all">
           {/* Platform-adaptive label + icon. The detected OS (data-os on <html>,
               set before first paint in Layout.astro) picks the visible variant via
               CSS attribute selectors — no JS DOM manipulation, no flicker. Unknown
@@ -138,7 +119,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
           "Close menu" per JS-Swap, das auf der DE-Seite englisch blieb. */}
       <button
         id="mobileMenuBtn"
-        class="lg:hidden text-gray-400 hover:text-white transition-colors p-1"
+        class="lg:hidden text-ink-muted hover:text-white transition-colors p-1"
         aria-label={t(lang, "nav.menuAria")}
         data-i18n-aria="nav.menuAria"
         aria-expanded="false"
@@ -149,48 +130,33 @@ const backHref = lang === 'de' ? '/' : '/en/';
       </div>
     )}
     {variant === "subpage" && (
-      <div class="flex items-center gap-4 text-sm text-gray-400">
+      <div class="flex items-center gap-4 text-sm text-ink-muted">
         <a href={backHref} class="hover:text-white transition-colors" data-i18n="nav.back">{t(lang, "nav.back")}</a>
         <button
           id="langToggle"
           data-testid="lang-toggle"
           aria-label={t(lang, "nav.switchLanguageAria")}
           data-i18n-aria="nav.switchLanguageAria"
-          class="lang-toggle-btn text-gray-400 hover:text-white transition-colors font-medium"
+          class="lang-toggle-btn text-ink-muted hover:text-white transition-colors font-medium"
         >{langToggleLabel}</button>
-        <button
-          id="themeToggle"
-          aria-label={t(lang, "nav.toggleThemeAria")}
-          data-i18n-aria="nav.toggleThemeAria"
-          class="text-gray-400 hover:text-white transition-colors"
-          title={t(lang, "nav.toggleThemeTitle")}
-          data-i18n-title="nav.toggleThemeTitle"
-        >
-          <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        </button>
       </div>
     )}
   </div>
   {variant === "landing" && (
     <div id="mobileMenu" class="lg:hidden hidden pointer-events-auto mx-auto mt-2 max-w-6xl rounded-2xl border border-white/[0.08] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
-        <a href="#app-paste-demo" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-        <a href="#engines" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-        <a href="#languages" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-        <a href="#faq" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-        <a href="#support" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+        <a href="#app-paste-demo" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href="#engines" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
+        <a href="#languages" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
+        <a href="#faq" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+        <a href="#support" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
-          <button id="mobileLangToggle" class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium" aria-label={t(lang, "nav.switchLanguageAria")} data-i18n-aria="nav.switchLanguageAria">{langToggleLabel}</button>
-          <button id="mobileThemeToggle" class="text-gray-400 hover:text-white transition-colors" aria-label={t(lang, "nav.toggleThemeAria")} data-i18n-aria="nav.toggleThemeAria">
-            <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-          </button>
-          <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub">
+          <button id="mobileLangToggle" class="lang-toggle-btn text-ink-muted hover:text-white transition-colors text-sm font-medium" aria-label={t(lang, "nav.switchLanguageAria")} data-i18n-aria="nav.switchLanguageAria">{langToggleLabel}</button>
+          <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
           </a>
         </div>
-        <a href={downloadHref} class="nav-download-btn mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98]">
+        <a href={downloadHref} class="nav-download-btn mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 font-semibold transition-all active:scale-[0.98]">
           {/* Platform-adaptive label + icon — mirrors the desktop CTA above. */}
           <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="generic">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
@@ -232,14 +198,8 @@ const backHref = lang === 'de' ? '/' : '/en/';
     document.getElementById('langToggle')?.addEventListener('click', function () {
       if (typeof toggleLang === 'function') toggleLang();
     });
-    document.getElementById('themeToggle')?.addEventListener('click', function () {
-      if (typeof toggleTheme === 'function') toggleTheme();
-    });
     document.getElementById('mobileLangToggle')?.addEventListener('click', function () {
       if (typeof toggleLang === 'function') toggleLang();
-    });
-    document.getElementById('mobileThemeToggle')?.addEventListener('click', function () {
-      if (typeof toggleTheme === 'function') toggleTheme();
     });
     var menuBtn = document.getElementById('mobileMenuBtn');
     var mobileMenu = document.getElementById('mobileMenu');
@@ -273,40 +233,22 @@ const backHref = lang === 'de' ? '/' : '/en/';
 </script>
 
 <style>
-  /* Floating frosted-glass pill: lives above the content with a gutter left
-     and right, centered, and a little see-through. The blur stays strong; only
-     the fill opacity is dialed down so the page shows through. On scroll the
-     pill condenses + gains depth (same shrink-on-scroll behaviour as before). */
+  /* Flat opaque pill: the app's own floating-chrome material
+     (WpColorsDark.floatingSurface — dialogs/toasts/popups, not the page's
+     own card fill), no glass. On scroll the pill condenses + darkens
+     slightly (same shrink-on-scroll behaviour as before, without relying on
+     blur for legibility). */
   #site-nav .nav-pill {
     position: relative;
-    background-color: rgba(19, 24, 38, 0.28);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    background-color: var(--color-brand-floating);
+    box-shadow: var(--shadow-overlay);
     transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease,
       height 0.3s var(--ease-flow);
   }
-  /* Scrolled fill 0.35 statt 0.6 (erster Durchgang: 0.45, war unsichtbar
-     nah am Alt-Wert): verkleinert den Transparenz-Abstand zur near-clear
-     Overlay-Pille (Materialverwandtschaft). Link-Kontrast bleibt sicher,
-     weil hinter der Nav nur die dunklen Site-Bänder liegen — gray-400
-     #99A1AF auf dem 0.35-Blend über surface-base (#161B2A) 6.6:1, über
-     surface-card (#1A2032) 6.3:1, beides klar über AA 4.5:1. */
   #site-nav[data-scrolled="true"] .nav-pill {
-    background-color: rgba(19, 24, 38, 0.35);
-    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    background-color: color-mix(in srgb, var(--color-brand-floating) 80%, var(--color-brand-darker));
     border-color: rgba(255, 255, 255, 0.12);
     height: 3rem;
-  }
-  :global(html.light) #site-nav .nav-pill {
-    background-color: rgba(241, 245, 249, 0.55);
-    border-color: rgba(15, 23, 42, 0.08);
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  }
-  :global(html.light) #site-nav[data-scrolled="true"] .nav-pill {
-    background-color: rgba(241, 245, 249, 0.8);
-    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.12);
-    border-color: rgba(15, 23, 42, 0.12);
   }
   @media (prefers-reduced-motion: reduce) {
     #site-nav .nav-pill {
@@ -322,76 +264,26 @@ const backHref = lang === 'de' ? '/' : '/en/';
     background-color: rgba(255, 255, 255, 0.12);
     flex: 0 0 auto;
   }
-  :global(html.light) #site-nav .nav-divider {
-    background-color: rgba(15, 23, 42, 0.12);
-  }
 
-  /* Primary Download CTA — brand gradient + a quiet cyan glow instead of a
-     flat fill, so it carries more visual weight than the plain utility icons
-     next to it (Wispr-style hierarchy). Function/href/data-os are untouched;
-     this only changes the paint. */
+  /* Primary Download CTA — same opaque accent gradient as AppleButton/
+     StoreButton/LinuxButton/MobileCta, not a separate dark "glass"
+     treatment. Nav's CTA is the same download action as those. Pill radius
+     and dark text: see StoreButton.astro — a fixed 14px corner reads as a
+     rectangle at this compact height while looking pill-like on the taller
+     --lg hero buttons, and white text measures under WCAG AA against the
+     gradient's light-cyan stop. */
   .nav-download-btn {
-    background: linear-gradient(135deg, var(--color-brand-cyan) 0%, var(--color-brand-teal) 100%);
-    box-shadow: 0 2px 12px -2px color-mix(in srgb, var(--color-brand-cyan) 55%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    color: var(--color-brand-darker);
   }
   .nav-download-btn:hover {
-    box-shadow: 0 6px 20px -4px color-mix(in srgb, var(--color-brand-cyan) 65%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    box-shadow: var(--shadow-pill);
   }
 
-  /* Two-sided Fresnel rim, clipped to the pill's radius: top highlight plus a
-     bottom counter-sheen over a hair of shade — the overlay pill's edge idea
-     (lit top, answering light below) translated into the nav's quieter CSS
-     vocabulary. Static, no drift. Alphas deliberately kräftig (erster
-     Durchgang bei 0.02/0.03 war rechnerisch da, aber unsichtbar). */
-  #site-nav .nav-pill::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 60%),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.12) 14%, transparent 30%);
-    pointer-events: none;
-  }
-  :global(.light) #site-nav .nav-pill::before {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, transparent 60%),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.6) 0%, rgba(15, 23, 42, 0.08) 14%, transparent 30%);
-  }
   #mobileMenu {
     position: relative;
-    background: rgba(3, 14, 24, 0.85);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    background: var(--color-brand-floating);
     box-shadow: var(--shadow-overlay);
-  }
-  :global(.light) #mobileMenu {
-    background: rgba(255, 255, 255, 0.9);
-  }
-  /* Same rim as .nav-pill::before — the expanded mobile menu is the same
-     surface, just a taller shape. */
-  #mobileMenu::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 60%),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.12) 14%, transparent 30%);
-    pointer-events: none;
-  }
-  :global(.light) #mobileMenu::before {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, transparent 60%),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.6) 0%, rgba(15, 23, 42, 0.08) 14%, transparent 30%);
-  }
-  :global(.light) #mobileMenu a,
-  :global(.light) #mobileMenu button {
-    color: #374151;
-  }
-  :global(.light) #mobileMenu a:hover,
-  :global(.light) #mobileMenu button:hover {
-    color: #111827;
   }
 </style>

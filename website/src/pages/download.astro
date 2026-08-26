@@ -36,13 +36,11 @@ const breadcrumbItems = [
     <Nav variant="subpage" />
 
     <main id="main-content" class="relative flex-1 pt-24 pb-16 px-6">
-      <!-- Photo header band (dark theme only). The photo is a tonal surface,
-           not a framed image: it dissolves downward into the page background
+      <!-- Photo header band. The photo is a tonal surface, not a framed
+           image: it dissolves downward into the page background
            (brand-darker) before the first card starts, so there is no hard
-           photo edge. Hidden entirely in the light theme — the moody dark
-           shot would break the light look; light keeps the previous plain
-           header. Fixed band height + eager loading: no layout shift, and the
-           band is above the fold. -->
+           photo edge. Fixed band height + eager loading: no layout shift,
+           and the band is above the fold. -->
       <div class="download-hero-photo" aria-hidden="true">
         <Picture
           src={heroDevice}
@@ -64,15 +62,13 @@ const breadcrumbItems = [
            The content box is a geometry clone of the subpage nav pill
            (outer px-4 gutter → max-w-4xl → inner px-5 sm:px-6), so the h1
            sits on the nav wordmark's exact left flush line at every width;
-           -mx-6 first cancels <main>'s own px-6. Light theme keeps the
-           previous compact, centered header (CSS resets padding/alignment/
-           size; centered text makes the flush line moot there). -->
+           -mx-6 first cancels <main>'s own px-6. -->
       <div class="relative -mx-6 px-4">
         {/* border-x border-transparent mirrors the pill's 1px hairline border,
             so the flush line is pixel-exact, not off by the border width. */}
         <div class="max-w-4xl mx-auto border-x border-transparent px-5 sm:px-6">
           <div class="download-header text-center mb-12">
-            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">{t(lang, "download.title")}</h1>
+            <h1 class="text-[clamp(1.875rem,1.33rem+2.31vw,2.25rem)] font-bold text-white mb-3" data-i18n="download.title">{t(lang, "download.title")}</h1>
             <p class="text-ink-muted text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
           </div>
         </div>
@@ -89,8 +85,8 @@ const breadcrumbItems = [
               gapless. font-sans/tracking-normal preserve the previous h3 look
               (the base layer gives bare h2s the display face). */}
           <h2 class="font-sans tracking-normal font-semibold text-white mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h2>
-          <p class="text-gray-400 text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
-          <p class="text-gray-400 text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
+          <p class="text-ink-muted text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
+          <p class="text-ink-muted text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
         </div>
 
         <!-- OS-adaptive primary CTA group: order is reassigned per data-os
@@ -114,25 +110,25 @@ const breadcrumbItems = [
             </div>
             <div>
               <h2 class="text-xl font-semibold text-white" data-i18n="download.store.title">{t(lang, "download.store.title")}</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.store.desc">{t(lang, "download.store.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.store.desc">{t(lang, "download.store.desc")}</p>
             </div>
           </div>
 
           <!-- Benefits grid -->
           <div class="grid grid-cols-2 gap-2 mb-6">
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               <span data-i18n="download.store.benefit1">{t(lang, "download.store.benefit1")}</span>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
               <span data-i18n="download.store.benefit2">{t(lang, "download.store.benefit2")}</span>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span data-i18n="download.store.benefit3">{t(lang, "download.store.benefit3")}</span>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-pink-400/80 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
               <span data-i18n="download.store.benefit4">{t(lang, "download.store.benefit4")}</span>
             </div>
@@ -141,7 +137,7 @@ const breadcrumbItems = [
           <!-- Store button -->
           <div class="flex flex-col items-center gap-3">
             <StoreButton size="lg" />
-            {/* text-ink-subtle statt text-gray-500: gray-500 verfehlt AA auf den
+            {/* text-ink-subtle statt Tailwind-Grau: gray-500 verfehlt AA auf den
                 dunklen Karten (3.5:1); der Token ist die AA-sichere Caption-Stufe. */}
             <p class="text-xs text-ink-subtle flex items-center gap-1">
               <svg class="w-3 h-3 text-ink-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
@@ -163,29 +159,29 @@ const breadcrumbItems = [
 
           <div class="flex items-start gap-3 mb-5 mt-2">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
             </div>
             <div>
               <h2 class="text-xl font-semibold text-white" data-i18n="download.macstore.title">{t(lang, "download.macstore.title")}</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.macstore.desc">{t(lang, "download.macstore.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.macstore.desc">{t(lang, "download.macstore.desc")}</p>
             </div>
           </div>
 
           <!-- Benefits grid -->
           <div class="grid grid-cols-2 gap-2 mb-6">
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               <span data-i18n="download.macstore.benefit1">{t(lang, "download.macstore.benefit1")}</span>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
               <span data-i18n="download.macstore.benefit2">{t(lang, "download.macstore.benefit2")}</span>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span data-i18n="download.macstore.benefit3">{t(lang, "download.macstore.benefit3")}</span>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex items-center gap-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-pink-400/80 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
               <span data-i18n="download.macstore.benefit4">{t(lang, "download.macstore.benefit4")}</span>
             </div>
@@ -212,11 +208,11 @@ const breadcrumbItems = [
           <div class="flex items-start gap-3 mb-5 mt-2">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
               <!-- Linux Tux-inspired terminal icon -->
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
             </div>
             <div>
               <h2 class="text-xl font-semibold text-white" data-i18n="download.linux.title">{t(lang, "download.linux.title")}</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.linux.desc">{t(lang, "download.linux.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.linux.desc">{t(lang, "download.linux.desc")}</p>
             </div>
           </div>
 
@@ -236,7 +232,7 @@ const breadcrumbItems = [
             <p class="text-ink-subtle text-xs text-center max-w-sm" data-i18n="download.linux.appimage.hint">{t(lang, "download.linux.appimage.hint")}</p>
             <a
               href={LINUX_DEB_URL}
-              class="text-gray-400 hover:text-white text-xs underline transition-colors"
+              class="text-ink-muted hover:text-white text-xs underline transition-colors"
               data-testid="linux-deb-button"
               data-i18n="download.linux.deb.button"
               onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
@@ -250,7 +246,7 @@ const breadcrumbItems = [
                 einer lädt und einer navigiert, wären nicht unterscheidbar. */}
             <a
               href={localePath(lang, "linux-spracherkennung")}
-              class="text-gray-400 hover:text-white text-xs transition-colors"
+              class="text-ink-muted hover:text-white text-xs transition-colors"
               data-testid="linux-explainer-link"
               data-i18n="download.linux.explainerLink"
               data-i18n-href="download.linux.explainerLink.href"
@@ -262,38 +258,38 @@ const breadcrumbItems = [
         <details class="download-card tech-helper group rounded-2xl border border-white/[0.06] bg-white/[0.02] mb-6" data-testid="linux-source-build">
           <summary class="tech-helper__summary flex items-start gap-3 p-6 sm:p-8 cursor-pointer select-none">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             </div>
             <div class="flex-1">
               <h3 class="text-xl font-semibold text-white" data-i18n="download.linux.source.title">{t(lang, "download.linux.source.title")}</h3>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.linux.source.desc">{t(lang, "download.linux.source.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.linux.source.desc">{t(lang, "download.linux.source.desc")}</p>
             </div>
-            <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <svg class="tech-helper__chevron w-5 h-5 text-ink-subtle shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
 
           <div class="tech-helper__body px-6 sm:px-8 pb-6 sm:pb-8">
-            <p class="text-gray-400 text-sm mb-5 leading-relaxed" data-i18n="download.linux.build.intro">{t(lang, "download.linux.build.intro")}</p>
+            <p class="text-ink-muted text-sm mb-5 leading-relaxed" data-i18n="download.linux.build.intro">{t(lang, "download.linux.build.intro")}</p>
 
             <div class="space-y-3 mb-5">
               <div class="flex gap-3">
                 <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
                 <div>
                   <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step1.title">{t(lang, "download.linux.build.step1.title")}</h4>
-                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step1.desc">{t(lang, "download.linux.build.step1.desc")}</p>
+                  <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step1.desc">{t(lang, "download.linux.build.step1.desc")}</p>
                 </div>
               </div>
               <div class="flex gap-3">
                 <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
                 <div>
                   <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step2.title">{t(lang, "download.linux.build.step2.title")}</h4>
-                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step2.desc">{t(lang, "download.linux.build.step2.desc")}</p>
+                  <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step2.desc">{t(lang, "download.linux.build.step2.desc")}</p>
                 </div>
               </div>
               <div class="flex gap-3">
                 <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
                 <div>
                   <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step3.title">{t(lang, "download.linux.build.step3.title")}</h4>
-                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step3.desc">{t(lang, "download.linux.build.step3.desc")}</p>
+                  <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step3.desc">{t(lang, "download.linux.build.step3.desc")}</p>
                 </div>
               </div>
             </div>
@@ -319,11 +315,11 @@ const breadcrumbItems = [
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-platform-card="windows-free">
           <div class="flex items-start gap-3 mb-5">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
             </div>
             <div>
               <h2 class="text-xl font-semibold text-white" data-i18n="download.github.title">{t(lang, "download.github.title")}</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.github.desc">{t(lang, "download.github.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.github.desc">{t(lang, "download.github.desc")}</p>
             </div>
           </div>
 
@@ -349,9 +345,9 @@ const breadcrumbItems = [
               <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div class="flex-1">
                 <h3 class="font-medium text-white text-sm" data-i18n="download.smartscreen.title">{t(lang, "download.smartscreen.title")}</h3>
-                <p class="text-gray-400 text-xs mt-1" data-i18n="download.smartscreen.desc">{t(lang, "download.smartscreen.desc")}</p>
+                <p class="text-ink-muted text-xs mt-1" data-i18n="download.smartscreen.desc">{t(lang, "download.smartscreen.desc")}</p>
               </div>
-              <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-0.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              <svg class="tech-helper__chevron w-5 h-5 text-ink-subtle shrink-0 mt-0.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
 
             <div class="tech-helper__body px-5 pb-5">
@@ -360,21 +356,21 @@ const breadcrumbItems = [
                   <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
                   <div>
                     <h4 class="font-medium text-white text-sm" data-i18n="download.step1.title">{t(lang, "download.step1.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step1.desc">{t(lang, "download.step1.desc")}</p>
+                    <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.step1.desc">{t(lang, "download.step1.desc")}</p>
                   </div>
                 </div>
                 <div class="flex gap-3">
                   <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
                   <div>
                     <h4 class="font-medium text-white text-sm" data-i18n="download.step2.title">{t(lang, "download.step2.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step2.desc">{t(lang, "download.step2.desc")}</p>
+                    <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.step2.desc">{t(lang, "download.step2.desc")}</p>
                   </div>
                 </div>
                 <div class="flex gap-3">
                   <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
                   <div>
                     <h4 class="font-medium text-white text-sm" data-i18n="download.step3.title">{t(lang, "download.step3.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step3.desc">{t(lang, "download.step3.desc")}</p>
+                    <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.step3.desc">{t(lang, "download.step3.desc")}</p>
                   </div>
                 </div>
               </div>
@@ -388,11 +384,11 @@ const breadcrumbItems = [
         <div id="macos-free" class="download-card hud-frame rounded-2xl border p-6 sm:p-8 mb-6 relative scroll-mt-24" data-platform-card="macos-free">
           <div class="flex items-start gap-3 mb-5 mt-2">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
             </div>
             <div>
               <h2 class="text-xl font-semibold text-white" data-i18n="download.macos.title">{t(lang, "download.macos.title")}</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.macos.desc">{t(lang, "download.macos.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.macos.desc">{t(lang, "download.macos.desc")}</p>
             </div>
           </div>
 
@@ -410,9 +406,9 @@ const breadcrumbItems = [
               <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div class="flex-1">
                 <h3 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.title">{t(lang, "download.macos.gatekeeper.title")}</h3>
-                <p class="text-gray-400 text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.step1.desc">{t(lang, "download.macos.gatekeeper.step1.desc")}</p>
+                <p class="text-ink-muted text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.step1.desc">{t(lang, "download.macos.gatekeeper.step1.desc")}</p>
               </div>
-              <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-0.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              <svg class="tech-helper__chevron w-5 h-5 text-ink-subtle shrink-0 mt-0.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
 
             <div class="tech-helper__body px-5 pb-5">
@@ -421,29 +417,29 @@ const breadcrumbItems = [
                   <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">1</div>
                   <div>
                     <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step2.title">{t(lang, "download.macos.gatekeeper.step2.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step2.desc">{t(lang, "download.macos.gatekeeper.step2.desc")}</p>
+                    <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step2.desc">{t(lang, "download.macos.gatekeeper.step2.desc")}</p>
                   </div>
                 </div>
                 <div class="flex gap-3">
                   <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">2</div>
                   <div>
                     <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step3.title">{t(lang, "download.macos.gatekeeper.step3.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step3.desc">{t(lang, "download.macos.gatekeeper.step3.desc")}</p>
+                    <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step3.desc">{t(lang, "download.macos.gatekeeper.step3.desc")}</p>
                   </div>
                 </div>
                 <div class="flex gap-3">
                   <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">3</div>
                   <div>
                     <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step4.title">{t(lang, "download.macos.gatekeeper.step4.title")}</h4>
-                    <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step4.desc">{t(lang, "download.macos.gatekeeper.step4.desc")}</p>
+                    <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step4.desc">{t(lang, "download.macos.gatekeeper.step4.desc")}</p>
                   </div>
                 </div>
               </div>
 
               <!-- Why section -->
               <div class="mt-4 ml-8 pt-4 border-t border-amber-500/10">
-                {/* text-ink-muted statt text-white/70: die Alpha-Klasse entgeht dem
-                    light-Override und wäre dort Weiß auf Weiß (1:1). */}
+                {/* text-ink-muted statt text-white/70: nutzt den semantischen
+                    Token statt einer rohen Alpha-Klasse. */}
                 <h4 class="font-medium text-ink-muted text-xs uppercase tracking-wider mb-1" data-i18n="download.macos.gatekeeper.why.title">{t(lang, "download.macos.gatekeeper.why.title")}</h4>
                 <p class="text-ink-subtle text-xs leading-relaxed" data-i18n="download.macos.gatekeeper.why.desc">{t(lang, "download.macos.gatekeeper.why.desc")}</p>
               </div>
@@ -460,17 +456,17 @@ const breadcrumbItems = [
         <details class="download-card tech-helper group rounded-2xl border border-white/[0.06] bg-white/[0.02] mb-6" data-testid="pkg-managers">
           <summary class="tech-helper__summary flex items-start gap-3 p-6 sm:p-8 cursor-pointer select-none">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
             </div>
             <div class="flex-1">
               <h3 class="text-xl font-semibold text-white" data-i18n="download.pkg.title">{t(lang, "download.pkg.title")}</h3>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.pkg.desc">{t(lang, "download.pkg.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.pkg.desc">{t(lang, "download.pkg.desc")}</p>
             </div>
-            <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <svg class="tech-helper__chevron w-5 h-5 text-ink-subtle shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
 
           <div class="tech-helper__body px-6 sm:px-8 pb-6 sm:pb-8">
-            <p class="text-gray-400 text-sm mb-5 leading-relaxed" data-i18n="download.pkg.intro">{t(lang, "download.pkg.intro")}</p>
+            <p class="text-ink-muted text-sm mb-5 leading-relaxed" data-i18n="download.pkg.intro">{t(lang, "download.pkg.intro")}</p>
             <div id="pkg-copy-status" class="sr-only" role="status" aria-live="polite"></div>
             {pkgManagerGroups.map((group) => (
               <div class="mb-6 last:mb-0">
@@ -478,15 +474,15 @@ const breadcrumbItems = [
                 {group.channels.map((ch) => (
                   <div class="mb-4 last:mb-0" data-testid={`pkg-${ch.id}`}>
                     <div class="flex items-center gap-2 mb-2">
-                      <svg class="w-4 h-4 text-gray-300 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={PKG_MANAGER_ICONS[ch.id]}/></svg>
+                      <svg class="w-4 h-4 text-ink-muted shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={PKG_MANAGER_ICONS[ch.id]}/></svg>
                       <span class="text-sm font-medium text-white">{ch.name}</span>
-                      <span class="text-xs text-gray-500" data-i18n={`download.pkg.platform.${group.platform}`}>{t(lang, `download.pkg.platform.${group.platform}`)}</span>
+                      <span class="text-xs text-ink-subtle" data-i18n={`download.pkg.platform.${group.platform}`}>{t(lang, `download.pkg.platform.${group.platform}`)}</span>
                     </div>
-                    <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto">
+                    <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-ink overflow-x-auto">
                       <div class="flex items-center justify-between mb-1">
                         <div class="pkg-comment text-ink-subtle">{ch.comment[lang]}</div>
                         <button
-                          class="pkg-copy-btn text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] inline-flex items-center gap-1.5"
+                          class="pkg-copy-btn text-xs text-ink-muted hover:text-ink transition-colors px-2 py-0.5 rounded-[var(--radius-chip)] border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] inline-flex items-center gap-1.5"
                           data-copy-text={ch.commands.join('\n')}
                           data-copy-feedback={t(lang, "download.pkg.copied")}
                           aria-label={t(lang, "download.pkg.copyBtn")}
@@ -502,10 +498,10 @@ const breadcrumbItems = [
                       ))}
                     </div>
                     <details class="mt-2" data-testid={`pkg-neverused-${ch.id}`}>
-                      <summary class="text-xs text-gray-500 hover:text-gray-400 transition-colors cursor-pointer select-none">
+                      <summary class="text-xs text-ink-subtle hover:text-ink-muted transition-colors cursor-pointer select-none">
                         <span data-i18n="download.pkg.neverUsed.summary">{t(lang, "download.pkg.neverUsed.summary")}</span>
                       </summary>
-                      <p class="text-xs text-gray-500 mt-1.5 ml-4 leading-relaxed">
+                      <p class="text-xs text-ink-subtle mt-1.5 ml-4 leading-relaxed">
                         <span data-i18n="download.pkg.neverUsed.body">{t(lang, "download.pkg.neverUsed.body")}</span>
                         {" "}
                         <a
@@ -530,13 +526,13 @@ const breadcrumbItems = [
         <details class="download-card tech-helper group rounded-2xl border border-white/[0.06] bg-white/[0.02] mb-6">
           <summary class="tech-helper__summary flex items-start gap-3 p-6 sm:p-8 cursor-pointer select-none">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             </div>
             <div class="flex-1">
               <h3 class="text-xl font-semibold text-white" data-i18n="download.diagnose.title">{t(lang, "download.diagnose.title")}</h3>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.diagnose.desc">{t(lang, "download.diagnose.desc")}</p>
+              <p class="text-ink-muted text-sm mt-1" data-i18n="download.diagnose.desc">{t(lang, "download.diagnose.desc")}</p>
             </div>
-            <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <svg class="tech-helper__chevron w-5 h-5 text-ink-subtle shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
 
           <div class="tech-helper__body px-6 sm:px-8 pb-6 sm:pb-8">
@@ -545,21 +541,21 @@ const breadcrumbItems = [
                 <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
                 <div>
                   <h4 class="font-medium text-white text-sm" data-i18n="download.diagnose.step1.title">{t(lang, "download.diagnose.step1.title")}</h4>
-                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.diagnose.step1.desc">{t(lang, "download.diagnose.step1.desc")}</p>
+                  <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.diagnose.step1.desc">{t(lang, "download.diagnose.step1.desc")}</p>
                 </div>
               </div>
               <div class="flex gap-3">
                 <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
                 <div>
                   <h4 class="font-medium text-white text-sm" data-i18n="download.diagnose.step2.title">{t(lang, "download.diagnose.step2.title")}</h4>
-                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.diagnose.step2.desc">{t(lang, "download.diagnose.step2.desc")}</p>
+                  <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.diagnose.step2.desc">{t(lang, "download.diagnose.step2.desc")}</p>
                 </div>
               </div>
               <div class="flex gap-3">
                 <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
                 <div>
                   <h4 class="font-medium text-white text-sm" data-i18n="download.diagnose.step3.title">{t(lang, "download.diagnose.step3.title")}</h4>
-                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.diagnose.step3.desc">{t(lang, "download.diagnose.step3.desc")}</p>
+                  <p class="text-ink-muted text-xs mt-0.5 leading-relaxed" data-i18n="download.diagnose.step3.desc">{t(lang, "download.diagnose.step3.desc")}</p>
                 </div>
               </div>
             </div>
@@ -589,7 +585,7 @@ const breadcrumbItems = [
               </a>
             </div>
 
-            <p class="text-center text-xs text-gray-500">
+            <p class="text-center text-xs text-ink-subtle">
               <span data-i18n="download.diagnose.mailHint">{t(lang, "download.diagnose.mailHint")}</span>
               <a href="mailto:kontakt@whispaste.de?subject=WhisPaste%20Diagnose-Report" class="text-brand-cyan hover:underline">kontakt@whispaste.de</a>
             </p>
@@ -599,17 +595,17 @@ const breadcrumbItems = [
         <!-- Trust signals -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8">
           <h3 class="font-semibold text-white mb-3" data-i18n="download.trust.title">{t(lang, "download.trust.title")}</h3>
-          <p class="text-gray-400 text-sm leading-relaxed mb-5" data-i18n="download.trust.desc">{t(lang, "download.trust.desc")}</p>
+          <p class="text-ink-muted text-sm leading-relaxed mb-5" data-i18n="download.trust.desc">{t(lang, "download.trust.desc")}</p>
           <div class="flex flex-wrap gap-3">
-            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
               <span data-i18n="download.trust.opensource">{t(lang, "download.trust.opensource")}</span>
             </div>
-            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span data-i18n="download.trust.cicd">{t(lang, "download.trust.cicd")}</span>
             </div>
-            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-ink-muted">
               <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
               <span data-i18n="download.trust.notelemetry">{t(lang, "download.trust.notelemetry")}</span>
             </div>
@@ -624,10 +620,8 @@ const breadcrumbItems = [
 
   <script>
     import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
 
     applyLang();
-    updateThemeIcon();
 
     // Copy-to-clipboard for package manager command blocks.
     const pkgCopyStatus = document.getElementById('pkg-copy-status');
@@ -696,16 +690,16 @@ const breadcrumbItems = [
     background:
       linear-gradient(
         90deg,
-        rgba(19, 24, 38, 0.55) 0%,
-        rgba(19, 24, 38, 0.32) 46%,
-        rgba(19, 24, 38, 0) 76%
+        color-mix(in srgb, var(--color-brand-darker) 55%, transparent) 0%,
+        color-mix(in srgb, var(--color-brand-darker) 32%, transparent) 46%,
+        color-mix(in srgb, var(--color-brand-darker) 0%, transparent) 76%
       ),
       linear-gradient(
         180deg,
-        rgba(19, 24, 38, 0.42) 0%,
-        rgba(19, 24, 38, 0.3) 38%,
-        rgba(19, 24, 38, 0.68) 60%,
-        #131826 80%
+        color-mix(in srgb, var(--color-brand-darker) 42%, transparent) 0%,
+        color-mix(in srgb, var(--color-brand-darker) 30%, transparent) 38%,
+        color-mix(in srgb, var(--color-brand-darker) 68%, transparent) 60%,
+        var(--color-brand-darker) 80%
       );
   }
   @media (max-width: 639px) {
@@ -715,58 +709,46 @@ const breadcrumbItems = [
       background:
         linear-gradient(
           180deg,
-          rgba(19, 24, 38, 0.56) 0%,
-          rgba(19, 24, 38, 0.44) 38%,
-          rgba(19, 24, 38, 0.72) 60%,
-          #131826 82%
+          color-mix(in srgb, var(--color-brand-darker) 56%, transparent) 0%,
+          color-mix(in srgb, var(--color-brand-darker) 44%, transparent) 38%,
+          color-mix(in srgb, var(--color-brand-darker) 72%, transparent) 60%,
+          var(--color-brand-darker) 82%
         );
     }
   }
-  /* Dark theme only: the moody photo would break the light look. Light mode
-     keeps the previous plain header (no photo, no fallback swap). */
-  :global(html.light) .download-hero-photo {
-    display: none;
-  }
-  /* Hero headroom + composition — dark only. Light resets to the previous
-     compact centered header (no photo, no extra padding, original sizes).
-     The h1 scales fluidly via clamp() instead of snapping to one fixed rem
-     size at sm: — a download subpage header peaks at 3rem (well under the
-     6rem display ceiling), so it leads the band without ballooning at
-     ultra-wide viewports or competing with the homepage hero. */
-  :global(html:not(.light)) .download-header {
+  /* Hero headroom + composition. The h1 scales fluidly via clamp() instead
+     of snapping to one fixed rem size at sm: — a download subpage header
+     peaks at 3rem (well under the 6rem display ceiling), so it leads the
+     band without ballooning at ultra-wide viewports or competing with the
+     homepage hero. */
+  .download-header {
     padding-top: 4.5rem;
   }
   @media (min-width: 640px) {
-    :global(html:not(.light)) .download-header {
+    .download-header {
       padding-top: 8.5rem;
       text-align: left;
     }
-    :global(html:not(.light)) .download-header h1 {
+    .download-header h1 {
       font-size: clamp(2.25rem, 1.6rem + 1.3vw, 3rem);
       line-height: 1.1;
       letter-spacing: -0.02em;
       text-wrap: balance;
     }
-    :global(html:not(.light)) .download-header p {
+    .download-header p {
       max-width: 34rem;
     }
   }
 
   .download-card {
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
+    background: var(--color-brand-card);
   }
   /* OS-matched card: cyan-tinted background + border (overrides base .download-card) */
   :global([data-os="windows"]) .download-card[data-platform-card="windows"],
   :global([data-os="macos"]) .download-card[data-platform-card="macos"],
   :global([data-os="linux"]) .download-card[data-platform-card="linux"] {
-    border-color: rgba(56, 217, 240, 0.2);
-    background: linear-gradient(135deg, rgba(56, 217, 240, 0.03) 0%, rgba(29, 37, 56, 0.4) 100%);
-  }
-  :global(html.light [data-os="windows"]) .download-card[data-platform-card="windows"],
-  :global(html.light [data-os="macos"]) .download-card[data-platform-card="macos"],
-  :global(html.light [data-os="linux"]) .download-card[data-platform-card="linux"] {
-    border-color: rgba(8, 145, 178, 0.25) !important;
-    background: rgba(8, 145, 178, 0.04) !important;
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
+    background: color-mix(in srgb, var(--color-brand-card) 92%, var(--color-brand-cyan));
   }
   /* Recommended badge: hidden by default (unknown OS = no recommendation) */
   .recommended-badge {
@@ -779,11 +761,6 @@ const breadcrumbItems = [
   :global([data-os="linux"]) .download-card[data-platform-card="linux"] .recommended-badge {
     display: inline-flex;
   }
-  :root.light .recommended-badge {
-    background: #ECFEFF;
-    --tw-ring-color: rgba(8, 145, 178, 0.3);
-  }
-
   /* OS-adaptive primary CTA ordering (US-01…04, issue 12).
    * `.download-primary-group` is a flex column so `order` can move the
    * OS-matched primary card above the fold without touching the DOM —
@@ -814,17 +791,6 @@ const breadcrumbItems = [
   :global([data-os="linux"]) .download-primary-group [data-platform-card="macos-free"] { order: 3; }
   :global([data-os="linux"]) .download-primary-group [data-platform-card="windows"] { order: 4; }
   :global([data-os="linux"]) .download-primary-group [data-platform-card="windows-free"] { order: 5; }
-  :root.light .smartscreen-box {
-    background: rgba(245, 158, 11, 0.06);
-    border-color: rgba(245, 158, 11, 0.15);
-  }
-
-  /* Der Kommandoblock (bg-black/30) hellt im Light-Theme nur zu Grau auf —
-     ink-subtle käme dort auf 2.6:1, darum ein eigener dunkler Kommentar-Ton. */
-  :global(html.light) .pkg-comment {
-    color: #334155;
-  }
-
   /* Generic download button — used for GitHub/Windows direct link */
   .dl-btn {
     display: inline-flex;
@@ -833,8 +799,8 @@ const breadcrumbItems = [
     padding: 0.75rem 2rem;
     min-height: 52px;
     border-radius: var(--radius-card);
-    border: 1px solid rgba(56, 217, 240, 0.2);
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.8) 0%, rgba(23, 29, 44, 0.6) 100%);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
+    background: var(--color-brand-card);
     color: #fff;
     text-decoration: none;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -842,11 +808,11 @@ const breadcrumbItems = [
   }
   .dl-btn:hover {
     transform: translateY(-1px);
-    border-color: rgba(56, 217, 240, 0.4);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 40%, transparent);
+    box-shadow: var(--shadow-pill);
   }
   .dl-btn:active { transform: translateY(0); }
-  .dl-btn:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
+  .dl-btn:focus-visible { outline: 2px solid var(--color-brand-cyan); outline-offset: 2px; }
 
   .dl-btn__icon {
     width: 1.875rem;
@@ -891,9 +857,9 @@ const breadcrumbItems = [
     content: '';
   }
   .tech-helper__summary:focus-visible {
-    outline: 2px solid #38D9F0;
+    outline: 2px solid var(--color-brand-cyan);
     outline-offset: -2px;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-control);
   }
   @media (prefers-reduced-motion: reduce) {
     .tech-helper__chevron { transition: none; }

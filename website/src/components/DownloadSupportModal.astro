@@ -16,7 +16,7 @@ const macReviewUrl = STORES.macos.reviewUrl;
 >
   <div class="dlm-card">
     <!-- Close button (autofocus for immediate keyboard escape) -->
-    <button class="dlm-close" id="dlm-close" data-testid="modal-dismiss-close" autofocus aria-label="Close">
+    <button class="dlm-close" id="dlm-close" data-testid="modal-dismiss-close" autofocus aria-label={t(lang, "common.close")} data-i18n-aria="common.close">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
@@ -75,15 +75,17 @@ const macReviewUrl = STORES.macos.reviewUrl;
     width: 100%;
   }
 
+  /* Plain dimming, no blur -- the app's own dialog barriers are the one
+     documented BackdropFilter exception left in its UI, but the maintainer
+     has ruled the glass/frost look out sitewide regardless. */
   .dlm-dialog::backdrop {
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.65);
   }
 
   .dlm-card {
     position: relative;
-    background: #0e1521;
+    background: var(--color-brand-floating);
+    box-shadow: var(--shadow-overlay);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-surface);
     padding: 2rem;
@@ -119,19 +121,19 @@ const macReviewUrl = STORES.macos.reviewUrl;
     transition: background 0.15s, color 0.15s;
   }
   .dlm-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
-  .dlm-close:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
+  .dlm-close:focus-visible { outline: 2px solid var(--color-brand-cyan); outline-offset: 2px; }
 
   .dlm-icon {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: rgba(56, 217, 240, 0.1);
-    border: 1px solid rgba(56, 217, 240, 0.2);
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 1rem;
-    color: #38D9F0;
+    color: var(--color-brand-cyan);
   }
 
   .dlm-title {
@@ -178,13 +180,15 @@ const macReviewUrl = STORES.macos.reviewUrl;
     border-color: rgba(255,255,255,0.15);
     color: #fff;
   }
-  .dlm-action-link:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
+  .dlm-action-link:focus-visible { outline: 2px solid var(--color-brand-cyan); outline-offset: 2px; }
 
   .dlm-action-icon { width: 14px; height: 14px; flex-shrink: 0; color: #F59E0B; }
   .dlm-arrow { width: 14px; height: 14px; flex-shrink: 0; color: rgba(255,255,255,0.3); margin-left: auto; }
 
   /* Sponsor-Zeile + "Vielleicht später": bewusst leise, aber AA-konform —
-     0.3-Alpha lag bei 2.69:1 auf #0e1521 (unter 4.5:1); 0.55 ergibt ~5.8:1. */
+     0.3-Alpha lag unter 4.5:1; 0.55 ergibt ~5.6:1 auf --color-brand-floating
+     (#171D53 — die --stage-indigo-Wash-Stufe, gleiche Fläche wie die
+     Nav-Pille, statt des früheren familienfremden #0e1521). */
   .dlm-sponsor {
     margin: 0.75rem 0;
     font-size: 0.75rem;
@@ -210,31 +214,7 @@ const macReviewUrl = STORES.macos.reviewUrl;
     transition: color 0.15s;
   }
   .dlm-later:hover { color: rgba(255,255,255,0.85); }
-  .dlm-later:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
-
-  /* Light theme */
-  :root.light .dlm-card {
-    background: #fff;
-    border-color: rgba(0,0,0,0.08);
-  }
-  :root.light .dlm-title { color: #0c1425; }
-  :root.light .dlm-body { color: rgba(12,20,37,0.55); }
-  :root.light .dlm-action-link {
-    border-color: rgba(0,0,0,0.08);
-    background: rgba(0,0,0,0.02);
-    color: rgba(12,20,37,0.7);
-  }
-  :root.light .dlm-action-link:hover {
-    background: rgba(0,0,0,0.04);
-    border-color: rgba(0,0,0,0.15);
-    color: #0c1425;
-  }
-  /* Light-Pendant: 0.3 lag bei 1.98:1 auf Weiß; 0.6 ergibt ~4.8:1 (AA). */
-  :root.light .dlm-sponsor { color: rgba(12,20,37,0.6); }
-  :root.light .dlm-later { color: rgba(12,20,37,0.6); }
-  :root.light .dlm-later:hover { color: rgba(12,20,37,0.85); }
-  :root.light .dlm-close { background: rgba(0,0,0,0.04); color: rgba(12,20,37,0.4); }
-  :root.light .dlm-close:hover { background: rgba(0,0,0,0.08); color: #0c1425; }
+  .dlm-later:focus-visible { outline: 2px solid var(--color-brand-cyan); outline-offset: 2px; }
 </style>
 
 <script>

@@ -3,6 +3,7 @@ import Layout from "../../layouts/Layout.astro";
 import Nav from "../../components/Nav.astro";
 import Footer from "../../components/Footer.astro";
 import ScreenshotGallery from "../../components/ScreenshotGallery.astro";
+import SectionEyebrow from "../../components/SectionEyebrow.astro";
 import BreadcrumbListSchema from "../../components/schema/BreadcrumbListSchema.astro";
 import { t, localePath } from "../../scripts/i18n.ts";
 
@@ -22,14 +23,15 @@ const breadcrumbItems = [
   <main id="main-content" class="pt-20 pb-16">
     <div class="max-w-6xl mx-auto px-6">
       <div class="text-center mb-10">
+        <SectionEyebrow key="gallery.label" class="mb-4" />
         <h1
-          class="text-3xl sm:text-4xl font-bold text-white mb-3"
+          class="text-[clamp(1.875rem,1.33rem+2.31vw,2.25rem)] font-bold text-white mb-3"
           data-i18n="gallery.title"
         >
           {t(lang, "gallery.title")}
         </h1>
         <p
-          class="text-gray-400 text-lg max-w-2xl mx-auto"
+          class="text-ink-muted text-lg max-w-2xl mx-auto"
           data-i18n="gallery.desc"
         >
           {t(lang, "gallery.desc")}
@@ -53,9 +55,7 @@ const breadcrumbItems = [
 
   <script>
     import { applyLang } from '../../scripts/i18n';
-    import { updateThemeIcon } from '../../scripts/theme';
     applyLang();
-    updateThemeIcon();
   </script>
 
   <BreadcrumbListSchema items={breadcrumbItems} />

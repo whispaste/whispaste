@@ -25,7 +25,7 @@ const breadcrumbItems = [
       <div class="max-w-3xl mx-auto">
         <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Legal Notice (Impressum)</h1>
 
-        <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
+        <div class="prose prose-invert max-w-none space-y-6 text-ink-muted leading-relaxed">
           <!-- DE content (hidden — language toggle routes to /impressum/) -->
           <div id="content-de" class="hidden space-y-6">
             <section>
@@ -128,7 +128,6 @@ const breadcrumbItems = [
 
   <script>
     import { applyLang } from '../../scripts/i18n';
-    import { updateThemeIcon } from '../../scripts/theme';
 
     // Language switch on this EN-only page routes to the DE-counterpart.
     (window as any).toggleLang = function () {
@@ -136,7 +135,6 @@ const breadcrumbItems = [
     };
 
     applyLang();
-    updateThemeIcon();
   </script>
 
   <BreadcrumbListSchema items={breadcrumbItems} />

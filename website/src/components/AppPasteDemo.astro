@@ -69,8 +69,8 @@ const appCloudIcons = [
     <ol
       class="apd-flow"
       aria-label={lang === 'en'
-        ? 'How it works, in three steps'
-        : 'So funktioniert es, in drei Schritten'}
+        ? 'WhisPaste in three steps'
+        : 'WhisPaste in drei Schritten'}
     >
       <!-- STEP 1 — press the hotkey in whatever app you're in -->
       <li class="apd-step">
@@ -371,19 +371,7 @@ const appCloudIcons = [
     border-radius: 14px;
     border: 1px solid var(--color-brand-border);
     background: var(--color-brand-card);
-    /* The inset top line is the overlay pill's lit rim, echoed on its direct
-       neighbours — same 1px vocabulary as the nav pill, no motion. 0.25 statt
-       0.06 (erster Durchgang): die Kante soll als Lichtkante lesbar sein. */
-    box-shadow:
-      0 18px 44px rgba(0, 0, 0, 0.34),
-      0 0 0 1px rgba(56, 217, 240, 0.05),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  }
-  html.light .apd-card {
-    box-shadow:
-      0 12px 32px rgba(15, 23, 42, 0.10),
-      0 0 0 1px rgba(8, 145, 178, 0.05),
-      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
   }
 
   /* App chrome header inside step 1 & 3 */
@@ -395,13 +383,6 @@ const appCloudIcons = [
     border-bottom: 1px solid color-mix(in srgb, var(--color-brand-border) 70%, transparent);
     border-radius: 14px 14px 0 0;
     background: color-mix(in srgb, var(--color-brand-dark) 55%, var(--color-brand-card));
-    /* The chrome paints over the card's top edge, so it carries the same
-       inset rim itself — otherwise steps 1/3 would lose the lit edge. */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  }
-  html.light .apd-chrome {
-    background: color-mix(in srgb, var(--color-brand-darker) 40%, var(--color-brand-card));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
   }
   .apd-appbadge {
     display: inline-flex;
@@ -456,9 +437,6 @@ const appCloudIcons = [
     border: 1px solid color-mix(in srgb, var(--color-brand-border) 60%, transparent);
     border-radius: 4px 12px 12px 12px;
     padding: 0.4rem 0.7rem;
-  }
-  html.light .apd-bubble {
-    background: color-mix(in srgb, var(--color-brand-darker) 30%, var(--color-brand-card));
   }
 
   /* Reply input bar — the cursor target */
@@ -621,7 +599,9 @@ const appCloudIcons = [
   }
   .apd-quote { color: var(--color-brand-cyan); }
 
-  /* Inserted-flag (step 3) */
+  /* Inserted-flag (step 3) — brand-cyan, not the scenario's category colour:
+     this is WhisPaste's own success signal, independent of which app the
+     storyboard happens to depict. */
   .apd-inserted {
     display: inline-flex;
     align-items: center;
@@ -632,9 +612,9 @@ const appCloudIcons = [
     border-radius: 999px;
     font-size: 0.72rem;
     font-weight: 600;
-    color: var(--apd-chat);
-    background: color-mix(in srgb, var(--apd-chat) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--apd-chat) 34%, transparent);
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 34%, transparent);
   }
   .apd-inserted svg { width: 0.85rem; height: 0.85rem; }
 

@@ -1,12 +1,12 @@
 ---
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, localePath } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 <!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
-<section id="app-screenshots" class="band band-deep relative py-20 sm:py-28 scroll-mt-20 wp-parallax-scope">
+<section id="app-screenshots" class="band band-deep relative py-24 sm:py-32 scroll-mt-20 wp-parallax-scope">
   <div class="relative max-w-6xl mx-auto px-6">
     <div class="max-w-2xl mx-auto text-center mb-10 scroll-reveal">
       <SectionEyebrow key="screenshots.label" />
@@ -64,9 +64,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
                   <button
                     class="teaser-thumb-btn"
                     data-teaser-idx="0"
-                    aria-label="Your transcripts at a glance: click to enlarge"
-                    data-aria-label-en="Your transcripts at a glance: click to enlarge"
-                    data-aria-label-de="Alle Transkripte auf einen Blick: klicken zum Vergrößern"
+                    aria-label={lang === 'en'
+                      ? 'Transcript overview. Open a larger view.'
+                      : 'Übersicht der Transkripte. Größere Ansicht öffnen.'}
+                    data-aria-label-en="Transcript overview. Open a larger view."
+                    data-aria-label-de="Übersicht der Transkripte. Größere Ansicht öffnen."
                   >
                     <img
                       class="teaser-img"
@@ -75,9 +77,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
                       data-screenshot-de="/screenshots/de/dark/01_workspace_overview.webp"
                       data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.webp"
                       data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.webp"
-                      data-alt-en="WhisPaste workspace, dark theme"
-                      data-alt-de="WhisPaste Workspace, dunkles Design"
-                      alt="WhisPaste workspace, dark theme"
+                      data-alt-en="WhisPaste transcript overview in the dark theme"
+                      data-alt-de="WhisPaste-Übersicht der Transkripte im dunklen Design"
+                      alt={lang === 'en'
+                        ? 'WhisPaste transcript overview in the dark theme'
+                        : 'WhisPaste-Übersicht der Transkripte im dunklen Design'}
                       width="1920"
                       height="1080"
                       loading="eager"
@@ -108,9 +112,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <button
           class="teaser-thumb-btn"
           data-teaser-idx="1"
-          aria-label="Edit and refine each entry: click to enlarge"
-          data-aria-label-en="Edit and refine each entry: click to enlarge"
-          data-aria-label-de="Jeden Eintrag bearbeiten und verfeinern: klicken zum Vergrößern"
+          aria-label={lang === 'en'
+            ? 'Transcript detail editor. Open a larger view.'
+            : 'Detail-Editor für Transkripte. Größere Ansicht öffnen.'}
+          data-aria-label-en="Transcript detail editor. Open a larger view."
+          data-aria-label-de="Detail-Editor für Transkripte. Größere Ansicht öffnen."
         >
           <img
             class="teaser-img"
@@ -119,9 +125,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
             data-screenshot-de="/screenshots/de/dark/02_workspace_detail.webp"
             data-screenshot-mac-en="/screenshots/mac/en/dark/02_workspace_detail.webp"
             data-screenshot-mac-de="/screenshots/mac/de/dark/02_workspace_detail.webp"
-            data-alt-en="WhisPaste detail editor, dark theme"
-            data-alt-de="WhisPaste Detail-Editor, dunkles Design"
-            alt="WhisPaste detail editor, dark theme"
+            data-alt-en="WhisPaste transcript detail editor in the dark theme"
+            data-alt-de="WhisPaste-Detail-Editor für Transkripte im dunklen Design"
+            alt={lang === 'en'
+              ? 'WhisPaste transcript detail editor in the dark theme'
+              : 'WhisPaste-Detail-Editor für Transkripte im dunklen Design'}
             width="1920"
             height="1080"
             loading="lazy"
@@ -133,7 +141,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
     <div class="text-center mt-8 scroll-reveal">
       <a
-        href="/screenshots"
+        href={localePath(lang, "screenshots")}
         class="inline-flex items-center gap-2 text-brand-cyan hover:underline font-medium text-sm transition-colors"
         data-i18n="screenshots.seeAll"
       >
@@ -247,9 +255,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     height: auto;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow:
-      0 28px 70px rgba(0, 0, 0, 0.45),
-      0 0 0 1px rgba(56, 217, 240, 0.08);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
     transition:
       transform 0.4s var(--ease-flow),
       box-shadow 0.4s var(--ease-flow);
@@ -258,22 +264,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   .teaser-thumb-btn:hover .teaser-img,
   .teaser-thumb-btn:focus-visible .teaser-img {
     transform: translateY(-6px);
-    box-shadow:
-      0 36px 84px rgba(0, 0, 0, 0.5),
-      0 0 0 1px rgba(56, 217, 240, 0.2);
-  }
-
-  html.light .teaser-img {
-    border-color: rgba(15, 23, 42, 0.08);
-    box-shadow:
-      0 18px 48px rgba(15, 23, 42, 0.14),
-      0 0 0 1px rgba(8, 145, 178, 0.08);
-  }
-  html.light .teaser-thumb-btn:hover .teaser-img,
-  html.light .teaser-thumb-btn:focus-visible .teaser-img {
-    box-shadow:
-      0 26px 60px rgba(15, 23, 42, 0.18),
-      0 0 0 1px rgba(8, 145, 178, 0.2);
+    box-shadow: 0 36px 84px rgba(0, 0, 0, 0.5);
   }
 
   /* =========================================================================
@@ -468,10 +459,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     gap: 1.4cqw;
     padding: 1cqw 1.3cqw;
     border-radius: 2.4cqw;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    /* Solid --color-brand-floating, same floating-chrome material as the
+       Nav pill/lightbox controls -- no glass/frost material sitewide. */
+    background: var(--color-brand-floating);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 1.2cqw 2.4cqw rgba(0, 0, 0, 0.3);
     pointer-events: none;
   }
@@ -514,17 +505,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     height: 7px;
     background: linear-gradient(180deg, #141519, #26282d);
     border-radius: 0 0 7px 7px;
-  }
-
-  /* Light theme: lighten the cast shadows so the deck does not look heavy. */
-  html.light .mbp-lid {
-    box-shadow:
-      0 24px 50px rgba(15, 23, 42, 0.18),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  }
-  html.light .mbp-base {
-    box-shadow: 0 14px 22px rgba(15, 23, 42, 0.16);
   }
 
   @media (prefers-reduced-motion: reduce) {

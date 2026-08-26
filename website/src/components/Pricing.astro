@@ -42,7 +42,7 @@ const features = [
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
       <SectionEyebrow key="pricing.label" />
-      <h2 class="section-title headline-serif"><span data-i18n="pricing.titleLead">{t(lang, "pricing.titleLead")}</span><span class="text-gradient-brand" data-i18n="pricing.titleAccent">{t(lang, "pricing.titleAccent")}</span><span data-i18n="pricing.titleTail">{t(lang, "pricing.titleTail")}</span></h2>
+      <h2 class="section-title"><span data-i18n="pricing.titleLead">{t(lang, "pricing.titleLead")}</span><span class="text-gradient-brand" data-i18n="pricing.titleAccent">{t(lang, "pricing.titleAccent")}</span><span data-i18n="pricing.titleTail">{t(lang, "pricing.titleTail")}</span></h2>
       <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">{t(lang, "pricing.desc")}</p>
     </div>
 
@@ -75,7 +75,7 @@ const features = [
           {features.map(({ key }) => (
             <li class="flex items-center gap-2.5">
               <Fragment set:html={FEATURE_ICON} />
-              <span class="text-gray-300 text-sm" data-i18n={`pricing.feature.${key}`}>{t(lang, `pricing.feature.${key}`)}</span>
+              <span class="text-ink-muted text-sm" data-i18n={`pricing.feature.${key}`}>{t(lang, `pricing.feature.${key}`)}</span>
             </li>
           ))}
         </ul>
@@ -101,8 +101,6 @@ const features = [
 
 <style>
   .pricing-card {
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.6) 0%, rgba(23, 29, 44, 0.3) 100%);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: var(--color-brand-card);
   }
 </style>

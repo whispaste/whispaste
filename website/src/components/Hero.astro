@@ -1,5 +1,6 @@
 ---
 import HeroCarousel from './HeroCarousel.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
 import StoreButton from './StoreButton.astro';
 import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
@@ -18,32 +19,64 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 <section
   class="wp-parallax-scope relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
 >
+  <!-- Ambient wash — the app's WpColorsDark.warmSurfaceGradient (navy → indigo
+       → violet), the app/website gradient drift the redesign brief flagged:
+       the app hasn't been flat navy for a while, the website still was.
+       --stage-navy/-indigo/-violet (global.css) are the same three stops the
+       section bands now tint toward (--surface-deep/-dark), so the wash and
+       the bands read as one continuous material instead of cutting to flat
+       navy at the first section boundary. Deepest layer, no parallax depth of
+       its own — it's the room, not something drifting in it. -->
+  <div class="hero-ambient-wash absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+
+  <!-- Grain — a hairline film-grain texture over the ambient wash. Without
+       it the wash's smooth navy→indigo→violet gradient banded visibly on
+       real displays; this is what actually sells "cinematic stage" over
+       "flat gradient background". mix-blend-mode:overlay keeps it from
+       reading as noise on its own — it only modulates what's under it. -->
+  <svg class="hero-grain absolute inset-0 pointer-events-none" aria-hidden="true" preserveAspectRatio="none">
+    <filter id="hero-grain-filter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" /></filter>
+    <rect width="100%" height="100%" filter="url(#hero-grain-filter)" />
+  </svg>
+
   <!-- W-wave background (exact brand logo: wave + audio bars). Depth raised to
        48px (default is 32px) and masked so it visibly recedes behind the text
        column instead of running flat underneath it -- the actual source of
-       the figure/ground read, the parallax drift alone wasn't enough. -->
+       the figure/ground read, the parallax drift alone wasn't enough.
+
+       The mask and the parallax translate live on TWO separate elements, not
+       one: `.hero-wave-mask` (outer, static) holds the radial mask-image;
+       `.wp-parallax-layer` (inner) holds the scroll-driven translate. A
+       mask-image on an element that `animation-timeline` also transforms
+       forces Chromium to re-rasterize that mask against a moving compositor
+       layer every scroll frame — the mask's own edge, not the SVG content,
+       is what showed up as a faint hairline seam at various scroll depths
+       (reported live, screenshots at different scroll positions each time).
+       Keeping the mask on a layer that never moves means it rasterizes once;
+       only the already-cheap-to-composite SVG underneath animates. -->
   <div
-    class="wp-parallax-layer hero-wave-mask absolute inset-0 flex items-center justify-center pointer-events-none"
+    class="hero-wave-mask absolute inset-0 flex items-center justify-center pointer-events-none"
     aria-hidden="true"
-    style="--wp-parallax-depth: 48px;"
   >
-    <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
-          <stop offset="0%" stop-color="#155e75"/>
-          <stop offset="35%" stop-color="#0891b2"/>
-          <stop offset="70%" stop-color="#38D9F0"/>
-          <stop offset="100%" stop-color="#67e8f9"/>
-        </linearGradient>
-      </defs>
-      <!-- Audio bars (4 rounded bars, upper-left — theme-aware fill via CSS) -->
-      <path class="hero-bar" d="M195.298,326.37c0,-13.777 -11.185,-24.963 -24.963,-24.963c-13.777,0 -24.963,11.186 -24.963,24.963l0,106.969c0,13.778 11.186,24.963 24.963,24.963c13.778,0 24.963,-11.185 24.963,-24.963l0,-106.969Z"/>
-      <path class="hero-bar" d="M277.786,240.929c-0,-13.777 -11.186,-24.963 -24.964,-24.963c-13.777,-0 -24.963,11.186 -24.963,24.963l0,277.852c0,13.777 11.186,24.963 24.963,24.963c13.778,-0 24.964,-11.186 24.964,-24.963l-0,-277.852Z"/>
-      <path class="hero-bar" d="M360.273,303.88c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,151.95c0,13.777 11.186,24.963 24.964,24.963c13.777,0 24.963,-11.186 24.963,-24.963l-0,-151.95Z"/>
-      <path class="hero-bar" d="M442.76,364.358c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,30.994c0,13.777 11.186,24.963 24.964,24.963c13.777,-0 24.963,-11.186 24.963,-24.963l-0,-30.994Z"/>
-      <!-- Wave ribbon with arrow tip -->
-      <path class="hero-ribbon" d="M146.212,719.902c-4.132,0.29 6.44,-33.608 43.916,-64.584c20.132,-16.64 60.123,-9.232 68.877,-4.246c8.755,4.986 87.274,47.06 101.106,48.82c13.832,1.761 35.239,15.204 67.761,-20.191c26.084,-28.388 41.853,-164.146 47.759,-185.163c9.127,-32.481 24.944,-73.876 63.259,-88.423c21.063,-7.996 59.88,-1.585 85.684,17.554c25.804,19.139 98.554,82.556 152.256,85.654c33.909,1.957 53.679,-9.322 88.027,-50.342c31.87,-38.059 38.129,-82.06 39.455,-71.794c5.143,39.819 10.088,210.11 -156.164,365.44c-22.045,20.597 37.157,-107.81 29.301,-115.515c-4.005,-3.927 -69.86,25.691 -126.834,-28.472c-65.774,-62.531 -117.571,-86.552 -138.331,-1.705c-15.245,62.309 -30.941,146.424 -66.41,175.983c-33.242,27.703 -80.659,31.246 -112.757,16.712c-27.303,-12.363 -84.89,-45.739 -96.26,-53.668c-47.365,-33.027 -77.969,-26.951 -90.645,-26.06Z" fill="url(#wave-grad)"/>
-    </svg>
+    <div class="wp-parallax-layer" style="--wp-parallax-depth: 48px;">
+      <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
+            <stop offset="0%" stop-color="#155e75"/>
+            <stop offset="35%" stop-color="#0891b2"/>
+            <stop offset="70%" stop-color="#6FDDF0"/>
+            <stop offset="100%" stop-color="#67e8f9"/>
+          </linearGradient>
+        </defs>
+        <!-- Audio bars (4 rounded bars, upper-left — theme-aware fill via CSS) -->
+        <path class="hero-bar" d="M195.298,326.37c0,-13.777 -11.185,-24.963 -24.963,-24.963c-13.777,0 -24.963,11.186 -24.963,24.963l0,106.969c0,13.778 11.186,24.963 24.963,24.963c13.778,0 24.963,-11.185 24.963,-24.963l0,-106.969Z"/>
+        <path class="hero-bar" d="M277.786,240.929c-0,-13.777 -11.186,-24.963 -24.964,-24.963c-13.777,-0 -24.963,11.186 -24.963,24.963l0,277.852c0,13.777 11.186,24.963 24.963,24.963c13.778,-0 24.964,-11.186 24.964,-24.963l-0,-277.852Z"/>
+        <path class="hero-bar" d="M360.273,303.88c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,151.95c0,13.777 11.186,24.963 24.964,24.963c13.777,0 24.963,-11.186 24.963,-24.963l-0,-151.95Z"/>
+        <path class="hero-bar" d="M442.76,364.358c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,30.994c0,13.777 11.186,24.963 24.964,24.963c13.777,-0 24.963,-11.186 24.963,-24.963l-0,-30.994Z"/>
+        <!-- Wave ribbon with arrow tip -->
+        <path class="hero-ribbon" d="M146.212,719.902c-4.132,0.29 6.44,-33.608 43.916,-64.584c20.132,-16.64 60.123,-9.232 68.877,-4.246c8.755,4.986 87.274,47.06 101.106,48.82c13.832,1.761 35.239,15.204 67.761,-20.191c26.084,-28.388 41.853,-164.146 47.759,-185.163c9.127,-32.481 24.944,-73.876 63.259,-88.423c21.063,-7.996 59.88,-1.585 85.684,17.554c25.804,19.139 98.554,82.556 152.256,85.654c33.909,1.957 53.679,-9.322 88.027,-50.342c31.87,-38.059 38.129,-82.06 39.455,-71.794c5.143,39.819 10.088,210.11 -156.164,365.44c-22.045,20.597 37.157,-107.81 29.301,-115.515c-4.005,-3.927 -69.86,25.691 -126.834,-28.472c-65.774,-62.531 -117.571,-86.552 -138.331,-1.705c-15.245,62.309 -30.941,146.424 -66.41,175.983c-33.242,27.703 -80.659,31.246 -112.757,16.712c-27.303,-12.363 -84.89,-45.739 -96.26,-53.668c-47.365,-33.027 -77.969,-26.951 -90.645,-26.06Z" fill="url(#wave-grad)"/>
+      </svg>
+    </div>
   </div>
 
   <!-- Mid-depth console glow: a second parallax layer with negative depth so
@@ -60,7 +93,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   <div class="wp-recede relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
     <div class="mb-4 sm:mb-6 mt-4">
       <img
-        id="heroLogo"
         src="/app-icon-dark.png"
         alt="WhisPaste"
         width="80"
@@ -69,8 +101,14 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       />
     </div>
 
+    <SectionEyebrow
+      key="hero.eyebrow"
+      class="hero-fade-rise mb-4 sm:mb-5"
+      style="--wp-rise-delay: 80ms"
+    />
+
     <h1
-      class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
+      class="hero-title tracking-tight text-ink leading-[0.98]"
     >
       <span
         class="wp-rise-in hero-title-line"
@@ -82,7 +120,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         class="wp-rise-in hero-title-line"
         style="--wp-rise-delay: 280ms"
         ><span
-          class="hero-gradient"
+          class="text-gradient-brand"
           data-i18n="hero.title2"
           >{t(lang, "hero.title2")}</span
         ></span
@@ -158,7 +196,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           href={`${localePath(lang, "download")}#macos`}
           data-testid="hero-platform-badge-macos"
           aria-label={`${t(lang, "hero.platforms.macos")}: ${t(lang, "nav.download")}`}
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="macos"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
@@ -169,7 +207,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           href={`${localePath(lang, "download")}#windows`}
           data-testid="hero-platform-badge-windows"
           aria-label={`${t(lang, "hero.platforms.windows")}: ${t(lang, "nav.download")}`}
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="windows"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
@@ -180,7 +218,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           href={`${localePath(lang, "download")}#linux`}
           data-testid="hero-platform-badge-linux"
           aria-label={`${t(lang, "hero.platforms.linux")}: ${t(lang, "nav.download")}`}
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="linux"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
@@ -202,7 +240,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       rel="noopener"
       class="hero-fade-rise mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
       style="display:none; --wp-rise-delay: 720ms"
-      aria-label="Star WhisPaste on GitHub"
+      aria-label={t(lang, "nav.githubAria")}
+      data-i18n-aria="nav.githubAria"
     >
       <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       <span id="github-stars-count"></span>
@@ -214,12 +253,26 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 </section>
 
 <style>
-  /* ---- Display headline: crank Bricolage to its characterful heavy weight ---- */
+  /* ---- Display headline: crank Bricolage to its characterful heavy weight ----
+     Fluid clamp() instead of the old text-5xl/sm:text-7xl/lg:text-[5.75rem]
+     breakpoint jumps — the size now tracks viewport width continuously
+     (48px -> 92px between a 375px and 1440px viewport), matching the
+     .section-title fluid scale below instead of visibly snapping at sm/lg. */
   .hero-title {
     font-family: var(--font-display);
     font-variation-settings: "wght" 800;
     font-weight: 800;
     letter-spacing: -0.04em;
+    font-size: clamp(3rem, 2.03rem + 4.13vw, 5.75rem);
+    /* leading-[0.98] packs the two title lines tight on purpose, but leaves
+       zero clearance for the second line's descenders (the "g" in "typing.",
+       "p" in "typing") below its line box — at this weight/size the glyphs
+       can render close enough to the .hero-desc paragraph's margin-top to
+       visually overlap it depending on font hinting/DPI. Reserve proportional
+       room (scales with the fluid font-size) instead of tightening the
+       shared line-height, which would also loosen the two title lines
+       against each other. */
+    padding-bottom: 0.12em;
   }
 
   /* ---- Platform-badge row (Issue 09): macOS / Windows / Ubuntu Linux ----
@@ -288,36 +341,21 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   /* inline-block so .wp-rise-in's translate/clip-path apply cleanly (both
      spans wrap normally inside it -- title1 wraps across two visual lines by
      width alone, no <br> inside the span, so the reveal still plays as one
-     sweep per span, never per wrapped line). Title2's .hero-gradient (own
-     `animation` shorthand, gradient-shift) sits on a NESTED inner span rather
-     than this element -- two `animation` shorthands on the same element
-     silently clobber each other (confirmed: without the split, only
-     gradient-shift ran and wp-rise-in never played). data-i18n stays on that
-     inner span too, since applyLang() replaces textContent on exactly the
-     element it's attached to -- keeping it there is what makes the split safe
-     for the language-switch fallback path. */
+     sweep per span, never per wrapped line). Title2's gradient text (shared
+     .text-gradient-brand, global.css) sits on a NESTED inner span rather than
+     this element -- data-i18n stays on that inner span, since applyLang()
+     replaces textContent on exactly the element it's attached to, which is
+     what makes the split safe for the language-switch fallback path. */
   .hero-title-line {
     display: inline-block;
   }
-  .hero-gradient {
-    /* Mirrors the app's WpColorsDark.accentWarmGradient (cyan → teal). */
-    background: linear-gradient(135deg, #38D9F0 0%, #14B8D4 50%, #38D9F0 100%);
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-    animation: gradient-shift 5s ease-in-out infinite;
-  }
-  @keyframes gradient-shift {
-    0%,
-    100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
+  /* This word used to have its own local gradient variant (.hero-gradient/
+     gradient-shift, animated background-position) instead of the shared,
+     static .text-gradient-brand every other headline accent word uses.
+     Consolidated onto the shared class -- same look (cyan/teal diagonal),
+     one gradient-text treatment sitewide instead of a hero-only
+     near-duplicate. (Unrelated to the wave-mask edge below, which was the
+     actual source of the reported rendering artifact.) */
   /* Audio bars: white in dark mode (like original logo), dark navy in light mode */
   .hero-bar {
     fill: #ebebeb;
@@ -325,10 +363,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     /* Pivot each bar at its base so the signature scaleY grows upward. */
     transform-box: fill-box;
     transform-origin: 50% 100%;
-  }
-  :global(.light) .hero-bar {
-    fill: #052235;
-    fill-opacity: 0.4;
   }
 
   /* Signature burst — gated behind `.hero-sign`, which is (re)applied by JS on
@@ -376,35 +410,85 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
      behind the text column instead of running flat underneath it -- this is
      what actually produces the figure/ground read, the parallax drift alone
      only moved one flat layer. Both prefixed and unprefixed since Safari
-     still wants -webkit-mask-image; harmless no-op elsewhere. */
+     still wants -webkit-mask-image; harmless no-op elsewhere.
+     The hole was originally 22%->68%: too tight against the large diagonal
+     wave-ribbon path underneath, so at some viewport widths/hero heights
+     (hero height itself varies with headline word length -- shorter/longer
+     translations wrap differently) the ramp's edge landed mid-ribbon instead
+     of past it, and the ribbon's own gradient fill showed through as a hard
+     diagonal edge behind the headline (reported live: "cut-off gradient",
+     only noticeable with some words/languages). Widened so the fully-hidden
+     hole reliably clears the ribbon across the text column regardless of
+     reflow, confirmed at 1900px/en. */
   .hero-wave-mask {
-    mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 22%, black 68%);
-    -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 22%, black 68%);
+    mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 40%, black 90%);
+    -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 40%, black 90%);
+    /* The ribbon path (child, two levels down) is a flat vector fill, not a
+       gradient glow -- at 10-14% opacity it still has a crisp geometric
+       boundary that browsers barely anti-alias (1-2px), so it read as a hard
+       line wherever its edge fell outside the masked-out headline hole above,
+       moving with scroll/viewport since the shape drifts under parallax
+       (reported repeatedly, "an unterschiedlichen Stellen", confirmed in real
+       Safari). Blurring removes that edge at the source -- but the blur has
+       to live HERE, on the static wrapper, not on the SVG itself: that SVG
+       sits inside .wp-parallax-layer, and a filter co-located with the
+       transform animation forces Safari to re-flatten a blurred layer every
+       scroll frame, which produced its own dead-straight seam at the layer's
+       composited edge (same class of bug the mask split above already
+       exists to avoid -- filter needs the identical static/animated split). */
+    filter: blur(28px);
   }
-  /* Mid-depth glow, see markup comment above -- deliberately below the
-     "visible element" threshold (6% cyan): stage light, not a shape. */
+  /* Stage light: a single ambient light source behind the whole hero, not a
+     decoration. Two-stop falloff (15% -> 6% -> transparent) so it reads as a
+     light source with a soft core, not a flat cyan disc; centered lower and
+     sized wider than the old "console glow" so it actually washes the device
+     window/carousel below the fold, not just the headline.
+
+     Second layer: a shallow, bottom-anchored aura that hands off into the
+     next section's own top-anchored aura (.band-spotlight::before, same
+     ellipse-at-top shape, ~16% cyan). Without it the mid-glow above falls
+     short of the hero's actual bottom edge (hero is much taller than one
+     viewport once the CTA row/platform badges/carousel are laid out), so the
+     last few hundred px of hero read flat/near-black right where the next
+     section's aura begins — a hard seam. This closes that gap by echoing the
+     same aura shape from the hero side. */
   .hero-console-glow {
-    background: radial-gradient(closest-side, color-mix(in srgb, var(--color-brand-cyan) 6%, transparent) 0%, transparent 70%);
-    background-repeat: no-repeat;
-    background-position: center 38%;
-    background-size: min(60vw, 900px) min(60vw, 900px);
+    background:
+      radial-gradient(
+        ellipse 95% 55% at 50% 100%,
+        color-mix(in srgb, var(--color-brand-cyan) 14%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        circle,
+        color-mix(in srgb, var(--color-brand-cyan) 15%, transparent) 0%,
+        color-mix(in srgb, var(--color-brand-teal) 6%, transparent) 40%,
+        transparent 72%
+      );
+    background-repeat: no-repeat, no-repeat;
+    background-position: center 100%, center 62%;
+    background-size: 100% 380px, min(90vw, 1300px) min(70vh, 820px);
   }
-  :global(.light) .hero-wave {
-    animation: wave-breathe-light 8s ease-in-out infinite;
+  /* Grain — same feTurbulence recipe as the design canvas, tuned so it stays
+     a texture (2.5% opacity) rather than visible noise. overlay blend mode
+     means it does nothing over pure black/white, only modulates midtones. */
+  .hero-grain {
+    opacity: 0.025;
+    mix-blend-mode: overlay;
   }
-  :global(.light) .hero-wave.hero-sign {
-    animation: hero-wave-intro-light 1.9s ease-out;
-  }
-  /* Light-Watermark leicht angehoben (0.09/0.13 statt 0.07/0.10): auf den
-     kühleren Light-Flächen war die W-Wave kaum noch präsent. */
-  @keyframes hero-wave-intro-light {
-    0%   { opacity: 0; }
-    55%  { opacity: 0.2; }
-    100% { opacity: 0.09; }
-  }
-  @keyframes wave-breathe-light {
-    0%, 100% { opacity: 0.09; }
-    50% { opacity: 0.13; }
+  /* Real app ambient (WpColorsDark.warmSurfaceGradient), via the shared stage
+     tokens (global.css) rather than hardcoded hex — the section bands below
+     derive their tint from the same three stops. Fades out over its own last
+     ~12vh (same distance .band::after uses) instead of cutting hard at the
+     hero's box edge: without this, the opaque wash stopped dead where hero's
+     box ends and handed off to the continuous <html> wash mid-gradient, at a
+     hue/lightness point that rarely matched — the exact seam this was meant
+     to prevent. */
+  .hero-ambient-wash {
+    background: linear-gradient(135deg, var(--stage-navy) 0%, var(--stage-indigo) 50%, var(--stage-violet) 100%);
+    --hero-wash-fade: clamp(80px, 12vh, 220px);
+    mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wash-fade)), transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wash-fade)), transparent 100%);
   }
 
   /* CTA-Affirm: a one-shot soft glow on the platform button matching the
@@ -420,7 +504,13 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
      the rule would silently never match. */
   @keyframes wp-cta-affirm {
     50% {
-      box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+      /* Blurred, not a hard 0-blur spread ring: on this button's near-100%
+         pill radius, a spread-only box-shadow rasterizes its rounded corner
+         with a visibly coarser curve than the element's own — a straight
+         facet cuts into the arc right at peak intensity. The blur term
+         diffuses that seam away and reads as the "soft glow" the comment
+         above already promises. */
+      box-shadow: 0 0 10px 4px color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
     }
   }
   :global([data-os="macos"] .wp-mac-store-btn),
@@ -431,7 +521,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
   /* Reduced motion for hero animations (incl. the gated signature burst) */
   @media (prefers-reduced-motion: reduce) {
-    .hero-gradient,
     .hero-wave,
     .hero-bar,
     .hero-ribbon,

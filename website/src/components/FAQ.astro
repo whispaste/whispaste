@@ -39,7 +39,7 @@ const faqs = [
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12">
       <SectionEyebrow key="faq.label" class="reveal-up" />
-      <h2 class="section-title headline-serif wp-kinetic-line"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
+      <h2 class="section-title wp-kinetic-line"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
     </div>
 
     <div class="space-y-3 scroll-reveal" id="faq-accordion">
@@ -47,7 +47,7 @@ const faqs = [
         <details class="faq-item group rounded-2xl border border-white/[0.06] overflow-hidden">
           <summary class="flex items-center justify-between gap-4 px-6 py-5 cursor-pointer select-none text-white font-medium hover:bg-white/[0.02] transition-colors" data-i18n={`faq.${key}.q`}>
             {t(lang, `faq.${key}.q`)}
-            <svg class="faq-chevron w-5 h-5 text-gray-500 shrink-0 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <svg class="faq-chevron w-5 h-5 text-ink-subtle shrink-0 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
           <div class="px-6 pb-5 text-ink-muted text-sm leading-relaxed" data-i18n={`faq.${key}.a`}>{t(lang, `faq.${key}.a`)}</div>
         </details>
@@ -58,7 +58,7 @@ const faqs = [
 
 <style>
   .faq-item {
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
+    background: var(--color-brand-card);
   }
   .faq-item summary::-webkit-details-marker {
     display: none;

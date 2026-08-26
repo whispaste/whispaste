@@ -292,7 +292,7 @@ export function defaultCardRenderer(release: Release): HTMLElement {
     "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/20";
   badge.textContent = release.tag.startsWith("v") ? release.tag : `v${release.tag}`;
   const time = document.createElement("time");
-  time.className = "text-sm text-gray-500";
+  time.className = "text-sm text-ink-subtle";
   time.textContent = release.publishedAt.slice(0, 10);
   header.appendChild(badge);
   header.appendChild(time);

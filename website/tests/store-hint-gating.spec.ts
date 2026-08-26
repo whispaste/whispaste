@@ -91,17 +91,6 @@ test.describe('Hero store-hint platform gating', () => {
     await setOs(page, 'windows');
     await expect(page.getByTestId('hero-store-hint')).toBeVisible();
   });
-
-  test('hero store-hint gating holds in light theme', async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => document.documentElement.classList.add('light'));
-    await setOs(page, 'linux');
-    await expect(page.getByTestId('hero-store-hint')).toBeHidden();
-    await setOs(page, 'macos');
-    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
-    await setOs(page, 'windows');
-    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
-  });
 });
 
 test.describe('Pricing store-hint platform gating', () => {
@@ -149,12 +138,6 @@ test.describe('"Warum zwei Wege" / "Why two ways" section order', () => {
   test('section order holds at 390px mobile width', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/download/');
-    await assertDocumentOrder(page, 'why-two-ways', 'download-primary-group');
-  });
-
-  test('section order holds in light theme', async ({ page }) => {
-    await page.goto('/download/');
-    await page.evaluate(() => document.documentElement.classList.add('light'));
     await assertDocumentOrder(page, 'why-two-ways', 'download-primary-group');
   });
 });

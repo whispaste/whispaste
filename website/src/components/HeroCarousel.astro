@@ -5,7 +5,23 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 <!-- Hero Carousel — 3-scene demo: hotkey → recording → auto-paste -->
 <div class="mt-10 sm:mt-16 animate-fade-in-up">
-  <div class="relative mx-auto max-w-2xl">
+  <div class="hero-device-stage relative mx-auto max-w-3xl">
+    <!-- Device window: the carousel scenes sit inside one persistent frame
+         instead of floating loose, so the demo reads as "the app", not three
+         disconnected illustrations. HUD corner brackets on the frame only
+         (Fidelity-Zone: functional surfaces like the buttons above stay
+         chrome-free) — same treatment as the direction canvas that set this.
+         Slight rotateX gives the window a staged, on-a-lectern feel instead
+         of a flat screenshot facing the viewer head-on — matches the
+         Cinematic Stage mockup's perspective tilt. -->
+    <div class="hero-device-window relative rounded-[var(--radius-surface)] border border-white/10 bg-brand-dark shadow-[0_50px_100px_-30px_rgba(0,0,0,0.6)]">
+      <svg class="hero-hud-bracket absolute -left-px -top-px" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M1,20 L1,1 L20,1" stroke="var(--color-brand-cyan)" stroke-width="1.5" fill="none" /></svg>
+      <svg class="hero-hud-bracket absolute -right-px -bottom-px" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M27,8 L27,27 L8,27" stroke="var(--color-brand-cyan)" stroke-width="1.5" fill="none" /></svg>
+      <div class="flex items-center gap-1.5 h-9 px-4 border-b border-white/10">
+        <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
+      </div>
     <!-- Carousel viewport -->
     <div class="overflow-hidden">
       <div
@@ -139,7 +155,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
               width="692"
               height="160"
               role="img"
-              aria-label="WhisPaste recording overlay"
+              aria-label={t(lang, "carousel.overlayAria")}
               data-i18n-aria="carousel.overlayAria"></canvas>
             <span
               class="text-sm text-ink-muted mt-4"
@@ -147,28 +163,20 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
             >
           </div>
         </div>
-        <!-- Scene 3: Text Insertion -->
+        <!-- Scene 3: Text Insertion — the traffic-light/title chrome used to
+             live here as its own nested window; it's now the outer
+             hero-device-window's header (all three scenes share one frame),
+             so this stays the plain editor body. -->
         <div class="w-full shrink-0">
           <div class="p-6 min-h-[220px] flex flex-col">
-            <div
-              class="flex items-center gap-2 px-4 py-2.5 bg-brand-card/60 border-b border-white/5 rounded-t-lg"
+            <span
+              class="mb-2 text-xs text-ink-subtle font-mono"
+              data-i18n="carousel.editor_title">{t(lang, "carousel.editor_title")}</span
             >
-              <div class="flex gap-1.5">
-                <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
-                <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
-                <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
-              </div>
-              <span
-                class="ml-2 text-xs text-gray-500 font-mono"
-                data-i18n="carousel.editor_title">{t(lang, "carousel.editor_title")}</span
-              >
-            </div>
-            <div
-              class="bg-brand-darker/80 border border-white/5 border-t-0 rounded-b-lg p-4 min-h-[140px]"
-            >
+            <div class="p-4 min-h-[140px]">
               <div class="flex items-start gap-3">
                 <div
-                  class="text-xs text-gray-600 font-mono select-none leading-relaxed pt-0.5"
+                  class="text-xs text-ink-subtle/60 font-mono select-none leading-relaxed pt-0.5"
                 >
                   1<br />2<br />3
                 </div>
@@ -188,28 +196,29 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         </div>
       </div>
     </div>
+    </div>
     <!-- Dot indicators — plain button group (not a full ARIA tabs widget, so
          no role=tab/tabpanel pairing is required). Each button is a ≥24×24px
          hit target (WCAG 2.5.8) wrapping the small visible dot, so the tap
          area stays comfortable without growing the dot itself. -->
-    <div class="flex justify-center gap-2 pt-4" role="group" aria-label="Carousel slides" data-i18n-aria="carousel.tablistAria">
+    <div class="flex justify-center gap-2 pt-4" role="group" aria-label={t(lang, "carousel.tablistAria")} data-i18n-aria="carousel.tablistAria">
       <button
         class="carousel-dot-hit group"
         data-slide="0"
         aria-current="true"
-        aria-label="Slide 1: Press hotkey"
+        aria-label={t(lang, "carousel.slide1Aria")}
         data-i18n-aria="carousel.slide1Aria"
       ><span class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all" style="width:16px;"></span></button>
       <button
         class="carousel-dot-hit group"
         data-slide="1"
-        aria-label="Slide 2: Speak now"
+        aria-label={t(lang, "carousel.slide2Aria")}
         data-i18n-aria="carousel.slide2Aria"
       ><span class="carousel-dot w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 transition-all"></span></button>
       <button
         class="carousel-dot-hit group"
         data-slide="2"
-        aria-label="Slide 3: Auto-pasted"
+        aria-label={t(lang, "carousel.slide3Aria")}
         data-i18n-aria="carousel.slide3Aria"
       ><span class="carousel-dot w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 transition-all"></span></button>
     </div>
@@ -217,6 +226,29 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 </div>
 
 <style>
+  /* HUD corner brackets — deliberately faint (0.55) and confined to the
+     frame's own corners, so they read as instrumentation on the device
+     window rather than a shape competing with the demo inside it. */
+  .hero-hud-bracket {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  /* Perspective stage for the tilt below — the 3D transform on the window
+     needs a perspective ancestor or rotateX just skews it in place. */
+  .hero-device-stage {
+    perspective: 1600px;
+  }
+  .hero-device-window {
+    transform: rotateX(4deg);
+    transform-origin: center top;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-device-window {
+      transform: none;
+    }
+  }
+
   /* Dot hit-box — 24×24px minimum tap target (WCAG 2.5.8) around the small
      visible dot rendered by the nested .carousel-dot span. */
   .carousel-dot-hit {
@@ -384,12 +416,12 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       color: rgba(255, 255, 255, 0.4);
     }
     50% {
-      color: #38D9F0;
+      color: var(--color-brand-cyan);
     }
   }
   .speaking-head-icon .sound-arc {
     opacity: 0;
-    stroke: #38D9F0;
+    stroke: var(--color-brand-cyan);
   }
   .sound-arc.arc-1 {
     animation: sound-pulse 1.8s ease-in-out infinite;

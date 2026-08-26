@@ -110,14 +110,14 @@ const whisperTarget =
   .engine-race__track {
     position: relative;
     height: 1.125rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: color-mix(in srgb, var(--color-ink-subtle) 18%, transparent);
     overflow: hidden;
   }
   .engine-race__fill {
     height: 100%;
     width: var(--target);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     transform: scaleX(0);
     transform-origin: left center;
     transition: transform 1s var(--ease-flow);

@@ -27,9 +27,7 @@ const canvas = document.getElementById(
 ) as HTMLCanvasElement | null;
 
 function currentTheme(): OverlayTheme {
-  return document.documentElement.classList.contains("light")
-    ? "light"
-    : "dark";
+  return "dark";
 }
 
 function currentLang(): OverlayDemoLang {
@@ -110,18 +108,8 @@ dotButtons.forEach((btn) => {
   });
 });
 
-// Redraw the resting/reduced frame on theme toggle so the mockup follows the
-// site theme even when it is not animating (the running demo reads the theme
-// live every frame).
 if (overlayDemo) {
   overlayDemo.resize();
-  const themeObserver = new MutationObserver(() => {
-    if (!overlayDemo.running) overlayDemo.drawFrozen();
-  });
-  themeObserver.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["class"],
-  });
 }
 
 // Typing animation for scene 3

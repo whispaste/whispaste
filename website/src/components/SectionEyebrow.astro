@@ -5,12 +5,15 @@
  * Ersetzt zehn wortgleiche Kopien desselben Markups (`AppScreenshots`,
  * `AppPasteDemo`, `SpeedComparison`, `UseCaseCards`, `Languages`, `FAQ`,
  * `Privacy`, `Pricing`, `Engines`, `Testimonials`). Die Gestaltung sitzt in
- * `.wp-eyebrow` / `.wp-bracketed` (global.css), nicht hier — so bleibt der
- * Terminal-Look an genau einer Stelle definiert.
+ * `.wp-eyebrow` (global.css), nicht hier — so bleibt der Look an genau
+ * einer Stelle definiert.
  *
- * Die eckigen Klammern sind CSS-Pseudo-Elemente und bewusst kein Markup-Text:
- * der i18n-Runtime-Switch setzt `el.textContent` (i18n.ts) und würde jedes
- * literale Zeichen beim Sprachwechsel wegwerfen.
+ * Seit 2026-08-26 trägt das Label den Status-Blip (atmender Cyan-Punkt,
+ * die Aufnahme-LED der App) statt der früheren eckigen Klammern — Details
+ * und Begründung am `.wp-eyebrow`-Block in global.css. Der Blip ist ein
+ * CSS-Pseudo-Element und bewusst kein Markup: der i18n-Runtime-Switch setzt
+ * `el.textContent` (i18n.ts) und würde jedes Kind-Element beim
+ * Sprachwechsel wegwerfen.
  */
 import { t } from '../scripts/i18n.ts';
 
@@ -19,10 +22,12 @@ interface Props {
   key: string;
   /** Zusätzliche Utility-Klassen des Aufrufers (z. B. Layout-Overrides). */
   class?: string;
+  /** Inline style passthrough — z. B. `--wp-rise-delay` für die Hero-Staffelung. */
+  style?: string;
 }
 
-const { key, class: className = '' } = Astro.props;
+const { key, class: className = '', style } = Astro.props;
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
-<p class:list={['wp-eyebrow', 'wp-bracketed', className]} data-i18n={key}>{t(lang, key)}</p>
+<p class:list={['wp-eyebrow', className]} data-i18n={key} style={style}>{t(lang, key)}</p>

@@ -11,7 +11,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
 const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
 ---
 <!-- Support Section -->
-<section id="support" class="py-16 sm:py-20 relative scroll-mt-20">
+<section id="support" class="band band-deep py-16 sm:py-20 relative scroll-mt-20">
   <!-- Atmospheric photo layer (dark theme only, pure background). Low opacity,
        dissolved top and bottom into the page tone so it joins the band system
        seamlessly. The centre zone (illustration + glass card) is re-darkened
@@ -32,28 +32,25 @@ const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
     />
     <div class="support-photo__veil"></div>
   </div>
-  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.05)_0%,_transparent_50%)]"></div>
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_color-mix(in_srgb,var(--color-brand-teal)_5%,transparent)_0%,_transparent_50%)]"></div>
   <div class="relative max-w-4xl mx-auto px-6">
     <div class="grid items-center gap-8 md:gap-10 md:grid-cols-[1fr_0.6fr]">
-      <!-- Floating cut-out support motif (heart + voice waveform + star) integrated
-           beside the card — no boxed tile, soft brand halo. On md+ it moves to
-           the RIGHT column (md:order-2): the photo's device sits right of
-           centre (~62% focus axis), so the opaque card covers the photo's
-           empty left half while heart + laptop share the photogenic right. -->
-      <div class="illo-halo illo-float wp-clip-reveal mx-auto md:mx-0 md:order-2 w-40 sm:w-48 md:w-full max-w-[14rem]">
-        <img
-          src="/illustrations/support-love.webp"
-          alt={lang === 'en'
-            ? 'A heart with a voice waveform and a star: support the project'
-            : 'Ein Herz mit Sprach-Wellenform und Stern: unterstütze das Projekt'}
-          width="1024"
-          height="1024"
-          loading="lazy"
-          decoding="async"
-          class="block w-full h-auto"
-        />
+      <!-- Support motif (heart + voice waveform + star), line-art in the same
+           instrument/precision vocabulary as the rest of the page — not a
+           pastel cut-out illustration (the exact register the redesign moved
+           away from, see MarketingMoment.astro / DESIGN-CONTRACT.md). Soft
+           brand halo instead of a boxed tile. On md+ it moves to the RIGHT
+           column (md:order-2): the photo's device sits right of centre (~62%
+           focus axis), so the opaque card covers the photo's empty left half
+           while the emblem + laptop share the photogenic right. -->
+      <div class="illo-float wp-clip-reveal support-emblem mx-auto md:mx-0 md:order-2 w-40 sm:w-48 md:w-full max-w-[14rem]" aria-hidden="true">
+        <svg class="support-emblem__svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M100 172c-4-3-70-46-70-96A42 42 0 0 1 100 44a42 42 0 0 1 70 32c0 50-66 93-70 96Z" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+          <path d="M64 98h6M82 86v24M100 68v56M118 80v32M136 94v10" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linecap="round" />
+          <polygon points="151 26 157.5 40.5 173 42.5 161.5 53 164.5 68.5 151 60.5 137.5 68.5 140.5 53 129 42.5 144.5 40.5" fill="#F59E0B" stroke="#F59E0B" stroke-width="3" stroke-linejoin="round" />
+        </svg>
       </div>
-      <div class="md:order-1 p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm text-center scroll-reveal">
+      <div class="md:order-1 p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-brand-card text-center scroll-reveal support-card">
       <h2 class="text-2xl sm:text-3xl font-bold text-ink" data-i18n="support.title">{t(lang, "support.title")}</h2>
       <p class="mt-4 text-ink-muted text-sm sm:text-base max-w-md mx-auto" data-i18n="support.desc">{t(lang, "support.desc")}</p>
       <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
@@ -115,6 +112,27 @@ const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
     inset: 0;
     overflow: hidden;
     pointer-events: none;
+    /* Edge dissolve for the WHOLE photo layer (img + veil together), same
+       feather as .band::after: at the boundary pixel nothing of this layer
+       paints, so the section hands off into the shared wash with no tonal
+       step. The veil used to try this with an opaque gradient strip instead,
+       which painted its own colour at the seam — a new hard edge, just in a
+       different colour (viewport sweep 2026-08-26). */
+    --band-fade: clamp(80px, 12vh, 220px);
+    mask-image: linear-gradient(
+      180deg,
+      transparent 0,
+      black var(--band-fade),
+      black calc(100% - var(--band-fade)),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0,
+      black var(--band-fade),
+      black calc(100% - var(--band-fade)),
+      transparent 100%
+    );
   }
   .support-photo :global(.support-photo__img) {
     position: absolute;
@@ -128,28 +146,31 @@ const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
     opacity: 0.35;
     filter: saturate(0.7);
   }
+  .support-card {
+    box-shadow: var(--shadow-card);
+  }
+  .support-emblem__svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
+  }
   .support-photo__veil {
     position: absolute;
     inset: 0;
     /* Calm zone sits over the LEFT half, under the content card (the photo's
        own quiet area); the right stays lighter so the device and the heart
        motif share the visible photo side. */
-    background:
-      radial-gradient(
-        ellipse 58% 85% at 30% 52%,
-        rgba(19, 24, 38, 0.8) 0%,
-        rgba(19, 24, 38, 0.45) 55%,
-        rgba(19, 24, 38, 0) 100%
-      ),
-      linear-gradient(
-        180deg,
-        #131826 0%,
-        rgba(19, 24, 38, 0) 28%,
-        rgba(19, 24, 38, 0) 72%,
-        #131826 100%
-      );
-  }
-  :global(html.light) .support-photo {
-    display: none;
+    /* Only the calm zone remains here — the edge dissolve moved onto
+       .support-photo as a mask (see above), which fades img + veil as one
+       layer instead of painting an opaque strip over the seam. */
+    background: radial-gradient(
+      ellipse 58% 85% at 30% 52%,
+      color-mix(in srgb, var(--surface-deep-start) 80%, black) 0%,
+      color-mix(in srgb, var(--surface-deep-start) 45%, transparent) 55%,
+      transparent 100%
+    );
   }
 </style>

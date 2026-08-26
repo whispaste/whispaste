@@ -67,20 +67,21 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
     gap: 0.75rem;
     padding: 0.625rem 1.5rem;
     min-height: 44px;
-    border-radius: var(--radius-card);
-    border: 1px solid rgba(56, 217, 240, 0.2);
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.8) 0%, rgba(23, 29, 44, 0.6) 100%);
-    color: #fff;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    /* Dark, not white: white text measures ~1.6:1 against the gradient's
+       light-cyan stop (#6FDDF0) — well under WCAG AA's 4.5:1. Dark navy
+       clears >6:1 across the whole gradient, matching the __label span
+       below which already uses dark text for the same reason. */
+    color: var(--color-brand-darker);
     text-decoration: none;
     transition: transform var(--dur-base) var(--ease-flow),
-      box-shadow var(--dur-base) var(--ease-flow),
-      border-color var(--dur-base) var(--ease-flow);
+      box-shadow var(--dur-base) var(--ease-flow);
     cursor: pointer;
   }
 
   .wp-apple-btn:hover {
     transform: translateY(-1px);
-    border-color: rgba(56, 217, 240, 0.4);
     box-shadow: var(--shadow-pill);
   }
 
@@ -90,24 +91,20 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   }
 
   .wp-apple-btn:focus-visible {
-    outline: 2px solid #38D9F0;
+    outline: 2px solid #fff;
     outline-offset: 2px;
   }
 
-  /* Large variant — same quiet brand-cyan glow treatment as StoreButton's
-     `--lg`, so the two primary Hero/Download CTAs read as one visual family. */
+  /* Large variant — same accent-gradient CTA as StoreButton's `--lg`, just
+     bigger, so the three primary Hero/Download CTAs read as one family. */
   .wp-apple-btn--lg {
     padding: 0.75rem 2rem;
     min-height: 52px;
     gap: 0.875rem;
-    border-color: rgba(56, 217, 240, 0.32);
-    box-shadow: var(--shadow-cta);
   }
 
   .wp-apple-btn--lg:hover {
     transform: translateY(-2px);
-    border-color: rgba(56, 217, 240, 0.55);
-    box-shadow: var(--shadow-cta-hover);
   }
 
   /* Icon sizes mirror StoreButton/LinuxButton exactly (1.25rem default,
@@ -118,7 +115,7 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
     width: 1.25rem;
     height: 1.25rem;
     flex-shrink: 0;
-    color: #ffffff;
+    color: var(--color-brand-darker);
   }
 
   .wp-apple-btn--lg .wp-apple-btn__icon {
@@ -145,7 +142,7 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   .wp-apple-btn--lg .wp-apple-btn__label {
     font-size: 0.75rem;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.6);
+    color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
     letter-spacing: 0.01em;
   }
 
@@ -158,7 +155,7 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   .wp-apple-btn--lg .wp-apple-btn__platform {
     font-size: 1.0625rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--color-brand-darker);
   }
 
   /* Architecture badge — subtle, clearly separate from the platform name */
@@ -168,10 +165,10 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
     line-height: 1;
     white-space: nowrap;
     padding: 0.15rem 0.4rem;
-    border-radius: 6px;
-    color: rgba(255, 255, 255, 0.75);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--radius-chip);
+    color: color-mix(in srgb, var(--color-brand-darker) 85%, transparent);
+    background: color-mix(in srgb, var(--color-brand-darker) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-darker) 18%, transparent);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -181,42 +178,5 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
     .wp-apple-btn:hover {
       transform: none;
     }
-  }
-
-  /* Light theme */
-  :global(.light) .wp-apple-btn,
-  :root.light .wp-apple-btn {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
-    border-color: rgba(10, 110, 148, 0.35);
-    color: #0c1425;
-  }
-
-  :global(.light) .wp-apple-btn:hover,
-  :root.light .wp-apple-btn:hover {
-    border-color: rgba(10, 110, 148, 0.55);
-  }
-
-
-
-  :global(.light) .wp-apple-btn__icon,
-  :root.light .wp-apple-btn__icon {
-    color: #0A6E94;
-  }
-
-  :global(.light) .wp-apple-btn--lg .wp-apple-btn__label,
-  :root.light .wp-apple-btn--lg .wp-apple-btn__label {
-    color: rgba(12, 20, 37, 0.5);
-  }
-
-  :global(.light) .wp-apple-btn--lg .wp-apple-btn__platform,
-  :root.light .wp-apple-btn--lg .wp-apple-btn__platform {
-    color: #0c1425;
-  }
-
-  :global(.light) .wp-apple-btn__arch,
-  :root.light .wp-apple-btn__arch {
-    color: rgba(12, 20, 37, 0.6);
-    background: rgba(10, 110, 148, 0.09);
-    border-color: rgba(10, 110, 148, 0.28);
   }
 </style>

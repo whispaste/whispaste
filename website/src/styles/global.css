@@ -46,44 +46,63 @@
     U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
     U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-/* Serif accent — Fraunces (editorial display serif). NOT the body/display font;
-   applied deliberately per-title via `.headline-serif` for the editorial look. */
-@font-face {
-  font-family: "Fraunces Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url("/fonts/fraunces-latin-wght-normal.woff2") format("woff2-variations");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
-    U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Fraunces Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url("/fonts/fraunces-latin-ext-wght-normal.woff2") format("woff2-variations");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
-    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
-    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
 @theme {
-  --color-brand-cyan: #38D9F0;
-  --color-brand-teal: #14B8D4;
-  --color-brand-dark: #171D2C;
-  --color-brand-darker: #131826;
-  --color-brand-card: #1D2538;
+  /* Re-synced to the app's current WpColorsDark accent/accentWarmGradient
+     (was #38D9F0/#14B8D4 — see .text-gradient-brand below for the fuller
+     drift note). Cascades through every consumer of these two tokens; the
+     handful of components that hardcoded the old hex instead of the token
+     were fixed alongside this. */
+  --color-brand-cyan: #6FDDF0;
+  --color-brand-teal: #0BAACC;
+  /* Re-synced to the app's current WpColorsDark.surface/.background
+     (lib/core/theme/colors.dart). Were #171D2C/#131826 — stale copies from
+     before that file's chroma-doubling pass (documented there as "58-61%
+     against the old 29-36%, which roughly doubles the byte spread of every
+     rung"); the website's values still had the old, flatter spread and read
+     grey next to the app's saturated navy. --surface-dark/-deep/-deep-start
+     below are color-mix()'d from these, so every section band inherited the
+     same grey-ish drift even though the stage-* stops they mix with were
+     already correct. */
+  --color-brand-dark: #0D1936;
+  --color-brand-darker: #0B122A;
+  /* Was #122247, the app's WpColorsDark.surfaceElevated verbatim — same
+     mistake as the old --color-brand-dark twice over: a value lifted from
+     the Dart constant instead of measured off real pixels. A first pixel-
+     sampled fix (rgb 28,29,66, matching the canvas mockup in
+     spatial-journey.ts) undercorrected the OTHER direction: B dropped from
+     71 to 66 against R/G's ~28, well below the wash's own saturation
+     (--stage-indigo runs B=83 against R/G in the low 20s) — flat and grey
+     next to the page, not "foreign" anymore but not "blue" either
+     (maintainer: "nimm doch mal eher so einen Blauton wieder", pointing at
+     the page wash visible past the nav pill's corner). Cards are not a
+     separate material from that wash at all — collapsed onto --stage-indigo
+     directly, the same stop --surface-dark below already uses for section
+     bands, rather than inventing a third bespoke navy. */
+  --color-brand-card: #171D53;
+  /* Same collapse, same token, for chrome that floats over arbitrary content
+     instead of sitting on the page wash (dialogs, toasts, dropdown popups,
+     the nav pill/flyout) -- was #18274D, then #222248, both undersaturated
+     for the same reason as the card fix above. This is also the nav's own
+     "Blauton, der in der App so nicht vorkommt" the maintainer flagged
+     separately, three rounds running before this one. */
+  --color-brand-floating: #171D53;
   --color-brand-border: #2e3138;
+
+  /* The app's actual primary-CTA treatment (`WpHeroButton`, `accentWarmGradient`
+     in lib/core/theme/colors.dart): an opaque three-stop cyan gradient, white
+     text, no border, no colored shadow. Depth there comes from the gradient
+     itself plus a hover scale, not a glow — "a colored shadow at offset 0 is
+     not a depth source and stays out" is a written rule in that file. The
+     website's download CTAs used to approximate this with a dark, near-opaque
+     "glass" fill and a cyan-tinted glow shadow instead, which reads as an
+     unrelated grey material rather than the app's own accent. */
+  --gradient-accent-cta: linear-gradient(135deg, #6FDDF0 0%, #1ACBE9 50%, #0BAACC 100%);
 
   /* Semantic text tokens — mirror the Flutter app's text hierarchy 1:1
      (WpColorsDark.textPrimary/Secondary/Muted in lib/core/theme/colors.dart,
-     the same values the recording-overlay pill already uses). Utilities
-     `text-ink` / `text-ink-muted` / `text-ink-subtle` flip automatically
-     between themes via the `html.light` overrides below — no per-utility
-     `!important` light-mode patching. All three clear WCAG AA on #131826
-     (muted #ABB8CC ≈ 7.7:1, subtle #8A99B2 ≈ 5.6:1). */
+     the same values the recording-overlay pill already uses). All three
+     clear WCAG AA on #0B122A (muted #ABB8CC ≈ 9.2:1, subtle #8A99B2 ≈
+     6.4:1). */
   --color-ink: #F0F4FA;
   --color-ink-muted: #ABB8CC;
   --color-ink-subtle: #8A99B2;
@@ -94,9 +113,6 @@
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: "Bricolage Grotesque Variable", "Hanken Grotesk Variable",
     ui-sans-serif, system-ui, sans-serif;
-  /* Serif accent for editorial headline moments — applied via `.headline-serif`,
-     never as a document default. Keeps body/display grotesk untouched. */
-  --font-serif: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
   /* Terminal/monospace voice — HUD labels, metrics, keycaps. Deliberately a
      pure system stack: zero extra font requests (Performance-Nordstern), and
      genuinely the typeface the target audience reads code in all day. */
@@ -109,6 +125,9 @@
      Karten-Radius falsch liest. Drei Rollen, drei Werte — mehr braucht die
      Seite nicht.
 
+     chip     Mikro-Chips/-Badges: Arch-/Format-Tags in den Download-CTAs,
+              der pkg-copy-Button — Flächen unter ~24px Höhe, auf denen
+              selbst `control` schon halbrund läse
      control  kleine Steuerelemente: Inputs, Chips, Thumbnails
      card     die dominante Fläche der Seite — Karten UND die großen
               CTA-Buttons. Letztere liegen faktisch alle schon auf 14px
@@ -150,10 +169,51 @@
   --dur-base: 180ms;
   --dur-slow: 320ms;
 
+  /* ---- Stage wash tokens ----
+     The three stops of the hero's ambient wash (WpColorsDark.warmSurfaceGradient
+     — navy → indigo → violet), promoted out of Hero.astro so the rest of the
+     page can derive from the same wash instead of cutting to flat
+     --color-brand-dark/-darker at the first section boundary. */
+  --stage-navy: #13274F;
+  --stage-indigo: #171D53;
+  --stage-violet: #2E2153;
+
+  /* Section-band surfaces, the SAME three stage stops the hero wash uses --
+     specifically the indigo->violet half of it, not navy->indigo: navy and
+     indigo are close in R/G (only B moves much), so a navy->indigo band
+     gradient still read as flat. Almost all of the hero wash's perceived
+     richness comes from indigo->violet (R nearly doubles, 23->46), so that's
+     the half the bands reuse — a genuinely visible diagonal shift instead of
+     a near-flat tint.
+     Used to be diluted 85% toward --color-brand-dark/-darker ("a hair
+     darker/quieter than the hero's own wash, appropriate for a supporting
+     surface") -- removed 2026-08-26: the app's own ambient (WpColorsDark.
+     warmSurfaceGradient) is not diluted for "supporting" screens, it is the
+     one consistent content-plane wash everywhere (History, Notes, every
+     panel); measured pixels off a real app screenshot confirmed this
+     (content-plane readings clustered at ~(25,30,83), a near-exact match to
+     raw --stage-indigo #171D53=(23,29,83)). The dilution was pulling every
+     section band's blue channel down toward the darker anchor's ~54-71
+     instead of the app's ~79-83, which is what read as "grey-blue, not the
+     app's palette" -- maintainer feedback, three rounds running. Text
+     contrast still clears AA undiluted: worst case (--stage-violet)
+     --color-ink-muted 7.2:1, --color-ink-subtle 5.0:1, both above 4.5:1. */
+  --surface-deep-start: var(--stage-indigo);
+  --surface-deep: var(--stage-violet);
+  --surface-dark: var(--stage-indigo);
+
   /* Radius-Leiter — Rollen und Begründung siehe @theme-Block oben. */
+  --radius-chip: 6px;
   --radius-control: 10px;
   --radius-card: 14px;
   --radius-surface: 20px;
+  /* Full stadium shape for the accent-gradient CTA family (nav download,
+     StoreButton/AppleButton/LinuxButton/MobileCta) — a fixed 14px corner
+     read as a near-pill on the compact nav button but as a plain rounded
+     rectangle on the much taller --lg hero buttons, so the same token
+     produced two different-looking shape families. A true pill (radius >=
+     half the tallest button's height) reads identically at every size. */
+  --radius-pill: 999px;
 
   /* ---- Schatten-Leiter ----
      Vorher lagen 81 box-shadow-Deklarationen verstreut in den Komponenten,
@@ -161,41 +221,24 @@
      AppleButton / LinuxButton. Weil Astro-scoped <style>-Blöcke per
      [data-astro-cid-*] jede globale Regel schlagen, lässt sich das nicht
      zentral „überschreiben" — jede Deklaration muss einzeln auf das Token
-     zeigen. Der Gewinn liegt trotzdem hier: html.light definiert dieselben
-     Namen neu, dadurch entfallen die Light-Duplikate in den Komponenten
-     ersatzlos, statt in drei Dateien parallel gepflegt zu werden.
+     zeigen.
 
      card / card-hover   Kartenflächen und ihr Hover-Lift
      overlay             schwebende Chrome über der Seite (Nav-Pille, Menü)
      pill / pill-active  sekundäre Buttons
-     cta / cta-hover     der primäre Button — Marken-Glow statt Schwarz */
+
+     Die frühere cta/cta-hover-Stufe (ein farbiger Cyan-Glow für den primären
+     Button) ist ersatzlos gestrichen: die App kennt für ihren eigenen
+     Primary-CTA (`WpHeroButton`) gar keinen Schatten — Tiefe kommt dort
+     ausschließlich aus dem opaken Akzent-Gradient selbst, "a colored shadow
+     at offset 0 is not a depth source" (lib/core/theme/colors.dart). Die
+     primären Download-CTAs der Website (`--gradient-accent-cta`) übernehmen
+     jetzt exakt das: kein Border, kein Glow, nur der neutrale pill-Hover. */
   --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
-  --shadow-card-hover: 0 10px 30px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-card-hover: 0 10px 30px rgba(0, 0, 0, 0.22);
   --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.3);
   --shadow-pill: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
   --shadow-pill-active: 0 1px 4px rgba(0, 0, 0, 0.2);
-  --shadow-cta: 0 4px 20px -6px rgba(56, 217, 240, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --shadow-cta-hover: 0 10px 28px -6px rgba(56, 217, 240, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.25);
-}
-
-/* Light-Varianten: kühler (Schlagschatten auf Slate statt reinem Schwarz) und
-   deutlich weniger opak — reines Schwarz mit Dark-Opazität liest auf hellem
-   Grund als Schmutzrand. Gleiche Namen, damit jede Komponente genau eine
-   Deklaration braucht. */
-html.light {
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
-  --shadow-card-hover: 0 10px 30px rgba(15, 23, 42, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --shadow-overlay: 0 12px 32px rgba(15, 23, 42, 0.12);
-  --shadow-pill: 0 4px 12px rgba(15, 23, 42, 0.1), 0 1px 3px rgba(15, 23, 42, 0.06);
-  --shadow-pill-active: 0 1px 4px rgba(15, 23, 42, 0.08);
-  --shadow-cta: 0 4px 18px -6px rgba(10, 110, 148, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  --shadow-cta-hover: 0 10px 24px -6px rgba(10, 110, 148, 0.44),
-    0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 /* ---------------------------------------------------------------------------
@@ -212,6 +255,19 @@ html.light {
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* The one continuous wash the whole page sits on — same three stops and
+       diagonal as the hero's own .hero-ambient-wash, `fixed` so it never
+       moves as sections scroll past. This is what makes every section
+       provably the same material as the hero (not a "derived" approximation
+       that can drift) and gives the page a spatial, layered depth instead of
+       flat stacked rectangles. Sections (.band-*) no longer paint an opaque
+       fill; they lay a soft, edge-feathered tint over this wash so section
+       boundaries dissolve into it instead of cutting to a different colour.
+       bg-brand-darker (Layout.astro) stays as the background-color fallback
+       for the instant before this paints. */
+    background-image: linear-gradient(135deg, var(--stage-navy) 0%, var(--stage-indigo) 50%, var(--stage-violet) 100%);
+    background-attachment: fixed;
+    background-size: 100% 100vh;
   }
   /* Display grotesk for the big headlines (hero + section titles).
      Card-level h3s deliberately stay on the body font for legibility. */
@@ -261,66 +317,76 @@ html.light {
   }
 }
 
-/* Light theme overrides.
-   Schärfungs-Pass (Light als gleichwertiges Theme, nicht als verwaschener
-   Spiegel): Akzent von #0891B2 (3.4–3.7:1 — unter AA für die kleinen
-   Eyebrow-Labels) auf #0A6E94 vertieft (4.8:1 auf brand-darker, 5.3:1 auf
-   brand-dark, 5.7:1 auf Weiß — alle AA); Flächen kühler und mit klarer
-   Band-Trennung (#F2F6FA / #E4EDF4 statt fast ununterscheidbarem
-   #F8FAFC / #EEF2F6); Hairlines kräftiger (#D3DEE9). Ink-Stufen bleiben —
-   subtle #5B697E hält 4.7:1 auch auf der tieferen brand-darker-Fläche. */
-html.light {
-  --color-brand-cyan: #0A6E94;
-  --color-brand-teal: #0A5D7A;
-  --color-brand-dark: #F2F6FA;
-  --color-brand-darker: #E4EDF4;
-  --color-brand-card: #FFFFFF;
-  --color-brand-border: #D3DEE9;
-  /* Semantic text tokens flip here — mirror WpColorsLight text hierarchy. */
-  --color-ink: #101828;
-  --color-ink-muted: #44556E;
-  --color-ink-subtle: #5B697E;
-  color: #1E293B;
-}
-html.light body::before { opacity: 0.015; }
-
 /* Brand gradient text — cyan → teal → cyan, mirrors the app accent gradient.
-   Global utility so any component (Hero, Pricing…) can apply it. */
+   Global utility so any component (Hero, Pricing…) can apply it.
+   Stops re-synced to the app's current WpColorsDark.accentWarmGradient
+   (#6FDDF0 → #1ACBE9 → #0BAACC) — the app moved off #38D9F0/#14B8D4 a while
+   back and this utility hadn't followed, which is exactly the app/website
+   gradient drift the redesign brief flagged. Kept as a palindrome (A→B→A)
+   so the 200%-wide background-position shimmer still loops without a jump.
+   Stops reference the brand tokens directly so the next accent re-sync
+   cascades here instead of drifting again. */
 .text-gradient-brand {
-  background: linear-gradient(135deg, #38D9F0 0%, #14B8D4 50%, #38D9F0 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-brand-cyan) 0%,
+    var(--color-brand-teal) 50%,
+    var(--color-brand-cyan) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
-/* Light-Gradient mit tieferem Mittel-Stop (#0A5D7A statt #0E7490): der
-   Verlauf bekommt echte Hell-Dunkel-Spannung statt zweier fast gleicher
-   Töne. Gradient-Text ist immer Large Text — heller Stop #0891B2 hält 3.4:1
-   (≥3:1), dunkler Stop 6.8:1. */
-html.light .text-gradient-brand {
-  background: linear-gradient(135deg, #0891B2 0%, #0A5D7A 50%, #0891B2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
 
 /* ===========================================================================
    Section rhythm — tonal bands.
-   Three bands alternate down the page so sections read as distinct surfaces
-   instead of one flat dark wash. All three derive from the existing brand
-   tokens via color-mix, so they flip automatically with the light-theme
-   overrides above — no per-band light patching needed.
+   Sections no longer paint an opaque fill (that's what produced the hard,
+   straight seams between them — every .band met its neighbour at a discrete
+   colour step). Each band is now a soft, edge-feathered tint laid over the
+   ONE continuous fixed wash on <html> above: the tint's top/bottom ~12vh
+   fades to transparent via a mask, so at the actual boundary pixel both
+   neighbouring bands are showing the same underlying wash rather than two
+   different opaque colours. Bands still alternate deep/raised/spotlight for
+   rhythm — that's carried by how strongly each tints the wash, not by a
+   colour swap at a hard edge.
    --------------------------------------------------------------------------- */
 .band {
   position: relative;
   isolation: isolate;
 }
-/* deep = the base/darkest surface (matches the <html> bg). Hero, FAQ. */
-.band-deep {
-  background: var(--color-brand-darker);
+.band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  --band-fade: clamp(80px, 12vh, 220px);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
 }
-/* raised = a half-step-elevated surface with a faint cyan-tinted top lift and
-   a hairline divider, so the band edge is legible. UseCaseCards,
+/* deep = the base/darkest surface. Same 135deg diagonal as the hero's own
+   ambient wash (navy -> indigo), just the first two of its three stops and
+   at the muted --surface-deep-start/--surface-deep strength — a quieter
+   continuation of the hero's gradient, not a flat, unrelated navy. Hero,
+   FAQ. */
+.band-deep::after {
+  background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
+}
+/* raised = a half-step-elevated surface with a faint cyan-tinted top lift, so
+   the band reads as elevated without a hard divider line. UseCaseCards,
    SpeedComparison, Pricing, FAQ. */
 /* Der Auslauf des Lifts war fix 260px. Sektionen dieses Bandes sind aber
    zwischen ~700px (Desktop) und weit über 1400px (390px, alles gestapelt)
@@ -333,36 +399,23 @@ html.light .text-gradient-brand {
    dem FAQ-Band riesig und auf kurzen Bändern unsichtbar machen. */
 .band-raised {
   --band-lift-end: clamp(200px, 28vh, 320px);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-brand-cyan) 6%, var(--color-brand-dark)) 0%,
-    var(--color-brand-dark) var(--band-lift-end)
-  );
-  /* Crisp top edge: a hairline + a 1px inner highlight reads as a new raised
-     surface without lifting the base tone toward the card colour (which would
-     flatten the cards that sit on this band). */
-  border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 5%, transparent);
+  /* Kein 1px-Innen-Sheen mehr: auch der las im Viewport-Sweep 2026-08-26 als
+     harte, gerade Linie über die volle Breite — exakt die Naht-Klasse, die
+     dieser Umbau abgeschafft hat. Der maskierte Lift allein trägt die
+     Elevation. */
 }
-html.light .band-raised {
-  /* Auf hellen Flächen mit dem HELLEN Cyan (#0891B2) tönen statt mit dem
-     dunklen Light-Akzent-Token — 7% davon lesen sich als frischer Hauch,
-     der Token-Mix würde nur gräulich eintrüben. Kante auf 30 % angehoben,
-     damit die Band-Trennung im Light-Theme wirklich sichtbar ist. */
+.band-raised::after {
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, #0891B2 7%, var(--color-brand-dark)) 0%,
-    var(--color-brand-dark) var(--band-lift-end)
+    color-mix(in srgb, var(--color-brand-cyan) 6%, var(--surface-dark)) 0%,
+    var(--surface-dark) var(--band-lift-end)
   );
-  border-top-color: color-mix(in srgb, #0891B2 30%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 70%, transparent);
 }
 /* spotlight = the brand glow. A soft cyan aura from the top edge, reserved for
    the emotional / core-message sections (AppPasteDemo, Engines, Privacy,
    Testimonials). This is where the cyan accent earns its keep. */
-.band-spotlight {
-  background: var(--color-brand-darker);
-  border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+.band-spotlight::after {
+  background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
 }
 .band-spotlight::before {
   content: "";
@@ -375,6 +428,26 @@ html.light .band-raised {
     color-mix(in srgb, var(--color-brand-cyan) 16%, transparent) 0%,
     transparent 70%
   );
+  /* Dieselbe Kanten-Feder wie .band::after: ohne sie begann die Aura mit
+     voller Intensität exakt an der Sektionskante — eine harte, gerade Linie
+     über die volle Breite (Viewport-Sweep 2026-08-26, FAQ→Testimonials und
+     SpeedComparison→Engines), obwohl die Band-Tints selbst längst maskiert
+     ausblenden. */
+  --band-fade: clamp(80px, 12vh, 220px);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
   /* Die Aura atmet auf der 8s-Periode der Overlay-Pille (gleicher Takt wie
      illo-halo-breathe und wp-border-breathe) — die Seite trägt denselben
      ruhigen Puls wie das Glas-Material der App. Nur Opacity, kein Wobble. */
@@ -383,20 +456,6 @@ html.light .band-raised {
 @keyframes wp-aura-breathe {
   0%, 100% { opacity: 0.72; }
   50% { opacity: 1; }
-}
-/* Light-Aura mit dem BRIGHT-Cyan der Dark-Identität (#38D9F0) statt eines
-   dunklen Mixes: tönt als heller Türkis-Wash, ohne den Grund abzudunkeln —
-   die Eyebrow-Labels bleiben so auch am Aura-Peak über 4.5:1 (ein
-   #0891B2-Mix drückte den Peak auf 4.25). Border-Kante wie band-raised. */
-html.light .band-spotlight {
-  border-top-color: color-mix(in srgb, #0891B2 30%, transparent);
-}
-html.light .band-spotlight::before {
-  background: radial-gradient(
-    ellipse 95% 60% at 50% 0%,
-    color-mix(in srgb, #38D9F0 16%, transparent) 0%,
-    transparent 70%
-  );
 }
 @media (prefers-reduced-motion: reduce) {
   .band-spotlight::before {
@@ -432,21 +491,6 @@ html.light .band-spotlight::before {
 .wp-nums {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-}
-
-/* ===========================================================================
-   Editorial serif accent — Fraunces.
-   Opt-in per headline (add `.headline-serif` to a title or a wrapping <span>)
-   for the editorial voice; body/display grotesk stay the default everywhere
-   else. `opsz` pushes Fraunces into its high-contrast display cut; `wght` sits
-   at a warm medium. Loosen the aggressive display tracking of `.section-title`
-   so the serif can breathe. Combine freely with `.text-gradient-brand`.
-   --------------------------------------------------------------------------- */
-.headline-serif {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  font-variation-settings: "opsz" 144, "wght" 500;
-  letter-spacing: -0.015em;
 }
 
 /* ===========================================================================
@@ -555,39 +599,6 @@ html.light .band-spotlight::before {
    that sits directly in the content with a soft brand halo instead of a boxed
    tile, so it reads as integrated rather than pasted on. Gently bobs for life.
    --------------------------------------------------------------------------- */
-.illo-halo {
-  position: relative;
-}
-.illo-halo::before {
-  content: '';
-  position: absolute;
-  inset: 8% 8% 12%;
-  z-index: 0;
-  background: radial-gradient(
-    circle at 50% 45%,
-    color-mix(in srgb, var(--color-brand-cyan) 20%, transparent) 0%,
-    transparent 70%
-  );
-  filter: blur(30px);
-  pointer-events: none;
-  /* Slow scale/opacity breathe on the overlay pill's 8s drift period — the
-     halo shares the glass material's calm pulse, never its shape wobble.
-     Amplitude 1↔1.14 / 0.65↔1 (erster Durchgang 1↔1.05 / 0.85↔1 war unter
-     der Wahrnehmungsschwelle auf einer 30px-geblurten Fläche). */
-  animation: illo-halo-breathe 8s ease-in-out infinite;
-}
-@keyframes illo-halo-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.65; }
-  50% { transform: scale(1.14); opacity: 1; }
-}
-.illo-halo > img {
-  position: relative;
-  z-index: 1;
-  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
-}
-html.light .illo-halo > img {
-  filter: drop-shadow(0 14px 26px rgba(15, 23, 42, 0.16));
-}
 .illo-float {
   animation: illo-bob 6s ease-in-out infinite;
 }
@@ -597,7 +608,6 @@ html.light .illo-halo > img {
 }
 @media (prefers-reduced-motion: reduce) {
   .illo-float { animation: none; }
-  .illo-halo::before { animation: none; }
 }
 
 /* Platform-adaptive download buttons (FOUC-free: data-os set by inline script).
@@ -676,42 +686,6 @@ html.light .illo-halo > img {
 
 /* Theme-aware wordmark */
 .nav-logo-light { display: none; }
-html.light .nav-logo-dark { display: none !important; }
-html.light .nav-logo-light { display: block !important; }
-
-html.light .text-white { color: #1E293B !important; }
-html.light .text-gray-100 { color: #0F172A !important; }
-html.light .text-gray-200 { color: #1E293B !important; }
-html.light .text-gray-300 { color: #334155 !important; }
-html.light .text-gray-400 { color: #64748B !important; }
-html.light .text-gray-500 { color: #64748B !important; }
-html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/20, html.light .border-white\/\[0\.05\], html.light .border-white\/\[0\.06\], html.light .border-white\/\[0\.08\] { border-color: #D3DEE9 !important; }
-html.light .bg-white\/\[0\.02\], html.light .bg-white\/\[0\.03\], html.light .bg-white\/\[0\.04\] { background: rgba(0,0,0,0.02) !important; }
-/* KEINE pauschale nav-Einfärbung in Light: Die frühere
-   `html.light nav { background … blur … }`-Regel stammte aus der Zeit der
-   Full-width-Leiste und traf inzwischen (a) den transparenten Fixed-Wrapper
-   um die Floating-Pill — sichtbar als fremder weißer Streifen mit Naht über
-   die volle Breite — und (b) sogar die footer-nav-Spalten. Die Pill bringt
-   ihren eigenen Light-Stil mit (Nav.astro), der Wrapper bleibt wie in Dark
-   durchsichtig. */
-html.light footer { border-top-color: #D3DEE9 !important; }
-html.light .hero-gradient {
-  background-image: linear-gradient(135deg, #0891B2 0%, #0A5D7A 50%, #0891B2 100%) !important;
-}
-html.light .bg-brand-darker\/80, html.light .bg-brand-darker\/60, html.light .bg-brand-darker\/40 { background: rgba(241,245,249,0.55) !important; }
-html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
-html.light .bg-brand-card\/60 { background: rgba(255,255,255,0.8) !important; }
-html.light .bg-brand-cyan\/10 { background: rgba(10,110,148,0.14) !important; }
-html.light .bg-brand-cyan\/\[0\.04\] { background: rgba(10,110,148,0.07) !important; }
-html.light .hover\:bg-white\/\[0\.08\]:hover { background: rgba(0,0,0,0.04) !important; }
-html.light .hover\:border-white\/20:hover { border-color: #CBD5E1 !important; }
-
-/* ---- Feature cards (light theme) ---- */
-html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-color: #D3DEE9 !important; }
-/* Kein box-shadow mehr hier: der !important-Wert schlug den Hover-Schatten,
-   den Engines.astro fuer dieselbe Karte definiert — der dortige Wert rendete
-   nie. Der Light-Schatten kommt jetzt ueber --shadow-card-hover. */
-html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; }
 
 /* ---- Hero carousel global styles ---- */
 /* Dynamic elements created by JS need global scope */
@@ -737,138 +711,12 @@ html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; }
     opacity: 0;
   }
 }
-
-/* Light theme: carousel overrides */
-html.light .carousel-key {
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.05) 0%,
-    rgba(0, 0, 0, 0.08) 100%
-  ) !important;
-  border-color: rgba(0, 0, 0, 0.15) !important;
-  box-shadow:
-    0 4px 0 rgba(0, 0, 0, 0.12),
-    0 6px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
-}
-html.light .carousel-key svg {
-  color: #334155 !important;
-}
-html.light .carousel-cursor path {
-  fill: #334155 !important;
-  fill-opacity: 0.8 !important;
-  stroke: rgba(0, 0, 0, 0.15) !important;
-}
-html.light .speaking-head {
-  color: rgba(0, 0, 0, 0.5) !important;
-}
-html.light .microphone-icon {
-  color: rgba(0, 0, 0, 0.4) !important;
-}
-html.light .carousel-dot {
-  background: rgba(0, 0, 0, 0.15) !important;
-}
-html.light .carousel-dot.bg-brand-cyan {
-  background: #0A6E94 !important;
-}
-html.light #typed-text {
-  color: #1e293b !important;
-}
-html.light .microphone-icon {
-  animation-name: mic-pulse-light !important;
-}
-@keyframes mic-pulse-light {
-  0%,
-  100% {
-    color: rgba(0, 0, 0, 0.4);
-  }
-  50% {
-    color: #0A6E94;
-  }
-}
-html.light .typing-cursor {
-  background: #0A6E94 !important;
-}
-
 /* Reduced motion for dynamic elements */
 @media (prefers-reduced-motion: reduce) {
   .typing-cursor {
     animation: none !important;
     transition: none !important;
   }
-}
-
-/* ---- New sections + App Preview mockup (light theme) ---- */
-html.light .pricing-card { background: rgba(255,255,255,0.7) !important; border-color: #D3DEE9 !important; }
-html.light .pricing-card .text-white { color: #1E293B !important; }
-html.light .faq-item { background: rgba(255,255,255,0.5) !important; border-color: #D3DEE9 !important; }
-html.light .faq-item summary { color: #1E293B !important; }
-html.light .lang-pill { background: rgba(0,0,0,0.02) !important; border-color: #D3DEE9 !important; color: #475569 !important; }
-html.light .lang-pill:hover { border-color: rgba(10,110,148,0.35) !important; color: #1E293B !important; }
-html.light .mockup-glow {
-  border-color: rgba(10,110,148,0.25);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
-}
-html.light .mockup-glow:hover {
-  border-color: rgba(10,110,148,0.38);
-  box-shadow: 0 12px 50px rgba(0,0,0,0.15);
-}
-html.light .mockup-window { background: #F8FAFC; }
-html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #E2E8F0; }
-html.light .mockup-titlebar-text { color: #0F172A; }
-html.light .mockup-nb-body { background: linear-gradient(160deg, #F8FAFC 0%, color-mix(in srgb, #0891B2 5%, #F8FAFC) 50%, #F8FAFC 100%); }
-html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #E2E8F0); }
-html.light .mockup-nb-search { background: #F1F5F9; border-color: #E2E8F0; color: #0F172A; }
-html.light .mockup-nb-search-icon { color: #64748B; }
-html.light .mockup-nb-card { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.02); }
-html.light .mockup-nb-card-title { color: #0F172A; }
-html.light .mockup-nb-card-meta { color: #64748B; }
-html.light .mockup-nb-card-preview { color: #64748B; }
-html.light .mockup-nb-pin-bar { background: linear-gradient(180deg, #38D9F0, #0891B2); }
-html.light .mockup-nb-action-btn-sm { color: #64748B; }
-html.light .mockup-nb-fab { background: linear-gradient(135deg, #38D9F0, #0891B2); box-shadow: 0 4px 16px rgba(8,145,178,.2); }
-html.light .mockup-sidebar { background: #FFFFFF; border-right-color: rgba(0,0,0,.06); }
-html.light .mockup-sidebar::before { background: radial-gradient(ellipse at 50% 0%, rgba(8,145,178,0.1) 0%, transparent 70%); }
-html.light .mockup-sidebar-brand { border-bottom-color: rgba(0,0,0,.04); }
-html.light .mockup-sidebar-item { color: #64748B; }
-html.light .mockup-sidebar-item-active { background: linear-gradient(135deg, #0891B2, #0E7490); color: #FFFFFF; box-shadow: 0 2px 8px rgba(8,145,178,0.2), 0 0 16px rgba(8,145,178,0.1); }
-html.light .mockup-sidebar-bottom { border-top-color: rgba(0,0,0,.04); }
-html.light .mockup-sidebar-bottom-btn { color: #64748B; }
-html.light .mockup-nb-count { background: rgba(8,145,178,0.06); color: #0891B2; border: 1px solid rgba(8,145,178,0.2); }
-html.light .mockup-filter-sidebar { background: #FFFFFF; border-right-color: rgba(0,0,0,.06); }
-html.light .mockup-sort-trigger { color: #64748B; }
-html.light .mockup-filter-item { color: #64748B; }
-html.light .mockup-filter-item-active { background: rgba(8,145,178,0.06); color: #0891B2; border-color: rgba(8,145,178,0.2); }
-html.light .mockup-filter-count { color: #64748B; }
-html.light .mockup-filter-item-active .mockup-filter-count { color: rgba(8,145,178,0.6); }
-html.light .mockup-nb-selection-bar { background: rgba(8,145,178,0.04); border-bottom-color: rgba(8,145,178,0.2); }
-html.light .mockup-nb-selection-info { color: #0891B2; }
-html.light .mockup-nb-selection-close { color: #64748B; }
-html.light .mockup-nb-sel-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #0F172A; }
-html.light .mockup-nb-sel-delete { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: #DC2626; }
-html.light .mockup-nb-checkbox { border-color: rgba(0,0,0,0.15); }
-html.light .mockup-nb-checkbox-checked { background: linear-gradient(135deg, #0891B2, #0E7490); border-color: #0891B2; }
-html.light .mockup-nb-card-selected { border-color: rgba(8,145,178,0.3) !important; background: rgba(8,145,178,0.04) !important; }
-
-/* ---- Download, changelog, sponsor cards (light theme) ---- */
-html.light .download-card {
-  background: rgba(255,255,255,0.7) !important;
-  border-color: #D3DEE9 !important;
-}
-html.light .download-card-recommended {
-  background: rgba(10,110,148,0.05) !important;
-  border-color: rgba(10,110,148,0.32) !important;
-}
-html.light .release-card {
-  background: rgba(255,255,255,0.7) !important;
-  border-color: #D3DEE9 !important;
-}
-html.light .sponsor-card {
-  background: rgba(255,255,255,0.7) !important;
-  border-color: #D3DEE9 !important;
-}
-html.light .sponsor-card:hover {
-  background: rgba(255,255,255,0.9) !important;
 }
 
 /* ---- Flutter design-token alignment ---- */
@@ -940,11 +788,6 @@ html.light .sponsor-card:hover {
 :root {
   --wp-card-ring: rgba(255, 255, 255, 0.2);
 }
-html.light {
-  /* Cyan-getönte Haarlinie statt Weiß: auf #FFF-Karten wäre Weiß unsichtbar,
-     ein neutrales Grau träge nur ein. Kein neuer Farbwert — der Light-Akzent. */
-  --wp-card-ring: rgba(10, 110, 148, 0.3);
-}
 @keyframes wp-card-ring-breathe {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
@@ -994,15 +837,20 @@ html.light {
 /* ===========================================================================
    M9 — „Glamour Terminal": die Klammer-Sprache
    ---------------------------------------------------------------------------
-   Ein einziges Motiv, nicht fünf: die eckige Klammer als TUI-Signatur. Sie
-   erscheint an genau drei Orten, jeder davon eine Beschriftung oder eine
-   Entscheidungsfläche — nie als Flächenschmuck:
+   Ein einziges Motiv, nicht fünf: die eckige Klammer als TUI-Signatur. Seit
+   dem Eyebrow-Redesign 2026-08-26 (Maintainer: Klammern auf Labels lasen
+   sich als Clutter) erscheint sie nur noch auf AKTIONS-Flächen — Orte, an
+   denen etwas gedrückt/ausgelöst wird — nie mehr auf reinen Beschriftungen:
 
-     1. `.wp-eyebrow`   — das Sektions-Label als Terminal-Tag `[ PREIS ]`
-     2. `.hud-frame`    — dieselbe Klammer als Eckwinkel um die primären
-                          Handlungsflächen (Pricing-Karte, OS-Download-Karten)
-     3. `.pkg-copy-btn` — die Copy-Schaltfläche neben den Shell-Befehlen
-                          (Styling in download.astro, Utility von hier)
+     1. `.hud-frame`      — die Klammer als Eckwinkel um die primären
+                            Handlungsflächen (Pricing-Karte, OS-Download-Karten)
+     2. `.pkg-copy-btn`   — die Copy-Schaltfläche neben den Shell-Befehlen
+                            (Styling in download.astro, Utility von hier)
+     3. Hotkey-Chip       — `.wp-bracket-lock` in AppPasteDemo: die Klammern
+                            rasten um den Shortcut ein (Tastendruck als Bild)
+
+   Sektions-Labels (`.wp-eyebrow`) tragen stattdessen den Status-Blip, siehe
+   unten.
 
    Bewusst NICHT umgesetzt (Auftrag: „lieber wenige, präzise Details"):
    - Kein zweiter Cursor. `.typing-cursor` (HeroCarousel) blinkt bereits im
@@ -1016,11 +864,6 @@ html.light {
 :root {
   /* Kein neuer Akzent: derselbe Cyan-Marken-Token, nur heruntergemischt. */
   --wp-bracket: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
-}
-html.light {
-  /* Wie beim Karten-Ring: das gemischte Cyan verschwindet auf hellem Grund,
-     hier greift derselbe dunklere Light-Akzent wie in `--wp-card-ring`. */
-  --wp-bracket: rgba(10, 110, 148, 0.55);
 }
 
 /* --- Utility: eckige Klammern um den Inhalt eines Elements ---------------- */
@@ -1056,8 +899,23 @@ html.light {
    (`text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3`),
    jetzt eine Klasse hinter `SectionEyebrow.astro`. Mono + weiteres Tracking
    ist der eigentliche Terminal-Zug: der Kicker liest sich als Tag, die
-   Serif-/Grotesk-Headline darunter behält ihre Stimme unverändert. */
+   Serif-/Grotesk-Headline darunter behält ihre Stimme unverändert.
+
+   Redesign 2026-08-26 (Maintainer-Review der Live-Site): die eckigen
+   `[ LABEL ]`-Klammern lasen sich als verwirrende Auszeichnung, nicht als
+   Präzisions-Signal — ersetzt durch den Status-Blip: ein kleiner, im
+   8s-Takt der Seite (wp-aura-breathe / wp-card-ring-breathe) atmender
+   Cyan-Punkt vor dem Label. Das ist die Aufnahme-LED der App selbst — die
+   Overlay-Pille zeigt beim Diktieren genau dieses Signal — und bleibt damit
+   Instrument/HUD-Vokabular statt der Editorial-Konvention der Konkurrenz.
+   Die Klammern selbst bleiben exklusiv auf Tastendruck-/Aktionsflächen
+   (`.wp-bracket-lock`-Hotkey-Chip, `.pkg-copy-btn`), nicht mehr auf Labels.
+   Der Blip ist ein Pseudo-Element (kein Markup): der i18n-Runtime-Switch
+   ersetzt `el.textContent` und würde jedes Kind-Element wegwerfen. */
 .wp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
   margin: 0 0 0.75rem;
   font-family: var(--font-mono);
   font-size: 0.8125rem;
@@ -1067,6 +925,25 @@ html.light {
   text-transform: uppercase;
   color: var(--color-brand-cyan);
   font-variant-numeric: tabular-nums;
+}
+.wp-eyebrow::before {
+  content: "";
+  flex: none;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%; /* Kreis, bewusst außerhalb der Radius-Leiter (s. oben) */
+  background: var(--color-brand-cyan);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
+  animation: wp-eyebrow-blip 8s ease-in-out infinite;
+}
+@keyframes wp-eyebrow-blip {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wp-eyebrow::before {
+    animation: none;
+  }
 }
 
 /* --- HUD-Eckwinkel -------------------------------------------------------- */

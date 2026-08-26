@@ -77,19 +77,20 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
 ---
 
 <!doctype html>
-<html lang={lang} class="bg-brand-darker text-gray-100">
+<html lang={lang} class="bg-brand-darker text-ink">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    <meta name="theme-color" content="#131826" />
+    <meta name="theme-color" content="#0B122A" />
     <meta name="author" content="WhisPaste" />
     {/* Preload the primary self-hosted variable fonts (latin subset) to
         avoid a flash of fallback text for the above-the-fold copy. */}
     <link rel="preload" href="/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/fraunces-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    {/* Kein Fraunces-Preload mehr: die Serif wurde mit dem Redesign entfernt
+        (Design-Contract "No serif"); der Link lud auf jeder Seite einen 404. */}
     {/* Kleine, dedizierte Varianten statt des vollen 1024px-App-Icons (das nur
         noch als Organization-Schema-`logo`-Referenz dient) — Browser laden
         rel=icon/apple-touch-icon bei jedem Erstbesuch. */}
@@ -135,13 +136,6 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
       Schema (SoftwareApplication, FAQPage, HowTo, BreadcrumbList) steht.
     */}
     <OrganizationSchema locale={lang} />
-    <script is:inline>
-      (function(){
-        var t = localStorage.getItem('whispaste-theme');
-        if (t === 'light') document.documentElement.classList.add('light');
-        else if (!t && window.matchMedia('(prefers-color-scheme: light)').matches) document.documentElement.classList.add('light');
-      })();
-    </script>
     <script is:inline>
       (function(){
         var ua = navigator.userAgent;

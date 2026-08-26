@@ -27,9 +27,12 @@ const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
     bottom: 0;
     z-index: 40;
     padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    background: rgba(19, 24, 38, 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    /* --color-brand-floating, matching Nav's pill and DownloadSupportModal --
+       the other two persistent-overlay-chrome surfaces on the site, same
+       role (floating over page content, not a content card). Was
+       --color-brand-darker, an unrelated shade with no other floating-chrome
+       user. */
+    background: var(--color-brand-floating);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     transform: translateY(120%);
     opacity: 0;
@@ -41,10 +44,6 @@ const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
     opacity: 1;
     pointer-events: auto;
   }
-  :global(html.light) .mobile-cta {
-    background: rgba(241, 245, 249, 0.9);
-    border-top-color: #D3DEE9;
-  }
   .mobile-cta-btn {
     display: flex;
     align-items: center;
@@ -52,12 +51,13 @@ const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
     gap: 0.5rem;
     width: 100%;
     padding: 0.85rem 1rem;
-    border-radius: var(--radius-card);
-    background: var(--color-brand-cyan);
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    /* Dark, not white — see StoreButton.astro for the measured contrast
+       failure white text has against this gradient's light-cyan stop. */
     color: var(--color-brand-darker);
     font-weight: 600;
     font-size: 0.95rem;
-    box-shadow: var(--shadow-cta);
     transition: transform 0.12s ease;
   }
   .mobile-cta-btn:active {

@@ -100,14 +100,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 </section>
 
 <style>
-  /* Glassmorphism engine cards — same recipe as Features.astro's
-     (unused) `.feature-card`, reused here under the same class name so the
-     `html.light .feature-card` remap in global.css applies automatically. */
+  /* Flat opaque engine cards — same --color-brand-card material as every
+     other card on the site, no glass. */
   .feature-card {
     position: relative;
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.5) 0%, rgba(23, 29, 44, 0.3) 100%);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: var(--color-brand-card);
     will-change: transform;
     /* Vorher sprang der Hover-Zustand ohne Übergang an (Lokaldefekt) —
        jetzt fließt der Lift auf der gemeinsamen Flow-Kurve. */
@@ -118,7 +115,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       background 0.35s var(--ease-flow);
   }
   .feature-card:hover {
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.7) 0%, rgba(56, 217, 240, 0.03) 100%);
+    background: color-mix(in srgb, var(--color-brand-card) 90%, var(--color-brand-cyan));
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-3px);
   }
@@ -128,21 +125,13 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     inset-inline: 1.25rem;
     top: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(56, 217, 240, 0.55), transparent);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-brand-cyan) 55%, transparent), transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
   }
   .feature-card:hover::after {
     opacity: 1;
-  }
-  :global(.light) .feature-card:hover {
-    box-shadow: var(--shadow-card-hover);
-  }
-  /* Der bright-cyan Hover-Sheen (56,217,240) verschwindet auf Weiß —
-     Light bekommt dieselbe Lichtkante im tiefen Light-Akzent. */
-  :global(.light) .feature-card::after {
-    background: linear-gradient(90deg, transparent, rgba(10, 110, 148, 0.5), transparent);
   }
   @media (prefers-reduced-motion: reduce) {
     .feature-card {
@@ -178,8 +167,5 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     font-weight: 600;
     color: var(--color-ink);
     text-align: right;
-  }
-  :global(html.light) .engine-stats {
-    border-top-color: rgba(15, 23, 42, 0.08);
   }
 </style>

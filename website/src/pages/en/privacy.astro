@@ -26,7 +26,7 @@ const breadcrumbItems = [
       <div class="max-w-3xl mx-auto">
         <h1 class="text-3xl font-bold text-white mb-8">Privacy Policy</h1>
 
-        <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
+        <div class="prose prose-invert max-w-none space-y-6 text-ink-muted leading-relaxed">
           <p>
             <strong class="text-white">Effective date:</strong> July 2026<br>
             WhisPaste is a desktop application for Windows, macOS, and Linux that transcribes speech to text. This policy explains what data the application processes, where it is stored, and what, if anything, is transmitted.
@@ -267,7 +267,6 @@ const breadcrumbItems = [
 
   <script>
     import { applyLang } from '../../scripts/i18n';
-    import { updateThemeIcon } from '../../scripts/theme';
 
     // Language switch on this EN-only page routes to the DE-counterpart.
     (window as any).toggleLang = function () {
@@ -275,7 +274,6 @@ const breadcrumbItems = [
     };
 
     applyLang();
-    updateThemeIcon();
   </script>
 
   <BreadcrumbListSchema items={breadcrumbItems} />

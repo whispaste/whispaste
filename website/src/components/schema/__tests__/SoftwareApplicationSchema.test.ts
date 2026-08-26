@@ -46,11 +46,12 @@ describe("buildSoftwareApplicationSchema", () => {
     for (const url of schema.screenshot as readonly string[]) {
       expect(url).toMatch(/\/screenshots\/de\//);
     }
-    // Description must be sourced from i18n — the substring "Stimme" is a
-    // canonical brand-glossar artefact that proves we didn't hardcode an
-    // English fallback (Issue 02 anti-vocabulary gate).
+    // The localized description must use the canonical product term and
+    // describe the two concrete landing-page promises.
     expect(typeof schema.description).toBe("string");
-    expect(schema.description as string).toMatch(/Stimme|privat/);
+    expect(schema.description as string).toContain("Desktop-Sprach-Eingabe-Tool");
+    expect(schema.description as string).toMatch(/lokal/i);
+    expect(schema.description as string).toMatch(/Cursor/i);
   });
 
   it("EN variant: switches inLanguage and url to en-US / /en/", () => {
@@ -59,7 +60,9 @@ describe("buildSoftwareApplicationSchema", () => {
     expect(schema.inLanguage).toBe("en-US");
     expect(schema.url).toBe("https://whispaste.de/en/");
     expect(typeof schema.description).toBe("string");
-    expect(schema.description as string).toMatch(/voice|private/i);
+    expect(schema.description as string).toMatch(/desktop voice-input tool/i);
+    expect(schema.description as string).toMatch(/locally/i);
+    expect(schema.description as string).toMatch(/cursor/i);
     for (const url of schema.screenshot as readonly string[]) {
       expect(url).toMatch(/\/screenshots\/en\//);
     }

@@ -114,7 +114,7 @@ const screens: Array<{
 
   .gallery-toggles {
     display: inline-flex;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     border: 1px solid rgba(255, 255, 255, 0.1);
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
@@ -139,24 +139,6 @@ const screens: Array<{
   .gallery-toggle--active {
     background: var(--color-brand-cyan);
     color: #0f1219;
-  }
-
-  html.light .gallery-toggles {
-    border-color: #e2e8f0;
-    background: rgba(0, 0, 0, 0.03);
-  }
-
-  html.light .gallery-toggle {
-    color: #64748b;
-  }
-
-  html.light .gallery-toggle:hover {
-    color: #1e293b;
-  }
-
-  html.light .gallery-toggle--active {
-    background: var(--color-brand-cyan);
-    color: #fff;
   }
 
   /* Responsive grid: 1 → 2 → 3 columns */
@@ -212,15 +194,6 @@ const screens: Array<{
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
   }
 
-  html.light .gallery-image {
-    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.1);
-  }
-
-  html.light .gallery-thumb-btn:hover .gallery-image,
-  html.light .gallery-thumb-btn:focus-visible .gallery-image {
-    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16);
-  }
-
   /* Zoom hint icon */
   .gallery-zoom-hint {
     position: absolute;
@@ -246,11 +219,6 @@ const screens: Array<{
     transform: scale(1);
   }
 
-  html.light .gallery-zoom-hint {
-    background: rgba(255, 255, 255, 0.85);
-    color: #334155;
-  }
-
   /* Caption */
   .gallery-caption {
     text-align: center;
@@ -258,10 +226,6 @@ const screens: Array<{
     font-size: 0.8125rem;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.5);
-  }
-
-  html.light .gallery-caption {
-    color: #64748b;
   }
 </style>
 

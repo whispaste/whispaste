@@ -11,28 +11,32 @@
  * because the spike proved 98.45 % cross-engine pixel parity with it, whereas
  * CSS `backdrop-filter`/`box-shadow`/gradients diverge per engine (ADR 0002).
  *
- * This mirror covers the app's full **Liquid-Glass** design (Dock-glass
- * passes, 2026-07-29/30):
+ * The app ships two overlay chromes (`OverlayStyleVariant`, Settings:
+ * "Overlay-Stil") and this file mirrors both, but the website only ever
+ * paints **solid** (2026-08-26, maintainer: no glass/frost material anywhere
+ * on the site) — see {@link RENDER_GLASS_SHEEN}:
  *
- *   - near-clear capsule fill (`fillOpacityFactor 0.14`) — the glass identity
- *     lives in the EDGES, not the fill;
- *   - two-layer painted shadow (soft ambient + tight contact), knocked out
- *     underneath the capsule so the clear glass body is not greyed;
- *   - Fresnel edge treatment: bright 1 px top rim, soft inner rim band, and a
- *     crisp specular streak with a dark under-halo (local-contrast floor);
- *   - the 8 s "glass drift" loop: the streak drifts ±12 px and breathes in
- *     length/brightness, the rim breathes — phase 0 renders the exact static
- *     baseline frame (reduced-motion / parity golden);
- *   - liquid silhouette wobble: the capsule outline is deformed by two slow
- *     "wind" waves plus a faster audio-reactive ripple, Catmull-Rom smoothed
- *     over 28 perimeter samples;
- *   - universal-legibility glyphs: timer/status text, close ✕ and stop square
- *     render WHITE over a soft dark drop shadow (the overlay floats over
- *     arbitrary desktops without OS blur — no single ink colour works);
- *   - mirrored-bar waveform: fully opaque filled capsules with the
- *     "energy axis" in-bar gradient (bright core, shaded tips);
- *   - all four recording-arc states (recording / transcribing / done / error)
- *     with the state-dependent pill-width targets.
+ *   - `solid` (what the site renders): fully opaque pill filled with the
+ *     app's own {@link OVERLAY_SOLID_FILL} (verbatim `WpColorsDark
+ *     .frameGradient`, the same navy→violet arc the app's title bar/nav
+ *     rail/status bar paint) — no sheen, no rim light, no specular drift;
+ *   - `glass` (mirrored, not rendered): near-clear capsule fill
+ *     (`fillOpacityFactor 0.14`) plus a Fresnel edge treatment — bright 1 px
+ *     top rim, soft inner rim band, a crisp specular streak with a dark
+ *     under-halo — and an 8 s "glass drift" loop (the streak drifts ±12 px
+ *     and breathes in length/brightness, the rim breathes);
+ *   - shared by both styles: the two-layer painted shadow (soft ambient +
+ *     tight contact), knocked out underneath the capsule; the liquid
+ *     silhouette wobble (two slow "wind" waves plus a faster audio-reactive
+ *     ripple, Catmull-Rom smoothed over 28 perimeter samples) — phase 0
+ *     renders the exact static baseline frame (reduced-motion / parity
+ *     golden); universal-legibility glyphs (timer/status text, close ✕ and
+ *     stop square render WHITE over a soft dark drop shadow — the overlay
+ *     floats over arbitrary desktops without OS blur, so no single ink
+ *     colour works on its own); the mirrored-bar waveform (fully opaque
+ *     filled capsules with the "energy axis" in-bar gradient — bright core,
+ *     shaded tips); all four recording-arc states (recording / transcribing
+ *     / done / error) with their state-dependent pill-width targets.
  *
  * Every constant below is copied verbatim from `OverlayDesignSpec` (normal-size
  * pill; the SSOT declares one single capsule design for both themes). There are
@@ -153,6 +157,31 @@ export const OVERLAY_CHROME = {
   stopRadius: 2,
   stopOpacity: 0.9,
 } as const;
+
+/**
+ * Fill for `OverlayStyleVariant.solid` — verbatim `WpColorsDark.frameGradient`
+ * (`lib/core/theme/colors.dart`), the same navy→violet arc the app's title
+ * bar/nav rail/status bar paint. Painted fully opaque (no `fillOpacity`),
+ * unlike `OVERLAY_TOKENS`' near-clear glass tint: "no sheen, no rim light, no
+ * specular drift... the fill is the app's own frame gradient instead of a
+ * near-clear tint" (`OverlayStyleVariant.solid` doc comment). Theme-invariant,
+ * same precedent as `OVERLAY_TOKENS` (`dark = light`) — the SSOT declares one
+ * gradient, not a per-theme pair.
+ */
+export const OVERLAY_SOLID_FILL = {
+  colors: ['#051A3E', '#071144', '#0E0941', '#140A2F'],
+  stops: [0, 0.42, 0.74, 1.0],
+} as const;
+
+/**
+ * The maintainer has ruled the Dock-glass sheen/rim/specular stack out
+ * sitewide (2026-08-26) — the website shows the app's real `solid` overlay
+ * style, not `glass`. {@link drawGlassSheen} still mirrors the SSOT's glass
+ * constants verbatim (kept in step with `OverlayDesignSpec`, covered by the
+ * AC1 unit tests); this switch is the one place that decides whether
+ * {@link drawOverlayPill} actually paints it.
+ */
+const RENDER_GLASS_SHEEN = false;
 
 /**
  * Faux-glass highlight layers (Fresnel edge treatment + specular streak), from
@@ -731,16 +760,18 @@ export function drawOverlayPill(
 
   if (paintFill) {
     drawShadow(ctx, shape, x, y, effW, H);
-    drawFill(ctx, frame, shape, x, y, effW, H);
-    drawGlassSheen(
-      ctx,
-      shape,
-      { rx, ry, rw, rh, rr, baseAmp, audioAmp, glassPhase },
-      x,
-      y,
-      effW,
-      H,
-    );
+    drawFill(ctx, shape, x, y, effW, H);
+    if (RENDER_GLASS_SHEEN) {
+      drawGlassSheen(
+        ctx,
+        shape,
+        { rx, ry, rw, rh, rr, baseAmp, audioAmp, glassPhase },
+        x,
+        y,
+        effW,
+        H,
+      );
+    }
     // Accent hairline border — deliberately state-NEUTRAL (the chrome carries
     // no state colour anywhere; state identity lives in the content glyphs).
     ctx.strokeStyle = rgba(OVERLAY_TOKENS[frame.theme].accent, OVERLAY_CHROME.borderOpacity);
@@ -798,20 +829,22 @@ function drawShadow(
   ctx.restore();
 }
 
-/** Near-clear tint fill — the only fill layer; the identity lives in the edges. */
+/**
+ * Opaque `solid` fill — the only fill layer. Unlike the `glass` variant (near-
+ * clear tint, identity in the edges), `solid` carries its identity in the
+ * fill itself: the app's own frame gradient, painted at full opacity.
+ */
 function drawFill(
   ctx: CanvasRenderingContext2D,
-  frame: OverlayFrame,
   shape: Path2D,
   x: number,
   y: number,
   w: number,
   h: number,
 ): void {
-  const tok = OVERLAY_TOKENS[frame.theme];
+  const fill = OVERLAY_SOLID_FILL;
   const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-  grad.addColorStop(0, rgba(tok.fillStart, OVERLAY_CHROME.fillOpacity));
-  grad.addColorStop(1, rgba(tok.fillEnd, OVERLAY_CHROME.fillOpacity));
+  fill.colors.forEach((color, i) => grad.addColorStop(fill.stops[i], color));
   ctx.fillStyle = grad;
   ctx.fill(shape);
 }
