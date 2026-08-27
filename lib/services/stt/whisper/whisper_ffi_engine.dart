@@ -549,6 +549,23 @@ class WhisperFfiEngine implements WhisperEngine {
     final samples = pcm16WavBytesToFloat32(wavBytes);
     if (samples.isEmpty) return '';
 
+    // ── VAD-trim diagnostic (2026-08-27) ────────────────────────────────
+    // Debug-level only (see `_logSegments`' doc comment on the release-mode
+    // gate) so this adds no per-call overhead in production. Logged before
+    // `useVad` is even known so a diagnosis session can always compute this
+    // input's total duration against the last segment's `endMs` (only
+    // populated when `includeTimestamps: true`, i.e. the debug harness) to
+    // catch VAD silently discarding real speech as noise -- the working
+    // hypothesis for "skips a portion of what I said" reports that correlate
+    // with a loud/busy machine (fan noise raising the ambient noise floor
+    // the fixed `vad_params.threshold` of 0.5, see below, has no visibility
+    // into). A duration far exceeding the last segment's `endMs` is the
+    // signature to look for.
+    _log.debug(
+      'audio duration: ${(samples.length * 1000 / WHISPER_SAMPLE_RATE).round()}ms '
+      '(${samples.length} samples @ ${WHISPER_SAMPLE_RATE}Hz)',
+    );
+
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
     final languageC = (language ?? 'auto').toNativeUtf8();
