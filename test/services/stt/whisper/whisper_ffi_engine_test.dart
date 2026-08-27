@@ -9,9 +9,12 @@ library;
 
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:whispaste/services/stt/whisper/whisper_bindings.dart'
+    show WHISPER_SAMPLE_RATE;
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
 
@@ -302,5 +305,109 @@ void main() {
 
     expect(engine.status.isLoaded, isFalse);
     expect(engine.status.errorMessage, 'whisper_model_not_found');
+  });
+
+  // ── Transcription-quality-under-load hardening (2026-08-27) ────────────
+  // Host-independent unit coverage for the pure helpers backing the four
+  // measures from `.scratch/transcription-quality-under-load/PRD.md` — no
+  // dylib/model required, so these run everywhere (including CI).
+  group('computeThreadCount (audio-capture protection)', () {
+    test('leaves the existing headroom when not reduced', () {
+      expect(WhisperFfiEngine.computeThreadCount(8), 7);
+      expect(WhisperFfiEngine.computeThreadCount(1), 2); // clamped to min 2
+      expect(WhisperFfiEngine.computeThreadCount(16), 8); // clamped to max 8
+    });
+
+    test('reserves more cores when a live recording is competing', () {
+      expect(
+        WhisperFfiEngine.computeThreadCount(8, reducedThreads: true),
+        4, // clamped to max 4
+      );
+      expect(
+        WhisperFfiEngine.computeThreadCount(2, reducedThreads: true),
+        2, // clamped to min 2, never zero/negative
+      );
+      expect(WhisperFfiEngine.computeThreadCount(6, reducedThreads: true), 2);
+    });
+  });
+
+  group('findPauseSplitPoints (pause-based chunk segmentation)', () {
+    Float32List silentSeconds(double seconds) =>
+        Float32List((seconds * WHISPER_SAMPLE_RATE).round());
+
+    Float32List loudSeconds(double seconds) {
+      final samples = Float32List((seconds * WHISPER_SAMPLE_RATE).round());
+      for (var i = 0; i < samples.length; i++) {
+        samples[i] = 0.5;
+      }
+      return samples;
+    }
+
+    Float32List concat(List<Float32List> parts) {
+      final total = parts.fold(0, (sum, p) => sum + p.length);
+      final out = Float32List(total);
+      var offset = 0;
+      for (final part in parts) {
+        out.setAll(offset, part);
+        offset += part.length;
+      }
+      return out;
+    }
+
+    test('returns no splits for short/entirely loud audio', () {
+      final samples = loudSeconds(5);
+      expect(WhisperFfiEngine.findPauseSplitPoints(samples), isEmpty);
+    });
+
+    test('splits at a real pause between two long segments', () {
+      // Total duration (41.5s) exceeds the max single-chunk duration (25s),
+      // so a split is actually required — unlike a shorter clip with a
+      // pause that still comfortably fits in one chunk.
+      final speechA = loudSeconds(20);
+      final pause = silentSeconds(1.5);
+      final speechB = loudSeconds(20);
+      final samples = concat([speechA, pause, speechB]);
+
+      final splits = WhisperFfiEngine.findPauseSplitPoints(samples);
+
+      expect(splits, hasLength(1));
+      // The split lands inside the pause (between speechA's end and
+      // speechB's start), not mid-speech.
+      expect(splits.single, greaterThanOrEqualTo(speechA.length));
+      expect(splits.single, lessThanOrEqualTo(speechA.length + pause.length));
+    });
+
+    test('forces a hard cut when no pause exists within the max chunk '
+        'duration', () {
+      // One unbroken 40s loud clip: no silence anywhere, but the invariant
+      // (no chunk may exceed the max chunk duration) must still hold.
+      final samples = loudSeconds(40);
+      final maxChunkSamples =
+          (WhisperFfiEngine.maxChunkDurationMsForTesting *
+                  WHISPER_SAMPLE_RATE /
+                  1000)
+              .round();
+
+      final splits = WhisperFfiEngine.findPauseSplitPoints(samples);
+
+      expect(splits, isNotEmpty);
+      expect(splits.first, lessThanOrEqualTo(maxChunkSamples));
+    });
+  });
+
+  group('continuityContextFrom (long-dictation prompt continuity)', () {
+    test('keeps short text unchanged', () {
+      expect(
+        WhisperFfiEngine.continuityContextFrom('Hallo Welt.'),
+        'Hallo Welt.',
+      );
+    });
+
+    test('trims long text to the trailing window only', () {
+      final long = 'a' * 500;
+      final result = WhisperFfiEngine.continuityContextFrom(long);
+      expect(result.length, lessThanOrEqualTo(200));
+      expect(long.endsWith(result), isTrue);
+    });
   });
 }

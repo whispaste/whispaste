@@ -124,11 +124,19 @@ abstract class WhisperEngine {
   /// trailing-silence hallucination class (e.g. fabricated "Vielen Dank."
   /// closings). No-op if [load] did not resolve a VAD model. Throws a
   /// [StateError] if called before [load].
+  ///
+  /// [reducedThreads] shrinks this call's own CPU footprint (see
+  /// `WhisperFfiEngine._decodeOnce`'s "Audio-capture protection" comment) —
+  /// set by `SttServerStateNotifier` when a new recording is actively
+  /// capturing while this call decodes a previous one, so this inference
+  /// never competes at full core count against a live recording for the
+  /// same CPU.
   Future<String> transcribe(
     List<int> wavBytes, {
     String? language,
     String? prompt,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   });
 
   /// Frees the native context and model. Safe to call when not loaded.

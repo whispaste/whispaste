@@ -60,12 +60,14 @@ class _TranscribeRequest {
     this.language,
     this.prompt,
     this.vadEnabled = false,
+    this.reducedThreads = false,
   });
   final int requestId;
   final Uint8List wavBytes;
   final String? language;
   final String? prompt;
   final bool vadEnabled;
+  final bool reducedThreads;
 }
 
 class _TranscribeResult {
@@ -143,6 +145,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             language: req.language,
             prompt: req.prompt,
             vadEnabled: req.vadEnabled,
+            reducedThreads: req.reducedThreads,
           );
           mainSendPort.send(
             _TranscribeResult(requestId: req.requestId, text: text),
@@ -286,6 +289,7 @@ class WhisperIsolateEngine implements WhisperEngine {
     String? language,
     String? prompt,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   }) async {
     if (!_isLoaded || _workerPort == null) {
       throw StateError('whisper_engine_not_loaded');
@@ -303,6 +307,7 @@ class WhisperIsolateEngine implements WhisperEngine {
         language: language,
         prompt: prompt,
         vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
       ),
     );
 

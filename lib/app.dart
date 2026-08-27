@@ -1077,9 +1077,22 @@ class _AppShellState extends ConsumerState<_AppShell>
     // Parakeet has no GPU backend at all (CPU-only, see its `aboutParakeetDesc`
     // copy) — the indicator only earns its keep for the local Whisper engine,
     // where "GPU or CPU?" is an actual question with two possible answers.
-    final sttBackendKind =
-        parakeetStatus == null && settings.interface_.showBackendUtilization
-        ? _sttBackendKind(sttStatus.backend)
+    //
+    // A live GPU→CPU fallback (`cpuFallbackActive`) always earns this chip
+    // regardless of `showBackendUtilization` — that setting is about
+    // interface chrome for interested users, but a degraded-mode signal
+    // ("your transcription may sound different right now") is exactly the
+    // kind of thing users hit by the transcription-quality-under-load
+    // feedback should be able to see without first discovering and
+    // enabling a settings toggle. The one-time toast
+    // (`recording_behavior.dart`) still fires the moment the fallback
+    // starts; this chip covers everything after that moment for the rest
+    // of the process's lifetime.
+    final sttBackendKind = parakeetStatus == null
+        ? (settings.interface_.showBackendUtilization ||
+                  sttStatus.cpuFallbackActive
+              ? _sttBackendKind(sttStatus.backend)
+              : null)
         : null;
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);

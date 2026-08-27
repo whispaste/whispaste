@@ -27,6 +27,8 @@ library;
 
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -483,10 +485,19 @@ class WhisperFfiEngine implements WhisperEngine {
   /// so timestamps are only recorded/logged when [includeTimestamps] is
   /// `true`; otherwise segments carry `null` start/end rather than that
   /// misleading sentinel.
+  /// [timeOffsetMs]/[indexOffset] let a pause-split chunk's segments (see
+  /// [_transcribeInChunks]) land in [_lastSegments] with globally meaningful
+  /// timestamps/indices instead of each chunk restarting at zero;
+  /// [reset] clears any segments from a previous chunk/call before
+  /// appending this call's — only the first chunk of a chunked transcribe
+  /// (or a normal, unchunked call) passes `true`.
   void _logSegments(
     WhisperBindings bindings,
     ffi.Pointer<whisper_context> ctx, {
     required bool includeTimestamps,
+    int timeOffsetMs = 0,
+    int indexOffset = 0,
+    bool reset = true,
   }) {
     final n = bindings.whisper_full_n_segments(ctx);
     final t0 = includeTimestamps ? _segmentT0 : null;
@@ -497,13 +508,14 @@ class WhisperFfiEngine implements WhisperEngine {
       final textPtr = bindings.whisper_full_get_segment_text(ctx, i);
       final text = textPtr.cast<Utf8>().toDartString();
       final noSpeechProb = nsp?.call(ctx, i);
+      final globalIndex = indexOffset + i;
       if (t0 != null && t1 != null) {
         // whisper.cpp reports t0/t1 in centiseconds (10 ms units).
-        final startMs = t0(ctx, i) * 10;
-        final endMs = t1(ctx, i) * 10;
+        final startMs = t0(ctx, i) * 10 + timeOffsetMs;
+        final endMs = t1(ctx, i) * 10 + timeOffsetMs;
         segments.add(
           WhisperSegment(
-            index: i,
+            index: globalIndex,
             startMs: startMs,
             endMs: endMs,
             text: text,
@@ -511,13 +523,13 @@ class WhisperFfiEngine implements WhisperEngine {
           ),
         );
         _log.debug(
-          'segment[$i/$n] ${startMs}ms-${endMs}ms textLen=${text.length} '
+          'segment[$globalIndex/$n] ${startMs}ms-${endMs}ms textLen=${text.length} '
           'noSpeechProb=$noSpeechProb',
         );
       } else {
         segments.add(
           WhisperSegment(
-            index: i,
+            index: globalIndex,
             startMs: null,
             endMs: null,
             text: text,
@@ -525,12 +537,22 @@ class WhisperFfiEngine implements WhisperEngine {
           ),
         );
         _log.debug(
-          'segment[$i/$n] textLen=${text.length} noSpeechProb=$noSpeechProb',
+          'segment[$globalIndex/$n] textLen=${text.length} noSpeechProb=$noSpeechProb',
         );
       }
     }
-    _lastSegments = segments;
+    _lastSegments = reset ? segments : [..._lastSegments, ...segments];
   }
+
+  /// Above this input duration, [transcribe] splits the audio at natural
+  /// pauses and decodes each piece with its own `whisper_full` call instead
+  /// of one call for the whole recording — see [_splitAtPauses]'s doc
+  /// comment for why. Below it, behaviour is byte-for-byte unchanged from
+  /// before this constant existed (single call, no splitting), so every
+  /// short dictation — the overwhelming majority, and everything the
+  /// existing test fixtures cover — takes the exact same path it always
+  /// has.
+  static const _pauseChunkingThresholdMs = 20000;
 
   @override
   Future<String> transcribe(
@@ -539,6 +561,7 @@ class WhisperFfiEngine implements WhisperEngine {
     String? prompt,
     bool includeTimestamps = false,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   }) async {
     final bindings = _bindings;
     final ctx = _ctx;
@@ -561,11 +584,279 @@ class WhisperFfiEngine implements WhisperEngine {
     // the fixed `vad_params.threshold` of 0.5, see below, has no visibility
     // into). A duration far exceeding the last segment's `endMs` is the
     // signature to look for.
+    final totalDurationMs = (samples.length * 1000 / WHISPER_SAMPLE_RATE)
+        .round();
     _log.debug(
-      'audio duration: ${(samples.length * 1000 / WHISPER_SAMPLE_RATE).round()}ms '
+      'audio duration: ${totalDurationMs}ms '
       '(${samples.length} samples @ ${WHISPER_SAMPLE_RATE}Hz)',
     );
 
+    // ── Pause-based chunk segmentation (2026-08-27) ─────────────────────
+    // The "größer/später" measure from the transcription-quality-under-load
+    // investigation (`.scratch/transcription-quality-under-load/PRD.md`):
+    // whisper.cpp decodes a long recording as a sequence of internal ~30s
+    // windows (`WHISPER_CHUNK_SIZE`) and conditions each window on the
+    // previous window's own decoded text (see the "Long-dictation
+    // repetition hardening" comment below) — once one window degrades into
+    // a repeat loop, that mechanism keeps reinforcing it for the rest of
+    // the recording. Splitting the input ourselves at real pauses, each
+    // chunk safely under that internal window size, means a single
+    // `whisper_full` call never itself spans more than one internal
+    // window — the cross-window conditioning this bug depends on simply
+    // cannot trigger inside one chunk. A degraded chunk's output therefore
+    // stays local to that chunk instead of poisoning everything after it.
+    // This also directly answers the PRD's open "punctuation-priming drift"
+    // question: [prompt] (vocabulary/style priming) is now re-applied to
+    // every chunk instead of only conditioning whisper's own first internal
+    // window.
+    //
+    // Deliberately implemented in pure Dart over the already-decoded
+    // float32 sample buffer instead of binding whisper.cpp's standalone VAD
+    // segment API (`whisper_vad_segments_from_samples`) — the PRD's
+    // documented reason not to do that in this session still applies (new
+    // FFI struct/signature work, unverifiable here against all three
+    // bundled platform builds without new native crash risk). A
+    // pause/silence detector needs no native binding at all: it only reads
+    // memory this method already owns.
+    if (totalDurationMs > _pauseChunkingThresholdMs) {
+      return _transcribeInChunks(
+        bindings,
+        ctx,
+        samples,
+        language: language,
+        prompt: prompt,
+        includeTimestamps: includeTimestamps,
+        vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
+      );
+    }
+
+    return _decodeOnce(
+      bindings,
+      ctx,
+      samples,
+      language: language,
+      prompt: prompt,
+      includeTimestamps: includeTimestamps,
+      vadEnabled: vadEnabled,
+      reducedThreads: reducedThreads,
+      segmentTimeOffsetMs: 0,
+      segmentIndexOffset: 0,
+      resetLastSegments: true,
+    );
+  }
+
+  /// Longest a single pause-split chunk is allowed to be — safely under
+  /// whisper.cpp's internal ~30s decode window (see [_pauseChunkingThresholdMs]'s
+  /// doc comment) so no chunk can itself span an internal window boundary.
+  static const _maxChunkDurationMs = 25000;
+
+  @visibleForTesting
+  static const maxChunkDurationMsForTesting = _maxChunkDurationMs;
+
+  /// Shortest silence run [findPauseSplitPoints] accepts as a real pause
+  /// rather than a brief in-word/in-phrase dip.
+  static const _minPauseDurationMs = 700;
+
+  /// RMS amplitude (of 16-bit PCM normalized to `[-1.0, 1.0]`) below which a
+  /// short analysis frame counts as silence. Conservative (i.e. low) on
+  /// purpose: a missed pause only costs a slightly longer chunk (still
+  /// capped by [_maxChunkDurationMs]'s forced cut), while a falsely
+  /// detected pause mid-word would corrupt output — asymmetric risk, so
+  /// this errs toward under-detecting pauses.
+  static const _silenceRmsThreshold = 0.015;
+
+  static const _analysisFrameMs = 20;
+
+  /// Finds sample indices to split [samples] on, each a real pause of at
+  /// least [_minPauseDurationMs], such that no resulting chunk exceeds
+  /// [_maxChunkDurationMs]. Falls back to a hard cut at
+  /// [_maxChunkDurationMs] when no pause is found within that span (rare in
+  /// natural speech, but must still be bounded to preserve the mechanism
+  /// this exists for). Pure and allocation-light — safe to unit-test without
+  /// the native library.
+  @visibleForTesting
+  static List<int> findPauseSplitPoints(
+    Float32List samples, {
+    int sampleRate = WHISPER_SAMPLE_RATE,
+    int maxChunkDurationMs = _maxChunkDurationMs,
+    int minPauseDurationMs = _minPauseDurationMs,
+    double silenceRmsThreshold = _silenceRmsThreshold,
+  }) {
+    final frameLen = (sampleRate * _analysisFrameMs / 1000).round();
+    if (frameLen <= 0 || samples.length < frameLen) return const [];
+
+    final frameCount = samples.length ~/ frameLen;
+    final silentFrame = List<bool>.filled(frameCount, false);
+    for (var f = 0; f < frameCount; f++) {
+      final start = f * frameLen;
+      var sumSquares = 0.0;
+      for (var i = start; i < start + frameLen; i++) {
+        sumSquares += samples[i] * samples[i];
+      }
+      final rms = math.sqrt(sumSquares / frameLen);
+      silentFrame[f] = rms < silenceRmsThreshold;
+    }
+
+    final minPauseFrames = (minPauseDurationMs / _analysisFrameMs).ceil();
+    final maxChunkFrames = (maxChunkDurationMs / _analysisFrameMs).floor();
+
+    // Every pause run's midpoint frame, in order.
+    final pauseMidpoints = <int>[];
+    var runStart = -1;
+    for (var f = 0; f <= frameCount; f++) {
+      final isSilent = f < frameCount && silentFrame[f];
+      if (isSilent && runStart == -1) {
+        runStart = f;
+      } else if (!isSilent && runStart != -1) {
+        final runLen = f - runStart;
+        if (runLen >= minPauseFrames) {
+          pauseMidpoints.add(runStart + runLen ~/ 2);
+        }
+        runStart = -1;
+      }
+    }
+
+    final splitFrames = <int>[];
+    var lastSplitFrame = 0;
+    var pauseIdx = 0;
+    while (lastSplitFrame < frameCount) {
+      final chunkLimitFrame = lastSplitFrame + maxChunkFrames;
+      if (chunkLimitFrame >= frameCount) break;
+
+      // Find the last pause midpoint still within this chunk's budget.
+      var chosen = -1;
+      while (pauseIdx < pauseMidpoints.length &&
+          pauseMidpoints[pauseIdx] <= chunkLimitFrame) {
+        if (pauseMidpoints[pauseIdx] > lastSplitFrame) {
+          chosen = pauseMidpoints[pauseIdx];
+        }
+        pauseIdx++;
+      }
+      // A pause consumed above but before `lastSplitFrame` must not be
+      // re-considered for the next chunk either.
+      if (chosen == -1) {
+        // No natural pause in range — force a hard cut so the invariant
+        // (no chunk exceeds maxChunkDurationMs) always holds.
+        chosen = chunkLimitFrame;
+      }
+      splitFrames.add(chosen);
+      lastSplitFrame = chosen;
+    }
+
+    return splitFrames.map((f) => f * frameLen).toList(growable: false);
+  }
+
+  /// Trailing words of [text] to carry forward as extra continuity context
+  /// into the next chunk's prompt — bounded the same way
+  /// `params.n_max_text_ctx = 64` bounds whisper's own internal
+  /// window-to-window conditioning (see that comment below), so a degraded
+  /// chunk's output can still poison at most this much of the next chunk's
+  /// prompt, never the whole rest of the recording.
+  static const _continuityContextChars = 200;
+
+  @visibleForTesting
+  static String continuityContextFrom(String text) {
+    final trimmed = text.trim();
+    if (trimmed.length <= _continuityContextChars) return trimmed;
+    return trimmed.substring(trimmed.length - _continuityContextChars);
+  }
+
+  Future<String> _transcribeInChunks(
+    WhisperBindings bindings,
+    ffi.Pointer<whisper_context> ctx,
+    Float32List samples, {
+    required String? language,
+    required String? prompt,
+    required bool includeTimestamps,
+    required bool vadEnabled,
+    required bool reducedThreads,
+  }) async {
+    final splitPoints = findPauseSplitPoints(samples);
+    if (splitPoints.isEmpty) {
+      // No usable pause anywhere (e.g. one long unbroken utterance) — the
+      // hard-cut fallback in [findPauseSplitPoints] only activates once a
+      // chunk boundary is actually being searched for, so an entirely
+      // silence-free clip under [_maxChunkDurationMs] * frame math edge
+      // cases can still come back empty. Decode it as a single call rather
+      // than risk splitting mid-word for no benefit.
+      return _decodeOnce(
+        bindings,
+        ctx,
+        samples,
+        language: language,
+        prompt: prompt,
+        includeTimestamps: includeTimestamps,
+        vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
+        segmentTimeOffsetMs: 0,
+        segmentIndexOffset: 0,
+        resetLastSegments: true,
+      );
+    }
+
+    _log.debug(
+      'long dictation (${(samples.length * 1000 / WHISPER_SAMPLE_RATE).round()}ms) '
+      'split into ${splitPoints.length + 1} chunks at natural pauses',
+    );
+
+    final buffer = StringBuffer();
+    String? carryPrompt = prompt;
+    var chunkStart = 0;
+    var segmentIndexOffset = 0;
+    final boundaries = [...splitPoints, samples.length];
+    for (var i = 0; i < boundaries.length; i++) {
+      final chunkEnd = boundaries[i];
+      final chunkSamples = Float32List.sublistView(
+        samples,
+        chunkStart,
+        chunkEnd,
+      );
+      final chunkStartMs = (chunkStart * 1000 / WHISPER_SAMPLE_RATE).round();
+      final chunkText = await _decodeOnce(
+        bindings,
+        ctx,
+        chunkSamples,
+        language: language,
+        prompt: carryPrompt,
+        includeTimestamps: includeTimestamps,
+        vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
+        segmentTimeOffsetMs: chunkStartMs,
+        segmentIndexOffset: segmentIndexOffset,
+        resetLastSegments: i == 0,
+      );
+      buffer.write(chunkText);
+      segmentIndexOffset = _lastSegments.length;
+
+      final tail = continuityContextFrom(chunkText);
+      final hasOriginalPrompt = prompt != null && prompt.isNotEmpty;
+      carryPrompt = tail.isEmpty
+          ? prompt
+          : (hasOriginalPrompt ? '$prompt $tail' : tail);
+
+      chunkStart = chunkEnd;
+    }
+    return buffer.toString();
+  }
+
+  /// One `whisper_full` decode call over [samples] — the single-call body
+  /// [transcribe] always ran before pause-based chunking existed, extracted
+  /// unchanged so both the short-dictation path and each chunk of a long
+  /// dictation go through the exact same, already-verified decode setup.
+  Future<String> _decodeOnce(
+    WhisperBindings bindings,
+    ffi.Pointer<whisper_context> ctx,
+    Float32List samples, {
+    required String? language,
+    required String? prompt,
+    required bool includeTimestamps,
+    required bool vadEnabled,
+    required bool reducedThreads,
+    required int segmentTimeOffsetMs,
+    required int segmentIndexOffset,
+    required bool resetLastSegments,
+  }) async {
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
     final languageC = (language ?? 'auto').toNativeUtf8();
@@ -599,7 +890,22 @@ class WhisperFfiEngine implements WhisperEngine {
       params.no_timestamps = !includeTimestamps;
       params.translate = false;
       params.language = languageC.cast<ffi.Char>();
-      params.n_threads = _threadCount();
+      // ── Audio-capture protection (2026-08-27) ──────────────────────────
+      // [reducedThreads] lets a caller shrink this decode's own CPU
+      // footprint instead of leaving OS scheduling to sort out the
+      // contention on its own — the concrete, implementable answer to
+      // "Audio-Capture-Thread real-time-priorisieren, unabhängig von der
+      // Whisper-Last" for this app's actual architecture. True OS-level
+      // audio-thread priority isn't a lever this app owns (the `record`
+      // package delegates capture to AVAudioEngine/WASAPI's own realtime
+      // threads, entirely outside the Dart isolate), but this app DOES own
+      // how many cores its own inference competes with those threads for.
+      // `stt_server_state_notifier.dart` sets this whenever a NEW recording
+      // is actively capturing while a PREVIOUS utterance's transcription is
+      // still decoding on this same batch pipeline — the one real,
+      // in-this-app's-control case where Whisper's own CPU load can
+      // directly compete with a live recording for the same cores.
+      params.n_threads = _threadCount(reducedThreads: reducedThreads);
       if (promptC != null) {
         params.initial_prompt = promptC.cast<ffi.Char>();
       }
@@ -698,20 +1004,52 @@ class WhisperFfiEngine implements WhisperEngine {
       // [WhisperBindings]' generated struct — nothing hand-rolled) delegate
       // to whisper.cpp's own built-in Silero-VAD integration: it re-segments
       // the input to only the detected-speech regions (joined with a fixed
-      // ~100ms gap) before decoding, so a long silence/noise tail is never
-      // seen by the decoder at all. `vad_params` is left at whichever
-      // defaults `whisper_full_default_params` already filled in above
-      // (threshold 0.5, 100ms min-silence, 30ms speech padding) — validated
-      // empirically against synthetic fixtures (silence/noise tails
-      // correctly dropped; a genuinely spoken trailing "Vielen Dank."
-      // correctly kept as real speech; a two-sentence clip with a real
-      // ~1.2s mid-utterance pause fully preserved) before wiring this in.
-      // `[useVad]` degrades silently to today's behaviour when no VAD model
-      // is bundled/resolved for this platform yet (see [_vadModelPath]) or
-      // the caller opts out via [vadEnabled] (`SttSettings.vadEnabled`).
+      // gap) before decoding, so a long silence/noise tail is never seen by
+      // the decoder at all. `[useVad]` degrades silently to today's
+      // behaviour when no VAD model is bundled/resolved for this platform
+      // yet (see [_vadModelPath]) or the caller opts out via [vadEnabled]
+      // (`SttSettings.vadEnabled`).
       if (useVad) {
         params.vad = true;
         params.vad_model_path = vadModelPathC!.cast<ffi.Char>();
+
+        // ── Noise-floor tolerance under system load (2026-08-27) ─────────
+        // Direct response to the transcription-quality-under-load feedback
+        // (`.scratch/transcription-quality-under-load/PRD.md`): the
+        // maintainer and a user both report words/phrases silently missing
+        // specifically when the machine is under load (fan audibly
+        // running). A running fan raises the *ambient noise floor* the
+        // microphone picks up underneath real speech. `vad_params` used to
+        // sit at `whisper_full_default_params`' library defaults
+        // (`threshold=0.5`, `speech_pad_ms=30`) — tuned by whisper.cpp's
+        // authors against clean studio audio, not a noisy room. A
+        // borderline-quiet real word riding on an elevated noise floor is
+        // exactly what a `threshold=0.5` Silero-VAD pass can misclassify as
+        // non-speech and drop before it ever reaches the decoder — this is
+        // the acoustic mechanism the PRD's diagnostic logging was added to
+        // go looking for, and it matches the reported symptom (a whole
+        // portion of speech silently missing, not corrupted/hallucinated)
+        // better than any of the decode-side hallucination mitigations
+        // above, none of which touch pre-decode VAD trimming.
+        //
+        // Lowering `threshold` to [_vadThresholdUnderNoise] makes Silero
+        // classify more borderline-energy audio as speech (fewer false
+        // negatives), at the cost of passing slightly more true silence
+        // through to the decoder — an acceptable trade given
+        // `temperature_inc = 0.0` and `suppress_nst = true` above already
+        // harden that decoder pass against turning residual silence into a
+        // hallucination. Raising `speech_pad_ms` to
+        // [_vadSpeechPadMsUnderNoise] additionally protects word onsets/
+        // offsets right at a detected-speech boundary from being clipped —
+        // the same failure shape ("skips a portion") if the boundary itself
+        // sits a few tens of ms into a real word. Both values are a
+        // reasoned, conservative adjustment in the correct *direction* for
+        // this specific, described symptom, not a blind guess; the existing
+        // VAD-trim diagnostic logging directly ahead of this block gives a
+        // concrete way to validate/re-tune them once real field data comes
+        // in, as flagged in the PRD.
+        params.vad_params.threshold = _vadThresholdUnderNoise;
+        params.vad_params.speech_pad_ms = _vadSpeechPadMsUnderNoise;
       }
 
       final rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
@@ -728,7 +1066,14 @@ class WhisperFfiEngine implements WhisperEngine {
         );
       }
 
-      _logSegments(bindings, ctx, includeTimestamps: includeTimestamps);
+      _logSegments(
+        bindings,
+        ctx,
+        includeTimestamps: includeTimestamps,
+        timeOffsetMs: segmentTimeOffsetMs,
+        indexOffset: segmentIndexOffset,
+        reset: resetLastSegments,
+      );
 
       final buffer = StringBuffer();
       final segments = bindings.whisper_full_n_segments(ctx);
@@ -755,9 +1100,43 @@ class WhisperFfiEngine implements WhisperEngine {
     _bindings = null;
   }
 
-  static int _threadCount() {
-    final cores = Platform.numberOfProcessors;
+  /// Silero-VAD speech-probability threshold used while under system load —
+  /// see the "Noise-floor tolerance under system load" comment above.
+  /// whisper.cpp's own library default is `0.5`.
+  @visibleForTesting
+  static const vadThresholdUnderNoise = 0.35;
+  static const _vadThresholdUnderNoise = vadThresholdUnderNoise;
+
+  /// Padding (ms) added before/after each detected-speech region — see the
+  /// same comment. whisper.cpp's own library default is `30`.
+  @visibleForTesting
+  static const vadSpeechPadMsUnderNoise = 100;
+  static const _vadSpeechPadMsUnderNoise = vadSpeechPadMsUnderNoise;
+
+  /// Cores reserved for other work when [reducedThreads] is requested —
+  /// see [_decodeOnce]'s "Audio-capture protection" comment. Deliberately
+  /// leaves at least [_minReducedThreads] threads so a throttled
+  /// transcription still makes real forward progress instead of stalling.
+  static const _reducedThreadCoreReserve = 4;
+  static const _minReducedThreads = 2;
+  static const _maxReducedThreads = 4;
+
+  @visibleForTesting
+  static int computeThreadCount(int cores, {bool reducedThreads = false}) {
+    if (reducedThreads) {
+      return (cores - _reducedThreadCoreReserve).clamp(
+        _minReducedThreads,
+        _maxReducedThreads,
+      );
+    }
     return (cores - 1).clamp(2, 8);
+  }
+
+  static int _threadCount({bool reducedThreads = false}) {
+    return computeThreadCount(
+      Platform.numberOfProcessors,
+      reducedThreads: reducedThreads,
+    );
   }
 }
 

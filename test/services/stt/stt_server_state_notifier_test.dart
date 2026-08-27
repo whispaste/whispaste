@@ -83,6 +83,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     String? language,
     String? prompt,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   }) async {
     final delay = transcribeDelay;
     if (delay != null) {
