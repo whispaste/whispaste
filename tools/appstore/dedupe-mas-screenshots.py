@@ -109,7 +109,7 @@ def call(token, method, path, body=None):
             return e.code, text
 
 
-def get_editable_version(token):
+def get_editable_version(token, allow_missing=False):
     status, resp = call(
         token, "GET", f"/v1/apps/{APP_ID}/appStoreVersions?filter[platform]=MAC_OS&limit=10"
     )
@@ -118,6 +118,8 @@ def get_editable_version(token):
     for v in resp["data"]:
         if v["attributes"]["appStoreState"] in EDITABLE_STATES:
             return v["id"], v["attributes"]["versionString"], v["attributes"]["appStoreState"]
+    if allow_missing:
+        return None, None, None
     sys.exit(
         "No editable macOS version found (none in "
         f"{sorted(EDITABLE_STATES)}) — refusing to touch screenshots on a "
@@ -192,11 +194,19 @@ def dedupe_set(token, locale, display_type, set_id, dry_run):
     return deleted_any
 
 
-def run(dedupe, expect):
+def run(dedupe, expect, allow_missing_version=False):
     key_id, issuer_id, key_path = load_credentials()
     token = make_token(key_id, issuer_id, key_path)
 
-    version_id, version_string, state = get_editable_version(token)
+    version_id, version_string, state = get_editable_version(token, allow_missing=allow_missing_version)
+    if version_id is None:
+        # No editable version yet (e.g. the previous version is READY_FOR_SALE
+        # and `upload_to_app_store` hasn't created the next draft yet). A
+        # version that doesn't exist yet has no screenshots to dedupe, so this
+        # is a clean no-op — NOT the same thing as "found a version but it's
+        # not editable", which stays a hard error above.
+        print("No editable macOS version yet — nothing to dedupe (clean no-op).", file=sys.stderr)
+        return True
     print(f"Version: {version_string} (id={version_id}, state={state})", file=sys.stderr)
 
     locs = get_localizations(token, version_id)
@@ -230,11 +240,12 @@ def main():
     parser.add_argument("--show", action="store_true", help="List screenshots and planned dedup, without deleting")
     parser.add_argument("--dedupe", action="store_true", help="Actually delete excess duplicate screenshots")
     parser.add_argument("--expect", type=int, default=None, help="Fail (exit 1) if the final per-locale/set count isn't exactly this")
+    parser.add_argument("--allow-missing-version", action="store_true", help="Treat 'no editable version yet' as a clean no-op instead of a hard error")
     args = parser.parse_args()
     if not args.show and not args.dedupe:
         parser.error("pass --show or --dedupe")
 
-    ok = run(dedupe=args.dedupe, expect=args.expect)
+    ok = run(dedupe=args.dedupe, expect=args.expect, allow_missing_version=args.allow_missing_version)
     if not ok:
         sys.exit(1)
 

@@ -108,9 +108,10 @@ end
 # `expect:` asserts the final per-locale count and raises via UI.user_error!
 # if it's ever wrong — this must fail loudly rather than silently ship a
 # broken screenshot set.
-def dedupe_mas_screenshots(expect: nil)
+def dedupe_mas_screenshots(expect: nil, allow_missing_version: false)
   args = ["python3", File.join(PROJECT_ROOT, "tools/appstore/dedupe-mas-screenshots.py"), "--dedupe"]
   args += ["--expect", expect.to_s] if expect
+  args += ["--allow-missing-version"] if allow_missing_version
   Dir.chdir(PROJECT_ROOT) do
     ok = system(*args)
     UI.user_error!("dedupe-mas-screenshots.py failed — screenshot state on App Store Connect may still be wrong, check manually before proceeding") unless ok
@@ -256,8 +257,13 @@ platform :mac do
 
     # Clean baseline before touching screenshots at all — in case a prior
     # run left duplicates behind (see dedupe_mas_screenshots' own comment).
-    # ASC API key already loaded at this lane's start.
-    dedupe_mas_screenshots
+    # ASC API key already loaded at this lane's start. allow_missing_version:
+    # true because the previous version may be fully READY_FOR_SALE with no
+    # draft yet — upload_to_app_store below is what creates that draft (no
+    # skip_app_version_update flag is set), so "no editable version" here is
+    # a legitimate, benign timing state, not the not-editable case this
+    # preflight otherwise exists to catch.
+    dedupe_mas_screenshots(allow_missing_version: true)
 
     upload_to_app_store(
       platform:          "osx",
