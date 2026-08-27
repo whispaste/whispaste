@@ -189,6 +189,15 @@ void SidePanelHost::HandleContentEnter() { CancelNativeClose(); }
 
 void SidePanelHost::HandleContentExit() { ScheduleNativeClose(); }
 
+void SidePanelHost::HandleContentDeactivate() {
+  CancelNativeClose();
+  // Relay to the main engine; SidePanelService.close() replies with
+  // updateSnapshot(visible:false), which is what actually triggers
+  // SlideOut() -- same single-owner path every other close trigger uses.
+  // Mirrors SidePanelHost.swift's windowDidResignKey.
+  SendEvent("hoverLeft");
+}
+
 void SidePanelHost::ScheduleNativeClose() {
   CancelNativeClose();
   SetTimer(owner_, kCloseTimerId, static_cast<UINT>(kCloseGraceMs),
@@ -350,6 +359,7 @@ bool SidePanelHost::EnsureEngineAndShell() {
 
   shell->on_content_enter = [this]() { HandleContentEnter(); };
   shell->on_content_exit = [this]() { HandleContentExit(); };
+  shell->on_deactivate = [this]() { HandleContentDeactivate(); };
 
   // Captures the raw controller pointer, not a shared_ptr: render_controller_
   // outlives content_window_ (destroyed after it in Destroy()), so the

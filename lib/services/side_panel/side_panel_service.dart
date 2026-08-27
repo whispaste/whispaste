@@ -125,13 +125,20 @@ class SidePanelService
   }
 
   /// Hides the panel. The next [open] rebuilds fresh content, so nothing
-  /// needs to be cached across a close.
+  /// needs to be cached across a close -- and nothing needs to be sent
+  /// either: an empty `visible: false` snapshot is all the native host reads
+  /// to decide to slide out (see `SidePanelHost.handleUpdateSnapshot`).
+  /// Rebuilding via [_buildSnapshot] here used to re-serialize every row on
+  /// every close, clipboard-history image thumbnails included, over the
+  /// platform channel -- real, avoidable encoding work sitting directly on
+  /// the close path's critical latency, right before the native side even
+  /// looks at `visible`.
   Future<void> close() async {
     final c = controller;
     if (c == null || !_isOpen) return;
     _log.info('close() called');
     _isOpen = false;
-    await c.updateSnapshot(_buildSnapshot(visible: false));
+    await c.updateSnapshot(const SidePanelSnapshot(visible: false));
   }
 
   Future<void> _pushIfOpen() async {

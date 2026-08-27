@@ -127,6 +127,21 @@ class SidePanelContentWindow {
   std::function<void()> on_content_enter;
   std::function<void()> on_content_exit;
 
+  // Fired when this shell's own WM_ACTIVATE reports WA_INACTIVE while shown
+  // -- some other top-level window (outside this process) just took
+  // activation away, e.g. the user clicked another app's window or
+  // Alt-Tabbed without the pointer ever leaving this shell's client area.
+  // TME_LEAVE-based on_content_exit above only fires on real pointer motion,
+  // so a focus switch that leaves the cursor resting over the panel was
+  // never observed by anything, and the panel stayed open until the pointer
+  // eventually moved -- mirrors SnippetPickerWindow::on_deactivate_cancel /
+  // SidePanelHost.swift's windowDidResignKey, both added for exactly this
+  // gap. No activation-settle suppression needed here (see side_panel_host
+  // .h's file comment): unlike SnippetPickerHost, nothing on this path calls
+  // SetForegroundWindow on another window, so there is no self-inflicted
+  // WA_INACTIVE to filter out.
+  std::function<void()> on_deactivate;
+
   // Forwarded to the render engine's FlutterViewController::
   // HandleTopLevelWindowProc before this window's own handling -- same
   // reasoning as SnippetPickerWindow::forward_to_flutter.
