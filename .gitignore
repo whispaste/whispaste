@@ -221,3 +221,6 @@ __pycache__/
 
 # Pi: loads AGENTS.override.md (-> CLAUDE.md) instead of AGENTS.md
 AGENTS.override.md
+
+# Codex CLI per-repo config (MCP server credentials, local hooks) — local-only.
+.codex/
