@@ -849,6 +849,15 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           editorFocusNode: _editorFocusNode,
           scrollEditorToEnd: _scrollEditorToEndSignal,
           onNoteTap: _selectNote,
+          onCopy: (note) {
+            Clipboard.setData(ClipboardData(text: note.content));
+            WpToast.show(
+              context,
+              message: l10n.notesCopied,
+              type: WpToastType.success,
+              duration: const Duration(seconds: 2),
+            );
+          },
           onCloseEditor: _closeEditor,
           onFavoriteToggle: _toggleFavorite,
           onQuickNoteSet: _setQuickNote,
