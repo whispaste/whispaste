@@ -24,11 +24,13 @@ List<SidePanelRow> filterSidePanelRows(List<SidePanelRow> rows, String query) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return rows;
 
-  final needle = trimmed.toLowerCase();
+  // Optimisation: A precompiled case-insensitive RegExp avoids allocating
+  // a new String for every item's title/subtitle via .toLowerCase() in the loop.
+  // RegExp.escape prevents crashes from special characters in the search query.
+  final searchRegex = RegExp(RegExp.escape(trimmed), caseSensitive: false);
   return [
     for (final row in rows)
-      if (row.title.toLowerCase().contains(needle) ||
-          row.subtitle.toLowerCase().contains(needle))
+      if (searchRegex.hasMatch(row.title) || searchRegex.hasMatch(row.subtitle))
         row,
   ];
 }
