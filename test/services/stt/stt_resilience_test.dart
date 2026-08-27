@@ -103,6 +103,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     String? language,
     String? prompt,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   }) async {
     lastPrompt = prompt;
     if (_hang) {
@@ -176,6 +177,7 @@ class _LoadFailingEngine implements WhisperEngine {
     String? language,
     String? prompt,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   }) async {
     trace?.add('transcribe');
     return 'ok';

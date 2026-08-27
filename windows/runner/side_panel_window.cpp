@@ -460,6 +460,18 @@ LRESULT SidePanelContentWindow::HandleMessage(UINT msg, WPARAM wp,
       if (on_content_exit) on_content_exit();
       return 0;
 
+    // Click-outside / focus-switch detection -- see on_deactivate's doc
+    // comment in side_panel_window.h. Only meaningful while shown: this
+    // shell also receives WM_ACTIVATE/WA_INACTIVE as part of its own
+    // ShowWindow(SW_HIDE) in SlideOut, which on_deactivate's caller
+    // (SidePanelHost::HandleContentDeactivate, routed through the same
+    // idempotent hoverLeft relay as every other close trigger) tolerates.
+    case WM_ACTIVATE:
+      if (LOWORD(wp) == WA_INACTIVE && visible_ && on_deactivate) {
+        on_deactivate();
+      }
+      return DefWindowProcW(hwnd_, msg, wp, lp);
+
     case WM_TIMER:
       if (wp == kAnimTimerId) {
         StepAnimation();

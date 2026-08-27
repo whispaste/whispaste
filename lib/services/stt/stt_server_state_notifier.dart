@@ -653,12 +653,24 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     while (true) {
       try {
+        // `_isRecordingActive` reflects a NEW recording's live audio
+        // capture (set/cleared in `notifyRecordingStarted`/
+        // `notifyRecordingStopped` — see their doc comments), not this
+        // transcription's own recording. Reading it fresh on every retry
+        // means: if the user has already started dictating their next
+        // utterance while this one is still decoding, this call throttles
+        // itself so Whisper's own CPU load doesn't compete with that live
+        // capture (see `WhisperFfiEngine._decodeOnce`'s "Audio-capture
+        // protection" comment for why this is the one place in this app's
+        // batch architecture where that contention is real and something
+        // this app actually controls).
         return await _engine!
             .transcribe(
               payload,
               language: lang,
               prompt: prompt,
               vadEnabled: vadEnabled,
+              reducedThreads: _isRecordingActive,
             )
             .timeout(stuckGuardTimeout);
       } on TimeoutException {

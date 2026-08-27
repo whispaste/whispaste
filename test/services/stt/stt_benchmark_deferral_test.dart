@@ -81,6 +81,7 @@ class _QueueRecordingEngine implements WhisperEngine {
     String? language,
     String? prompt,
     bool vadEnabled = false,
+    bool reducedThreads = false,
   }) async {
     transcribedSizes.add(wavBytes.length);
     if (!firstTranscribeStarted.isCompleted) firstTranscribeStarted.complete();

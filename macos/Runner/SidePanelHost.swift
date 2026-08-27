@@ -57,7 +57,7 @@ private final class SidePanelContentHoverTracker: NSResponder {
   override func mouseExited(with event: NSEvent) { onExited() }
 }
 
-class SidePanelHost {
+class SidePanelHost: NSObject, NSWindowDelegate {
   /// Fixed content width -- there is no persisted/dragged position to
   /// restore (unlike the floating overlay), so no `OverlayDesignSpec`
   /// equivalent is needed; this is just wide enough for a title + subtitle
@@ -163,6 +163,7 @@ class SidePanelHost {
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "com.whispaste.side_panel", binaryMessenger: messenger)
+    super.init()
     channel.setMethodCallHandler(handle)
     rebuildSensors()
     screenObserver = NotificationCenter.default.addObserver(
@@ -516,6 +517,7 @@ class SidePanelHost {
     let rect = pendingFrame ?? NSRect(x: 0, y: 0, width: Self.contentWidth, height: Self.contentHeight)
     pendingFrame = nil
     let panel = SidePanelContentPanel(frame: rect)
+    panel.delegate = self
     contentPanel = panel
     bootRenderEngine()
     os_log("ensurePanel: panel created at %{public}@", log: Self.logger, type: .info, NSStringFromRect(rect))
@@ -585,6 +587,34 @@ class SidePanelHost {
     nativeCloseTimer = Self.scheduleTimer(interval: Self.closeGracePeriod) { [weak self] in
       self?.channel.invokeMethod("hoverLeft", arguments: nil)
     }
+  }
+
+  // MARK: - NSWindowDelegate
+
+  /// Focus leaving the panel via click/keyboard (not mouse motion) is not
+  /// caught by [SidePanelContentHoverTracker]/[SidePanelSensorView] at all --
+  /// those only see the pointer crossing a tracking area, which never fires
+  /// if the user switches away (e.g. Cmd+Tab, or clicking another app's
+  /// window with the pointer already resting on the panel from a prior
+  /// hover) without moving the mouse off the panel afterwards. That left the
+  /// panel open until the user *happened* to later move the pointer away --
+  /// exactly the "fährt nicht zuverlässig/zeitnah ein, wenn der Fokus nicht
+  /// mehr darauf liegt" report. `SnippetPickerHost` already closes on
+  /// `windowDidResignKey` for the same reason; this mirrors that.
+  ///
+  /// Guarded by [suppressSensorEvents] for the same self-inflicted-resign
+  /// race `beginActivationSettleWindow` already exists to filter: both
+  /// `activateForKeyboard` (in [slideIn]) and `restorePreviousFrontApp` (in
+  /// [slideOut]) activate a different app/reclaim key status as part of this
+  /// host's own show/hide sequencing, and AppKit can resign this panel's key
+  /// status as a side effect of that -- not a genuine "user clicked
+  /// elsewhere". [isShown] additionally makes this a no-op once a close is
+  /// already underway (`slideOut`'s own `restorePreviousFrontApp` resign is
+  /// exactly that case).
+  func windowDidResignKey(_ notification: Notification) {
+    guard !suppressSensorEvents, isShown else { return }
+    nativeCloseTimer?.invalidate()
+    channel.invokeMethod("hoverLeft", arguments: nil)
   }
 
   private func handleRenderCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

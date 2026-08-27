@@ -90,6 +90,12 @@ class SidePanelHost {
   void HandleContentEnter();
   void HandleContentExit();
 
+  // Focus left the panel via click/keyboard rather than pointer motion --
+  // see SidePanelContentWindow::on_deactivate's doc comment. Closes
+  // immediately (no grace period): unlike a pointer wobble across the edge,
+  // a genuine focus switch away is not something to debounce.
+  void HandleContentDeactivate();
+
   // Native close-grace fallback -- mirrors SidePanelHost.scheduleNativeClose
   // (a plain Win32 SetTimer here; no .eventTrackingRunLoopMode-style mode
   // split exists on Windows to starve it, see side_panel_window.h).
