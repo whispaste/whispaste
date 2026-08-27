@@ -44,38 +44,37 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
        column instead of running flat underneath it -- the actual source of
        the figure/ground read, the parallax drift alone wasn't enough.
 
-       The mask and the parallax translate live on TWO separate elements, not
-       one: `.hero-wave-mask` (outer, static) holds the radial mask-image;
-       `.wp-parallax-layer` (inner) holds the scroll-driven translate. A
-       mask-image on an element that `animation-timeline` also transforms
-       forces Chromium to re-rasterize that mask against a moving compositor
-       layer every scroll frame — the mask's own edge, not the SVG content,
-       is what showed up as a faint hairline seam at various scroll depths
-       (reported live, screenshots at different scroll positions each time).
-       Keeping the mask on a layer that never moves means it rasterizes once;
-       only the already-cheap-to-composite SVG underneath animates. -->
-  <div
-    class="hero-wave-mask absolute inset-0 flex items-center justify-center pointer-events-none"
-    aria-hidden="true"
-  >
-    <div class="wp-parallax-layer" style="--wp-parallax-depth: 48px;">
-      <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
-            <stop offset="0%" stop-color="#155e75"/>
-            <stop offset="35%" stop-color="#0891b2"/>
-            <stop offset="70%" stop-color="#6FDDF0"/>
-            <stop offset="100%" stop-color="#67e8f9"/>
-          </linearGradient>
-        </defs>
-        <!-- Audio bars (4 rounded bars, upper-left — theme-aware fill via CSS) -->
-        <path class="hero-bar" d="M195.298,326.37c0,-13.777 -11.185,-24.963 -24.963,-24.963c-13.777,0 -24.963,11.186 -24.963,24.963l0,106.969c0,13.778 11.186,24.963 24.963,24.963c13.778,0 24.963,-11.185 24.963,-24.963l0,-106.969Z"/>
-        <path class="hero-bar" d="M277.786,240.929c-0,-13.777 -11.186,-24.963 -24.964,-24.963c-13.777,-0 -24.963,11.186 -24.963,24.963l0,277.852c0,13.777 11.186,24.963 24.963,24.963c13.778,-0 24.964,-11.186 24.964,-24.963l-0,-277.852Z"/>
-        <path class="hero-bar" d="M360.273,303.88c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,151.95c0,13.777 11.186,24.963 24.964,24.963c13.777,0 24.963,-11.186 24.963,-24.963l-0,-151.95Z"/>
-        <path class="hero-bar" d="M442.76,364.358c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,30.994c0,13.777 11.186,24.963 24.964,24.963c13.777,-0 24.963,-11.186 24.963,-24.963l-0,-30.994Z"/>
-        <!-- Wave ribbon with arrow tip -->
-        <path class="hero-ribbon" d="M146.212,719.902c-4.132,0.29 6.44,-33.608 43.916,-64.584c20.132,-16.64 60.123,-9.232 68.877,-4.246c8.755,4.986 87.274,47.06 101.106,48.82c13.832,1.761 35.239,15.204 67.761,-20.191c26.084,-28.388 41.853,-164.146 47.759,-185.163c9.127,-32.481 24.944,-73.876 63.259,-88.423c21.063,-7.996 59.88,-1.585 85.684,17.554c25.804,19.139 98.554,82.556 152.256,85.654c33.909,1.957 53.679,-9.322 88.027,-50.342c31.87,-38.059 38.129,-82.06 39.455,-71.794c5.143,39.819 10.088,210.11 -156.164,365.44c-22.045,20.597 37.157,-107.81 29.301,-115.515c-4.005,-3.927 -69.86,25.691 -126.834,-28.472c-65.774,-62.531 -117.571,-86.552 -138.331,-1.705c-15.245,62.309 -30.941,146.424 -66.41,175.983c-33.242,27.703 -80.659,31.246 -112.757,16.712c-27.303,-12.363 -84.89,-45.739 -96.26,-53.668c-47.365,-33.027 -77.969,-26.951 -90.645,-26.06Z" fill="url(#wave-grad)"/>
-      </svg>
+       Three properties, three separate elements -- `.hero-wave-blur` (outer,
+       static) holds the blur filter; `.hero-wave-mask` (middle, static)
+       holds the radial mask-image; `.wp-parallax-layer` (inner) holds the
+       scroll-driven translate. Combining any two of {filter, mask-image,
+       animated transform} on the same element forces the browser to
+       rasterize/composite that layer in a way that clips one effect's soft
+       edge into a hard one; keeping each on its own non-animated (where
+       applicable) layer means each rasterizes cleanly once. -->
+  <div class="hero-wave-blur absolute inset-0 pointer-events-none" aria-hidden="true">
+    <div
+      class="hero-wave-mask absolute inset-0 flex items-center justify-center pointer-events-none"
+    >
+      <div class="wp-parallax-layer" style="--wp-parallax-depth: 48px;">
+        <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
+              <stop offset="0%" stop-color="#155e75"/>
+              <stop offset="35%" stop-color="#0891b2"/>
+              <stop offset="70%" stop-color="#6FDDF0"/>
+              <stop offset="100%" stop-color="#67e8f9"/>
+            </linearGradient>
+          </defs>
+          <!-- Audio bars (4 rounded bars, upper-left — theme-aware fill via CSS) -->
+          <path class="hero-bar" d="M195.298,326.37c0,-13.777 -11.185,-24.963 -24.963,-24.963c-13.777,0 -24.963,11.186 -24.963,24.963l0,106.969c0,13.778 11.186,24.963 24.963,24.963c13.778,0 24.963,-11.185 24.963,-24.963l0,-106.969Z"/>
+          <path class="hero-bar" d="M277.786,240.929c-0,-13.777 -11.186,-24.963 -24.964,-24.963c-13.777,-0 -24.963,11.186 -24.963,24.963l0,277.852c0,13.777 11.186,24.963 24.963,24.963c13.778,-0 24.964,-11.186 24.964,-24.963l-0,-277.852Z"/>
+          <path class="hero-bar" d="M360.273,303.88c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,151.95c0,13.777 11.186,24.963 24.964,24.963c13.777,0 24.963,-11.186 24.963,-24.963l-0,-151.95Z"/>
+          <path class="hero-bar" d="M442.76,364.358c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,30.994c0,13.777 11.186,24.963 24.964,24.963c13.777,-0 24.963,-11.186 24.963,-24.963l-0,-30.994Z"/>
+          <!-- Wave ribbon with arrow tip -->
+          <path class="hero-ribbon" d="M146.212,719.902c-4.132,0.29 6.44,-33.608 43.916,-64.584c20.132,-16.64 60.123,-9.232 68.877,-4.246c8.755,4.986 87.274,47.06 101.106,48.82c13.832,1.761 35.239,15.204 67.761,-20.191c26.084,-28.388 41.853,-164.146 47.759,-185.163c9.127,-32.481 24.944,-73.876 63.259,-88.423c21.063,-7.996 59.88,-1.585 85.684,17.554c25.804,19.139 98.554,82.556 152.256,85.654c33.909,1.957 53.679,-9.322 88.027,-50.342c31.87,-38.059 38.129,-82.06 39.455,-71.794c5.143,39.819 10.088,210.11 -156.164,365.44c-22.045,20.597 37.157,-107.81 29.301,-115.515c-4.005,-3.927 -69.86,25.691 -126.834,-28.472c-65.774,-62.531 -117.571,-86.552 -138.331,-1.705c-15.245,62.309 -30.941,146.424 -66.41,175.983c-33.242,27.703 -80.659,31.246 -112.757,16.712c-27.303,-12.363 -84.89,-45.739 -96.26,-53.668c-47.365,-33.027 -77.969,-26.951 -90.645,-26.06Z" fill="url(#wave-grad)"/>
+        </svg>
+      </div>
     </div>
   </div>
 
@@ -423,19 +422,29 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   .hero-wave-mask {
     mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 40%, black 90%);
     -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 42%, transparent 40%, black 90%);
-    /* The ribbon path (child, two levels down) is a flat vector fill, not a
-       gradient glow -- at 10-14% opacity it still has a crisp geometric
-       boundary that browsers barely anti-alias (1-2px), so it read as a hard
-       line wherever its edge fell outside the masked-out headline hole above,
-       moving with scroll/viewport since the shape drifts under parallax
-       (reported repeatedly, "an unterschiedlichen Stellen", confirmed in real
-       Safari). Blurring removes that edge at the source -- but the blur has
-       to live HERE, on the static wrapper, not on the SVG itself: that SVG
-       sits inside .wp-parallax-layer, and a filter co-located with the
-       transform animation forces Safari to re-flatten a blurred layer every
-       scroll frame, which produced its own dead-straight seam at the layer's
-       composited edge (same class of bug the mask split above already
-       exists to avoid -- filter needs the identical static/animated split). */
+  }
+  /* The ribbon path (child, two levels down) is a flat vector fill, not a
+     gradient glow -- at 10-14% opacity it still has a crisp geometric
+     boundary that browsers barely anti-alias (1-2px), so it read as a hard
+     line wherever its edge fell outside the masked-out headline hole above,
+     moving with scroll/viewport since the shape drifts under parallax
+     (reported repeatedly, "an unterschiedlichen Stellen"). Blurring removes
+     that edge at the source. The blur must NOT live on `.hero-wave-mask`
+     itself, even though that element is otherwise the static, non-animated
+     wrapper: co-locating `filter` with a `mask-image` on the same element
+     makes Chromium rasterize/composite the masked layer and then clip the
+     filter's blur bleed at the mask's own soft-edge boundary, turning a
+     72%/90%-stop fade into a dead-straight hard seam right at that boundary
+     (proven live: toggling mask-image off, or moving only the mask to a
+     10x-larger ellipse, made the seam vanish; restoring the original mask
+     reproduced it; moving `filter` alone onto a separate, unmasked parent
+     wrapper -- keeping the mask on `.hero-wave-mask` -- also removed it).
+     So the blur lives on `.hero-wave-blur`, a plain unmasked wrapper one
+     level further out; `.hero-wave-mask` (mask only) and `.wp-parallax-layer`
+     (transform only) stay split from it and from each other, each holding
+     exactly one of the three properties that touched off some version of
+     this seam when combined with either of the other two. */
+  .hero-wave-blur {
     filter: blur(28px);
   }
   /* Stage light: a single ambient light source behind the whole hero, not a
