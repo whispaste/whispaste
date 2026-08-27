@@ -78,16 +78,14 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     </div>
   </div>
 
-  <!-- Mid-depth console glow: a second parallax layer with negative depth so
-       it drifts opposite to the wave above -- two layers moving apart, not
-       one layer sliding under static text, is what makes the parallax read
-       as depth instead of a single background nudge. 6% cyan is deliberately
-       below "visible element" -- it should read as stage light, not a shape. -->
-  <div
-    class="wp-parallax-layer hero-console-glow absolute inset-0 pointer-events-none"
-    aria-hidden="true"
-    style="--wp-parallax-depth: -14px;"
-  ></div>
+  <!-- Hero-to-next-section hand-off aura: must stay pixel-locked to the hero's
+       bottom edge, so it lives on its own static (non-parallax) layer. It used
+       to share `.hero-console-glow` with the mid-depth glow below, both under
+       `wp-parallax-layer` -- that translate (up to +/-14px via the scroll-driven
+       view-timeline) shifted this fixed-height gradient band away from the
+       actual section boundary as you scrolled, exposing a hard edge on tall
+       viewports. Splitting it onto a static layer keeps it aligned always. -->
+  <div class="hero-handoff-glow absolute inset-0 pointer-events-none" aria-hidden="true"></div>
 
   <div class="wp-recede relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
     <div class="mb-4 sm:mb-6 mt-4">
@@ -358,7 +356,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   /* Audio bars: white in dark mode (like original logo), dark navy in light mode */
   .hero-bar {
     fill: #ebebeb;
-    fill-opacity: 0.35;
+    fill-opacity: 0.5;
     /* Pivot each bar at its base so the signature scaleY grows upward. */
     transform-box: fill-box;
     transform-origin: 50% 100%;
@@ -389,7 +387,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
   /* Baseline: the glyph breathes calmly. During a signature burst the
      `.hero-sign` class overrides this with a one-shot surface-and-settle surge,
-     then JS removes the class so breathing resumes between bursts. */
+     then JS removes the class so breathing resumes between bursts. Opacity
+     bumped from the original 0.10/0.14 baseline to 0.18/0.24 -- more visible,
+     per explicit design feedback that the fully-blurred/near-invisible
+     original read as too faint. */
   .hero-wave {
     animation: wave-breathe 8s ease-in-out infinite;
   }
@@ -398,12 +399,12 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   }
   @keyframes hero-wave-intro {
     0%   { opacity: 0; }
-    55%  { opacity: 0.28; }
-    100% { opacity: 0.10; }
+    55%  { opacity: 0.32; }
+    100% { opacity: 0.18; }
   }
   @keyframes wave-breathe {
-    0%, 100% { opacity: 0.10; }
-    50% { opacity: 0.14; }
+    0%, 100% { opacity: 0.18; }
+    50% { opacity: 0.24; }
   }
   /* Depth separation for the watermark layer (M10 §3): the wave fades out
      behind the text column instead of running flat underneath it -- this is
@@ -443,40 +444,29 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
      level further out; `.hero-wave-mask` (mask only) and `.wp-parallax-layer`
      (transform only) stay split from it and from each other, each holding
      exactly one of the three properties that touched off some version of
-     this seam when combined with either of the other two. */
+     this seam when combined with either of the other two. Blur radius cut
+     from 28px to 10px -- per design feedback the fully-blurred original read
+     as mush; 10px still removes the ribbon's hard vector edge (the reason
+     this blur exists at all) without smearing away the wave shape. */
   .hero-wave-blur {
-    filter: blur(28px);
+    filter: blur(10px);
   }
-  /* Stage light: a single ambient light source behind the whole hero, not a
-     decoration. Two-stop falloff (15% -> 6% -> transparent) so it reads as a
-     light source with a soft core, not a flat cyan disc; centered lower and
-     sized wider than the old "console glow" so it actually washes the device
-     window/carousel below the fold, not just the headline.
-
-     Second layer: a shallow, bottom-anchored aura that hands off into the
-     next section's own top-anchored aura (.band-spotlight::before, same
-     ellipse-at-top shape, ~16% cyan). Without it the mid-glow above falls
-     short of the hero's actual bottom edge (hero is much taller than one
-     viewport once the CTA row/platform badges/carousel are laid out), so the
-     last few hundred px of hero read flat/near-black right where the next
-     section's aura begins — a hard seam. This closes that gap by echoing the
-     same aura shape from the hero side. */
-  .hero-console-glow {
-    background:
-      radial-gradient(
-        ellipse 95% 55% at 50% 100%,
-        color-mix(in srgb, var(--color-brand-cyan) 14%, transparent) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        circle,
-        color-mix(in srgb, var(--color-brand-cyan) 15%, transparent) 0%,
-        color-mix(in srgb, var(--color-brand-teal) 6%, transparent) 40%,
-        transparent 72%
-      );
-    background-repeat: no-repeat, no-repeat;
-    background-position: center 100%, center 62%;
-    background-size: 100% 380px, min(90vw, 1300px) min(70vh, 820px);
+  /* Shallow, bottom-anchored aura that hands off into the next section's own
+     top-anchored aura (.band-spotlight::before, same ellipse-at-top shape,
+     ~16% cyan) -- without it, the last few hundred px of hero read flat/
+     near-black right where the next section's aura begins, a hard seam.
+     Static, not parallax: a scroll-driven translate would shift this
+     fixed-height gradient band away from the actual section boundary as you
+     scroll, exposing that same seam on tall viewports. */
+  .hero-handoff-glow {
+    background: radial-gradient(
+      ellipse 95% 55% at 50% 100%,
+      color-mix(in srgb, var(--color-brand-cyan) 14%, transparent) 0%,
+      transparent 70%
+    );
+    background-repeat: no-repeat;
+    background-position: center 100%;
+    background-size: 100% 380px;
   }
   /* Grain — same feTurbulence recipe as the design canvas, tuned so it stays
      a texture (2.5% opacity) rather than visible noise. overlay blend mode
@@ -492,9 +482,22 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
      hero's box edge: without this, the opaque wash stopped dead where hero's
      box ends and handed off to the continuous <html> wash mid-gradient, at a
      hue/lightness point that rarely matched — the exact seam this was meant
-     to prevent. */
+     to prevent.
+
+     The fade alone wasn't enough, though: it only smooths the opacity
+     transition, not the colour underneath it. This gradient used to be sized
+     to the hero's OWN box (100% x 100%, ~1450px+ tall), while <html>'s
+     continuous wash is `background-attachment: fixed` at `100% 100vh` --
+     two different gradient lengths mapping the same three colour stops to
+     different screen positions, so the colour this wash faded OUT to and the
+     colour the html wash showed underneath rarely lined up (worse on taller
+     viewports/heroes, since the two lengths diverge more). Matching
+     attachment+size here makes both washes literally the same fixed image,
+     so there is no colour to mismatch at the seam any more. */
   .hero-ambient-wash {
-    background: linear-gradient(135deg, var(--stage-navy) 0%, var(--stage-indigo) 50%, var(--stage-violet) 100%);
+    background-image: linear-gradient(135deg, var(--stage-navy) 0%, var(--stage-indigo) 50%, var(--stage-violet) 100%);
+    background-attachment: fixed;
+    background-size: 100% 100vh;
     --hero-wash-fade: clamp(80px, 12vh, 220px);
     mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wash-fade)), transparent 100%);
     -webkit-mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wash-fade)), transparent 100%);
