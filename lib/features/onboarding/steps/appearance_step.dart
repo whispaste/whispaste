@@ -6,6 +6,7 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/overlay_preview.dart';
 import '../../settings/settings_widgets.dart';
 import 'autostart_toggle.dart';
 
@@ -27,9 +28,14 @@ const kAppearanceStepOverlayStyleKey = Key('appearanceStepOverlayStyle');
 /// change here and in Settings are the same write, never two definitions that
 /// can drift.
 ///
-/// Deliberately no overlay preview and no per-row subtitles — see the
-/// class-level accessibility finding below; both were verified to overflow
-/// the fixed onboarding window at enlarged text scale.
+/// No per-row subtitles (see the class-level accessibility finding below —
+/// those were verified to overflow the fixed onboarding window at enlarged
+/// text scale). The real overlay preview *is* included, mirroring Settings'
+/// [OverlaySection] placement (right under the style row) -- the page
+/// content already sits inside a scrolling container
+/// (`onboarding_overlay.dart`'s `SingleChildScrollView`), so the preview
+/// scrolling into view at large text scale is an accepted fallback, not the
+/// hard `RenderFlex` overflow the subtitles caused.
 class AppearanceStep extends ConsumerWidget {
   const AppearanceStep({super.key});
 
@@ -121,6 +127,24 @@ class AppearanceStep extends ConsumerWidget {
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(overlayStyle: v));
             },
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        // Fixed, text-scale-immune height cap: unlike the SettingRows above,
+        // this preview is a graphic, not text, so it must not grow with the
+        // system font size the way its Settings-page counterpart is free to
+        // (Settings has no fixed window budget). WpOverlayRealPreview's own
+        // FittedBox(fit: scaleDown) does the actual shrinking -- this SizedBox
+        // just gives it a shorter box to shrink into than its natural ~104 px
+        // (pill + shadow padding + the widget's own padding), which is what
+        // keeps this page inside the fixed 1100x720 window's remaining
+        // vertical budget at the accessibility text scales
+        // `onboarding_overlay_test.dart` exercises (measured: fits up to 1.3).
+        SizedBox(
+          height: 64,
+          child: WpOverlayRealPreview(
+            size: settings.overlaySizeType,
+            style: settings.overlayStyleType,
           ),
         ),
       ],
