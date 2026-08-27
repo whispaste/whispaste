@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.70
+
+### Bug Fixes
+
+- Diktate über mehreren Sätzen ohne Pause: WhisPaste erkennt jetzt bei erhöhter Systemlast (z. B. laufendem Lüfter) zuverlässiger, wenn Gesagtes durch eine sich endlos wiederholende Phrase ersetzt oder ausgelassen wird, und interpungiert auch bei längeren Diktaten konsistent. Lange Aufnahmen werden dafür intern an echten Sprechpausen in kleinere Stücke zerlegt, bevor sie an die Spracherkennung gehen.
+- Das Schnelleinfüge-Panel schließt jetzt zuverlässig, sobald der Fokus die App verlässt, und kodiert seine Zeilen beim Schließen nicht mehr unnötig neu.
+
 ## 1.2.69
 
 ### New Features
