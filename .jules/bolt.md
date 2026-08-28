@@ -20,3 +20,6 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2024-05-18 - Case-insensitive filtering in Dart tight loops
 **Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
 **Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
+## 2024-05-18 - Case-insensitive filtering in side panel search
+**Learning:** `filterSidePanelRows` creates excessive GC pressure by allocating multiple `String.toLowerCase()` copies per row during every keystroke search, matching the known pattern where precompiled `RegExp` with `caseSensitive: false` performs much better for medium-to-large lists.
+**Action:** Replaced `.toLowerCase().contains()` with `RegExp.hasMatch()` for `filterSidePanelRows`, successfully avoiding the allocations. Note: Do not apply to `WpSearchableListPage._filtered` as previously stated.
