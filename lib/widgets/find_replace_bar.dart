@@ -20,6 +20,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'find_replace.dart';
 import 'wp_text_field.dart';
+import 'wp_focus_ring.dart';
 
 /// Height-capped icon button used for the bar's five compact actions.
 ///
@@ -48,6 +49,13 @@ class _BarIconButton extends StatefulWidget {
 
 class _BarIconButtonState extends State<_BarIconButton> {
   bool _hovered = false;
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,29 +66,43 @@ class _BarIconButtonState extends State<_BarIconButton> {
         ? WpColors.accent
         : WpColors.textMuted;
 
-    return Semantics(
-      label: widget.label,
-      button: true,
-      enabled: enabled,
-      child: Tooltip(
-        message: widget.label,
-        waitDuration: const Duration(milliseconds: 400),
-        child: MouseRegion(
-          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-              padding: const EdgeInsets.all(WpSpacing.xs),
-              decoration: BoxDecoration(
-                color: _hovered && enabled
-                    ? WpColors.accent.withValues(alpha: 0.12)
-                    : null,
+    return MergeSemantics(
+      child: Semantics(
+        label: widget.label,
+        button: true,
+        enabled: enabled,
+        child: Tooltip(
+          message: widget.label,
+          waitDuration: const Duration(milliseconds: 400),
+          child: MouseRegion(
+            cursor: enabled
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: WpFocusRing(
+              focusNode: _focusNode,
+              radius: WpRadius.sm,
+              child: InkWell(
+                onTap: widget.onTap,
+                focusNode: _focusNode,
                 borderRadius: WpRadius.borderSm,
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: AnimatedContainer(
+                  duration: WpMotion.durationFor(context, WpMotion.hoverOut),
+                  padding: const EdgeInsets.all(WpSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: _hovered && enabled
+                        ? WpColors.accent.withValues(alpha: 0.12)
+                        : null,
+                    borderRadius: WpRadius.borderSm,
+                  ),
+                  child: Icon(widget.icon, size: 14, color: color),
+                ),
               ),
-              child: Icon(widget.icon, size: 14, color: color),
             ),
           ),
         ),

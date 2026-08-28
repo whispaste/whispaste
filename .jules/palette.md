@@ -16,3 +16,6 @@ instead — that manual fix is the actual reference implementation.
 and (b) isn't already covered by another explicit `Semantics(button: true)`. If the row already has a
 dedicated icon button doing the same action, wrapping the row is redundant — either extend the existing
 button's hit area, or remove the now-duplicate inner button, but never both.
+## 2026-08-28 - Keyboard focus on custom icon buttons
+**Learning:** Custom interactive elements built with `GestureDetector` inside an `AnimatedContainer` lack keyboard focus support. Wrapping them in `InkWell` with a shared `FocusNode` and `WpFocusRing` solves this. To prevent `InkWell`'s default visual feedback from clashing with the existing `AnimatedContainer`'s hover state, set the `InkWell`'s `focusColor`, `hoverColor`, `splashColor`, and `highlightColor` all to `Colors.transparent`.
+**Action:** Use `InkWell` with transparent interaction colors and a shared `FocusNode` wrapped in `WpFocusRing` when converting custom `GestureDetector` buttons to support keyboard accessibility without altering their visual hover styles.
