@@ -20,3 +20,6 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2024-05-18 - Case-insensitive filtering in Dart tight loops
 **Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
 **Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
+## 2024-05-19 - Escape static strings in RegExp for safety
+**Learning:** Even when precompiling a `RegExp` with a constant string (like `const String _failedToOpenMarker = 'failed to open';`), it's a best practice to wrap it in `RegExp.escape(_failedToOpenMarker)` to future-proof the code against accidental regex syntax errors if another developer later modifies the constant to include metacharacters.
+**Action:** Always use `RegExp.escape()` when creating a `RegExp` from an external string or constant, even if it currently contains no special characters.
