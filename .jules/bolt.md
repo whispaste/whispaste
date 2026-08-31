@@ -20,3 +20,11 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2024-05-18 - Case-insensitive filtering in Dart tight loops
 **Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
 **Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
+
+## 2024-05-23 - RegExp case folding limits
+**Learning:** In Dart, `RegExp(..., caseSensitive: false)` does not correctly match the uppercase Turkish 'İ' against the lowercase 'i', whereas `String.toLowerCase()` handles it correctly. This means replacing `.toLowerCase()` with a precompiled case-insensitive `RegExp` in loops is only safe if the input strings are known to be ASCII-only (like static marker strings or internal log identifiers).
+**Action:** When replacing `.toLowerCase()` with `RegExp(caseSensitive: false)` to reduce GC pressure, ensure that the strings being matched are ASCII-only and do not rely on full Unicode case folding.
+
+## 2024-05-23 - REJECTED: RegExp-precompile in `stt_exit_classifier.dart`
+**Learning:** The optimization of replacing `String.toLowerCase()` with a precompiled `RegExp(caseSensitive: false)` in `classifyModelLoadFailure` (stt_exit_classifier.dart) is a flawed premise. It has been previously rejected because (a) this is a cold error-handling path where micro-optimizing GC overhead provides no meaningful real-world benefit, and (b) benchmarks show that precompiled RegExp is actually *slower* than `toLowerCase().contains()` here.
+**Action:** Do not propose this optimization for `stt_exit_classifier.dart` again. Always verify the true performance cost and execution frequency of the target path before applying micro-optimizations, and check closed PRs for prior rejections.
