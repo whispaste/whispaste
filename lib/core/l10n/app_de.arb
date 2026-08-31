@@ -1313,6 +1313,8 @@
   "smartModePresetCleanup": "Cleanup",
   "smartModePresetConcise": "Concise",
   "smartModePresetTranslate": "Translate",
+  "smartModeTargetLanguage": "Zielsprache",
+  "smartModeTargetLanguageGerman": "Deutsch",
   "smartModeDownload": "Herunterladen",
   "smartModeDownloadComplete": "Smart-Mode-Modell einsatzbereit",
   "smartModeRamWarningTitle": "Wenig Arbeitsspeicher erkannt",

@@ -186,6 +186,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Ticket 01 of `.scratch/smart-mode-v2/` — standard preset is a genuine
   // user preference, portable like any other section field.
   'smart_mode_standard_preset',
+  // Ticket 03 of `.scratch/smart-mode-v2/` — same rationale as the preset
+  // above.
+  'smart_mode_target_language',
   'sound_volume',
   'start_minimized',
   'stt_engine',

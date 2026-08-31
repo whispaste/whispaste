@@ -19,6 +19,7 @@ import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/model_download_service.dart'
     show formatModelSizeLabel;
 import '../../../services/smart_mode/smart_mode_model_download_service.dart';
+import '../../../services/smart_mode/smart_mode_presets.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
@@ -62,6 +63,15 @@ class SmartModeSection extends ConsumerWidget {
       _ => l10n.smartModePresetOff,
     };
 
+    String targetLanguageLabel(SmartModeTargetLanguage lang) => switch (lang) {
+      SmartModeTargetLanguage.german => l10n.smartModeTargetLanguageGerman,
+      // Ticket 09 adds a label for each remaining language once it clears
+      // its own validation spike — until then
+      // smartModeValidatedTargetLanguages contains only german, so no other
+      // branch is reachable.
+      _ => lang.languageName,
+    };
+
     return WpSection(
       title: l10n.settingsSmartMode,
       subtitle: l10n.settingsSmartModeSubtitle,
@@ -88,6 +98,35 @@ class SmartModeSection extends ConsumerWidget {
               },
             ),
           ),
+          if (settings.smartMode.standardPreset == 'translate') ...[
+            const SizedBox(height: WpSpacing.md),
+            SettingRow(
+              icon: LucideIcons.languages,
+              label: l10n.smartModeTargetLanguage,
+              trailing: settingsDropdown(
+                context: context,
+                value: smartModeTargetLanguageFromSettingsValue(
+                  settings.smartMode.targetLanguage,
+                ).code,
+                items: smartModeValidatedTargetLanguages
+                    .map((lang) => lang.code)
+                    .toList(),
+                labels: smartModeValidatedTargetLanguages
+                    .map(targetLanguageLabel)
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWithSections(
+                          smartMode: s.smartMode.copyWith(targetLanguage: v),
+                        ),
+                      );
+                },
+              ),
+            ),
+          ],
           const SizedBox(height: WpSpacing.md),
           _ModelDownloadRow(download: download, l10n: l10n),
         ],

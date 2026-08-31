@@ -488,7 +488,10 @@ void main() {
     });
 
     test('round-trips through toStorageMap/fromStorageMap', () {
-      const original = SmartModeSettings(standardPreset: 'translate');
+      const original = SmartModeSettings(
+        standardPreset: 'translate',
+        targetLanguage: 'de',
+      );
       const settings = AppSettings(smartMode: original);
 
       final restored = AppSettings.fromStorageMap(settings.toStorageMap());
@@ -505,6 +508,25 @@ void main() {
       expect(updated.smartMode.standardPreset, 'cleanup');
       expect(updated.hotkey, base.hotkey);
       expect(updated.stt, base.stt);
+    });
+
+    test('targetLanguage (ticket 03) defaults to German', () {
+      final defaults = AppSettings.defaults;
+      expect(defaults.smartMode.targetLanguage, 'de');
+    });
+
+    test('missing targetLanguage storage key falls back to German', () {
+      final settings = AppSettings.fromStorageMap(const {});
+      expect(settings.smartMode.targetLanguage, 'de');
+    });
+
+    test('copyWith updates only targetLanguage, leaving standardPreset '
+        'untouched', () {
+      const original = SmartModeSettings(standardPreset: 'translate');
+      final updated = original.copyWith(targetLanguage: 'en');
+
+      expect(updated.targetLanguage, 'en');
+      expect(updated.standardPreset, 'translate');
     });
   });
 
