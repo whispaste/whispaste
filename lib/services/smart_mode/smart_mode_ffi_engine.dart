@@ -81,8 +81,8 @@ String defaultSmartModeLibraryPath() =>
 /// tests exactly like [whisperLibraryPathFor]. Given the app [executablePath],
 /// returns the bundled `libsmartmode_shim` path for the current OS:
 /// - macOS: `<App>.app/Contents/MacOS/<exe>` → `../Frameworks/libsmartmode_shim.dylib`
-///   (embedded via the opt-in "[WP] Embed & Sign libllama" Xcode phase, see
-///   `macos/embed_libllama.sh`).
+///   (embedded by the "[WP] Embed & Sign libllama" Xcode phase, see
+///   `macos/embed_libllama.sh` — runs for every build).
 /// - Windows: `smart_mode\smartmode_shim.dll` next to `whispaste.exe` — a
 ///   dedicated subdirectory, NOT the Flutter bundle root that
 ///   [whisperLibraryPathFor] uses. Reason: llama.cpp vendors its own copy of
