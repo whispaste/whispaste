@@ -2638,8 +2638,49 @@ class $TextReplacementsTable extends TextReplacements
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _matchModeMeta = const VerificationMeta(
+    'matchMode',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, trigger, replacement, createdAt];
+  late final GeneratedColumn<String> matchMode = GeneratedColumn<String>(
+    'match_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('exact'),
+  );
+  static const VerificationMeta _fuzzyThresholdMeta = const VerificationMeta(
+    'fuzzyThreshold',
+  );
+  @override
+  late final GeneratedColumn<double> fuzzyThreshold = GeneratedColumn<double>(
+    'fuzzy_threshold',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originMeta = const VerificationMeta('origin');
+  @override
+  late final GeneratedColumn<String> origin = GeneratedColumn<String>(
+    'origin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('manual'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trigger,
+    replacement,
+    createdAt,
+    matchMode,
+    fuzzyThreshold,
+    origin,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2684,6 +2725,27 @@ class $TextReplacementsTable extends TextReplacements
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('match_mode')) {
+      context.handle(
+        _matchModeMeta,
+        matchMode.isAcceptableOrUnknown(data['match_mode']!, _matchModeMeta),
+      );
+    }
+    if (data.containsKey('fuzzy_threshold')) {
+      context.handle(
+        _fuzzyThresholdMeta,
+        fuzzyThreshold.isAcceptableOrUnknown(
+          data['fuzzy_threshold']!,
+          _fuzzyThresholdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('origin')) {
+      context.handle(
+        _originMeta,
+        origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
+      );
+    }
     return context;
   }
 
@@ -2709,6 +2771,18 @@ class $TextReplacementsTable extends TextReplacements
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      matchMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}match_mode'],
+      )!,
+      fuzzyThreshold: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fuzzy_threshold'],
+      ),
+      origin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin'],
+      )!,
     );
   }
 
@@ -2723,11 +2797,33 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
   final String trigger;
   final String replacement;
   final DateTime createdAt;
+
+  /// Match algorithm — `exact` (word-boundary regex, unchanged pre-v20
+  /// behavior) or `fuzzy` (similarity scoring, vocabulary-fuzzy-replacements
+  /// PRD, schema v20). Stored as text rather than an int enum so a raw
+  /// `SELECT` stays human-readable in the DB browser, consistent with other
+  /// text-backed enum-ish columns in this file (e.g. `source` on
+  /// `HistoryEntries`).
+  final String matchMode;
+
+  /// Similarity threshold (0.0-1.0) for `matchMode == fuzzy`; unused and left
+  /// `null` for `exact` rows. The UI only ever offers three named steps
+  /// (Streng 0.92 / Standard 0.85 / Tolerant 0.75), not a free slider — see
+  /// PRD.md.
+  final double? fuzzyThreshold;
+
+  /// `manual` (default, user-authored) or `imported` (vocabulary-import
+  /// scan) — display-only distinction (PRD User Story 11), no behavioral
+  /// difference in matching.
+  final String origin;
   const TextReplacement({
     required this.id,
     required this.trigger,
     required this.replacement,
     required this.createdAt,
+    required this.matchMode,
+    this.fuzzyThreshold,
+    required this.origin,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2736,6 +2832,11 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     map['trigger'] = Variable<String>(trigger);
     map['replacement'] = Variable<String>(replacement);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['match_mode'] = Variable<String>(matchMode);
+    if (!nullToAbsent || fuzzyThreshold != null) {
+      map['fuzzy_threshold'] = Variable<double>(fuzzyThreshold);
+    }
+    map['origin'] = Variable<String>(origin);
     return map;
   }
 
@@ -2745,6 +2846,11 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       trigger: Value(trigger),
       replacement: Value(replacement),
       createdAt: Value(createdAt),
+      matchMode: Value(matchMode),
+      fuzzyThreshold: fuzzyThreshold == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fuzzyThreshold),
+      origin: Value(origin),
     );
   }
 
@@ -2758,6 +2864,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       trigger: serializer.fromJson<String>(json['trigger']),
       replacement: serializer.fromJson<String>(json['replacement']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      matchMode: serializer.fromJson<String>(json['matchMode']),
+      fuzzyThreshold: serializer.fromJson<double?>(json['fuzzyThreshold']),
+      origin: serializer.fromJson<String>(json['origin']),
     );
   }
   @override
@@ -2768,6 +2877,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       'trigger': serializer.toJson<String>(trigger),
       'replacement': serializer.toJson<String>(replacement),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'matchMode': serializer.toJson<String>(matchMode),
+      'fuzzyThreshold': serializer.toJson<double?>(fuzzyThreshold),
+      'origin': serializer.toJson<String>(origin),
     };
   }
 
@@ -2776,11 +2888,19 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     String? trigger,
     String? replacement,
     DateTime? createdAt,
+    String? matchMode,
+    Value<double?> fuzzyThreshold = const Value.absent(),
+    String? origin,
   }) => TextReplacement(
     id: id ?? this.id,
     trigger: trigger ?? this.trigger,
     replacement: replacement ?? this.replacement,
     createdAt: createdAt ?? this.createdAt,
+    matchMode: matchMode ?? this.matchMode,
+    fuzzyThreshold: fuzzyThreshold.present
+        ? fuzzyThreshold.value
+        : this.fuzzyThreshold,
+    origin: origin ?? this.origin,
   );
   TextReplacement copyWithCompanion(TextReplacementsCompanion data) {
     return TextReplacement(
@@ -2790,6 +2910,11 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ? data.replacement.value
           : this.replacement,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      matchMode: data.matchMode.present ? data.matchMode.value : this.matchMode,
+      fuzzyThreshold: data.fuzzyThreshold.present
+          ? data.fuzzyThreshold.value
+          : this.fuzzyThreshold,
+      origin: data.origin.present ? data.origin.value : this.origin,
     );
   }
 
@@ -2799,13 +2924,24 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ..write('id: $id, ')
           ..write('trigger: $trigger, ')
           ..write('replacement: $replacement, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('matchMode: $matchMode, ')
+          ..write('fuzzyThreshold: $fuzzyThreshold, ')
+          ..write('origin: $origin')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, trigger, replacement, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    trigger,
+    replacement,
+    createdAt,
+    matchMode,
+    fuzzyThreshold,
+    origin,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2813,7 +2949,10 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           other.id == this.id &&
           other.trigger == this.trigger &&
           other.replacement == this.replacement &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.matchMode == this.matchMode &&
+          other.fuzzyThreshold == this.fuzzyThreshold &&
+          other.origin == this.origin);
 }
 
 class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
@@ -2821,12 +2960,18 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
   final Value<String> trigger;
   final Value<String> replacement;
   final Value<DateTime> createdAt;
+  final Value<String> matchMode;
+  final Value<double?> fuzzyThreshold;
+  final Value<String> origin;
   final Value<int> rowid;
   const TextReplacementsCompanion({
     this.id = const Value.absent(),
     this.trigger = const Value.absent(),
     this.replacement = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.matchMode = const Value.absent(),
+    this.fuzzyThreshold = const Value.absent(),
+    this.origin = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TextReplacementsCompanion.insert({
@@ -2834,6 +2979,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     required String trigger,
     required String replacement,
     required DateTime createdAt,
+    this.matchMode = const Value.absent(),
+    this.fuzzyThreshold = const Value.absent(),
+    this.origin = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        trigger = Value(trigger),
@@ -2844,6 +2992,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Expression<String>? trigger,
     Expression<String>? replacement,
     Expression<DateTime>? createdAt,
+    Expression<String>? matchMode,
+    Expression<double>? fuzzyThreshold,
+    Expression<String>? origin,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2851,6 +3002,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       if (trigger != null) 'trigger': trigger,
       if (replacement != null) 'replacement': replacement,
       if (createdAt != null) 'created_at': createdAt,
+      if (matchMode != null) 'match_mode': matchMode,
+      if (fuzzyThreshold != null) 'fuzzy_threshold': fuzzyThreshold,
+      if (origin != null) 'origin': origin,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2860,6 +3014,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Value<String>? trigger,
     Value<String>? replacement,
     Value<DateTime>? createdAt,
+    Value<String>? matchMode,
+    Value<double?>? fuzzyThreshold,
+    Value<String>? origin,
     Value<int>? rowid,
   }) {
     return TextReplacementsCompanion(
@@ -2867,6 +3024,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       trigger: trigger ?? this.trigger,
       replacement: replacement ?? this.replacement,
       createdAt: createdAt ?? this.createdAt,
+      matchMode: matchMode ?? this.matchMode,
+      fuzzyThreshold: fuzzyThreshold ?? this.fuzzyThreshold,
+      origin: origin ?? this.origin,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2886,6 +3046,15 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (matchMode.present) {
+      map['match_mode'] = Variable<String>(matchMode.value);
+    }
+    if (fuzzyThreshold.present) {
+      map['fuzzy_threshold'] = Variable<double>(fuzzyThreshold.value);
+    }
+    if (origin.present) {
+      map['origin'] = Variable<String>(origin.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2899,6 +3068,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
           ..write('trigger: $trigger, ')
           ..write('replacement: $replacement, ')
           ..write('createdAt: $createdAt, ')
+          ..write('matchMode: $matchMode, ')
+          ..write('fuzzyThreshold: $fuzzyThreshold, ')
+          ..write('origin: $origin, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6767,6 +6939,9 @@ typedef $$TextReplacementsTableCreateCompanionBuilder =
       required String trigger,
       required String replacement,
       required DateTime createdAt,
+      Value<String> matchMode,
+      Value<double?> fuzzyThreshold,
+      Value<String> origin,
       Value<int> rowid,
     });
 typedef $$TextReplacementsTableUpdateCompanionBuilder =
@@ -6775,6 +6950,9 @@ typedef $$TextReplacementsTableUpdateCompanionBuilder =
       Value<String> trigger,
       Value<String> replacement,
       Value<DateTime> createdAt,
+      Value<String> matchMode,
+      Value<double?> fuzzyThreshold,
+      Value<String> origin,
       Value<int> rowid,
     });
 
@@ -6847,6 +7025,21 @@ class $$TextReplacementsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get matchMode => $composableBuilder(
+    column: $table.matchMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fuzzyThreshold => $composableBuilder(
+    column: $table.fuzzyThreshold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> textReplacementTriggersRefs(
     Expression<bool> Function($$TextReplacementTriggersTableFilterComposer f) f,
   ) {
@@ -6902,6 +7095,21 @@ class $$TextReplacementsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get matchMode => $composableBuilder(
+    column: $table.matchMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fuzzyThreshold => $composableBuilder(
+    column: $table.fuzzyThreshold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TextReplacementsTableAnnotationComposer
@@ -6926,6 +7134,17 @@ class $$TextReplacementsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get matchMode =>
+      $composableBuilder(column: $table.matchMode, builder: (column) => column);
+
+  GeneratedColumn<double> get fuzzyThreshold => $composableBuilder(
+    column: $table.fuzzyThreshold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get origin =>
+      $composableBuilder(column: $table.origin, builder: (column) => column);
 
   Expression<T> textReplacementTriggersRefs<T extends Object>(
     Expression<T> Function($$TextReplacementTriggersTableAnnotationComposer a)
@@ -6989,12 +7208,18 @@ class $$TextReplacementsTableTableManager
                 Value<String> trigger = const Value.absent(),
                 Value<String> replacement = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> matchMode = const Value.absent(),
+                Value<double?> fuzzyThreshold = const Value.absent(),
+                Value<String> origin = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion(
                 id: id,
                 trigger: trigger,
                 replacement: replacement,
                 createdAt: createdAt,
+                matchMode: matchMode,
+                fuzzyThreshold: fuzzyThreshold,
+                origin: origin,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7003,12 +7228,18 @@ class $$TextReplacementsTableTableManager
                 required String trigger,
                 required String replacement,
                 required DateTime createdAt,
+                Value<String> matchMode = const Value.absent(),
+                Value<double?> fuzzyThreshold = const Value.absent(),
+                Value<String> origin = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion.insert(
                 id: id,
                 trigger: trigger,
                 replacement: replacement,
                 createdAt: createdAt,
+                matchMode: matchMode,
+                fuzzyThreshold: fuzzyThreshold,
+                origin: origin,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

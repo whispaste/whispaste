@@ -5,21 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/database.dart';
 import 'recording_store.dart';
+import 'replacements/text_replacement_matcher.dart';
 
-/// Turns a trigger phrase into a regex fragment that matches regardless of
-/// which non-letter/non-digit glue dictation put between its words: a single
-/// space, a doubled space (e.g. from a stray extra space when the trigger
-/// itself was typed/dictated), a hyphen, an em/en dash, or any run of those.
-/// Mirrors the `[^\p{L}\p{N}]+` normalization already used for Snippet-Picker
-/// exact-match triggers in `exact_match_normalization.dart` — same
-/// dictation-inconsistency problem, so the same tolerance.
-String _flexibleTriggerPattern(String trigger) {
-  final parts = trigger
-      .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
-      .where((p) => p.isNotEmpty)
-      .map(RegExp.escape);
-  return parts.join(r'[^\p{L}\p{N}]+');
-}
+/// Converts DB rows into the pure matcher's input shape.
+List<TextReplacementRule> _rulesFrom(List<ReplacementWithTriggers> rows) => [
+  for (final r in rows)
+    TextReplacementRule(
+      triggers: r.triggers,
+      replacement: r.row.replacement,
+      matchMode: r.row.matchMode == 'fuzzy'
+          ? TextReplacementMatchMode.fuzzy
+          : TextReplacementMatchMode.exact,
+      fuzzyThreshold: r.row.fuzzyThreshold,
+    ),
+];
 
 /// [RecordingStore] backed by the Drift SQLite database.
 class DriftRecordingStore implements RecordingStore {
@@ -39,40 +38,10 @@ class DriftRecordingStore implements RecordingStore {
     if (input.applyTextReplacements) {
       try {
         final replacements = await _db.readAllReplacements();
-        for (final r in replacements) {
-          if (r.triggers.isEmpty) continue;
-          // All of a replacement's triggers are matched in one alternation
-          // pass against the untouched transcript segment — matching them
-          // one at a time would let a later trigger match text just
-          // inserted by an earlier one (e.g. triggers "omw"/"way" both
-          // firing on replacement "on my way").
-          final sortedTriggers = [...r.triggers]
-            ..sort((a, b) => b.length.compareTo(a.length));
-          final alternation = sortedTriggers
-              .map(_flexibleTriggerPattern)
-              .join('|');
-          // Boundaries are "not a letter/digit" rather than an explicit
-          // punctuation whitelist, so quotes, parens, dashes, and other
-          // punctuation around the trigger don't block the match (only a
-          // literal space/line-start/line-end used to be accepted).
-          final pattern = RegExp(
-            r'(?<![\p{L}\p{N}])(?:' + alternation + r')(?![\p{L}\p{N}])',
-            caseSensitive: false,
-            unicode: true,
-          );
-          // Collapse accidental doubled spaces in the authored replacement
-          // text (e.g. a stray extra space typed/dictated into the field) —
-          // but only runs of the plain space character, so an intentionally
-          // multi-line replacement (e.g. a signature) keeps its newlines.
-          final replacementText = r.row.replacement.replaceAll(
-            RegExp(' {2,}'),
-            ' ',
-          );
-          processedTranscript = processedTranscript.replaceAll(
-            pattern,
-            replacementText,
-          );
-        }
+        processedTranscript = applyTextReplacements(
+          processedTranscript,
+          _rulesFrom(replacements),
+        );
       } on Exception {
         // Non-fatal: save raw transcript if replacements fail.
         processedTranscript = input.transcript;

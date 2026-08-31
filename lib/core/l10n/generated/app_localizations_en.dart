@@ -1336,6 +1336,47 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get replacementsImportFromFolder => 'Import from folder';
+
+  @override
+  String get replacementsImportHint =>
+      'Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.';
+
+  @override
+  String replacementsImportSummary(int found, int added, int skipped) {
+    return 'Found $found, added $added, skipped $skipped duplicate(s)';
+  }
+
+  @override
+  String get replacementsImportedBadge => 'Imported';
+
+  @override
+  String get replacementsMatchModeLabel => 'Matching';
+
+  @override
+  String get replacementsMatchModeExact => 'Exact';
+
+  @override
+  String get replacementsMatchModeFuzzy => 'Similar';
+
+  @override
+  String get replacementsFuzzyToleranceLabel => 'Tolerance';
+
+  @override
+  String get replacementsFuzzyToleranceStrict => 'Strict';
+
+  @override
+  String get replacementsFuzzyToleranceStandard => 'Standard';
+
+  @override
+  String get replacementsFuzzyToleranceTolerant => 'Tolerant';
+
+  @override
+  String replacementsFuzzyTooShortWarning(int minLength) {
+    return 'Trigger phrases under $minLength characters cannot use similar matching — too many false hits.';
+  }
+
+  @override
   String get snippetsSearch => 'Search snippets…';
 
   @override

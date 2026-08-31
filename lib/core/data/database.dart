@@ -96,7 +96,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,6 +156,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 19) {
         await _addQuickNoteColumn();
+      }
+      if (from < 20) {
+        await _addFuzzyReplacementColumns();
       }
     },
     beforeOpen: (details) async {
@@ -472,6 +475,53 @@ class HistoryDatabase extends _$HistoryDatabase {
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
       debugPrint('[Migration] Could not add notes is_quick_note column: $e');
+    }
+  }
+
+  /// Adds `match_mode`/`fuzzy_threshold`/`origin` to `text_replacements` if
+  /// missing (v20 migration, vocabulary-fuzzy-replacements PRD). Additive:
+  /// every pre-existing row keeps matching exactly as before, since
+  /// `match_mode` defaults to `'exact'` and `origin` to `'manual'`.
+  @visibleForTesting
+  Future<void> addFuzzyReplacementColumnsForTesting() =>
+      _addFuzzyReplacementColumns();
+
+  Future<void> _addFuzzyReplacementColumns() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('text_replacements')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('match_mode')) {
+        debugPrint(
+          '[Migration] Adding column "match_mode" to text_replacements',
+        );
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN match_mode '
+          "TEXT NOT NULL DEFAULT 'exact'",
+        );
+      }
+      if (!colNames.contains('fuzzy_threshold')) {
+        debugPrint(
+          '[Migration] Adding column "fuzzy_threshold" to text_replacements',
+        );
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN fuzzy_threshold REAL',
+        );
+      }
+      if (!colNames.contains('origin')) {
+        debugPrint('[Migration] Adding column "origin" to text_replacements');
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN origin '
+          "TEXT NOT NULL DEFAULT 'manual'",
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not add text_replacements fuzzy columns: $e',
+      );
     }
   }
 
@@ -1963,6 +2013,9 @@ class HistoryDatabase extends _$HistoryDatabase {
     required List<String> triggers,
     required String replacement,
     required DateTime createdAt,
+    String matchMode = 'exact',
+    double? fuzzyThreshold,
+    String origin = 'manual',
   }) async {
     assert(triggers.isNotEmpty, 'a replacement needs at least one trigger');
     await transaction(() async {
@@ -1972,6 +2025,9 @@ class HistoryDatabase extends _$HistoryDatabase {
           trigger: Value(triggers.first),
           replacement: Value(replacement),
           createdAt: Value(createdAt),
+          matchMode: Value(matchMode),
+          fuzzyThreshold: Value(fuzzyThreshold),
+          origin: Value(origin),
         ),
       );
       await (delete(

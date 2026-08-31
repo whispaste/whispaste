@@ -2427,6 +2427,78 @@ abstract class L10n {
   /// **'Remove the replacement \"{trigger}\"? This cannot be undone.'**
   String replacementsDeleteMessage(String trigger);
 
+  /// No description provided for @replacementsImportFromFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from folder'**
+  String get replacementsImportFromFolder;
+
+  /// No description provided for @replacementsImportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.'**
+  String get replacementsImportHint;
+
+  /// No description provided for @replacementsImportSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {found}, added {added}, skipped {skipped} duplicate(s)'**
+  String replacementsImportSummary(int found, int added, int skipped);
+
+  /// No description provided for @replacementsImportedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported'**
+  String get replacementsImportedBadge;
+
+  /// No description provided for @replacementsMatchModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching'**
+  String get replacementsMatchModeLabel;
+
+  /// No description provided for @replacementsMatchModeExact.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact'**
+  String get replacementsMatchModeExact;
+
+  /// No description provided for @replacementsMatchModeFuzzy.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar'**
+  String get replacementsMatchModeFuzzy;
+
+  /// No description provided for @replacementsFuzzyToleranceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tolerance'**
+  String get replacementsFuzzyToleranceLabel;
+
+  /// No description provided for @replacementsFuzzyToleranceStrict.
+  ///
+  /// In en, this message translates to:
+  /// **'Strict'**
+  String get replacementsFuzzyToleranceStrict;
+
+  /// No description provided for @replacementsFuzzyToleranceStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get replacementsFuzzyToleranceStandard;
+
+  /// No description provided for @replacementsFuzzyToleranceTolerant.
+  ///
+  /// In en, this message translates to:
+  /// **'Tolerant'**
+  String get replacementsFuzzyToleranceTolerant;
+
+  /// No description provided for @replacementsFuzzyTooShortWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger phrases under {minLength} characters cannot use similar matching — too many false hits.'**
+  String replacementsFuzzyTooShortWarning(int minLength);
+
   /// No description provided for @snippetsSearch.
   ///
   /// In en, this message translates to:

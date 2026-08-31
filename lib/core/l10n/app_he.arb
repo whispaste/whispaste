@@ -455,6 +455,30 @@
       "trigger": { "type": "String" }
     }
   },
+  "replacementsImportFromFolder": "ייבוא מתיקייה",
+  "replacementsImportHint": "סורק תיקיית פרויקט לזיהוי מזהים ומוסיף אותם כהחלפות מקורבות (fuzzy) — שום דבר לא יוצא מהמכשיר שלך.",
+  "replacementsImportSummary": "נמצאו {found}, נוספו {added}, {skipped} כפילויות דולגו",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": { "type": "int" },
+      "added": { "type": "int" },
+      "skipped": { "type": "int" }
+    }
+  },
+  "replacementsImportedBadge": "יובא",
+  "replacementsMatchModeLabel": "התאמה",
+  "replacementsMatchModeExact": "מדויק",
+  "replacementsMatchModeFuzzy": "דומה",
+  "replacementsFuzzyToleranceLabel": "סבילות",
+  "replacementsFuzzyToleranceStrict": "מחמיר",
+  "replacementsFuzzyToleranceStandard": "רגיל",
+  "replacementsFuzzyToleranceTolerant": "סובלני",
+  "replacementsFuzzyTooShortWarning": "לביטויי הפעלה מתחת ל-{minLength} תווים אי אפשר להשתמש בהתאמה מקורבת — זה יוצר יותר מדי התאמות שגויות.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": { "type": "int" }
+    }
+  },
 
   "snippetsSearch": "חפש קטעים…",
   "snippetsSearchFieldLabel": "חפש קטעים",

@@ -636,6 +636,68 @@ void main() {
 
       await db.close();
     });
+  });
+
+  group('Fuzzy-replacement migration (v19 → v20)', () {
+    test(
+      'adds match_mode/fuzzy_threshold/origin columns to text_replacements',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+        final cols = await db
+            .customSelect("PRAGMA table_info('text_replacements')")
+            .get();
+        final colNames = cols.map((r) => r.data['name'] as String).toSet();
+        expect(colNames.contains('match_mode'), true);
+        expect(colNames.contains('fuzzy_threshold'), true);
+        expect(colNames.contains('origin'), true);
+
+        await db.close();
+      },
+    );
+
+    test(
+      'a pre-v20 row keeps matching exactly as before (default exact/manual)',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.upsertReplacementWithTriggers(
+          id: 'r1',
+          triggers: ['omw'],
+          replacement: 'on my way',
+          createdAt: DateTime.now(),
+        );
+
+        final rows = await db.readAllReplacements();
+        expect(rows.single.row.matchMode, 'exact');
+        expect(rows.single.row.origin, 'manual');
+        expect(rows.single.row.fuzzyThreshold, null);
+
+        await db.close();
+      },
+    );
+
+    test('migration is idempotent — a second run does not error or overwrite '
+        'existing values', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: ['id'],
+        replacement: 'ID',
+        createdAt: DateTime.now(),
+        matchMode: 'fuzzy',
+        fuzzyThreshold: 0.85,
+        origin: 'imported',
+      );
+
+      await db.addFuzzyReplacementColumnsForTesting();
+
+      final rows = await db.readAllReplacements();
+      expect(rows.single.row.matchMode, 'fuzzy');
+      expect(rows.single.row.fuzzyThreshold, 0.85);
+      expect(rows.single.row.origin, 'imported');
+
+      await db.close();
+    });
 
     test(
       'migration is idempotent — re-running the index guard does not error',

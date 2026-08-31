@@ -1348,6 +1348,47 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get replacementsImportFromFolder => 'Aus Ordner importieren';
+
+  @override
+  String get replacementsImportHint =>
+      'Durchsucht einen Projektordner nach Bezeichnern und legt sie als unscharfe (fuzzy) Ersetzungen an — nichts verlässt dein Gerät.';
+
+  @override
+  String replacementsImportSummary(int found, int added, int skipped) {
+    return '$found gefunden, $added hinzugefügt, $skipped Dublette(n) übersprungen';
+  }
+
+  @override
+  String get replacementsImportedBadge => 'Importiert';
+
+  @override
+  String get replacementsMatchModeLabel => 'Abgleich';
+
+  @override
+  String get replacementsMatchModeExact => 'Exakt';
+
+  @override
+  String get replacementsMatchModeFuzzy => 'Ähnlich';
+
+  @override
+  String get replacementsFuzzyToleranceLabel => 'Toleranz';
+
+  @override
+  String get replacementsFuzzyToleranceStrict => 'Streng';
+
+  @override
+  String get replacementsFuzzyToleranceStandard => 'Standard';
+
+  @override
+  String get replacementsFuzzyToleranceTolerant => 'Tolerant';
+
+  @override
+  String replacementsFuzzyTooShortWarning(int minLength) {
+    return 'Auslöser unter $minLength Zeichen können nicht unscharf abgeglichen werden — das erzeugt zu viele Fehltreffer.';
+  }
+
+  @override
   String get snippetsSearch => 'Snippets suchen…';
 
   @override

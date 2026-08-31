@@ -113,6 +113,25 @@ class TextReplacements extends Table {
   TextColumn get replacement => text()();
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Match algorithm — `exact` (word-boundary regex, unchanged pre-v20
+  /// behavior) or `fuzzy` (similarity scoring, vocabulary-fuzzy-replacements
+  /// PRD, schema v20). Stored as text rather than an int enum so a raw
+  /// `SELECT` stays human-readable in the DB browser, consistent with other
+  /// text-backed enum-ish columns in this file (e.g. `source` on
+  /// `HistoryEntries`).
+  TextColumn get matchMode => text().withDefault(const Constant('exact'))();
+
+  /// Similarity threshold (0.0-1.0) for `matchMode == fuzzy`; unused and left
+  /// `null` for `exact` rows. The UI only ever offers three named steps
+  /// (Streng 0.92 / Standard 0.85 / Tolerant 0.75), not a free slider — see
+  /// PRD.md.
+  RealColumn get fuzzyThreshold => real().nullable()();
+
+  /// `manual` (default, user-authored) or `imported` (vocabulary-import
+  /// scan) — display-only distinction (PRD User Story 11), no behavioral
+  /// difference in matching.
+  TextColumn get origin => text().withDefault(const Constant('manual'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

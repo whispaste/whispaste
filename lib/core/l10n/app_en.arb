@@ -531,6 +531,30 @@
       "trigger": { "type": "String" }
     }
   },
+  "replacementsImportFromFolder": "Import from folder",
+  "replacementsImportHint": "Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.",
+  "replacementsImportSummary": "Found {found}, added {added}, skipped {skipped} duplicate(s)",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": { "type": "int" },
+      "added": { "type": "int" },
+      "skipped": { "type": "int" }
+    }
+  },
+  "replacementsImportedBadge": "Imported",
+  "replacementsMatchModeLabel": "Matching",
+  "replacementsMatchModeExact": "Exact",
+  "replacementsMatchModeFuzzy": "Similar",
+  "replacementsFuzzyToleranceLabel": "Tolerance",
+  "replacementsFuzzyToleranceStrict": "Strict",
+  "replacementsFuzzyToleranceStandard": "Standard",
+  "replacementsFuzzyToleranceTolerant": "Tolerant",
+  "replacementsFuzzyTooShortWarning": "Trigger phrases under {minLength} characters cannot use similar matching — too many false hits.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": { "type": "int" }
+    }
+  },
 
   "snippetsSearch": "Search snippets…",
   "snippetsSearchFieldLabel": "Search snippets",

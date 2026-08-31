@@ -1323,6 +1323,47 @@ class L10nHe extends L10n {
   }
 
   @override
+  String get replacementsImportFromFolder => 'ייבוא מתיקייה';
+
+  @override
+  String get replacementsImportHint =>
+      'סורק תיקיית פרויקט לזיהוי מזהים ומוסיף אותם כהחלפות מקורבות (fuzzy) — שום דבר לא יוצא מהמכשיר שלך.';
+
+  @override
+  String replacementsImportSummary(int found, int added, int skipped) {
+    return 'נמצאו $found, נוספו $added, $skipped כפילויות דולגו';
+  }
+
+  @override
+  String get replacementsImportedBadge => 'יובא';
+
+  @override
+  String get replacementsMatchModeLabel => 'התאמה';
+
+  @override
+  String get replacementsMatchModeExact => 'מדויק';
+
+  @override
+  String get replacementsMatchModeFuzzy => 'דומה';
+
+  @override
+  String get replacementsFuzzyToleranceLabel => 'סבילות';
+
+  @override
+  String get replacementsFuzzyToleranceStrict => 'מחמיר';
+
+  @override
+  String get replacementsFuzzyToleranceStandard => 'רגיל';
+
+  @override
+  String get replacementsFuzzyToleranceTolerant => 'סובלני';
+
+  @override
+  String replacementsFuzzyTooShortWarning(int minLength) {
+    return 'לביטויי הפעלה מתחת ל-$minLength תווים אי אפשר להשתמש בהתאמה מקורבת — זה יוצר יותר מדי התאמות שגויות.';
+  }
+
+  @override
   String get snippetsSearch => 'חפש קטעים…';
 
   @override

@@ -8,6 +8,7 @@ library;
 import 'dart:io' show Platform;
 import 'dart:ui';
 
+import 'package:file/memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/services/replacements/vocabulary_import_service.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show SettingRow;
 import 'package:whispaste/widgets/wp_button.dart';
@@ -344,7 +346,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          tester.getSemantics(find.byType(SettingRow)),
+          tester.getSemantics(
+            find.widgetWithText(SettingRow, l10n.replacementsToggleLabel),
+          ),
           isSemantics(
             label: l10n.replacementsToggleLabel,
             hint: l10n.replacementsToggleEnabled,
@@ -425,9 +429,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tab lands on the first row (the search field and Add button come
-      // first in traversal order, so walk past them).
-      for (var i = 0; i < 4; i++) {
+      // Tab lands on the first row (the search field, Add button, master
+      // switch, and vocabulary-import button come first in traversal order,
+      // so walk past them).
+      for (var i = 0; i < 8; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
         if (find.byIcon(LucideIcons.trash2).evaluate().isNotEmpty) break;
@@ -464,6 +469,144 @@ void main() {
         tester.widget<TextField>(find.byType(TextField).first).controller!.text,
         'mfg',
       );
+    });
+
+    // -------------------------------------------------------------------------
+    // 8. Vocabulary-fuzzy-replacements
+    // -------------------------------------------------------------------------
+
+    testWidgets('switching to Similar mode reveals the tolerance selector', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsNothing);
+
+      // TextFields in tree order: [0] page search, [1] trigger, [2] replacement
+      await tester.enterText(find.byType(TextField).at(1), 'get user by id');
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text(l10n.replacementsMatchModeFuzzy));
+      await tester.tap(find.text(l10n.replacementsMatchModeFuzzy));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsOneWidget);
+      expect(
+        find.text(l10n.replacementsFuzzyToleranceStandard),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'Similar mode is locked for a trigger below the fuzzy minimum length',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(LucideIcons.plus));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).at(1), 'id');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(l10n.replacementsFuzzyTooShortWarning(4)),
+          findsOneWidget,
+        );
+
+        await tester.ensureVisible(find.text(l10n.replacementsMatchModeFuzzy));
+        await tester.tap(find.text(l10n.replacementsMatchModeFuzzy));
+        await tester.pumpAndSettle();
+
+        // Disabled segment: tapping it does not reveal the tolerance
+        // selector.
+        expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'saving in Similar mode persists the mode across a reopened edit dialog',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(LucideIcons.plus));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).at(1), 'get user by id');
+        await tester.enterText(find.byType(TextField).at(2), 'getUserById');
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.text(l10n.replacementsMatchModeFuzzy));
+        await tester.tap(find.text(l10n.replacementsMatchModeFuzzy));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.text(l10n.replacementsFuzzyToleranceTolerant),
+        );
+        await tester.tap(find.text(l10n.replacementsFuzzyToleranceTolerant));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.text(l10n.replacementsAdd).last);
+        await tester.tap(find.text(l10n.replacementsAdd).last);
+        await tester.pumpAndSettle();
+
+        // Filter down to the new entry — it was appended after the three
+        // sample rows and may be scrolled out of the test viewport.
+        await tester.enterText(find.byType(TextField).first, 'get user by id');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('get user by id').last);
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsOneWidget);
+        final segmented = tester.widget<SegmentedButton<double>>(
+          find.byType(SegmentedButton<double>),
+        );
+        expect(segmented.selected, {0.75});
+      },
+    );
+
+    testWidgets('an imported entry shows the imported badge', (tester) async {
+      final fakeService = VocabularyImportService(
+        fileSystem: MemoryFileSystem(),
+        pickFolder: ({initialDirectory}) async => '/fake/project',
+        extract: (files) async => {'ImportedClassName'},
+      );
+
+      await tester.pumpWidget(
+        makeTestable(
+          const ReplacementsPage(),
+          overrides: [
+            vocabularyImportServiceProvider.overrideWithValue(fakeService),
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(WpButton, l10n.replacementsImportFromFolder),
+      );
+      // WpToast.show() schedules a 3-second dismissal timer; pumpAndSettle()
+      // would block waiting for it, so pump with an explicit duration.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+
+      // The new entry is appended after the three sample rows and may be
+      // scrolled out of the test viewport — filter down to it.
+      await tester.enterText(find.byType(TextField).first, 'ImportedClassName');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsImportedBadge), findsOneWidget);
     });
   });
 }
