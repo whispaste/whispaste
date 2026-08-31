@@ -17,12 +17,51 @@
 
 #include "smart_mode_shim.h"
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 namespace {
 
 bool g_backends_loaded = false;
 
 void ensure_backends_loaded() {
   if (g_backends_loaded) return;
+#if defined(_WIN32)
+  // ggml_backend_load_all() (no explicit path) searches only the *executable's*
+  // directory and the current working directory (see
+  // ggml-backend-reg.cpp:get_executable_path(), which calls
+  // GetModuleFileNameW(NULL, ...) -- NULL means "the process's .exe", not this
+  // DLL). WhisPaste ships the ggml-cpu.dll/ggml-vulkan.dll backend plugins next
+  // to smartmode_shim.dll under a smart_mode\ subfolder, not next to
+  // whispaste.exe, so the default search finds nothing and every model load
+  // fails with "no backends are loaded". Resolve *this* module's own directory
+  // instead and pass it explicitly.
+  HMODULE self_module = nullptr;
+  if (GetModuleHandleExW(
+          GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+          reinterpret_cast<LPCWSTR>(&ensure_backends_loaded),
+          &self_module)) {
+    wchar_t path[MAX_PATH];
+    DWORD len = GetModuleFileNameW(self_module, path, MAX_PATH);
+    if (len > 0 && len < MAX_PATH) {
+      std::wstring dir(path, len);
+      auto last_slash = dir.find_last_of(L'\\');
+      if (last_slash != std::wstring::npos) {
+        dir = dir.substr(0, last_slash);
+        int utf8_len = WideCharToMultiByte(CP_UTF8, 0, dir.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        if (utf8_len > 0) {
+          std::string dir_utf8(static_cast<size_t>(utf8_len) - 1, '\0');
+          WideCharToMultiByte(CP_UTF8, 0, dir.c_str(), -1, dir_utf8.data(), utf8_len, nullptr, nullptr);
+          ggml_backend_load_all_from_path(dir_utf8.c_str());
+          g_backends_loaded = true;
+          return;
+        }
+      }
+    }
+  }
+#endif
   ggml_backend_load_all();
   g_backends_loaded = true;
 }
