@@ -22,6 +22,7 @@ import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/trigger_chip.dart';
+import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
@@ -944,7 +945,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                   ),
                   if (widget.replacement.origin == 'imported') ...[
                     const SizedBox(width: WpSpacing.xxs),
-                    _ImportedBadge(
+                    WpAccentBadge(
                       label: L10n.of(context).replacementsImportedBadge,
                     ),
                   ],
@@ -987,41 +988,6 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Imported badge
-// ---------------------------------------------------------------------------
-
-/// Subtle marker on a tile whose entry came from a vocabulary-folder import
-/// rather than manual entry (PRD.md User Story 11) — display-only, no
-/// behavioral difference.
-class _ImportedBadge extends StatelessWidget {
-  const _ImportedBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xxs,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: WpColors.accent.withValues(alpha: 0.12),
-        borderRadius: WpRadius.borderSm,
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: WpColors.accent,
-          fontSize: WpTypography.micro,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );

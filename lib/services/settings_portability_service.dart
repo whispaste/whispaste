@@ -382,7 +382,13 @@ class SettingsPortabilityService {
       ],
       if (bundle.snippets case final snippets?)
         'snippets': [
-          for (final s in snippets) {'title': s.title, 'body': s.body},
+          for (final s in snippets)
+            {
+              'title': s.title,
+              'body': s.body,
+              'kind': s.kind,
+              'fields': s.fields,
+            },
         ],
       // v1-compat duplicates — see library doc. Derived from `settings`,
       // never a second source.
@@ -483,6 +489,13 @@ class SettingsPortabilityService {
                       id: '',
                       title: title,
                       body: '${entry['body'] ?? ''}',
+                      // Older export files (pre-interactive-snippets) have
+                      // neither key — default to a plain static snippet.
+                      kind: '${entry['kind'] ?? 'static'}',
+                      fields: switch (entry['fields']) {
+                        final List fields => [for (final f in fields) '$f'],
+                        _ => const [],
+                      },
                     ),
             ]
           : null,

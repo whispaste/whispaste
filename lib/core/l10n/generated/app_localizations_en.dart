@@ -1421,6 +1421,55 @@ class L10nEn extends L10n {
   String get snippetsBodyHint => 'The text this snippet inserts…';
 
   @override
+  String get snippetsKindLabel => 'Type';
+
+  @override
+  String get snippetsKindStatic => 'Static';
+
+  @override
+  String get snippetsKindInteractive => 'Interactive';
+
+  @override
+  String get snippetsFieldsLabel => 'Fields';
+
+  @override
+  String get snippetsFieldsHint =>
+      'You\'ll be guided through each field with its own short recording, in this order.';
+
+  @override
+  String snippetsFieldNameHint(int number) {
+    return 'Field $number name';
+  }
+
+  @override
+  String get snippetsFieldMoveUp => 'Move field up';
+
+  @override
+  String get snippetsFieldMoveDown => 'Move field down';
+
+  @override
+  String get snippetsFieldRemove => 'Remove field';
+
+  @override
+  String get snippetsFieldAdd => 'Add field';
+
+  @override
+  String snippetsFieldsMinWarning(int min) {
+    return 'An interactive snippet needs at least $min named fields.';
+  }
+
+  @override
+  String get snippetsInteractiveBadge => 'Interactive';
+
+  @override
+  String interactiveSnippetFieldLabel(int index, int count, String name) {
+    return 'Field $index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAdvance => 'Next';
+
+  @override
   String get snippetsDeleteTitle => 'Delete Snippet';
 
   @override
@@ -2875,6 +2924,11 @@ class L10nEn extends L10n {
   @override
   String overlayKeyboardHint(String hotkey) {
     return 'Press $hotkey to stop';
+  }
+
+  @override
+  String overlayKeyboardHintNextField(String hotkey) {
+    return 'Press $hotkey for the next field';
   }
 
   @override

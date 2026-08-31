@@ -1447,6 +1447,64 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
+  /// Captures the paste target once, before the first field of an
+  /// interactive snippet starts recording. Individual `templateField`
+  /// recordings deliberately skip [pasterProvider]'s `prime()` (see
+  /// [startRecording] — "a quick-note target never pastes anywhere"), so
+  /// without this call the originally-focused app would never be captured
+  /// and [completeInteractiveSnippet] would have nothing to paste into.
+  Future<void> primeForInteractiveSnippet() async {
+    await ref.read(pasterProvider)?.prime();
+  }
+
+  /// Called by `InteractiveSnippetController` once every field of an
+  /// interactive snippet has been recorded and composed into [composedText].
+  /// Runs the same history-save (exactly one entry for the whole snippet,
+  /// never one per field) and clipboard/paste step a regular `clipboard`
+  /// recording runs after transcription — without going through the
+  /// audio/transcription pipeline itself, since the text is already final.
+  Future<void> completeInteractiveSnippet({
+    required String composedText,
+    required Duration audioDuration,
+  }) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final saved = await ref
+        .read(recordingStoreProvider)
+        .save(
+          RecordingInput(
+            transcript: composedText,
+            audioDuration: audioDuration,
+            modelId: settings.transcriptionModelId,
+            isLocal: settings.sttProviderType.isLocal,
+            languageCode: settings.sttLanguageCode,
+            // Each field already had replacements applied to it individually
+            // (via its own templateField recording's history-save step) —
+            // running them again over the composed text (headings included)
+            // would risk a heading incidentally matching a trigger phrase.
+            applyTextReplacements: false,
+            historyMaxEntries: settings.historyMaxEntries,
+            wordCount: computeWordCountFast(composedText),
+            processingDurationSec: 0,
+            recordDailyStat: false,
+          ),
+        );
+
+    final action = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+    );
+    switch (action) {
+      case AfterTranscriptionAction.nothing:
+        return;
+      case AfterTranscriptionAction.clipboard:
+        await _copyTranscriptToClipboard(saved.processedTranscript);
+      case AfterTranscriptionAction.paste:
+        await _pasteTranscript(saved.processedTranscript, settings);
+      case AfterTranscriptionAction.clipboardAndPaste:
+        await _copyTranscriptToClipboard(saved.processedTranscript);
+        await _pasteTranscript(saved.processedTranscript, settings);
+    }
+  }
+
   Future<String?> _saveToHistory(
     String transcript,
     Duration audioDuration,
@@ -1459,9 +1517,14 @@ class RecordingOrchestrator extends Notifier<void> {
       final wordCount = computeWordCountFast(transcript);
       // A quick note already lives in Notes — it must not also land in
       // Verlauf (see _handleAfterTranscription's quickNote branch below,
-      // which appends to the note instead of clipboard/paste).
-      final isQuickNote =
-          ref.read(recordingTargetProvider) == RecordingTarget.quickNote;
+      // which appends to the note instead of clipboard/paste). A template
+      // field is one piece of a still-in-progress interactive snippet — only
+      // the final composed result (assembled by
+      // `InteractiveSnippetController`) gets its own single history entry,
+      // never the individual fields.
+      final target = ref.read(recordingTargetProvider);
+      final isQuickNote = target == RecordingTarget.quickNote;
+      final isTemplateField = target == RecordingTarget.templateField;
 
       final saved = await store.save(
         RecordingInput(
@@ -1474,13 +1537,18 @@ class RecordingOrchestrator extends Notifier<void> {
           historyMaxEntries: settings.historyMaxEntries,
           wordCount: wordCount,
           processingDurationSec: processingDurationSec,
-          insertHistoryEntry: !isQuickNote,
+          insertHistoryEntry: !isQuickNote && !isTemplateField,
         ),
       );
 
       if (isQuickNote) {
         _log.info(
           'Applied text replacements for quick note (not saved to '
+          'history)',
+        );
+      } else if (isTemplateField) {
+        _log.info(
+          'Applied text replacements for template field (not saved to '
           'history)',
         );
       } else {
@@ -1501,9 +1569,11 @@ class RecordingOrchestrator extends Notifier<void> {
       // history entry to link the audio to. Takes priority over the
       // user-facing retention setting below — a live diagnosis session
       // wants every WAV kept in place, uncapped, not rotated away.
-      if (kRetainDebugAudio && !isQuickNote) {
+      if (kRetainDebugAudio && !isQuickNote && !isTemplateField) {
         await _linkDebugAudioAttachment(saved.entryId, wavPath);
-      } else if (settings.privacy.retainRecentAudio && !isQuickNote) {
+      } else if (settings.privacy.retainRecentAudio &&
+          !isQuickNote &&
+          !isTemplateField) {
         await _retainRecentAudio(saved.entryId, wavPath);
       }
 
@@ -1787,6 +1857,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
     if (ref.read(recordingTargetProvider) == RecordingTarget.quickNote) {
       await _appendToQuickNote(transcript);
+      return;
+    }
+
+    // A template field's transcript is picked up by
+    // `InteractiveSnippetController` from `RecordingState.transcript` once
+    // this recording completes — it is neither copied to the clipboard nor
+    // pasted anywhere on its own (only the composed, whole-snippet result
+    // is, once every field is done).
+    if (ref.read(recordingTargetProvider) == RecordingTarget.templateField) {
       return;
     }
 

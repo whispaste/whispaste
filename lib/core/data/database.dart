@@ -38,6 +38,15 @@ class ReplacementWithTriggers {
   final List<String> triggers;
 }
 
+/// A [Snippet] joined with its field names (`SnippetFields`, schema v21),
+/// ordered by `sortOrder`. [fields] is empty for a `static` snippet.
+class SnippetWithFields {
+  const SnippetWithFields({required this.row, required this.fields});
+
+  final Snippet row;
+  final List<String> fields;
+}
+
 @DriftDatabase(
   tables: [
     HistoryEntries,
@@ -50,6 +59,7 @@ class ReplacementWithTriggers {
     EntryTags,
     HotkeyLatencyEntries,
     Snippets,
+    SnippetFields,
     Notes,
     NoteTags,
   ],
@@ -96,7 +106,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -159,6 +169,10 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 20) {
         await _addFuzzyReplacementColumns();
+      }
+      if (from < 21) {
+        await m.createTable(snippetFields);
+        await _addSnippetKindColumn();
       }
     },
     beforeOpen: (details) async {
@@ -485,6 +499,29 @@ class HistoryDatabase extends _$HistoryDatabase {
   @visibleForTesting
   Future<void> addFuzzyReplacementColumnsForTesting() =>
       _addFuzzyReplacementColumns();
+
+  /// Adds `kind` to `snippets` if missing (v21 migration,
+  /// interactive-snippets PRD). Additive: every pre-existing row keeps
+  /// behaving exactly as before, since `kind` defaults to `'static'`.
+  @visibleForTesting
+  Future<void> addSnippetKindColumnForTesting() => _addSnippetKindColumn();
+
+  Future<void> _addSnippetKindColumn() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('snippets')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('kind')) {
+        debugPrint('[Migration] Adding column "kind" to snippets');
+        await customStatement(
+          "ALTER TABLE snippets ADD COLUMN kind TEXT NOT NULL DEFAULT 'static'",
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint('[Migration] Could not add snippets kind column: $e');
+    }
+  }
 
   Future<void> _addFuzzyReplacementColumns() async {
     try {
@@ -2087,11 +2124,63 @@ class HistoryDatabase extends _$HistoryDatabase {
     return _snippetsQuery().watch();
   }
 
+  Future<List<SnippetWithFields>> readAllSnippetsWithFields() async {
+    final rows = await _snippetsFieldsJoinQuery().get();
+    return _groupSnippetFieldRows(rows);
+  }
+
+  Stream<List<SnippetWithFields>> watchAllSnippetsWithFields() {
+    if (_isClosed) return const Stream.empty();
+    return _snippetsFieldsJoinQuery().watch().map(_groupSnippetFieldRows);
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _snippetsFieldsJoinQuery() {
+    // Same two-ordering-term shape as [_replacementsJoinQuery] — parent
+    // rowid first (stable creation order), then the child's own sortOrder
+    // as the tiebreak within one snippet's fields.
+    return select(snippets).join([
+      leftOuterJoin(
+        snippetFields,
+        snippetFields.snippetId.equalsExp(snippets.id),
+      ),
+    ])..orderBy([
+      OrderingTerm(expression: const CustomExpression<int>('snippets.rowid')),
+      OrderingTerm(expression: snippetFields.sortOrder),
+    ]);
+  }
+
+  /// Groups flat join rows back into one [SnippetWithFields] per snippet,
+  /// preserving every parent row via the left outer join even when it has
+  /// zero field rows (a `static` snippet, or an `interactive` one whose
+  /// fields haven't backfilled).
+  List<SnippetWithFields> _groupSnippetFieldRows(List<TypedResult> rows) {
+    final order = <String>[];
+    final snippetById = <String, Snippet>{};
+    final fieldsById = <String, List<String>>{};
+    for (final row in rows) {
+      final snippet = row.readTable(snippets);
+      if (!snippetById.containsKey(snippet.id)) {
+        order.add(snippet.id);
+        snippetById[snippet.id] = snippet;
+        fieldsById[snippet.id] = [];
+      }
+      final field = row.readTableOrNull(snippetFields);
+      if (field != null) {
+        fieldsById[snippet.id]!.add(field.name);
+      }
+    }
+    return [
+      for (final id in order)
+        SnippetWithFields(row: snippetById[id]!, fields: fieldsById[id]!),
+    ];
+  }
+
   Future<void> upsertSnippet({
     required String id,
     required String title,
     required String body,
     required DateTime createdAt,
+    String kind = 'static',
   }) {
     return into(snippets).insertOnConflictUpdate(
       SnippetsCompanion(
@@ -2099,18 +2188,86 @@ class HistoryDatabase extends _$HistoryDatabase {
         title: Value(title),
         body: Value(body),
         createdAt: Value(createdAt),
+        kind: Value(kind),
       ),
     );
   }
 
-  Future<void> deleteSnippet(String id) {
-    return (delete(snippets)..where((s) => s.id.equals(id))).go();
+  /// Upserts a snippet and its complete field list in one transaction —
+  /// `fieldNames` is the full ordered list (not a delta), mirroring
+  /// [upsertReplacementWithTriggers]. Pass an empty list for a `static`
+  /// snippet (no fields).
+  Future<void> upsertSnippetWithFields({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+    required String kind,
+    required List<String> fieldNames,
+  }) {
+    return transaction(() async {
+      await upsertSnippet(
+        id: id,
+        title: title,
+        body: body,
+        createdAt: createdAt,
+        kind: kind,
+      );
+      await replaceSnippetFields(snippetId: id, fieldNames: fieldNames);
+    });
   }
 
-  /// Deletes all snippets. Used by settings import (portability) so the
-  /// imported file becomes the exact new contents rather than being merged
-  /// with existing entries.
-  Future<void> deleteAllSnippets() => delete(snippets).go();
+  Future<void> deleteSnippet(String id) {
+    return transaction(() async {
+      await (delete(snippetFields)..where((f) => f.snippetId.equals(id))).go();
+      await (delete(snippets)..where((s) => s.id.equals(id))).go();
+    });
+  }
+
+  /// Deletes all snippets (and their fields). Used by settings import
+  /// (portability) so the imported file becomes the exact new contents
+  /// rather than being merged with existing entries.
+  Future<void> deleteAllSnippets() {
+    return transaction(() async {
+      await delete(snippetFields).go();
+      await delete(snippets).go();
+    });
+  }
+
+  /// Reads every [SnippetField] for [snippetId], ordered by `sortOrder`
+  /// (PRD: "kein Zurückspringen, kein Überspringen" — the strict field
+  /// sequence an interactive snippet's guided recording walks through).
+  Future<List<SnippetField>> readSnippetFields(String snippetId) {
+    return (select(snippetFields)
+          ..where((f) => f.snippetId.equals(snippetId))
+          ..orderBy([(f) => OrderingTerm(expression: f.sortOrder)]))
+        .get();
+  }
+
+  /// Replaces the complete field list of an `interactive` snippet in one
+  /// transaction — `fieldNames` is the full ordered list (not a delta),
+  /// mirroring [upsertReplacementWithTriggers]'s replace-triggers approach.
+  Future<void> replaceSnippetFields({
+    required String snippetId,
+    required List<String> fieldNames,
+  }) {
+    return transaction(() async {
+      await (delete(
+        snippetFields,
+      )..where((f) => f.snippetId.equals(snippetId))).go();
+      await batch((b) {
+        b.insertAll(snippetFields, [
+          for (var i = 0; i < fieldNames.length; i++)
+            SnippetFieldsCompanion.insert(
+              id: '${snippetId}_f$i',
+              snippetId: snippetId,
+              name: fieldNames[i],
+              sortOrder: i,
+            ),
+        ]);
+      });
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Notes

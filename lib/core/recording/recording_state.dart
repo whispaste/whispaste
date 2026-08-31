@@ -18,7 +18,13 @@ enum RecordingPhase { idle, recording, transcribing, done, error }
 /// (`AfterTranscriptionAction` — clipboard/paste). [quickNote] appends it to
 /// the exclusively-marked quick note instead, bypassing clipboard/paste
 /// entirely (see `RecordingOrchestrator._handleAfterTranscription`).
-enum RecordingTarget { clipboard, quickNote }
+/// [templateField] runs the identical recording/transcription pipeline but
+/// skips every "done" side effect (paste/clipboard write, history entry) —
+/// the transcript is instead picked up by `InteractiveSnippetController`,
+/// which drives one `templateField` recording per field of an interactive
+/// snippet and composes/pastes/saves the combined result itself once all
+/// fields are done.
+enum RecordingTarget { clipboard, quickNote, templateField }
 
 /// State of the local STT server subprocess.
 enum SttServerState { stopped, starting, ready, error }

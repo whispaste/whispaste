@@ -21,6 +21,7 @@ import '../../core/theme/overlay_design_spec.dart'
         OverlayStyleVariant;
 import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
+import '../snippets/interactive_snippet_controller.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
 import 'overlay_positioning.dart';
@@ -574,8 +575,15 @@ class FloatingOverlayService
         _onCloseClicked();
 
       case OverlayBodyClicked():
-        _log.debug('Overlay body clicked → toggleRecording');
-        ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          _log.debug('Overlay body clicked → advanceField');
+          ref
+              .read(interactiveSnippetControllerProvider.notifier)
+              .advanceField();
+        } else {
+          _log.debug('Overlay body clicked → toggleRecording');
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        }
 
       case OverlayRetryClicked():
         _log.debug('Overlay retry clicked → toggleRecording');
@@ -602,6 +610,11 @@ class FloatingOverlayService
   }
 
   void _onCloseClicked() {
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      _log.debug('Overlay close during interactive snippet → cancel sequence');
+      ref.read(interactiveSnippetControllerProvider.notifier).cancel();
+      return;
+    }
     final phase = ref.read(recordingPhaseProvider);
     if (phase == RecordingPhase.recording) {
       _log.debug('Overlay close during recording → stopRecording');
@@ -616,6 +629,11 @@ class FloatingOverlayService
     switch (action) {
       case 'cancel':
         _log.debug('Context menu: cancel recording');
+        if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          ref.read(interactiveSnippetControllerProvider.notifier).cancel();
+          _hideOverlay();
+          return;
+        }
         final phase = ref.read(recordingPhaseProvider);
         if (phase == RecordingPhase.recording) {
           ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
@@ -687,7 +705,9 @@ class FloatingOverlayService
   String _labelFor(RecordingPhase phase, L10n? l10n, RecordingTarget target) =>
       switch (phase) {
         RecordingPhase.recording =>
-          target == RecordingTarget.quickNote
+          target == RecordingTarget.templateField
+              ? _interactiveSnippetFieldLabel(l10n)
+              : target == RecordingTarget.quickNote
               ? (l10n?.overlayRecordingQuickNote ?? 'Recording to note')
               : (l10n?.overlayRecording ?? 'Recording'),
         RecordingPhase.transcribing =>
@@ -758,6 +778,10 @@ class FloatingOverlayService
                 l10n: l10n,
                 displayOverride: s.hotkey.hotkeyKeyDisplay,
               );
+        if (target == RecordingTarget.templateField) {
+          return l10n?.overlayKeyboardHintNextField(hotkey) ??
+              'Press $hotkey for the next field';
+        }
         return l10n?.overlayKeyboardHint(hotkey) ?? 'Press $hotkey to stop';
       }
       return '';
@@ -769,6 +793,22 @@ class FloatingOverlayService
           : (l10n?.overlayProcessingCloud ?? 'Cloud');
     }
     return '';
+  }
+
+  /// "Field i/N: `<name>`" label for the field currently being recorded in an
+  /// interactive-snippet sequence (PRD `interactive-snippets` User Story 8).
+  /// Falls back to the plain recording label if, unexpectedly, no sequence
+  /// is active (e.g. a stray `templateField` snapshot).
+  String _interactiveSnippetFieldLabel(L10n? l10n) {
+    final session = ref.read(interactiveSnippetControllerProvider);
+    if (session == null) return l10n?.overlayRecording ?? 'Recording';
+    return l10n?.interactiveSnippetFieldLabel(
+          session.fieldIndex + 1,
+          session.fieldCount,
+          session.fieldName,
+        ) ??
+        'Field ${session.fieldIndex + 1}/${session.fieldCount}: '
+            '${session.fieldName}';
   }
 
   String _formatElapsed(Duration elapsed) {

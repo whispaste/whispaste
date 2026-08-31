@@ -81,15 +81,17 @@ class DriftRecordingStore implements RecordingStore {
     }
 
     // 4. Record daily stat.
-    await _db.recordDailyStat(
-      timestamp: now,
-      model: input.modelId,
-      isLocal: input.isLocal,
-      durationSec: input.audioDuration.inSeconds.toDouble(),
-      processingDurationSec: input.processingDurationSec.toDouble(),
-      wordCount: input.wordCount,
-      costUsd: 0,
-    );
+    if (input.recordDailyStat) {
+      await _db.recordDailyStat(
+        timestamp: now,
+        model: input.modelId,
+        isLocal: input.isLocal,
+        durationSec: input.audioDuration.inSeconds.toDouble(),
+        processingDurationSec: input.processingDurationSec.toDouble(),
+        wordCount: input.wordCount,
+        costUsd: 0,
+      );
+    }
 
     // 5. Trim to max entries (0 = unlimited). Skipped along with the insert
     // above — nothing was added to trim for.

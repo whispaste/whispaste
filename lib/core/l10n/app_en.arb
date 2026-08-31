@@ -570,6 +570,37 @@
   "snippetsTitleHint": "e.g. Email signature",
   "snippetsBodyLabel": "Body",
   "snippetsBodyHint": "The text this snippet inserts…",
+  "snippetsKindLabel": "Type",
+  "snippetsKindStatic": "Static",
+  "snippetsKindInteractive": "Interactive",
+  "snippetsFieldsLabel": "Fields",
+  "snippetsFieldsHint": "You'll be guided through each field with its own short recording, in this order.",
+  "snippetsFieldNameHint": "Field {number} name",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "Move field up",
+  "snippetsFieldMoveDown": "Move field down",
+  "snippetsFieldRemove": "Remove field",
+  "snippetsFieldAdd": "Add field",
+  "snippetsFieldsMinWarning": "An interactive snippet needs at least {min} named fields.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsInteractiveBadge": "Interactive",
+  "interactiveSnippetFieldLabel": "Field {index}/{count}: {name}",
+  "@interactiveSnippetFieldLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAdvance": "Next",
   "snippetsDeleteTitle": "Delete Snippet",
   "snippetsDeleteMessage": "Remove the snippet \"{title}\"? This cannot be undone.",
   "@snippetsDeleteMessage": {
@@ -1084,6 +1115,14 @@
   "overlayStop": "Stop",
   "overlayKeyboardHint": "Press {hotkey} to stop",
   "@overlayKeyboardHint": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextField": "Press {hotkey} for the next field",
+  "@overlayKeyboardHintNextField": {
     "placeholders": {
       "hotkey": {
         "type": "String"

@@ -18,6 +18,7 @@ import '../../widgets/find_replace.dart';
 import '../../widgets/markdown_toolbar.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/toast.dart';
+import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/hotkey_flow.dart';
@@ -36,11 +37,23 @@ class SnippetItem {
     required this.id,
     required this.title,
     required this.body,
+    this.kind = 'static',
+    this.fields = const [],
   });
 
   final String id;
   final String title;
   final String body;
+
+  /// `static` (default — [body] is inserted verbatim) or `interactive`
+  /// (interactive-snippets PRD — [fields] names the guided recording
+  /// sequence's fields in order; [body] is unused).
+  final String kind;
+
+  /// Ordered field names for an `interactive` snippet. Empty for `static`.
+  final List<String> fields;
+
+  bool get isInteractive => kind == 'interactive';
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +65,7 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
   @override
   Future<List<SnippetItem>> readAll() async {
     final db = ref.read(historyDatabaseProvider);
-    return (await db.readAllSnippets()).map(_fromDb).toList();
+    return (await db.readAllSnippetsWithFields()).map(_fromDb).toList();
   }
 
   @override
@@ -63,14 +76,21 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
   // `createThenReload(persist)` helper was tried on ReloadableListNotifier:
   // it replaced this direct, linear code with a persist-callback closure for
   // no net line reduction — not worth the indirection for three lines.
-  Future<void> add(String title, String body) async {
+  Future<void> add(
+    String title,
+    String body, {
+    String kind = 'static',
+    List<String> fields = const [],
+  }) async {
     final db = ref.read(historyDatabaseProvider);
     final id = generateV4Uuid();
-    await db.upsertSnippet(
+    await db.upsertSnippetWithFields(
       id: id,
       title: title,
       body: body,
       createdAt: DateTime.now(),
+      kind: kind,
+      fieldNames: fields,
     );
     await reload();
   }
@@ -79,13 +99,17 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
     String id, {
     required String title,
     required String body,
+    String kind = 'static',
+    List<String> fields = const [],
   }) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.upsertSnippet(
+    await db.upsertSnippetWithFields(
       id: id,
       title: title,
       body: body,
       createdAt: DateTime.now(),
+      kind: kind,
+      fieldNames: fields,
     );
     await reload();
   }
@@ -109,18 +133,25 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
     final now = DateTime.now();
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
-      await db.upsertSnippet(
+      await db.upsertSnippetWithFields(
         id: '${now.millisecondsSinceEpoch}_$i',
         title: item.title,
         body: item.body,
         createdAt: now,
+        kind: item.kind,
+        fieldNames: item.fields,
       );
     }
     await reload();
   }
 
-  static SnippetItem _fromDb(Snippet row) =>
-      SnippetItem(id: row.id, title: row.title, body: row.body);
+  static SnippetItem _fromDb(SnippetWithFields row) => SnippetItem(
+    id: row.row.id,
+    title: row.row.title,
+    body: row.row.body,
+    kind: row.row.kind,
+    fields: row.fields,
+  );
 }
 
 final snippetsProvider =
@@ -219,17 +250,24 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   // dialog-scaffold + delete flow, which extracted cleanly into
   // WpSearchableListPage/showWpDeleteConfirmDialog).
   Future<void> _showAddEditDialog({SnippetItem? existing}) async {
-    final result = await showWpFormDialog<(String, String)>(
-      context: context,
-      builder: (_, a) => _SnippetDialog(animation: a, existing: existing),
-    );
+    final result =
+        await showWpFormDialog<(String, String, String, List<String>)>(
+          context: context,
+          builder: (_, a) => _SnippetDialog(animation: a, existing: existing),
+        );
     if (result == null) return;
-    final (title, body) = result;
+    final (title, body, kind, fields) = result;
     final notifier = ref.read(snippetsProvider.notifier);
     if (existing != null) {
-      notifier.updateSnippet(existing.id, title: title, body: body);
+      notifier.updateSnippet(
+        existing.id,
+        title: title,
+        body: body,
+        kind: kind,
+        fields: fields,
+      );
     } else {
-      notifier.add(title, body);
+      notifier.add(title, body, kind: kind, fields: fields);
       ref
           .read(telemetrySessionAggregatorProvider)
           .count(category: 'snippets', action: 'create');
@@ -250,7 +288,12 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   Future<void> _duplicateSnippet(SnippetItem item) async {
     await ref
         .read(snippetsProvider.notifier)
-        .add('${item.title} (copy)', item.body);
+        .add(
+          '${item.title} (copy)',
+          item.body,
+          kind: item.kind,
+          fields: item.fields,
+        );
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────
@@ -638,8 +681,22 @@ class _SnippetDialogState extends State<_SnippetDialog> {
   late final WpFindHighlightController _bodyCtrl;
   final FocusNode _bodyFocus = FocusNode(debugLabel: 'snippetBody');
 
+  late String _kind;
+  late List<TextEditingController> _fieldCtrls;
+
+  bool get _isInteractive => _kind == 'interactive';
+
+  /// Minimum fields to keep an interactive snippet distinct from a
+  /// single-field static snippet (PRD User Story 4).
+  static const _minFields = 2;
+
+  bool get _fieldsValid =>
+      _fieldCtrls.length >= _minFields &&
+      _fieldCtrls.every((c) => c.text.trim().isNotEmpty);
+
   bool get _isValid =>
-      _titleCtrl.text.trim().isNotEmpty && _bodyCtrl.text.trim().isNotEmpty;
+      _titleCtrl.text.trim().isNotEmpty &&
+      (_isInteractive ? _fieldsValid : _bodyCtrl.text.trim().isNotEmpty);
 
   bool get _isEditing => widget.existing != null;
 
@@ -654,6 +711,26 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     // replace-all from the toolbar changes the body without going through
     // `onChanged`.
     _bodyCtrl.addListener(_onBodyChanged);
+
+    _kind = widget.existing?.kind ?? 'static';
+    final existingFields = widget.existing?.fields ?? const [];
+    _fieldCtrls = [
+      for (final name in existingFields) _newFieldController(name),
+      // A fresh interactive snippet starts with the two required empty
+      // fields already visible instead of an editor the user must first
+      // populate from zero.
+      if (existingFields.length < _minFields)
+        for (var i = existingFields.length; i < _minFields; i++)
+          _newFieldController(),
+    ];
+  }
+
+  TextEditingController _newFieldController([String text = '']) {
+    final controller = TextEditingController(text: text);
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    return controller;
   }
 
   @override
@@ -662,6 +739,9 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     _titleCtrl.dispose();
     _bodyCtrl.dispose();
     _bodyFocus.dispose();
+    for (final c in _fieldCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -669,9 +749,109 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     if (mounted) setState(() {});
   }
 
+  void _addField() {
+    setState(() => _fieldCtrls.add(_newFieldController()));
+  }
+
+  void _removeField(int index) {
+    setState(() {
+      _fieldCtrls.removeAt(index).dispose();
+    });
+  }
+
+  void _moveField(int index, int delta) {
+    final target = index + delta;
+    if (target < 0 || target >= _fieldCtrls.length) return;
+    setState(() {
+      final field = _fieldCtrls.removeAt(index);
+      _fieldCtrls.insert(target, field);
+    });
+  }
+
   void _submit() {
     if (!_isValid) return;
-    Navigator.of(context).pop((_titleCtrl.text.trim(), _bodyCtrl.text.trim()));
+    Navigator.of(context).pop((
+      _titleCtrl.text.trim(),
+      _isInteractive ? '' : _bodyCtrl.text.trim(),
+      _kind,
+      _isInteractive
+          ? [for (final c in _fieldCtrls) c.text.trim()]
+          : const <String>[],
+    ));
+  }
+
+  /// Named-field editor for an `interactive` snippet — add/rename/reorder/
+  /// remove, at least [_minFields] fields (PRD User Stories 3/4). Reordering
+  /// is up/down buttons rather than drag-and-drop: this dialog's fields live
+  /// inside a plain scroll view (see the body editor's own comment above),
+  /// not a scrollable-aware `ReorderableListView`.
+  List<Widget> _buildFieldEditor(L10n l10n, ThemeData theme) {
+    return [
+      Text(l10n.snippetsFieldsLabel, style: theme.textTheme.titleSmall),
+      const SizedBox(height: WpSpacing.xxs),
+      Text(
+        l10n.snippetsFieldsHint,
+        style: const TextStyle(
+          color: WpColors.textMuted,
+          fontSize: WpTypography.caption,
+        ),
+      ),
+      const SizedBox(height: WpSpacing.xs),
+      for (var i = 0; i < _fieldCtrls.length; i++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+          child: Row(
+            children: [
+              Expanded(
+                child: WpTextField(
+                  controller: _fieldCtrls[i],
+                  variant: WpTextFieldVariant.form,
+                  hintText: l10n.snippetsFieldNameHint(i + 1),
+                ),
+              ),
+              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
+              IconButton(
+                icon: const Icon(LucideIcons.chevronUp, size: WpIconSize.xs),
+                tooltip: l10n.snippetsFieldMoveUp,
+                onPressed: i > 0 ? () => _moveField(i, -1) : null,
+              ),
+              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
+              IconButton(
+                icon: const Icon(LucideIcons.chevronDown, size: WpIconSize.xs),
+                tooltip: l10n.snippetsFieldMoveDown,
+                onPressed: i < _fieldCtrls.length - 1
+                    ? () => _moveField(i, 1)
+                    : null,
+              ),
+              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
+              IconButton(
+                icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
+                tooltip: l10n.snippetsFieldRemove,
+                onPressed: _fieldCtrls.length > _minFields
+                    ? () => _removeField(i)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+      WpButton(
+        label: l10n.snippetsFieldAdd,
+        variant: WpButtonVariant.ghost,
+        size: WpButtonSize.dense,
+        onPressed: _addField,
+      ),
+      if (!_fieldsValid) ...[
+        const SizedBox(height: WpSpacing.xxs),
+        Text(
+          l10n.snippetsFieldsMinWarning(_minFields),
+          style: const TextStyle(
+            color: WpColors.warning,
+            fontSize: WpTypography.caption,
+          ),
+        ),
+      ],
+    ];
   }
 
   @override
@@ -705,31 +885,56 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         ),
         const SizedBox(height: WpSpacing.md),
 
-        // Body (multi-line) — same toolbar the History transcript editor and
-        // the Notes editor carry, so bold/italic/lists and find-and-replace
-        // work identically wherever text is written in this app.
-        Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
+        // Kind: Static / Interactive (interactive-snippets PRD)
+        Text(l10n.snippetsKindLabel, style: theme.textTheme.titleSmall),
         const SizedBox(height: WpSpacing.xxs),
-        WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
-        const SizedBox(height: WpSpacing.xs),
-        // No Expanded/Flexible here on purpose: WpFormDialogShell puts its
-        // fields inside a SingleChildScrollView, so an unbounded height would
-        // be a layout exception. The line count does the growing instead, and
-        // the card's own viewport clamp keeps it on screen.
-        CallbackShortcuts(
-          bindings: WpMarkdownFormatting(
-            controller: _bodyCtrl,
-            focusNode: _bodyFocus,
-          ).shortcutBindings(),
-          child: WpTextField(
-            controller: _bodyCtrl,
-            focusNode: _bodyFocus,
-            variant: WpTextFieldVariant.form,
-            hintText: l10n.snippetsBodyHint,
-            minLines: 10,
-            maxLines: 18,
-          ),
+        SegmentedButton<String>(
+          segments: [
+            ButtonSegment(
+              value: 'static',
+              label: Text(l10n.snippetsKindStatic),
+            ),
+            ButtonSegment(
+              value: 'interactive',
+              label: Text(l10n.snippetsKindInteractive),
+            ),
+          ],
+          selected: {_kind},
+          onSelectionChanged: (selection) =>
+              setState(() => _kind = selection.first),
         ),
+        const SizedBox(height: WpSpacing.md),
+
+        if (_isInteractive)
+          ..._buildFieldEditor(l10n, theme)
+        else ...[
+          // Body (multi-line) — same toolbar the History transcript editor
+          // and the Notes editor carry, so bold/italic/lists and
+          // find-and-replace work identically wherever text is written in
+          // this app.
+          Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
+          const SizedBox(height: WpSpacing.xxs),
+          WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
+          const SizedBox(height: WpSpacing.xs),
+          // No Expanded/Flexible here on purpose: WpFormDialogShell puts its
+          // fields inside a SingleChildScrollView, so an unbounded height
+          // would be a layout exception. The line count does the growing
+          // instead, and the card's own viewport clamp keeps it on screen.
+          CallbackShortcuts(
+            bindings: WpMarkdownFormatting(
+              controller: _bodyCtrl,
+              focusNode: _bodyFocus,
+            ).shortcutBindings(),
+            child: WpTextField(
+              controller: _bodyCtrl,
+              focusNode: _bodyFocus,
+              variant: WpTextFieldVariant.form,
+              hintText: l10n.snippetsBodyHint,
+              minLines: 10,
+              maxLines: 18,
+            ),
+          ),
+        ],
       ],
       actions: [
         // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
@@ -814,8 +1019,10 @@ class _SnippetTileState extends State<_SnippetTile> {
   /// (`history_list_tile.dart`).
   late String _bodyPreview = _computeBodyPreview(widget.snippet);
 
-  static String _computeBodyPreview(SnippetItem snippet) =>
-      snippet.body.trim().replaceAll(_whitespaceRun, ' ');
+  static String _computeBodyPreview(SnippetItem snippet) {
+    if (snippet.isInteractive) return snippet.fields.join(' · ');
+    return snippet.body.trim().replaceAll(_whitespaceRun, ' ');
+  }
 
   @override
   void didUpdateWidget(_SnippetTile oldWidget) {
@@ -899,12 +1106,16 @@ class _SnippetTileState extends State<_SnippetTile> {
               actions: WpRowActions(
                 visible: _isActive,
                 children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                  WpRowAction(
-                    icon: LucideIcons.copy,
-                    tooltip: L10n.of(context).actionCopy,
-                    onTap: widget.onCopy,
-                  ),
+                  // A copy has nothing to copy for an interactive snippet —
+                  // its body is unused (field contents come from the guided
+                  // recording, not stored text).
+                  if (!widget.snippet.isInteractive)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                    WpRowAction(
+                      icon: LucideIcons.copy,
+                      tooltip: L10n.of(context).actionCopy,
+                      onTap: widget.onCopy,
+                    ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(
                     icon: LucideIcons.files,
@@ -922,8 +1133,10 @@ class _SnippetTileState extends State<_SnippetTile> {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    LucideIcons.notebookText,
+                  Icon(
+                    widget.snippet.isInteractive
+                        ? LucideIcons.listChecks
+                        : LucideIcons.notebookText,
                     size: WpIconSize.sm,
                     color: WpColors.accent,
                   ),
@@ -932,15 +1145,29 @@ class _SnippetTileState extends State<_SnippetTile> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.snippet.title,
-                          style: const TextStyle(
-                            color: WpColors.textPrimary,
-                            fontSize: WpTypography.body,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.snippet.title,
+                                style: const TextStyle(
+                                  color: WpColors.textPrimary,
+                                  fontSize: WpTypography.body,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (widget.snippet.isInteractive) ...[
+                              const SizedBox(width: WpSpacing.xxs),
+                              WpAccentBadge(
+                                label: L10n.of(
+                                  context,
+                                ).snippetsInteractiveBadge,
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: WpSpacing.xxs),
                         Text(

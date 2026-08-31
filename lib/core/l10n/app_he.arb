@@ -494,6 +494,37 @@
   "snippetsTitleHint": "לדוגמה: חתימת אימייל",
   "snippetsBodyLabel": "תוכן",
   "snippetsBodyHint": "הטקסט שהקטע הזה מכניס…",
+  "snippetsKindLabel": "סוג",
+  "snippetsKindStatic": "סטטי",
+  "snippetsKindInteractive": "אינטראקטיבי",
+  "snippetsFieldsLabel": "שדות",
+  "snippetsFieldsHint": "תונחה דרך כל שדה בזה אחר זה, עם הקלטה קצרה משלו.",
+  "snippetsFieldNameHint": "שם לשדה {number}",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "הזז שדה למעלה",
+  "snippetsFieldMoveDown": "הזז שדה למטה",
+  "snippetsFieldRemove": "הסר שדה",
+  "snippetsFieldAdd": "הוסף שדה",
+  "snippetsFieldsMinWarning": "קטע אינטראקטיבי דורש לפחות {min} שדות בעלי שם.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsInteractiveBadge": "אינטראקטיבי",
+  "interactiveSnippetFieldLabel": "שדה {index}/{count}: {name}",
+  "@interactiveSnippetFieldLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAdvance": "הבא",
   "snippetsDeleteTitle": "מחק קטע",
   "snippetsDeleteMessage": "להסיר את הקטע \"{title}\"? אין דרך לבטל.",
   "@snippetsDeleteMessage": {
@@ -980,6 +1011,12 @@
   "overlayStop": "עצור",
   "overlayKeyboardHint": "לחץ {hotkey} כדי לעצור",
   "@overlayKeyboardHint": {
+    "placeholders": {
+      "hotkey": { "type": "String" }
+    }
+  },
+  "overlayKeyboardHintNextField": "לחץ {hotkey} עבור השדה הבא",
+  "@overlayKeyboardHintNextField": {
     "placeholders": {
       "hotkey": { "type": "String" }
     }

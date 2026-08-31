@@ -20,6 +20,7 @@ class RecordingInput {
     required this.wordCount,
     required this.processingDurationSec,
     this.insertHistoryEntry = true,
+    this.recordDailyStat = true,
   });
 
   final String transcript;
@@ -33,6 +34,13 @@ class RecordingInput {
   /// but no row is written to `history_entries` — a quick note lives only in
   /// Notes, never duplicated into Verlauf.
   final bool insertHistoryEntry;
+
+  /// False for an interactive snippet's final composed entry
+  /// (`RecordingOrchestrator.completeInteractiveSnippet`): each of its
+  /// fields already recorded its own daily stat (word count, audio/
+  /// processing duration) via its own `templateField` save — recording the
+  /// combined totals again here would double-count them.
+  final bool recordDailyStat;
 
   /// 0 = unlimited.
   final int historyMaxEntries;

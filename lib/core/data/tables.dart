@@ -188,6 +188,28 @@ class Snippets extends Table {
   TextColumn get body => text()();
   DateTimeColumn get createdAt => dateTime()();
 
+  /// `static` (default, today's only behavior — [body] is inserted verbatim)
+  /// or `interactive` (schema v21, `interactive-snippets` PRD): [body] is
+  /// unused, the field contents instead come from a guided multi-field
+  /// recording sequence at trigger time — see [SnippetFields].
+  TextColumn get kind => text().withDefault(const Constant('static'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Named fields of an `interactive`-[Snippets.kind] snippet (schema v21),
+/// N:1 to [Snippets] — analogous to [TextReplacementTriggers]. Unused for a
+/// `static` snippet. [sortOrder] fixes the strictly sequential field order
+/// the guided recording walks through (PRD: "kein Zurückspringen, kein
+/// Überspringen").
+@DataClassName('SnippetField')
+class SnippetFields extends Table {
+  TextColumn get id => text()();
+  TextColumn get snippetId => text().references(Snippets, #id)();
+  TextColumn get name => text()();
+  IntColumn get sortOrder => integer()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

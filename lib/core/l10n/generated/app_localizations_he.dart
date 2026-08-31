@@ -1408,6 +1408,55 @@ class L10nHe extends L10n {
   String get snippetsBodyHint => 'הטקסט שהקטע הזה מכניס…';
 
   @override
+  String get snippetsKindLabel => 'סוג';
+
+  @override
+  String get snippetsKindStatic => 'סטטי';
+
+  @override
+  String get snippetsKindInteractive => 'אינטראקטיבי';
+
+  @override
+  String get snippetsFieldsLabel => 'שדות';
+
+  @override
+  String get snippetsFieldsHint =>
+      'תונחה דרך כל שדה בזה אחר זה, עם הקלטה קצרה משלו.';
+
+  @override
+  String snippetsFieldNameHint(int number) {
+    return 'שם לשדה $number';
+  }
+
+  @override
+  String get snippetsFieldMoveUp => 'הזז שדה למעלה';
+
+  @override
+  String get snippetsFieldMoveDown => 'הזז שדה למטה';
+
+  @override
+  String get snippetsFieldRemove => 'הסר שדה';
+
+  @override
+  String get snippetsFieldAdd => 'הוסף שדה';
+
+  @override
+  String snippetsFieldsMinWarning(int min) {
+    return 'קטע אינטראקטיבי דורש לפחות $min שדות בעלי שם.';
+  }
+
+  @override
+  String get snippetsInteractiveBadge => 'אינטראקטיבי';
+
+  @override
+  String interactiveSnippetFieldLabel(int index, int count, String name) {
+    return 'שדה $index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAdvance => 'הבא';
+
+  @override
   String get snippetsDeleteTitle => 'מחק קטע';
 
   @override
@@ -2831,6 +2880,11 @@ class L10nHe extends L10n {
   @override
   String overlayKeyboardHint(String hotkey) {
     return 'לחץ $hotkey כדי לעצור';
+  }
+
+  @override
+  String overlayKeyboardHintNextField(String hotkey) {
+    return 'לחץ $hotkey עבור השדה הבא';
   }
 
   @override

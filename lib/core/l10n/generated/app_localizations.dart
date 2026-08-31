@@ -2583,6 +2583,90 @@ abstract class L10n {
   /// **'The text this snippet inserts…'**
   String get snippetsBodyHint;
 
+  /// No description provided for @snippetsKindLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get snippetsKindLabel;
+
+  /// No description provided for @snippetsKindStatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Static'**
+  String get snippetsKindStatic;
+
+  /// No description provided for @snippetsKindInteractive.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive'**
+  String get snippetsKindInteractive;
+
+  /// No description provided for @snippetsFieldsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fields'**
+  String get snippetsFieldsLabel;
+
+  /// No description provided for @snippetsFieldsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be guided through each field with its own short recording, in this order.'**
+  String get snippetsFieldsHint;
+
+  /// No description provided for @snippetsFieldNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Field {number} name'**
+  String snippetsFieldNameHint(int number);
+
+  /// No description provided for @snippetsFieldMoveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move field up'**
+  String get snippetsFieldMoveUp;
+
+  /// No description provided for @snippetsFieldMoveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move field down'**
+  String get snippetsFieldMoveDown;
+
+  /// No description provided for @snippetsFieldRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove field'**
+  String get snippetsFieldRemove;
+
+  /// No description provided for @snippetsFieldAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add field'**
+  String get snippetsFieldAdd;
+
+  /// No description provided for @snippetsFieldsMinWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'An interactive snippet needs at least {min} named fields.'**
+  String snippetsFieldsMinWarning(int min);
+
+  /// No description provided for @snippetsInteractiveBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive'**
+  String get snippetsInteractiveBadge;
+
+  /// No description provided for @interactiveSnippetFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Field {index}/{count}: {name}'**
+  String interactiveSnippetFieldLabel(int index, int count, String name);
+
+  /// No description provided for @interactiveSnippetAdvance.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get interactiveSnippetAdvance;
+
   /// No description provided for @snippetsDeleteTitle.
   ///
   /// In en, this message translates to:
@@ -5087,6 +5171,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Press {hotkey} to stop'**
   String overlayKeyboardHint(String hotkey);
+
+  /// No description provided for @overlayKeyboardHintNextField.
+  ///
+  /// In en, this message translates to:
+  /// **'Press {hotkey} for the next field'**
+  String overlayKeyboardHintNextField(String hotkey);
 
   /// No description provided for @overlayProcessingLocal.
   ///

@@ -35,8 +35,10 @@ import 'package:whispaste/services/path_service.dart'
         retainedAudioDirOverride,
         retainedAudioDir;
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_service.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
@@ -1023,6 +1025,71 @@ void main() {
         expect(fakeDesktopPaste.captureCalls, 0);
       },
     );
+
+    test('selecting an interactive snippet starts its guided field sequence '
+        'instead of pasting anything', () async {
+      // Production wiring lives in WpServiceBootstrap (not exercised by this
+      // container-only test) to keep SnippetPickerService free of a
+      // file-level import cycle with InteractiveSnippetController — mirror
+      // it here.
+      container
+          .read(snippetPickerServiceProvider.notifier)
+          .onInteractiveSnippetSelected = (snippet) async {
+        final fields = await db.readSnippetFields(snippet.id);
+        await container
+            .read(interactiveSnippetControllerProvider.notifier)
+            .start(fields);
+      };
+      await container.read(settingsProvider.future);
+      await db.upsertSnippetWithFields(
+        id: 's1',
+        title: 'Bug Report',
+        body: '',
+        createdAt: DateTime.now(),
+        kind: 'interactive',
+        fieldNames: const ['Titel', 'Reproduktion'],
+      );
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      // The picker item carries the field names as its preview body, not
+      // the (unused) static `body` column.
+      expect(fakeSnippetPicker.showCalls, hasLength(1));
+      expect(
+        fakeSnippetPicker.showCalls.single.single['body'],
+        'Titel · Reproduktion',
+      );
+
+      fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
+      // Unlike a static-snippet paste (a couple of microtask hops), priming
+      // + starting a real recording crosses several genuine Timer-based
+      // async gaps — a single zero-delay wait isn't reliably enough, so
+      // poll briefly instead.
+      for (
+        var i = 0;
+        i < 20 && container.read(interactiveSnippetControllerProvider) == null;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      // The state flip above only proves `start()` reached its first
+      // `state = ...` assignment — its trailing `orchestrator.startRecording`
+      // await can still have real Timer-based work in flight. Give it a
+      // moment to settle so nothing resolves after this test's container is
+      // torn down.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.typeCalls, 0);
+
+      final session = container.read(interactiveSnippetControllerProvider);
+      expect(session, isNotNull);
+      expect(session!.fieldIndex, 0);
+      expect(session.fieldCount, 2);
+      expect(session.fieldName, 'Titel');
+    });
 
     test('a transcript that only contains the trigger word as a substring '
         '(not an exact match) runs the normal pipeline instead', () async {
@@ -4094,6 +4161,146 @@ void main() {
         );
       },
     );
+  });
+
+  // =========================================================================
+  // Interactive snippets (guided multi-field recording sequence)
+  // =========================================================================
+
+  group('InteractiveSnippetController', () {
+    List<SnippetField> fields(List<String> names) => [
+      for (var i = 0; i < names.length; i++)
+        SnippetField(id: 'f$i', snippetId: 's1', name: names[i], sortOrder: i),
+    ];
+
+    test(
+      'runs every field in order and pastes exactly one composed result',
+      () async {
+        ensureFakeLocalSttFilesExist();
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final controller = container.read(
+          interactiveSnippetControllerProvider.notifier,
+        );
+        await controller.start(fields(['Titel', 'Beschreibung']));
+        expect(
+          container.read(interactiveSnippetControllerProvider)?.fieldName,
+          'Titel',
+        );
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        fakeStt.transcriptToReturn = 'Login schlägt fehl';
+        await controller.advanceField();
+        expect(
+          container.read(interactiveSnippetControllerProvider)?.fieldName,
+          'Beschreibung',
+        );
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        fakeStt.transcriptToReturn = 'Login funktioniert nicht mehr.';
+        await controller.advanceField();
+
+        expect(container.read(interactiveSnippetControllerProvider), isNull);
+        expect(
+          clipboardText,
+          'Titel\nLogin schlägt fehl\n\nBeschreibung\n'
+          'Login funktioniert nicht mehr.',
+        );
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.single.content, clipboardText);
+      },
+    );
+
+    test('a field transcription failure discards the whole sequence', () async {
+      ensureFakeLocalSttFilesExist();
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      clipboardText = 'Untouched';
+
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      await controller.start(fields(['Titel', 'Beschreibung']));
+
+      fakeStt.transcriptToReturn = 'Titel-Text';
+      await controller.advanceField();
+
+      fakeStt.transcribeThrows = true;
+      await controller.advanceField();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(clipboardText, 'Untouched');
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('cancelling mid-field discards everything, no partial save', () async {
+      ensureFakeLocalSttFilesExist();
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      clipboardText = 'Untouched';
+
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      await controller.start(fields(['Titel', 'Beschreibung']));
+      fakeStt.transcriptToReturn = 'Titel-Text';
+      await controller.advanceField();
+
+      await controller.cancel();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(clipboardText, 'Untouched');
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('fewer than two fields is rejected — no session starts', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+
+      await controller.start(fields(['Nur ein Feld']));
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
   });
 }
 

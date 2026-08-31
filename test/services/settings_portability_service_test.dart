@@ -557,6 +557,64 @@ void main() {
     expect(restored.snippets![1].body, 'Hi there');
   });
 
+  test('round trip: export then import restores an interactive snippet\'s '
+      'kind and fields', () async {
+    final bundle = SettingsExportBundle(
+      settings: Map.of(sampleSettings),
+      replacements: const [],
+      snippets: const [
+        SnippetItem(
+          id: 'a',
+          title: 'Bug Report',
+          body: '',
+          kind: 'interactive',
+          fields: ['Titel', 'Reproduktion', 'Erwartet', 'Ist'],
+        ),
+      ],
+    );
+
+    await service.exportToFile('/roundtrip-interactive.json', bundle);
+    final restored = await service.importFromFile(
+      '/roundtrip-interactive.json',
+    );
+
+    expect(restored.snippets, hasLength(1));
+    expect(restored.snippets![0].kind, 'interactive');
+    expect(restored.snippets![0].isInteractive, isTrue);
+    expect(restored.snippets![0].fields, [
+      'Titel',
+      'Reproduktion',
+      'Erwartet',
+      'Ist',
+    ]);
+  });
+
+  test('importFromFile defaults kind to static and fields to empty when a '
+      'pre-interactive-snippets export omits both keys', () async {
+    await fs
+        .file('/pre-interactive-snippets.json')
+        .writeAsString(
+          jsonEncode({
+            'format_version': 1,
+            'custom_vocabulary': 'x',
+            'hotkey': const HotkeySettings().toMap(),
+            'replacements': <Object?>[],
+            'snippets': [
+              {'title': 'Signature', 'body': 'Best,\nSilvio'},
+            ],
+          }),
+        );
+
+    final restored = await service.importFromFile(
+      '/pre-interactive-snippets.json',
+    );
+
+    expect(restored.snippets, hasLength(1));
+    expect(restored.snippets![0].kind, 'static');
+    expect(restored.snippets![0].isInteractive, isFalse);
+    expect(restored.snippets![0].fields, isEmpty);
+  });
+
   test('importFromFile reads a v1 export without a '
       '"snippets" section without throwing, decoding it as null (absent) '
       'rather than an empty list — so callers can leave existing snippets '

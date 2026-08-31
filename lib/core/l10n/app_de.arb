@@ -443,6 +443,37 @@
   "snippetsTitleHint": "z. B. E-Mail-Signatur",
   "snippetsBodyLabel": "Text",
   "snippetsBodyHint": "Der Text, den dieser Snippet einfügt…",
+  "snippetsKindLabel": "Art",
+  "snippetsKindStatic": "Statisch",
+  "snippetsKindInteractive": "Interaktiv",
+  "snippetsFieldsLabel": "Felder",
+  "snippetsFieldsHint": "Du wirst der Reihe nach durch jedes Feld geführt, jeweils mit einer eigenen kurzen Aufnahme.",
+  "snippetsFieldNameHint": "Name für Feld {number}",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "Feld nach oben verschieben",
+  "snippetsFieldMoveDown": "Feld nach unten verschieben",
+  "snippetsFieldRemove": "Feld entfernen",
+  "snippetsFieldAdd": "Feld hinzufügen",
+  "snippetsFieldsMinWarning": "Ein interaktives Snippet braucht mindestens {min} benannte Felder.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsInteractiveBadge": "Interaktiv",
+  "interactiveSnippetFieldLabel": "Feld {index}/{count}: {name}",
+  "@interactiveSnippetFieldLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAdvance": "Weiter",
   "snippetsDeleteTitle": "Snippet löschen",
   "snippetsDeleteMessage": "Snippet \"{title}\" entfernen? Dies kann nicht rückgängig gemacht werden.",
   "snippetsPickerTriggerLabel": "Trigger-Wort für den Picker",
@@ -935,6 +966,14 @@
   "overlayStop": "Stopp",
   "overlayKeyboardHint": "Drücke {hotkey} zum Stoppen",
   "@overlayKeyboardHint": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextField": "Drücke {hotkey} für das nächste Feld",
+  "@overlayKeyboardHintNextField": {
     "placeholders": {
       "hotkey": {
         "type": "String"
