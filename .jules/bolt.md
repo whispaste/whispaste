@@ -20,3 +20,9 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2024-05-18 - Case-insensitive filtering in Dart tight loops
 **Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
 **Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
+## 2024-05-14 - String Allocation in Text Matching
+**Learning:** In Dart tight loops, calling `.toLowerCase().contains()` against a needle variable allocates a new lowercased copy of the target string on every single iteration.
+**Action:** When filtering or matching text iteratively where Unicode edge cases (e.g., Turkish 'İ') aren't strictly an issue, precompile a case-insensitive `RegExp(RegExp.escape(needle), caseSensitive: false)` before the loop and use `.hasMatch(line)` inside.
+## 2024-05-14 - String Allocation in Text Matching (Correction)
+**Learning:** Precompiling a case-insensitive `RegExp` to replace `.toLowerCase().contains()` is measurably *slower* for short strings, as discovered via a microbenchmark for the `stt_exit_classifier.dart` exit-code-3 error path. The overhead of setting up and evaluating the RegExp outweighs the cost of the string allocation when the string is very short. This optimization is an anti-pattern for short strings and cold paths.
+**Action:** Do not attempt to optimize `.toLowerCase().contains()` with a precompiled `RegExp` for short strings, especially on cold paths (like error handling) where there is no user-visible performance impact.
