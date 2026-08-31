@@ -958,12 +958,25 @@ class _SnippetDialogState extends State<_SnippetDialog> {
             ),
           ),
           const SizedBox(height: WpSpacing.xs),
-          WpTextField(
-            controller: _bodyCtrl,
-            variant: WpTextFieldVariant.form,
-            hintText: l10n.snippetsTemplateFieldHint,
-            minLines: 6,
-            maxLines: 14,
+          // Same toolbar-plus-shortcuts editor as the static body below: a
+          // template is still a document the user writes prose into, just
+          // one that also happens to carry `{{field}}` placeholders —
+          // formatting and find/replace should not disappear because of that.
+          WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
+          const SizedBox(height: WpSpacing.xs),
+          CallbackShortcuts(
+            bindings: WpMarkdownFormatting(
+              controller: _bodyCtrl,
+              focusNode: _bodyFocus,
+            ).shortcutBindings(),
+            child: WpTextField(
+              controller: _bodyCtrl,
+              focusNode: _bodyFocus,
+              variant: WpTextFieldVariant.form,
+              hintText: l10n.snippetsTemplateFieldHint,
+              minLines: 10,
+              maxLines: 18,
+            ),
           ),
           if (!_templateReferencesAllFields) ...[
             const SizedBox(height: WpSpacing.xxs),

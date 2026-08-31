@@ -789,6 +789,14 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
             onSelectionChanged: (selection) =>
                 setState(() => _fuzzyThreshold = selection.first),
           ),
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            l10n.replacementsFuzzyToleranceHint,
+            style: const TextStyle(
+              color: WpColors.textMuted,
+              fontSize: WpTypography.caption,
+            ),
+          ),
         ],
       ],
       actions: [

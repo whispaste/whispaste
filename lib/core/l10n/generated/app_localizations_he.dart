@@ -1359,6 +1359,10 @@ class L10nHe extends L10n {
   String get replacementsFuzzyToleranceTolerant => 'סובלני';
 
   @override
+  String get replacementsFuzzyToleranceHint =>
+      'How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.';
+
+  @override
   String replacementsFuzzyTooShortWarning(int minLength) {
     return 'לביטויי הפעלה מתחת ל-$minLength תווים אי אפשר להשתמש בהתאמה מקורבת — זה יוצר יותר מדי התאמות שגויות.';
   }

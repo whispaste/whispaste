@@ -1384,6 +1384,10 @@ class L10nDe extends L10n {
   String get replacementsFuzzyToleranceTolerant => 'Tolerant';
 
   @override
+  String get replacementsFuzzyToleranceHint =>
+      'Wie ähnlich eine diktierte Formulierung dem Auslöser klingen muss, damit sie noch als Treffer zählt. Streng erkennt nur nahezu identische Formulierungen — dadurch wird fast nie versehentlich etwas ersetzt, ein undeutlich diktierter Auslöser kann aber unerkannt bleiben. Standard ist ein ausgewogener Mittelweg für den Alltag. Tolerant erkennt auch deutlich abweichende Aussprache oder Formulierung, mit höherem Risiko, dass etwas ersetzt wird, das nicht gemeint war.';
+
+  @override
   String replacementsFuzzyTooShortWarning(int minLength) {
     return 'Auslöser unter $minLength Zeichen können nicht unscharf abgeglichen werden — das erzeugt zu viele Fehltreffer.';
   }

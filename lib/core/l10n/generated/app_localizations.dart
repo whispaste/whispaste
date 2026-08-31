@@ -2493,6 +2493,12 @@ abstract class L10n {
   /// **'Tolerant'**
   String get replacementsFuzzyToleranceTolerant;
 
+  /// No description provided for @replacementsFuzzyToleranceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.'**
+  String get replacementsFuzzyToleranceHint;
+
   /// No description provided for @replacementsFuzzyTooShortWarning.
   ///
   /// In en, this message translates to:
