@@ -6750,6 +6750,12 @@ abstract class L10n {
   /// **'German'**
   String get smartModeTargetLanguageGerman;
 
+  /// No description provided for @smartModeTargetLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get smartModeTargetLanguageEnglish;
+
   /// No description provided for @smartModeDownload.
   ///
   /// In en, this message translates to:

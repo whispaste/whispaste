@@ -35,24 +35,30 @@ enum SmartModeTargetLanguage {
 
 /// The subset of [SmartModeTargetLanguage] that has passed its ticket-09
 /// validation spike and may be shown as a choosable option in the UI.
-/// German is validated as part of ticket 03 (18-sentence batch test,
-/// `spike-test-results.md`) — the other six are gated behind their own
-/// spike in ticket 09 and are deliberately absent here, not just hidden, so
-/// a settings value of e.g. `zh` from a future build downgrading to this one
+/// German is validated as part of ticket 03's 18-sentence batch test
+/// (`spike-test-results.md`); that same batch test already included 5
+/// DE→EN Translate cases (17/18 correct overall, one cosmetic
+/// capitalization miss on a translate case) — English is validated on that
+/// evidence too. The remaining five are gated behind their own spike in
+/// ticket 09 and are deliberately absent here, not just hidden, so a
+/// settings value of e.g. `zh` from a future build downgrading to this one
 /// falls back safely (see [smartModeTargetLanguageFromSettingsValue]).
 const List<SmartModeTargetLanguage> smartModeValidatedTargetLanguages = [
   SmartModeTargetLanguage.german,
+  SmartModeTargetLanguage.english,
 ];
 
 /// Parses a [SmartModeSettings.targetLanguage] code into a
-/// [SmartModeTargetLanguage], defaulting to [SmartModeTargetLanguage.german]
+/// [SmartModeTargetLanguage], defaulting to [SmartModeTargetLanguage.english]
 /// for any unrecognized or not-yet-validated code (forward/backward
-/// compatibility, and the only currently-validated language).
+/// compatibility). English, not German: translating into the language the
+/// user is already dictating in is a no-op for most users, so an
+/// unrecognized/missing value must not silently degrade to that.
 SmartModeTargetLanguage smartModeTargetLanguageFromSettingsValue(String value) {
   for (final lang in smartModeValidatedTargetLanguages) {
     if (lang.code == value) return lang;
   }
-  return SmartModeTargetLanguage.german;
+  return SmartModeTargetLanguage.english;
 }
 
 /// Parses a [SmartModeSettings.standardPreset] string into a [SmartModePreset],
@@ -126,7 +132,7 @@ String smartModeSystemPromptFor(
   SmartModePreset.cleanup => smartModeCleanupSystemPrompt,
   SmartModePreset.concise => smartModeConciseSystemPrompt,
   SmartModePreset.translate => smartModeTranslateSystemPrompt(
-    targetLanguage ?? SmartModeTargetLanguage.german,
+    targetLanguage ?? SmartModeTargetLanguage.english,
   ),
   SmartModePreset.off => throw StateError(
     'smartModeSystemPromptFor called with preset off',

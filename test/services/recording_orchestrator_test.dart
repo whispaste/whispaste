@@ -4396,7 +4396,8 @@ void main() {
       expect(await db.allEntries(), isEmpty);
     });
 
-    test('fewer than two fields is rejected — no session starts', () async {
+    test('a single field is accepted — a legitimate one-field template '
+        '(a8445010 relaxed the old two-field minimum)', () async {
       ensureFakeLocalSttFilesExist();
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
@@ -4406,6 +4407,18 @@ void main() {
         fields(['Nur ein Feld']),
         template: legacyInteractiveSnippetTemplate(['Nur ein Feld']),
       );
+
+      expect(container.read(interactiveSnippetControllerProvider), isNotNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    });
+
+    test('zero fields is rejected — no session starts', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+
+      await controller.start(fields([]), template: '');
 
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
@@ -4676,14 +4689,14 @@ void main() {
       expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
     });
 
-    test('standard preset "translate" with the default (German) target '
+    test('standard preset "translate" with the default (English) target '
         'language replaces the pasted text with the translated engine '
         'result', () async {
       container.dispose();
       container = buildSmartModeContainer(settingsWithPreset('translate'));
       await container.read(settingsProvider.future);
       container.read(systemAttentionServiceProvider);
-      fakeSmartModeEngine.resultToReturn = 'Übersetzter Text.';
+      fakeSmartModeEngine.resultToReturn = 'Translated text.';
 
       final orch = await startRecordingPhase();
       fakeStt.transcriptToReturn = 'raw text in some language';
@@ -4692,9 +4705,9 @@ void main() {
       expect(fakeSmartModeEngine.runCalls, 1);
       expect(
         fakeSmartModeEngine.lastSystemPrompt,
-        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.german),
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.english),
       );
-      expect(clipboardText, 'Übersetzter Text.');
+      expect(clipboardText, 'Translated text.');
       expect(fakeAttention.requestAttentionCalls, 0);
     });
 
@@ -4719,7 +4732,7 @@ void main() {
     });
 
     test('an unrecognized/not-yet-validated target-language settings value '
-        'falls back to German rather than crashing (ticket-09 forward '
+        'falls back to English rather than crashing (ticket-09 forward '
         'compatibility)', () async {
       container.dispose();
       container = buildSmartModeContainer(
@@ -4737,7 +4750,7 @@ void main() {
       );
       await container.read(settingsProvider.future);
       container.read(systemAttentionServiceProvider);
-      fakeSmartModeEngine.resultToReturn = 'Übersetzter Text.';
+      fakeSmartModeEngine.resultToReturn = 'Translated text.';
 
       final orch = await startRecordingPhase();
       fakeStt.transcriptToReturn = 'raw text';
@@ -4745,9 +4758,9 @@ void main() {
 
       expect(
         fakeSmartModeEngine.lastSystemPrompt,
-        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.german),
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.english),
       );
-      expect(clipboardText, 'Übersetzter Text.');
+      expect(clipboardText, 'Translated text.');
     });
   });
 }

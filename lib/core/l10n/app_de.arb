@@ -1335,6 +1335,7 @@
   "smartModePresetTranslateDescription": "Übersetzt den diktierten Text in die unten eingestellte Zielsprache.",
   "smartModeTargetLanguage": "Zielsprache",
   "smartModeTargetLanguageGerman": "Deutsch",
+  "smartModeTargetLanguageEnglish": "Englisch",
   "smartModeDownload": "Herunterladen",
   "smartModeDownloadComplete": "Smart-Mode-Modell einsatzbereit",
   "smartModeRamWarningTitle": "Wenig Arbeitsspeicher erkannt",

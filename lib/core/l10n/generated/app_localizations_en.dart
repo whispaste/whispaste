@@ -3833,6 +3833,9 @@ class L10nEn extends L10n {
   String get smartModeTargetLanguageGerman => 'German';
 
   @override
+  String get smartModeTargetLanguageEnglish => 'English';
+
+  @override
   String get smartModeDownload => 'Download';
 
   @override

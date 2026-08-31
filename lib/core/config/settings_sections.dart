@@ -1873,7 +1873,7 @@ class SettingsAutosaveSettings {
 class SmartModeSettings {
   const SmartModeSettings({
     this.standardPreset = 'off',
-    this.targetLanguage = 'de',
+    this.targetLanguage = 'en',
     this.provider = 'local',
   });
 
@@ -1889,12 +1889,15 @@ class SmartModeSettings {
   /// there is no per-invocation language picker (PRODUCT-SPEC §5, neither
   /// live path has a selection moment).
   ///
-  /// Ticket 03 validates only `de` (German) — the other six official target
-  /// languages (en/es/fr/pt/zh/ru) are modeled here so the pipeline and this
+  /// Ticket 03's 18-sentence batch test validated both `de` (German) and
+  /// `en` (English, 5 DE→EN cases) — the other five official target
+  /// languages (es/fr/pt/zh/ru) are modeled here so the pipeline and this
   /// field are generic, but ticket 09 gates each one's UI visibility behind
   /// its own validation spike before it can actually be chosen. Defaults to
-  /// `de` for parity with the only currently-validated language; harmless
-  /// while `standardPreset` defaults to `off`.
+  /// `en`: translating into the language the user is already dictating in
+  /// is a no-op for most users, so German cannot be the sensible default
+  /// despite being validated too; harmless while `standardPreset` defaults
+  /// to `off`.
   final String targetLanguage;
 
   /// Local-vs-cloud engine selection, as a [SmartModeProviderType.value].

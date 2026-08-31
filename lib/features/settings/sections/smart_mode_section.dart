@@ -94,10 +94,10 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
 
     String targetLanguageLabel(SmartModeTargetLanguage lang) => switch (lang) {
       SmartModeTargetLanguage.german => l10n.smartModeTargetLanguageGerman,
+      SmartModeTargetLanguage.english => l10n.smartModeTargetLanguageEnglish,
       // Ticket 09 adds a label for each remaining language once it clears
-      // its own validation spike — until then
-      // smartModeValidatedTargetLanguages contains only german, so no other
-      // branch is reachable.
+      // its own validation spike — until then smartModeValidatedTargetLanguages
+      // only contains german/english, so no other branch is reachable.
       _ => lang.languageName,
     };
 

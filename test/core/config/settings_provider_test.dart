@@ -510,14 +510,14 @@ void main() {
       expect(updated.stt, base.stt);
     });
 
-    test('targetLanguage (ticket 03) defaults to German', () {
+    test('targetLanguage (ticket 03) defaults to English', () {
       final defaults = AppSettings.defaults;
-      expect(defaults.smartMode.targetLanguage, 'de');
+      expect(defaults.smartMode.targetLanguage, 'en');
     });
 
-    test('missing targetLanguage storage key falls back to German', () {
+    test('missing targetLanguage storage key falls back to English', () {
       final settings = AppSettings.fromStorageMap(const {});
-      expect(settings.smartMode.targetLanguage, 'de');
+      expect(settings.smartMode.targetLanguage, 'en');
     });
 
     test('copyWith updates only targetLanguage, leaving standardPreset '

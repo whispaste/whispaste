@@ -138,8 +138,9 @@ void main() {
     );
 
     testWidgets(
-      'selecting Translate reveals the target-language row, currently '
-      'German-only (ticket 03; other languages gated behind ticket 09)',
+      'selecting Translate reveals the target-language row, defaulting to '
+      'English (ticket 03 validated German+English; the rest gated behind '
+      'ticket 09)',
       (tester) async {
         final notifier = _FakeSettingsNotifier(
           AppSettings.defaults.copyWithSections(
@@ -155,7 +156,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Target language'), findsOneWidget);
-        expect(find.text('German'), findsOneWidget);
+        expect(find.text('English'), findsOneWidget);
       },
     );
 

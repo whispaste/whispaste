@@ -3,18 +3,19 @@ import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 
 void main() {
   group('Smart Mode v2 ticket 09: target-language validation gate', () {
-    test('smartModeValidatedTargetLanguages currently contains only German — '
-        'the other six PRODUCT-SPEC languages each need their own ticket-09 '
-        'validation spike (real local-model or cloud inference, unavailable '
-        'in this sandbox) before being added here', () {
+    test('smartModeValidatedTargetLanguages currently contains German and '
+        'English — the other five PRODUCT-SPEC languages each need their '
+        'own ticket-09 validation spike (real local-model or cloud '
+        'inference, unavailable in this sandbox) before being added here', () {
       expect(smartModeValidatedTargetLanguages, [
         SmartModeTargetLanguage.german,
+        SmartModeTargetLanguage.english,
       ]);
     });
 
     test(
       'every SmartModeTargetLanguage other than the validated subset falls '
-      'back to German rather than being resolvable from its settings code',
+      'back to English rather than being resolvable from its settings code',
       () {
         final unvalidated = SmartModeTargetLanguage.values.where(
           (lang) => !smartModeValidatedTargetLanguages.contains(lang),
@@ -24,7 +25,7 @@ void main() {
         for (final lang in unvalidated) {
           expect(
             smartModeTargetLanguageFromSettingsValue(lang.code),
-            SmartModeTargetLanguage.german,
+            SmartModeTargetLanguage.english,
             reason:
                 '${lang.name} (${lang.code}) has not passed its ticket-09 '
                 'validation spike and must not be selectable yet',

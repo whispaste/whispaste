@@ -48,12 +48,13 @@ class InteractiveSnippetController
   /// composing the result into [template] (the parent snippet's `body`,
   /// holding `{{fieldName}}` placeholders) once every field is recorded.
   /// No-op if a sequence is already active (Out of Scope: nesting) or
-  /// [fields] has fewer than 2 entries (PRD User Story 4).
+  /// [fields] is empty -- a single field is legitimate (PRD User Story 4,
+  /// relaxed from a minimum of two in a8445010).
   Future<void> start(
     List<SnippetField> fields, {
     required String template,
   }) async {
-    if (isActive || fields.length < 2) return;
+    if (isActive || fields.isEmpty) return;
 
     _fields = fields;
     _template = template;

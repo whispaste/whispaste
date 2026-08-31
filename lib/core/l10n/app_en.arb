@@ -1533,6 +1533,7 @@
   "smartModePresetTranslateDescription": "Translates the dictated text into the target language set below.",
   "smartModeTargetLanguage": "Target language",
   "smartModeTargetLanguageGerman": "German",
+  "smartModeTargetLanguageEnglish": "English",
   "smartModeDownload": "Download",
   "smartModeDownloadComplete": "Smart Mode model ready to use",
   "smartModeRamWarningTitle": "Limited memory detected",
