@@ -20,6 +20,7 @@ import '../../services/model_download_service.dart';
 import '../../services/stt/stt_bundle.dart';
 import '../../widgets/tier_performance_presentation.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_focus_ring.dart';
 
 /// Tier-based STT model selector.
 ///
