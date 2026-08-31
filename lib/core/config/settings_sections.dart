@@ -1841,6 +1841,50 @@ class SettingsAutosaveSettings {
 }
 
 // ===========================================================================
+// Section 21 — Smart Mode
+// ===========================================================================
+
+/// Smart-Mode-v2 settings (`.scratch/smart-mode-v2/`).
+///
+/// [standardPreset] is the only field ticket 01 needs — everything else the
+/// feature will grow (target language in ticket 03, hotkey-preset in ticket
+/// 04, local/cloud provider choice in ticket 06) is added by those tickets as
+/// their own fields on this same section, not restructured in here.
+class SmartModeSettings {
+  const SmartModeSettings({this.standardPreset = 'off'});
+
+  /// One of `off` / `cleanup` / `concise` / `translate`. Defaults to `off` —
+  /// an update to an existing installation must not change dictation
+  /// behavior until the user actively opts in (ADR-independent product
+  /// requirement, ticket 01).
+  final String standardPreset;
+
+  static const SmartModeSettings defaults = SmartModeSettings();
+
+  factory SmartModeSettings.fromMap(Map<String, String> v) => SmartModeSettings(
+    standardPreset: v['smart_mode_standard_preset'] ?? defaults.standardPreset,
+  );
+
+  Map<String, String> toMap() => {'smart_mode_standard_preset': standardPreset};
+
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the SttSettings comment above and the other
+  // section classes in this file); it is established repo-wide boilerplate,
+  // not accidental duplication.
+  SmartModeSettings copyWith({String? standardPreset}) =>
+      SmartModeSettings(standardPreset: standardPreset ?? this.standardPreset);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SmartModeSettings && standardPreset == other.standardPreset;
+
+  @override
+  int get hashCode => standardPreset.hashCode;
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 

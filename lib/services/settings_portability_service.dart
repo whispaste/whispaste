@@ -183,6 +183,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'snippet_picker_hotkey_key_display',
   'snippet_picker_hotkey_modifiers',
   'snippet_picker_trigger',
+  // Ticket 01 of `.scratch/smart-mode-v2/` — standard preset is a genuine
+  // user preference, portable like any other section field.
+  'smart_mode_standard_preset',
   'sound_volume',
   'start_minimized',
   'stt_engine',

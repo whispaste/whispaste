@@ -63,6 +63,7 @@ class AppSettings {
     this.privacy = const PrivacySettings(),
     this.portabilityPaths = const SettingsPortabilityPathSettings(),
     this.autosave = const SettingsAutosaveSettings(),
+    this.smartMode = const SmartModeSettings(),
   });
 
   // ---------------------------------------------------------------------------
@@ -134,6 +135,10 @@ class AppSettings {
   /// Autosicherung — event-driven automatic backup of the portable bundle
   /// (Ticket 26). Off by default.
   final SettingsAutosaveSettings autosave;
+
+  /// Smart Mode v2 settings (`.scratch/smart-mode-v2/`) — standard preset,
+  /// off by default.
+  final SmartModeSettings smartMode;
 
   // ---------------------------------------------------------------------------
   // @Deprecated shims — delegate to sections.
@@ -406,6 +411,7 @@ class AppSettings {
       privacy: PrivacySettings.fromMap(values),
       portabilityPaths: SettingsPortabilityPathSettings.fromMap(values),
       autosave: SettingsAutosaveSettings.fromMap(values),
+      smartMode: SmartModeSettings.fromMap(values),
     );
   }
 
@@ -469,6 +475,7 @@ class AppSettings {
     ...privacy.toMap(),
     ...portabilityPaths.toMap(),
     ...autosave.toMap(),
+    ...smartMode.toMap(),
   };
 
   // ---------------------------------------------------------------------------
@@ -509,6 +516,7 @@ class AppSettings {
     PrivacySettings? privacy,
     SettingsPortabilityPathSettings? portabilityPaths,
     SettingsAutosaveSettings? autosave,
+    SmartModeSettings? smartMode,
   }) {
     return AppSettings(
       interface_: interface_ ?? this.interface_,
@@ -533,6 +541,7 @@ class AppSettings {
       privacy: privacy ?? this.privacy,
       portabilityPaths: portabilityPaths ?? this.portabilityPaths,
       autosave: autosave ?? this.autosave,
+      smartMode: smartMode ?? this.smartMode,
     );
   }
 
@@ -742,10 +751,11 @@ class AppSettings {
           benchmark == other.benchmark &&
           privacy == other.privacy &&
           portabilityPaths == other.portabilityPaths &&
-          autosave == other.autosave;
+          autosave == other.autosave &&
+          smartMode == other.smartMode;
 
   // Object.hash() caps at 20 positional arguments; this aggregate now has
-  // 21 sections, so hashAll's list form (no arg-count limit) is required —
+  // 22 sections, so hashAll's list form (no arg-count limit) is required —
   // switching it here rather than only at the moment of overflow keeps this
   // list's order trivially diffable against the field list above.
   @override
@@ -771,6 +781,7 @@ class AppSettings {
     privacy,
     portabilityPaths,
     autosave,
+    smartMode,
   ]);
 }
 

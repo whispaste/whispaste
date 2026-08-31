@@ -48,12 +48,18 @@ class SttModelInfo {
   final String url;
   final String sha256;
 
-  String get sizeLabel {
-    if (sizeBytes >= 1024 * 1024 * 1024) {
-      return '${(sizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-    return '${(sizeBytes / (1024 * 1024)).round()} MB';
+  String get sizeLabel => formatModelSizeLabel(sizeBytes);
+}
+
+/// Renders a byte count as `"3.1 GB"` (>=1 GiB) or `"190 MB"` (<1 GiB) —
+/// shared by every downloadable-model registry ([SttModelInfo],
+/// `SmartModeModelInfo`) so the two don't drift into subtly different
+/// rounding/threshold rules.
+String formatModelSizeLabel(int sizeBytes) {
+  if (sizeBytes >= 1024 * 1024 * 1024) {
+    return '${(sizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
+  return '${(sizeBytes / (1024 * 1024)).round()} MB';
 }
 
 /// All STT models the app exposes to the user (quantized, from HuggingFace

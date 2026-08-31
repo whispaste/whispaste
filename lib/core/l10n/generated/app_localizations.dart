@@ -6563,6 +6563,84 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Try a different search term.'**
   String get sidePanelNoMatchesHint;
+
+  /// No description provided for @settingsSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get settingsSmartMode;
+
+  /// No description provided for @settingsSmartModeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local text cleanup, shortening, and translation after dictation'**
+  String get settingsSmartModeSubtitle;
+
+  /// No description provided for @smartModeStandardPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard preset'**
+  String get smartModeStandardPreset;
+
+  /// No description provided for @smartModePresetOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get smartModePresetOff;
+
+  /// No description provided for @smartModePresetCleanup.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleanup'**
+  String get smartModePresetCleanup;
+
+  /// No description provided for @smartModePresetConcise.
+  ///
+  /// In en, this message translates to:
+  /// **'Concise'**
+  String get smartModePresetConcise;
+
+  /// No description provided for @smartModePresetTranslate.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate'**
+  String get smartModePresetTranslate;
+
+  /// No description provided for @smartModeDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get smartModeDownload;
+
+  /// No description provided for @smartModeDownloadComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode model ready to use'**
+  String get smartModeDownloadComplete;
+
+  /// No description provided for @smartModeRamWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited memory detected'**
+  String get smartModeRamWarningTitle;
+
+  /// No description provided for @smartModeRamWarningBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode\'s local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?'**
+  String get smartModeRamWarningBody;
+
+  /// No description provided for @smartModeRamWarningContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Download anyway'**
+  String get smartModeRamWarningContinue;
+
+  /// No description provided for @smartModeRamWarningCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get smartModeRamWarningCancel;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

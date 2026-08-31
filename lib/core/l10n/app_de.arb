@@ -1302,5 +1302,19 @@
   "sidePanelSearchHint": "Suchen",
   "sidePanelSearchFieldLabel": "Diese Liste durchsuchen",
   "sidePanelNoMatches": "Keine Treffer",
-  "sidePanelNoMatchesHint": "Versuche einen anderen Suchbegriff."
+  "sidePanelNoMatchesHint": "Versuche einen anderen Suchbegriff.",
+
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "Lokale Textbereinigung, Kürzung und Übersetzung nach dem Diktieren",
+  "smartModeStandardPreset": "Standard-Preset",
+  "smartModePresetOff": "Aus",
+  "smartModePresetCleanup": "Cleanup",
+  "smartModePresetConcise": "Concise",
+  "smartModePresetTranslate": "Translate",
+  "smartModeDownload": "Herunterladen",
+  "smartModeDownloadComplete": "Smart-Mode-Modell einsatzbereit",
+  "smartModeRamWarningTitle": "Wenig Arbeitsspeicher erkannt",
+  "smartModeRamWarningBody": "Das lokale Smart-Mode-Modell läuft am besten mit mindestens 8 GB RAM. Es kann auch mit weniger funktionieren, aber langsamer sein oder fehlschlagen. Trotzdem herunterladen?",
+  "smartModeRamWarningContinue": "Trotzdem herunterladen",
+  "smartModeRamWarningCancel": "Abbrechen"
 }

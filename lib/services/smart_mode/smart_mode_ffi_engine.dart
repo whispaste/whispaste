@@ -49,13 +49,20 @@ typedef _SmartModeFreeResultNative =
     ffi.Void Function(ffi.Pointer<Utf8> result);
 typedef _SmartModeFreeResultDart = void Function(ffi.Pointer<Utf8> result);
 
+/// Test-only override for the directory [smartModeModelPath] resolves
+/// against, mirroring [sttDirOverride]. Must stay null in production code.
+String? smartModeModelDirOverride;
+
 /// `models/smart_mode/<filename>` under [appDataDir] — a sibling of
 /// [sttDir], not reusing it, since Smart-Mode-v2 models are a distinct asset
 /// class (chat/instruct GGUF, not Whisper encoder-decoder GGML) with their
 /// own licensing/attribution surface (Apache 2.0, see
 /// `.scratch/smart-mode-v2/research-gemma-4-e2b-license-and-config.md`).
 String smartModeModelPath({String filename = 'gemma-4-E2B-it-Q4_K_M.gguf'}) =>
-    p.join(appDataDir(), 'models', 'smart_mode', filename);
+    p.join(
+      smartModeModelDirOverride ?? p.join(appDataDir(), 'models', 'smart_mode'),
+      filename,
+    );
 
 /// Absolute path to the bundled `libsmartmode_shim` shared library, resolved
 /// relative to [Platform.resolvedExecutable] exactly like

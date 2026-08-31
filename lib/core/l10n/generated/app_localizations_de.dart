@@ -3749,4 +3749,45 @@ class L10nDe extends L10n {
 
   @override
   String get sidePanelNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
+
+  @override
+  String get settingsSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeSubtitle =>
+      'Lokale Textbereinigung, Kürzung und Übersetzung nach dem Diktieren';
+
+  @override
+  String get smartModeStandardPreset => 'Standard-Preset';
+
+  @override
+  String get smartModePresetOff => 'Aus';
+
+  @override
+  String get smartModePresetCleanup => 'Cleanup';
+
+  @override
+  String get smartModePresetConcise => 'Concise';
+
+  @override
+  String get smartModePresetTranslate => 'Translate';
+
+  @override
+  String get smartModeDownload => 'Herunterladen';
+
+  @override
+  String get smartModeDownloadComplete => 'Smart-Mode-Modell einsatzbereit';
+
+  @override
+  String get smartModeRamWarningTitle => 'Wenig Arbeitsspeicher erkannt';
+
+  @override
+  String get smartModeRamWarningBody =>
+      'Das lokale Smart-Mode-Modell läuft am besten mit mindestens 8 GB RAM. Es kann auch mit weniger funktionieren, aber langsamer sein oder fehlschlagen. Trotzdem herunterladen?';
+
+  @override
+  String get smartModeRamWarningContinue => 'Trotzdem herunterladen';
+
+  @override
+  String get smartModeRamWarningCancel => 'Abbrechen';
 }

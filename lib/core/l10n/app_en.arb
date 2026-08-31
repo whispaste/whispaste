@@ -1497,5 +1497,19 @@
     "description": "Accessibility label for the side panel's search field (screen readers) -- the visible hint text (sidePanelSearchHint) is not section-specific, so this names what it searches instead"
   },
   "sidePanelNoMatches": "No matches",
-  "sidePanelNoMatchesHint": "Try a different search term."
+  "sidePanelNoMatchesHint": "Try a different search term.",
+
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "Local text cleanup, shortening, and translation after dictation",
+  "smartModeStandardPreset": "Standard preset",
+  "smartModePresetOff": "Off",
+  "smartModePresetCleanup": "Cleanup",
+  "smartModePresetConcise": "Concise",
+  "smartModePresetTranslate": "Translate",
+  "smartModeDownload": "Download",
+  "smartModeDownloadComplete": "Smart Mode model ready to use",
+  "smartModeRamWarningTitle": "Limited memory detected",
+  "smartModeRamWarningBody": "Smart Mode's local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?",
+  "smartModeRamWarningContinue": "Download anyway",
+  "smartModeRamWarningCancel": "Cancel"
 }

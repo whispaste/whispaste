@@ -3667,4 +3667,45 @@ class L10nHe extends L10n {
 
   @override
   String get sidePanelNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get settingsSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeSubtitle =>
+      'Local text cleanup, shortening, and translation after dictation';
+
+  @override
+  String get smartModeStandardPreset => 'Standard preset';
+
+  @override
+  String get smartModePresetOff => 'Off';
+
+  @override
+  String get smartModePresetCleanup => 'Cleanup';
+
+  @override
+  String get smartModePresetConcise => 'Concise';
+
+  @override
+  String get smartModePresetTranslate => 'Translate';
+
+  @override
+  String get smartModeDownload => 'Download';
+
+  @override
+  String get smartModeDownloadComplete => 'Smart Mode model ready to use';
+
+  @override
+  String get smartModeRamWarningTitle => 'Limited memory detected';
+
+  @override
+  String get smartModeRamWarningBody =>
+      'Smart Mode\'s local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?';
+
+  @override
+  String get smartModeRamWarningContinue => 'Download anyway';
+
+  @override
+  String get smartModeRamWarningCancel => 'Cancel';
 }
