@@ -383,11 +383,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                           dense: true,
                         ),
                         // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        if (widget.onDuplicate != null)
+                        if (widget.onDuplicate case final onDuplicate?)
                           WpRowAction(
                             icon: LucideIcons.files,
                             tooltip: l10n.actionDuplicate,
-                            onTap: widget.onDuplicate,
+                            onTap: onDuplicate,
                             dense: true,
                           ),
                         WpRowAction(

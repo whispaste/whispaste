@@ -339,7 +339,7 @@ class HistoryCompactRowActions extends StatelessWidget {
           dense: true,
         ),
         // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-        if (onDuplicate != null)
+        if (onDuplicate case final onDuplicate?)
           WpRowAction(
             icon: LucideIcons.files,
             tooltip: l10n.actionDuplicate,
