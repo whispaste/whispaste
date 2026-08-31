@@ -15,4 +15,6 @@ instead — that manual fix is the actual reference implementation.
 **Corrected action:** only wrap the *smallest* region that (a) has no interactive descendants of its own
 and (b) isn't already covered by another explicit `Semantics(button: true)`. If the row already has a
 dedicated icon button doing the same action, wrapping the row is redundant — either extend the existing
-button's hit area, or remove the now-duplicate inner button, but never both.
+button's hit area, or remove the now-duplicate inner button, but never both.## 2026-08-31 - Added keyboard accessibility to interactive GestureDetector
+**Learning:** Replaced a bare `GestureDetector` inside a `Semantics` wrapper with an `InkWell` wrapped in a `WpFocusRing`, following the established 'house idiom' to enable proper keyboard focus states while retaining correct semantics and hover states via `AnimatedContainer` without interfering visual side effects.
+**Action:** Always use an `InkWell` + `WpFocusRing` combination (making the InkWell's standard colors transparent if an `AnimatedContainer` already handles them) to ensure interactive tap areas are properly focusable.
