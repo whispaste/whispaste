@@ -6714,6 +6714,18 @@ abstract class L10n {
   /// **'Cancel'**
   String get smartModeRamWarningCancel;
 
+  /// No description provided for @smartModeMemoryFootprintInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.'**
+  String get smartModeMemoryFootprintInfo;
+
+  /// No description provided for @smartModeSpeedExampleInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.'**
+  String get smartModeSpeedExampleInfo;
+
   /// No description provided for @settingsHotkeyActionSmartMode.
   ///
   /// In en, this message translates to:

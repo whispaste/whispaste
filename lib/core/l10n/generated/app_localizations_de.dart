@@ -3831,6 +3831,14 @@ class L10nDe extends L10n {
   String get smartModeRamWarningCancel => 'Abbrechen';
 
   @override
+  String get smartModeMemoryFootprintInfo =>
+      'Läuft vollständig auf dem Gerät. Im aktiven Zustand belegt es zusätzlich zum Speicherplatz etwa 4–5 GB RAM — geteilt mit dem Transkriptionsmodell, der tatsächliche Gesamtverbrauch hängt also auch davon ab, welches STT-Modell zusätzlich geladen ist.';
+
+  @override
+  String get smartModeSpeedExampleInfo =>
+      'Beispiel: Ein typisches Diktat mit 50 Wörtern braucht je nach Hardware etwa 1–6 Sekunden zur Verarbeitung.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override

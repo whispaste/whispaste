@@ -413,6 +413,24 @@ class _ModelDownloadRow extends ConsumerWidget {
                   color: WpColors.textPrimary,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.smartModeMemoryFootprintInfo,
+                style: const TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: WpColors.textMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                l10n.smartModeSpeedExampleInfo,
+                style: const TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: WpColors.textMuted,
+                  height: 1.4,
+                ),
+              ),
               if (download.isBusy) ...[
                 const SizedBox(height: 6),
                 _ProgressInfo(download: download, l10n: l10n),

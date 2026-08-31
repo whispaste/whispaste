@@ -1329,6 +1329,8 @@
   "smartModeRamWarningBody": "Das lokale Smart-Mode-Modell läuft am besten mit mindestens 8 GB RAM. Es kann auch mit weniger funktionieren, aber langsamer sein oder fehlschlagen. Trotzdem herunterladen?",
   "smartModeRamWarningContinue": "Trotzdem herunterladen",
   "smartModeRamWarningCancel": "Abbrechen",
+  "smartModeMemoryFootprintInfo": "Läuft vollständig auf dem Gerät. Im aktiven Zustand belegt es zusätzlich zum Speicherplatz etwa 4–5 GB RAM — geteilt mit dem Transkriptionsmodell, der tatsächliche Gesamtverbrauch hängt also auch davon ab, welches STT-Modell zusätzlich geladen ist.",
+  "smartModeSpeedExampleInfo": "Beispiel: Ein typisches Diktat mit 50 Wörtern braucht je nach Hardware etwa 1–6 Sekunden zur Verarbeitung.",
 
   "settingsHotkeyActionSmartMode": "Smart Mode",
   "settingsSmartModeHotkeyEnabled": "Smart-Mode-Hotkey",

@@ -159,6 +159,29 @@ void main() {
       },
     );
 
+    testWidgets(
+      'shows RAM-footprint and processing-time info next to the model row',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SmartModeSection()),
+            overrides: _overrides(settings: notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('shared with the transcription model'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('typical 50-word dictation'),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets('shows progress bar while downloading', (tester) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(
