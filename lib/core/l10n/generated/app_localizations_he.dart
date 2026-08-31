@@ -1786,6 +1786,9 @@ class L10nHe extends L10n {
   String get statusBarTranscribing => 'מתמלל…';
 
   @override
+  String get statusBarRefining => 'Refining…';
+
+  @override
   String get statusBarDone => 'הסתיים';
 
   @override
@@ -2849,6 +2852,9 @@ class L10nHe extends L10n {
 
   @override
   String get overlayTranscribing => 'מתמלל…';
+
+  @override
+  String get overlayRefining => 'Refining…';
 
   @override
   String get overlayDone => 'הועתק';

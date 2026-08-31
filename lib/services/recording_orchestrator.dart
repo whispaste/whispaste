@@ -36,6 +36,10 @@ import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
 import 'snippet_picker/snippet_picker_service.dart';
+import 'smart_mode/smart_mode_ffi_engine.dart' show smartModeEngineProvider;
+import 'smart_mode/smart_mode_model_download_service.dart'
+    show smartModeDownloadProvider;
+import 'smart_mode/smart_mode_presets.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
@@ -245,7 +249,16 @@ class RecordingOrchestrator extends Notifier<void> {
       await stopRecording();
       return;
     }
-    if (recording.phase == RecordingPhase.transcribing) return;
+    if (recording.phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): the Cleanup pass keeps the pipeline
+        // busy here too — without this, a second hotkey press mid-refining
+        // would fall through to `startRecording()`, which the state machine
+        // then rejects as an invariant violation (no `start` transition is
+        // defined from `refining`) after already mutating unrelated
+        // orchestrator state (recordingTargetProvider, `_startInFlight`).
+        recording.phase == RecordingPhase.refining) {
+      return;
+    }
     // idle, done, or error → start. Kick off server warm-up before preflight
     // to maximise the parallel window.
     unawaited(_prewarmStt());
@@ -888,6 +901,22 @@ class RecordingOrchestrator extends Notifier<void> {
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
+    // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
+    // Runs before history-save/snippet-picker/paste so every downstream
+    // consumer of `finalText` sees the same (possibly refined) value — this
+    // ticket replaces the transcript in place, it does not keep a separate
+    // raw+edited pair (that's the History data model, PRODUCT-SPEC §7, a
+    // later ticket's scope). Skipped for the onboarding sandbox recording,
+    // same as history-save below — a Smart Mode failure notification during
+    // the guided test-recording step would be a confusing false alarm, and
+    // "off" (the factory default, ticket 01) is a pure no-op path so this
+    // whole block never runs for a recording with no active preset.
+    if (sandboxTranscriptSink == null &&
+        smartModePresetFromSettingsValue(settings.smartMode.standardPreset) ==
+            SmartModePreset.cleanup) {
+      finalText = await _runSmartModeCleanup(sid, finalText, runner);
+    }
+
     // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
     // A transcript that matches the picker's trigger word exactly (after
     // normalization) never reaches history/replacements or paste. An empty
@@ -1007,6 +1036,98 @@ class RecordingOrchestrator extends Notifier<void> {
     // once per run in _trackPipelineOutcome) already records the success path.
 
     return true;
+  }
+
+  /// Timeout for the Smart Mode Cleanup engine call itself — the primary
+  /// timeout, expected to fire (if anything does) well before
+  /// [RecordingNotifier]'s own `refining`-phase safety-net guard (30s). Local
+  /// inference is measured at 0.3–2.5s for a typical dictation (ADR 0009);
+  /// this budget is generous headroom for slower hardware, not the expected
+  /// case.
+  static const _smartModeCleanupTimeout = Duration(seconds: 15);
+
+  /// Test-only override for [_smartModeCleanupTimeout] — lets tests exercise
+  /// the timeout branch in well under a second instead of waiting 15 real
+  /// seconds. Mirrors [sttDirOverride]'s "test-only, must stay null in
+  /// production" convention. Must stay `null` in production code.
+  @visibleForTesting
+  static Duration? smartModeCleanupTimeoutOverride;
+
+  /// Runs the Smart Mode Cleanup preset over [rawText] and returns the
+  /// result — or [rawText] unchanged on any failure (model missing, load
+  /// error, decode error, timeout), firing a clearly-visible OS notification
+  /// in that case. Smart Mode never blocks the paste (ADR 0009): the caller
+  /// always gets a usable string back, never a thrown exception.
+  Future<String> _runSmartModeCleanup(
+    String sid,
+    String rawText,
+    PipelineStepRunner runner,
+  ) async {
+    if (!ref.read(smartModeDownloadProvider).modelDownloaded) {
+      _log.info(
+        '[$sid] Smart Mode Cleanup selected but model not downloaded — '
+        'falling back to raw transcript',
+      );
+      _notifySmartModeFallback();
+      return rawText;
+    }
+
+    _stateMachine.transition(
+      RecordingIntent.startRefining,
+      transcript: rawText,
+    );
+
+    final result = await runner.run<String>(
+      'smart_mode_cleanup',
+      () => ref
+          .read(smartModeEngineProvider)
+          .run(systemPrompt: smartModeCleanupSystemPrompt, userText: rawText),
+      timeout: smartModeCleanupTimeoutOverride ?? _smartModeCleanupTimeout,
+    );
+
+    switch (result) {
+      case Ok(:final value):
+        if (value.trim().isEmpty) {
+          // A blank/whitespace-only response is treated as a failure — never
+          // silently paste an empty string where the user dictated real
+          // content.
+          _log.warning('[$sid] Smart Mode Cleanup returned empty result');
+          _notifySmartModeFallback();
+          return rawText;
+        }
+        _log.debug('[$sid] Smart Mode Cleanup succeeded');
+        return value;
+      case StepTimeout():
+        _log.warning(
+          '[$sid] Smart Mode Cleanup timed out after '
+          '${_smartModeCleanupTimeout.inSeconds}s',
+        );
+        _notifySmartModeFallback();
+        return rawText;
+      case FailedWith(:final error):
+        _log.warning('[$sid] Smart Mode Cleanup failed: $error');
+        _notifySmartModeFallback();
+        return rawText;
+    }
+  }
+
+  /// Fires the OS notification for a Smart Mode fallback (ticket 02) — the
+  /// paste itself still succeeds with the raw transcript, so unlike every
+  /// other [SystemAttentionService] call site in this file this is purely
+  /// informational: no tray "action needed" badge (there's nothing to click
+  /// through to fix) and no error sound (nothing actually failed from the
+  /// user's point of view — their text still landed).
+  void _notifySmartModeFallback() {
+    unawaited(
+      ref
+          .read(systemAttentionServiceProvider)
+          .requestAttention(
+            kind: AttentionKind.smartModeFallback,
+            title: 'WhisPaste: Smart Mode übersprungen',
+            body:
+                'Cleanup konnte nicht angewendet werden — der unbearbeitete Text wurde trotzdem eingefügt.',
+          ),
+    );
   }
 
   /// Logs the outcome of the after-transcription action step (Step 5).
@@ -1430,7 +1551,11 @@ class RecordingOrchestrator extends Notifier<void> {
     }
     final phase = ref.read(recordingProvider).phase;
     if (phase == RecordingPhase.recording ||
-        phase == RecordingPhase.transcribing) {
+        phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): a Cleanup pass still owns the pending
+        // paste target here — opening the picker now would race it exactly
+        // like the transcribing case above.
+        phase == RecordingPhase.refining) {
       _log.info('Snippet-Picker hotkey ignored: recording in progress');
       return;
     }

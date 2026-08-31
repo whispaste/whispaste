@@ -12,7 +12,15 @@ import '../../services/model_download_service.dart';
 // ---------------------------------------------------------------------------
 
 /// Discrete phases of a recording lifecycle.
-enum RecordingPhase { idle, recording, transcribing, done, error }
+///
+/// [refining] is a Smart-Mode-v2-only phase (ticket 02) between
+/// [transcribing] and [done]: a local-model post-processing pass (e.g. the
+/// Cleanup preset) runs while the state machine sits here. It never leads to
+/// [error] — any refining failure or timeout falls back to [done] with the
+/// raw transcript unchanged (`docs/adr/0009-smart-mode-never-blocks-prinzip.md`).
+/// Recordings with no active Smart Mode preset skip this phase entirely and
+/// transition [transcribing] → [done] exactly as before this ticket.
+enum RecordingPhase { idle, recording, transcribing, refining, done, error }
 
 /// Where a finished transcript goes. [clipboard] is today's behaviour
 /// (`AfterTranscriptionAction` — clipboard/paste). [quickNote] appends it to
@@ -62,6 +70,7 @@ class RecordingState {
   bool get isIdle => phase == RecordingPhase.idle;
   bool get isRecording => phase == RecordingPhase.recording;
   bool get isTranscribing => phase == RecordingPhase.transcribing;
+  bool get isRefining => phase == RecordingPhase.refining;
   bool get isDone => phase == RecordingPhase.done;
   bool get isError => phase == RecordingPhase.error;
 
@@ -130,11 +139,22 @@ class RecordingNotifier extends Notifier<RecordingState> {
   Timer? _stuckGuard;
   static const _stuckTimeout = Duration(minutes: 5);
 
+  /// Safety-net timer for [RecordingPhase.refining] (Smart Mode v2, ticket
+  /// 02). This is a last-resort backstop, not the primary timeout — the
+  /// orchestrator's own engine-call timeout (`PipelineStepRunner`, seconds
+  /// not minutes) is expected to fire first in practice. If it somehow
+  /// doesn't (e.g. an isolate deadlock), this guard still guarantees the
+  /// pipeline reaches `done` with the raw transcript rather than hanging
+  /// forever — never `error`, per ADR 0009.
+  Timer? _refiningGuard;
+  static const _refiningTimeout = Duration(seconds: 30);
+
   @override
   RecordingState build() {
     ref.onDispose(() {
       _cancelTimer();
       _stuckGuard?.cancel();
+      _refiningGuard?.cancel();
     });
     return const RecordingState();
   }
@@ -163,15 +183,34 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _startStuckGuard();
   }
 
-  /// Transition transcribing → done.
-  void completeTranscription(String text) {
+  /// Transition transcribing → refining (Smart Mode v2, ticket 02). Stores
+  /// [interimTranscript] on the state immediately so [_refiningGuard] can
+  /// fall back to it even if it fires before the orchestrator calls
+  /// [completeTranscription] itself.
+  void startRefining(String interimTranscript) {
     if (state.phase != RecordingPhase.transcribing) {
+      _log.debug('startRefining ignored – current phase: ${state.phase}');
+      return;
+    }
+    _stuckGuard?.cancel();
+    state = state.copyWith(
+      phase: RecordingPhase.refining,
+      transcript: interimTranscript,
+    );
+    _startRefiningGuard();
+  }
+
+  /// Transition transcribing/refining → done.
+  void completeTranscription(String text) {
+    if (state.phase != RecordingPhase.transcribing &&
+        state.phase != RecordingPhase.refining) {
       _log.debug(
         'completeTranscription ignored – current phase: ${state.phase}',
       );
       return;
     }
     _stuckGuard?.cancel();
+    _refiningGuard?.cancel();
     _log.debug('Phase ${state.phase} → done (text: ${text.length} chars)');
     state = state.copyWith(phase: RecordingPhase.done, transcript: text);
   }
@@ -180,6 +219,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
   void fail(String error) {
     _cancelTimer();
     _stuckGuard?.cancel();
+    _refiningGuard?.cancel();
     state = RecordingState(phase: RecordingPhase.error, errorMessage: error);
   }
 
@@ -188,6 +228,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
     final prevPhase = state.phase;
     _cancelTimer();
     _stuckGuard?.cancel();
+    _refiningGuard?.cancel();
     _log.debug('Phase $prevPhase → idle (reset)');
     state = const RecordingState();
   }
@@ -228,6 +269,23 @@ class RecordingNotifier extends Notifier<RecordingState> {
           '(session=${state.sessionId})',
         );
         fail('pipeline_timeout');
+      }
+    });
+  }
+
+  /// Safety net: silently fall back to `done` with the raw transcript if
+  /// stuck in refining too long. Never transitions to `error` — see
+  /// [_refiningGuard]'s doc comment.
+  void _startRefiningGuard() {
+    _refiningGuard?.cancel();
+    _refiningGuard = Timer(_refiningTimeout, () {
+      if (state.phase == RecordingPhase.refining) {
+        _log.warning(
+          'State machine stuck in refining for '
+          '${_refiningTimeout.inSeconds}s — falling back to raw transcript '
+          '(session=${state.sessionId})',
+        );
+        completeTranscription(state.transcript ?? '');
       }
     });
   }

@@ -3279,6 +3279,12 @@ abstract class L10n {
   /// **'Transcribing…'**
   String get statusBarTranscribing;
 
+  /// No description provided for @statusBarRefining.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining…'**
+  String get statusBarRefining;
+
   /// No description provided for @statusBarDone.
   ///
   /// In en, this message translates to:
@@ -5111,6 +5117,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcribing…'**
   String get overlayTranscribing;
+
+  /// No description provided for @overlayRefining.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining…'**
+  String get overlayRefining;
 
   /// No description provided for @overlayDone.
   ///

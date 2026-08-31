@@ -595,6 +595,8 @@ class _SttChipState extends State<_SttChip> {
           widget.l10n.statusBarTranscribing,
           true,
         );
+      case RecordingPhase.refining:
+        return (WpColors.recordingAccent, widget.l10n.statusBarRefining, true);
       case RecordingPhase.done:
         return (WpColors.success, widget.l10n.statusBarDone, false);
       case RecordingPhase.error:

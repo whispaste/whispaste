@@ -716,6 +716,7 @@
   "statusBarBackendGpuUtilizationUnavailable": "Real GPU utilization can't be measured across platforms without elevated privileges; the percentage shown reflects this process's CPU activity instead.",
   "statusBarRecording": "Recording…",
   "statusBarTranscribing": "Transcribing…",
+  "statusBarRefining": "Refining…",
   "statusBarDone": "Done",
   "statusBarHotkeyTooltip": "Global hotkey: click to configure",
   "statusBarAutoPasteOffHint": "Auto-Paste off, enable in Settings",
@@ -1104,6 +1105,7 @@
 
   "overlayRecording": "Recording",
   "overlayTranscribing": "Transcribing…",
+  "overlayRefining": "Refining…",
   "overlayDone": "Copied",
   "overlayDonePasted": "Pasted",
   "overlayDoneBoth": "Copied & Pasted",
