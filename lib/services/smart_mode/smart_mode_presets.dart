@@ -110,3 +110,25 @@ String smartModeTranslateSystemPrompt(SmartModeTargetLanguage target) =>
     'already in ${target.languageName}, return it unchanged (only fix '
     'obvious dictation artifacts). Output ONLY the translated text, no '
     'explanation.';
+
+/// Resolves the system prompt for [preset], shared by the live pipeline
+/// (`RecordingOrchestrator._runSmartModeRefine`, tickets 02/03) and the
+/// retroactive on-a-history-entry path (`SmartModeRetroactiveService`,
+/// ticket 05) so both stay in sync automatically.
+///
+/// [targetLanguage] is required for [SmartModePreset.translate] and ignored
+/// otherwise. [preset] must not be [SmartModePreset.off] — callers already
+/// filter that out before reaching the engine.
+String smartModeSystemPromptFor(
+  SmartModePreset preset, {
+  SmartModeTargetLanguage? targetLanguage,
+}) => switch (preset) {
+  SmartModePreset.cleanup => smartModeCleanupSystemPrompt,
+  SmartModePreset.concise => smartModeConciseSystemPrompt,
+  SmartModePreset.translate => smartModeTranslateSystemPrompt(
+    targetLanguage ?? SmartModeTargetLanguage.german,
+  ),
+  SmartModePreset.off => throw StateError(
+    'smartModeSystemPromptFor called with preset off',
+  ),
+};

@@ -716,6 +716,63 @@ void main() {
     );
   });
 
+  group('Smart Mode edited-content migration (v21 → v22)', () {
+    test('adds smart_mode_edited_content column to history_entries', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+      final cols = await db
+          .customSelect("PRAGMA table_info('history_entries')")
+          .get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      expect(colNames.contains('smart_mode_edited_content'), true);
+
+      await db.close();
+    });
+
+    test('a pre-v22 entry has no edited version until one is set', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(id: 'e1', timestamp: DateTime(2025, 1)),
+      );
+
+      final entry = await db.getEntry('e1');
+      expect(entry!.smartModeEditedContent, null);
+
+      await db.updateEntry(
+        'e1',
+        const HistoryEntriesCompanion(
+          smartModeEditedContent: Value('cleaned up text'),
+        ),
+      );
+      final updated = await db.getEntry('e1');
+      expect(updated!.smartModeEditedContent, 'cleaned up text');
+      expect(updated.content, ''); // raw content untouched
+
+      await db.close();
+    });
+
+    test('migration is idempotent — a second run does not error or overwrite '
+        'existing values', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(id: 'e1', timestamp: DateTime(2025, 1)),
+      );
+      await db.updateEntry(
+        'e1',
+        const HistoryEntriesCompanion(
+          smartModeEditedContent: Value('already edited'),
+        ),
+      );
+
+      await db.addSmartModeEditedContentColumnForTesting();
+
+      final entry = await db.getEntry('e1');
+      expect(entry!.smartModeEditedContent, 'already edited');
+
+      await db.close();
+    });
+  });
+
   group(
     'TextReplacementTriggers migration (v13, multi-trigger replacements)',
     () {

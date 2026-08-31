@@ -2176,6 +2176,30 @@ class L10nHe extends L10n {
   String get historyDuplicated => 'רשומה שוכפלה';
 
   @override
+  String get historyViewRaw => 'מקורי';
+
+  @override
+  String get historyViewEdited => 'ערוך';
+
+  @override
+  String get historyApplySmartModePreset => 'החל תבנית Smart Mode';
+
+  @override
+  String get historySmartModeApplied => 'Smart Mode הוחל';
+
+  @override
+  String get historySmartModeFailedModelMissing => 'מודל Smart Mode לא הורד';
+
+  @override
+  String get historySmartModeFailedTimeout => 'Smart Mode ארך זמן רב מדי';
+
+  @override
+  String get historySmartModeFailedGeneric => 'Smart Mode נכשל — נסה שוב';
+
+  @override
+  String get historySmartModeSelectTargetLanguage => 'בחר שפת יעד';
+
+  @override
   String get historyAddNote => 'הוסף הערה';
 
   @override

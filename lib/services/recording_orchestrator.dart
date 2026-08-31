@@ -1100,18 +1100,12 @@ class RecordingOrchestrator extends Notifier<void> {
       return rawText;
     }
 
-    final systemPrompt = switch (preset) {
-      SmartModePreset.cleanup => smartModeCleanupSystemPrompt,
-      SmartModePreset.concise => smartModeConciseSystemPrompt,
-      SmartModePreset.translate => smartModeTranslateSystemPrompt(
-        smartModeTargetLanguageFromSettingsValue(
-          settings.smartMode.targetLanguage,
-        ),
+    final systemPrompt = smartModeSystemPromptFor(
+      preset,
+      targetLanguage: smartModeTargetLanguageFromSettingsValue(
+        settings.smartMode.targetLanguage,
       ),
-      SmartModePreset.off => throw StateError(
-        '_runSmartModeRefine called with preset off',
-      ),
-    };
+    );
 
     _stateMachine.transition(
       RecordingIntent.startRefining,

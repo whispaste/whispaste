@@ -2218,6 +2218,32 @@ class L10nEn extends L10n {
   String get historyDuplicated => 'Entry duplicated';
 
   @override
+  String get historyViewRaw => 'Raw';
+
+  @override
+  String get historyViewEdited => 'Edited';
+
+  @override
+  String get historyApplySmartModePreset => 'Apply Smart Mode preset';
+
+  @override
+  String get historySmartModeApplied => 'Smart Mode applied';
+
+  @override
+  String get historySmartModeFailedModelMissing =>
+      'Smart Mode model not downloaded';
+
+  @override
+  String get historySmartModeFailedTimeout => 'Smart Mode timed out';
+
+  @override
+  String get historySmartModeFailedGeneric =>
+      'Smart Mode failed — please try again';
+
+  @override
+  String get historySmartModeSelectTargetLanguage => 'Select target language';
+
+  @override
   String get historyAddNote => 'Add annotation';
 
   @override

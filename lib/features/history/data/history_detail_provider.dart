@@ -9,6 +9,8 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_retroactive_service.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -20,21 +22,68 @@ class HistoryDetailState {
     required this.entry,
     required this.tags,
     required this.notes,
+    this.viewingEditedVersion = false,
+    this.applyingPreset = false,
   });
 
   final HistoryEntry entry;
   final List<Tag> tags;
   final List<EntryNote> notes;
 
+  /// Which text the detail panel currently shows for the transcript area —
+  /// `true` selects [HistoryEntry.smartModeEditedContent] over the raw
+  /// [HistoryEntry.content] (ticket 05). Defaults to raw/`false` whenever the
+  /// entry is (re)loaded; not persisted.
+  final bool viewingEditedVersion;
+
+  /// Whether a retroactive preset application is currently in flight — lets
+  /// the UI show a spinner and disable the action while it runs.
+  final bool applyingPreset;
+
+  /// The text currently selected for display per [viewingEditedVersion] —
+  /// falls back to the raw [content][HistoryEntry.content] whenever no
+  /// edited version exists yet, even if [viewingEditedVersion] is `true`
+  /// (e.g. right after loading an entry that was never edited).
+  String get displayedContent {
+    if (!viewingEditedVersion) return entry.content;
+    return entry.smartModeEditedContent ?? entry.content;
+  }
+
+  /// Whether this entry has an edited version to toggle to at all.
+  bool get hasEditedVersion => entry.smartModeEditedContent != null;
+
   HistoryDetailState copyWith({
     HistoryEntry? entry,
     List<Tag>? tags,
     List<EntryNote>? notes,
+    bool? viewingEditedVersion,
+    bool? applyingPreset,
   }) => HistoryDetailState(
     entry: entry ?? this.entry,
     tags: tags ?? this.tags,
     notes: notes ?? this.notes,
+    viewingEditedVersion: viewingEditedVersion ?? this.viewingEditedVersion,
+    applyingPreset: applyingPreset ?? this.applyingPreset,
   );
+}
+
+/// Outcome of [HistoryDetailNotifier.applyPreset], surfaced to the UI so it
+/// can show a tailored message (ticket 05: failures must not fail silently
+/// the way the live pipeline does — there is no paste to protect here).
+sealed class HistoryPresetApplicationResult {
+  const HistoryPresetApplicationResult();
+}
+
+final class HistoryPresetApplicationSuccess
+    extends HistoryPresetApplicationResult {
+  const HistoryPresetApplicationSuccess();
+}
+
+final class HistoryPresetApplicationFailure
+    extends HistoryPresetApplicationResult {
+  const HistoryPresetApplicationFailure(this.reason);
+
+  final SmartModeRetroactiveFailureReason reason;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +125,61 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     state = AsyncValue.data(
       current.copyWith(entry: await _db.getEntry(_entryId) ?? current.entry),
     );
+  }
+
+  /// Switches the detail panel's transcript view between raw and edited
+  /// (ticket 05) — pure UI state, not persisted.
+  void setViewingEditedVersion(bool viewingEdited) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncValue.data(
+      current.copyWith(viewingEditedVersion: viewingEdited),
+    );
+  }
+
+  /// Applies [preset] to this entry's raw content and overwrites its
+  /// "current edited version" on success (ticket 05). The raw content is
+  /// never touched. On failure the existing edited version (if any) is left
+  /// exactly as it was — no silent data loss — and the returned result
+  /// tells the caller why, for a tailored error message.
+  Future<HistoryPresetApplicationResult> applyPreset(
+    SmartModePreset preset, {
+    SmartModeTargetLanguage? targetLanguage,
+  }) async {
+    final current = state.asData?.value;
+    if (current == null) {
+      return const HistoryPresetApplicationFailure(
+        SmartModeRetroactiveFailureReason.engineError,
+      );
+    }
+
+    state = AsyncValue.data(current.copyWith(applyingPreset: true));
+    final result = await ref
+        .read(smartModeRetroactiveServiceProvider)
+        .apply(
+          rawText: current.entry.content,
+          preset: preset,
+          targetLanguage: targetLanguage,
+        );
+
+    switch (result) {
+      case SmartModeRetroactiveSuccess(:final editedContent):
+        await _db.updateEntry(
+          _entryId,
+          HistoryEntriesCompanion(smartModeEditedContent: Value(editedContent)),
+        );
+        final entry = await _db.getEntry(_entryId);
+        state = AsyncValue.data(
+          (current.copyWith(applyingPreset: false)).copyWith(
+            entry: entry ?? current.entry,
+            viewingEditedVersion: true,
+          ),
+        );
+        return const HistoryPresetApplicationSuccess();
+      case SmartModeRetroactiveFailure(:final reason):
+        state = AsyncValue.data(current.copyWith(applyingPreset: false));
+        return HistoryPresetApplicationFailure(reason);
+    }
   }
 
   Future<void> updateTitle(String newTitle) async {
