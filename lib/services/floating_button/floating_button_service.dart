@@ -32,6 +32,10 @@ FloatingButtonVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
   RecordingPhase.idle => FloatingButtonVisualState.idle,
   RecordingPhase.recording => FloatingButtonVisualState.recording,
   RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
+  // Smart Mode v2's refining phase (ticket 02) has no dedicated visual state
+  // here — the floating button keeps showing "transcribing" while it runs,
+  // the same busy indicator the user already saw a moment ago.
+  RecordingPhase.refining => FloatingButtonVisualState.transcribing,
   RecordingPhase.done => FloatingButtonVisualState.done,
   RecordingPhase.error => FloatingButtonVisualState.error,
 };

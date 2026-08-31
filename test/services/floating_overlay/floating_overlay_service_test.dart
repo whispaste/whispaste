@@ -14,6 +14,7 @@ void main() {
       RecordingPhase.idle => OverlayVisualState.recording,
       RecordingPhase.recording => OverlayVisualState.recording,
       RecordingPhase.transcribing => OverlayVisualState.transcribing,
+      RecordingPhase.refining => OverlayVisualState.transcribing,
       RecordingPhase.done => OverlayVisualState.done,
       RecordingPhase.error => OverlayVisualState.error,
     };
@@ -29,6 +30,13 @@ void main() {
     test('transcribing maps to transcribing', () {
       expect(
         mapPhase(RecordingPhase.transcribing),
+        OverlayVisualState.transcribing,
+      );
+    });
+
+    test('refining maps to transcribing (Smart Mode v2, ticket 02)', () {
+      expect(
+        mapPhase(RecordingPhase.refining),
         OverlayVisualState.transcribing,
       );
     });

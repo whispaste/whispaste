@@ -1821,6 +1821,9 @@ class L10nDe extends L10n {
   String get statusBarTranscribing => 'Transkribieren…';
 
   @override
+  String get statusBarRefining => 'Wird bereinigt…';
+
+  @override
   String get statusBarDone => 'Fertig';
 
   @override
@@ -2917,6 +2920,9 @@ class L10nDe extends L10n {
 
   @override
   String get overlayTranscribing => 'Wird transkribiert…';
+
+  @override
+  String get overlayRefining => 'Wird bereinigt…';
 
   @override
   String get overlayDone => 'Kopiert';

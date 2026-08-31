@@ -16,7 +16,10 @@
 /// recording     ─guardFire→    transcribing
 /// recording     ─fail→         error
 /// transcribing  ─complete→     done
+/// transcribing  ─startRefining→ refining
 /// transcribing  ─fail→         error
+/// refining      ─complete→     done
+/// refining      ─reset→        idle
 /// done          ─reset→        idle
 /// error         ─reset→        idle
 /// error         ─oomRetry→     recording
@@ -48,6 +51,10 @@ enum RecordingIntent {
 
   /// Transcription completed: transcribing → done.
   complete,
+
+  /// Smart Mode v2 (ticket 02) starts a local post-processing pass:
+  /// transcribing → refining.
+  startRefining,
 
   /// Reset to idle from done or error: done/error → idle.
   reset,
@@ -103,7 +110,12 @@ class RecordingStateMachine {
         },
         RecordingPhase.transcribing: {
           RecordingIntent.complete: _TransitionAction.completeTranscription,
+          RecordingIntent.startRefining: _TransitionAction.startRefining,
           RecordingIntent.fail: _TransitionAction.fail,
+          RecordingIntent.reset: _TransitionAction.reset,
+        },
+        RecordingPhase.refining: {
+          RecordingIntent.complete: _TransitionAction.completeTranscription,
           RecordingIntent.reset: _TransitionAction.reset,
         },
         RecordingPhase.done: {RecordingIntent.reset: _TransitionAction.reset},
@@ -118,8 +130,9 @@ class RecordingStateMachine {
   /// Attempts to transition the state machine via [intent].
   ///
   /// [transcript] is forwarded to the notifier only when [intent] is
-  /// [RecordingIntent.complete]. [errorMessage] is forwarded only when
-  /// [intent] is [RecordingIntent.fail].
+  /// [RecordingIntent.complete] or [RecordingIntent.startRefining].
+  /// [errorMessage] is forwarded only when [intent] is
+  /// [RecordingIntent.fail].
   ///
   /// Rejected transitions (phase/intent pair not in the table) emit a Sentry
   /// breadcrumb at `level: warning` and return without mutating state.
@@ -149,6 +162,8 @@ class RecordingStateMachine {
         _notifier.stopRecording();
       case _TransitionAction.completeTranscription:
         _notifier.completeTranscription(transcript ?? '');
+      case _TransitionAction.startRefining:
+        _notifier.startRefining(transcript ?? '');
       case _TransitionAction.fail:
         _notifier.fail(errorMessage ?? 'unknown_error');
       case _TransitionAction.reset:
@@ -187,6 +202,7 @@ enum _TransitionAction {
   startRecording,
   stopRecording,
   completeTranscription,
+  startRefining,
   fail,
   reset,
 }

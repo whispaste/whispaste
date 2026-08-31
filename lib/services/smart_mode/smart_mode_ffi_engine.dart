@@ -15,6 +15,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/logging/app_logger.dart';
@@ -146,3 +147,13 @@ class SmartModeFfiEngine implements SmartModeEngine {
     }
   }
 }
+
+/// Production [SmartModeEngine] — [RecordingOrchestrator] (ticket 02) reads
+/// this via [Ref.read], never watches it: the engine is stateless per call,
+/// so there is nothing to react to. Tests override this provider with a fake
+/// implementing [SmartModeEngine] instead of constructing a real
+/// [SmartModeFfiEngine] (which would `dlopen` a native library that doesn't
+/// exist in the test environment).
+final smartModeEngineProvider = Provider<SmartModeEngine>(
+  (ref) => SmartModeFfiEngine(),
+);

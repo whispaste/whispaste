@@ -35,6 +35,10 @@ import 'package:whispaste/services/path_service.dart'
         retainedAudioDirOverride,
         retainedAudioDir;
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeEngineProvider;
+import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
@@ -336,6 +340,60 @@ class FakeModelDownloadNotifier extends ModelDownloadNotifier {
   @override
   ModelDownloadState build() {
     return ModelDownloadState(downloadedModels: _downloadedModels);
+  }
+}
+
+/// Fake Smart Mode model download state (ticket 02) — pins
+/// [SmartModeDownloadState.modelDownloaded] without touching disk.
+class FakeSmartModeDownloadNotifier extends SmartModeDownloadNotifier {
+  FakeSmartModeDownloadNotifier({this.modelDownloaded = true});
+
+  final bool modelDownloaded;
+
+  @override
+  SmartModeDownloadState build() =>
+      SmartModeDownloadState(modelDownloaded: modelDownloaded);
+}
+
+/// Fake [SmartModeEngine] (ticket 02) — configurable success/failure/timeout
+/// behaviour, no real FFI/model involved.
+class FakeSmartModeEngine implements SmartModeEngine {
+  FakeSmartModeEngine({
+    this.resultToReturn,
+    this.errorToThrow,
+    this.delay = Duration.zero,
+  });
+
+  /// Text to return on success. Ignored if [errorToThrow] is set.
+  String? resultToReturn;
+
+  /// If set, [run] throws this instead of returning [resultToReturn].
+  Object? errorToThrow;
+
+  /// Artificial delay before resolving/throwing — used to exercise the
+  /// orchestrator's own timeout.
+  Duration delay;
+
+  int runCalls = 0;
+  String? lastSystemPrompt;
+  String? lastUserText;
+
+  @override
+  Future<String> run({
+    required String systemPrompt,
+    required String userText,
+  }) async {
+    runCalls++;
+    lastSystemPrompt = systemPrompt;
+    lastUserText = userText;
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
+    final error = errorToThrow;
+    if (error != null) {
+      throw error;
+    }
+    return resultToReturn ?? userText;
   }
 }
 
@@ -4300,6 +4358,214 @@ void main() {
 
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+  });
+
+  // =========================================================================
+  // Smart Mode v2: local Cleanup pipeline (ticket 02)
+  // =========================================================================
+
+  group('Smart Mode v2: local Cleanup pipeline (ticket 02)', () {
+    late FakeSmartModeEngine fakeSmartModeEngine;
+    late FakeSystemAttentionService fakeAttention;
+
+    ProviderContainer buildSmartModeContainer(
+      AppSettings settings, {
+      bool modelDownloaded = true,
+    }) {
+      return ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          smartModeDownloadProvider.overrideWith(
+            () =>
+                FakeSmartModeDownloadNotifier(modelDownloaded: modelDownloaded),
+          ),
+          smartModeEngineProvider.overrideWith((ref) => fakeSmartModeEngine),
+          systemAttentionServiceProvider.overrideWith((ref) {
+            fakeAttention = FakeSystemAttentionService(ref);
+            return fakeAttention;
+          }),
+        ],
+      );
+    }
+
+    AppSettings settingsWithPreset(String preset) => AppSettings(
+      stt: const SttSettings(model: 'whisper-small', language: 'English'),
+      afterTranscriptionSection: const AfterTranscriptionSettings(
+        afterTranscription: 'clipboard',
+      ),
+      onboarding: const OnboardingSettings(onboardingCompleted: true),
+      smartMode: SmartModeSettings(standardPreset: preset),
+    );
+
+    setUp(() {
+      fakeSmartModeEngine = FakeSmartModeEngine();
+    });
+
+    tearDown(() {
+      RecordingOrchestrator.smartModeCleanupTimeoutOverride = null;
+    });
+
+    test('standard preset "off" (factory default) never calls the engine — '
+        'the transcript is pasted completely unchanged', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('off'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Raw dictated text with, um, filler';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'Raw dictated text with, um, filler');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('standard preset "cleanup" with a downloaded model replaces the '
+        'pasted text with the engine result', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Cleaned text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text with um filler';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(fakeSmartModeEngine.lastUserText, 'raw text with um filler');
+      expect(clipboardText, 'Cleaned text.');
+      expect(
+        fakeAttention.requestAttentionCalls,
+        0,
+        reason: 'A successful Cleanup pass must not fire a notification',
+      );
+    });
+
+    test('standard preset "cleanup" but no model downloaded falls back to the '
+        'raw transcript and fires an OS notification, without ever calling '
+        'the engine', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        settingsWithPreset('cleanup'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model missing';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'raw text, model missing');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('an engine failure (e.g. model load / decode error) falls back to '
+        'the raw transcript and fires an OS notification — the paste is '
+        'never blocked (ADR 0009)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.errorToThrow = StateError(
+        'smart_mode_library_load_failed: simulated',
+      );
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, engine failed';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(clipboardText, 'raw text, engine failed');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test(
+      'an engine call exceeding the timeout falls back to the raw '
+      'transcript and fires an OS notification, not the error phase',
+      () async {
+        RecordingOrchestrator.smartModeCleanupTimeoutOverride = const Duration(
+          milliseconds: 20,
+        );
+        container.dispose();
+        container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeSmartModeEngine.delay = const Duration(milliseconds: 200);
+        fakeSmartModeEngine.resultToReturn = 'should never be used';
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'raw text, engine too slow';
+        await orch.stopRecording();
+        // The engine call is still running in the background past the
+        // runner's timeout — give it time to finish so it doesn't leak into
+        // the next test.
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+
+        expect(clipboardText, 'raw text, engine too slow');
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.done,
+          reason: 'A refining timeout must resolve to done, never error',
+        );
+        expect(fakeAttention.requestAttentionCalls, 1);
+        expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      },
+    );
+
+    test('a blank engine result is treated as a failure — never pastes an '
+        'empty string where the user dictated real content', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = '   ';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, blank result';
+      await orch.stopRecording();
+
+      expect(clipboardText, 'raw text, blank result');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('standard preset "concise" is a no-op until its own ticket wires it '
+        'up — the transcript passes through unchanged', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('concise'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, concise not implemented yet';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'raw text, concise not implemented yet');
     });
   });
 }

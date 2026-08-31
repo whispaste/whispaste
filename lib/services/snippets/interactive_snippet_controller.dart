@@ -102,7 +102,12 @@ class InteractiveSnippetController
     if (!isActive) return;
     final phase = ref.read(recordingProvider).phase;
     if (phase == RecordingPhase.recording ||
-        phase == RecordingPhase.transcribing) {
+        phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): a field recording under an active
+        // Cleanup preset can still be mid-`refining` here — without this,
+        // cancelling during that window would wipe the local session state
+        // while the orchestrator pipeline keeps running unattended.
+        phase == RecordingPhase.refining) {
       ref.read(recordingOrchestratorProvider.notifier).reset();
     }
     _reset();

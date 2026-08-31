@@ -1584,7 +1584,12 @@ class _NewRecordingButton extends ConsumerWidget {
     final l10n = L10n.of(context);
     final phase = ref.watch(recordingPhaseProvider);
     final isRecording = phase == RecordingPhase.recording;
-    final isTranscribing = phase == RecordingPhase.transcribing;
+    // Smart Mode v2 (ticket 02): `refining` extends the same in-flight
+    // window `transcribing` used to cover alone — `toggleRecording` is a
+    // no-op there too, so the button must keep disabling through it.
+    final isTranscribing =
+        phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.refining;
 
     return WpButton(
       label: isRecording ? l10n.historyStopRecording : l10n.historyNewRecording,

@@ -299,6 +299,13 @@ class FloatingOverlayService
       case RecordingPhase.transcribing:
         _sendSnapshot(settings, next);
 
+      case RecordingPhase.refining:
+        // Smart Mode v2 (ticket 02): same "keep showing the busy pill,
+        // update the label" treatment as the transcribing → transcribing
+        // case above — no auto-hide/error-timeout scheduling here either,
+        // this phase always resolves to done (never error, ADR 0009).
+        _sendSnapshot(settings, next);
+
       case RecordingPhase.done:
         _sendSnapshot(settings, next);
         _scheduleAutoHide();
@@ -694,6 +701,11 @@ class FloatingOverlayService
     RecordingPhase.idle => OverlayVisualState.recording,
     RecordingPhase.recording => OverlayVisualState.recording,
     RecordingPhase.transcribing => OverlayVisualState.transcribing,
+    // Smart Mode v2's refining phase (ticket 02) reuses the "transcribing"
+    // pill animation on the native side — only the label text below
+    // distinguishes it. Adding a fifth native visual state is out of scope
+    // for this ticket (would touch macOS/Windows/Linux overlay hosts).
+    RecordingPhase.refining => OverlayVisualState.transcribing,
     RecordingPhase.done => OverlayVisualState.done,
     RecordingPhase.error => OverlayVisualState.error,
   };
@@ -712,6 +724,7 @@ class FloatingOverlayService
               : (l10n?.overlayRecording ?? 'Recording'),
         RecordingPhase.transcribing =>
           l10n?.overlayTranscribing ?? 'Transcribing…',
+        RecordingPhase.refining => l10n?.overlayRefining ?? 'Refining…',
         RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
         RecordingPhase.error => l10n?.overlayError ?? 'Error',
         RecordingPhase.idle => '',
@@ -791,6 +804,12 @@ class FloatingOverlayService
       return isLocal
           ? (l10n?.overlayProcessingLocal ?? 'Local')
           : (l10n?.overlayProcessingCloud ?? 'Cloud');
+    }
+    // Smart Mode v2 (ticket 02): the Cleanup pass is always local-model
+    // inference (this ticket's whole scope), regardless of which STT
+    // provider produced the transcript.
+    if (phase == RecordingPhase.refining) {
+      return l10n?.overlayProcessingLocal ?? 'Local';
     }
     return '';
   }
