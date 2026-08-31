@@ -37,6 +37,7 @@ class NotesSplitView extends StatelessWidget {
     required this.onRemoveTag,
     required this.onExport,
     required this.onVoiceTranscript,
+    required this.onCopy,
   });
 
   final List<Note> notes;
@@ -92,6 +93,9 @@ class NotesSplitView extends StatelessWidget {
   /// [NoteEditorPanel]; insertion happens in `_NotesPageState`.
   final ValueChanged<String> onVoiceTranscript;
 
+  /// Copy the selected note content.
+  final ValueChanged<Note> onCopy;
+
   Widget _buildListBody(BuildContext context, String? selectedId) {
     return NotesListView(
       notes: notes,
@@ -105,6 +109,7 @@ class NotesSplitView extends StatelessWidget {
       onQuickNoteClear: onQuickNoteClear,
       onRestore: onRestore,
       onDeleteForever: onDeleteForever,
+      onCopy: onCopy,
     );
   }
 

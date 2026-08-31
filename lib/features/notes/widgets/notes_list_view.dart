@@ -24,6 +24,7 @@ class NotesListView extends StatelessWidget {
     required this.onQuickNoteClear,
     required this.onRestore,
     required this.onDeleteForever,
+    required this.onCopy,
   });
 
   final List<Note> notes;
@@ -48,6 +49,7 @@ class NotesListView extends StatelessWidget {
   final VoidCallback onQuickNoteClear;
   final ValueChanged<Note> onRestore;
   final ValueChanged<Note> onDeleteForever;
+  final ValueChanged<Note> onCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +82,7 @@ class NotesListView extends StatelessWidget {
             onQuickNoteClear: onQuickNoteClear,
             onRestore: () => onRestore(note),
             onDeleteForever: () => onDeleteForever(note),
+            onCopy: () => onCopy(note),
           );
         },
       ),
