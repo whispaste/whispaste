@@ -11,7 +11,8 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:path/path.dart' as p;
 
 import '../../core/data/database.dart';
-import 'text_replacement_matcher.dart' show fuzzyThresholdStandard;
+import 'text_replacement_matcher.dart'
+    show fuzzyMinTriggerLength, fuzzyThresholdStrict;
 import 'vocabulary_import_scanner.dart';
 
 /// Files above this size are skipped -- a vocabulary source file is source
@@ -19,10 +20,23 @@ import 'vocabulary_import_scanner.dart';
 /// artifact than something worth scanning for identifiers.
 const int vocabularyImportMaxFileSizeBytes = 2 * 1024 * 1024;
 
-/// The standard fuzzy threshold applied to every imported entry (PRD.md
-/// User Story 8: "eine sinnvolle Voreinstellung... Standard"). Matches the
-/// UI's "Standard" step.
-const double vocabularyImportDefaultFuzzyThreshold = fuzzyThresholdStandard;
+/// The fuzzy threshold applied to every imported entry. Deliberately
+/// "Strict", not the UI's "Standard" default: an imported entry was never
+/// reviewed by a human before being turned into a live replacement rule, so
+/// it needs a wider safety margin than something a user typed in by hand.
+/// (Incident: a scan of vendored/generated build output imported thousands
+/// of noise tokens at the "Standard" threshold; several were one edit away
+/// from ordinary short words and silently corrupted unrelated dictation --
+/// see `.scratch/vocabulary-fuzzy-replacements/`.)
+const double vocabularyImportDefaultFuzzyThreshold = fuzzyThresholdStrict;
+
+/// Identifiers shorter than this are never imported -- short tokens are
+/// exactly the ones a fuzzy match can confuse with an unrelated ordinary
+/// word (a single edit away), so they carry the worst risk-to-value ratio
+/// of anything the scanner finds. [fuzzyMinTriggerLength] alone is not
+/// sufficient here: it stops a short trigger from firing but does not stop
+/// it from being *imported* in the first place.
+const int vocabularyImportMinIdentifierLength = fuzzyMinTriggerLength + 2;
 
 /// Opens the native directory chooser. Returns the chosen path, or `null` if
 /// the user cancels. Same shape as `AutosaveFolderPickFn`
@@ -74,7 +88,10 @@ class VocabularyImportService {
     HistoryDatabase db,
   ) async {
     final filesByPath = await _readSourceFiles(folderPath);
-    final candidates = await extract(filesByPath);
+    final rawCandidates = await extract(filesByPath);
+    final candidates = rawCandidates
+        .where((c) => c.length >= vocabularyImportMinIdentifierLength)
+        .toSet();
 
     final existing = await db.readAllReplacements();
     final existingTriggers = <String>{for (final r in existing) ...r.triggers};
@@ -101,23 +118,50 @@ class VocabularyImportService {
     );
   }
 
+  /// Walks [folderPath] manually rather than via `dir.list(recursive: true)`
+  /// -- a flat recursive listing enumerates an ignored directory's entire
+  /// subtree before this method ever sees the entries to filter them out.
+  /// Pruning at each directory boundary instead means `.git`/`node_modules`/
+  /// `build` (etc., see [vocabularyImportIgnoredDirNames]) are never opened
+  /// at all, which is what makes pointing this at a real project's root a
+  /// scan of megabytes rather than gigabytes.
   Future<Map<String, String>> _readSourceFiles(String folderPath) async {
-    final dir = fileSystem.directory(folderPath);
     final result = <String, String>{};
-    if (!await dir.exists()) return result;
+    final root = fileSystem.directory(folderPath);
+    if (!await root.exists()) return result;
 
-    await for (final entity in dir.list(recursive: true, followLinks: false)) {
-      if (entity is! File) continue;
-      final ext = p.extension(entity.path).toLowerCase();
-      if (!vocabularyImportSourceExtensions.contains(ext)) continue;
+    final pending = <Directory>[root];
+    while (pending.isNotEmpty) {
+      final dir = pending.removeLast();
+      List<FileSystemEntity> entries;
       try {
-        final size = await entity.length();
-        if (size > vocabularyImportMaxFileSizeBytes) continue;
-        result[entity.path] = await entity.readAsString();
+        entries = await dir.list(followLinks: false).toList();
       } on Exception {
-        // Unreadable or non-UTF8 (likely binary despite the extension) --
-        // skip rather than fail the whole scan.
+        // Unreadable directory (permissions, race with deletion) -- skip it,
+        // not the whole scan.
         continue;
+      }
+      for (final entity in entries) {
+        if (entity is Directory) {
+          if (!vocabularyImportIgnoredDirNames.contains(
+            p.basename(entity.path),
+          )) {
+            pending.add(entity);
+          }
+          continue;
+        }
+        if (entity is! File) continue;
+        final ext = p.extension(entity.path).toLowerCase();
+        if (!vocabularyImportSourceExtensions.contains(ext)) continue;
+        try {
+          final size = await entity.length();
+          if (size > vocabularyImportMaxFileSizeBytes) continue;
+          result[entity.path] = await entity.readAsString();
+        } on Exception {
+          // Unreadable or non-UTF8 (likely binary despite the extension) --
+          // skip rather than fail the whole scan.
+          continue;
+        }
       }
     }
     return result;

@@ -1335,6 +1335,14 @@ class L10nHe extends L10n {
   }
 
   @override
+  String get replacementsImportScanning =>
+      'Scanning the folder — this can take a moment for large projects…';
+
+  @override
+  String get replacementsImportError =>
+      'Import failed — the folder could not be scanned.';
+
+  @override
   String get replacementsImportedBadge => 'יובא';
 
   @override

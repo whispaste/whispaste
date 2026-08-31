@@ -1360,6 +1360,14 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get replacementsImportScanning =>
+      'Ordner wird durchsucht — bei großen Projekten kann das einen Moment dauern…';
+
+  @override
+  String get replacementsImportError =>
+      'Import fehlgeschlagen — der Ordner konnte nicht durchsucht werden.';
+
+  @override
   String get replacementsImportedBadge => 'Importiert';
 
   @override

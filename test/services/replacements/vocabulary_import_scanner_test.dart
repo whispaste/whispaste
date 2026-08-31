@@ -77,6 +77,26 @@ void main() {
       expect(found, isNot(contains('return')));
     });
 
+    test('a fallback-heuristic candidate that is entirely uppercase is '
+        'rejected — it is not camelCase, and as a short fuzzy trigger it '
+        'would sit dangerously close to ordinary words (regression: '
+        'DENY/DASH/CHAT/MITM imported from generated build output silently '
+        'replaced "den"/"das"/"hat"/"mit" in real dictation)', () {
+      final found = extractIdentifiers({'a.dart': 'call(DENY, MITM);'});
+      expect(found, isNot(contains('DENY')));
+      expect(found, isNot(contains('MITM')));
+    });
+
+    test(
+      'a token longer than the plausible-identifier length is rejected — '
+      'real identifiers read as a word or two, not a base64/minified blob',
+      () {
+        final blob = 'aB' * 40;
+        final found = extractIdentifiers({'a.dart': 'const $blob = 1;'});
+        expect(found, isEmpty);
+      },
+    );
+
     test('scans every file in the map', () {
       final found = extractIdentifiers({
         'a.dart': 'class Foo {}',

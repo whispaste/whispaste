@@ -419,6 +419,8 @@
   "replacementsImportFromFolder": "Aus Ordner importieren",
   "replacementsImportHint": "Durchsucht einen Projektordner nach Bezeichnern und legt sie als unscharfe (fuzzy) Ersetzungen an — nichts verlässt dein Gerät.",
   "replacementsImportSummary": "{found} gefunden, {added} hinzugefügt, {skipped} Dublette(n) übersprungen",
+  "replacementsImportScanning": "Ordner wird durchsucht — bei großen Projekten kann das einen Moment dauern…",
+  "replacementsImportError": "Import fehlgeschlagen — der Ordner konnte nicht durchsucht werden.",
   "replacementsImportedBadge": "Importiert",
   "replacementsMatchModeLabel": "Abgleich",
   "replacementsMatchModeExact": "Exakt",

@@ -119,6 +119,50 @@ void main() {
     expect(await db.readAllReplacements(), hasLength(1));
   });
 
+  test(
+    'never descends into an ignored directory like .git or node_modules',
+    (() async {
+      final fs = MemoryFileSystem();
+      await fs.directory('/project/.git/objects').create(recursive: true);
+      await fs
+          .file('/project/.git/objects/garbage.dart')
+          .writeAsString('class ShouldNeverBeSeen {}\n');
+      await fs.directory('/project/node_modules/pkg').create(recursive: true);
+      await fs
+          .file('/project/node_modules/pkg/index.js')
+          .writeAsString('function ShouldAlsoNeverBeSeen() {}\n');
+      await fs
+          .file('/project/real.dart')
+          .writeAsString('class RealSourceClass {}\n');
+
+      final summary = await serviceFor(fs).importFrom('/project', db);
+
+      expect(summary.added, 1);
+      final rows = await db.readAllReplacements();
+      expect(rows.single.triggers, ['RealSourceClass']);
+    }),
+  );
+
+  test('an identifier shorter than the import minimum length is never '
+      'imported, even if extraction found it', () async {
+    final fs = MemoryFileSystem();
+    await fs.directory('/project').create(recursive: true);
+    // "abc" is a plausible-looking snake_case-free single token; too
+    // short to safely become a fuzzy trigger (see
+    // vocabularyImportMinIdentifierLength doc comment).
+    await fs
+        .file('/project/short.dart')
+        .writeAsString('const abcde = 1;\nclass RealLongClassName {}\n');
+
+    final summary = await serviceFor(fs).importFrom('/project', db);
+
+    final rows = await db.readAllReplacements();
+    final triggers = rows.expand((r) => r.triggers).toSet();
+    expect(triggers, contains('RealLongClassName'));
+    expect(triggers, isNot(contains('abcde')));
+    expect(summary.added, 1);
+  });
+
   test('returns an empty summary for a folder that does not exist', () async {
     final fs = MemoryFileSystem();
 

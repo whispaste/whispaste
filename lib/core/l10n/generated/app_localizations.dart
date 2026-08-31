@@ -2445,6 +2445,18 @@ abstract class L10n {
   /// **'Found {found}, added {added}, skipped {skipped} duplicate(s)'**
   String replacementsImportSummary(int found, int added, int skipped);
 
+  /// No description provided for @replacementsImportScanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning the folder — this can take a moment for large projects…'**
+  String get replacementsImportScanning;
+
+  /// No description provided for @replacementsImportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed — the folder could not be scanned.'**
+  String get replacementsImportError;
+
   /// No description provided for @replacementsImportedBadge.
   ///
   /// In en, this message translates to:

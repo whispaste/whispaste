@@ -541,6 +541,8 @@
       "skipped": { "type": "int" }
     }
   },
+  "replacementsImportScanning": "Scanning the folder — this can take a moment for large projects…",
+  "replacementsImportError": "Import failed — the folder could not be scanned.",
   "replacementsImportedBadge": "Imported",
   "replacementsMatchModeLabel": "Matching",
   "replacementsMatchModeExact": "Exact",

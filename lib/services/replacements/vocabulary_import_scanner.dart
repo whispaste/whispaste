@@ -26,6 +26,26 @@ const List<String> vocabularyImportSourceExtensions = [
   '.cs',
 ];
 
+/// Directory names the scanner never descends into — version control,
+/// dependency, and build-output trees. None of these hold *your* vocabulary:
+/// they are third-party or generated code, and in a real project can dwarf
+/// the actual source by orders of magnitude (a repo's `.git` and
+/// `node_modules` alone commonly outnumber its own source files 10:1+),
+/// turning what should be an instant scan into a multi-minute read of
+/// megabytes of vendored JS/TS with no source-language filter of its own.
+const List<String> vocabularyImportIgnoredDirNames = [
+  '.git',
+  '.dart_tool',
+  '.hg',
+  '.svn',
+  'node_modules',
+  'build',
+  'dist',
+  '.next',
+  'Pods',
+  '.build',
+];
+
 /// Language-agnostic declaration patterns: `class X`, `def X`, `function X`,
 /// `fn X`, `const X =`, `let X =`, `var X`. Deliberately no per-language
 /// parser (PRD.md "kein Parser pro Sprache").
@@ -50,13 +70,30 @@ final RegExp _callPattern = RegExp(r'\b([A-Za-z_][A-Za-z0-9_]*)\s*\(');
 /// positives are acceptable here).
 final RegExp _tokenPattern = RegExp(r'\b[A-Za-z_][A-Za-z0-9_]*\b');
 
+/// Tokens longer than this are almost never real identifiers -- a real
+/// class/function/variable name reads as a word or two, not a paragraph.
+/// Anything past this length is far more likely a base64/minified/generated
+/// blob that happened to satisfy the shape checks below (post-mortem: a
+/// pre-fix scan of vendored build output imported thousands of such blobs
+/// as "vocabulary", see `.scratch/vocabulary-fuzzy-replacements/`).
+const int _maxIdentifierLength = 50;
+
 bool _looksLikeMultiSegmentIdentifier(String token) {
+  if (token.length > _maxIdentifierLength) return false;
   if (token.contains('_')) {
     final parts = token.split('_').where((p) => p.isNotEmpty);
     return parts.length >= 2;
   }
   // camelCase/PascalCase: an uppercase letter that is not the very first
-  // character (so the whole token is not just a single capitalized word).
+  // character (so the whole token is not just a single capitalized word) --
+  // but also require a lowercase letter somewhere, so a pure-uppercase token
+  // (e.g. an acronym-shaped fragment pulled out of unrelated text) is never
+  // mistaken for camelCase merely because every one of its letters is
+  // "uppercase not at position 0". A short all-caps token like that is
+  // exactly the shape that causes real damage downstream: as a fuzzy
+  // replacement trigger it sits dangerously close (edit distance 1) to
+  // ordinary short words, silently corrupting unrelated dictation.
+  if (token == token.toUpperCase()) return false;
   final firstUpperInside = RegExp('(?<=.)[A-Z]');
   return firstUpperInside.hasMatch(token);
 }
@@ -70,7 +107,11 @@ Set<String> extractIdentifiers(Map<String, String> filesByPath) {
     for (final pattern in _declarationPatterns) {
       for (final match in pattern.allMatches(content)) {
         final name = match.group(1);
-        if (name != null && name.isNotEmpty) found.add(name);
+        if (name != null &&
+            name.isNotEmpty &&
+            name.length <= _maxIdentifierLength) {
+          found.add(name);
+        }
       }
     }
     for (final match in _callPattern.allMatches(content)) {

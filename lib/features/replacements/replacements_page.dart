@@ -234,6 +234,8 @@ class ReplacementsPage extends ConsumerStatefulWidget {
 }
 
 class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
+  bool _importing = false;
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -275,7 +277,10 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                 .read(settingsProvider.notifier)
                 .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
           ),
-          _VocabularyImportCard(onImport: _importFromFolder),
+          _VocabularyImportCard(
+            onImport: _importFromFolder,
+            importing: _importing,
+          ),
         ],
       ),
       asyncAll: ref.watch(replacementsProvider),
@@ -357,20 +362,33 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   // ── Vocabulary import ─────────────────────────────────────────────────
 
   Future<void> _importFromFolder() async {
+    if (_importing) return;
     final l10n = L10n.of(context);
-    final summary = await ref
-        .read(replacementsProvider.notifier)
-        .importFromFolder();
-    if (summary == null || !mounted) return;
-    WpToast.show(
-      context,
-      message: l10n.replacementsImportSummary(
-        summary.found,
-        summary.added,
-        summary.skipped,
-      ),
-      type: WpToastType.success,
-    );
+    setState(() => _importing = true);
+    try {
+      final summary = await ref
+          .read(replacementsProvider.notifier)
+          .importFromFolder();
+      if (summary == null || !mounted) return;
+      WpToast.show(
+        context,
+        message: l10n.replacementsImportSummary(
+          summary.found,
+          summary.added,
+          summary.skipped,
+        ),
+        type: WpToastType.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: l10n.replacementsImportError,
+        type: WpToastType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
   }
 
   // ── Copy action ──────────────────────────────────────────────────────
@@ -476,9 +494,13 @@ class _ReplacementsToggleCard extends StatelessWidget {
 /// requirement (a)) — same card geometry as [_ReplacementsToggleCard] right
 /// above it, so the two headers read as one stacked group.
 class _VocabularyImportCard extends StatelessWidget {
-  const _VocabularyImportCard({required this.onImport});
+  const _VocabularyImportCard({
+    required this.onImport,
+    required this.importing,
+  });
 
   final VoidCallback onImport;
+  final bool importing;
 
   @override
   Widget build(BuildContext context) {
@@ -500,13 +522,16 @@ class _VocabularyImportCard extends StatelessWidget {
         child: SettingRow(
           icon: LucideIcons.folderInput,
           label: l10n.replacementsImportFromFolder,
-          subtitle: l10n.replacementsImportHint,
+          subtitle: importing
+              ? l10n.replacementsImportScanning
+              : l10n.replacementsImportHint,
           // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
           trailing: WpButton(
             label: l10n.replacementsImportFromFolder,
             variant: WpButtonVariant.secondary,
             size: WpButtonSize.dense,
-            onPressed: onImport,
+            isLoading: importing,
+            onPressed: importing ? null : onImport,
           ),
         ),
       ),
