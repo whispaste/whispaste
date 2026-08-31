@@ -221,6 +221,7 @@ Widget _notesList() => NotesListView(
   selectedId: null,
   focusedId: null,
   onNoteTap: (_) {},
+  onCopy: (_) {},
   onFavoriteToggle: (_) {},
   onQuickNoteSet: (_) {},
   onQuickNoteClear: () {},

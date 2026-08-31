@@ -95,6 +95,7 @@ Widget _tile({
   isSelected: false,
   isFocused: isFocused,
   onTap: () {},
+  onCopy: () {},
   onFavoriteToggle: () {},
   onQuickNoteSet: onSet ?? () {},
   onQuickNoteClear: onClear ?? () {},

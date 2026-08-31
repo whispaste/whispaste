@@ -299,6 +299,7 @@ void main() {
               editorController: controller,
               editorFocusNode: focusNode,
               onNoteTap: (_) {},
+              onCopy: (_) {},
               onCloseEditor: () {},
               onFavoriteToggle: (_) {},
               onQuickNoteSet: (_) {},

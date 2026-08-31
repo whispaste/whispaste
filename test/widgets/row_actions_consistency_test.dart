@@ -80,6 +80,7 @@ Widget _notesRow({bool isQuickNote = false}) => NotesListTile(
   isSelected: false,
   isFocused: false,
   onTap: () {},
+  onCopy: () {},
   onFavoriteToggle: () {},
   onQuickNoteSet: () {},
   onQuickNoteClear: () {},

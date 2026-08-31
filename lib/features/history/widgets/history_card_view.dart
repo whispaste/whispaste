@@ -27,6 +27,7 @@ class HistoryCardView extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     required this.multiSelectMode,
     required this.selectedIds,
     this.focusedId,
@@ -38,6 +39,7 @@ class HistoryCardView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
+  final ValueChanged<HistoryEntry>? onDuplicate;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
@@ -111,6 +113,9 @@ class HistoryCardView extends StatelessWidget {
                       onCopy: () => onCopy(entry),
                       onPin: () => onPin(entry),
                       onDelete: () => onDelete(entry),
+                      onDuplicate: onDuplicate != null
+                          ? () => onDuplicate!(entry)
+                          : null,
                       multiSelectMode: multiSelectMode,
                       isChecked: selectedIds.contains(entry.id),
                     ),
@@ -137,6 +142,7 @@ class HistoryEntryCard extends StatefulWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     required this.multiSelectMode,
     required this.isChecked,
     this.isFocused = false,
@@ -148,6 +154,7 @@ class HistoryEntryCard extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
@@ -376,6 +383,13 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                           dense: true,
                         ),
                         // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        if (widget.onDuplicate case final onDuplicate?)
+                          WpRowAction(
+                            icon: LucideIcons.files,
+                            tooltip: l10n.actionDuplicate,
+                            onTap: onDuplicate,
+                            dense: true,
+                          ),
                         WpRowAction(
                           icon: LucideIcons.trash2,
                           tooltip: l10n.actionDelete,
