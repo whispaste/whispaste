@@ -24,6 +24,7 @@ import '../services/hotkey_service.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/recording_trigger_handler.dart';
+import '../services/smart_mode/smart_mode_presets.dart';
 import '../services/snippet_picker/snippet_picker_service.dart';
 import '../services/snippets/interactive_snippet_controller.dart';
 import '../services/side_panel/side_panel_service.dart';
@@ -55,6 +56,14 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   /// than a shared one, since each hotkey needs its own PTT/toggle mode
   /// (this action is always toggle-only) and its own recording target.
   late final RecordingTriggerHandler _quickNoteTriggerHandler;
+
+  /// Trigger handler for the Smart-Mode hotkey (ticket 04 of
+  /// `.scratch/smart-mode-v2/`). Same held-for-lifetime rule as
+  /// [_triggerHandler] — unlike the quick-note handler, this one DOES support
+  /// push-to-talk (mirrors the main hotkey's behaviour per the ticket), so it
+  /// needs its own instance to track its own keyDown/keyUp state
+  /// independently of the main hotkey's.
+  late final RecordingTriggerHandler _smartModeTriggerHandler;
 
   /// Whether an interactive-snippet guided sequence is currently running —
   /// while it is, the main recording hotkey advances to the next field
@@ -125,6 +134,30 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     hotkeySvc.onSnippetPickerHotkeyPressed = () => ref
         .read(recordingOrchestratorProvider.notifier)
         .openSnippetPickerViaHotkey();
+
+    // ── Smart-Mode trigger handler (ticket 04) — push-to-talk AND toggle,
+    // identical to the main hotkey's behaviour, but always forces the bound
+    // preset regardless of the standard-preset setting. ──
+    SmartModePreset boundSmartModePreset() => smartModePresetFromSettingsValue(
+      (ref.read(settingsProvider).value ?? AppSettings.defaults)
+          .smartModeHotkey
+          .smartModeHotkeyPreset,
+    );
+    _smartModeTriggerHandler = RecordingTriggerHandler(
+      startRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .startRecording(forcedSmartModePreset: boundSmartModePreset()),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .toggleRecording(forcedSmartModePreset: boundSmartModePreset()),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+    );
+    hotkeySvc.onSmartModeHotkeyPressed = _smartModeTriggerHandler.onKeyDown;
+    hotkeySvc.onSmartModeHotkeyReleased = _smartModeTriggerHandler.onKeyUp;
 
     // ── Interactive-snippet selection (interactive-snippets PRD) — wired
     // here, not inside SnippetPickerService itself, to avoid a file-level

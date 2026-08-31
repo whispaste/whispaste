@@ -1320,5 +1320,18 @@
   "smartModeRamWarningTitle": "Wenig Arbeitsspeicher erkannt",
   "smartModeRamWarningBody": "Das lokale Smart-Mode-Modell läuft am besten mit mindestens 8 GB RAM. Es kann auch mit weniger funktionieren, aber langsamer sein oder fehlschlagen. Trotzdem herunterladen?",
   "smartModeRamWarningContinue": "Trotzdem herunterladen",
-  "smartModeRamWarningCancel": "Abbrechen"
+  "smartModeRamWarningCancel": "Abbrechen",
+
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "Smart-Mode-Hotkey",
+  "settingsSmartModeHotkeyHint": "Startet eine Aufnahme mit einem festen Preset, unabhängig vom Standard-Preset oben. Unterstützt Push-to-Talk genau wie der Haupt-Hotkey.",
+  "settingsSmartModeHotkeyPreset": "Preset",
+  "settingsSmartModeCurrentHotkey": "Kombination",
+  "settingsSmartModeHotkeyCollision": "Diese Kombination ist schon für „{action}“ vergeben. Wähl eine andere.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination."
 }

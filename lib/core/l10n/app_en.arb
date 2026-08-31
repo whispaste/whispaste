@@ -1515,5 +1515,18 @@
   "smartModeRamWarningTitle": "Limited memory detected",
   "smartModeRamWarningBody": "Smart Mode's local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?",
   "smartModeRamWarningContinue": "Download anyway",
-  "smartModeRamWarningCancel": "Cancel"
+  "smartModeRamWarningCancel": "Cancel",
+
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "Smart-Mode hotkey",
+  "settingsSmartModeHotkeyHint": "Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.",
+  "settingsSmartModeHotkeyPreset": "Preset",
+  "settingsSmartModeCurrentHotkey": "Combination",
+  "settingsSmartModeHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination."
 }

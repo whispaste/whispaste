@@ -3720,4 +3720,29 @@ class L10nHe extends L10n {
 
   @override
   String get smartModeRamWarningCancel => 'Cancel';
+
+  @override
+  String get settingsHotkeyActionSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeHotkeyEnabled => 'Smart-Mode hotkey';
+
+  @override
+  String get settingsSmartModeHotkeyHint =>
+      'Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.';
+
+  @override
+  String get settingsSmartModeHotkeyPreset => 'Preset';
+
+  @override
+  String get settingsSmartModeCurrentHotkey => 'Combination';
+
+  @override
+  String settingsSmartModeHotkeyCollision(String action) {
+    return 'This combination is already used for \"$action\". Pick a different one.';
+  }
+
+  @override
+  String get settingsSmartModeHotkeyInactive =>
+      'This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.';
 }

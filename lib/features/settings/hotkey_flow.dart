@@ -87,6 +87,16 @@ List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
       key: settings.snippetPickerHotkey.snippetPickerHotkeyKey,
       modifiers: settings.snippetPickerHotkey.snippetPickerHotkeyModifiers,
     ),
+  if (settings.smartModeHotkey.smartModeHotkeyEnabled)
+    HotkeyBinding(
+      // Muss zeichengleich zur Action-ID in `HotkeyService`
+      // (`_smartModeActionId`) sein — sonst schlösse `excludeActionId` den
+      // falschen Hotkey aus (ticket 04 of `.scratch/smart-mode-v2/`).
+      actionId: 'smartMode',
+      actionLabel: l10n.settingsHotkeyActionSmartMode,
+      key: settings.smartModeHotkey.smartModeHotkeyKey,
+      modifiers: settings.smartModeHotkey.smartModeHotkeyModifiers,
+    ),
 ];
 
 /// Der eine Ablauf hinter jedem Neu-Belegen: Dialog öffnen → Kollision prüfen

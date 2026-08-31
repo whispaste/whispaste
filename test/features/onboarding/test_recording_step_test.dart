@@ -24,6 +24,7 @@ import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -56,6 +57,7 @@ class _FakeRecordingOrchestrator extends RecordingOrchestrator {
   @override
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     toggleRecordingCalls++;
     final recording = ref.read(recordingProvider);

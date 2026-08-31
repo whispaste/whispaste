@@ -37,6 +37,7 @@ import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
 import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
@@ -54,6 +55,7 @@ class _FakeOrchestrator extends RecordingOrchestrator {
   @override
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async => toggles++;
 }
 
