@@ -1913,6 +1913,118 @@ class SmartModeSettings {
 }
 
 // ===========================================================================
+// Section 21b — Smart-Mode hotkey
+// ===========================================================================
+
+/// Settings for the Smart-Mode hotkey (ticket 04) — a fourth, independently
+/// configurable global hotkey. Unlike [QuickNoteHotkeySettings] and
+/// [SnippetPickerHotkeySettings] it also carries a bound [smartModeHotkeyPreset]
+/// (one of `cleanup`/`concise`/`translate` — never `off`, see ADR 0008: one
+/// extra hotkey, not one per preset), applied regardless of the
+/// [SmartModeSettings.standardPreset] the main hotkey uses.
+class SmartModeHotkeySettings {
+  const SmartModeHotkeySettings({
+    this.smartModeHotkeyEnabled = false,
+    this.smartModeHotkeyKey = 'M',
+    this.smartModeHotkeyKeyDisplay = '',
+    this.smartModeHotkeyModifiers = 'ctrl+shift',
+    this.smartModeHotkeyPreset = 'cleanup',
+  });
+
+  /// Off by default — an existing user must opt in, never gets a system-wide
+  /// shortcut silently claimed by an update.
+  final bool smartModeHotkeyEnabled;
+
+  /// Canonical storage token for the non-modifier key, as consumed by
+  /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
+  final String smartModeHotkeyKey;
+
+  /// User-visible label for [smartModeHotkeyKey] (see
+  /// [HotkeySettings.hotkeyKeyDisplay]).
+  final String smartModeHotkeyKeyDisplay;
+
+  final String smartModeHotkeyModifiers;
+
+  /// The preset applied whenever this hotkey triggers a recording. One of
+  /// `cleanup`/`concise`/`translate` — deliberately never `off` (a disabled
+  /// hotkey is expressed via [smartModeHotkeyEnabled], not via this field).
+  final String smartModeHotkeyPreset;
+
+  static const SmartModeHotkeySettings defaults = SmartModeHotkeySettings();
+
+  factory SmartModeHotkeySettings.fromMap(Map<String, String> v) =>
+      SmartModeHotkeySettings(
+        smartModeHotkeyEnabled: _readBool(
+          v,
+          'smart_mode_hotkey_enabled',
+          defaults.smartModeHotkeyEnabled,
+        ),
+        smartModeHotkeyKey:
+            v['smart_mode_hotkey_key'] ?? defaults.smartModeHotkeyKey,
+        smartModeHotkeyKeyDisplay:
+            v['smart_mode_hotkey_key_display'] ??
+            defaults.smartModeHotkeyKeyDisplay,
+        smartModeHotkeyModifiers:
+            v['smart_mode_hotkey_modifiers'] ??
+            defaults.smartModeHotkeyModifiers,
+        smartModeHotkeyPreset:
+            v['smart_mode_hotkey_preset'] ?? defaults.smartModeHotkeyPreset,
+      );
+
+  Map<String, String> toMap() => {
+    'smart_mode_hotkey_enabled': '$smartModeHotkeyEnabled',
+    'smart_mode_hotkey_key': smartModeHotkeyKey,
+    'smart_mode_hotkey_key_display': smartModeHotkeyKeyDisplay,
+    'smart_mode_hotkey_modifiers': smartModeHotkeyModifiers,
+    'smart_mode_hotkey_preset': smartModeHotkeyPreset,
+  };
+
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the SttSettings comment above and the other
+  // section classes in this file); it is established repo-wide boilerplate,
+  // not accidental duplication.
+  SmartModeHotkeySettings copyWith({
+    bool? smartModeHotkeyEnabled,
+    String? smartModeHotkeyKey,
+    String? smartModeHotkeyKeyDisplay,
+    String? smartModeHotkeyModifiers,
+    String? smartModeHotkeyPreset,
+  }) => SmartModeHotkeySettings(
+    smartModeHotkeyEnabled:
+        smartModeHotkeyEnabled ?? this.smartModeHotkeyEnabled,
+    smartModeHotkeyKey: smartModeHotkeyKey ?? this.smartModeHotkeyKey,
+    smartModeHotkeyKeyDisplay:
+        smartModeHotkeyKeyDisplay ?? this.smartModeHotkeyKeyDisplay,
+    smartModeHotkeyModifiers:
+        smartModeHotkeyModifiers ?? this.smartModeHotkeyModifiers,
+    smartModeHotkeyPreset: smartModeHotkeyPreset ?? this.smartModeHotkeyPreset,
+  );
+
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file
+  // (see the copyWith comment above), not accidental duplication.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SmartModeHotkeySettings &&
+          smartModeHotkeyEnabled == other.smartModeHotkeyEnabled &&
+          smartModeHotkeyKey == other.smartModeHotkeyKey &&
+          smartModeHotkeyKeyDisplay == other.smartModeHotkeyKeyDisplay &&
+          smartModeHotkeyModifiers == other.smartModeHotkeyModifiers &&
+          smartModeHotkeyPreset == other.smartModeHotkeyPreset;
+
+  @override
+  int get hashCode => Object.hash(
+    smartModeHotkeyEnabled,
+    smartModeHotkeyKey,
+    smartModeHotkeyKeyDisplay,
+    smartModeHotkeyModifiers,
+    smartModeHotkeyPreset,
+  );
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 
@@ -1936,4 +2048,12 @@ SnippetPickerHotkeySettings buildDefaultSnippetPickerHotkeySettings() =>
       snippetPickerHotkeyModifiers: Platform.isMacOS
           ? 'meta+shift'
           : 'ctrl+shift',
+    );
+
+/// Build a [SmartModeHotkeySettings] with the platform-correct default
+/// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+M` combination
+/// (ticket 04).
+SmartModeHotkeySettings buildDefaultSmartModeHotkeySettings() =>
+    SmartModeHotkeySettings(
+      smartModeHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
     );

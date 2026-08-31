@@ -16,6 +16,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hardware_info_service.dart' as hw;
+import '../../../services/hotkey_service.dart';
 import '../../../services/model_download_service.dart'
     show formatModelSizeLabel;
 import '../../../services/smart_mode/smart_mode_model_download_service.dart';
@@ -24,7 +25,9 @@ import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../hotkey_flow.dart';
 import '../settings_widgets.dart';
+import '../smart_mode_hotkey_flow.dart';
 
 /// Below this, [SmartModeSection] shows a soft warning before starting the
 /// download — not a hard block (ticket 01, mirrors [hw.kMinRamMB]'s use for
@@ -129,6 +132,195 @@ class SmartModeSection extends ConsumerWidget {
           ],
           const SizedBox(height: WpSpacing.md),
           _ModelDownloadRow(download: download, l10n: l10n),
+          _SmartModeHotkeyBlock(settings: settings),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Smart-Mode hotkey (ticket 04) — fourth, independently configurable hotkey,
+// bound to one of the three presets, applied regardless of the standard
+// preset above.
+// ---------------------------------------------------------------------------
+
+class _SmartModeHotkeyBlock extends ConsumerStatefulWidget {
+  const _SmartModeHotkeyBlock({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  ConsumerState<_SmartModeHotkeyBlock> createState() =>
+      _SmartModeHotkeyBlockState();
+}
+
+class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
+    with HotkeyCollisionNotice {
+  Future<void> _record() => recordAndReport(
+    () => recordSmartModeHotkey(
+      context: context,
+      ref: ref,
+      settings: widget.settings,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final smartModeHotkey = widget.settings.smartModeHotkey;
+    final enabled = smartModeHotkey.smartModeHotkeyEnabled;
+
+    // `enabled &&` per the same reasoning as the quick-note/Snippet-Picker
+    // blocks: the registration status is in-memory and only registration
+    // attempts write it, so a hotkey the user just switched off must not
+    // keep complaining that it is "not active".
+    final registrationFailed =
+        enabled &&
+        ref.watch(smartModeHotkeyRegistrationStatusProvider) ==
+            HotkeyRegistrationStatus.conflict;
+
+    String presetLabel(String preset) => switch (preset) {
+      'concise' => l10n.smartModePresetConcise,
+      'translate' => l10n.smartModePresetTranslate,
+      _ => l10n.smartModePresetCleanup,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          settingsInlineBreak,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SettingRow(
+                  icon: LucideIcons.keyboardMusic,
+                  label: l10n.settingsSmartModeHotkeyEnabled,
+                  subtitle: l10n.settingsSmartModeHotkeyHint,
+                  semanticToggledValue: enabled,
+                  trailing: settingsToggle(
+                    key: const Key('smartModeHotkeyToggle'),
+                    value: enabled,
+                    onChanged: (v) {
+                      clearHotkeyCollision();
+                      unawaited(setSmartModeHotkeyEnabled(ref, enabled: v));
+                    },
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: enabled ? 1.0 : 0.4,
+                  duration: WpMotion.durationFor(context, WpMotion.normal),
+                  child: ExcludeFocus(
+                    excluding: !enabled,
+                    child: IgnorePointer(
+                      ignoring: !enabled,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SettingRow(
+                            icon: LucideIcons.sparkles,
+                            label: l10n.settingsSmartModeHotkeyPreset,
+                            trailing: settingsDropdown(
+                              context: context,
+                              value: smartModeHotkey.smartModeHotkeyPreset,
+                              items: const ['cleanup', 'concise', 'translate'],
+                              labels: const [
+                                'cleanup',
+                                'concise',
+                                'translate',
+                              ].map(presetLabel).toList(),
+                              onChanged: (v) {
+                                if (v == null) return;
+                                unawaited(
+                                  setSmartModeHotkeyPreset(ref, preset: v),
+                                );
+                              },
+                            ),
+                          ),
+                          HotkeyComboLine(
+                            key: const Key('smartModeHotkeyComboLine'),
+                            label: l10n.settingsSmartModeCurrentHotkey,
+                            hotkeyKey: smartModeHotkey.smartModeHotkeyKey,
+                            hotkeyModifiers:
+                                smartModeHotkey.smartModeHotkeyModifiers,
+                            hotkeyKeyDisplay:
+                                smartModeHotkey.smartModeHotkeyKeyDisplay,
+                            changeButtonKey: const Key('smartModeHotkeyChange'),
+                            onChange: () => unawaited(_record()),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (collidingAction != null)
+                  _SmartModeHotkeyNotice(
+                    noticeKey: const Key('smartModeHotkeyCollisionNotice'),
+                    icon: LucideIcons.circleAlert,
+                    color: WpColors.error,
+                    text: l10n.settingsSmartModeHotkeyCollision(
+                      collidingAction!,
+                    ),
+                  ),
+                if (registrationFailed)
+                  _SmartModeHotkeyNotice(
+                    noticeKey: const Key('smartModeHotkeyInactiveNotice'),
+                    icon: LucideIcons.triangleAlert,
+                    color: WpColors.warning,
+                    text: l10n.settingsSmartModeHotkeyInactive,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Local twin of the identically-shaped notice in `feedback_section.dart`
+/// (quick-note/Snippet-Picker hotkey blocks) — same repo-wide per-file
+/// duplication convention as the `*_hotkey_flow.dart` files, not accidental
+/// duplication.
+class _SmartModeHotkeyNotice extends StatelessWidget {
+  const _SmartModeHotkeyNotice({
+    required this.noticeKey,
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final Key noticeKey;
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: noticeKey,
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, WpSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: WpIconSize.sm, color: color),
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                height: 1.4,
+              ).copyWith(color: color),
+            ),
+          ),
         ],
       ),
     );

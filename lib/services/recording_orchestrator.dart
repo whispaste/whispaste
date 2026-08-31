@@ -243,6 +243,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// button, main hotkey) is unaffected.
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {
@@ -262,12 +263,22 @@ class RecordingOrchestrator extends Notifier<void> {
     // idle, done, or error → start. Kick off server warm-up before preflight
     // to maximise the parallel window.
     unawaited(_prewarmStt());
-    await startRecording(target: target);
+    await startRecording(
+      target: target,
+      forcedSmartModePreset: forcedSmartModePreset,
+    );
   }
 
   /// Starts the recording pipeline.
+  ///
+  /// [forcedSmartModePreset] (ticket 04 of `.scratch/smart-mode-v2/`)
+  /// overrides `settings.smartMode.standardPreset` for this recording only —
+  /// used by the Smart-Mode hotkey, which applies its own bound preset
+  /// independently of the main hotkey's standard-preset setting. `null` (the
+  /// default) means "use the standard preset as usual".
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
     // latency KPI. Peeked (not consumed) synchronously, before any `await`
@@ -281,6 +292,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // left over from an aborted/ignored start is structurally impossible
     // rather than dependent on covering every abort path.
     ref.read(recordingTargetProvider.notifier).set(target);
+    ref
+        .read(smartModeHotkeyOverridePresetProvider.notifier)
+        .set(forcedSmartModePreset);
 
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
@@ -911,9 +925,11 @@ class RecordingOrchestrator extends Notifier<void> {
     // the guided test-recording step would be a confusing false alarm, and
     // "off" (the factory default, ticket 01) is a pure no-op path so this
     // whole block never runs for a recording with no active preset.
-    final activePreset = smartModePresetFromSettingsValue(
-      settings.smartMode.standardPreset,
-    );
+    // Ticket 04: the Smart-Mode hotkey's bound preset overrides the standard
+    // preset for this recording only — see startRecording's doc comment.
+    final activePreset =
+        ref.read(smartModeHotkeyOverridePresetProvider) ??
+        smartModePresetFromSettingsValue(settings.smartMode.standardPreset);
     if (sandboxTranscriptSink == null && activePreset != SmartModePreset.off) {
       finalText = await _runSmartModeRefine(
         sid,

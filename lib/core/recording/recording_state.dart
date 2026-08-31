@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/settings_provider.dart';
 import '../logging/app_logger.dart';
 import '../../services/model_download_service.dart';
+import '../../services/smart_mode/smart_mode_presets.dart' show SmartModePreset;
 
 // ---------------------------------------------------------------------------
 // Phase enum
@@ -449,4 +450,25 @@ class RecordingTargetNotifier extends Notifier<RecordingTarget> {
 final recordingTargetProvider =
     NotifierProvider<RecordingTargetNotifier, RecordingTarget>(
       RecordingTargetNotifier.new,
+    );
+
+/// A Smart-Mode preset forced onto the active recording, overriding
+/// `settings.smartMode.standardPreset` for that recording only (ticket 04 of
+/// `.scratch/smart-mode-v2/`: the Smart-Mode hotkey applies its bound preset
+/// independently of the main hotkey's standard preset). `null` means "no
+/// override — use the standard preset as usual", which is what every
+/// non-Smart-Mode-hotkey caller passes.
+///
+/// Same "next start always overwrites, never reset at exit" convention as
+/// [RecordingTargetNotifier] — see its doc comment for the rationale.
+class SmartModeHotkeyOverridePresetNotifier extends Notifier<SmartModePreset?> {
+  @override
+  SmartModePreset? build() => null;
+
+  void set(SmartModePreset? preset) => state = preset;
+}
+
+final smartModeHotkeyOverridePresetProvider =
+    NotifierProvider<SmartModeHotkeyOverridePresetNotifier, SmartModePreset?>(
+      SmartModeHotkeyOverridePresetNotifier.new,
     );

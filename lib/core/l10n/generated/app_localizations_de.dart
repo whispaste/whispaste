@@ -3802,4 +3802,29 @@ class L10nDe extends L10n {
 
   @override
   String get smartModeRamWarningCancel => 'Abbrechen';
+
+  @override
+  String get settingsHotkeyActionSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeHotkeyEnabled => 'Smart-Mode-Hotkey';
+
+  @override
+  String get settingsSmartModeHotkeyHint =>
+      'Startet eine Aufnahme mit einem festen Preset, unabhängig vom Standard-Preset oben. Unterstützt Push-to-Talk genau wie der Haupt-Hotkey.';
+
+  @override
+  String get settingsSmartModeHotkeyPreset => 'Preset';
+
+  @override
+  String get settingsSmartModeCurrentHotkey => 'Kombination';
+
+  @override
+  String settingsSmartModeHotkeyCollision(String action) {
+    return 'Diese Kombination ist schon für „$action“ vergeben. Wähl eine andere.';
+  }
+
+  @override
+  String get settingsSmartModeHotkeyInactive =>
+      'Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.';
 }

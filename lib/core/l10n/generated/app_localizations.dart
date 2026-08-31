@@ -6665,6 +6665,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get smartModeRamWarningCancel;
+
+  /// No description provided for @settingsHotkeyActionSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get settingsHotkeyActionSmartMode;
+
+  /// No description provided for @settingsSmartModeHotkeyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart-Mode hotkey'**
+  String get settingsSmartModeHotkeyEnabled;
+
+  /// No description provided for @settingsSmartModeHotkeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.'**
+  String get settingsSmartModeHotkeyHint;
+
+  /// No description provided for @settingsSmartModeHotkeyPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get settingsSmartModeHotkeyPreset;
+
+  /// No description provided for @settingsSmartModeCurrentHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Combination'**
+  String get settingsSmartModeCurrentHotkey;
+
+  /// No description provided for @settingsSmartModeHotkeyCollision.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination is already used for \"{action}\". Pick a different one.'**
+  String settingsSmartModeHotkeyCollision(String action);
+
+  /// No description provided for @settingsSmartModeHotkeyInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.'**
+  String get settingsSmartModeHotkeyInactive;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

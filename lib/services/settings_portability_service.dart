@@ -189,6 +189,14 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Ticket 03 of `.scratch/smart-mode-v2/` — same rationale as the preset
   // above.
   'smart_mode_target_language',
+  // Ticket 04 of `.scratch/smart-mode-v2/`: fourth, independently
+  // configurable hotkey (bound to one preset) — same portability rationale
+  // as 'hotkey_*'/'quick_note_hotkey_*'/'snippet_picker_hotkey_*' above.
+  'smart_mode_hotkey_enabled',
+  'smart_mode_hotkey_key',
+  'smart_mode_hotkey_key_display',
+  'smart_mode_hotkey_modifiers',
+  'smart_mode_hotkey_preset',
   'sound_volume',
   'start_minimized',
   'stt_engine',

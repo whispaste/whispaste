@@ -1155,6 +1155,204 @@ void main() {
     );
   });
 
+  group('HotkeyService — Smart-Mode action (ticket 04)', () {
+    test('registers independently of the other three hotkeys', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyN);
+      await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+      await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+      expect(registrar.registered, hasLength(4));
+      expect(
+        registrar.registered.map((k) => k.logicalKey),
+        containsAll([
+          LogicalKeyboardKey.keyD,
+          LogicalKeyboardKey.keyN,
+          LogicalKeyboardKey.keyE,
+          LogicalKeyboardKey.keyM,
+        ]),
+      );
+    });
+
+    test(
+      'a failed Smart-Mode registration reports conflict without a safe-default fallback',
+      () async {
+        final registrar = FakeHotKeyRegistrar()
+          ..throwOnFirstRegister = TypeError();
+        final service = _makeService(registrar);
+
+        await expectLater(
+          service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM),
+          completes,
+        );
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.space,
+          ),
+          isFalse,
+          reason: 'ticket 04 forbids a safe-default fallback for this action',
+        );
+        expect(registrar.registered, isEmpty);
+      },
+    );
+
+    test(
+      'a failed Smart-Mode registration does not affect the other already-registered hotkeys',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        registrar.throwOnFirstRegister = TypeError();
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'keyUpHandler IS registered for the Smart-Mode action when the '
+      'registrar supports keyUp — push-to-talk parity with the main hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+        final service = _makeService(registrar);
+
+        var pressed = false;
+        var released = false;
+        service.onSmartModeHotkeyPressed = () => pressed = true;
+        service.onSmartModeHotkeyReleased = () => released = true;
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(
+          registrar.capturedKeyUpHandler,
+          isNotNull,
+          reason: 'ticket 04 requires push-to-talk parity with the main hotkey',
+        );
+
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+        registrar.capturedKeyUpHandler!(registrar.registered.first);
+
+        expect(pressed, isTrue);
+        expect(released, isTrue);
+      },
+    );
+
+    test(
+      'keyUpHandler is not registered for the Smart-Mode action when the '
+      'registrar does not support keyUp (Windows/Linux: toggle-only for now)',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(registrar.capturedKeyUpHandler, isNull);
+      },
+    );
+
+    test(
+      'Smart-Mode registration does not start the shared keyboard-up monitor',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(monitor.started, isEmpty);
+      },
+    );
+
+    test(
+      'Smart-Mode key-down fires onSmartModeHotkeyPressed exactly once per press',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var presses = 0;
+        service.onSmartModeHotkeyPressed = () => presses++;
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+
+        expect(presses, 1);
+      },
+    );
+
+    test(
+      'auto-repeat suppression is independent of the other three actions',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var globalPresses = 0;
+        var smartModePresses = 0;
+        service.onHotkeyPressed = () => globalPresses++;
+        service.onSmartModeHotkeyPressed = () => smartModePresses++;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        final globalDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyD.keyId]!;
+        final smartModeDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyM.keyId]!;
+        final globalHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+        );
+        final smartModeHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyM,
+        );
+
+        globalDown(globalHotKey);
+        globalDown(globalHotKey);
+        expect(globalPresses, 1);
+
+        smartModeDown(smartModeHotKey);
+        expect(smartModePresses, 1);
+      },
+    );
+  });
+
+  group('smartModeHotkeyRegistrationStatusProvider', () {
+    test('starts unknown and reflects .set() calls independently', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(smartModeHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+
+      container
+          .read(smartModeHotkeyRegistrationStatusProvider.notifier)
+          .set(HotkeyRegistrationStatus.conflict);
+
+      expect(
+        container.read(smartModeHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.conflict,
+      );
+      // Independent of the other three status providers.
+      expect(
+        container.read(hotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+      expect(
+        container.read(snippetPickerHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+    });
+  });
+
   group('snippetPickerHotkeyRegistrationStatusProvider', () {
     test('starts unknown and reflects .set() calls independently', () {
       final container = ProviderContainer();
