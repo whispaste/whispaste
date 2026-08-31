@@ -27,6 +27,7 @@ class NotesListTile extends StatefulWidget {
     required this.isSelected,
     required this.isFocused,
     required this.onTap,
+    required this.onCopy,
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
@@ -49,6 +50,7 @@ class NotesListTile extends StatefulWidget {
   /// navigation in NotesPage) — highlighted like a hover.
   final bool isFocused;
   final VoidCallback onTap;
+  final VoidCallback onCopy;
   final VoidCallback onFavoriteToggle;
 
   /// Makes this note the quick note. Offered only while it is *not* already
@@ -285,24 +287,32 @@ class _NotesListTileState extends State<NotesListTile> {
                         color: textMuted,
                       ),
                     ),
-                    if (!widget.isTrashView && !widget.note.isQuickNote) ...[
+                    if (!widget.isTrashView) ...[
                       const SizedBox(width: WpSpacing.xxs),
-                      // Setting the mark is an ordinary trailing row action —
-                      // revealed on hover/focus like every other one, and
-                      // absent from the note that already holds the mark, so
-                      // "marking it again" is structurally impossible instead
-                      // of being a behavioural special case.
                       WpRowActions(
                         visible: _isHovered || widget.isFocused,
                         dense: true,
                         children: [
                           // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                           WpRowAction(
-                            icon: LucideIcons.zap,
-                            tooltip: l10n.notesQuickNoteSet,
-                            onTap: widget.onQuickNoteSet,
+                            icon: LucideIcons.copy,
+                            tooltip: l10n.notesCopy,
+                            onTap: widget.onCopy,
                             dense: true,
                           ),
+                          if (!widget.note.isQuickNote)
+                            // Setting the mark is an ordinary trailing row action —
+                            // revealed on hover/focus like every other one, and
+                            // absent from the note that already holds the mark, so
+                            // "marking it again" is structurally impossible instead
+                            // of being a behavioural special case.
+                            // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                            WpRowAction(
+                              icon: LucideIcons.zap,
+                              tooltip: l10n.notesQuickNoteSet,
+                              onTap: widget.onQuickNoteSet,
+                              dense: true,
+                            ),
                         ],
                       ),
                     ],

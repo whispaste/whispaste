@@ -146,6 +146,7 @@ void main() {
           isSelected: false,
           isFocused: false,
           onTap: () {},
+          onCopy: () {},
           onFavoriteToggle: () {},
           onQuickNoteSet: () {},
           onQuickNoteClear: () {},

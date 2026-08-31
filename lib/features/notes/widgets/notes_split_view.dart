@@ -26,6 +26,7 @@ class NotesSplitView extends StatelessWidget {
     required this.editorFocusNode,
     this.scrollEditorToEnd,
     required this.onNoteTap,
+    required this.onCopy,
     required this.onCloseEditor,
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
@@ -66,6 +67,7 @@ class NotesSplitView extends StatelessWidget {
   /// owned by `_NotesPageState` too. See [NoteEditorPanel.scrollEditorToEnd].
   final Listenable? scrollEditorToEnd;
   final ValueChanged<Note> onNoteTap;
+  final ValueChanged<Note> onCopy;
   final VoidCallback onCloseEditor;
   final ValueChanged<Note> onFavoriteToggle;
 
@@ -100,6 +102,7 @@ class NotesSplitView extends StatelessWidget {
       selectedId: selectedId,
       focusedId: focusedNoteId,
       onNoteTap: onNoteTap,
+      onCopy: onCopy,
       onFavoriteToggle: onFavoriteToggle,
       onQuickNoteSet: onQuickNoteSet,
       onQuickNoteClear: onQuickNoteClear,
