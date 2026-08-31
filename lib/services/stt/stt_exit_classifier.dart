@@ -74,8 +74,11 @@ const String _failedToOpenMarker = 'failed to open';
 /// when the server explicitly reports it could not open the model file. Pure;
 /// no side-effects.
 ModelLoadFailureCause classifyModelLoadFailure(Iterable<String> stderrLines) {
+  // ⚡ Bolt: Precompile case-insensitive RegExp before the loop to avoid
+  // allocating a lowercased copy of each stderr line.
+  final regex = RegExp(RegExp.escape(_failedToOpenMarker), caseSensitive: false);
   for (final line in stderrLines) {
-    if (line.toLowerCase().contains(_failedToOpenMarker)) {
+    if (regex.hasMatch(line)) {
       return ModelLoadFailureCause.fileUnreadable;
     }
   }
