@@ -460,7 +460,7 @@
   "snippetsFieldRemove": "Feld entfernen",
   "snippetsFieldAdd": "Feld hinzufügen",
   "snippetsFieldInsertIntoTemplate": "In Vorlage einfügen",
-  "snippetsFieldsMinWarning": "Ein interaktives Snippet braucht mindestens {min} benannte Felder.",
+  "snippetsFieldsMinWarning": "Ein interaktives Snippet braucht mindestens {min, plural, one{1 benanntes Feld} other{{min} benannte Felder}}.",
   "@snippetsFieldsMinWarning": {
     "placeholders": {
       "min": { "type": "int" }
@@ -1324,9 +1324,13 @@
   "settingsSmartModeSubtitle": "Lokale Textbereinigung, Kürzung und Übersetzung nach dem Diktieren",
   "smartModeStandardPreset": "Standard-Preset",
   "smartModePresetOff": "Aus",
-  "smartModePresetCleanup": "Cleanup",
-  "smartModePresetConcise": "Concise",
-  "smartModePresetTranslate": "Translate",
+  "smartModePresetOffDescription": "Keine automatische Nachbearbeitung — der diktierte Text wird genau so übernommen, wie er erkannt wurde.",
+  "smartModePresetCleanup": "Bereinigen",
+  "smartModePresetCleanupDescription": "Entfernt Füllwörter wie „äh“ und korrigiert Zeichensetzung und Groß-/Kleinschreibung, ohne Wortlaut, Bedeutung oder Sprache zu verändern.",
+  "smartModePresetConcise": "Kürzen",
+  "smartModePresetConciseDescription": "Kürzt den Text, indem Wiederholungen und Füllwörter entfernt werden — alle wichtigen Fakten und die Sprache bleiben erhalten.",
+  "smartModePresetTranslate": "Übersetzen",
+  "smartModePresetTranslateDescription": "Übersetzt den diktierten Text in die unten eingestellte Zielsprache.",
   "smartModeTargetLanguage": "Zielsprache",
   "smartModeTargetLanguageGerman": "Deutsch",
   "smartModeDownload": "Herunterladen",

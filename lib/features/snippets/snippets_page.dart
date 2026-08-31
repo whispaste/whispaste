@@ -689,9 +689,12 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 
   bool get _isInteractive => _kind == 'interactive';
 
-  /// Minimum fields to keep an interactive snippet distinct from a
-  /// single-field static snippet (PRD User Story 4).
-  static const _minFields = 2;
+  /// Minimum fields for an interactive snippet — 1, not 0: a guided
+  /// recording sequence with zero fields would have nothing left to
+  /// dictate into, but a single field is a legitimate shape (a single
+  /// prompt wrapped in a fixed template), not just a static snippet with
+  /// extra steps.
+  static const _minFields = 1;
 
   bool get _fieldsValid =>
       _fieldCtrls.length >= _minFields &&

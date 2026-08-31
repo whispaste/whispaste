@@ -621,6 +621,8 @@ void main() {
           find.byType(TextField).at(_fieldOffset + 2),
           'Titel',
         );
+        await tester.tap(find.text(l10n.snippetsFieldAdd));
+        await tester.pumpAndSettle();
         await tester.enterText(
           find.byType(TextField).at(_fieldOffset + 3),
           'Beschreibung',
@@ -656,6 +658,8 @@ void main() {
           find.byType(TextField).at(_fieldOffset + 2),
           'Titel',
         );
+        await tester.tap(find.text(l10n.snippetsFieldAdd));
+        await tester.pumpAndSettle();
         await tester.enterText(
           find.byType(TextField).at(_fieldOffset + 3),
           'Beschreibung',
@@ -704,6 +708,8 @@ void main() {
           find.byType(TextField).at(_fieldOffset + 2),
           'Titel',
         );
+        await tester.tap(find.text(l10n.snippetsFieldAdd));
+        await tester.pumpAndSettle();
         await tester.enterText(
           find.byType(TextField).at(_fieldOffset + 3),
           'Beschreibung',

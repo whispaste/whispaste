@@ -1462,7 +1462,13 @@ class L10nEn extends L10n {
 
   @override
   String snippetsFieldsMinWarning(int min) {
-    return 'An interactive snippet needs at least $min named fields.';
+    String _temp0 = intl.Intl.pluralLogic(
+      min,
+      locale: localeName,
+      other: '$min named fields',
+      one: '1 named field',
+    );
+    return 'An interactive snippet needs at least $_temp0.';
   }
 
   @override
@@ -3788,13 +3794,29 @@ class L10nEn extends L10n {
   String get smartModePresetOff => 'Off';
 
   @override
+  String get smartModePresetOffDescription =>
+      'No automatic post-processing — the dictated text is used exactly as transcribed.';
+
+  @override
   String get smartModePresetCleanup => 'Cleanup';
+
+  @override
+  String get smartModePresetCleanupDescription =>
+      'Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.';
 
   @override
   String get smartModePresetConcise => 'Concise';
 
   @override
+  String get smartModePresetConciseDescription =>
+      'Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.';
+
+  @override
   String get smartModePresetTranslate => 'Translate';
+
+  @override
+  String get smartModePresetTranslateDescription =>
+      'Translates the dictated text into the target language set below.';
 
   @override
   String get smartModeTargetLanguage => 'Target language';

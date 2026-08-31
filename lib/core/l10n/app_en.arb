@@ -587,7 +587,7 @@
   "snippetsFieldRemove": "Remove field",
   "snippetsFieldAdd": "Add field",
   "snippetsFieldInsertIntoTemplate": "Insert into template",
-  "snippetsFieldsMinWarning": "An interactive snippet needs at least {min} named fields.",
+  "snippetsFieldsMinWarning": "An interactive snippet needs at least {min, plural, one{1 named field} other{{min} named fields}}.",
   "@snippetsFieldsMinWarning": {
     "placeholders": {
       "min": { "type": "int" }
@@ -1522,9 +1522,13 @@
   "settingsSmartModeSubtitle": "Local text cleanup, shortening, and translation after dictation",
   "smartModeStandardPreset": "Standard preset",
   "smartModePresetOff": "Off",
+  "smartModePresetOffDescription": "No automatic post-processing — the dictated text is used exactly as transcribed.",
   "smartModePresetCleanup": "Cleanup",
+  "smartModePresetCleanupDescription": "Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.",
   "smartModePresetConcise": "Concise",
+  "smartModePresetConciseDescription": "Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.",
   "smartModePresetTranslate": "Translate",
+  "smartModePresetTranslateDescription": "Translates the dictated text into the target language set below.",
   "smartModeTargetLanguage": "Target language",
   "smartModeTargetLanguageGerman": "German",
   "smartModeDownload": "Download",

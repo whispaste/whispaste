@@ -85,6 +85,13 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
       _ => l10n.smartModePresetOff,
     };
 
+    String presetDescription(String preset) => switch (preset) {
+      'cleanup' => l10n.smartModePresetCleanupDescription,
+      'concise' => l10n.smartModePresetConciseDescription,
+      'translate' => l10n.smartModePresetTranslateDescription,
+      _ => l10n.smartModePresetOffDescription,
+    };
+
     String targetLanguageLabel(SmartModeTargetLanguage lang) => switch (lang) {
       SmartModeTargetLanguage.german => l10n.smartModeTargetLanguageGerman,
       // Ticket 09 adds a label for each remaining language once it clears
@@ -103,6 +110,7 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
           SettingRow(
             icon: LucideIcons.sparkles,
             label: l10n.smartModeStandardPreset,
+            subtitle: presetDescription(settings.smartMode.standardPreset),
             trailing: settingsDropdown(
               context: context,
               value: settings.smartMode.standardPreset,
@@ -247,6 +255,12 @@ class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
       _ => l10n.smartModePresetCleanup,
     };
 
+    String presetDescription(String preset) => switch (preset) {
+      'concise' => l10n.smartModePresetConciseDescription,
+      'translate' => l10n.smartModePresetTranslateDescription,
+      _ => l10n.smartModePresetCleanupDescription,
+    };
+
     return Padding(
       padding: const EdgeInsets.only(top: WpSpacing.sm),
       child: Column(
@@ -285,6 +299,9 @@ class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
                           SettingRow(
                             icon: LucideIcons.sparkles,
                             label: l10n.settingsSmartModeHotkeyPreset,
+                            subtitle: presetDescription(
+                              smartModeHotkey.smartModeHotkeyPreset,
+                            ),
                             trailing: settingsDropdown(
                               context: context,
                               value: smartModeHotkey.smartModeHotkeyPreset,

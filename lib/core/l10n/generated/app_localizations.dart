@@ -2658,7 +2658,7 @@ abstract class L10n {
   /// No description provided for @snippetsFieldsMinWarning.
   ///
   /// In en, this message translates to:
-  /// **'An interactive snippet needs at least {min} named fields.'**
+  /// **'An interactive snippet needs at least {min, plural, one{1 named field} other{{min} named fields}}.'**
   String snippetsFieldsMinWarning(int min);
 
   /// No description provided for @snippetsTemplateLabel.
@@ -6684,11 +6684,23 @@ abstract class L10n {
   /// **'Off'**
   String get smartModePresetOff;
 
+  /// No description provided for @smartModePresetOffDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'No automatic post-processing — the dictated text is used exactly as transcribed.'**
+  String get smartModePresetOffDescription;
+
   /// No description provided for @smartModePresetCleanup.
   ///
   /// In en, this message translates to:
   /// **'Cleanup'**
   String get smartModePresetCleanup;
+
+  /// No description provided for @smartModePresetCleanupDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.'**
+  String get smartModePresetCleanupDescription;
 
   /// No description provided for @smartModePresetConcise.
   ///
@@ -6696,11 +6708,23 @@ abstract class L10n {
   /// **'Concise'**
   String get smartModePresetConcise;
 
+  /// No description provided for @smartModePresetConciseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.'**
+  String get smartModePresetConciseDescription;
+
   /// No description provided for @smartModePresetTranslate.
   ///
   /// In en, this message translates to:
   /// **'Translate'**
   String get smartModePresetTranslate;
+
+  /// No description provided for @smartModePresetTranslateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Translates the dictated text into the target language set below.'**
+  String get smartModePresetTranslateDescription;
 
   /// No description provided for @smartModeTargetLanguage.
   ///

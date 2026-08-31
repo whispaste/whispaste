@@ -1474,7 +1474,13 @@ class L10nDe extends L10n {
 
   @override
   String snippetsFieldsMinWarning(int min) {
-    return 'Ein interaktives Snippet braucht mindestens $min benannte Felder.';
+    String _temp0 = intl.Intl.pluralLogic(
+      min,
+      locale: localeName,
+      other: '$min benannte Felder',
+      one: '1 benanntes Feld',
+    );
+    return 'Ein interaktives Snippet braucht mindestens $_temp0.';
   }
 
   @override
@@ -3819,13 +3825,29 @@ class L10nDe extends L10n {
   String get smartModePresetOff => 'Aus';
 
   @override
-  String get smartModePresetCleanup => 'Cleanup';
+  String get smartModePresetOffDescription =>
+      'Keine automatische Nachbearbeitung — der diktierte Text wird genau so übernommen, wie er erkannt wurde.';
 
   @override
-  String get smartModePresetConcise => 'Concise';
+  String get smartModePresetCleanup => 'Bereinigen';
 
   @override
-  String get smartModePresetTranslate => 'Translate';
+  String get smartModePresetCleanupDescription =>
+      'Entfernt Füllwörter wie „äh“ und korrigiert Zeichensetzung und Groß-/Kleinschreibung, ohne Wortlaut, Bedeutung oder Sprache zu verändern.';
+
+  @override
+  String get smartModePresetConcise => 'Kürzen';
+
+  @override
+  String get smartModePresetConciseDescription =>
+      'Kürzt den Text, indem Wiederholungen und Füllwörter entfernt werden — alle wichtigen Fakten und die Sprache bleiben erhalten.';
+
+  @override
+  String get smartModePresetTranslate => 'Übersetzen';
+
+  @override
+  String get smartModePresetTranslateDescription =>
+      'Übersetzt den diktierten Text in die unten eingestellte Zielsprache.';
 
   @override
   String get smartModeTargetLanguage => 'Zielsprache';

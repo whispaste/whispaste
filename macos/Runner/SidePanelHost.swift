@@ -180,8 +180,8 @@ class SidePanelHost: NSObject, NSWindowDelegate {
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "com.whispaste.side_panel", binaryMessenger: messenger)
-    channel.setMethodCallHandler(handle)
     super.init()
+    channel.setMethodCallHandler(handle)
     rebuildSensors()
     screenObserver = NotificationCenter.default.addObserver(
       forName: NSApplication.didChangeScreenParametersNotification,

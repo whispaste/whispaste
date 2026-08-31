@@ -3734,13 +3734,29 @@ class L10nHe extends L10n {
   String get smartModePresetOff => 'Off';
 
   @override
+  String get smartModePresetOffDescription =>
+      'No automatic post-processing — the dictated text is used exactly as transcribed.';
+
+  @override
   String get smartModePresetCleanup => 'Cleanup';
+
+  @override
+  String get smartModePresetCleanupDescription =>
+      'Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.';
 
   @override
   String get smartModePresetConcise => 'Concise';
 
   @override
+  String get smartModePresetConciseDescription =>
+      'Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.';
+
+  @override
   String get smartModePresetTranslate => 'Translate';
+
+  @override
+  String get smartModePresetTranslateDescription =>
+      'Translates the dictated text into the target language set below.';
 
   @override
   String get smartModeTargetLanguage => 'Target language';
