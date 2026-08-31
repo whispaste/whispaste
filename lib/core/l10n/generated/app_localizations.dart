@@ -6755,6 +6755,54 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.'**
   String get settingsSmartModeHotkeyInactive;
+
+  /// No description provided for @smartModeOnboardingHintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Smart Mode'**
+  String get smartModeOnboardingHintTitle;
+
+  /// No description provided for @smartModeOnboardingHintBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.'**
+  String get smartModeOnboardingHintBody;
+
+  /// No description provided for @smartModeOnboardingHintDownloadCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get smartModeOnboardingHintDownloadCta;
+
+  /// No description provided for @smartModeOnboardingHintSkipCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get smartModeOnboardingHintSkipCta;
+
+  /// No description provided for @smartModeUsageHintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Smart Mode on your next dictation'**
+  String get smartModeUsageHintTitle;
+
+  /// No description provided for @smartModeUsageHintBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here\'s what you just dictated:'**
+  String get smartModeUsageHintBody;
+
+  /// No description provided for @smartModeUsageHintCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get smartModeUsageHintCta;
+
+  /// No description provided for @smartModeUsageHintDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get smartModeUsageHintDismiss;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

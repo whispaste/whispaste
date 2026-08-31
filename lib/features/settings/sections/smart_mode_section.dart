@@ -383,21 +383,36 @@ class _ModelDownloadRow extends ConsumerWidget {
   Future<void> _startDownload(
     BuildContext context,
     SmartModeDownloadNotifier notifier,
-  ) async {
-    final ramMB = await hw.detectRamMB();
-    if (ramMB != null && ramMB < kSmartModeRamWarningThresholdMB) {
-      if (!context.mounted) return;
-      final proceed = await showWpConfirmDialog(
-        context: context,
-        title: l10n.smartModeRamWarningTitle,
-        message: l10n.smartModeRamWarningBody,
-        confirmLabel: l10n.smartModeRamWarningContinue,
-        cancelLabel: l10n.smartModeRamWarningCancel,
-      );
-      if (!proceed) return;
-    }
-    unawaited(notifier.downloadModel());
+  ) => startSmartModeDownloadWithRamCheck(
+    context: context,
+    notifier: notifier,
+    l10n: l10n,
+  );
+}
+
+/// Starts the Smart Mode model download, first showing a soft RAM warning
+/// (not a hard block) when [hw.detectRamMB] reports less than
+/// [kSmartModeRamWarningThresholdMB] — shared between [SmartModeSection] and
+/// the onboarding discovery touchpoints (ticket 08 of `.scratch/smart-mode-v2/`)
+/// so both surfaces apply the identical warning gate.
+Future<void> startSmartModeDownloadWithRamCheck({
+  required BuildContext context,
+  required SmartModeDownloadNotifier notifier,
+  required L10n l10n,
+}) async {
+  final ramMB = await hw.detectRamMB();
+  if (ramMB != null && ramMB < kSmartModeRamWarningThresholdMB) {
+    if (!context.mounted) return;
+    final proceed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.smartModeRamWarningTitle,
+      message: l10n.smartModeRamWarningBody,
+      confirmLabel: l10n.smartModeRamWarningContinue,
+      cancelLabel: l10n.smartModeRamWarningCancel,
+    );
+    if (!proceed) return;
   }
+  unawaited(notifier.downloadModel());
 }
 
 class _ActionButton extends StatelessWidget {

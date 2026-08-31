@@ -3854,4 +3854,31 @@ class L10nDe extends L10n {
   @override
   String get settingsSmartModeHotkeyInactive =>
       'Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.';
+
+  @override
+  String get smartModeOnboardingHintTitle => 'Smart Mode ausprobieren';
+
+  @override
+  String get smartModeOnboardingHintBody =>
+      'Smart Mode kann deinen diktierten Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Lade das lokale Modell jetzt herunter oder richte es später in den Einstellungen ein.';
+
+  @override
+  String get smartModeOnboardingHintDownloadCta => 'Herunterladen';
+
+  @override
+  String get smartModeOnboardingHintSkipCta => 'Überspringen';
+
+  @override
+  String get smartModeUsageHintTitle =>
+      'Smart Mode bei deinem nächsten Diktat ausprobieren';
+
+  @override
+  String get smartModeUsageHintBody =>
+      'Smart Mode kann Text wie diesen automatisch bereinigen, kürzen oder übersetzen — direkt auf deinem Gerät. Das hast du gerade diktiert:';
+
+  @override
+  String get smartModeUsageHintCta => 'Einrichten';
+
+  @override
+  String get smartModeUsageHintDismiss => 'Nicht jetzt';
 }

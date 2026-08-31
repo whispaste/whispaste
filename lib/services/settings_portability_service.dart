@@ -77,6 +77,11 @@ const Set<String> settingsPortabilityDenyList = {
   // history has nothing to do with what this one has already seen.
   'seen_feature_spotlight_ids',
   'auto_paste_off_hint_dismissed',
+  // Smart Mode post-usage discovery hint (ticket 08 of
+  // `.scratch/smart-mode-v2/`): same category as the two seen-state keys
+  // above — whether this installation already showed the one-time hint,
+  // not a preference to carry to another machine.
+  'smart_mode_usage_hint_shown',
   // AudioInputSettings — gerätegebundener Mikrofonname.
   'microphone',
   // AppSettings.toStorageMap() — reines Persistenz-Artefakt, von

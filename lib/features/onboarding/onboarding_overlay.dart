@@ -23,6 +23,7 @@ import '../../widgets/wp_button.dart';
 import '../../widgets/wp_hero_button.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
+import 'smart_mode_onboarding_hint.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/appearance_step.dart';
 import 'steps/onboarding_headings.dart';
@@ -305,6 +306,13 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   int _currentStep = 0;
   int _previousStep = 0;
+
+  /// Guards the Smart Mode discovery dialog (ticket 08 of
+  /// `.scratch/smart-mode-v2/`) to at most one showing per overlay instance —
+  /// [_complete] only runs once on the genuine first-run path in practice
+  /// (it ends the flow), but this is a cheap, local safety net against a
+  /// second invocation rather than relying on that alone.
+  bool _smartModeHintShown = false;
 
   /// Guards [_hydrateStepFromSettings] so it only ever jumps the step once —
   /// further settings changes (e.g. the user picking a microphone) must not
@@ -606,6 +614,17 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       _trackStep('revision_complete', OnboardingStepId.tryAndGo);
       await ref.read(onboardingRevisionRunProvider.notifier).complete();
       return;
+    }
+    // Skippable Smart Mode discovery interstitial (ticket 08 of
+    // `.scratch/smart-mode-v2/`) — shown right before the flow actually ends,
+    // never as a new [OnboardingStepId]. Awaited so a chosen download starts
+    // before the overlay tears itself down, but its outcome never blocks
+    // completion: skip and download both just close the dialog and fall
+    // through here.
+    if (!_smartModeHintShown) {
+      _smartModeHintShown = true;
+      await showSmartModeOnboardingHint(context, ref);
+      if (!mounted) return;
     }
     _trackStep('complete', OnboardingStepId.tryAndGo);
     // US17: a freshly set-up user is, by construction, caught up on the
