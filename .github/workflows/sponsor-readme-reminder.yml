@@ -1,0 +1,149 @@
+name: Sponsor README Reminder
+
+# Polls GitHub Sponsors for new $3+/mo sponsors of the whispaste org and opens
+# a tracking issue so the promised README "Supporters" mention can't be
+# silently forgotten. Requires the SPONSOR_READ_TOKEN secret (a PAT with only
+# the read:org scope, owned by an org maintainer) — the default GITHUB_TOKEN
+# cannot read Sponsors data.
+
+on:
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check-sponsors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for new qualifying sponsors and open reminder issues
+        uses: actions/github-script@v7
+        env:
+          SPONSOR_READ_TOKEN: ${{ secrets.SPONSOR_READ_TOKEN }}
+        with:
+          script: |
+            const fs = require('fs');
+            const statePath = '.github/sponsor-readme-state.json';
+            const state = fs.existsSync(statePath)
+              ? JSON.parse(fs.readFileSync(statePath, 'utf8'))
+              : { seen: [] };
+
+            if (!process.env.SPONSOR_READ_TOKEN) {
+              core.warning('SPONSOR_READ_TOKEN secret is not set yet — skipping sponsor check.');
+              return;
+            }
+
+            const query = `
+              query {
+                organization(login: "whispaste") {
+                  sponsorshipsAsMaintainer(first: 100, includePrivate: true, orderBy: {field: CREATED_AT, direction: DESC}) {
+                    nodes {
+                      privacyLevel
+                      tier { monthlyPriceInDollars isOneTime name }
+                      sponsorEntity {
+                        __typename
+                        ... on User { login name }
+                        ... on Organization { login name }
+                      }
+                    }
+                  }
+                }
+              }`;
+
+            const resp = await fetch('https://api.github.com/graphql', {
+              method: 'POST',
+              headers: {
+                Authorization: `bearer ${process.env.SPONSOR_READ_TOKEN}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ query }),
+            });
+
+            if (!resp.ok) {
+              core.setFailed(`Sponsors GraphQL query failed: ${resp.status} ${await resp.text()}`);
+              return;
+            }
+
+            const result = await resp.json();
+            if (result.errors) {
+              core.setFailed(`Sponsors GraphQL query returned errors: ${JSON.stringify(result.errors)}`);
+              return;
+            }
+
+            const sponsorships = result.data.organization.sponsorshipsAsMaintainer.nodes;
+
+            const qualifying = sponsorships.filter(
+              (s) => s.tier && !s.tier.isOneTime && s.tier.monthlyPriceInDollars >= 3
+            );
+
+            const seen = new Set(state.seen);
+            let changed = false;
+
+            for (const s of qualifying) {
+              const isPublic = s.privacyLevel === 'PUBLIC';
+              // Private sponsorships have no public login to key on, so we
+              // track them by a synthetic per-tier marker instead — this
+              // still avoids re-opening an issue for the same private
+              // sponsor's tier on every run.
+              const key = isPublic
+                ? `public:${s.sponsorEntity.login}`
+                : `private:${s.tier.name}:${sponsorships.indexOf(s)}`;
+
+              if (seen.has(key)) continue;
+
+              const title = isPublic
+                ? `Add sponsor to README: ${s.sponsorEntity.name || s.sponsorEntity.login}`
+                : `Add sponsor to README: private sponsor (${s.tier.name} tier)`;
+
+              const bodyLines = isPublic
+                ? [
+                    `@${s.sponsorEntity.login} just started sponsoring at the **${s.tier.name}** tier ($${s.tier.monthlyPriceInDollars}/mo), which promises a README mention.`,
+                    '',
+                    'Checklist:',
+                    `- [ ] Add **${s.sponsorEntity.name || s.sponsorEntity.login}** (@${s.sponsorEntity.login}) to the Supporters section in README.md`,
+                    '- [ ] Close this issue once done',
+                  ]
+                : [
+                    `A sponsor chose to sponsor privately at the **${s.tier.name}** tier ($${s.tier.monthlyPriceInDollars}/mo), which promises a README mention.`,
+                    '',
+                    "Because they sponsor privately, do not look up or publish their identity from this issue. Check the Sponsors dashboard yourself (only visible to you) and only add them to the README if they've separately agreed to public credit.",
+                    '',
+                    'Checklist:',
+                    "- [ ] Check the Sponsors dashboard for this sponsor's name and public-credit preference",
+                    '- [ ] Add to README only if they opted in to public mention',
+                    '- [ ] Close this issue once handled',
+                  ];
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                assignees: ['silvio-l'],
+                labels: ['sponsor-readme'],
+                body: bodyLines.join('\n'),
+              });
+
+              seen.add(key);
+              changed = true;
+            }
+
+            if (changed) {
+              state.seen = [...seen];
+              fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
+            }
+
+      - name: Commit updated sponsor state
+        run: |
+          if ! git diff --quiet -- .github/sponsor-readme-state.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .github/sponsor-readme-state.json
+            git commit -m "chore: update sponsor-readme tracking state"
+            git push
+          fi
