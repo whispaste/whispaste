@@ -8,6 +8,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/data/reloadable_list_notifier.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/snippet_picker/snippet_picker_controller.dart';
+import '../../services/snippets/interactive_snippet_composer.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -47,7 +48,9 @@ class SnippetItem {
 
   /// `static` (default — [body] is inserted verbatim) or `interactive`
   /// (interactive-snippets PRD — [fields] names the guided recording
-  /// sequence's fields in order; [body] is unused).
+  /// sequence's fields in order; [body] holds the user-authored template,
+  /// with an `{{fieldName}}` placeholder for each field's dictated text —
+  /// see `interactive_snippet_composer.dart`).
   final String kind;
 
   /// Ordered field names for an `interactive` snippet. Empty for `static`.
@@ -694,9 +697,20 @@ class _SnippetDialogState extends State<_SnippetDialog> {
       _fieldCtrls.length >= _minFields &&
       _fieldCtrls.every((c) => c.text.trim().isNotEmpty);
 
+  /// Every named field must appear as a `{{fieldName}}` placeholder
+  /// somewhere in the template ([_bodyCtrl]) — otherwise its dictated text
+  /// would have nowhere to go once composed.
+  bool get _templateReferencesAllFields => _fieldCtrls.every((c) {
+    final name = c.text.trim();
+    return name.isEmpty ||
+        _bodyCtrl.text.contains(interactiveSnippetPlaceholder(name));
+  });
+
   bool get _isValid =>
       _titleCtrl.text.trim().isNotEmpty &&
-      (_isInteractive ? _fieldsValid : _bodyCtrl.text.trim().isNotEmpty);
+      (_isInteractive
+          ? (_fieldsValid && _templateReferencesAllFields)
+          : _bodyCtrl.text.trim().isNotEmpty);
 
   bool get _isEditing => widget.existing != null;
 
@@ -772,12 +786,30 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     if (!_isValid) return;
     Navigator.of(context).pop((
       _titleCtrl.text.trim(),
-      _isInteractive ? '' : _bodyCtrl.text.trim(),
+      _bodyCtrl.text.trim(),
       _kind,
       _isInteractive
           ? [for (final c in _fieldCtrls) c.text.trim()]
           : const <String>[],
     ));
+  }
+
+  /// Inserts `{{fieldName}}` into the template at the current cursor
+  /// position (or selection, which it replaces), falling back to the end of
+  /// the text when there is no active selection yet.
+  void _insertFieldPlaceholder(String fieldName) {
+    final placeholder = interactiveSnippetPlaceholder(fieldName);
+    final text = _bodyCtrl.text;
+    var start = _bodyCtrl.selection.start;
+    var end = _bodyCtrl.selection.end;
+    if (start < 0 || end < 0 || start > text.length || end > text.length) {
+      start = text.length;
+      end = text.length;
+    }
+    _bodyCtrl.text = text.replaceRange(start, end, placeholder);
+    _bodyCtrl.selection = TextSelection.collapsed(
+      offset: start + placeholder.length,
+    );
   }
 
   /// Named-field editor for an `interactive` snippet — add/rename/reorder/
@@ -808,6 +840,14 @@ class _SnippetDialogState extends State<_SnippetDialog> {
                   variant: WpTextFieldVariant.form,
                   hintText: l10n.snippetsFieldNameHint(i + 1),
                 ),
+              ),
+              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
+              IconButton(
+                icon: const Icon(LucideIcons.plus, size: WpIconSize.xs),
+                tooltip: l10n.snippetsFieldInsertIntoTemplate,
+                onPressed: _fieldCtrls[i].text.trim().isEmpty
+                    ? null
+                    : () => _insertFieldPlaceholder(_fieldCtrls[i].text.trim()),
               ),
               // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
               IconButton(
@@ -905,9 +945,37 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         ),
         const SizedBox(height: WpSpacing.md),
 
-        if (_isInteractive)
-          ..._buildFieldEditor(l10n, theme)
-        else ...[
+        if (_isInteractive) ...[
+          ..._buildFieldEditor(l10n, theme),
+          const SizedBox(height: WpSpacing.md),
+          Text(l10n.snippetsTemplateLabel, style: theme.textTheme.titleSmall),
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            l10n.snippetsTemplateHint,
+            style: const TextStyle(
+              color: WpColors.textMuted,
+              fontSize: WpTypography.caption,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          WpTextField(
+            controller: _bodyCtrl,
+            variant: WpTextFieldVariant.form,
+            hintText: l10n.snippetsTemplateFieldHint,
+            minLines: 6,
+            maxLines: 14,
+          ),
+          if (!_templateReferencesAllFields) ...[
+            const SizedBox(height: WpSpacing.xxs),
+            Text(
+              l10n.snippetsTemplateMissingFieldsWarning,
+              style: const TextStyle(
+                color: WpColors.warning,
+                fontSize: WpTypography.caption,
+              ),
+            ),
+          ],
+        ] else ...[
           // Body (multi-line) — same toolbar the History transcript editor
           // and the Notes editor carry, so bold/italic/lists and
           // find-and-replace work identically wherever text is written in
@@ -1107,8 +1175,8 @@ class _SnippetTileState extends State<_SnippetTile> {
                 visible: _isActive,
                 children: [
                   // A copy has nothing to copy for an interactive snippet —
-                  // its body is unused (field contents come from the guided
-                  // recording, not stored text).
+                  // its body is a template, not final text; the composed
+                  // result only exists after the guided recording.
                   if (!widget.snippet.isInteractive)
                     // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                     WpRowAction(

@@ -458,12 +458,17 @@
   "snippetsFieldMoveDown": "Feld nach unten verschieben",
   "snippetsFieldRemove": "Feld entfernen",
   "snippetsFieldAdd": "Feld hinzufügen",
+  "snippetsFieldInsertIntoTemplate": "In Vorlage einfügen",
   "snippetsFieldsMinWarning": "Ein interaktives Snippet braucht mindestens {min} benannte Felder.",
   "@snippetsFieldsMinWarning": {
     "placeholders": {
       "min": { "type": "int" }
     }
   },
+  "snippetsTemplateLabel": "Vorlage",
+  "snippetsTemplateHint": "Schreibe deinen Snippet-Text und platziere jedes Feld über den Einfügen-Button daneben an beliebiger Stelle.",
+  "snippetsTemplateFieldHint": "Schreibe hier deinen Text und füge Felder über die Buttons oben ein.",
+  "snippetsTemplateMissingFieldsWarning": "Noch nicht alle Felder werden in der Vorlage verwendet — ihr diktierter Text bliebe sonst ungenutzt.",
   "snippetsInteractiveBadge": "Interaktiv",
   "interactiveSnippetFieldLabel": "Feld {index}/{count}: {name}",
   "@interactiveSnippetFieldLabel": {

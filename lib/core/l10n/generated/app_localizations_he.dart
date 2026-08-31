@@ -1441,9 +1441,27 @@ class L10nHe extends L10n {
   String get snippetsFieldAdd => 'הוסף שדה';
 
   @override
+  String get snippetsFieldInsertIntoTemplate => 'Insert into template';
+
+  @override
   String snippetsFieldsMinWarning(int min) {
     return 'קטע אינטראקטיבי דורש לפחות $min שדות בעלי שם.';
   }
+
+  @override
+  String get snippetsTemplateLabel => 'Template';
+
+  @override
+  String get snippetsTemplateHint =>
+      'Write your snippet text, then use each field\'s insert button to place it wherever you want.';
+
+  @override
+  String get snippetsTemplateFieldHint =>
+      'Write your text here and insert fields using the buttons above.';
+
+  @override
+  String get snippetsTemplateMissingFieldsWarning =>
+      'Not all fields appear in the template yet — their dictated text would go unused.';
 
   @override
   String get snippetsInteractiveBadge => 'אינטראקטיבי';

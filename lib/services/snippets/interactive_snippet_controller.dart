@@ -38,18 +38,25 @@ class InteractiveSnippetController
   InteractiveSnippetSessionState? build() => null;
 
   List<SnippetField> _fields = const [];
+  String _template = '';
   final List<String> _collectedTranscripts = [];
   DateTime? _startedAt;
 
   bool get isActive => state != null;
 
-  /// Starts a new sequence for [fields] (already sorted by `sortOrder`).
+  /// Starts a new sequence for [fields] (already sorted by `sortOrder`),
+  /// composing the result into [template] (the parent snippet's `body`,
+  /// holding `{{fieldName}}` placeholders) once every field is recorded.
   /// No-op if a sequence is already active (Out of Scope: nesting) or
   /// [fields] has fewer than 2 entries (PRD User Story 4).
-  Future<void> start(List<SnippetField> fields) async {
+  Future<void> start(
+    List<SnippetField> fields, {
+    required String template,
+  }) async {
     if (isActive || fields.length < 2) return;
 
     _fields = fields;
+    _template = template;
     _collectedTranscripts.clear();
     _startedAt = DateTime.now();
 
@@ -120,6 +127,7 @@ class InteractiveSnippetController
 
   void _reset() {
     _fields = const [];
+    _template = '';
     _collectedTranscripts.clear();
     _startedAt = null;
     state = null;
@@ -128,8 +136,9 @@ class InteractiveSnippetController
   Future<void> _finish() async {
     final fieldNames = [for (final f in _fields) f.name];
     final composed = composeInteractiveSnippetText(
-      fieldNames,
-      _collectedTranscripts,
+      template: _template,
+      fieldNames: fieldNames,
+      fieldTranscripts: _collectedTranscripts,
     );
     final elapsed = DateTime.now().difference(_startedAt ?? DateTime.now());
     _reset();

@@ -773,6 +773,76 @@ void main() {
     });
   });
 
+  group('Interactive snippet template migration (v22 → v23)', () {
+    test('backfills a pre-v23 interactive snippet\'s empty body with the '
+        'legacy field-heading template', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertSnippetWithFields(
+        id: 's1',
+        title: 'Bug Report',
+        body: '',
+        createdAt: DateTime(2025, 1),
+        kind: 'interactive',
+        fieldNames: const ['Titel', 'Reproduktion'],
+      );
+
+      await db.backfillInteractiveSnippetTemplatesForTesting();
+
+      final rows = await db.readAllSnippetsWithFields();
+      expect(
+        rows.single.row.body,
+        'Titel\n{{Titel}}\n\nReproduktion\n{{Reproduktion}}',
+      );
+
+      await db.close();
+    });
+
+    test('leaves a static snippet\'s body untouched', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertSnippetWithFields(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime(2025, 1),
+        kind: 'static',
+        fieldNames: const [],
+      );
+
+      await db.backfillInteractiveSnippetTemplatesForTesting();
+
+      final rows = await db.readAllSnippetsWithFields();
+      expect(rows.single.row.body, 'Hello there!');
+
+      await db.close();
+    });
+
+    test(
+      'migration is idempotent — a second run produces the same template',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.upsertSnippetWithFields(
+          id: 's1',
+          title: 'Bug Report',
+          body: '',
+          createdAt: DateTime(2025, 1),
+          kind: 'interactive',
+          fieldNames: const ['Titel', 'Reproduktion'],
+        );
+
+        await db.backfillInteractiveSnippetTemplatesForTesting();
+        await db.backfillInteractiveSnippetTemplatesForTesting();
+
+        final rows = await db.readAllSnippetsWithFields();
+        expect(
+          rows.single.row.body,
+          'Titel\n{{Titel}}\n\nReproduktion\n{{Reproduktion}}',
+        );
+
+        await db.close();
+      },
+    );
+  });
+
   group(
     'TextReplacementTriggers migration (v13, multi-trigger replacements)',
     () {

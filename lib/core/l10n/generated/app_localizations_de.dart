@@ -1466,9 +1466,27 @@ class L10nDe extends L10n {
   String get snippetsFieldAdd => 'Feld hinzufügen';
 
   @override
+  String get snippetsFieldInsertIntoTemplate => 'In Vorlage einfügen';
+
+  @override
   String snippetsFieldsMinWarning(int min) {
     return 'Ein interaktives Snippet braucht mindestens $min benannte Felder.';
   }
+
+  @override
+  String get snippetsTemplateLabel => 'Vorlage';
+
+  @override
+  String get snippetsTemplateHint =>
+      'Schreibe deinen Snippet-Text und platziere jedes Feld über den Einfügen-Button daneben an beliebiger Stelle.';
+
+  @override
+  String get snippetsTemplateFieldHint =>
+      'Schreibe hier deinen Text und füge Felder über die Buttons oben ein.';
+
+  @override
+  String get snippetsTemplateMissingFieldsWarning =>
+      'Noch nicht alle Felder werden in der Vorlage verwendet — ihr diktierter Text bliebe sonst ungenutzt.';
 
   @override
   String get snippetsInteractiveBadge => 'Interaktiv';

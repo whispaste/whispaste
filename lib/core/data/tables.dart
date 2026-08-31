@@ -196,9 +196,12 @@ class Snippets extends Table {
   DateTimeColumn get createdAt => dateTime()();
 
   /// `static` (default, today's only behavior — [body] is inserted verbatim)
-  /// or `interactive` (schema v21, `interactive-snippets` PRD): [body] is
-  /// unused, the field contents instead come from a guided multi-field
-  /// recording sequence at trigger time — see [SnippetFields].
+  /// or `interactive` (schema v21, `interactive-snippets` PRD; template
+  /// authoring added in schema v23): for `interactive`, [body] holds the
+  /// user-authored template ([interactiveSnippetPlaceholder] tokens mark
+  /// where each [SnippetFields] entry's dictated text is substituted at
+  /// trigger time, see `interactive_snippet_composer.dart`) rather than
+  /// text inserted verbatim.
   TextColumn get kind => text().withDefault(const Constant('static'))();
 
   @override

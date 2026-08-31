@@ -171,7 +171,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           .readSnippetFields(snippet.id);
       await ref
           .read(interactiveSnippetControllerProvider.notifier)
-          .start(fields);
+          .start(fields, template: snippet.body);
     };
 
     // ── Tray callbacks — stateless closures, safe to wire once ──

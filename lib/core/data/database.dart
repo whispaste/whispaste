@@ -18,6 +18,8 @@ import 'package:sentry_drift/sentry_drift.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 
+import '../../services/snippets/interactive_snippet_composer.dart'
+    show legacyInteractiveSnippetTemplate;
 import '../logging/app_logger.dart';
 import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
@@ -106,7 +108,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -176,6 +178,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 22) {
         await _addSmartModeEditedContentColumn();
+      }
+      if (from < 23) {
+        await _backfillInteractiveSnippetTemplates();
       }
     },
     beforeOpen: (details) async {
@@ -556,6 +561,37 @@ class HistoryDatabase extends _$HistoryDatabase {
       debugPrint(
         '[Migration] Could not add history_entries '
         'smart_mode_edited_content column: $e',
+      );
+    }
+  }
+
+  /// One-time backfill for `interactive` snippets created before templates
+  /// existed (schema v23): their `body` was written as `''` and the composed
+  /// output came from a fixed heading-per-field layout instead. Rewrites
+  /// `body` to [legacyInteractiveSnippetTemplate] of their current fields so
+  /// composed output stays byte-for-byte identical after the upgrade.
+  @visibleForTesting
+  Future<void> backfillInteractiveSnippetTemplatesForTesting() =>
+      _backfillInteractiveSnippetTemplates();
+
+  Future<void> _backfillInteractiveSnippetTemplates() async {
+    try {
+      final rows = await (select(
+        snippets,
+      )..where((s) => s.kind.equals('interactive'))).get();
+      for (final row in rows) {
+        final fields = await readSnippetFields(row.id);
+        final template = legacyInteractiveSnippetTemplate([
+          for (final f in fields) f.name,
+        ]);
+        await (update(snippets)..where((s) => s.id.equals(row.id))).write(
+          SnippetsCompanion(body: Value(template)),
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not backfill interactive snippet templates: $e',
       );
     }
   }

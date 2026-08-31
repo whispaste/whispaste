@@ -40,6 +40,8 @@ import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeEngineProvider;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
+import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
+    show legacyInteractiveSnippetTemplate;
 import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
@@ -1097,13 +1099,13 @@ void main() {
         final fields = await db.readSnippetFields(snippet.id);
         await container
             .read(interactiveSnippetControllerProvider.notifier)
-            .start(fields);
+            .start(fields, template: snippet.body);
       };
       await container.read(settingsProvider.future);
       await db.upsertSnippetWithFields(
         id: 's1',
         title: 'Bug Report',
-        body: '',
+        body: 'Titel\n{{Titel}}\n\nReproduktion\n{{Reproduktion}}',
         createdAt: DateTime.now(),
         kind: 'interactive',
         fieldNames: const ['Titel', 'Reproduktion'],
@@ -4251,7 +4253,10 @@ void main() {
         final controller = container.read(
           interactiveSnippetControllerProvider.notifier,
         );
-        await controller.start(fields(['Titel', 'Beschreibung']));
+        await controller.start(
+          fields(['Titel', 'Beschreibung']),
+          template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+        );
         expect(
           container.read(interactiveSnippetControllerProvider)?.fieldName,
           'Titel',
@@ -4287,6 +4292,42 @@ void main() {
       },
     );
 
+    test(
+      'composes into a free-form user template, not just the legacy layout',
+      () async {
+        ensureFakeLocalSttFilesExist();
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final controller = container.read(
+          interactiveSnippetControllerProvider.notifier,
+        );
+        await controller.start(
+          fields(['Name', 'Thema']),
+          template: 'Hallo {{Name}}, danke für deine Anfrage zu {{Thema}}!',
+        );
+
+        fakeStt.transcriptToReturn = 'Anna';
+        await controller.advanceField();
+        fakeStt.transcriptToReturn = 'die Rechnung';
+        await controller.advanceField();
+
+        expect(
+          clipboardText,
+          'Hallo Anna, danke für deine Anfrage zu die Rechnung!',
+        );
+      },
+    );
+
     test('a field transcription failure discards the whole sequence', () async {
       ensureFakeLocalSttFilesExist();
       container.dispose();
@@ -4305,7 +4346,10 @@ void main() {
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
       );
-      await controller.start(fields(['Titel', 'Beschreibung']));
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
 
       fakeStt.transcriptToReturn = 'Titel-Text';
       await controller.advanceField();
@@ -4337,7 +4381,10 @@ void main() {
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
       );
-      await controller.start(fields(['Titel', 'Beschreibung']));
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
       fakeStt.transcriptToReturn = 'Titel-Text';
       await controller.advanceField();
 
@@ -4355,7 +4402,10 @@ void main() {
         interactiveSnippetControllerProvider.notifier,
       );
 
-      await controller.start(fields(['Nur ein Feld']));
+      await controller.start(
+        fields(['Nur ein Feld']),
+        template: legacyInteractiveSnippetTemplate(['Nur ein Feld']),
+      );
 
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);

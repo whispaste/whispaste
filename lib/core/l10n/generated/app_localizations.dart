@@ -2643,11 +2643,41 @@ abstract class L10n {
   /// **'Add field'**
   String get snippetsFieldAdd;
 
+  /// No description provided for @snippetsFieldInsertIntoTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert into template'**
+  String get snippetsFieldInsertIntoTemplate;
+
   /// No description provided for @snippetsFieldsMinWarning.
   ///
   /// In en, this message translates to:
   /// **'An interactive snippet needs at least {min} named fields.'**
   String snippetsFieldsMinWarning(int min);
+
+  /// No description provided for @snippetsTemplateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Template'**
+  String get snippetsTemplateLabel;
+
+  /// No description provided for @snippetsTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your snippet text, then use each field\'s insert button to place it wherever you want.'**
+  String get snippetsTemplateHint;
+
+  /// No description provided for @snippetsTemplateFieldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your text here and insert fields using the buttons above.'**
+  String get snippetsTemplateFieldHint;
+
+  /// No description provided for @snippetsTemplateMissingFieldsWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Not all fields appear in the template yet — their dictated text would go unused.'**
+  String get snippetsTemplateMissingFieldsWarning;
 
   /// No description provided for @snippetsInteractiveBadge.
   ///

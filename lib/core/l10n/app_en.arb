@@ -585,12 +585,17 @@
   "snippetsFieldMoveDown": "Move field down",
   "snippetsFieldRemove": "Remove field",
   "snippetsFieldAdd": "Add field",
+  "snippetsFieldInsertIntoTemplate": "Insert into template",
   "snippetsFieldsMinWarning": "An interactive snippet needs at least {min} named fields.",
   "@snippetsFieldsMinWarning": {
     "placeholders": {
       "min": { "type": "int" }
     }
   },
+  "snippetsTemplateLabel": "Template",
+  "snippetsTemplateHint": "Write your snippet text, then use each field's insert button to place it wherever you want.",
+  "snippetsTemplateFieldHint": "Write your text here and insert fields using the buttons above.",
+  "snippetsTemplateMissingFieldsWarning": "Not all fields appear in the template yet — their dictated text would go unused.",
   "snippetsInteractiveBadge": "Interactive",
   "interactiveSnippetFieldLabel": "Field {index}/{count}: {name}",
   "@interactiveSnippetFieldLabel": {
