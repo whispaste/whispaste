@@ -26,6 +26,7 @@ class HistoryCompactView extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     required this.multiSelectMode,
     required this.selectedIds,
     this.focusedId,
@@ -37,6 +38,7 @@ class HistoryCompactView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
+  final ValueChanged<HistoryEntry>? onDuplicate;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
@@ -77,6 +79,7 @@ class HistoryCompactView extends StatelessWidget {
           onCopy: () => onCopy(entry),
           onPin: () => onPin(entry),
           onDelete: () => onDelete(entry),
+          onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
           multiSelectMode: multiSelectMode,
           isChecked: selectedIds.contains(entry.id),
         );
@@ -98,6 +101,7 @@ class HistoryCompactRow extends StatefulWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     this.multiSelectMode = false,
     this.isChecked = false,
     this.isFocused = false,
@@ -109,6 +113,7 @@ class HistoryCompactRow extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
@@ -238,6 +243,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   onCopy: widget.onCopy,
                   onPin: widget.onPin,
                   onDelete: widget.onDelete,
+                  onDuplicate: widget.onDuplicate,
                 ),
                 const SizedBox(width: WpSpacing.sm),
                 // Duration
@@ -298,6 +304,7 @@ class HistoryCompactRowActions extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
   });
 
   final HistoryEntry entry;
@@ -305,6 +312,7 @@ class HistoryCompactRowActions extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +339,13 @@ class HistoryCompactRowActions extends StatelessWidget {
           dense: true,
         ),
         // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        if (onDuplicate case final onDuplicate?)
+          WpRowAction(
+            icon: LucideIcons.files,
+            tooltip: l10n.actionDuplicate,
+            onTap: onDuplicate,
+            dense: true,
+          ),
         WpRowAction(
           icon: LucideIcons.trash2,
           tooltip: l10n.actionDelete,

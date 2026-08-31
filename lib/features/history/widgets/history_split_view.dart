@@ -80,6 +80,7 @@ class HistorySplitView extends StatelessWidget {
           onCopy: onCopy,
           onPin: onPin,
           onDelete: onDelete,
+          onDuplicate: onDuplicate,
           multiSelectMode: multiSelectMode,
           selectedIds: selectedIds,
           isTrashView: isTrashView,
@@ -95,6 +96,7 @@ class HistorySplitView extends StatelessWidget {
           onCopy: onCopy,
           onPin: onPin,
           onDelete: onDelete,
+          onDuplicate: onDuplicate,
           multiSelectMode: multiSelectMode,
           selectedIds: selectedIds,
         );
@@ -108,6 +110,7 @@ class HistorySplitView extends StatelessWidget {
           onCopy: onCopy,
           onPin: onPin,
           onDelete: onDelete,
+          onDuplicate: onDuplicate,
           multiSelectMode: multiSelectMode,
           selectedIds: selectedIds,
         );

@@ -21,6 +21,7 @@ class HistoryEntryList extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onDuplicate,
     required this.multiSelectMode,
     required this.selectedIds,
     required this.isTrashView,
@@ -34,6 +35,7 @@ class HistoryEntryList extends StatelessWidget {
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
+  final ValueChanged<HistoryEntry>? onDuplicate;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final bool isTrashView;
@@ -79,6 +81,7 @@ class HistoryEntryList extends StatelessWidget {
           onCopy: () => onCopy(entry),
           onPin: () => onPin(entry),
           onDelete: () => onDelete(entry),
+          onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
           multiSelectMode: multiSelectMode,
           isChecked: selectedIds.contains(entry.id),
           isTrashView: isTrashView,
