@@ -18,9 +18,12 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/config/settings_enums.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
 import '../path_service.dart';
 import 'smart_mode_engine.dart';
+import 'smart_mode_openai_engine.dart';
 
 final _log = AppLogger('SmartModeFfi');
 
@@ -154,6 +157,15 @@ class SmartModeFfiEngine implements SmartModeEngine {
 /// implementing [SmartModeEngine] instead of constructing a real
 /// [SmartModeFfiEngine] (which would `dlopen` a native library that doesn't
 /// exist in the test environment).
-final smartModeEngineProvider = Provider<SmartModeEngine>(
-  (ref) => SmartModeFfiEngine(),
-);
+///
+/// Selects local vs. cloud per [SmartModeSettings.provider] (ticket 06,
+/// ADR 0010: strict either-or, never both).
+final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
+  final providerType = SmartModeProviderType.fromValue(
+    ref.watch(settingsProvider).value?.smartMode.provider,
+  );
+  return switch (providerType) {
+    SmartModeProviderType.local => SmartModeFfiEngine(),
+    SmartModeProviderType.openAI => SmartModeOpenAiEngine(ref: ref),
+  };
+});

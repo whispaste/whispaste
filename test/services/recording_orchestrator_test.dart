@@ -4483,6 +4483,37 @@ void main() {
       expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
     });
 
+    test('cloud provider ("openai") ignores the local model-downloaded gate '
+        'entirely — the engine is still called even with no model installed '
+        '(ADR 0010: strict either-or, no auto-failover to local)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'cleanup',
+            provider: 'openai',
+          ),
+        ),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Cleaned via cloud.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, no local model, cloud selected';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(clipboardText, 'Cleaned via cloud.');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
     test('an engine failure (e.g. model load / decode error) falls back to '
         'the raw transcript and fires an OS notification — the paste is '
         'never blocked (ADR 0009)', () async {
