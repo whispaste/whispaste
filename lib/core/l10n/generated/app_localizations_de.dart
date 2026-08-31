@@ -2238,6 +2238,33 @@ class L10nDe extends L10n {
   String get historyDuplicated => 'Eintrag dupliziert';
 
   @override
+  String get historyViewRaw => 'Rohtext';
+
+  @override
+  String get historyViewEdited => 'Bearbeitet';
+
+  @override
+  String get historyApplySmartModePreset => 'Smart-Mode-Preset anwenden';
+
+  @override
+  String get historySmartModeApplied => 'Smart Mode angewendet';
+
+  @override
+  String get historySmartModeFailedModelMissing =>
+      'Smart-Mode-Modell nicht heruntergeladen';
+
+  @override
+  String get historySmartModeFailedTimeout =>
+      'Smart Mode hat zu lange gebraucht';
+
+  @override
+  String get historySmartModeFailedGeneric =>
+      'Smart Mode fehlgeschlagen — bitte erneut versuchen';
+
+  @override
+  String get historySmartModeSelectTargetLanguage => 'Zielsprache wählen';
+
+  @override
   String get historyAddNote => 'Anmerkung hinzufügen';
 
   @override

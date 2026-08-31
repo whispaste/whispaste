@@ -222,6 +222,17 @@ class $HistoryEntriesTable extends HistoryEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _smartModeEditedContentMeta =
+      const VerificationMeta('smartModeEditedContent');
+  @override
+  late final GeneratedColumn<String> smartModeEditedContent =
+      GeneratedColumn<String>(
+        'smart_mode_edited_content',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -242,6 +253,7 @@ class $HistoryEntriesTable extends HistoryEntries
     titleEdited,
     deletedAt,
     colorSlot,
+    smartModeEditedContent,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -376,6 +388,15 @@ class $HistoryEntriesTable extends HistoryEntries
         colorSlot.isAcceptableOrUnknown(data['color_slot']!, _colorSlotMeta),
       );
     }
+    if (data.containsKey('smart_mode_edited_content')) {
+      context.handle(
+        _smartModeEditedContentMeta,
+        smartModeEditedContent.isAcceptableOrUnknown(
+          data['smart_mode_edited_content']!,
+          _smartModeEditedContentMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -457,6 +478,10 @@ class $HistoryEntriesTable extends HistoryEntries
         DriftSqlType.int,
         data['${effectivePrefix}color_slot'],
       )!,
+      smartModeEditedContent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}smart_mode_edited_content'],
+      ),
     );
   }
 
@@ -492,6 +517,13 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   /// content category — the 9th slot, `WpCategorySlot.neutral`, is never a
   /// value here because there is no "uncategorized" case for this rotation.
   final int colorSlot;
+
+  /// Smart Mode's "current edited version" (v22, Smart-Mode-v2 ticket 05) —
+  /// overwritten in place by every preset application (live or retroactive),
+  /// never a version stack. `null` means no preset has ever been applied to
+  /// this entry; [content] (the raw transcript) is never touched by Smart
+  /// Mode and stays the source of truth for the "raw" view.
+  final String? smartModeEditedContent;
   const HistoryEntry({
     required this.id,
     required this.content,
@@ -511,6 +543,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     required this.titleEdited,
     this.deletedAt,
     required this.colorSlot,
+    this.smartModeEditedContent,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -535,6 +568,11 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['color_slot'] = Variable<int>(colorSlot);
+    if (!nullToAbsent || smartModeEditedContent != null) {
+      map['smart_mode_edited_content'] = Variable<String>(
+        smartModeEditedContent,
+      );
+    }
     return map;
   }
 
@@ -560,6 +598,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ? const Value.absent()
           : Value(deletedAt),
       colorSlot: Value(colorSlot),
+      smartModeEditedContent: smartModeEditedContent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(smartModeEditedContent),
     );
   }
 
@@ -589,6 +630,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       titleEdited: serializer.fromJson<bool>(json['titleEdited']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       colorSlot: serializer.fromJson<int>(json['colorSlot']),
+      smartModeEditedContent: serializer.fromJson<String?>(
+        json['smartModeEditedContent'],
+      ),
     );
   }
   @override
@@ -613,6 +657,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       'titleEdited': serializer.toJson<bool>(titleEdited),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'colorSlot': serializer.toJson<int>(colorSlot),
+      'smartModeEditedContent': serializer.toJson<String?>(
+        smartModeEditedContent,
+      ),
     };
   }
 
@@ -635,6 +682,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     bool? titleEdited,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? colorSlot,
+    Value<String?> smartModeEditedContent = const Value.absent(),
   }) => HistoryEntry(
     id: id ?? this.id,
     content: content ?? this.content,
@@ -654,6 +702,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     titleEdited: titleEdited ?? this.titleEdited,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     colorSlot: colorSlot ?? this.colorSlot,
+    smartModeEditedContent: smartModeEditedContent.present
+        ? smartModeEditedContent.value
+        : this.smartModeEditedContent,
   );
   HistoryEntry copyWithCompanion(HistoryEntriesCompanion data) {
     return HistoryEntry(
@@ -683,6 +734,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           : this.titleEdited,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       colorSlot: data.colorSlot.present ? data.colorSlot.value : this.colorSlot,
+      smartModeEditedContent: data.smartModeEditedContent.present
+          ? data.smartModeEditedContent.value
+          : this.smartModeEditedContent,
     );
   }
 
@@ -706,7 +760,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ..write('archived: $archived, ')
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('colorSlot: $colorSlot')
+          ..write('colorSlot: $colorSlot, ')
+          ..write('smartModeEditedContent: $smartModeEditedContent')
           ..write(')'))
         .toString();
   }
@@ -731,6 +786,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     titleEdited,
     deletedAt,
     colorSlot,
+    smartModeEditedContent,
   );
   @override
   bool operator ==(Object other) =>
@@ -753,7 +809,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           other.archived == this.archived &&
           other.titleEdited == this.titleEdited &&
           other.deletedAt == this.deletedAt &&
-          other.colorSlot == this.colorSlot);
+          other.colorSlot == this.colorSlot &&
+          other.smartModeEditedContent == this.smartModeEditedContent);
 }
 
 class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
@@ -775,6 +832,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
   final Value<bool> titleEdited;
   final Value<DateTime?> deletedAt;
   final Value<int> colorSlot;
+  final Value<String?> smartModeEditedContent;
   final Value<int> rowid;
   const HistoryEntriesCompanion({
     this.id = const Value.absent(),
@@ -795,6 +853,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.colorSlot = const Value.absent(),
+    this.smartModeEditedContent = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HistoryEntriesCompanion.insert({
@@ -816,6 +875,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.colorSlot = const Value.absent(),
+    this.smartModeEditedContent = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        timestamp = Value(timestamp);
@@ -838,6 +898,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Expression<bool>? titleEdited,
     Expression<DateTime>? deletedAt,
     Expression<int>? colorSlot,
+    Expression<String>? smartModeEditedContent,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -860,6 +921,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       if (titleEdited != null) 'title_edited': titleEdited,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (colorSlot != null) 'color_slot': colorSlot,
+      if (smartModeEditedContent != null)
+        'smart_mode_edited_content': smartModeEditedContent,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -883,6 +946,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Value<bool>? titleEdited,
     Value<DateTime?>? deletedAt,
     Value<int>? colorSlot,
+    Value<String?>? smartModeEditedContent,
     Value<int>? rowid,
   }) {
     return HistoryEntriesCompanion(
@@ -905,6 +969,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       titleEdited: titleEdited ?? this.titleEdited,
       deletedAt: deletedAt ?? this.deletedAt,
       colorSlot: colorSlot ?? this.colorSlot,
+      smartModeEditedContent:
+          smartModeEditedContent ?? this.smartModeEditedContent,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -968,6 +1034,11 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     if (colorSlot.present) {
       map['color_slot'] = Variable<int>(colorSlot.value);
     }
+    if (smartModeEditedContent.present) {
+      map['smart_mode_edited_content'] = Variable<String>(
+        smartModeEditedContent.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -995,6 +1066,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('colorSlot: $colorSlot, ')
+          ..write('smartModeEditedContent: $smartModeEditedContent, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5497,6 +5569,7 @@ typedef $$HistoryEntriesTableCreateCompanionBuilder =
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
       Value<int> colorSlot,
+      Value<String?> smartModeEditedContent,
       Value<int> rowid,
     });
 typedef $$HistoryEntriesTableUpdateCompanionBuilder =
@@ -5519,6 +5592,7 @@ typedef $$HistoryEntriesTableUpdateCompanionBuilder =
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
       Value<int> colorSlot,
+      Value<String?> smartModeEditedContent,
       Value<int> rowid,
     });
 
@@ -5685,6 +5759,11 @@ class $$HistoryEntriesTableFilterComposer
 
   ColumnFilters<int> get colorSlot => $composableBuilder(
     column: $table.colorSlot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get smartModeEditedContent => $composableBuilder(
+    column: $table.smartModeEditedContent,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5862,6 +5941,11 @@ class $$HistoryEntriesTableOrderingComposer
     column: $table.colorSlot,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get smartModeEditedContent => $composableBuilder(
+    column: $table.smartModeEditedContent,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HistoryEntriesTableAnnotationComposer
@@ -5934,6 +6018,11 @@ class $$HistoryEntriesTableAnnotationComposer
 
   GeneratedColumn<int> get colorSlot =>
       $composableBuilder(column: $table.colorSlot, builder: (column) => column);
+
+  GeneratedColumn<String> get smartModeEditedContent => $composableBuilder(
+    column: $table.smartModeEditedContent,
+    builder: (column) => column,
+  );
 
   Expression<T> entryNotesRefs<T extends Object>(
     Expression<T> Function($$EntryNotesTableAnnotationComposer a) f,
@@ -6063,6 +6152,7 @@ class $$HistoryEntriesTableTableManager
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> colorSlot = const Value.absent(),
+                Value<String?> smartModeEditedContent = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion(
                 id: id,
@@ -6083,6 +6173,7 @@ class $$HistoryEntriesTableTableManager
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
                 colorSlot: colorSlot,
+                smartModeEditedContent: smartModeEditedContent,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6105,6 +6196,7 @@ class $$HistoryEntriesTableTableManager
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> colorSlot = const Value.absent(),
+                Value<String?> smartModeEditedContent = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion.insert(
                 id: id,
@@ -6125,6 +6217,7 @@ class $$HistoryEntriesTableTableManager
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
                 colorSlot: colorSlot,
+                smartModeEditedContent: smartModeEditedContent,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -46,6 +46,13 @@ class HistoryEntries extends Table {
   /// value here because there is no "uncategorized" case for this rotation.
   IntColumn get colorSlot => integer().withDefault(const Constant(0))();
 
+  /// Smart Mode's "current edited version" (v22, Smart-Mode-v2 ticket 05) —
+  /// overwritten in place by every preset application (live or retroactive),
+  /// never a version stack. `null` means no preset has ever been applied to
+  /// this entry; [content] (the raw transcript) is never touched by Smart
+  /// Mode and stays the source of truth for the "raw" view.
+  TextColumn get smartModeEditedContent => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

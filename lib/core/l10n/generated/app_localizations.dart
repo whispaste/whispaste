@@ -3987,6 +3987,54 @@ abstract class L10n {
   /// **'Entry duplicated'**
   String get historyDuplicated;
 
+  /// No description provided for @historyViewRaw.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw'**
+  String get historyViewRaw;
+
+  /// Toggle label for the Smart Mode edited version of a history entry's transcript (ticket 05).
+  ///
+  /// In en, this message translates to:
+  /// **'Edited'**
+  String get historyViewEdited;
+
+  /// No description provided for @historyApplySmartModePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply Smart Mode preset'**
+  String get historyApplySmartModePreset;
+
+  /// No description provided for @historySmartModeApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode applied'**
+  String get historySmartModeApplied;
+
+  /// No description provided for @historySmartModeFailedModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode model not downloaded'**
+  String get historySmartModeFailedModelMissing;
+
+  /// No description provided for @historySmartModeFailedTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode timed out'**
+  String get historySmartModeFailedTimeout;
+
+  /// No description provided for @historySmartModeFailedGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode failed — please try again'**
+  String get historySmartModeFailedGeneric;
+
+  /// No description provided for @historySmartModeSelectTargetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select target language'**
+  String get historySmartModeSelectTargetLanguage;
+
   /// No description provided for @historyAddNote.
   ///
   /// In en, this message translates to:

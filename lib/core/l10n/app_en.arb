@@ -864,6 +864,17 @@
 
   "historyDuplicate": "Duplicate",
   "historyDuplicated": "Entry duplicated",
+  "historyViewRaw": "Raw",
+  "historyViewEdited": "Edited",
+  "@historyViewEdited": {
+    "description": "Toggle label for the Smart Mode edited version of a history entry's transcript (ticket 05)."
+  },
+  "historyApplySmartModePreset": "Apply Smart Mode preset",
+  "historySmartModeApplied": "Smart Mode applied",
+  "historySmartModeFailedModelMissing": "Smart Mode model not downloaded",
+  "historySmartModeFailedTimeout": "Smart Mode timed out",
+  "historySmartModeFailedGeneric": "Smart Mode failed — please try again",
+  "historySmartModeSelectTargetLanguage": "Select target language",
   "historyAddNote": "Add annotation",
   "historyEditNote": "Edit annotation",
   "@historyEditNote": {

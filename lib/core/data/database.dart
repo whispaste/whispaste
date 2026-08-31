@@ -106,7 +106,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -173,6 +173,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (from < 21) {
         await m.createTable(snippetFields);
         await _addSnippetKindColumn();
+      }
+      if (from < 22) {
+        await _addSmartModeEditedContentColumn();
       }
     },
     beforeOpen: (details) async {
@@ -520,6 +523,40 @@ class HistoryDatabase extends _$HistoryDatabase {
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
       debugPrint('[Migration] Could not add snippets kind column: $e');
+    }
+  }
+
+  /// Adds `smart_mode_edited_content` to `history_entries` if missing (v22
+  /// migration, Smart-Mode-v2 ticket 05). Additive and nullable: every
+  /// pre-existing row simply has no edited version yet (`null`) until a
+  /// Smart Mode preset is applied to it, live or retroactively.
+  @visibleForTesting
+  Future<void> addSmartModeEditedContentColumnForTesting() =>
+      _addSmartModeEditedContentColumn();
+
+  Future<void> _addSmartModeEditedContentColumn() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('smart_mode_edited_content')) {
+        debugPrint(
+          '[Migration] Adding column "smart_mode_edited_content" to '
+          'history_entries',
+        );
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN '
+          'smart_mode_edited_content TEXT',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not add history_entries '
+        'smart_mode_edited_content column: $e',
+      );
     }
   }
 
