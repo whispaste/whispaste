@@ -17,6 +17,7 @@ import '../core/data/database.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 /// Maximum tags shown when not in add mode.
 const _kMaxVisibleTags = 5;
