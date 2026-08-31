@@ -3,6 +3,13 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
+      "fingerprint": "52532a02ec4b5927",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1534,
+      "message": "2 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:1534, lib/core/recording/recording_state.dart:99"
+    },
+    {
       "fingerprint": "0d8af6732f8168ee",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",

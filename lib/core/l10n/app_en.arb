@@ -1539,5 +1539,14 @@
       "action": { "type": "String" }
     }
   },
-  "settingsSmartModeHotkeyInactive": "This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination."
+  "settingsSmartModeHotkeyInactive": "This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.",
+
+  "smartModeOnboardingHintTitle": "Try Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.",
+  "smartModeOnboardingHintDownloadCta": "Download",
+  "smartModeOnboardingHintSkipCta": "Skip",
+  "smartModeUsageHintTitle": "Try Smart Mode on your next dictation",
+  "smartModeUsageHintBody": "Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here's what you just dictated:",
+  "smartModeUsageHintCta": "Set up",
+  "smartModeUsageHintDismiss": "Not now"
 }

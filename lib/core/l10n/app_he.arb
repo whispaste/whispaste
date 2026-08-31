@@ -1321,5 +1321,14 @@
       "current": { "type": "int", "example": "3" },
       "total": { "type": "int", "example": "12" }
     }
-  }
+  },
+
+  "smartModeOnboardingHintTitle": "נסה את Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט המוכתב שלך אוטומטית — לגמרי במכשיר שלך. הורד את המודל המקומי עכשיו, או הגדר אותו מאוחר יותר בהגדרות.",
+  "smartModeOnboardingHintDownloadCta": "הורדה",
+  "smartModeOnboardingHintSkipCta": "דלג",
+  "smartModeUsageHintTitle": "נסה את Smart Mode בהכתבה הבאה שלך",
+  "smartModeUsageHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם טקסט כזה אוטומטית, ישירות במכשיר שלך. הנה מה שהכתבת הרגע:",
+  "smartModeUsageHintCta": "הגדרה",
+  "smartModeUsageHintDismiss": "לא עכשיו"
 }

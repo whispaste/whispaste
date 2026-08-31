@@ -1402,6 +1402,7 @@ class OnboardingSettings {
     this.onboardingFlowVersion = 0,
     this.onboardingContentVersion = 0,
     this.seenFeatureSpotlightIds = '',
+    this.smartModeUsageHintShown = false,
   });
 
   final bool onboardingCompleted;
@@ -1447,6 +1448,14 @@ class OnboardingSettings {
   /// it stays pending behind onboarding, a manual review, or a revision run.
   final String seenFeatureSpotlightIds;
 
+  /// Whether the one-time, post-usage Smart Mode discovery hint (ticket 08
+  /// of `.scratch/smart-mode-v2/`) has already been shown. Shown at most
+  /// once, regardless of user action, to users who have not engaged with
+  /// Smart Mode (standard preset still `off`) after their first completed
+  /// recording — covers both onboarding-skippers and pre-existing users who
+  /// onboarded before this feature shipped.
+  final bool smartModeUsageHintShown;
+
   static const OnboardingSettings defaults = OnboardingSettings();
 
   factory OnboardingSettings.fromMap(Map<String, String> v) =>
@@ -1478,6 +1487,11 @@ class OnboardingSettings {
         ),
         seenFeatureSpotlightIds:
             v['seen_feature_spotlight_ids'] ?? defaults.seenFeatureSpotlightIds,
+        smartModeUsageHintShown: _readBool(
+          v,
+          'smart_mode_usage_hint_shown',
+          defaults.smartModeUsageHintShown,
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -1487,6 +1501,7 @@ class OnboardingSettings {
     'onboarding_flow_version': '$onboardingFlowVersion',
     'onboarding_content_version': '$onboardingContentVersion',
     'seen_feature_spotlight_ids': seenFeatureSpotlightIds,
+    'smart_mode_usage_hint_shown': '$smartModeUsageHintShown',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -1500,6 +1515,7 @@ class OnboardingSettings {
     int? onboardingFlowVersion,
     int? onboardingContentVersion,
     String? seenFeatureSpotlightIds,
+    bool? smartModeUsageHintShown,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
@@ -1510,6 +1526,8 @@ class OnboardingSettings {
         onboardingContentVersion ?? this.onboardingContentVersion,
     seenFeatureSpotlightIds:
         seenFeatureSpotlightIds ?? this.seenFeatureSpotlightIds,
+    smartModeUsageHintShown:
+        smartModeUsageHintShown ?? this.smartModeUsageHintShown,
   );
 
   @override
@@ -1521,7 +1539,8 @@ class OnboardingSettings {
           onboardingCurrentStep == other.onboardingCurrentStep &&
           onboardingFlowVersion == other.onboardingFlowVersion &&
           onboardingContentVersion == other.onboardingContentVersion &&
-          seenFeatureSpotlightIds == other.seenFeatureSpotlightIds;
+          seenFeatureSpotlightIds == other.seenFeatureSpotlightIds &&
+          smartModeUsageHintShown == other.smartModeUsageHintShown;
 
   @override
   int get hashCode => Object.hash(
@@ -1531,6 +1550,7 @@ class OnboardingSettings {
     onboardingFlowVersion,
     onboardingContentVersion,
     seenFeatureSpotlightIds,
+    smartModeUsageHintShown,
   );
 }
 

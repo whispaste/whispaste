@@ -1341,5 +1341,14 @@
       "action": { "type": "String" }
     }
   },
-  "settingsSmartModeHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination."
+  "settingsSmartModeHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.",
+
+  "smartModeOnboardingHintTitle": "Smart Mode ausprobieren",
+  "smartModeOnboardingHintBody": "Smart Mode kann deinen diktierten Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Lade das lokale Modell jetzt herunter oder richte es später in den Einstellungen ein.",
+  "smartModeOnboardingHintDownloadCta": "Herunterladen",
+  "smartModeOnboardingHintSkipCta": "Überspringen",
+  "smartModeUsageHintTitle": "Smart Mode bei deinem nächsten Diktat ausprobieren",
+  "smartModeUsageHintBody": "Smart Mode kann Text wie diesen automatisch bereinigen, kürzen oder übersetzen — direkt auf deinem Gerät. Das hast du gerade diktiert:",
+  "smartModeUsageHintCta": "Einrichten",
+  "smartModeUsageHintDismiss": "Nicht jetzt"
 }
