@@ -2,13 +2,58 @@
 ///
 /// Mirrors [SmartModeSettings.standardPreset]'s four string values ('off',
 /// 'cleanup', 'concise', 'translate') as a proper enum for callers that run
-/// the engine. Only [cleanup] has a live prompt today (ticket 02) — Concise
-/// and Translate are wired up by later tickets (03+); selecting them as the
-/// standard preset today is a no-op until then.
+/// the engine.
 library;
 
 /// The four values ticket 01's `SmartModeSettings.standardPreset` accepts.
 enum SmartModePreset { off, cleanup, concise, translate }
+
+/// The seven official Smart-Mode-Translate target languages
+/// (PRODUCT-SPEC §5), modeled generically so the pipeline and settings
+/// schema need no changes as later languages clear their ticket-09
+/// validation spike. [languageName] is the English name embedded in the
+/// translation prompt (kept in English regardless of app UI locale — the
+/// model was validated against English-worded prompts, ADR 0006).
+enum SmartModeTargetLanguage {
+  german('de', 'German'),
+  english('en', 'English'),
+  spanish('es', 'Spanish'),
+  french('fr', 'French'),
+  portuguese('pt', 'Portuguese'),
+  mandarin('zh', 'Mandarin Chinese'),
+  russian('ru', 'Russian');
+
+  const SmartModeTargetLanguage(this.code, this.languageName);
+
+  /// ISO 639-1 code — matches [SmartModeSettings.targetLanguage]'s stored
+  /// value.
+  final String code;
+
+  /// English name of the language, used in [smartModeTranslateSystemPrompt].
+  final String languageName;
+}
+
+/// The subset of [SmartModeTargetLanguage] that has passed its ticket-09
+/// validation spike and may be shown as a choosable option in the UI.
+/// German is validated as part of ticket 03 (18-sentence batch test,
+/// `spike-test-results.md`) — the other six are gated behind their own
+/// spike in ticket 09 and are deliberately absent here, not just hidden, so
+/// a settings value of e.g. `zh` from a future build downgrading to this one
+/// falls back safely (see [smartModeTargetLanguageFromSettingsValue]).
+const List<SmartModeTargetLanguage> smartModeValidatedTargetLanguages = [
+  SmartModeTargetLanguage.german,
+];
+
+/// Parses a [SmartModeSettings.targetLanguage] code into a
+/// [SmartModeTargetLanguage], defaulting to [SmartModeTargetLanguage.german]
+/// for any unrecognized or not-yet-validated code (forward/backward
+/// compatibility, and the only currently-validated language).
+SmartModeTargetLanguage smartModeTargetLanguageFromSettingsValue(String value) {
+  for (final lang in smartModeValidatedTargetLanguages) {
+    if (lang.code == value) return lang;
+  }
+  return SmartModeTargetLanguage.german;
+}
 
 /// Parses a [SmartModeSettings.standardPreset] string into a [SmartModePreset],
 /// defaulting to [SmartModePreset.off] for any unrecognized value (forward
@@ -40,4 +85,28 @@ const String smartModeCleanupSystemPrompt =
     '"like"), and fix punctuation and capitalization. Do not change the '
     'content, wording, or meaning, and do not translate it — keep the exact '
     'same language as the input. Output ONLY the cleaned text, no '
+    'explanation.';
+
+/// System prompt for [SmartModePreset.concise].
+///
+/// Same language-neutrality rationale as [smartModeCleanupSystemPrompt] —
+/// explicitly forbids translating so a non-English dictation is shortened in
+/// place rather than shortened-and-translated.
+const String smartModeConciseSystemPrompt =
+    'Shorten this dictated text: remove redundancy and filler while '
+    'preserving the core meaning and every important fact. Do not translate '
+    'it — keep the exact same language as the input. Output ONLY the '
+    'shortened text, no explanation.';
+
+/// System prompt for [SmartModePreset.translate] into [target].
+///
+/// Accepts dictation in any source language (the model detects it from the
+/// input, no separate source-language setting exists — PRODUCT-SPEC §5) and
+/// translates into [target]. The known lexical-bias model limit for certain
+/// source/target pairs is an accepted constraint, not handled here (ADR
+/// 0006).
+String smartModeTranslateSystemPrompt(SmartModeTargetLanguage target) =>
+    'Translate this dictated text into ${target.languageName}. If it is '
+    'already in ${target.languageName}, return it unchanged (only fix '
+    'obvious dictation artifacts). Output ONLY the translated text, no '
     'explanation.';

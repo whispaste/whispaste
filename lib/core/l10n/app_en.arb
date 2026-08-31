@@ -1508,6 +1508,8 @@
   "smartModePresetCleanup": "Cleanup",
   "smartModePresetConcise": "Concise",
   "smartModePresetTranslate": "Translate",
+  "smartModeTargetLanguage": "Target language",
+  "smartModeTargetLanguageGerman": "German",
   "smartModeDownload": "Download",
   "smartModeDownloadComplete": "Smart Mode model ready to use",
   "smartModeRamWarningTitle": "Limited memory detected",

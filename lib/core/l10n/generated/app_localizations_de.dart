@@ -3779,6 +3779,12 @@ class L10nDe extends L10n {
   String get smartModePresetTranslate => 'Translate';
 
   @override
+  String get smartModeTargetLanguage => 'Zielsprache';
+
+  @override
+  String get smartModeTargetLanguageGerman => 'Deutsch';
+
+  @override
   String get smartModeDownload => 'Herunterladen';
 
   @override

@@ -39,6 +39,7 @@ import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeEngineProvider;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
@@ -4553,19 +4554,119 @@ void main() {
       expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
     });
 
-    test('standard preset "concise" is a no-op until its own ticket wires it '
-        'up — the transcript passes through unchanged', () async {
+    test('standard preset "concise" with a downloaded model replaces the '
+        'pasted text with the shortened engine result', () async {
       container.dispose();
       container = buildSmartModeContainer(settingsWithPreset('concise'));
       await container.read(settingsProvider.future);
       container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Shortened text.';
 
       final orch = await startRecordingPhase();
-      fakeStt.transcriptToReturn = 'raw text, concise not implemented yet';
+      fakeStt.transcriptToReturn = 'raw text with lots of redundant filler';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeConciseSystemPrompt,
+      );
+      expect(clipboardText, 'Shortened text.');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('standard preset "concise" but no model downloaded falls back to the '
+        'raw transcript and fires an OS notification', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        settingsWithPreset('concise'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model missing';
       await orch.stopRecording();
 
       expect(fakeSmartModeEngine.runCalls, 0);
-      expect(clipboardText, 'raw text, concise not implemented yet');
+      expect(clipboardText, 'raw text, model missing');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('standard preset "translate" with the default (German) target '
+        'language replaces the pasted text with the translated engine '
+        'result', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('translate'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Übersetzter Text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text in some language';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.german),
+      );
+      expect(clipboardText, 'Übersetzter Text.');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('standard preset "translate" but no model downloaded falls back to '
+        'the raw transcript and fires an OS notification', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        settingsWithPreset('translate'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model missing';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'raw text, model missing');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('an unrecognized/not-yet-validated target-language settings value '
+        'falls back to German rather than crashing (ticket-09 forward '
+        'compatibility)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'translate',
+            targetLanguage: 'zh',
+          ),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Übersetzter Text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text';
+      await orch.stopRecording();
+
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.german),
+      );
+      expect(clipboardText, 'Übersetzter Text.');
     });
   });
 }

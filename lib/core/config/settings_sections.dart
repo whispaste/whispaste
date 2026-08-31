@@ -1851,7 +1851,10 @@ class SettingsAutosaveSettings {
 /// 04, local/cloud provider choice in ticket 06) is added by those tickets as
 /// their own fields on this same section, not restructured in here.
 class SmartModeSettings {
-  const SmartModeSettings({this.standardPreset = 'off'});
+  const SmartModeSettings({
+    this.standardPreset = 'off',
+    this.targetLanguage = 'de',
+  });
 
   /// One of `off` / `cleanup` / `concise` / `translate`. Defaults to `off` —
   /// an update to an existing installation must not change dictation
@@ -1859,29 +1862,54 @@ class SmartModeSettings {
   /// requirement, ticket 01).
   final String standardPreset;
 
+  /// Standard target language for the [translate] preset, as an ISO 639-1
+  /// code. Applies to both live paths that can trigger Translate (the
+  /// standard preset here, and the Smart-Mode hotkey added by ticket 04) —
+  /// there is no per-invocation language picker (PRODUCT-SPEC §5, neither
+  /// live path has a selection moment).
+  ///
+  /// Ticket 03 validates only `de` (German) — the other six official target
+  /// languages (en/es/fr/pt/zh/ru) are modeled here so the pipeline and this
+  /// field are generic, but ticket 09 gates each one's UI visibility behind
+  /// its own validation spike before it can actually be chosen. Defaults to
+  /// `de` for parity with the only currently-validated language; harmless
+  /// while `standardPreset` defaults to `off`.
+  final String targetLanguage;
+
   static const SmartModeSettings defaults = SmartModeSettings();
 
   factory SmartModeSettings.fromMap(Map<String, String> v) => SmartModeSettings(
     standardPreset: v['smart_mode_standard_preset'] ?? defaults.standardPreset,
+    targetLanguage: v['smart_mode_target_language'] ?? defaults.targetLanguage,
   );
 
-  Map<String, String> toMap() => {'smart_mode_standard_preset': standardPreset};
+  Map<String, String> toMap() => {
+    'smart_mode_standard_preset': standardPreset,
+    'smart_mode_target_language': targetLanguage,
+  };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
   // shares this exact copyWith(field: field ?? this.field, ...) shape by
   // deliberate convention (see the SttSettings comment above and the other
   // section classes in this file); it is established repo-wide boilerplate,
   // not accidental duplication.
-  SmartModeSettings copyWith({String? standardPreset}) =>
-      SmartModeSettings(standardPreset: standardPreset ?? this.standardPreset);
+  SmartModeSettings copyWith({
+    String? standardPreset,
+    String? targetLanguage,
+  }) => SmartModeSettings(
+    standardPreset: standardPreset ?? this.standardPreset,
+    targetLanguage: targetLanguage ?? this.targetLanguage,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SmartModeSettings && standardPreset == other.standardPreset;
+      other is SmartModeSettings &&
+          standardPreset == other.standardPreset &&
+          targetLanguage == other.targetLanguage;
 
   @override
-  int get hashCode => standardPreset.hashCode;
+  int get hashCode => Object.hash(standardPreset, targetLanguage);
 }
 
 // ===========================================================================

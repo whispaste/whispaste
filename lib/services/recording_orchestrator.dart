@@ -911,10 +911,17 @@ class RecordingOrchestrator extends Notifier<void> {
     // the guided test-recording step would be a confusing false alarm, and
     // "off" (the factory default, ticket 01) is a pure no-op path so this
     // whole block never runs for a recording with no active preset.
-    if (sandboxTranscriptSink == null &&
-        smartModePresetFromSettingsValue(settings.smartMode.standardPreset) ==
-            SmartModePreset.cleanup) {
-      finalText = await _runSmartModeCleanup(sid, finalText, runner);
+    final activePreset = smartModePresetFromSettingsValue(
+      settings.smartMode.standardPreset,
+    );
+    if (sandboxTranscriptSink == null && activePreset != SmartModePreset.off) {
+      finalText = await _runSmartModeRefine(
+        sid,
+        finalText,
+        runner,
+        activePreset,
+        settings,
+      );
     }
 
     // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
@@ -1053,24 +1060,42 @@ class RecordingOrchestrator extends Notifier<void> {
   @visibleForTesting
   static Duration? smartModeCleanupTimeoutOverride;
 
-  /// Runs the Smart Mode Cleanup preset over [rawText] and returns the
-  /// result — or [rawText] unchanged on any failure (model missing, load
-  /// error, decode error, timeout), firing a clearly-visible OS notification
-  /// in that case. Smart Mode never blocks the paste (ADR 0009): the caller
-  /// always gets a usable string back, never a thrown exception.
-  Future<String> _runSmartModeCleanup(
+  /// Runs the active Smart Mode preset ([SmartModePreset.cleanup],
+  /// [SmartModePreset.concise], or [SmartModePreset.translate]) over
+  /// [rawText] and returns the result — or [rawText] unchanged on any
+  /// failure (model missing, load error, decode error, timeout, blank
+  /// result), firing a clearly-visible OS notification in that case. Smart
+  /// Mode never blocks the paste (ADR 0009): the caller always gets a usable
+  /// string back, never a thrown exception. [preset] is never
+  /// [SmartModePreset.off] — the caller already filters that out.
+  Future<String> _runSmartModeRefine(
     String sid,
     String rawText,
     PipelineStepRunner runner,
+    SmartModePreset preset,
+    AppSettings settings,
   ) async {
     if (!ref.read(smartModeDownloadProvider).modelDownloaded) {
       _log.info(
-        '[$sid] Smart Mode Cleanup selected but model not downloaded — '
+        '[$sid] Smart Mode $preset selected but model not downloaded — '
         'falling back to raw transcript',
       );
       _notifySmartModeFallback();
       return rawText;
     }
+
+    final systemPrompt = switch (preset) {
+      SmartModePreset.cleanup => smartModeCleanupSystemPrompt,
+      SmartModePreset.concise => smartModeConciseSystemPrompt,
+      SmartModePreset.translate => smartModeTranslateSystemPrompt(
+        smartModeTargetLanguageFromSettingsValue(
+          settings.smartMode.targetLanguage,
+        ),
+      ),
+      SmartModePreset.off => throw StateError(
+        '_runSmartModeRefine called with preset off',
+      ),
+    };
 
     _stateMachine.transition(
       RecordingIntent.startRefining,
@@ -1078,10 +1103,10 @@ class RecordingOrchestrator extends Notifier<void> {
     );
 
     final result = await runner.run<String>(
-      'smart_mode_cleanup',
+      'smart_mode_refine',
       () => ref
           .read(smartModeEngineProvider)
-          .run(systemPrompt: smartModeCleanupSystemPrompt, userText: rawText),
+          .run(systemPrompt: systemPrompt, userText: rawText),
       timeout: smartModeCleanupTimeoutOverride ?? _smartModeCleanupTimeout,
     );
 
@@ -1091,21 +1116,21 @@ class RecordingOrchestrator extends Notifier<void> {
           // A blank/whitespace-only response is treated as a failure — never
           // silently paste an empty string where the user dictated real
           // content.
-          _log.warning('[$sid] Smart Mode Cleanup returned empty result');
+          _log.warning('[$sid] Smart Mode $preset returned empty result');
           _notifySmartModeFallback();
           return rawText;
         }
-        _log.debug('[$sid] Smart Mode Cleanup succeeded');
+        _log.debug('[$sid] Smart Mode $preset succeeded');
         return value;
       case StepTimeout():
         _log.warning(
-          '[$sid] Smart Mode Cleanup timed out after '
+          '[$sid] Smart Mode $preset timed out after '
           '${_smartModeCleanupTimeout.inSeconds}s',
         );
         _notifySmartModeFallback();
         return rawText;
       case FailedWith(:final error):
-        _log.warning('[$sid] Smart Mode Cleanup failed: $error');
+        _log.warning('[$sid] Smart Mode $preset failed: $error');
         _notifySmartModeFallback();
         return rawText;
     }
@@ -1125,7 +1150,7 @@ class RecordingOrchestrator extends Notifier<void> {
             kind: AttentionKind.smartModeFallback,
             title: 'WhisPaste: Smart Mode übersprungen',
             body:
-                'Cleanup konnte nicht angewendet werden — der unbearbeitete Text wurde trotzdem eingefügt.',
+                'Die Nachbearbeitung konnte nicht angewendet werden — der unbearbeitete Text wurde trotzdem eingefügt.',
           ),
     );
   }

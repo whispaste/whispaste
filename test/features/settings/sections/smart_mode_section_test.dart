@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/settings/sections/smart_mode_section.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 
@@ -119,6 +120,44 @@ void main() {
       expect(find.text('Download'), findsNothing);
       expect(find.textContaining(smartModeModel.label), findsOneWidget);
     });
+
+    testWidgets(
+      'target-language row is hidden unless preset is Translate (ticket 03)',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SmartModeSection()),
+            overrides: _overrides(settings: notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Target language'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'selecting Translate reveals the target-language row, currently '
+      'German-only (ticket 03; other languages gated behind ticket 09)',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            smartMode: const SmartModeSettings(standardPreset: 'translate'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SmartModeSection()),
+            overrides: _overrides(settings: notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Target language'), findsOneWidget);
+        expect(find.text('German'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows progress bar while downloading', (tester) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
