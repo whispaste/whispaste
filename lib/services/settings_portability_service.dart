@@ -194,6 +194,10 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Ticket 03 of `.scratch/smart-mode-v2/` — same rationale as the preset
   // above.
   'smart_mode_target_language',
+  // Ticket 06 of `.scratch/smart-mode-v2/` — local/cloud engine choice, same
+  // rationale as the preset above. The OpenAI API key itself lives in secure
+  // storage (shared with Cloud STT) and is never portable, by design.
+  'smart_mode_provider',
   // Ticket 04 of `.scratch/smart-mode-v2/`: fourth, independently
   // configurable hotkey (bound to one preset) — same portability rationale
   // as 'hotkey_*'/'quick_note_hotkey_*'/'snippet_picker_hotkey_*' above.

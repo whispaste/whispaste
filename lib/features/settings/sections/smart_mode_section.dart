@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
@@ -36,14 +37,32 @@ const int kSmartModeRamWarningThresholdMB = 8192;
 
 const List<String> _kPresets = ['off', 'cleanup', 'concise', 'translate'];
 
-class SmartModeSection extends ConsumerWidget {
+class SmartModeSection extends ConsumerStatefulWidget {
   const SmartModeSection({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SmartModeSection> createState() => _SmartModeSectionState();
+}
+
+class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
+  final _apiKeyCtrl = TextEditingController();
+  bool _showKey = false;
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final download = ref.watch(smartModeDownloadProvider);
+    final isLocal = SmartModeProviderType.fromValue(
+      settings.smartMode.provider,
+    ).isLocal;
+    if (!isLocal) syncController(_apiKeyCtrl, settings.openAiApiKey);
 
     ref.listen<SmartModeDownloadState>(smartModeDownloadProvider, (
       previous,
@@ -101,6 +120,46 @@ class SmartModeSection extends ConsumerWidget {
               },
             ),
           ),
+          const SizedBox(height: WpSpacing.md),
+          SettingRow(
+            icon: LucideIcons.cpu,
+            label: l10n.settingsService,
+            trailing: settingsDropdown(
+              context: context,
+              value: SmartModeProviderType.fromValue(
+                settings.smartMode.provider,
+              ).value,
+              items: SmartModeProviderType.values.map((e) => e.value).toList(),
+              labels: [l10n.settingsServiceOnDevicePrivate, 'OpenAI'],
+              onChanged: (v) {
+                if (v == null) return;
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        smartMode: s.smartMode.copyWith(provider: v),
+                      ),
+                    );
+              },
+            ),
+          ),
+          if (!isLocal) ...[
+            const SizedBox(height: WpSpacing.xs),
+            SettingRow(
+              icon: LucideIcons.keyRound,
+              label: l10n.settingsOpenAiApiKey,
+              trailing: settingsApiKeyField(
+                context: context,
+                controller: _apiKeyCtrl,
+                obscure: !_showKey,
+                onToggle: () => setState(() => _showKey = !_showKey),
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(openAiApiKey: v)),
+                semanticLabel: l10n.settingsOpenAiApiKey,
+              ),
+            ),
+          ],
           if (settings.smartMode.standardPreset == 'translate') ...[
             const SizedBox(height: WpSpacing.md),
             SettingRow(
@@ -130,8 +189,10 @@ class SmartModeSection extends ConsumerWidget {
               ),
             ),
           ],
-          const SizedBox(height: WpSpacing.md),
-          _ModelDownloadRow(download: download, l10n: l10n),
+          if (isLocal) ...[
+            const SizedBox(height: WpSpacing.md),
+            _ModelDownloadRow(download: download, l10n: l10n),
+          ],
           _SmartModeHotkeyBlock(settings: settings),
         ],
       ),

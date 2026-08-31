@@ -1091,7 +1091,16 @@ class RecordingOrchestrator extends Notifier<void> {
     SmartModePreset preset,
     AppSettings settings,
   ) async {
-    if (!ref.read(smartModeDownloadProvider).modelDownloaded) {
+    final provider = SmartModeProviderType.fromValue(
+      settings.smartMode.provider,
+    );
+    // Strict either-or (ADR 0010): the local-model-downloaded gate only
+    // applies to the local provider. Cloud never falls back to a locally
+    // installed model even if one exists — a missing/invalid API key or a
+    // network failure surfaces as the same silent-fallback path below, via
+    // the engine itself throwing.
+    if (provider.isLocal &&
+        !ref.read(smartModeDownloadProvider).modelDownloaded) {
       _log.info(
         '[$sid] Smart Mode $preset selected but model not downloaded — '
         'falling back to raw transcript',

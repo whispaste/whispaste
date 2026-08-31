@@ -1874,6 +1874,7 @@ class SmartModeSettings {
   const SmartModeSettings({
     this.standardPreset = 'off',
     this.targetLanguage = 'de',
+    this.provider = 'local',
   });
 
   /// One of `off` / `cleanup` / `concise` / `translate`. Defaults to `off` —
@@ -1896,16 +1897,23 @@ class SmartModeSettings {
   /// while `standardPreset` defaults to `off`.
   final String targetLanguage;
 
+  /// Local-vs-cloud engine selection, as a [SmartModeProviderType.value].
+  /// Strict either-or per ADR 0010 — never both at once, no per-preset mix.
+  /// Defaults to `local`.
+  final String provider;
+
   static const SmartModeSettings defaults = SmartModeSettings();
 
   factory SmartModeSettings.fromMap(Map<String, String> v) => SmartModeSettings(
     standardPreset: v['smart_mode_standard_preset'] ?? defaults.standardPreset,
     targetLanguage: v['smart_mode_target_language'] ?? defaults.targetLanguage,
+    provider: v['smart_mode_provider'] ?? defaults.provider,
   );
 
   Map<String, String> toMap() => {
     'smart_mode_standard_preset': standardPreset,
     'smart_mode_target_language': targetLanguage,
+    'smart_mode_provider': provider,
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -1916,9 +1924,11 @@ class SmartModeSettings {
   SmartModeSettings copyWith({
     String? standardPreset,
     String? targetLanguage,
+    String? provider,
   }) => SmartModeSettings(
     standardPreset: standardPreset ?? this.standardPreset,
     targetLanguage: targetLanguage ?? this.targetLanguage,
+    provider: provider ?? this.provider,
   );
 
   @override
@@ -1926,10 +1936,11 @@ class SmartModeSettings {
       identical(this, other) ||
       other is SmartModeSettings &&
           standardPreset == other.standardPreset &&
-          targetLanguage == other.targetLanguage;
+          targetLanguage == other.targetLanguage &&
+          provider == other.provider;
 
   @override
-  int get hashCode => Object.hash(standardPreset, targetLanguage);
+  int get hashCode => Object.hash(standardPreset, targetLanguage, provider);
 }
 
 // ===========================================================================
