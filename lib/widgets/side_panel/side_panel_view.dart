@@ -30,6 +30,7 @@ class WpSidePanelView extends StatefulWidget {
     required this.snapshot,
     required this.onRowTap,
     required this.onClose,
+    this.onRowDragStart,
   });
 
   final SidePanelSnapshot snapshot;
@@ -38,6 +39,12 @@ class WpSidePanelView extends StatefulWidget {
   /// Asks the owner to close the panel -- wired to the same
   /// `hoverLeft` path the hover-exit close already uses.
   final VoidCallback onClose;
+
+  /// Fires once a row's drag gesture has been recognized (issue 11) -- null
+  /// in tests/contexts that don't care about drag-out, in which case rows
+  /// stay click-only.
+  final void Function(SidePanelSection section, SidePanelRow row)?
+  onRowDragStart;
 
   @override
   State<WpSidePanelView> createState() => _WpSidePanelViewState();
@@ -242,6 +249,10 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                               row: row,
                               leadingIcon: iconOf(_selected),
                               onTap: () => widget.onRowTap(_selected, row.id),
+                              onDragStart: widget.onRowDragStart == null
+                                  ? null
+                                  : () =>
+                                        widget.onRowDragStart!(_selected, row),
                             ),
                         ],
                       ),

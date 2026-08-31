@@ -19,6 +19,7 @@ class WpSidePanelRowTile extends StatefulWidget {
     required this.row,
     required this.leadingIcon,
     required this.onTap,
+    this.onDragStart,
   });
 
   final SidePanelRow row;
@@ -28,6 +29,24 @@ class WpSidePanelRowTile extends StatefulWidget {
   final IconData leadingIcon;
 
   final VoidCallback onTap;
+
+  /// Fires once a pointer that pressed down on this row has moved
+  /// predominantly *horizontally* past Flutter's drag threshold (issue 11).
+  /// Horizontal, not [GestureDetector.onPanStart]/any-direction: the panel
+  /// sits flush against the screen's left edge, so dragging a row *out* of
+  /// it and into another app's window is inherently a horizontal gesture,
+  /// while a *vertical* drag on a row is what the surrounding row list's own
+  /// `ListView` needs for scrolling. A `HorizontalDragGestureRecognizer`
+  /// never enters gesture-arena competition with the list's
+  /// `VerticalDragGestureRecognizer` (each only self-accepts once movement
+  /// is dominantly its own axis), so this row starting a native drag can
+  /// never also swallow the list's scroll gesture. Wiring both `onTap` and
+  /// this on the same [GestureDetector] cannot cause a click to also fire a
+  /// drag or vice versa either -- tap and horizontal-drag are separate
+  /// recognizer families that the arena still resolves correctly against
+  /// each other. Null keeps a row click-only (no native drag session
+  /// started for it).
+  final VoidCallback? onDragStart;
 
   @override
   State<WpSidePanelRowTile> createState() => _WpSidePanelRowTileState();
@@ -48,6 +67,9 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
+          onHorizontalDragStart: widget.onDragStart == null
+              ? null
+              : (_) => widget.onDragStart!(),
           child: WpListTileSurface(
             variant: WpListTileVariant.panel,
             isHovered: _isHovered,

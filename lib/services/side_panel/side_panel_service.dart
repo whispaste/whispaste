@@ -166,11 +166,13 @@ class SidePanelService
             id: e.id,
             title: e.title.isNotEmpty ? e.title : e.content,
             subtitle: _timeLabel(e.timestamp),
+            content: e.content,
             colorSlot: e.colorSlot,
           ),
       ],
       snippets: [
-        for (final s in snippets) SidePanelRow(id: s.id, title: s.title),
+        for (final s in snippets)
+          SidePanelRow(id: s.id, title: s.title, content: s.body),
       ],
       clipboardHistory: [
         for (final entry in _clipboardEntries.entries)
@@ -188,7 +190,8 @@ class SidePanelService
         imageBytes: entry.imageBytes,
       );
     }
-    return SidePanelRow(id: id, title: entry.textValue ?? '');
+    final text = entry.textValue ?? '';
+    return SidePanelRow(id: id, title: text, content: text);
   }
 
   static String _timeLabel(DateTime t) =>

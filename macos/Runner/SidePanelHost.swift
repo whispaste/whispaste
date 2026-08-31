@@ -39,6 +39,22 @@ import os.log
 /// instead of) the Dart-driven `hoverLeft` relay: both converge on the same
 /// public-channel call, so firing twice is a harmless no-op in
 /// `SidePanelService.close()`.
+/// Minimal `NSDraggingSource` for the row drag-out gesture (issue 11).
+///
+/// Plain `.copy`-only source -- the panel's own row list is never itself a
+/// drop target, so no local-vs-external distinction (`context == .withinApplication`) is
+/// needed. A separate `NSObject` subclass rather than making [SidePanelHost]
+/// itself conform: `NSDraggingSource` is an `@objc` protocol, which would
+/// require [SidePanelHost] to inherit `NSObject` for no other reason.
+private final class SidePanelDragSource: NSObject, NSDraggingSource {
+  func draggingSession(
+    _ session: NSDraggingSession,
+    sourceOperationMaskFor context: NSDraggingContext
+  ) -> NSDragOperation {
+    .copy
+  }
+}
+
 private final class SidePanelContentHoverTracker: NSResponder {
   let onEntered: () -> Void
   let onExited: () -> Void
@@ -112,6 +128,7 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   private var latestSnapshotArgs: [String: Any]?
   private var contentHoverTracker: SidePanelContentHoverTracker?
   private var nativeCloseTimer: Timer?
+  private let dragSource = SidePanelDragSource()
 
   /// Window during which the edge sensor strips ignore hover events --
   /// armed by [beginActivationSettleWindow] right before every app-
@@ -163,8 +180,8 @@ class SidePanelHost: NSObject, NSWindowDelegate {
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "com.whispaste.side_panel", binaryMessenger: messenger)
-    super.init()
     channel.setMethodCallHandler(handle)
+    super.init()
     rebuildSensors()
     screenObserver = NotificationCenter.default.addObserver(
       forName: NSApplication.didChangeScreenParametersNotification,
@@ -173,6 +190,34 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     ) { [weak self] _ in
       self?.rebuildSensors()
     }
+  }
+
+  // MARK: - NSWindowDelegate
+
+  /// Focus leaving the panel via click/keyboard (not mouse motion) is not
+  /// caught by [SidePanelContentHoverTracker]/[SidePanelSensorView] at all --
+  /// those only see the pointer crossing a tracking area, which never fires
+  /// if the user switches away (e.g. Cmd+Tab, or clicking another app's
+  /// window with the pointer already resting on the panel from a prior
+  /// hover) without moving the mouse off the panel afterwards. That left the
+  /// panel open until the user *happened* to later move the pointer away --
+  /// exactly the "fährt nicht zuverlässig/zeitnah ein, wenn der Fokus nicht
+  /// mehr darauf liegt" report. `SnippetPickerHost` already closes on
+  /// `windowDidResignKey` for the same reason; this mirrors that.
+  ///
+  /// Guarded by [suppressSensorEvents] for the same self-inflicted-resign
+  /// race `beginActivationSettleWindow` already exists to filter: both
+  /// `activateForKeyboard` (in [slideIn]) and `restorePreviousFrontApp` (in
+  /// [slideOut]) activate a different app/reclaim key status as part of this
+  /// host's own show/hide sequencing, and AppKit can resign this panel's key
+  /// status as a side effect of that -- not a genuine "user clicked
+  /// elsewhere". [isShown] additionally makes this a no-op once a close is
+  /// already underway (`slideOut`'s own `restorePreviousFrontApp` resign is
+  /// exactly that case).
+  func windowDidResignKey(_ notification: Notification) {
+    guard !suppressSensorEvents, isShown else { return }
+    nativeCloseTimer?.invalidate()
+    channel.invokeMethod("hoverLeft", arguments: nil)
   }
 
   // MARK: - Public channel (main engine <-> this host)
@@ -589,34 +634,6 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     }
   }
 
-  // MARK: - NSWindowDelegate
-
-  /// Focus leaving the panel via click/keyboard (not mouse motion) is not
-  /// caught by [SidePanelContentHoverTracker]/[SidePanelSensorView] at all --
-  /// those only see the pointer crossing a tracking area, which never fires
-  /// if the user switches away (e.g. Cmd+Tab, or clicking another app's
-  /// window with the pointer already resting on the panel from a prior
-  /// hover) without moving the mouse off the panel afterwards. That left the
-  /// panel open until the user *happened* to later move the pointer away --
-  /// exactly the "fährt nicht zuverlässig/zeitnah ein, wenn der Fokus nicht
-  /// mehr darauf liegt" report. `SnippetPickerHost` already closes on
-  /// `windowDidResignKey` for the same reason; this mirrors that.
-  ///
-  /// Guarded by [suppressSensorEvents] for the same self-inflicted-resign
-  /// race `beginActivationSettleWindow` already exists to filter: both
-  /// `activateForKeyboard` (in [slideIn]) and `restorePreviousFrontApp` (in
-  /// [slideOut]) activate a different app/reclaim key status as part of this
-  /// host's own show/hide sequencing, and AppKit can resign this panel's key
-  /// status as a side effect of that -- not a genuine "user clicked
-  /// elsewhere". [isShown] additionally makes this a no-op once a close is
-  /// already underway (`slideOut`'s own `restorePreviousFrontApp` resign is
-  /// exactly that case).
-  func windowDidResignKey(_ notification: Notification) {
-    guard !suppressSensorEvents, isShown else { return }
-    nativeCloseTimer?.invalidate()
-    channel.invokeMethod("hoverLeft", arguments: nil)
-  }
-
   private func handleRenderCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "ready":
@@ -640,6 +657,12 @@ class SidePanelHost: NSObject, NSWindowDelegate {
       channel.invokeMethod("hoverLeft", arguments: nil)
       result(nil)
 
+    case "beginDrag":
+      if let args = call.arguments as? [String: Any] {
+        beginNativeDrag(args)
+      }
+      result(nil)
+
     case "reportError":
       if let args = call.arguments as? [String: Any], let message = args["message"] as? String {
         os_log("render engine reported an error: %{public}@", log: Self.logger, type: .error, message)
@@ -649,6 +672,125 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  // MARK: - Drag-and-drop (issue 11)
+
+  /// Starts an `NSDraggingSession` for the row the render engine reports as
+  /// being dragged (`SidePanelRenderChannel.beginDrag`).
+  ///
+  /// A genuine OS drag-out must be started from a real mouse-down-family
+  /// `NSEvent` (`NSView.beginDraggingSession(with:event:source:)`). This
+  /// host cannot receive the literal originating `NSEvent` as a channel
+  /// argument -- there is no supported way to hand a raw `NSEvent` across
+  /// the engine boundary, and the render engine's own pointer handling for
+  /// the `HorizontalDragGestureRecognizer` that triggered this call runs on
+  /// Flutter's UI-thread task queue, not synchronously inside AppKit's
+  /// `sendEvent:` (see PRD.md issue 07 "Warum (2) noch nicht umgesetzt
+  /// ist" for the full architectural reason this is hard at all). Reading
+  /// `NSApp.currentEvent` here instead relies on this call landing on the
+  /// very next run-loop turn after the `mouseDragged` that crossed
+  /// Flutter's drag threshold, before any other event is dispatched -- true
+  /// in practice for an actively-dragging pointer, since fresh
+  /// `mouseDragged` events keep arriving far faster than a channel
+  /// round-trip completes. `beginDraggingSession` itself only requires a
+  /// legitimate mouse-down-family event with a window, not the exact
+  /// originating one, so this degrades to "starts from a slightly later
+  /// event of the same drag gesture", not an incorrect one.
+  private func beginNativeDrag(_ args: [String: Any]) {
+    guard let sourceView = renderViewController?.view else {
+      os_log("beginNativeDrag: no render view to drag from", log: Self.logger, type: .error)
+      return
+    }
+    guard let event = NSApp.currentEvent,
+      event.type == .leftMouseDown || event.type == .leftMouseDragged
+    else {
+      os_log(
+        "beginNativeDrag: no current mouse-down/dragged event to start from",
+        log: Self.logger, type: .error
+      )
+      return
+    }
+
+    let kind = args["kind"] as? String ?? "text"
+    let writer: NSPasteboardWriting
+    let thumbnailText: String
+    if kind == "image", let data = Self.imageData(from: args), let image = NSImage(data: data) {
+      writer = image
+      thumbnailText = "Image"
+    } else {
+      let content = args["content"] as? String ?? ""
+      guard !content.isEmpty else {
+        os_log("beginNativeDrag: empty content, nothing to drag", log: Self.logger, type: .info)
+        return
+      }
+      writer = content as NSString
+      thumbnailText = content
+    }
+
+    let location = sourceView.convert(event.locationInWindow, from: nil)
+    let thumbSize = NSSize(width: 220, height: 40)
+    let draggingItem = NSDraggingItem(pasteboardWriter: writer)
+    draggingItem.setDraggingFrame(
+      NSRect(
+        x: location.x - thumbSize.width / 2,
+        y: location.y - thumbSize.height / 2,
+        width: thumbSize.width,
+        height: thumbSize.height
+      ),
+      contents: Self.dragThumbnail(text: thumbnailText, size: thumbSize)
+    )
+
+    _ = sourceView.beginDraggingSession(with: [draggingItem], event: event, source: dragSource)
+  }
+
+  /// `imageBytes` arrives from Dart as a plain `List<int>`, not a
+  /// `Uint8List` -- [SidePanelRow.imageBytes]'s static type
+  /// (`List<int>?`, populated via `.cast<int>()` from the native byte list
+  /// `ClipboardMonitorHost` originally sent) does not round-trip back
+  /// through `StandardMethodCodec` as typed data, so it decodes here as an
+  /// `NSArray` of `NSNumber`, not `FlutterStandardTypedData`. Accepting
+  /// both keeps this robust to either encoding.
+  private static func imageData(from args: [String: Any]) -> Data? {
+    if let typed = args["imageBytes"] as? FlutterStandardTypedData {
+      return typed.data
+    }
+    if let numbers = args["imageBytes"] as? [NSNumber] {
+      return Data(numbers.map { UInt8(truncating: $0) })
+    }
+    return nil
+  }
+
+  /// Small rounded-rect drag thumbnail carrying a truncated text preview --
+  /// there is no existing app icon/asset that reads as "a piece of text
+  /// being dragged", so this draws one directly instead of shipping a new
+  /// image asset for a single call site.
+  private static func dragThumbnail(text: String, size: NSSize) -> NSImage {
+    let image = NSImage(size: size)
+    image.lockFocus()
+    let rect = NSRect(origin: .zero, size: size)
+    NSColor(white: 0.12, alpha: 0.92).setFill()
+    NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8).fill()
+    let paragraph = NSMutableParagraphStyle()
+    paragraph.lineBreakMode = .byTruncatingTail
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: 13),
+      .foregroundColor: NSColor.white,
+      .paragraphStyle: paragraph,
+    ]
+    let textRect = rect.insetBy(dx: 10, dy: 0)
+    (text as NSString).draw(
+      with: NSRect(
+        x: textRect.minX,
+        y: (size.height - 16) / 2,
+        width: textRect.width,
+        height: 16
+      ),
+      options: .usesLineFragmentOrigin,
+      attributes: attrs
+    )
+    image.unlockFocus()
+    return image
   }
 
   // MARK: - Teardown

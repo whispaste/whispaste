@@ -134,6 +134,85 @@ void main() {
       expect(tappedId, 'clip-42');
     });
 
+    testWidgets('dragging a row horizontally past the touch slop reports '
+        'drag start, not a tap (issue 11)', (tester) async {
+      SidePanelSection? draggedSection;
+      SidePanelRow? draggedRow;
+      var tapped = false;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidePanelView(
+            snapshot: const SidePanelSnapshot(
+              clipboardHistory: [
+                SidePanelRow(
+                  id: 'clip-42',
+                  title: 'Copied text',
+                  content: 'Copied text in full',
+                ),
+              ],
+            ),
+            onRowTap: (_, _) => tapped = true,
+            onRowDragStart: (section, row) {
+              draggedSection = section;
+              draggedRow = row;
+            },
+            onClose: _noopClose,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(LucideIcons.clipboardList));
+      await tester.pumpAndSettle();
+
+      // A real drag-out: press, move predominantly horizontally (as a real
+      // drag out of the left-edge panel would), then release -- Flutter's
+      // own gesture arena resolves this as a horizontal drag, never a tap,
+      // and never competes with the row list's own vertical scroll gesture.
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Copied text')),
+      );
+      await gesture.moveBy(const Offset(40, 4));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(draggedSection, SidePanelSection.clipboardHistory);
+      expect(draggedRow?.id, 'clip-42');
+      expect(draggedRow?.content, 'Copied text in full');
+      expect(tapped, isFalse);
+    });
+
+    testWidgets('a plain tap on a row never reports a drag start', (
+      tester,
+    ) async {
+      var dragged = false;
+      var tapped = false;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidePanelView(
+            snapshot: const SidePanelSnapshot(
+              clipboardHistory: [
+                SidePanelRow(id: 'clip-42', title: 'Copied text'),
+              ],
+            ),
+            onRowTap: (_, _) => tapped = true,
+            onRowDragStart: (_, _) => dragged = true,
+            onClose: _noopClose,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(LucideIcons.clipboardList));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copied text'));
+      await tester.pump();
+
+      expect(tapped, isTrue);
+      expect(dragged, isFalse);
+    });
+
     testWidgets('renders an image row without a text subtitle crash', (
       tester,
     ) async {

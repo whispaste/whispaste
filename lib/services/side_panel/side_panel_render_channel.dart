@@ -51,6 +51,21 @@ class SidePanelRenderChannel implements RenderChannel {
     _channel.invokeMethod('rowClicked', {'section': section.name, 'id': id});
   }
 
+  /// Starts a native OS drag-out for [row] (issue 11), reporting its full
+  /// insertable content (or image bytes) so the native host can begin an
+  /// `NSDraggingSession` without a round-trip back to the main engine.
+  /// Fire-and-forget: the native host answers with an actual drag, not a
+  /// method-channel reply this engine needs to react to.
+  void beginDrag(SidePanelSection section, SidePanelRow row) {
+    _channel.invokeMethod('beginDrag', {
+      'section': section.name,
+      'id': row.id,
+      'kind': row.kind.name,
+      'content': row.content,
+      'imageBytes': row.imageBytes,
+    });
+  }
+
   /// Reports the pointer leaving the panel (and its edge sensor zone) --
   /// the native shell orders the panel closed and relays this to the main
   /// engine as [SidePanelHoverLeft].
