@@ -4575,6 +4575,9 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
 
+      // _reset() fires the key unregistration without awaiting it — give the
+      // pending registrar round trip a moment to settle before asserting.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(
         sessionKeys.isRegistered(LogicalKeyboardKey.enter),
@@ -4611,6 +4614,9 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
 
+      // _reset() fires the key unregistration without awaiting it — give the
+      // pending registrar round trip a moment to settle before asserting.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
       expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isFalse);
@@ -4637,6 +4643,9 @@ void main() {
       fakeStt.transcribeThrows = true;
       await controller.advanceField();
 
+      // _reset() fires the key unregistration without awaiting it — give the
+      // pending registrar round trip a moment to settle before asserting.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isFalse);
       expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
