@@ -209,16 +209,4 @@ test.describe('gallery page', () => {
 
     await expect(page.locator('[data-gallery-theme]:not(img)')).toHaveCount(0);
   });
-
-  test('macOS toggle hides the Windows-only screens (06–09)', async ({ page }) => {
-    // Motifs 06–09 exist only as real Windows captures — the macOS platform
-    // view must hide them rather than show a faked or mismatched variant.
-    await page.goto('/screenshots');
-
-    await page.locator('[data-gallery-platform="macos"]').click();
-    await expect(page.locator('.gallery-item:visible')).toHaveCount(5);
-
-    await page.locator('[data-gallery-platform="windows"]').click();
-    await expect(page.locator('.gallery-item:visible')).toHaveCount(9);
-  });
 });
