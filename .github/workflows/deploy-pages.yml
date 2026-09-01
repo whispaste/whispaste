@@ -53,6 +53,13 @@ jobs:
           # Ohne diese Variable überspringt der Plugin den Upload mit Warnung,
           # der Build selbst läuft trotzdem durch (siehe sentry-vite-plugin).
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Submit sitemap to IndexNow (Bing, Yandex, Naver, Seznam, Yep)
+        run: node scripts/push-indexnow.mjs
+        working-directory: website
+        env:
+          # Skript ist opt-in (Exit 0 ohne Key) — Secret muss einmalig gesetzt
+          # werden, siehe website/scripts/push-indexnow.mjs Kopfkommentar.
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
 
   deploy:
     needs: build
