@@ -442,6 +442,17 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     return KeyEventResult.ignored;
   }
 
+  Future<void> _duplicateNote(Note note) async {
+    await _leaveCurrentNote();
+    final newNote = await _actions.duplicate(note.id);
+    if (!mounted || newNote == null) return;
+    setState(() {
+      _selectedNoteId = newNote.id;
+      _pendingCreatedNote = newNote;
+    });
+    _setEditorText(newNote.content);
+  }
+
   Future<void> _createNote() async {
     // Creating from the trash view: switch back to the active filter first,
     // otherwise the freshly created (active) note would be invisible.
@@ -859,6 +870,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             );
           },
           onCloseEditor: _closeEditor,
+          onDuplicate: _duplicateNote,
           onFavoriteToggle: _toggleFavorite,
           onQuickNoteSet: _setQuickNote,
           onQuickNoteClear: _clearQuickNote,

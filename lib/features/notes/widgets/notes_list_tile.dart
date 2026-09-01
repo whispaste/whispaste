@@ -28,6 +28,7 @@ class NotesListTile extends StatefulWidget {
     required this.isFocused,
     required this.onTap,
     required this.onCopy,
+    required this.onDuplicate,
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
@@ -51,6 +52,7 @@ class NotesListTile extends StatefulWidget {
   final bool isFocused;
   final VoidCallback onTap;
   final VoidCallback onCopy;
+  final VoidCallback? onDuplicate;
   final VoidCallback onFavoriteToggle;
 
   /// Makes this note the quick note. Offered only while it is *not* already
@@ -300,6 +302,13 @@ class _NotesListTileState extends State<NotesListTile> {
                             onTap: widget.onCopy,
                             dense: true,
                           ),
+                          if (widget.onDuplicate case final onDuplicate?)
+                            WpRowAction(
+                              icon: LucideIcons.files,
+                              tooltip: l10n.actionDuplicate,
+                              onTap: onDuplicate,
+                              dense: true,
+                            ),
                           if (!widget.note.isQuickNote)
                             // Setting the mark is an ordinary trailing row action —
                             // revealed on hover/focus like every other one, and
