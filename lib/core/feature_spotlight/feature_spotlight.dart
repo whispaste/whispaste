@@ -78,15 +78,37 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
     description: (l10n) => l10n.featureSpotlightSnippetPickerDescription,
     image: 'assets/feature_spotlight/snippet_picker.webp',
   ),
-  // `.scratch/feature-spotlight/issues/02-first-entry-side-panel.md`. No
-  // Linux native host yet (windows/macos have SidePanelHost, linux does
-  // not) -- platforms stays macos+windows, not null.
+  // `.scratch/feature-spotlight/issues/02-first-entry-side-panel.md`.
+  // Originally macos+windows only; opened up to all platforms once the
+  // Linux native host shipped (`feat(side-panel): add Linux native side
+  // panel`) — Linux users who have not seen the entry yet now get it.
   FeatureSpotlightEntry(
     id: 'side_panel',
     title: (l10n) => l10n.featureSpotlightSidePanelTitle,
     description: (l10n) => l10n.featureSpotlightSidePanelDescription,
-    platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
     image: 'assets/feature_spotlight/side_panel.webp',
+  ),
+  // Interactive snippets (`feat(snippets): add interactive snippets`):
+  // guided multi-field dictation — declared before smart_mode because it
+  // shipped first (declaration order is chronological, oldest first). No
+  // mini-screenshot captured yet; text-only is an explicitly supported
+  // state (see [FeatureSpotlightEntry.image]).
+  FeatureSpotlightEntry(
+    id: 'interactive_snippets',
+    title: (l10n) => l10n.featureSpotlightInteractiveSnippetsTitle,
+    description: (l10n) => l10n.featureSpotlightInteractiveSnippetsDescription,
+  ),
+  // Smart Mode v2 (`.scratch/smart-mode-v2/PRODUCT-SPEC.md`): local
+  // post-processing presets (Cleanup/Concise/Translate) with a dedicated
+  // second hotkey and per-hotkey target language. The local engine is only
+  // bundled for macOS and Windows (`smartModeLibraryPathFor` throws
+  // elsewhere), so the entry stays off Linux like the settings surface it
+  // points to. No mini-screenshot captured yet — text-only, same as above.
+  FeatureSpotlightEntry(
+    id: 'smart_mode',
+    title: (l10n) => l10n.featureSpotlightSmartModeTitle,
+    description: (l10n) => l10n.featureSpotlightSmartModeDescription,
+    platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
   ),
 ];
 

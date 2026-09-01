@@ -3613,6 +3613,20 @@ class L10nEn extends L10n {
       'Hover the screen edge to open your recent clipboard history and drag any item straight into your document.';
 
   @override
+  String get featureSpotlightInteractiveSnippetsTitle => 'Interactive Snippets';
+
+  @override
+  String get featureSpotlightInteractiveSnippetsDescription =>
+      'Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.';
+
+  @override
+  String get featureSpotlightSmartModeTitle => 'Smart Mode';
+
+  @override
+  String get featureSpotlightSmartModeDescription =>
+      'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.';
+
+  @override
   String get featureSpotlightChangelogLink => 'View full changelog';
 
   @override

@@ -3556,6 +3556,20 @@ class L10nHe extends L10n {
       'העבר את העכבר לקצה המסך כדי לפתוח את היסטוריית לוח הגזירים שלך וגרור כל פריט ישירות למסמך.';
 
   @override
+  String get featureSpotlightInteractiveSnippetsTitle => 'קטעים אינטראקטיביים';
+
+  @override
+  String get featureSpotlightInteractiveSnippetsDescription =>
+      'קטעים עם שדות למילוי: WhisPaste מוביל אותך משדה לשדה – הכתב, הקש Enter למעבר לשדה הבא, והטקסט המוגמר מודבק בבת אחת.';
+
+  @override
+  String get featureSpotlightSmartModeTitle => 'Smart Mode';
+
+  @override
+  String get featureSpotlightSmartModeDescription =>
+      'נקה, קצר או תרגם את ההכתבה שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.';
+
+  @override
   String get featureSpotlightChangelogLink => 'צפייה ביומן השינויים המלא';
 
   @override

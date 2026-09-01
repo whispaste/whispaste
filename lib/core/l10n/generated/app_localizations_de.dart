@@ -3645,6 +3645,20 @@ class L10nDe extends L10n {
       'Fahre an den Bildschirmrand, um deinen letzten Clipboard-Verlauf zu öffnen, und ziehe jeden Eintrag direkt in dein Dokument.';
 
   @override
+  String get featureSpotlightInteractiveSnippetsTitle => 'Interaktive Snippets';
+
+  @override
+  String get featureSpotlightInteractiveSnippetsDescription =>
+      'Snippets mit Lücken: WhisPaste führt dich durch jedes Feld – diktieren, mit Enter zum nächsten, und der fertige Text wird in einem Stück eingefügt.';
+
+  @override
+  String get featureSpotlightSmartModeTitle => 'Smart Mode';
+
+  @override
+  String get featureSpotlightSmartModeDescription =>
+      'Bereinige, kürze oder übersetze dein Diktat vor dem Einfügen – komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.';
+
+  @override
   String get featureSpotlightChangelogLink => 'Vollständiges Changelog ansehen';
 
   @override

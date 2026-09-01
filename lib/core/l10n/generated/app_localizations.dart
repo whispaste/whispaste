@@ -6348,6 +6348,30 @@ abstract class L10n {
   /// **'Hover the screen edge to open your recent clipboard history and drag any item straight into your document.'**
   String get featureSpotlightSidePanelDescription;
 
+  /// No description provided for @featureSpotlightInteractiveSnippetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive Snippets'**
+  String get featureSpotlightInteractiveSnippetsTitle;
+
+  /// No description provided for @featureSpotlightInteractiveSnippetsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.'**
+  String get featureSpotlightInteractiveSnippetsDescription;
+
+  /// No description provided for @featureSpotlightSmartModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get featureSpotlightSmartModeTitle;
+
+  /// No description provided for @featureSpotlightSmartModeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
+  String get featureSpotlightSmartModeDescription;
+
   /// No description provided for @featureSpotlightChangelogLink.
   ///
   /// In en, this message translates to:
