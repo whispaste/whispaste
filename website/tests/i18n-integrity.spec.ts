@@ -172,10 +172,10 @@ test.describe('screenshot section', () => {
 });
 
 test.describe('gallery page', () => {
-  test('gallery page loads with 5 screenshots', async ({ page }) => {
+  test('gallery page loads with 9 screenshots', async ({ page }) => {
     await page.goto('/screenshots');
     const items = page.locator('.gallery-item');
-    await expect(items).toHaveCount(5);
+    await expect(items).toHaveCount(9);
   });
 
   test('clicking a thumbnail opens the lightbox', async ({ page }) => {
@@ -185,26 +185,40 @@ test.describe('gallery page', () => {
     const lightbox = page.locator('#screenshot-lightbox');
     await expect(lightbox).toHaveAttribute('data-open', '');
     const counter = page.locator('#lightbox-counter');
-    await expect(counter).toHaveText('1 / 5');
+    await expect(counter).toHaveText('1 / 9');
   });
 
-  test('gallery shows all five screenshots in dark theme', async ({ page }) => {
-    // Theme is fixed per screenshot by the golden-test storyboard. All five
-    // are dark since the app's light theme was removed — the page never
-    // offered a theme toggle to begin with.
+  test('gallery shows all nine screenshots in dark theme', async ({ page }) => {
+    // Theme is fixed per screenshot by the storyboard (goldens 01–05 plus the
+    // real Windows-box captures 06–09). All are dark since the app's light
+    // theme was removed — the page never offered a theme toggle to begin with.
     await page.goto('/screenshots');
 
     const images = page.locator('.gallery-image');
-    await expect(images).toHaveCount(5);
+    await expect(images).toHaveCount(9);
 
     const themes = await images.evaluateAll((els) =>
       els.map((el) => (el as HTMLImageElement).dataset.galleryTheme),
     );
-    expect(themes).toEqual(['dark', 'dark', 'dark', 'dark', 'dark']);
+    expect(themes).toEqual(Array(9).fill('dark'));
 
     await expect(images.nth(0)).toHaveAttribute('src', /\/dark\/01_/);
     await expect(images.nth(1)).toHaveAttribute('src', /\/dark\/02_/);
+    await expect(images.nth(5)).toHaveAttribute('src', /\/dark\/06_/);
+    await expect(images.nth(8)).toHaveAttribute('src', /\/dark\/09_/);
 
     await expect(page.locator('[data-gallery-theme]:not(img)')).toHaveCount(0);
+  });
+
+  test('macOS toggle hides the Windows-only screens (06–09)', async ({ page }) => {
+    // Motifs 06–09 exist only as real Windows captures — the macOS platform
+    // view must hide them rather than show a faked or mismatched variant.
+    await page.goto('/screenshots');
+
+    await page.locator('[data-gallery-platform="macos"]').click();
+    await expect(page.locator('.gallery-item:visible')).toHaveCount(5);
+
+    await page.locator('[data-gallery-platform="windows"]').click();
+    await expect(page.locator('.gallery-item:visible')).toHaveCount(9);
   });
 });

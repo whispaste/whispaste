@@ -131,6 +131,10 @@ export function defaultScreenshotsFor(locale: Locale): readonly string[] {
     `${SITE_ORIGIN}/screenshots/${slug}/dark/03_voice_shortcuts.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/04_settings.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/05_analytics.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/06_smart_mode.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/07_snippet_picker.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/08_interactive_snippet.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/09_side_panel.png`,
   ];
 }
 

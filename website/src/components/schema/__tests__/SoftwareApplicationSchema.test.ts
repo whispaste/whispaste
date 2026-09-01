@@ -41,6 +41,9 @@ describe("buildSoftwareApplicationSchema", () => {
     expect((schema.offers as Record<string, unknown>).priceCurrency).toBeUndefined();
     expect(schema.license).toBe("https://opensource.org/licenses/MIT");
     expect(Array.isArray(schema.screenshot)).toBe(true);
+    // Nine motifs: five Flutter goldens plus the four real Windows-box
+    // captures (06 Smart Mode … 09 side panel) added to the gallery.
+    expect(schema.screenshot).toHaveLength(9);
     // DE screenshots must reference the `/de/` directory so the visible UI
     // language in the screenshot matches the locale-specific landing page.
     for (const url of schema.screenshot as readonly string[]) {

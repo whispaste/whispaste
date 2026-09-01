@@ -19,18 +19,33 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
 type GalleryTheme = 'dark' | 'light';
 
+/**
+ * Screens 01–05 are Flutter goldens (1920×1080) with Windows *and* macOS
+ * variants. Screens 06–09 are real captures from the Windows test box
+ * (storyboard: `.scratch/website-feature-screens/storyboard.md`) — cropped to
+ * the app window (1920×1072; 09 keeps the full 1080 desktop because the
+ * edge-pulled side panel over the desktop *is* the motif). They have no macOS
+ * variant yet (no real Mac captures exist — never faked), so `winOnly` hides
+ * them while the macOS platform toggle is active.
+ */
 const screens: Array<{
   id: string;
   theme: GalleryTheme;
   i18nLabel: string;
   defaultLabel: string;
   deLabel: string;
+  height: number;
+  winOnly?: boolean;
 }> = [
-  { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick' },
-  { id: '02_workspace_detail',   theme: 'dark',  i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern' },
-  { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice Snippets that save keystrokes', deLabel: 'Sprach-Snippets, die Tippen ersparen' },
-  { id: '04_settings',           theme: 'dark',  i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow' },
-  { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', defaultLabel: 'Track how you use your voice', deLabel: 'Verfolge, wie du deine Stimme nutzt' },
+  { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick', height: 1080 },
+  { id: '02_workspace_detail',   theme: 'dark',  i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern', height: 1080 },
+  { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice Snippets that save keystrokes', deLabel: 'Sprach-Snippets, die Tippen ersparen', height: 1080 },
+  { id: '04_settings',           theme: 'dark',  i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow', height: 1080 },
+  { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', defaultLabel: 'Track how you use your voice', deLabel: 'Verfolge, wie du deine Stimme nutzt', height: 1080 },
+  { id: '06_smart_mode',           theme: 'dark', i18nLabel: 'gallery.smartmode',   defaultLabel: 'Clean up, shorten, or translate as you speak', deLabel: 'Bereinigen, kürzen oder übersetzen beim Sprechen', height: 1072, winOnly: true },
+  { id: '07_snippet_picker',       theme: 'dark', i18nLabel: 'gallery.picker',      defaultLabel: 'Search and insert snippets right at your cursor', deLabel: 'Snippets direkt am Cursor suchen und einfügen', height: 1072, winOnly: true },
+  { id: '08_interactive_snippet',  theme: 'dark', i18nLabel: 'gallery.interactive', defaultLabel: 'Guided snippets fill in every field by voice', deLabel: 'Geführte Snippets füllen jedes Feld per Stimme', height: 1072, winOnly: true },
+  { id: '09_side_panel',           theme: 'dark', i18nLabel: 'gallery.sidepanel',   defaultLabel: 'Your clipboard and transcripts, one edge-pull away', deLabel: 'Zwischenablage und Transkripte, nur einen Handgriff entfernt', height: 1080, winOnly: true },
 ];
 ---
 
@@ -56,10 +71,9 @@ const screens: Array<{
   <!-- Responsive grid -->
   <div class="gallery-grid" id="gallery-grid" role="list">
     {screens.map((screen, idx) => (
-      <figure class="gallery-item" role="listitem">
+      <figure class="gallery-item" role="listitem" data-win-only={screen.winOnly ? '' : undefined}>
         <button
           class="gallery-thumb-btn"
-          data-gallery-idx={idx}
           data-gallery-id={screen.id}
           aria-label={`${screen.defaultLabel}: click to enlarge`}
           data-aria-label-en={`${screen.defaultLabel}: click to enlarge`}
@@ -76,7 +90,7 @@ const screens: Array<{
             data-alt-en={screen.defaultLabel}
             data-alt-de={screen.deLabel}
             width="1920"
-            height="1080"
+            height={screen.height}
             loading={idx === 0 ? 'eager' : 'lazy'}
             decoding="async"
           />
@@ -261,6 +275,11 @@ const screens: Array<{
 
     function updateImages() {
       const lang = getLang();
+      // Screens without a real macOS capture are Windows-only: hide them
+      // while the macOS toggle is active instead of faking a Mac variant.
+      root.querySelectorAll<HTMLElement>('[data-win-only]').forEach(fig => {
+        fig.hidden = galleryPlatform === 'macos';
+      });
       root.querySelectorAll<HTMLImageElement>('img[data-gallery-id]').forEach(img => {
         const id = img.dataset.galleryId!;
         const theme = img.dataset.galleryTheme || 'dark';
@@ -275,9 +294,17 @@ const screens: Array<{
       });
     }
 
+    // Only visible screens feed the lightbox — hidden Windows-only items must
+    // not appear while browsing the macOS set.
+    function visibleImages(): HTMLImageElement[] {
+      return Array.from(
+        root.querySelectorAll<HTMLImageElement>('.gallery-item:not([hidden]) .gallery-image'),
+      );
+    }
+
     function buildLightboxImages(): Array<{ src: string; alt: string }> {
       const lang = getLang();
-      return Array.from(root.querySelectorAll<HTMLImageElement>('.gallery-image')).map(img => ({
+      return visibleImages().map(img => ({
         src: buildSrc(img.dataset.galleryId!, lang, img.dataset.galleryTheme || 'dark'),
         alt: img.alt,
       }));
@@ -298,7 +325,9 @@ const screens: Array<{
     // Thumbnail click → open lightbox
     thumbButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.galleryIdx || '0', 10);
+        // Index within the *visible* set (Windows-only items may be hidden).
+        const ownImg = btn.querySelector<HTMLImageElement>('.gallery-image');
+        const idx = Math.max(0, visibleImages().indexOf(ownImg!));
         // Engagement-Event „Screenshots angesehen" (cookieless) — Name = Plattform.
         if ((window as any)._paq) {
           (window as any)._paq.push(['trackEvent', 'Engagement', 'Screenshots angesehen', galleryPlatform]);
