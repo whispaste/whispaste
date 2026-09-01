@@ -20,6 +20,7 @@ import '../../services/path_service.dart' as paths;
 
 import '../../services/snippets/interactive_snippet_composer.dart'
     show legacyInteractiveSnippetTemplate;
+import '../l10n/persisted_locale.dart';
 import '../logging/app_logger.dart';
 import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
@@ -1980,15 +1981,21 @@ class HistoryDatabase extends _$HistoryDatabase {
   // ---------------------------------------------------------------------------
 
   /// Reads all persisted app settings from the local key-value table.
+  ///
+  /// Also refreshes the `locale` sidecar mirror — this is the read the main
+  /// engine performs at startup, so it heals a missing or stale mirror before
+  /// any secondary engine boots. See [writeLocaleMirror].
   Future<Map<String, String>> readAppSettings() async {
     final rows = await customSelect(
       'SELECT key, value FROM app_settings',
     ).get();
 
-    return {
+    final values = {
       for (final row in rows)
         row.read<String>('key'): row.read<String>('value'),
     };
+    writeLocaleMirror(values['locale']);
+    return values;
   }
 
   /// Writes the complete settings snapshot to the local key-value table.
@@ -2002,6 +2009,9 @@ class HistoryDatabase extends _$HistoryDatabase {
         );
       }
     });
+    // Keep the sidecar the secondary engines read in sync with the row that
+    // just landed, so they never have to open SQLite for it.
+    writeLocaleMirror(values['locale']);
   }
 
   /// Removes all persisted settings, causing the app to fall back to defaults.

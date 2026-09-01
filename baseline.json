@@ -10,32 +10,32 @@
       "message": "2 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:1534, lib/core/recording/recording_state.dart:99"
     },
     {
-      "fingerprint": "dd81425b449e410f",
+      "fingerprint": "5c94187143cb524b",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1320,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1320, lib/core/data/database.dart:2497"
+      "line": 1321,
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1321, lib/core/data/database.dart:2507"
     },
     {
-      "fingerprint": "6c110c0b7b824548",
+      "fingerprint": "a25ff9358981008d",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1329,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1329, lib/core/data/database.dart:2506"
+      "line": 1330,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1330, lib/core/data/database.dart:2516"
     },
     {
-      "fingerprint": "f89b10cd20b5c338",
+      "fingerprint": "0be77f9424dbe3a2",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1827,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1827, lib/core/data/database.dart:2589"
+      "line": 1828,
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1828, lib/core/data/database.dart:2599"
     },
     {
-      "fingerprint": "3d2787f31540005a",
+      "fingerprint": "1054b297a174250e",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1839,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1839, lib/core/data/database.dart:2601"
+      "line": 1840,
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1840, lib/core/data/database.dart:2611"
     },
     {
       "fingerprint": "0cf57d299a06d8ec",
