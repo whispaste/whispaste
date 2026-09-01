@@ -29,7 +29,7 @@ void main() {
       } else if (Platform.isWindows) {
         expect(resolved, endsWith(p.join('smart_mode', 'smartmode_shim.dll')));
       }
-    });
+    }, skip: Platform.isLinux ? kLinuxNotBundledSkipReason : null);
 
     test('Windows: lives in a dedicated subdirectory, not the bundle root '
         '(avoids colliding with libwhisper\'s own ggml*.dll build)', () {
@@ -38,8 +38,18 @@ void main() {
       expect(p.dirname(smartModeLib), p.join(p.dirname(exe), 'smart_mode'));
     }, skip: Platform.isWindows ? null : 'Windows-only path shape');
 
-    test('defaultSmartModeLibraryPath is absolute', () {
-      expect(p.isAbsolute(defaultSmartModeLibraryPath()), isTrue);
-    });
+    test(
+      'defaultSmartModeLibraryPath is absolute',
+      () {
+        expect(p.isAbsolute(defaultSmartModeLibraryPath()), isTrue);
+      },
+      skip: Platform.isLinux ? kLinuxNotBundledSkipReason : null,
+    );
   });
 }
+
+/// [smartModeLibraryPathFor] throws [UnsupportedError] on Linux by design
+/// (see its doc comment) — Smart Mode's FFI engine isn't bundled there yet.
+const kLinuxNotBundledSkipReason =
+    'Linux: SmartModeFfiEngine is not bundled for this platform yet '
+    '(see smartModeLibraryPathFor doc)';
