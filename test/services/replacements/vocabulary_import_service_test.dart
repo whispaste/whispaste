@@ -25,20 +25,23 @@ void main() {
     );
   }
 
-  test('scans matching source files and inserts new identifiers as fuzzy '
-      'replacements with origin "imported"', () async {
+  test('scan finds new identifiers but writes nothing until commit', () async {
     final fs = MemoryFileSystem();
     await fs.directory('/project').create(recursive: true);
     await fs
         .file('/project/user_service.dart')
         .writeAsString('class RecordingOrchestrator {}\n');
 
-    final summary = await serviceFor(fs).importFrom('/project', db);
+    final service = serviceFor(fs);
+    final scanResult = await service.scan('/project', db);
 
-    expect(summary.found, 1);
-    expect(summary.added, 1);
-    expect(summary.skipped, 0);
+    expect(scanResult.candidates, ['RecordingOrchestrator']);
+    expect(scanResult.skipped, 0);
+    expect(await db.readAllReplacements(), isEmpty);
 
+    final added = await service.commit(scanResult.candidates, db);
+
+    expect(added, 1);
     final rows = await db.readAllReplacements();
     expect(rows, hasLength(1));
     expect(rows.single.triggers, ['RecordingOrchestrator']);
@@ -51,6 +54,25 @@ void main() {
     expect(rows.single.row.origin, 'imported');
   });
 
+  test('commit writes only the terms the caller selected, not every '
+      'scanned candidate', () async {
+    final fs = MemoryFileSystem();
+    await fs.directory('/project').create(recursive: true);
+    await fs
+        .file('/project/service.dart')
+        .writeAsString('class KeepThisClass {}\nclass SkipThisClass {}\n');
+
+    final service = serviceFor(fs);
+    final scanResult = await service.scan('/project', db);
+    expect(scanResult.candidates, ['KeepThisClass', 'SkipThisClass']);
+
+    await service.commit(['KeepThisClass'], db);
+
+    final rows = await db.readAllReplacements();
+    expect(rows, hasLength(1));
+    expect(rows.single.triggers, ['KeepThisClass']);
+  });
+
   test(
     'ignores files whose extension is not a recognized source type',
     () async {
@@ -60,11 +82,9 @@ void main() {
           .file('/project/notes.txt')
           .writeAsString('class NotActuallyScanned {}\n');
 
-      final summary = await serviceFor(fs).importFrom('/project', db);
+      final scanResult = await serviceFor(fs).scan('/project', db);
 
-      expect(summary.found, 0);
-      expect(summary.added, 0);
-      expect(await db.readAllReplacements(), isEmpty);
+      expect(scanResult.candidates, isEmpty);
     },
   );
 
@@ -75,11 +95,9 @@ void main() {
         .file('/project/lib/nested/deep.dart')
         .writeAsString('class DeeplyNestedClass {}\n');
 
-    final summary = await serviceFor(fs).importFrom('/project', db);
+    final scanResult = await serviceFor(fs).scan('/project', db);
 
-    expect(summary.added, 1);
-    final rows = await db.readAllReplacements();
-    expect(rows.single.triggers, ['DeeplyNestedClass']);
+    expect(scanResult.candidates, ['DeeplyNestedClass']);
   });
 
   test('skips files above the max size guard', () async {
@@ -90,14 +108,13 @@ void main() {
         .file('/project/huge.dart')
         .writeAsString('class HugeFileClass {}\n$huge');
 
-    final summary = await serviceFor(fs).importFrom('/project', db);
+    final scanResult = await serviceFor(fs).scan('/project', db);
 
-    expect(summary.found, 0);
-    expect(summary.added, 0);
+    expect(scanResult.candidates, isEmpty);
   });
 
-  test('a candidate matching an existing trigger is skipped, not '
-      'duplicated', () async {
+  test('a candidate matching an existing trigger is excluded from the scan '
+      'result, not offered for re-import', () async {
     final fs = MemoryFileSystem();
     await fs.directory('/project').create(recursive: true);
     await fs
@@ -111,11 +128,10 @@ void main() {
       createdAt: DateTime.now(),
     );
 
-    final summary = await serviceFor(fs).importFrom('/project', db);
+    final scanResult = await serviceFor(fs).scan('/project', db);
 
-    expect(summary.found, 1);
-    expect(summary.added, 0);
-    expect(summary.skipped, 1);
+    expect(scanResult.candidates, isEmpty);
+    expect(scanResult.skipped, 1);
     expect(await db.readAllReplacements(), hasLength(1));
   });
 
@@ -135,16 +151,14 @@ void main() {
           .file('/project/real.dart')
           .writeAsString('class RealSourceClass {}\n');
 
-      final summary = await serviceFor(fs).importFrom('/project', db);
+      final scanResult = await serviceFor(fs).scan('/project', db);
 
-      expect(summary.added, 1);
-      final rows = await db.readAllReplacements();
-      expect(rows.single.triggers, ['RealSourceClass']);
+      expect(scanResult.candidates, ['RealSourceClass']);
     }),
   );
 
   test('an identifier shorter than the import minimum length is never '
-      'imported, even if extraction found it', () async {
+      'offered, even if extraction found it', () async {
     final fs = MemoryFileSystem();
     await fs.directory('/project').create(recursive: true);
     // "abc" is a plausible-looking snake_case-free single token; too
@@ -154,24 +168,23 @@ void main() {
         .file('/project/short.dart')
         .writeAsString('const abcde = 1;\nclass RealLongClassName {}\n');
 
-    final summary = await serviceFor(fs).importFrom('/project', db);
+    final scanResult = await serviceFor(fs).scan('/project', db);
 
-    final rows = await db.readAllReplacements();
-    final triggers = rows.expand((r) => r.triggers).toSet();
-    expect(triggers, contains('RealLongClassName'));
-    expect(triggers, isNot(contains('abcde')));
-    expect(summary.added, 1);
+    expect(scanResult.candidates, contains('RealLongClassName'));
+    expect(scanResult.candidates, isNot(contains('abcde')));
   });
 
-  test('returns an empty summary for a folder that does not exist', () async {
-    final fs = MemoryFileSystem();
+  test(
+    'returns an empty scan result for a folder that does not exist',
+    () async {
+      final fs = MemoryFileSystem();
 
-    final summary = await serviceFor(fs).importFrom('/does/not/exist', db);
+      final scanResult = await serviceFor(fs).scan('/does/not/exist', db);
 
-    expect(summary.found, 0);
-    expect(summary.added, 0);
-    expect(summary.skipped, 0);
-  });
+      expect(scanResult.candidates, isEmpty);
+      expect(scanResult.skipped, 0);
+    },
+  );
 
   test('pickFolder delegates to the injected picker function', () async {
     final fs = MemoryFileSystem();

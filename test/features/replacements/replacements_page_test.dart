@@ -596,6 +596,19 @@ void main() {
       await tester.tap(
         find.widgetWithText(WpButton, l10n.replacementsImportFromFolder),
       );
+      await tester.pumpAndSettle();
+
+      // The scan opens a review page — nothing is imported until the
+      // candidate is picked and the import is confirmed.
+      expect(find.text('ImportedClassName'), findsOneWidget);
+      await tester.tap(find.text('ImportedClassName'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(
+          WpButton,
+          l10n.replacementsImportReviewImportButton(1),
+        ),
+      );
       // WpToast.show() schedules a 3-second dismissal timer; pumpAndSettle()
       // would block waiting for it, so pump with an explicit duration.
       await tester.pump();

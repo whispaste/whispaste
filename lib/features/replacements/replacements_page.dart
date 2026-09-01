@@ -26,6 +26,7 @@ import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
+import 'vocabulary_import_review_page.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -153,17 +154,27 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
   }
 
   /// Opens the native folder picker and, if the user chooses a folder,
-  /// scans it for identifiers and adds every new one as a fuzzy replacement
-  /// (PRD.md vocabulary-fuzzy-replacements, "Import-Scan-Mechanismus").
-  /// Returns `null` if the user cancelled the picker.
-  Future<VocabularyImportSummary?> importFromFolder() async {
+  /// scans it for identifiers -- nothing is written to the database yet, the
+  /// caller shows the candidates for review and calls [commitImport] with
+  /// only the terms the user actually picked (PRD.md
+  /// vocabulary-fuzzy-replacements, "Import-Scan-Mechanismus"). Returns
+  /// `null` if the user cancelled the picker.
+  Future<VocabularyImportScanResult?> scanFolderForImport() async {
     final service = ref.read(vocabularyImportServiceProvider);
     final folder = await service.pickFolder();
     if (folder == null) return null;
     final db = ref.read(historyDatabaseProvider);
-    final summary = await service.importFrom(folder, db);
+    return service.scan(folder, db);
+  }
+
+  /// Writes exactly [terms] (a user-reviewed subset of a prior
+  /// [scanFolderForImport] result) as new fuzzy replacement entries.
+  Future<int> commitImport(List<String> terms) async {
+    final service = ref.read(vocabularyImportServiceProvider);
+    final db = ref.read(historyDatabaseProvider);
+    final added = await service.commit(terms, db);
     await reload();
-    return summary;
+    return added;
   }
 
   Future<void> remove(String id) async {
@@ -366,16 +377,34 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final l10n = L10n.of(context);
     setState(() => _importing = true);
     try {
-      final summary = await ref
-          .read(replacementsProvider.notifier)
-          .importFromFolder();
-      if (summary == null || !mounted) return;
+      final notifier = ref.read(replacementsProvider.notifier);
+      final scanResult = await notifier.scanFolderForImport();
+      if (scanResult == null || !mounted) return;
+      if (scanResult.candidates.isEmpty) {
+        WpToast.show(
+          context,
+          message: l10n.replacementsImportNothingFound,
+          type: WpToastType.info,
+        );
+        return;
+      }
+
+      final selected = await Navigator.of(context).push<List<String>>(
+        MaterialPageRoute(
+          builder: (_) =>
+              VocabularyImportReviewPage(candidates: scanResult.candidates),
+        ),
+      );
+      if (selected == null || selected.isEmpty || !mounted) return;
+
+      final added = await notifier.commitImport(selected);
+      if (!mounted) return;
       WpToast.show(
         context,
         message: l10n.replacementsImportSummary(
-          summary.found,
-          summary.added,
-          summary.skipped,
+          scanResult.candidates.length,
+          added,
+          scanResult.skipped,
         ),
         type: WpToastType.success,
       );

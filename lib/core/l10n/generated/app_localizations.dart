@@ -2463,6 +2463,60 @@ abstract class L10n {
   /// **'Imported'**
   String get replacementsImportedBadge;
 
+  /// No description provided for @replacementsImportNothingFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No new identifiers found in this folder.'**
+  String get replacementsImportNothingFound;
+
+  /// No description provided for @replacementsImportReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what to import'**
+  String get replacementsImportReviewTitle;
+
+  /// No description provided for @replacementsImportReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} candidates found — pick which ones become replacements. Nothing is added until you confirm.'**
+  String replacementsImportReviewSubtitle(int count);
+
+  /// No description provided for @replacementsImportReviewSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter candidates'**
+  String get replacementsImportReviewSearchHint;
+
+  /// No description provided for @replacementsImportReviewSelectAllFiltered.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all shown'**
+  String get replacementsImportReviewSelectAllFiltered;
+
+  /// No description provided for @replacementsImportReviewDeselectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect all'**
+  String get replacementsImportReviewDeselectAll;
+
+  /// No description provided for @replacementsImportReviewSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{selected} of {total} selected'**
+  String replacementsImportReviewSelectedCount(int selected, int total);
+
+  /// No description provided for @replacementsImportReviewNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No candidates match your filter.'**
+  String get replacementsImportReviewNoMatches;
+
+  /// No description provided for @replacementsImportReviewImportButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Import selected ({count})'**
+  String replacementsImportReviewImportButton(int count);
+
   /// No description provided for @replacementsMatchModeLabel.
   ///
   /// In en, this message translates to:

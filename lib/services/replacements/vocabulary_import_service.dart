@@ -53,16 +53,20 @@ typedef VocabularyImportFolderPickFn =
 typedef VocabularyExtractFn =
     Future<Set<String>> Function(Map<String, String> filesByPath);
 
-/// Outcome of one import run (PRD.md User Story 15).
-class VocabularyImportSummary {
-  const VocabularyImportSummary({
-    required this.found,
-    required this.added,
+/// Result of a scan: candidate identifiers that are not yet a replacement
+/// trigger, ready for the user to pick from before anything is written to
+/// the database. `candidates` is sorted alphabetically for a stable,
+/// scrollable review list.
+class VocabularyImportScanResult {
+  const VocabularyImportScanResult({
+    required this.candidates,
     required this.skipped,
   });
 
-  final int found;
-  final int added;
+  final List<String> candidates;
+
+  /// Candidates found during the scan that already match an existing
+  /// trigger and were therefore excluded from [candidates] up front.
   final int skipped;
 }
 
@@ -78,12 +82,12 @@ class VocabularyImportService {
   final VocabularyImportFolderPickFn pickFolder;
   final VocabularyExtractFn extract;
 
-  /// Scans [folderPath] and inserts every genuinely-new identifier as a
-  /// fuzzy replacement entry (trigger == replacement == the identifier, so
-  /// a mis-transcribed near-variant is corrected back to its exact
-  /// spelling). Existing triggers (manual or previously imported) are never
-  /// duplicated (PRD.md User Story 10/13).
-  Future<VocabularyImportSummary> importFrom(
+  /// Scans [folderPath] for candidate identifiers without writing anything
+  /// to the database -- the user reviews and picks a subset from
+  /// [VocabularyImportScanResult.candidates] before [commit] runs. Existing
+  /// triggers (manual or previously imported) are excluded up front, since
+  /// re-offering them for import would just be noise in the review list.
+  Future<VocabularyImportScanResult> scan(
     String folderPath,
     HistoryDatabase db,
   ) async {
@@ -97,9 +101,21 @@ class VocabularyImportService {
     final existingTriggers = <String>{for (final r in existing) ...r.triggers};
     final diff = computeImportDiff(candidates, existingTriggers);
 
+    return VocabularyImportScanResult(
+      candidates: diff.toInsert,
+      skipped: diff.skipped,
+    );
+  }
+
+  /// Writes exactly the user-selected [terms] as fuzzy replacement entries
+  /// (trigger == replacement == the identifier, so a mis-transcribed
+  /// near-variant is corrected back to its exact spelling). Nothing here is
+  /// re-checked against existing triggers -- that already happened in
+  /// [scan], and the list the user reviewed came from its result.
+  Future<int> commit(List<String> terms, HistoryDatabase db) async {
     final now = DateTime.now();
-    for (var i = 0; i < diff.toInsert.length; i++) {
-      final term = diff.toInsert[i];
+    for (var i = 0; i < terms.length; i++) {
+      final term = terms[i];
       await db.upsertReplacementWithTriggers(
         id: '${now.microsecondsSinceEpoch}_import_$i',
         triggers: [term],
@@ -110,12 +126,7 @@ class VocabularyImportService {
         origin: 'imported',
       );
     }
-
-    return VocabularyImportSummary(
-      found: candidates.length,
-      added: diff.toInsert.length,
-      skipped: diff.skipped,
-    );
+    return terms.length;
   }
 
   /// Walks [folderPath] manually rather than via `dir.list(recursive: true)`

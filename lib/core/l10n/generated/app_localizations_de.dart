@@ -1371,6 +1371,42 @@ class L10nDe extends L10n {
   String get replacementsImportedBadge => 'Importiert';
 
   @override
+  String get replacementsImportNothingFound =>
+      'In diesem Ordner wurden keine neuen Bezeichner gefunden.';
+
+  @override
+  String get replacementsImportReviewTitle => 'Auswählen, was importiert wird';
+
+  @override
+  String replacementsImportReviewSubtitle(int count) {
+    return '$count Kandidaten gefunden — wähle aus, welche zu Ersetzungen werden. Es wird nichts hinzugefügt, bevor du bestätigst.';
+  }
+
+  @override
+  String get replacementsImportReviewSearchHint => 'Kandidaten filtern';
+
+  @override
+  String get replacementsImportReviewSelectAllFiltered =>
+      'Alle angezeigten auswählen';
+
+  @override
+  String get replacementsImportReviewDeselectAll => 'Alle abwählen';
+
+  @override
+  String replacementsImportReviewSelectedCount(int selected, int total) {
+    return '$selected von $total ausgewählt';
+  }
+
+  @override
+  String get replacementsImportReviewNoMatches =>
+      'Kein Kandidat entspricht deinem Filter.';
+
+  @override
+  String replacementsImportReviewImportButton(int count) {
+    return 'Auswahl importieren ($count)';
+  }
+
+  @override
   String get replacementsMatchModeLabel => 'Abgleich';
 
   @override

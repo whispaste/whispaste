@@ -544,6 +544,31 @@
   "replacementsImportScanning": "Scanning the folder — this can take a moment for large projects…",
   "replacementsImportError": "Import failed — the folder could not be scanned.",
   "replacementsImportedBadge": "Imported",
+  "replacementsImportNothingFound": "No new identifiers found in this folder.",
+  "replacementsImportReviewTitle": "Choose what to import",
+  "replacementsImportReviewSubtitle": "{count} candidates found — pick which ones become replacements. Nothing is added until you confirm.",
+  "@replacementsImportReviewSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "replacementsImportReviewSearchHint": "Filter candidates",
+  "replacementsImportReviewSelectAllFiltered": "Select all shown",
+  "replacementsImportReviewDeselectAll": "Deselect all",
+  "replacementsImportReviewSelectedCount": "{selected} of {total} selected",
+  "@replacementsImportReviewSelectedCount": {
+    "placeholders": {
+      "selected": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "replacementsImportReviewNoMatches": "No candidates match your filter.",
+  "replacementsImportReviewImportButton": "Import selected ({count})",
+  "@replacementsImportReviewImportButton": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "replacementsMatchModeLabel": "Matching",
   "replacementsMatchModeExact": "Exact",
   "replacementsMatchModeFuzzy": "Similar",

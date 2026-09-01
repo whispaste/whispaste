@@ -1359,6 +1359,41 @@ class L10nEn extends L10n {
   String get replacementsImportedBadge => 'Imported';
 
   @override
+  String get replacementsImportNothingFound =>
+      'No new identifiers found in this folder.';
+
+  @override
+  String get replacementsImportReviewTitle => 'Choose what to import';
+
+  @override
+  String replacementsImportReviewSubtitle(int count) {
+    return '$count candidates found — pick which ones become replacements. Nothing is added until you confirm.';
+  }
+
+  @override
+  String get replacementsImportReviewSearchHint => 'Filter candidates';
+
+  @override
+  String get replacementsImportReviewSelectAllFiltered => 'Select all shown';
+
+  @override
+  String get replacementsImportReviewDeselectAll => 'Deselect all';
+
+  @override
+  String replacementsImportReviewSelectedCount(int selected, int total) {
+    return '$selected of $total selected';
+  }
+
+  @override
+  String get replacementsImportReviewNoMatches =>
+      'No candidates match your filter.';
+
+  @override
+  String replacementsImportReviewImportButton(int count) {
+    return 'Import selected ($count)';
+  }
+
+  @override
   String get replacementsMatchModeLabel => 'Matching';
 
   @override
