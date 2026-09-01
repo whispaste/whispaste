@@ -312,11 +312,35 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       _pillToWidth = targetWidth;
       _pillWidth.stop();
       _pillWidth.value = 1.0;
-    } else if (widget.animate) {
-      // Resume the dot pulse + liquid-glass drift now that reduced-motion
-      // is off.
-      _dot.repeat(reverse: true);
-      _glass.repeat();
+    }
+    _syncContinuousAnimations();
+  }
+
+  /// Runs the two perpetual animations — the accent-dot pulse and the
+  /// liquid-glass drift — exactly while the overlay is on screen.
+  ///
+  /// The visibility gate is what makes the render engine's
+  /// `detachFromEmbedderAppLifecycle()` safe: with this engine no longer
+  /// adopting the embedder's app-global lifecycle, nothing disables frame
+  /// production any more, so an ungated `repeat()` would keep repainting the
+  /// ordered-out native panel for the rest of the app session. Before the
+  /// detach that cost was capped by an accident — the same bogus
+  /// `AppLifecycleState.hidden` that wedged the overlay invisible also
+  /// happened to stop these tickers.
+  void _syncContinuousAnimations() {
+    if (widget.animate && !_reducedMotion && widget.snapshot.visible) {
+      if (!_dot.isAnimating) _dot.repeat(reverse: true);
+      if (!_glass.isAnimating) _glass.repeat();
+      return;
+    }
+    _dot.stop();
+    _glass.stop();
+    if (_reducedMotion || !widget.animate) {
+      // Static frame: the pulse rests at full and the glass at phase 0.
+      // A merely-hidden overlay keeps its values — nothing is on screen to
+      // notice, and the next appear starts from a live phase.
+      _dot.value = 1.0;
+      _glass.value = 0.0;
     }
   }
 
@@ -340,6 +364,8 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         // the next appear starts from the correct initial value.
         _appear.value = 0.0;
       }
+      // Start/stop the perpetual pulse + drift with the panel itself.
+      _syncContinuousAnimations();
     } else if (widget.snapshot.visible &&
         _appear.status == AnimationStatus.dismissed) {
       // Re-show guard: a visible snapshot arrived but the appear controller is
@@ -356,6 +382,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       // current state so the re-shown recording capsule is full-width and the
       // waveform is not clipped away.
       _snapPillToCurrentState();
+      _syncContinuousAnimations();
     }
 
     // Size-only change (e.g. the Settings size picker / WpOverlayRealPreview
@@ -410,15 +437,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
 
     // Handle changes to the animate flag (e.g. settings preview ↔ live overlay).
     if (widget.animate != oldWidget.animate) {
-      if (widget.animate && !_reducedMotion) {
-        _dot.repeat(reverse: true);
-        _glass.repeat();
-      } else {
-        _dot.stop();
-        _dot.value = 1.0;
-        _glass.stop();
-        _glass.value = 0.0;
-      }
+      _syncContinuousAnimations();
     }
   }
 

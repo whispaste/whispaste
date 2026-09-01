@@ -44,9 +44,30 @@ const String _renderChannelName = 'com.whispaste.floating_overlay_render';
 /// variant. That thin entrypoint delegates here so the real wiring stays in
 /// this cohesive, unit-tested file.
 void runFloatingOverlayEngine() {
-  WidgetsFlutterBinding.ensureInitialized();
+  bootstrapFloatingOverlayEngine();
   debugPrint('[overlay-engine] runFloatingOverlayEngine booted');
   runApp(const _OverlayRenderApp());
+}
+
+/// Everything [runFloatingOverlayEngine] does before `runApp` — the
+/// process-wide invariants this engine needs, split out so they are testable
+/// without booting a widget tree that talks to the native shell.
+///
+/// The lifecycle detach is load-bearing, not hygiene: without it a single
+/// app-global `AppLifecycleState.hidden` (which a close-to-tray app receives
+/// on any `applicationWillResignActive` while this late-booted engine still
+/// carries the embedder's stale `_visible = NO`) sets `framesEnabled = false`
+/// here for the rest of the session. The panel is then ordered front over a
+/// surface that never gets a new frame, so the overlay stays invisible for
+/// every recording after the one that booted the engine — the live
+/// 2026-09-01 report. See [detachFromEmbedderAppLifecycle] for the full
+/// mechanism; [WpFloatingOverlayView] gates its continuous animations on
+/// [FloatingOverlaySnapshot.visible] so an always-live engine still stops
+/// repainting an ordered-out panel.
+@visibleForTesting
+void bootstrapFloatingOverlayEngine() {
+  WidgetsFlutterBinding.ensureInitialized();
+  detachFromEmbedderAppLifecycle();
 }
 
 class _OverlayRenderApp extends StatefulWidget {
