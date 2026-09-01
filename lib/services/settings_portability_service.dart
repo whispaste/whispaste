@@ -206,6 +206,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'smart_mode_hotkey_key_display',
   'smart_mode_hotkey_modifiers',
   'smart_mode_hotkey_preset',
+  'smart_mode_hotkey_target_language',
   'sound_volume',
   'start_minimized',
   'stt_engine',
