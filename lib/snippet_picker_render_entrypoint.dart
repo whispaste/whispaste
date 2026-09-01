@@ -311,17 +311,31 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     duration: OverlayDesignSpec.liquidDriftPeriod,
   );
 
-  /// Live filter across BOTH title and body (ticket AC).
+  /// Live filter across BOTH title and body (ticket AC), ranked by match
+  /// relevance rather than left in the original list order: a title match
+  /// is a stronger signal of intent than a body-only match, and a title
+  /// starting with the query beats one merely containing it — otherwise a
+  /// query like "impl" ranks a snippet whose body happens to mention the
+  /// word above one titled "Implementierung" (reported by the user, e.g.
+  /// "Debugging" outranking "Implementierung" for that query).
   List<SnippetPickerRenderItem> get _filtered {
     if (_query.isEmpty) return widget.items;
     // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
     // new lowercased strings for title and body on every item in the tight loop.
     final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
-    return widget.items
-        .where(
-          (i) => searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
-        )
-        .toList();
+    final lowerQuery = _query.toLowerCase();
+    final matches = <(SnippetPickerRenderItem item, int rank)>[];
+    for (final item in widget.items) {
+      final titleMatch = searchRegex.hasMatch(item.title);
+      final bodyMatch = searchRegex.hasMatch(item.body);
+      if (!titleMatch && !bodyMatch) continue;
+      final rank = titleMatch
+          ? (item.title.toLowerCase().startsWith(lowerQuery) ? 0 : 1)
+          : 2;
+      matches.add((item, rank));
+    }
+    matches.sort((a, b) => a.$2.compareTo(b.$2));
+    return matches.map((m) => m.$1).toList();
   }
 
   @override
