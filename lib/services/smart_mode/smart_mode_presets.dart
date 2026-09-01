@@ -39,13 +39,17 @@ enum SmartModeTargetLanguage {
 /// (`spike-test-results.md`); that same batch test already included 5
 /// DE→EN Translate cases (17/18 correct overall, one cosmetic
 /// capitalization miss on a translate case) — English is validated on that
-/// evidence too. The remaining five are gated behind their own spike in
-/// ticket 09 and are deliberately absent here, not just hidden, so a
-/// settings value of e.g. `zh` from a future build downgrading to this one
-/// falls back safely (see [smartModeTargetLanguageFromSettingsValue]).
+/// evidence too. Spanish, French, Portuguese, Mandarin, and Russian each
+/// passed their own 18-sentence ticket-09 spike against the real local
+/// Gemma-4-E2B-it model (`.scratch/smart-mode-v2/spike-test-results-<code>.md`).
 const List<SmartModeTargetLanguage> smartModeValidatedTargetLanguages = [
   SmartModeTargetLanguage.german,
   SmartModeTargetLanguage.english,
+  SmartModeTargetLanguage.spanish,
+  SmartModeTargetLanguage.french,
+  SmartModeTargetLanguage.portuguese,
+  SmartModeTargetLanguage.mandarin,
+  SmartModeTargetLanguage.russian,
 ];
 
 /// Parses a [SmartModeSettings.targetLanguage] code into a

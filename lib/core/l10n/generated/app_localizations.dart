@@ -6810,6 +6810,36 @@ abstract class L10n {
   /// **'English'**
   String get smartModeTargetLanguageEnglish;
 
+  /// No description provided for @smartModeTargetLanguageSpanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get smartModeTargetLanguageSpanish;
+
+  /// No description provided for @smartModeTargetLanguageFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get smartModeTargetLanguageFrench;
+
+  /// No description provided for @smartModeTargetLanguagePortuguese.
+  ///
+  /// In en, this message translates to:
+  /// **'Portuguese'**
+  String get smartModeTargetLanguagePortuguese;
+
+  /// No description provided for @smartModeTargetLanguageMandarin.
+  ///
+  /// In en, this message translates to:
+  /// **'Mandarin'**
+  String get smartModeTargetLanguageMandarin;
+
+  /// No description provided for @smartModeTargetLanguageRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get smartModeTargetLanguageRussian;
+
   /// No description provided for @smartModeDownload.
   ///
   /// In en, this message translates to:

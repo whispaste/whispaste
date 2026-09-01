@@ -927,8 +927,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // whole block never runs for a recording with no active preset.
     // Ticket 04: the Smart-Mode hotkey's bound preset overrides the standard
     // preset for this recording only — see startRecording's doc comment.
+    final hotkeyPreset = ref.read(smartModeHotkeyOverridePresetProvider);
     final activePreset =
-        ref.read(smartModeHotkeyOverridePresetProvider) ??
+        hotkeyPreset ??
         smartModePresetFromSettingsValue(settings.smartMode.standardPreset);
     if (sandboxTranscriptSink == null && activePreset != SmartModePreset.off) {
       finalText = await _runSmartModeRefine(
@@ -936,6 +937,7 @@ class RecordingOrchestrator extends Notifier<void> {
         finalText,
         runner,
         activePreset,
+        _activeSmartModeTargetLanguage(settings, hotkeyPreset != null),
         settings,
       );
     }
@@ -1076,6 +1078,21 @@ class RecordingOrchestrator extends Notifier<void> {
   @visibleForTesting
   static Duration? smartModeCleanupTimeoutOverride;
 
+  /// The hotkey's own target language is independent of the standard
+  /// preset's (settings_sections.dart, SmartModeHotkeySettings doc comment)
+  /// — a recording refined under the hotkey override must use *its*
+  /// language, never fall through to the standard preset's.
+  SmartModeTargetLanguage _activeSmartModeTargetLanguage(
+    AppSettings settings,
+    bool useHotkeyOverride,
+  ) {
+    return smartModeTargetLanguageFromSettingsValue(
+      useHotkeyOverride
+          ? settings.smartModeHotkey.smartModeHotkeyTargetLanguage
+          : settings.smartMode.targetLanguage,
+    );
+  }
+
   /// Runs the active Smart Mode preset ([SmartModePreset.cleanup],
   /// [SmartModePreset.concise], or [SmartModePreset.translate]) over
   /// [rawText] and returns the result — or [rawText] unchanged on any
@@ -1089,6 +1106,7 @@ class RecordingOrchestrator extends Notifier<void> {
     String rawText,
     PipelineStepRunner runner,
     SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
     AppSettings settings,
   ) async {
     final provider = SmartModeProviderType.fromValue(
@@ -1111,9 +1129,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
     final systemPrompt = smartModeSystemPromptFor(
       preset,
-      targetLanguage: smartModeTargetLanguageFromSettingsValue(
-        settings.smartMode.targetLanguage,
-      ),
+      targetLanguage: targetLanguage,
     );
 
     _stateMachine.transition(

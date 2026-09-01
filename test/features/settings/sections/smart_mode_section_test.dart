@@ -161,6 +161,52 @@ void main() {
     );
 
     testWidgets(
+      'hotkey target-language row is hidden unless the hotkey preset is '
+      'Translate (ticket 09)',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            smartModeHotkey: const SmartModeHotkeySettings(
+              smartModeHotkeyEnabled: true,
+            ),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SmartModeSection()),
+            overrides: _overrides(settings: notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Target language'), findsNothing);
+      },
+    );
+
+    testWidgets('selecting Translate as the hotkey preset reveals its own '
+        'target-language row, independent of the standard preset, defaulting '
+        'to English', (tester) async {
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          smartModeHotkey: const SmartModeHotkeySettings(
+            smartModeHotkeyEnabled: true,
+            smartModeHotkeyPreset: 'translate',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(settings: notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Target language'), findsOneWidget);
+      expect(find.text('English'), findsOneWidget);
+    });
+
+    testWidgets(
       'shows RAM-footprint and processing-time info next to the model row',
       (tester) async {
         final notifier = _FakeSettingsNotifier(AppSettings.defaults);

@@ -4744,7 +4744,7 @@ void main() {
           onboarding: OnboardingSettings(onboardingCompleted: true),
           smartMode: SmartModeSettings(
             standardPreset: 'translate',
-            targetLanguage: 'zh',
+            targetLanguage: 'xx',
           ),
         ),
       );
@@ -4761,6 +4761,44 @@ void main() {
         smartModeTranslateSystemPrompt(SmartModeTargetLanguage.english),
       );
       expect(clipboardText, 'Translated text.');
+    });
+
+    test('Smart-Mode hotkey override uses its own target language, not the '
+        'standard preset\'s (ticket 09)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'off',
+            targetLanguage: 'en',
+          ),
+          smartModeHotkey: SmartModeHotkeySettings(
+            smartModeHotkeyPreset: 'translate',
+            smartModeHotkeyTargetLanguage: 'fr',
+          ),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      container
+          .read(smartModeHotkeyOverridePresetProvider.notifier)
+          .set(SmartModePreset.translate);
+      fakeSmartModeEngine.resultToReturn = 'Texte traduit.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text in some language';
+      await orch.stopRecording();
+
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.french),
+      );
+      expect(clipboardText, 'Texte traduit.');
     });
   });
 }

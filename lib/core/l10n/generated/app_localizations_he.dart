@@ -3811,6 +3811,21 @@ class L10nHe extends L10n {
   String get smartModeTargetLanguageEnglish => 'English';
 
   @override
+  String get smartModeTargetLanguageSpanish => 'Spanish';
+
+  @override
+  String get smartModeTargetLanguageFrench => 'French';
+
+  @override
+  String get smartModeTargetLanguagePortuguese => 'Portuguese';
+
+  @override
+  String get smartModeTargetLanguageMandarin => 'Mandarin';
+
+  @override
+  String get smartModeTargetLanguageRussian => 'Russian';
+
+  @override
   String get smartModeDownload => 'Download';
 
   @override

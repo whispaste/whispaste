@@ -1963,6 +1963,7 @@ class SmartModeHotkeySettings {
     this.smartModeHotkeyKeyDisplay = '',
     this.smartModeHotkeyModifiers = 'ctrl+shift',
     this.smartModeHotkeyPreset = 'cleanup',
+    this.smartModeHotkeyTargetLanguage = 'en',
   });
 
   /// Off by default — an existing user must opt in, never gets a system-wide
@@ -1984,6 +1985,15 @@ class SmartModeHotkeySettings {
   /// hotkey is expressed via [smartModeHotkeyEnabled], not via this field).
   final String smartModeHotkeyPreset;
 
+  /// Target language used when [smartModeHotkeyPreset] is `translate` —
+  /// independent of [SmartModeSettings.targetLanguage] (the standard
+  /// preset's own target language), since the two presets can run with
+  /// different destination languages (e.g. a hotkey dedicated to
+  /// translating into English while the standard preset stays off). One of
+  /// [smartModeValidatedTargetLanguages]' codes; `en` default for the same
+  /// no-self-translation reason as the standard preset's default.
+  final String smartModeHotkeyTargetLanguage;
+
   static const SmartModeHotkeySettings defaults = SmartModeHotkeySettings();
 
   factory SmartModeHotkeySettings.fromMap(Map<String, String> v) =>
@@ -2003,6 +2013,9 @@ class SmartModeHotkeySettings {
             defaults.smartModeHotkeyModifiers,
         smartModeHotkeyPreset:
             v['smart_mode_hotkey_preset'] ?? defaults.smartModeHotkeyPreset,
+        smartModeHotkeyTargetLanguage:
+            v['smart_mode_hotkey_target_language'] ??
+            defaults.smartModeHotkeyTargetLanguage,
       );
 
   Map<String, String> toMap() => {
@@ -2011,6 +2024,7 @@ class SmartModeHotkeySettings {
     'smart_mode_hotkey_key_display': smartModeHotkeyKeyDisplay,
     'smart_mode_hotkey_modifiers': smartModeHotkeyModifiers,
     'smart_mode_hotkey_preset': smartModeHotkeyPreset,
+    'smart_mode_hotkey_target_language': smartModeHotkeyTargetLanguage,
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -2024,6 +2038,7 @@ class SmartModeHotkeySettings {
     String? smartModeHotkeyKeyDisplay,
     String? smartModeHotkeyModifiers,
     String? smartModeHotkeyPreset,
+    String? smartModeHotkeyTargetLanguage,
   }) => SmartModeHotkeySettings(
     smartModeHotkeyEnabled:
         smartModeHotkeyEnabled ?? this.smartModeHotkeyEnabled,
@@ -2033,6 +2048,8 @@ class SmartModeHotkeySettings {
     smartModeHotkeyModifiers:
         smartModeHotkeyModifiers ?? this.smartModeHotkeyModifiers,
     smartModeHotkeyPreset: smartModeHotkeyPreset ?? this.smartModeHotkeyPreset,
+    smartModeHotkeyTargetLanguage:
+        smartModeHotkeyTargetLanguage ?? this.smartModeHotkeyTargetLanguage,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -2046,7 +2063,8 @@ class SmartModeHotkeySettings {
           smartModeHotkeyKey == other.smartModeHotkeyKey &&
           smartModeHotkeyKeyDisplay == other.smartModeHotkeyKeyDisplay &&
           smartModeHotkeyModifiers == other.smartModeHotkeyModifiers &&
-          smartModeHotkeyPreset == other.smartModeHotkeyPreset;
+          smartModeHotkeyPreset == other.smartModeHotkeyPreset &&
+          smartModeHotkeyTargetLanguage == other.smartModeHotkeyTargetLanguage;
 
   @override
   int get hashCode => Object.hash(
@@ -2055,6 +2073,7 @@ class SmartModeHotkeySettings {
     smartModeHotkeyKeyDisplay,
     smartModeHotkeyModifiers,
     smartModeHotkeyPreset,
+    smartModeHotkeyTargetLanguage,
   );
 }
 

@@ -37,6 +37,21 @@ const int kSmartModeRamWarningThresholdMB = 8192;
 
 const List<String> _kPresets = ['off', 'cleanup', 'concise', 'translate'];
 
+/// Shared by [SmartModeSection]'s standard-preset target-language row and
+/// [_SmartModeHotkeyBlock]'s hotkey-preset one — both dropdowns list the
+/// same [smartModeValidatedTargetLanguages].
+String Function(SmartModeTargetLanguage) _targetLanguageLabel(L10n l10n) =>
+    (lang) => switch (lang) {
+      SmartModeTargetLanguage.german => l10n.smartModeTargetLanguageGerman,
+      SmartModeTargetLanguage.english => l10n.smartModeTargetLanguageEnglish,
+      SmartModeTargetLanguage.spanish => l10n.smartModeTargetLanguageSpanish,
+      SmartModeTargetLanguage.french => l10n.smartModeTargetLanguageFrench,
+      SmartModeTargetLanguage.portuguese =>
+        l10n.smartModeTargetLanguagePortuguese,
+      SmartModeTargetLanguage.mandarin => l10n.smartModeTargetLanguageMandarin,
+      SmartModeTargetLanguage.russian => l10n.smartModeTargetLanguageRussian,
+    };
+
 class SmartModeSection extends ConsumerStatefulWidget {
   const SmartModeSection({super.key});
 
@@ -92,14 +107,7 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
       _ => l10n.smartModePresetOffDescription,
     };
 
-    String targetLanguageLabel(SmartModeTargetLanguage lang) => switch (lang) {
-      SmartModeTargetLanguage.german => l10n.smartModeTargetLanguageGerman,
-      SmartModeTargetLanguage.english => l10n.smartModeTargetLanguageEnglish,
-      // Ticket 09 adds a label for each remaining language once it clears
-      // its own validation spike — until then smartModeValidatedTargetLanguages
-      // only contains german/english, so no other branch is reachable.
-      _ => lang.languageName,
-    };
+    final targetLanguageLabel = _targetLanguageLabel(l10n);
 
     return WpSection(
       title: l10n.settingsSmartMode,
@@ -319,6 +327,36 @@ class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
                               },
                             ),
                           ),
+                          if (smartModeHotkey.smartModeHotkeyPreset ==
+                              'translate') ...[
+                            const SizedBox(height: WpSpacing.md),
+                            SettingRow(
+                              icon: LucideIcons.languages,
+                              label: l10n.smartModeTargetLanguage,
+                              trailing: settingsDropdown(
+                                context: context,
+                                value: smartModeTargetLanguageFromSettingsValue(
+                                  smartModeHotkey.smartModeHotkeyTargetLanguage,
+                                ).code,
+                                items: smartModeValidatedTargetLanguages
+                                    .map((lang) => lang.code)
+                                    .toList(),
+                                labels: smartModeValidatedTargetLanguages
+                                    .map(_targetLanguageLabel(l10n))
+                                    .toList(),
+                                onChanged: (v) {
+                                  if (v == null) return;
+                                  unawaited(
+                                    setSmartModeHotkeyTargetLanguage(
+                                      ref,
+                                      targetLanguage: v,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: WpSpacing.md),
                           HotkeyComboLine(
                             key: const Key('smartModeHotkeyComboLine'),
                             label: l10n.settingsSmartModeCurrentHotkey,

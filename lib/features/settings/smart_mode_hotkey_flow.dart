@@ -70,3 +70,21 @@ Future<void> setSmartModeHotkeyPreset(WidgetRef ref, {required String preset}) {
         ),
       );
 }
+
+/// Setzt die Zielsprache für den Hotkey-eigenen Übersetzen-Modus — getrennt
+/// vom Standard-Preset, das seine eigene Zielsprache mitbringt
+/// ([SmartModeSettings.targetLanguage]).
+Future<void> setSmartModeHotkeyTargetLanguage(
+  WidgetRef ref, {
+  required String targetLanguage,
+}) {
+  return ref
+      .read(settingsProvider.notifier)
+      .updateSettings(
+        (s) => s.copyWithSections(
+          smartModeHotkey: s.smartModeHotkey.copyWith(
+            smartModeHotkeyTargetLanguage: targetLanguage,
+          ),
+        ),
+      );
+}

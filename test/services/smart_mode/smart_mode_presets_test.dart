@@ -3,36 +3,28 @@ import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 
 void main() {
   group('Smart Mode v2 ticket 09: target-language validation gate', () {
-    test('smartModeValidatedTargetLanguages currently contains German and '
-        'English — the other five PRODUCT-SPEC languages each need their '
-        'own ticket-09 validation spike (real local-model or cloud '
-        'inference, unavailable in this sandbox) before being added here', () {
+    test('smartModeValidatedTargetLanguages contains all seven '
+        'PRODUCT-SPEC languages — each passed its own ticket-09 '
+        'validation spike against the real local Gemma-4-E2B-it model '
+        '(.scratch/smart-mode-v2/spike-test-results*.md)', () {
       expect(smartModeValidatedTargetLanguages, [
         SmartModeTargetLanguage.german,
         SmartModeTargetLanguage.english,
+        SmartModeTargetLanguage.spanish,
+        SmartModeTargetLanguage.french,
+        SmartModeTargetLanguage.portuguese,
+        SmartModeTargetLanguage.mandarin,
+        SmartModeTargetLanguage.russian,
       ]);
     });
 
-    test(
-      'every SmartModeTargetLanguage other than the validated subset falls '
-      'back to English rather than being resolvable from its settings code',
-      () {
-        final unvalidated = SmartModeTargetLanguage.values.where(
-          (lang) => !smartModeValidatedTargetLanguages.contains(lang),
-        );
-
-        expect(unvalidated, isNotEmpty);
-        for (final lang in unvalidated) {
-          expect(
-            smartModeTargetLanguageFromSettingsValue(lang.code),
-            SmartModeTargetLanguage.english,
-            reason:
-                '${lang.name} (${lang.code}) has not passed its ticket-09 '
-                'validation spike and must not be selectable yet',
-          );
-        }
-      },
-    );
+    test('an unrecognized settings code falls back to English rather than '
+        'throwing', () {
+      expect(
+        smartModeTargetLanguageFromSettingsValue('xx'),
+        SmartModeTargetLanguage.english,
+      );
+    });
 
     test('all seven official PRODUCT-SPEC languages are modeled', () {
       expect(SmartModeTargetLanguage.values, hasLength(7));
