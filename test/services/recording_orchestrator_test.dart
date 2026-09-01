@@ -1166,9 +1166,8 @@ void main() {
 
       fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
       // Unlike a static-snippet paste (a couple of microtask hops), priming
-      // + starting a real recording crosses several genuine Timer-based
-      // async gaps — a single zero-delay wait isn't reliably enough, so
-      // poll briefly instead.
+      // crosses several genuine Timer-based async gaps — a single
+      // zero-delay wait isn't reliably enough, so poll briefly instead.
       for (
         var i = 0;
         i < 20 && container.read(interactiveSnippetControllerProvider) == null;
@@ -1176,11 +1175,6 @@ void main() {
       ) {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
-      // The state flip above only proves `start()` reached its first
-      // `state = ...` assignment — its trailing `orchestrator.startRecording`
-      // await can still have real Timer-based work in flight. Give it a
-      // moment to settle so nothing resolves after this test's container is
-      // torn down.
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(fakeDesktopPaste.pasteCalls, 0);
@@ -1191,6 +1185,15 @@ void main() {
       expect(session!.fieldIndex, 0);
       expect(session.fieldCount, 2);
       expect(session.fieldName, 'Titel');
+      // Guided-UX v2: the sequence opens with the Enter-gated briefing —
+      // no microphone until the user advances. (The phase is still `done`
+      // from the trigger-word dictation that opened the picker; the claim
+      // here is only that the sequence did not open the mic.)
+      expect(session.stage, InteractiveSnippetStage.briefing);
+      expect(
+        container.read(recordingProvider).phase,
+        isNot(RecordingPhase.recording),
+      );
     });
 
     test('a transcript that only contains the trigger word as a substring '
@@ -1307,6 +1310,117 @@ void main() {
   // Snippet-Picker hotkey (ticket 26) — opens the panel directly by hotkey,
   // WITHOUT starting a recording, STT run, or history entry.
   // =========================================================================
+
+  group('Interactive-snippet guided sequence (guided-UX v2)', () {
+    // The fake model file outlives a single test (scratch dir is only
+    // cleaned in tearDownAll) — remove it again so the later preflight
+    // tests still see a missing model.
+    tearDown(() {
+      final modelPath = sttModelPath('whisper-small');
+      if (modelPath != null && File(modelPath).existsSync()) {
+        File(modelPath).deleteSync();
+      }
+    });
+
+    /// Seeds a two-field snippet and starts its sequence — lands in the
+    /// Enter-gated briefing stage.
+    Future<InteractiveSnippetController> startSequence() async {
+      ensureFakeLocalSttFilesExist();
+      await container.read(settingsProvider.future);
+      await db.upsertSnippetWithFields(
+        id: 'gs1',
+        title: 'Guided',
+        body: '{{Titel}}\n\n{{Text}}',
+        createdAt: DateTime.now(),
+        kind: 'interactive',
+        fieldNames: const ['Titel', 'Text'],
+      );
+      final fields = await db.readSnippetFields('gs1');
+      final ctrl = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      ctrl.announceDuration = Duration.zero;
+      // Let the orchestrator's build() pre-warm settle first.
+      container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await ctrl.start(fields, template: '{{Titel}}\n\n{{Text}}');
+      return ctrl;
+    }
+
+    test('starts in the briefing stage with the microphone closed; Enter '
+        '(advanceField) opens field 1', () async {
+      final ctrl = await startSequence();
+
+      var session = container.read(interactiveSnippetControllerProvider)!;
+      expect(session.stage, InteractiveSnippetStage.briefing);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+
+      await ctrl.advanceField();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      session = container.read(interactiveSnippetControllerProvider)!;
+      expect(session.stage, InteractiveSnippetStage.recording);
+      expect(session.fieldIndex, 0);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    });
+
+    test('Escape during the briefing cancels the sequence without ever '
+        'touching the pipeline', () async {
+      final ctrl = await startSequence();
+      expect(
+        container.read(interactiveSnippetControllerProvider)!.stage,
+        InteractiveSnippetStage.briefing,
+      );
+
+      await ctrl.cancel();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+
+    test('a field recording that auto-stopped on its own (max-duration or '
+        'silence guard: pipeline lands in done without the controller '
+        'seeing a stop) is collected by the next Enter instead of '
+        'stranding the sequence', () async {
+      // Field-tested stranding, 2026-09-01: the max-duration guard fired
+      // mid-field, `advanceField`'s recording-phase guard then no-op'd every
+      // Enter and the session (incl. the hijacked main hotkey) stayed stuck
+      // until an app restart.
+      final ctrl = await startSequence();
+      await ctrl.advanceField(); // briefing → field 1 recording
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // Simulate the guard's auto-stop: the orchestrator stops itself,
+      // bypassing the controller entirely.
+      fakeStt.transcriptToReturn = 'auto-stopped take';
+      await container
+          .read(recordingOrchestratorProvider.notifier)
+          .stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+      // Enter must now collect the take and move on to field 2.
+      await ctrl.advanceField();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      final session = container.read(interactiveSnippetControllerProvider);
+      expect(session, isNotNull);
+      expect(session!.fieldIndex, 1);
+      expect(session.fieldName, 'Text');
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // Finish the last field the same auto-stopped way — the sequence must
+      // complete and reset.
+      fakeStt.transcriptToReturn = 'second take';
+      await container
+          .read(recordingOrchestratorProvider.notifier)
+          .stopRecording();
+      await ctrl.advanceField();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+    });
+  });
 
   group('Snippet-Picker hotkey (ticket 26)', () {
     late FakeSnippetPickerController fakeSnippetPicker;
@@ -4298,6 +4412,13 @@ void main() {
           fields(['Titel', 'Beschreibung']),
           template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
         );
+        // Guided-UX v2: start() parks in the Enter-gated briefing; the
+        // first advanceField (Enter) opens field 1.
+        expect(
+          container.read(interactiveSnippetControllerProvider)?.stage,
+          InteractiveSnippetStage.briefing,
+        );
+        await controller.advanceField();
         expect(
           container.read(interactiveSnippetControllerProvider)?.fieldName,
           'Titel',
@@ -4356,6 +4477,7 @@ void main() {
           fields(['Name', 'Thema']),
           template: 'Hallo {{Name}}, danke für deine Anfrage zu {{Thema}}!',
         );
+        await controller.advanceField(); // briefing → field 1 recording
 
         fakeStt.transcriptToReturn = 'Anna';
         await controller.advanceField();
@@ -4391,6 +4513,7 @@ void main() {
         fields(['Titel', 'Beschreibung']),
         template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
       );
+      await controller.advanceField(); // briefing → field 1 recording
 
       fakeStt.transcriptToReturn = 'Titel-Text';
       await controller.advanceField();
@@ -4426,6 +4549,7 @@ void main() {
         fields(['Titel', 'Beschreibung']),
         template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
       );
+      await controller.advanceField(); // briefing → field 1 recording
       fakeStt.transcriptToReturn = 'Titel-Text';
       await controller.advanceField();
 
@@ -4450,6 +4574,7 @@ void main() {
       );
 
       expect(container.read(interactiveSnippetControllerProvider), isNotNull);
+      await controller.advanceField(); // briefing → field 1 recording
       expect(container.read(recordingProvider).phase, RecordingPhase.recording);
     });
 
@@ -4474,12 +4599,19 @@ void main() {
       final gate = Completer<void>();
       controller.announceDelay = (_) => gate.future;
 
-      final startFuture = controller.start(
+      await controller.start(
         fields(['Titel']),
         template: legacyInteractiveSnippetTemplate(['Titel']),
       );
-      // start() crosses a few genuine async hops (prime, key registration)
-      // before it parks on the pre-roll gate — poll briefly.
+      // Guided-UX v2: start() parks in the briefing; the pre-roll gate is
+      // crossed by the first advanceField (Enter).
+      expect(
+        container.read(interactiveSnippetControllerProvider)?.briefing,
+        isTrue,
+      );
+      final advanceFuture = controller.advanceField();
+      // advanceField() crosses a few genuine async hops before it parks on
+      // the pre-roll gate — poll briefly.
       for (
         var i = 0;
         i < 40 &&
@@ -4499,7 +4631,7 @@ void main() {
       );
 
       gate.complete();
-      await startFuture;
+      await advanceFuture;
 
       expect(
         container.read(interactiveSnippetControllerProvider)?.announcing,
@@ -4518,10 +4650,11 @@ void main() {
       final gate = Completer<void>();
       controller.announceDelay = (_) => gate.future;
 
-      final startFuture = controller.start(
+      await controller.start(
         fields(['Titel']),
         template: legacyInteractiveSnippetTemplate(['Titel']),
       );
+      final advanceFuture = controller.advanceField();
       for (
         var i = 0;
         i < 40 &&
@@ -4538,7 +4671,7 @@ void main() {
 
       await controller.cancel();
       gate.complete();
-      await startFuture;
+      await advanceFuture;
 
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
@@ -4561,7 +4694,24 @@ void main() {
       );
       expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isTrue);
       expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isTrue);
+
+      // First Enter leaves the briefing and opens field 1's recording.
+      sessionKeys.press(LogicalKeyboardKey.enter);
+      for (
+        var i = 0;
+        i < 40 &&
+            container.read(recordingProvider).phase != RecordingPhase.recording;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
       expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // The fake registrar never delivers key-up (supportsKeyUp: false), so
+      // `keyHeld` stays set and a second press within the 1200 ms
+      // auto-repeat window would be swallowed as OS key-repeat. Real macOS
+      // clears the hold via key-up; here we simply step past the window.
+      await Future<void>.delayed(const Duration(milliseconds: 1250));
 
       fakeStt.transcriptToReturn = 'Nur ein Feld';
       sessionKeys.press(LogicalKeyboardKey.enter);
@@ -4603,6 +4753,7 @@ void main() {
         fields(['Titel', 'Beschreibung']),
         template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
       );
+      await controller.advanceField(); // briefing → field 1 recording
       expect(container.read(recordingProvider).phase, RecordingPhase.recording);
 
       sessionKeys.press(LogicalKeyboardKey.escape);
@@ -4639,6 +4790,7 @@ void main() {
         fields(['Titel', 'Beschreibung']),
         template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
       );
+      await controller.advanceField(); // briefing → field 1 recording
 
       fakeStt.transcribeThrows = true;
       await controller.advanceField();

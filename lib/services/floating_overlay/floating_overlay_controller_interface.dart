@@ -33,6 +33,7 @@ class FloatingOverlaySnapshot {
     this.privacyMode = 'local',
     this.doneMessage,
     this.progress = 0.0,
+    this.secondaryLabel,
   });
 
   final bool visible;
@@ -56,6 +57,13 @@ class FloatingOverlaySnapshot {
   /// Recording progress (0.0–1.0). 0 = unlimited/no limit set.
   final double progress;
 
+  /// Smaller second text line under [label] in the text-forward
+  /// (transcribing-style) composition — the guided-sequence frames use it
+  /// for the Enter/Escape mechanics and the "get ready" beat. Null/empty
+  /// keeps the classic single-line layout; the minimal (mini) composition
+  /// never paints it.
+  final String? secondaryLabel;
+
   Map<String, dynamic> toMap() => {
     'visible': visible,
     'state': state.name,
@@ -74,6 +82,7 @@ class FloatingOverlaySnapshot {
     'privacyMode': privacyMode,
     'doneMessage': doneMessage,
     'progress': progress,
+    'secondaryLabel': secondaryLabel,
   };
 
   /// Rebuilds a snapshot from its [toMap] form.
@@ -112,6 +121,7 @@ class FloatingOverlaySnapshot {
       privacyMode: map['privacyMode'] as String? ?? 'local',
       doneMessage: map['doneMessage'] as String?,
       progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
+      secondaryLabel: map['secondaryLabel'] as String?,
     );
   }
 }

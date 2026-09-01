@@ -2757,16 +2757,34 @@ abstract class L10n {
   /// **'Interactive'**
   String get snippetsInteractiveBadge;
 
+  /// No description provided for @interactiveSnippetBriefingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 field} other{{count} fields}} · Enter to start'**
+  String interactiveSnippetBriefingLabel(int count);
+
+  /// No description provided for @interactiveSnippetBriefingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Field 1: {name} · Esc: cancel'**
+  String interactiveSnippetBriefingHint(String name);
+
   /// No description provided for @interactiveSnippetAnnounceLabel.
   ///
   /// In en, this message translates to:
-  /// **'Field {index}/{count}: {name} – get ready…'**
+  /// **'Field {index}/{count}: {name}'**
   String interactiveSnippetAnnounceLabel(int index, int count, String name);
+
+  /// No description provided for @interactiveSnippetAnnounceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Get ready to speak…'**
+  String get interactiveSnippetAnnounceHint;
 
   /// No description provided for @interactiveSnippetSpeakNowLabel.
   ///
   /// In en, this message translates to:
-  /// **'Speak now: {name} ({index}/{count})'**
+  /// **'{index}/{count}: {name}'**
   String interactiveSnippetSpeakNowLabel(String name, int index, int count);
 
   /// No description provided for @interactiveSnippetAdvance.

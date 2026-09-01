@@ -516,7 +516,19 @@
     }
   },
   "snippetsInteractiveBadge": "אינטראקטיבי",
-  "interactiveSnippetAnnounceLabel": "שדה {index}/{count}: {name} – התכונן לדבר…",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{שדה אחד} other{{count} שדות}} · Enter מתחיל",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "שדה 1: {name} · Esc: ביטול",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "שדה {index}/{count}: {name}",
   "@interactiveSnippetAnnounceLabel": {
     "placeholders": {
       "index": { "type": "int" },
@@ -524,7 +536,8 @@
       "name": { "type": "String" }
     }
   },
-  "interactiveSnippetSpeakNowLabel": "דבר עכשיו: {name} ({index}/{count})",
+  "interactiveSnippetAnnounceHint": "התכונן לדבר…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
   "@interactiveSnippetSpeakNowLabel": {
     "placeholders": {
       "name": { "type": "String" },

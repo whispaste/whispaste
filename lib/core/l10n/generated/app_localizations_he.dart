@@ -1514,13 +1514,32 @@ class L10nHe extends L10n {
   String get snippetsInteractiveBadge => 'אינטראקטיבי';
 
   @override
-  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
-    return 'שדה $index/$count: $name – התכונן לדבר…';
+  String interactiveSnippetBriefingLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count שדות',
+      one: 'שדה אחד',
+    );
+    return '$_temp0 · Enter מתחיל';
   }
 
   @override
+  String interactiveSnippetBriefingHint(String name) {
+    return 'שדה 1: $name · Esc: ביטול';
+  }
+
+  @override
+  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
+    return 'שדה $index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAnnounceHint => 'התכונן לדבר…';
+
+  @override
   String interactiveSnippetSpeakNowLabel(String name, int index, int count) {
-    return 'דבר עכשיו: $name ($index/$count)';
+    return '$index/$count: $name';
   }
 
   @override

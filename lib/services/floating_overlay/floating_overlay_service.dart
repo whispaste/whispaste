@@ -132,6 +132,19 @@ class FloatingOverlayService
   RecordingPhase _lastPhase = RecordingPhase.idle;
   L10n? _l10n;
 
+  /// True from the first guided-sequence frame (briefing/announce) until the
+  /// overlay next hides. While set, every snapshot forces the NORMAL size
+  /// variant regardless of the configured overlay size: the guided flow is
+  /// text (field names, positions, key mechanics), and the mini pill paints
+  /// no text at all during recording while compact/mini ellipsise the
+  /// announce into noise — field-tested root cause of "I see no guidance
+  /// whatsoever" (2026-09-01, user ran `overlay_size: mini`). Sticky until
+  /// hide on purpose: the sequence's final done frame arrives after the
+  /// session state is already null, and flipping back to mini exactly on
+  /// the paste-confirmation frame would resize the native shell on the one
+  /// frame the user is meant to read.
+  bool _interactiveGuidanceActive = false;
+
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
 
   @override
@@ -195,6 +208,13 @@ class FloatingOverlayService
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {
       _sendSnapshot(s, phase);
+      return;
+    }
+
+    // A guided sequence's briefing/announce frames run with the pipeline
+    // still idle — a settings sync must not hide them (the idle pre-sync
+    // below exists only for truly idle, off-screen moments).
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
       return;
     }
 
@@ -311,7 +331,16 @@ class FloatingOverlayService
 
       case RecordingPhase.done:
         _sendSnapshot(settings, next);
-        _scheduleAutoHide();
+        // During an interactive sequence the done frame is only a beat
+        // between fields — the next announce replaces it and cancels the
+        // timer anyway. But if the sequence stalls there (a field's
+        // recording auto-stopped on max-duration/silence, no advance yet),
+        // auto-hiding would remove the user's only visible anchor while
+        // Enter still works — keep the pill up until the sequence moves on
+        // or ends (the session-end listener schedules the hide then).
+        if (!ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          _scheduleAutoHide();
+        }
 
       case RecordingPhase.error:
         _sendSnapshot(settings, next);
@@ -397,15 +426,20 @@ class FloatingOverlayService
   // ── Interactive-snippet announce pre-roll ─────────────────────────────────
 
   /// Reacts to interactive-snippet session changes (guided-sequence UX
-  /// pass). Two cases matter here; everything else is already driven by the
-  /// recording phase:
+  /// pass). Three cases matter here; everything else is already driven by
+  /// the recording phase:
   ///
-  /// - A session enters its ANNOUNCE pre-roll (`announcing == true`): the
-  ///   recording pipeline is idle/done in that window, so no phase change
-  ///   will paint anything — this listener shows the "get ready" frame.
-  /// - The session ends while the pipeline is idle (cancel during the very
-  ///   first announce pre-roll): no phase change will ever hide the pill,
-  ///   so this listener does.
+  /// - A session starts its BRIEFING (Enter-gated orientation before
+  ///   field 1): the pipeline is idle, no phase change will paint anything —
+  ///   this listener shows the orientation frame and it stays up until the
+  ///   user's Enter.
+  /// - A session enters a field's ANNOUNCE pre-roll: the recording pipeline
+  ///   is idle/done in that window — this listener shows the announce frame.
+  /// - The session ends: while the pipeline is idle (cancel during
+  ///   briefing/announce) the pill is hidden here; while it is `done` (the
+  ///   sequence just finished its last field) the normal done auto-hide is
+  ///   armed here, because [_handlePhaseUi] deliberately skipped it while
+  ///   the session was still active.
   void _onInteractiveSessionChanged(
     InteractiveSnippetSessionState? prev,
     InteractiveSnippetSessionState? next,
@@ -415,28 +449,80 @@ class FloatingOverlayService
     if (settings == null) return;
     if (settings.effectiveOverlayMode != OverlayMode.floating) return;
 
-    if (next != null && next.announcing) {
+    if (next != null && (next.briefing || next.announcing)) {
       _generation++;
+      _interactiveGuidanceActive = true;
       // A between-fields announce arrives right after the previous field's
       // `done` armed the auto-hide — the pill must stay up for the pre-roll.
       _autoHideTimer?.cancel();
-      if (ref.read(recordingPhaseProvider) == RecordingPhase.idle) {
-        // First field: the overlay comes up cold here (mirrors the
+      if (ref.read(recordingPhaseProvider) == RecordingPhase.idle &&
+          (prev == null || next.briefing)) {
+        // Sequence start: the overlay comes up cold here (mirrors the
         // idle → recording branch of _handlePhaseUi, same ordering rules).
         unawaited(_setStartPosition(settings));
       }
-      _sendFieldAnnounceSnapshot(settings, next);
+      if (next.briefing) {
+        _sendBriefingSnapshot(settings, next);
+      } else {
+        _sendFieldAnnounceSnapshot(settings, next);
+      }
       return;
     }
 
-    if (next == null &&
-        prev != null &&
-        ref.read(recordingPhaseProvider) == RecordingPhase.idle) {
-      _hideOverlay();
+    if (next == null && prev != null) {
+      final phase = ref.read(recordingPhaseProvider);
+      if (phase == RecordingPhase.idle) {
+        _hideOverlay();
+      } else if (phase == RecordingPhase.done) {
+        // Sequence finished: give the paste-confirmation frame its normal
+        // linger, then hide (skipped in _handlePhaseUi while active).
+        _scheduleAutoHide();
+      }
     }
   }
 
-  /// Shows the announce pre-roll frame: "Field i/N: name – get ready…".
+  /// Shows the Enter-gated orientation frame at sequence start: the field
+  /// count plus the first field's name and the Enter/Escape mechanics on
+  /// the secondary line. Stays up until the user presses Enter — no timer.
+  ///
+  /// Reuses [OverlayVisualState.transcribing] as the vehicle (same
+  /// reasoning as [_sendFieldAnnounceSnapshot]).
+  void _sendBriefingSnapshot(
+    AppSettings s,
+    InteractiveSnippetSessionState session,
+  ) {
+    final c = controller;
+    if (c == null) return;
+
+    final l10n = _l10n ?? _resolveL10n();
+    final label =
+        l10n?.interactiveSnippetBriefingLabel(session.fieldCount) ??
+        '${session.fieldCount} fields · Enter to start';
+    final hint =
+        l10n?.interactiveSnippetBriefingHint(session.fieldName) ??
+        'Field 1: ${session.fieldName} · Esc: cancel';
+
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.transcribing,
+      size: _guidanceSize(),
+      style: s.overlayStyleType.variant,
+      label: label,
+      secondaryLabel: hint,
+      privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
+    );
+
+    _log.debug(
+      'Overlay show: interactive-snippet briefing '
+      'fields=${session.fieldCount}',
+    );
+    c.updateSnapshot(snapshot).catchError((e, st) {
+      _log.error('Failed to send overlay briefing snapshot', e, st);
+    });
+  }
+
+  /// Shows the announce pre-roll frame: "Field i/N: name" with a quieter
+  /// "get ready" secondary line.
   ///
   /// Reuses [OverlayVisualState.transcribing] as the vehicle on purpose —
   /// it is the ONE composition that paints a prominent text label in all
@@ -460,14 +546,16 @@ class FloatingOverlayService
           session.fieldName,
         ) ??
         'Field ${session.fieldIndex + 1}/${session.fieldCount}: '
-            '${session.fieldName} – get ready…';
+            '${session.fieldName}';
+    final hint = l10n?.interactiveSnippetAnnounceHint ?? 'Get ready to speak…';
 
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: OverlayVisualState.transcribing,
-      size: s.overlaySizeType.variant,
+      size: _guidanceSize(),
       style: s.overlayStyleType.variant,
       label: text,
+      secondaryLabel: hint,
       privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
     );
 
@@ -480,6 +568,10 @@ class FloatingOverlayService
     });
   }
 
+  /// The size variant for guided-sequence frames — always normal (see
+  /// [_interactiveGuidanceActive]).
+  OverlaySizeVariant _guidanceSize() => OverlaySizeVariant.normal;
+
   // ── Snapshot building ─────────────────────────────────────────────────────
 
   void _sendSnapshot(AppSettings s, RecordingPhase phase) {
@@ -487,7 +579,15 @@ class FloatingOverlayService
     if (c == null) return;
 
     final l10n = _l10n ?? _resolveL10n();
-    final sizeVariant = s.overlaySizeType.variant;
+    // Guided sequences force the normal size for the whole episode (see
+    // _interactiveGuidanceActive): the field-position/name text is the
+    // guidance, and mini/compact cannot carry it.
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      _interactiveGuidanceActive = true;
+    }
+    final sizeVariant = _interactiveGuidanceActive
+        ? _guidanceSize()
+        : s.overlaySizeType.variant;
     final styleVariant = s.overlayStyleType.variant;
     final elapsed = ref.read(recordingElapsedProvider);
     final recording = ref.read(recordingProvider);
@@ -538,6 +638,9 @@ class FloatingOverlayService
     final c = controller;
     if (c == null) return;
     _autoHideTimer?.cancel();
+    // The guided episode is over once the pill leaves the screen — the next
+    // regular recording gets the user's configured size again.
+    _interactiveGuidanceActive = false;
 
     // Preserve the configured size on hide. Forcing the normal size here made
     // the native shell needlessly resize on every hide (and could flash the

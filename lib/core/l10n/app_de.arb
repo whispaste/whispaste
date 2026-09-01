@@ -482,7 +482,19 @@
   "snippetsTemplateFieldHint": "Schreibe hier deinen Text und füge Felder über die Buttons oben ein.",
   "snippetsTemplateMissingFieldsWarning": "Noch nicht alle Felder werden in der Vorlage verwendet — ihr diktierter Text bliebe sonst ungenutzt.",
   "snippetsInteractiveBadge": "Interaktiv",
-  "interactiveSnippetAnnounceLabel": "Feld {index}/{count}: {name} – gleich sprechen…",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{1 Feld} other{{count} Felder}} · Enter startet",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "Feld 1: {name} · Esc: Abbrechen",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "Feld {index}/{count}: {name}",
   "@interactiveSnippetAnnounceLabel": {
     "placeholders": {
       "index": { "type": "int" },
@@ -490,7 +502,8 @@
       "name": { "type": "String" }
     }
   },
-  "interactiveSnippetSpeakNowLabel": "Jetzt sprechen: {name} ({index}/{count})",
+  "interactiveSnippetAnnounceHint": "Gleich sprechen…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
   "@interactiveSnippetSpeakNowLabel": {
     "placeholders": {
       "name": { "type": "String" },

@@ -22,6 +22,8 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart'
+    show OverlayDesignSpec, OverlaySizeVariant;
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -338,7 +340,10 @@ void main() {
       });
     });
 
-    test('verkürzt den sichtbaren Text in kompakt und mini auf das Feld', () {
+    test('erzwingt in kompakt und mini die NORMALE Größe — die einzige, '
+        'deren Aufnahme-Komposition die Feld-Anleitung überhaupt malt '
+        '(Feldtest 2026-09-01: mini malte während der Aufnahme gar keinen '
+        'Text, der Nutzer sah null Führung)', () {
       for (final size in [
         FloatingOverlaySize.compact,
         FloatingOverlaySize.mini,
@@ -358,11 +363,27 @@ void main() {
             _record(h, async, target: RecordingTarget.templateField);
 
             expect(
-              h.snapshot.elapsed,
-              _l10n.interactiveSnippetSpeakNowLabel('Nachname', 2, 2),
+              h.snapshot.size,
+              OverlaySizeVariant.normal,
               reason:
-                  'Größe ${size.value}: nur das Feld, sonst frisst der Text '
-                  'die Wellenform auf',
+                  'Größe ${size.value}: Sequenz-Schnappschüsse müssen die '
+                  'normale Größe erzwingen',
+            );
+            // Brücke zum Painter (das fehlende Glied der v1-Tests): die
+            // gesendete Größe darf keine minimalContent-Komposition sein —
+            // die malt während der Aufnahme keinerlei Text.
+            expect(
+              OverlayDesignSpec.sizeFor(h.snapshot.size).minimalContent,
+              isFalse,
+              reason:
+                  'Die Aufnahme-Komposition der gesendeten Größe muss die '
+                  'Feld-Anleitung malen können',
+            );
+            // Und die Anleitung steht im tatsächlich gemalten Text (die
+            // normale Größe malt während der Aufnahme `elapsed`).
+            expect(
+              h.snapshot.elapsed,
+              contains(_l10n.interactiveSnippetSpeakNowLabel('Nachname', 2, 2)),
             );
           } finally {
             h.dispose();
@@ -451,7 +472,7 @@ void main() {
                 fieldIndex: 1,
                 fieldCount: 3,
                 fieldName: 'Betreff',
-                announcing: true,
+                stage: InteractiveSnippetStage.announcing,
               ),
             );
             async.flushMicrotasks();
@@ -465,6 +486,13 @@ void main() {
             expect(
               h.snapshot.label,
               _l10n.interactiveSnippetAnnounceLabel(2, 3, 'Betreff'),
+            );
+            // Erzwingt die normale Größe — in mini wäre die Ansage in eine
+            // 150-px-Pille ellipsiert (Feldtest 2026-09-01).
+            expect(h.snapshot.size, OverlaySizeVariant.normal);
+            expect(
+              h.snapshot.secondaryLabel,
+              _l10n.interactiveSnippetAnnounceHint,
             );
           } finally {
             h.dispose();
@@ -484,7 +512,7 @@ void main() {
               fieldIndex: 0,
               fieldCount: 2,
               fieldName: 'Vorname',
-              announcing: true,
+              stage: InteractiveSnippetStage.announcing,
             ),
           );
           async.flushMicrotasks();
@@ -510,7 +538,7 @@ void main() {
               fieldIndex: 0,
               fieldCount: 2,
               fieldName: 'Vorname',
-              announcing: true,
+              stage: InteractiveSnippetStage.announcing,
             ),
           );
           async.flushMicrotasks();
@@ -530,6 +558,171 @@ void main() {
             h.snapshot.elapsed,
             contains(_l10n.interactiveSnippetSpeakNowLabel('Vorname', 1, 2)),
           );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+  });
+
+  group('Briefing-Frame beim Sequenzstart (Enter-gesteuertes Interview)', () {
+    _FakeInteractiveSnippetNotifier notifier(_Harness h) =>
+        h.container.read(interactiveSnippetControllerProvider.notifier)
+            as _FakeInteractiveSnippetNotifier;
+
+    InteractiveSnippetSessionState briefing() =>
+        const InteractiveSnippetSessionState(
+          fieldIndex: 0,
+          fieldCount: 3,
+          fieldName: 'Titel',
+          stage: InteractiveSnippetStage.briefing,
+        );
+
+    test('zeigt Orientierung (Feldzahl, erstes Feld, Enter/Esc-Mechanik) in '
+        'erzwungener normaler Größe — auch wenn mini konfiguriert ist', () {
+      for (final size in [
+        FloatingOverlaySize.normal,
+        FloatingOverlaySize.mini,
+      ]) {
+        FakeAsync().run((async) {
+          final h = _build(async, settings: _settings(size: size));
+          try {
+            notifier(h).setSession(briefing());
+            async.flushMicrotasks();
+
+            expect(h.snapshot.visible, isTrue);
+            expect(h.snapshot.state, OverlayVisualState.transcribing);
+            expect(h.snapshot.size, OverlaySizeVariant.normal);
+            expect(h.snapshot.label, _l10n.interactiveSnippetBriefingLabel(3));
+            expect(
+              h.snapshot.secondaryLabel,
+              _l10n.interactiveSnippetBriefingHint('Titel'),
+            );
+          } finally {
+            h.dispose();
+          }
+        });
+      }
+    });
+
+    test('bleibt ohne Timer stehen, bis der Nutzer weiterschaltet — kein '
+        'Auto-Hide während des Briefings', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          notifier(h).setSession(briefing());
+          async.flushMicrotasks();
+          expect(h.snapshot.visible, isTrue);
+
+          async.elapse(const Duration(seconds: 10));
+          async.flushMicrotasks();
+
+          expect(
+            h.snapshot.visible,
+            isTrue,
+            reason: 'Das Briefing ist Enter-gesteuert, nie zeitgesteuert',
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('ein Settings-Sync während des Briefings versteckt die Pille nicht '
+        '(die Pipeline ist in dem Moment idle — der Idle-Pre-Sync-Zweig '
+        'würde sonst greifen)', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          notifier(h).setSession(briefing());
+          async.flushMicrotasks();
+          expect(h.snapshot.visible, isTrue);
+
+          h.container
+              .read(settingsProvider.notifier)
+              .updateSettings((s) => s.copyWith(maxRecordDuration: 60));
+          async.elapse(const Duration(milliseconds: 5));
+          async.flushMicrotasks();
+
+          expect(h.snapshot.visible, isTrue);
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+  });
+
+  group('Gestrandete Sequenz nach Auto-Stopp (max-duration/silence guard)', () {
+    _FakeInteractiveSnippetNotifier notifier(_Harness h) =>
+        h.container.read(interactiveSnippetControllerProvider.notifier)
+            as _FakeInteractiveSnippetNotifier;
+
+    test('done versteckt das Overlay NICHT, solange die Sequenz aktiv ist — '
+        'die Pille ist der einzige sichtbare Anker für das weiterhin '
+        'funktionierende Enter (Feldtest 2026-09-01: max-duration feuerte '
+        'mitten im Feld, Auto-Hide ließ den Nutzer vor leerem Schirm '
+        'zurück)', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          notifier(h).setSession(
+            const InteractiveSnippetSessionState(
+              fieldIndex: 0,
+              fieldCount: 2,
+              fieldName: 'Titel',
+            ),
+          );
+          _record(
+            h,
+            async,
+            target: RecordingTarget.templateField,
+            toCompletion: true,
+          );
+          expect(h.snapshot.state, OverlayVisualState.done);
+
+          async.elapse(const Duration(seconds: 5));
+          async.flushMicrotasks();
+
+          expect(
+            h.snapshot.visible,
+            isTrue,
+            reason:
+                'Während einer aktiven Sequenz darf done nie auto-verstecken',
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('endet die Sequenz im done-Zustand (letztes Feld fertig), greift '
+        'das normale Auto-Hide danach wieder', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          notifier(h).setSession(
+            const InteractiveSnippetSessionState(
+              fieldIndex: 1,
+              fieldCount: 2,
+              fieldName: 'Text',
+            ),
+          );
+          _record(
+            h,
+            async,
+            target: RecordingTarget.templateField,
+            toCompletion: true,
+          );
+          expect(h.snapshot.state, OverlayVisualState.done);
+
+          notifier(h).setSession(null);
+          async.flushMicrotasks();
+          expect(h.snapshot.visible, isTrue);
+
+          async.elapse(kOverlayAutoHideDelay + const Duration(seconds: 1));
+          async.flushMicrotasks();
+
+          expect(h.snapshot.visible, isFalse);
         } finally {
           h.dispose();
         }

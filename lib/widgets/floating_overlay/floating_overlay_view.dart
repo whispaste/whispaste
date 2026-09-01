@@ -93,6 +93,12 @@ class WpFloatingOverlayView extends StatefulWidget {
   static String statusTextFor(FloatingOverlaySnapshot snapshot) =>
       snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label;
 
+  /// The secondary text line painted for [snapshot] (guided-sequence
+  /// frames) — mirrors [painterFor]'s `secondaryText` selection for the
+  /// same no-drift reason as [statusTextFor].
+  static String secondaryTextFor(FloatingOverlaySnapshot snapshot) =>
+      snapshot.secondaryLabel ?? '';
+
   /// Builds the spec-sourced [WpOverlayPainter] for [snapshot].
   ///
   /// The whole painter configuration is derived from [OverlayDesignSpec] here —
@@ -132,6 +138,7 @@ class WpFloatingOverlayView extends StatefulWidget {
           : const [],
       timerText: snapshot.elapsed,
       statusText: statusTextFor(snapshot),
+      secondaryText: secondaryTextFor(snapshot),
       progress: snapshot.progress,
       dotPulse: dotPulse,
       paintFill: paintFill,
@@ -260,6 +267,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       initialSizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
       WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
     );
     _pillFromWidth = initialWidth;
     _pillToWidth = initialWidth;
@@ -307,6 +315,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         sizeSpec,
         OverlayDesignSpec.layoutFor(widget.snapshot.size),
         WpFloatingOverlayView.statusTextFor(widget.snapshot),
+        secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
       );
       _pillFromWidth = targetWidth;
       _pillToWidth = targetWidth;
@@ -342,6 +351,28 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       _dot.value = 1.0;
       _glass.value = 0.0;
     }
+  }
+
+  /// Re-targets the pill width on a text-only change within the same visible
+  /// state (e.g. the guided sequence's briefing → announce frames, or
+  /// transcribing → refining label swaps) — so longer/shorter text is not
+  /// stuck with the previous frame's width and ellipsised for no reason.
+  void _retargetPillOnTextChange(WpFloatingOverlayView oldWidget) {
+    if (widget.snapshot.state != oldWidget.snapshot.state ||
+        widget.snapshot.size != oldWidget.snapshot.size ||
+        !widget.snapshot.visible ||
+        !oldWidget.snapshot.visible) {
+      return;
+    }
+    final textChanged =
+        WpFloatingOverlayView.statusTextFor(widget.snapshot) !=
+            WpFloatingOverlayView.statusTextFor(oldWidget.snapshot) ||
+        WpFloatingOverlayView.secondaryTextFor(widget.snapshot) !=
+            WpFloatingOverlayView.secondaryTextFor(oldWidget.snapshot);
+    if (!textChanged) return;
+    _startPillSpring(
+      WpFloatingOverlayView.designStateFor(widget.snapshot.state),
+    );
   }
 
   @override
@@ -402,6 +433,8 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         oldWidget.snapshot.visible) {
       _snapPillToCurrentState();
     }
+
+    _retargetPillOnTextChange(oldWidget);
 
     // State-transition crossfade + pill-width spring:
     // recording → transcribing → done/error.
@@ -487,6 +520,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       sizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
       WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
     );
     _pillFromWidth = width;
     _pillToWidth = width;
@@ -506,6 +540,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       sizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
       WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
     );
     final currentWidth = _currentPillWidth;
 

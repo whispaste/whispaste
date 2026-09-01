@@ -8,16 +8,29 @@
 /// the last field composes and pastes/saves the combined result via
 /// `RecordingOrchestrator.completeInteractiveSnippet`.
 ///
-/// ## Interview-style flow (guided-sequence UX pass)
+/// ## Interview-style flow (guided-sequence UX pass, v2)
 ///
-/// Every field is preceded by a short ANNOUNCE pre-roll
-/// ([kInteractiveFieldAnnounceDuration]): the session state is published
-/// with [InteractiveSnippetSessionState.announcing] set, the floating
-/// overlay shows "Field i/N: name – get ready…", and only then does the
-/// microphone open. This was chosen over adding a new `RecordingPhase`
-/// value (the once-debated architecture option): the pre-roll is purely a
-/// presentation concern of THIS sequence — the recording pipeline itself is
-/// idle during it, so modelling it as core recording state would leak
+/// A sequence walks through three stages per the field-tested UX (the v1
+/// time-based announce alone was not perceivable — see the guided-UX
+/// diagnosis pass, 2026-09-01):
+///
+/// 1. **Briefing** ([InteractiveSnippetStage.briefing]) — published once at
+///    sequence start, BEFORE any microphone opens. The overlay shows the
+///    field count, the first field's name and the Enter/Escape mechanics,
+///    and stays up until the user presses Enter (or the hotkey). No timer:
+///    the user decides when the interview begins.
+/// 2. **Announce** ([InteractiveSnippetStage.announcing]) — a short
+///    pre-roll ([kInteractiveFieldAnnounceDuration]) before each field's
+///    recording, naming the field about to be recorded ("Field i/N: name").
+///    Only then does the microphone open.
+/// 3. **Recording** ([InteractiveSnippetStage.recording]) — the field's
+///    recording runs; the overlay keeps a persistent "i/N: name" indicator
+///    next to the timer for the whole take.
+///
+/// The stages were chosen over adding new `RecordingPhase` values (the
+/// once-debated architecture option): they are purely a presentation
+/// concern of THIS sequence — the recording pipeline itself is idle during
+/// briefing/announce, so modelling them as core recording state would leak
 /// snippet-sequence UX into every `RecordingPhase` consumer. An audio cue
 /// (the other debated option) was skipped as well: the persistent on-screen
 /// instruction covers the "thrown into dictation" problem without adding a
@@ -45,10 +58,28 @@ import '../recording_orchestrator.dart';
 import 'interactive_snippet_composer.dart';
 
 /// Pre-roll shown before each field's recording starts: long enough to read
-/// "Field i/N: name – get ready…", short enough not to drag out a sequence
-/// (Performance is a north star — this is a deliberate, small trade for not
-/// being thrown into an already-running recording unprepared).
-const kInteractiveFieldAnnounceDuration = Duration(milliseconds: 1000);
+/// "Field i/N: name", short enough not to drag out a sequence (Performance
+/// is a north star — this is a deliberate, small trade for not being thrown
+/// into an already-running recording unprepared). Raised from the original
+/// 1000 ms: field-tested against the running app, one second was over
+/// before the eye had even found the pill (guided-UX diagnosis pass).
+const kInteractiveFieldAnnounceDuration = Duration(milliseconds: 1500);
+
+/// Where a running sequence currently stands (see the library doc's
+/// interview-style flow).
+enum InteractiveSnippetStage {
+  /// Sequence started, waiting for the user's Enter before field 1 — the
+  /// one-time orientation frame. No microphone, no timer.
+  briefing,
+
+  /// The short timed pre-roll before the current field's recording — the
+  /// overlay names the field; the microphone is not yet open.
+  announcing,
+
+  /// The current field's recording is running (or just finished and the
+  /// pipeline is transcribing it).
+  recording,
+}
 
 /// Watched by the overlay to render the guided-sequence UI (PRD User
 /// Story 8). `null` means no interactive-snippet sequence is currently
@@ -58,7 +89,7 @@ class InteractiveSnippetSessionState {
     required this.fieldIndex,
     required this.fieldCount,
     required this.fieldName,
-    this.announcing = false,
+    this.stage = InteractiveSnippetStage.recording,
   });
 
   /// 0-based index of the field currently being recorded.
@@ -66,10 +97,17 @@ class InteractiveSnippetSessionState {
   final int fieldCount;
   final String fieldName;
 
+  /// Which stage of the guided flow this state describes.
+  final InteractiveSnippetStage stage;
+
   /// True during the short pre-roll BEFORE this field's recording starts —
-  /// the overlay shows the "get ready" instruction; the microphone is not
+  /// the overlay shows the announce instruction; the microphone is not
   /// yet open. False once the field is actually recording.
-  final bool announcing;
+  bool get announcing => stage == InteractiveSnippetStage.announcing;
+
+  /// True while the sequence waits for the user's first Enter (the
+  /// orientation frame shown before field 1's announce).
+  bool get briefing => stage == InteractiveSnippetStage.briefing;
 }
 
 class InteractiveSnippetController
@@ -135,18 +173,55 @@ class InteractiveSnippetController
           onAdvance: () => unawaited(advanceField()),
           onCancel: () => unawaited(cancel()),
         );
-    await _announceThenRecord(0);
+    // Orientation first, microphone later: the briefing frame stays up until
+    // the user presses Enter (see [advanceField]) — being dropped straight
+    // into field 1's countdown was the "unexplained hotkey presses" feel the
+    // guided-UX pass exists to remove.
+    state = InteractiveSnippetSessionState(
+      fieldIndex: 0,
+      fieldCount: _fields.length,
+      fieldName: _fields[0].name,
+      stage: InteractiveSnippetStage.briefing,
+    );
   }
 
-  /// Completes the current field's recording — the single action the
-  /// hotkey, Enter key, and overlay button all trigger identically (PRD
-  /// User Story 14). Ignored while idle, during a field's announce
-  /// pre-roll, or while the current field's recording hasn't started yet.
+  /// Advances the guided flow — the single action the hotkey, Enter key,
+  /// and overlay button all trigger identically (PRD User Story 14).
+  ///
+  /// - During the briefing frame it starts field 1's announce pre-roll.
+  /// - During a field's recording it completes that field.
+  /// - After a field's recording auto-stopped on its own (max-duration or
+  ///   silence guard — the pipeline lands in `done` without this controller
+  ///   ever seeing a stop), it collects that field's transcript and moves
+  ///   on. Without this branch the `recording`-phase guard below turned
+  ///   Enter into a dead key after any auto-stop and stranded the whole
+  ///   sequence (observed live, 2026-09-01: max-duration fired mid-field,
+  ///   session stayed active, every hotkey no-op'd until app restart).
+  /// - Ignored while idle or during an announce pre-roll.
   Future<void> advanceField() async {
     if (!isActive) return;
-    if (ref.read(recordingProvider).phase != RecordingPhase.recording) return;
 
-    await ref.read(recordingOrchestratorProvider.notifier).stopRecording();
+    if (state!.stage == InteractiveSnippetStage.briefing) {
+      await _announceThenRecord(0);
+      return;
+    }
+    if (state!.stage != InteractiveSnippetStage.recording) return;
+
+    final phase = ref.read(recordingProvider).phase;
+    if (phase == RecordingPhase.recording) {
+      await ref.read(recordingOrchestratorProvider.notifier).stopRecording();
+    } else if (phase == RecordingPhase.error) {
+      // The pipeline failed on its own (e.g. empty-transcript error after an
+      // auto-stop) — same stranding hazard as the done case: without this,
+      // Enter would be dead and the session stuck. Tear the sequence down.
+      await _abort();
+      return;
+    } else if (phase != RecordingPhase.done) {
+      // Transcribing/refining is still in flight (Enter pressed twice), or
+      // the pipeline is idle without a take to collect — nothing to
+      // advance past yet.
+      return;
+    }
 
     final result = ref.read(recordingProvider);
     if (result.phase == RecordingPhase.error) {
@@ -173,7 +248,7 @@ class InteractiveSnippetController
       fieldIndex: index,
       fieldCount: _fields.length,
       fieldName: _fields[index].name,
-      announcing: true,
+      stage: InteractiveSnippetStage.announcing,
     );
     await announceDelay(announceDuration);
     if (_epoch != epoch) return; // Cancelled during the pre-roll.
@@ -182,6 +257,7 @@ class InteractiveSnippetController
       fieldIndex: index,
       fieldCount: _fields.length,
       fieldName: _fields[index].name,
+      stage: InteractiveSnippetStage.recording,
     );
     await ref
         .read(recordingOrchestratorProvider.notifier)

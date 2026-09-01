@@ -1533,13 +1533,32 @@ class L10nEn extends L10n {
   String get snippetsInteractiveBadge => 'Interactive';
 
   @override
-  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
-    return 'Field $index/$count: $name – get ready…';
+  String interactiveSnippetBriefingLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fields',
+      one: '1 field',
+    );
+    return '$_temp0 · Enter to start';
   }
 
   @override
+  String interactiveSnippetBriefingHint(String name) {
+    return 'Field 1: $name · Esc: cancel';
+  }
+
+  @override
+  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
+    return 'Field $index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAnnounceHint => 'Get ready to speak…';
+
+  @override
   String interactiveSnippetSpeakNowLabel(String name, int index, int count) {
-    return 'Speak now: $name ($index/$count)';
+    return '$index/$count: $name';
   }
 
   @override

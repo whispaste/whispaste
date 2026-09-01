@@ -625,7 +625,19 @@
   "snippetsTemplateFieldHint": "Write your text here and insert fields using the buttons above.",
   "snippetsTemplateMissingFieldsWarning": "Not all fields appear in the template yet — their dictated text would go unused.",
   "snippetsInteractiveBadge": "Interactive",
-  "interactiveSnippetAnnounceLabel": "Field {index}/{count}: {name} – get ready…",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{1 field} other{{count} fields}} · Enter to start",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "Field 1: {name} · Esc: cancel",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "Field {index}/{count}: {name}",
   "@interactiveSnippetAnnounceLabel": {
     "placeholders": {
       "index": { "type": "int" },
@@ -633,7 +645,8 @@
       "name": { "type": "String" }
     }
   },
-  "interactiveSnippetSpeakNowLabel": "Speak now: {name} ({index}/{count})",
+  "interactiveSnippetAnnounceHint": "Get ready to speak…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
   "@interactiveSnippetSpeakNowLabel": {
     "placeholders": {
       "name": { "type": "String" },

@@ -42,6 +42,7 @@ class WpOverlayPainter extends CustomPainter {
     required this.waveformBars,
     required this.timerText,
     required this.statusText,
+    this.secondaryText = '',
     required this.progress,
     required this.dotPulse,
     this.paintFill = true,
@@ -79,6 +80,12 @@ class WpOverlayPainter extends CustomPainter {
 
   /// Active text: the label while transcribing, or the done/error message.
   final String statusText;
+
+  /// Optional smaller second line under [statusText] in the transcribing
+  /// composition (guided-sequence frames: key mechanics / "get ready").
+  /// Empty keeps the classic single centred line; the minimal (mini)
+  /// composition never paints it.
+  final String secondaryText;
 
   /// Recording progress toward the max duration (0–1); 0 hides the timeline.
   final double progress;
@@ -648,6 +655,13 @@ class WpOverlayPainter extends CustomPainter {
     final textLeft = spinnerCenter.dx + layout.timerGap;
     final maxTextWidth = pill.right - layout.padH - textLeft;
     final baseStyle = _textStyle(layout.timerFontSize);
+    // Two-line layout (guided-sequence frames): the primary instruction
+    // shifts up and the smaller mechanics line sits below it. Mini never
+    // paints the secondary line — its 50 px pill has no room for two lines.
+    final twoLines = secondaryText.isNotEmpty && !sizeSpec.minimalContent;
+    final primaryCy = twoLines
+        ? cy + OverlayDesignSpec.secondaryTextPrimaryDy
+        : cy;
     final fillTp = statusText.isEmpty
         ? null
         : _layoutTextPainter(
@@ -655,7 +669,21 @@ class WpOverlayPainter extends CustomPainter {
             baseStyle.copyWith(color: OverlayDesignSpec.contentGlyphFill),
             maxTextWidth,
           );
-    final textWidth = fillTp?.width ?? 0.0;
+    final secondaryStyle = _textStyle(
+      layout.timerFontSize * OverlayDesignSpec.secondaryTextScale,
+    );
+    final secondaryTp = twoLines
+        ? _layoutTextPainter(
+            secondaryText,
+            secondaryStyle.copyWith(
+              color: OverlayDesignSpec.contentGlyphFill.withValues(
+                alpha: OverlayDesignSpec.secondaryTextOpacity,
+              ),
+            ),
+            maxTextWidth,
+          )
+        : null;
+    final textWidth = math.max(fillTp?.width ?? 0.0, secondaryTp?.width ?? 0.0);
 
     _drawWaveform(
       canvas,
@@ -674,8 +702,18 @@ class WpOverlayPainter extends CustomPainter {
         canvas,
         statusText,
         fillTp,
-        Offset(textLeft, cy),
+        Offset(textLeft, primaryCy),
         baseStyle,
+        maxTextWidth,
+      );
+    }
+    if (secondaryTp != null) {
+      _paintLaidOutText(
+        canvas,
+        secondaryText,
+        secondaryTp,
+        Offset(textLeft, cy + OverlayDesignSpec.secondaryTextSecondaryDy),
+        secondaryStyle,
         maxTextWidth,
       );
     }
@@ -1138,6 +1176,7 @@ class WpOverlayPainter extends CustomPainter {
         old.layout != layout ||
         old.timerText != timerText ||
         old.statusText != statusText ||
+        old.secondaryText != secondaryText ||
         old.progress != progress ||
         old.dotPulse != dotPulse ||
         old.paintFill != paintFill ||
