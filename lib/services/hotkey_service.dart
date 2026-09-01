@@ -242,6 +242,17 @@ class HotkeyService extends Notifier<void> {
   /// behaving like the main one, not a lesser toggle-only action).
   static const _smartModeActionId = 'smartMode';
 
+  /// Action identifiers for the two SESSION-SCOPED interactive-snippet keys
+  /// (Enter → advance field, Escape → cancel sequence). Unlike every other
+  /// action these are never registered from settings: capturing bare Enter
+  /// or Escape system-wide while the app merely runs would swallow those
+  /// keys in every other application. They exist only between
+  /// [registerInteractiveSnippetKeys] and
+  /// [unregisterInteractiveSnippetKeys], i.e. exactly while an
+  /// interactive-snippet guided sequence is active.
+  static const _snippetAdvanceActionId = 'snippetAdvance';
+  static const _snippetCancelActionId = 'snippetCancel';
+
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
 
@@ -292,6 +303,21 @@ class HotkeyService extends Notifier<void> {
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
   bool _smartModeInitialized = false;
+
+  /// Callbacks for the session-scoped interactive-snippet keys. Set by
+  /// [registerInteractiveSnippetKeys], cleared by
+  /// [unregisterInteractiveSnippetKeys] — never wired from
+  /// [WpServiceBootstrap] like the persistent actions, because they only
+  /// exist for the lifetime of one guided sequence.
+  VoidCallback? _onInteractiveSnippetAdvance;
+  VoidCallback? _onInteractiveSnippetCancel;
+
+  /// Monotonic epoch guarding the register/unregister race on the
+  /// session-scoped keys: [unregisterInteractiveSnippetKeys] bumps it, and a
+  /// registration that completes only AFTER such a bump immediately
+  /// unregisters itself again instead of leaking a system-wide Enter/Escape
+  /// grab past the end of the sequence.
+  int _snippetKeysEpoch = 0;
 
   /// Per-action registration + held-key state, keyed by action id (see
   /// [_globalActionId], [_quickNoteActionId]). A held key on one action must
@@ -625,6 +651,127 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Registers the session-scoped interactive-snippet keys: bare **Enter**
+  /// (advance to the next field) and bare **Escape** (cancel the sequence).
+  ///
+  /// MUST only be called while an interactive-snippet guided sequence is
+  /// starting, and MUST be paired with [unregisterInteractiveSnippetKeys] on
+  /// every exit path of that sequence (finish, cancel, abort) — a bare
+  /// system-wide Enter grab left behind would swallow Enter in every other
+  /// application. `InteractiveSnippetController` owns that pairing; this
+  /// service additionally unregisters both keys in [_destroy] as a last
+  /// line of defence.
+  ///
+  /// Failure contract mirrors the secondary hotkeys: a key that cannot be
+  /// registered (already claimed elsewhere) is logged and simply stays
+  /// unavailable — the sequence continues, the main hotkey path still
+  /// advances fields. Each key registers independently, so an Enter
+  /// conflict does not take Escape down with it (or vice versa).
+  Future<void> registerInteractiveSnippetKeys({
+    required VoidCallback onAdvance,
+    required VoidCallback onCancel,
+  }) async {
+    if (!_isDesktop) return;
+    // Claim this sequence's epoch SYNCHRONOUSLY, before the cleanup await
+    // below. Capturing after an await would open a race:
+    // [unregisterInteractiveSnippetKeys] could land during that await, and
+    // the epoch captured afterwards would match the post-bump value — making
+    // this already-ended sequence look current and letting its key grabs
+    // survive. ONE epoch for both keys: if the sequence ends while either
+    // registration is still in flight, both key registrations see the stale
+    // epoch — the pending one undoes itself, the not-yet-started one is
+    // skipped.
+    final epoch = ++_snippetKeysEpoch;
+    // Idempotent: drop any previous session's registration first.
+    await _unregisterInteractiveSnippetActions();
+    if (epoch != _snippetKeysEpoch) {
+      // The sequence was ended (or replaced) while the cleanup above was in
+      // flight — don't resurrect the callbacks or register any key.
+      return;
+    }
+    _onInteractiveSnippetAdvance = onAdvance;
+    _onInteractiveSnippetCancel = onCancel;
+    await _registerSessionKey(
+      _snippetAdvanceActionId,
+      LogicalKeyboardKey.enter,
+      'Snippet-advance (Enter)',
+      epoch,
+    );
+    await _registerSessionKey(
+      _snippetCancelActionId,
+      LogicalKeyboardKey.escape,
+      'Snippet-cancel (Escape)',
+      epoch,
+    );
+  }
+
+  /// Removes the session-scoped interactive-snippet keys (see
+  /// [registerInteractiveSnippetKeys]). Safe to call when nothing is
+  /// registered.
+  Future<void> unregisterInteractiveSnippetKeys() async {
+    _snippetKeysEpoch++;
+    _onInteractiveSnippetAdvance = null;
+    _onInteractiveSnippetCancel = null;
+    await _unregisterInteractiveSnippetActions();
+  }
+
+  /// Drops both session-scoped key registrations WITHOUT bumping the epoch —
+  /// the shared cleanup between [unregisterInteractiveSnippetKeys] (which
+  /// bumps) and [registerInteractiveSnippetKeys] (which has already claimed
+  /// its own fresh epoch before calling this).
+  Future<void> _unregisterInteractiveSnippetActions() async {
+    await _unregisterAction(_snippetAdvanceActionId, stopMonitor: false);
+    await _unregisterAction(_snippetCancelActionId, stopMonitor: false);
+  }
+
+  /// Registers one session-scoped key for [actionId]. Stores the [HotKey]
+  /// only after the registrar call succeeded (unlike the settings-driven
+  /// `update*` methods, which store first): if an unregister raced past the
+  /// pending call, nothing must be left behind that [_unregisterAction]
+  /// already missed — the epoch check below closes exactly that window.
+  Future<void> _registerSessionKey(
+    String actionId,
+    LogicalKeyboardKey key,
+    String label,
+    int epoch,
+  ) async {
+    if (epoch != _snippetKeysEpoch) {
+      // The sequence already ended before this key's turn came — skip.
+      return;
+    }
+    final hotKey = HotKey(key: key);
+    try {
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(actionId, label),
+        // Where key-up is available (macOS registrar), clear the held state
+        // so a quick successive press within the auto-repeat window is not
+        // swallowed as OS key-repeat.
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) => _handleKeyUp(actionId, label)
+            : null,
+      );
+      if (epoch != _snippetKeysEpoch) {
+        // The sequence ended while the registration was in flight — undo it
+        // immediately instead of leaking a system-wide key grab.
+        _log.info('$label registration outlived its sequence — undoing');
+        try {
+          await _registrar.unregister(hotKey);
+        } on Object catch (e) {
+          _log.debug('$label late unregister failed (non-fatal): $e');
+        }
+        return;
+      }
+      _stateFor(actionId).registeredHotKey = hotKey;
+      _log.info('$label registered for interactive-snippet sequence');
+    } on Object catch (e) {
+      _stateFor(actionId).registeredHotKey = null;
+      _log.warning(
+        'Failed to register $label: $e — the sequence continues without it',
+      );
+    }
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
   Future<void> _registerFromSettings(AppSettings settings) async {
@@ -900,13 +1047,21 @@ class HotkeyService extends Notifier<void> {
       // drives the recording overlay.
       PerfMarkers.instance.markHotkeyPressed();
       onSmartModeHotkeyPressed?.call();
+    } else if (actionId == _snippetAdvanceActionId) {
+      // No perf mark — the field advance ends a recording rather than
+      // starting the hotkey→overlay hot path this marker measures.
+      _onInteractiveSnippetAdvance?.call();
+    } else if (actionId == _snippetCancelActionId) {
+      _onInteractiveSnippetCancel?.call();
     }
   }
 
   /// Handles a hotkey key-up (macOS only; global and Smart-Mode actions only
   /// — the quick-note and Snippet-Picker actions never wire a keyUpHandler).
   /// Clears the held state so the next press is honoured immediately, and
-  /// forwards to [onHotkeyReleased]/[onSmartModeHotkeyReleased].
+  /// forwards to [onHotkeyReleased]/[onSmartModeHotkeyReleased]. The
+  /// session-scoped interactive-snippet keys also land here purely for the
+  /// held-state clearing — they have no released callback.
   void _handleKeyUp(String actionId, String label) {
     final state = _stateFor(actionId);
     // Ignore a key-up with no matching key-down. The Windows RawInput monitor
@@ -967,6 +1122,11 @@ class HotkeyService extends Notifier<void> {
       await _unregisterAction(_smartModeActionId, stopMonitor: false);
       _log.info('Smart-Mode hotkey unregistered');
     }
+    // Last line of defence for the session-scoped interactive-snippet keys:
+    // normally InteractiveSnippetController unregisters them on every
+    // sequence exit path, but a teardown mid-sequence must not leak a
+    // system-wide Enter/Escape grab. No-op when nothing is registered.
+    await unregisterInteractiveSnippetKeys();
   }
 
   static bool get _isDesktop =>

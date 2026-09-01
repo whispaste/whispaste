@@ -307,8 +307,8 @@ void main() {
   });
 
   group('Aufnahme eines interaktiven Snippet-Feldes', () {
-    test('zeigt Feldindex und -name im sichtbaren Text der normalen Größe '
-        '(vorher: nur der bloße Zeitzähler, siehe WpOverlayPainter '
+    test('zeigt die Sprich-jetzt-Anweisung im sichtbaren Text der normalen '
+        'Größe (vorher: nur der bloße Zeitzähler, siehe WpOverlayPainter '
         '"_isRecording ? timerText : statusText")', () {
       FakeAsync().run((async) {
         final h = _build(async);
@@ -324,10 +324,10 @@ void main() {
               );
           _record(h, async, target: RecordingTarget.templateField);
 
-          final expectedLabel = _l10n.interactiveSnippetFieldLabel(
+          final expectedLabel = _l10n.interactiveSnippetSpeakNowLabel(
+            'Vorname',
             1,
             2,
-            'Vorname',
           );
           expect(h.snapshot.elapsed, contains(expectedLabel));
           // Der Zeitzähler bleibt in der normalen Größe erhalten.
@@ -359,7 +359,7 @@ void main() {
 
             expect(
               h.snapshot.elapsed,
-              _l10n.interactiveSnippetFieldLabel(2, 2, 'Nachname'),
+              _l10n.interactiveSnippetSpeakNowLabel('Nachname', 2, 2),
               reason:
                   'Größe ${size.value}: nur das Feld, sonst frisst der Text '
                   'die Wellenform auf',
@@ -369,6 +369,171 @@ void main() {
           }
         });
       }
+    });
+
+    test('nennt im Hinweis Enter und Esc zusätzlich zum Haupt-Hotkey', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          (h.container.read(interactiveSnippetControllerProvider.notifier)
+                  as _FakeInteractiveSnippetNotifier)
+              .setSession(
+                const InteractiveSnippetSessionState(
+                  fieldIndex: 0,
+                  fieldCount: 2,
+                  fieldName: 'Vorname',
+                ),
+              );
+          _record(h, async, target: RecordingTarget.templateField);
+
+          final mainHotkey = formatHotkeyShortcut(
+            const AppSettings().hotkeyModifiers,
+            const AppSettings().hotkeyKey,
+            l10n: _l10n,
+          );
+          expect(
+            h.snapshot.hint,
+            _l10n.overlayKeyboardHintNextFieldEnter(mainHotkey),
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('nennt im Hinweis nur Enter/Esc, wenn der Haupt-Hotkey aus ist '
+        '(die sequenz-gebundenen Tasten funktionieren trotzdem)', () {
+      FakeAsync().run((async) {
+        final h = _build(
+          async,
+          settings: _settings(
+            hotkey: const HotkeySettings(hotkeyEnabled: false),
+          ),
+        );
+        try {
+          (h.container.read(interactiveSnippetControllerProvider.notifier)
+                  as _FakeInteractiveSnippetNotifier)
+              .setSession(
+                const InteractiveSnippetSessionState(
+                  fieldIndex: 0,
+                  fieldCount: 2,
+                  fieldName: 'Vorname',
+                ),
+              );
+          _record(h, async, target: RecordingTarget.templateField);
+
+          expect(h.snapshot.hint, _l10n.overlayKeyboardHintNextFieldEnterOnly);
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+  });
+
+  group('Ansage-Vorlauf eines interaktiven Snippet-Feldes', () {
+    _FakeInteractiveSnippetNotifier notifier(_Harness h) =>
+        h.container.read(interactiveSnippetControllerProvider.notifier)
+            as _FakeInteractiveSnippetNotifier;
+
+    test('zeigt die Ansage in allen drei Größen als prominenten Text '
+        '(transcribing-Komposition — die einzige, die in jeder Größe Text '
+        'malt)', () {
+      for (final size in [
+        FloatingOverlaySize.normal,
+        FloatingOverlaySize.compact,
+        FloatingOverlaySize.mini,
+      ]) {
+        FakeAsync().run((async) {
+          final h = _build(async, settings: _settings(size: size));
+          try {
+            notifier(h).setSession(
+              const InteractiveSnippetSessionState(
+                fieldIndex: 1,
+                fieldCount: 3,
+                fieldName: 'Betreff',
+                announcing: true,
+              ),
+            );
+            async.flushMicrotasks();
+
+            expect(
+              h.snapshot.visible,
+              isTrue,
+              reason: 'Größe ${size.value}: Ansage muss sichtbar sein',
+            );
+            expect(h.snapshot.state, OverlayVisualState.transcribing);
+            expect(
+              h.snapshot.label,
+              _l10n.interactiveSnippetAnnounceLabel(2, 3, 'Betreff'),
+            );
+          } finally {
+            h.dispose();
+          }
+        });
+      }
+    });
+
+    test('versteckt das Overlay, wenn die Sequenz während der ersten Ansage '
+        'abgebrochen wird (Phase bleibt idle — kein Phasenwechsel würde je '
+        'verstecken)', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          notifier(h).setSession(
+            const InteractiveSnippetSessionState(
+              fieldIndex: 0,
+              fieldCount: 2,
+              fieldName: 'Vorname',
+              announcing: true,
+            ),
+          );
+          async.flushMicrotasks();
+          expect(h.snapshot.visible, isTrue);
+
+          notifier(h).setSession(null);
+          async.flushMicrotasks();
+
+          expect(h.snapshot.visible, isFalse);
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('eine Aufnahme im Anschluss an die Ansage übermalt sie ganz '
+        'normal', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          notifier(h).setSession(
+            const InteractiveSnippetSessionState(
+              fieldIndex: 0,
+              fieldCount: 2,
+              fieldName: 'Vorname',
+              announcing: true,
+            ),
+          );
+          async.flushMicrotasks();
+          expect(h.snapshot.state, OverlayVisualState.transcribing);
+
+          notifier(h).setSession(
+            const InteractiveSnippetSessionState(
+              fieldIndex: 0,
+              fieldCount: 2,
+              fieldName: 'Vorname',
+            ),
+          );
+          _record(h, async, target: RecordingTarget.templateField);
+
+          expect(h.snapshot.state, OverlayVisualState.recording);
+          expect(
+            h.snapshot.elapsed,
+            contains(_l10n.interactiveSnippetSpeakNowLabel('Vorname', 1, 2)),
+          );
+        } finally {
+          h.dispose();
+        }
+      });
     });
   });
 

@@ -2757,11 +2757,17 @@ abstract class L10n {
   /// **'Interactive'**
   String get snippetsInteractiveBadge;
 
-  /// No description provided for @interactiveSnippetFieldLabel.
+  /// No description provided for @interactiveSnippetAnnounceLabel.
   ///
   /// In en, this message translates to:
-  /// **'Field {index}/{count}: {name}'**
-  String interactiveSnippetFieldLabel(int index, int count, String name);
+  /// **'Field {index}/{count}: {name} – get ready…'**
+  String interactiveSnippetAnnounceLabel(int index, int count, String name);
+
+  /// No description provided for @interactiveSnippetSpeakNowLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Speak now: {name} ({index}/{count})'**
+  String interactiveSnippetSpeakNowLabel(String name, int index, int count);
 
   /// No description provided for @interactiveSnippetAdvance.
   ///
@@ -5334,11 +5340,17 @@ abstract class L10n {
   /// **'Press {hotkey} to stop'**
   String overlayKeyboardHint(String hotkey);
 
-  /// No description provided for @overlayKeyboardHintNextField.
+  /// No description provided for @overlayKeyboardHintNextFieldEnter.
   ///
   /// In en, this message translates to:
-  /// **'Press {hotkey} for the next field'**
-  String overlayKeyboardHintNextField(String hotkey);
+  /// **'Enter or {hotkey}: next field · Esc: cancel'**
+  String overlayKeyboardHintNextFieldEnter(String hotkey);
+
+  /// No description provided for @overlayKeyboardHintNextFieldEnterOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter: next field · Esc: cancel'**
+  String get overlayKeyboardHintNextFieldEnterOnly;
 
   /// No description provided for @overlayProcessingLocal.
   ///

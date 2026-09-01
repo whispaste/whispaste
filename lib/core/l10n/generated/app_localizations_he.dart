@@ -1514,8 +1514,13 @@ class L10nHe extends L10n {
   String get snippetsInteractiveBadge => 'אינטראקטיבי';
 
   @override
-  String interactiveSnippetFieldLabel(int index, int count, String name) {
-    return 'שדה $index/$count: $name';
+  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
+    return 'שדה $index/$count: $name – התכונן לדבר…';
+  }
+
+  @override
+  String interactiveSnippetSpeakNowLabel(String name, int index, int count) {
+    return 'דבר עכשיו: $name ($index/$count)';
   }
 
   @override
@@ -2978,9 +2983,13 @@ class L10nHe extends L10n {
   }
 
   @override
-  String overlayKeyboardHintNextField(String hotkey) {
-    return 'לחץ $hotkey עבור השדה הבא';
+  String overlayKeyboardHintNextFieldEnter(String hotkey) {
+    return 'Enter או $hotkey: השדה הבא · Esc: ביטול';
   }
+
+  @override
+  String get overlayKeyboardHintNextFieldEnterOnly =>
+      'Enter: השדה הבא · Esc: ביטול';
 
   @override
   String get overlayProcessingLocal => 'מקומי';

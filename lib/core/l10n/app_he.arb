@@ -516,12 +516,20 @@
     }
   },
   "snippetsInteractiveBadge": "אינטראקטיבי",
-  "interactiveSnippetFieldLabel": "שדה {index}/{count}: {name}",
-  "@interactiveSnippetFieldLabel": {
+  "interactiveSnippetAnnounceLabel": "שדה {index}/{count}: {name} – התכונן לדבר…",
+  "@interactiveSnippetAnnounceLabel": {
     "placeholders": {
       "index": { "type": "int" },
       "count": { "type": "int" },
       "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetSpeakNowLabel": "דבר עכשיו: {name} ({index}/{count})",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
     }
   },
   "interactiveSnippetAdvance": "הבא",
@@ -1023,12 +1031,13 @@
       "hotkey": { "type": "String" }
     }
   },
-  "overlayKeyboardHintNextField": "לחץ {hotkey} עבור השדה הבא",
-  "@overlayKeyboardHintNextField": {
+  "overlayKeyboardHintNextFieldEnter": "Enter או {hotkey}: השדה הבא · Esc: ביטול",
+  "@overlayKeyboardHintNextFieldEnter": {
     "placeholders": {
       "hotkey": { "type": "String" }
     }
   },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: השדה הבא · Esc: ביטול",
   "overlayProcessingLocal": "מקומי",
   "overlayProcessingCloud": "ענן",
   "overlayRecordingQuickNote": "מקליט לפתק",

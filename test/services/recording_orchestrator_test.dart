@@ -11,6 +11,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
@@ -34,6 +35,7 @@ import 'package:whispaste/services/path_service.dart'
         sttModelPath,
         retainedAudioDirOverride,
         retainedAudioDir;
+import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
@@ -55,6 +57,41 @@ import 'package:whispaste/services/tray_service.dart';
 // ---------------------------------------------------------------------------
 // Fakes
 // ---------------------------------------------------------------------------
+
+/// Minimal fake [HotKeyRegistrar] for the session-scoped
+/// interactive-snippet keys (Enter/Escape): records registrations and
+/// exposes the captured keyDown handlers so a test can synthesize presses.
+class FakeSessionKeyRegistrar implements HotKeyRegistrar {
+  final List<HotKey> registered = [];
+  final Map<int, HotKeyHandler> keyDownHandlersByKeyId = {};
+
+  @override
+  bool get supportsKeyUp => false;
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) async {
+    registered.add(hotKey);
+    if (keyDownHandler != null) {
+      keyDownHandlersByKeyId[hotKey.logicalKey.keyId] = keyDownHandler;
+    }
+  }
+
+  @override
+  Future<void> unregister(HotKey hotKey) async {
+    registered.removeWhere((k) => k.identifier == hotKey.identifier);
+  }
+
+  bool isRegistered(LogicalKeyboardKey key) =>
+      registered.any((k) => k.logicalKey == key);
+
+  /// Synthesizes a key-down of [key] through the captured handler.
+  void press(LogicalKeyboardKey key) =>
+      keyDownHandlersByKeyId[key.keyId]?.call(HotKey(key: key));
+}
 
 /// Fake audio service — no real hardware interaction.
 class FakeAudioService extends AudioServiceNotifier {
@@ -1101,6 +1138,10 @@ void main() {
             .read(interactiveSnippetControllerProvider.notifier)
             .start(fields, template: snippet.body);
       };
+      container
+              .read(interactiveSnippetControllerProvider.notifier)
+              .announceDuration =
+          Duration.zero;
       await container.read(settingsProvider.future);
       await db.upsertSnippetWithFields(
         id: 's1',
@@ -4252,7 +4293,7 @@ void main() {
 
         final controller = container.read(
           interactiveSnippetControllerProvider.notifier,
-        );
+        )..announceDuration = Duration.zero;
         await controller.start(
           fields(['Titel', 'Beschreibung']),
           template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
@@ -4310,7 +4351,7 @@ void main() {
 
         final controller = container.read(
           interactiveSnippetControllerProvider.notifier,
-        );
+        )..announceDuration = Duration.zero;
         await controller.start(
           fields(['Name', 'Thema']),
           template: 'Hallo {{Name}}, danke für deine Anfrage zu {{Thema}}!',
@@ -4345,7 +4386,7 @@ void main() {
 
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
-      );
+      )..announceDuration = Duration.zero;
       await controller.start(
         fields(['Titel', 'Beschreibung']),
         template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
@@ -4380,7 +4421,7 @@ void main() {
 
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
-      );
+      )..announceDuration = Duration.zero;
       await controller.start(
         fields(['Titel', 'Beschreibung']),
         template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
@@ -4401,7 +4442,7 @@ void main() {
       ensureFakeLocalSttFilesExist();
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
-      );
+      )..announceDuration = Duration.zero;
 
       await controller.start(
         fields(['Nur ein Feld']),
@@ -4416,12 +4457,189 @@ void main() {
       ensureFakeLocalSttFilesExist();
       final controller = container.read(
         interactiveSnippetControllerProvider.notifier,
-      );
+      )..announceDuration = Duration.zero;
 
       await controller.start(fields([]), template: '');
 
       expect(container.read(interactiveSnippetControllerProvider), isNull);
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+
+    test('announce pre-roll: publishes the get-ready state before the mic '
+        'opens', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      final gate = Completer<void>();
+      controller.announceDelay = (_) => gate.future;
+
+      final startFuture = controller.start(
+        fields(['Titel']),
+        template: legacyInteractiveSnippetTemplate(['Titel']),
+      );
+      // start() crosses a few genuine async hops (prime, key registration)
+      // before it parks on the pre-roll gate — poll briefly.
+      for (
+        var i = 0;
+        i < 40 &&
+            container.read(interactiveSnippetControllerProvider)?.announcing !=
+                true;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      final session = container.read(interactiveSnippetControllerProvider);
+      expect(session?.announcing, isTrue);
+      expect(
+        container.read(recordingProvider).phase,
+        RecordingPhase.idle,
+        reason: 'the microphone must stay closed during the pre-roll',
+      );
+
+      gate.complete();
+      await startFuture;
+
+      expect(
+        container.read(interactiveSnippetControllerProvider)?.announcing,
+        isFalse,
+      );
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      await controller.cancel();
+    });
+
+    test('cancel during the announce pre-roll never opens the mic', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      final gate = Completer<void>();
+      controller.announceDelay = (_) => gate.future;
+
+      final startFuture = controller.start(
+        fields(['Titel']),
+        template: legacyInteractiveSnippetTemplate(['Titel']),
+      );
+      for (
+        var i = 0;
+        i < 40 &&
+            container.read(interactiveSnippetControllerProvider)?.announcing !=
+                true;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(
+        container.read(interactiveSnippetControllerProvider)?.announcing,
+        isTrue,
+      );
+
+      await controller.cancel();
+      gate.complete();
+      await startFuture;
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+
+    test('registers Enter/Escape for the sequence; Enter advances and the '
+        'keys are gone once the sequence finishes', () async {
+      ensureFakeLocalSttFilesExist();
+      final sessionKeys = FakeSessionKeyRegistrar();
+      container
+          .read(hotkeyServiceProvider.notifier)
+          .injectRegistrar(sessionKeys);
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Titel']),
+        template: legacyInteractiveSnippetTemplate(['Titel']),
+      );
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isTrue);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isTrue);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      fakeStt.transcriptToReturn = 'Nur ein Feld';
+      sessionKeys.press(LogicalKeyboardKey.enter);
+      // The key handler fires advanceField unawaited — poll for the end of
+      // the (single-field) sequence.
+      for (
+        var i = 0;
+        i < 40 && container.read(interactiveSnippetControllerProvider) != null;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(
+        sessionKeys.isRegistered(LogicalKeyboardKey.enter),
+        isFalse,
+        reason:
+            'a leaked bare-Enter grab would swallow Enter in every other app',
+      );
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
+    });
+
+    test('Escape cancels the whole sequence and the session keys are '
+        'unregistered', () async {
+      ensureFakeLocalSttFilesExist();
+      final sessionKeys = FakeSessionKeyRegistrar();
+      container
+          .read(hotkeyServiceProvider.notifier)
+          .injectRegistrar(sessionKeys);
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      sessionKeys.press(LogicalKeyboardKey.escape);
+      for (
+        var i = 0;
+        i < 40 && container.read(interactiveSnippetControllerProvider) != null;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isFalse);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('a mid-sequence transcription failure (abort path) also '
+        'unregisters the session keys', () async {
+      ensureFakeLocalSttFilesExist();
+      final sessionKeys = FakeSessionKeyRegistrar();
+      container
+          .read(hotkeyServiceProvider.notifier)
+          .injectRegistrar(sessionKeys);
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
+
+      fakeStt.transcribeThrows = true;
+      await controller.advanceField();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isFalse);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
     });
   });
 

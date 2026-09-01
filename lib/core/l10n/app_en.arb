@@ -625,12 +625,20 @@
   "snippetsTemplateFieldHint": "Write your text here and insert fields using the buttons above.",
   "snippetsTemplateMissingFieldsWarning": "Not all fields appear in the template yet — their dictated text would go unused.",
   "snippetsInteractiveBadge": "Interactive",
-  "interactiveSnippetFieldLabel": "Field {index}/{count}: {name}",
-  "@interactiveSnippetFieldLabel": {
+  "interactiveSnippetAnnounceLabel": "Field {index}/{count}: {name} – get ready…",
+  "@interactiveSnippetAnnounceLabel": {
     "placeholders": {
       "index": { "type": "int" },
       "count": { "type": "int" },
       "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetSpeakNowLabel": "Speak now: {name} ({index}/{count})",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
     }
   },
   "interactiveSnippetAdvance": "Next",
@@ -1167,14 +1175,15 @@
       }
     }
   },
-  "overlayKeyboardHintNextField": "Press {hotkey} for the next field",
-  "@overlayKeyboardHintNextField": {
+  "overlayKeyboardHintNextFieldEnter": "Enter or {hotkey}: next field · Esc: cancel",
+  "@overlayKeyboardHintNextFieldEnter": {
     "placeholders": {
       "hotkey": {
         "type": "String"
       }
     }
   },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: next field · Esc: cancel",
   "overlayProcessingLocal": "Local",
   "overlayProcessingCloud": "Cloud",
   "overlayRecordingQuickNote": "Recording to note",

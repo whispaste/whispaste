@@ -1546,8 +1546,13 @@ class L10nDe extends L10n {
   String get snippetsInteractiveBadge => 'Interaktiv';
 
   @override
-  String interactiveSnippetFieldLabel(int index, int count, String name) {
-    return 'Feld $index/$count: $name';
+  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
+    return 'Feld $index/$count: $name – gleich sprechen…';
+  }
+
+  @override
+  String interactiveSnippetSpeakNowLabel(String name, int index, int count) {
+    return 'Jetzt sprechen: $name ($index/$count)';
   }
 
   @override
@@ -3056,9 +3061,13 @@ class L10nDe extends L10n {
   }
 
   @override
-  String overlayKeyboardHintNextField(String hotkey) {
-    return 'Drücke $hotkey für das nächste Feld';
+  String overlayKeyboardHintNextFieldEnter(String hotkey) {
+    return 'Enter oder $hotkey: nächstes Feld · Esc: Abbrechen';
   }
+
+  @override
+  String get overlayKeyboardHintNextFieldEnterOnly =>
+      'Enter: nächstes Feld · Esc: Abbrechen';
 
   @override
   String get overlayProcessingLocal => 'Lokal';
