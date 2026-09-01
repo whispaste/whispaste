@@ -2141,7 +2141,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
       final companion = NotesCompanion.insert(
         id: newId,
-        content: original.content,
+        content: Value(original.content),
         createdAt: now,
         updatedAt: now,
       );

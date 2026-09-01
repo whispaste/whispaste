@@ -300,6 +300,7 @@ void main() {
               editorFocusNode: focusNode,
               onNoteTap: (_) {},
               onCopy: (_) {},
+              onDuplicate: (_) {},
               onCloseEditor: () {},
               onFavoriteToggle: (_) {},
               onQuickNoteSet: (_) {},
