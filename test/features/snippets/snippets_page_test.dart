@@ -589,6 +589,160 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Interactive-snippet template editor — user-placed {{fieldName}}
+  // placeholders instead of the old fixed heading-per-field layout.
+  // ---------------------------------------------------------------------------
+
+  group('Interactive snippet templates', () {
+    Future<void> openInteractiveDialog(WidgetTester tester) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.snippetsKindInteractive));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'shows a warning and disables save while a field is not referenced '
+      'in the template',
+      (tester) async {
+        await openInteractiveDialog(tester);
+
+        expect(find.text(l10n.snippetsTemplateLabel), findsOneWidget);
+
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 1),
+          'Bug Report',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 2),
+          'Titel',
+        );
+        await tester.tap(find.text(l10n.snippetsFieldAdd));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 3),
+          'Beschreibung',
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(l10n.snippetsTemplateMissingFieldsWarning),
+          findsOneWidget,
+        );
+        final buttons = tester.widgetList<WpButton>(find.byType(WpButton));
+        expect(
+          buttons.any(
+            (b) => b.label == l10n.snippetsAdd && b.onPressed == null,
+          ),
+          isTrue,
+          reason: 'Save must stay disabled while a field has no placeholder',
+        );
+      },
+    );
+
+    testWidgets(
+      'the insert button places {{fieldName}} in the template and the '
+      'saved snippet composes from it',
+      (tester) async {
+        await openInteractiveDialog(tester);
+
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 1),
+          'Bug Report',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 2),
+          'Titel',
+        );
+        await tester.tap(find.text(l10n.snippetsFieldAdd));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 3),
+          'Beschreibung',
+        );
+        await tester.pumpAndSettle();
+
+        final insertButtons = find.byTooltip(
+          l10n.snippetsFieldInsertIntoTemplate,
+        );
+        expect(insertButtons, findsNWidgets(2));
+        await tester.tap(insertButtons.at(0));
+        await tester.pumpAndSettle();
+        await tester.tap(insertButtons.at(1));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(l10n.snippetsTemplateMissingFieldsWarning),
+          findsNothing,
+        );
+        final template = tester.widget<TextField>(
+          find.byType(TextField).at(_fieldOffset + 4),
+        );
+        expect(template.controller!.text, '{{Titel}}{{Beschreibung}}');
+
+        await tester.tap(find.text(l10n.snippetsAdd).last);
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(SnippetsPage)),
+        );
+        final saved = container.read(snippetsProvider).value!.single;
+        expect(saved.body, '{{Titel}}{{Beschreibung}}');
+        expect(saved.fields, ['Titel', 'Beschreibung']);
+      },
+    );
+
+    testWidgets(
+      'reopening an existing interactive snippet pre-fills its template',
+      (tester) async {
+        await openInteractiveDialog(tester);
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 1),
+          'Bug Report',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 2),
+          'Titel',
+        );
+        await tester.tap(find.text(l10n.snippetsFieldAdd));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 3),
+          'Beschreibung',
+        );
+        await tester.pumpAndSettle();
+        final insertButtons = find.byTooltip(
+          l10n.snippetsFieldInsertIntoTemplate,
+        );
+        await tester.tap(insertButtons.at(0));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 4),
+          'Betreff: {{Titel}}\n\n{{Beschreibung}}',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(insertButtons.at(1));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.snippetsAdd).last);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Bug Report'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.snippetsEditSnippet), findsOneWidget);
+        final template = tester.widget<TextField>(
+          find.byType(TextField).at(_fieldOffset + 4),
+        );
+        expect(template.controller!.text, contains('Betreff: {{Titel}}'));
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Picker-Hotkey auf der Seite — zweite Aufrufstelle, eine Wahrheit (Ticket 27)
   // ---------------------------------------------------------------------------
 

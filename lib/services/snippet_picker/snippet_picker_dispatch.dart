@@ -48,10 +48,16 @@ bool snippetPickerTriggerMatches(String trigger, String transcript) {
 Future<SnippetPickerShowResult> openSnippetPicker(Ref ref, String logId) async {
   try {
     final db = ref.read(historyDatabaseProvider);
-    final snippetRows = await db.readAllSnippets();
+    final snippetRows = await db.readAllSnippetsWithFields();
     final items = [
       for (final row in snippetRows)
-        SnippetItem(id: row.id, title: row.title, body: row.body),
+        SnippetItem(
+          id: row.row.id,
+          title: row.row.title,
+          body: row.row.body,
+          kind: row.row.kind,
+          fields: row.fields,
+        ),
     ];
 
     final result = await ref

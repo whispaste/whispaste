@@ -5,6 +5,14 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/reloadable_list_notifier.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../services/replacements/text_replacement_matcher.dart'
+    show
+        TextReplacementMatchMode,
+        fuzzyMinTriggerLength,
+        fuzzyThresholdStrict,
+        fuzzyThresholdStandard,
+        fuzzyThresholdTolerant;
+import '../../services/replacements/vocabulary_import_service.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -14,9 +22,11 @@ import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/trigger_chip.dart';
+import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
+import 'vocabulary_import_review_page.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -28,6 +38,9 @@ class Replacement {
     required this.id,
     required this.triggers,
     required this.replacement,
+    this.matchMode = TextReplacementMatchMode.exact,
+    this.fuzzyThreshold,
+    this.origin = 'manual',
   });
 
   final String id;
@@ -35,6 +48,18 @@ class Replacement {
   /// Every trigger phrase that fires this replacement. Always non-empty.
   final List<String> triggers;
   final String replacement;
+
+  /// `exact` (legacy behavior) or `fuzzy` (similarity-based, PRD.md
+  /// vocabulary-fuzzy-replacements).
+  final TextReplacementMatchMode matchMode;
+
+  /// Only meaningful when [matchMode] is `fuzzy` — one of the three named
+  /// UI steps (Strict 0.92 / Standard 0.85 / Tolerant 0.75).
+  final double? fuzzyThreshold;
+
+  /// `manual` (user-created) or `imported` (via vocabulary-folder import) —
+  /// display-only, no behavioral difference (PRD.md User Story 11).
+  final String origin;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +108,13 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
   // `createThenReload(persist)` helper was tried on ReloadableListNotifier:
   // it replaced this direct, linear code with a persist-callback closure for
   // no net line reduction — not worth the indirection for three lines.
-  Future<void> add(List<String> triggers, String replacement) async {
+  Future<void> add(
+    List<String> triggers,
+    String replacement, {
+    TextReplacementMatchMode matchMode = TextReplacementMatchMode.exact,
+    double? fuzzyThreshold,
+    String origin = 'manual',
+  }) async {
     final db = ref.read(historyDatabaseProvider);
     final id = generateV4Uuid();
     await db.upsertReplacementWithTriggers(
@@ -91,6 +122,9 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
       triggers: triggers,
       replacement: replacement,
       createdAt: DateTime.now(),
+      matchMode: matchMode.name,
+      fuzzyThreshold: fuzzyThreshold,
+      origin: origin,
     );
     await reload();
   }
@@ -99,6 +133,12 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     String id, {
     required List<String> triggers,
     required String replacement,
+    TextReplacementMatchMode matchMode = TextReplacementMatchMode.exact,
+    double? fuzzyThreshold,
+    // Not user-editable in the dialog — callers pass the existing row's
+    // origin through unchanged so an edit never turns an imported entry
+    // into a manual one (or vice versa).
+    String origin = 'manual',
   }) async {
     final db = ref.read(historyDatabaseProvider);
     await db.upsertReplacementWithTriggers(
@@ -106,8 +146,35 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
       triggers: triggers,
       replacement: replacement,
       createdAt: DateTime.now(),
+      matchMode: matchMode.name,
+      fuzzyThreshold: fuzzyThreshold,
+      origin: origin,
     );
     await reload();
+  }
+
+  /// Opens the native folder picker and, if the user chooses a folder,
+  /// scans it for identifiers -- nothing is written to the database yet, the
+  /// caller shows the candidates for review and calls [commitImport] with
+  /// only the terms the user actually picked (PRD.md
+  /// vocabulary-fuzzy-replacements, "Import-Scan-Mechanismus"). Returns
+  /// `null` if the user cancelled the picker.
+  Future<VocabularyImportScanResult?> scanFolderForImport() async {
+    final service = ref.read(vocabularyImportServiceProvider);
+    final folder = await service.pickFolder();
+    if (folder == null) return null;
+    final db = ref.read(historyDatabaseProvider);
+    return service.scan(folder, db);
+  }
+
+  /// Writes exactly [terms] (a user-reviewed subset of a prior
+  /// [scanFolderForImport] result) as new fuzzy replacement entries.
+  Future<int> commitImport(List<String> terms) async {
+    final service = ref.read(vocabularyImportServiceProvider);
+    final db = ref.read(historyDatabaseProvider);
+    final added = await service.commit(terms, db);
+    await reload();
+    return added;
   }
 
   Future<void> remove(String id) async {
@@ -134,6 +201,9 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
         triggers: item.triggers,
         replacement: item.replacement,
         createdAt: now,
+        matchMode: item.matchMode.name,
+        fuzzyThreshold: item.fuzzyThreshold,
+        origin: item.origin,
       );
     }
     await reload();
@@ -143,6 +213,11 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     id: joined.row.id,
     triggers: joined.triggers,
     replacement: joined.row.replacement,
+    matchMode: joined.row.matchMode == 'fuzzy'
+        ? TextReplacementMatchMode.fuzzy
+        : TextReplacementMatchMode.exact,
+    fuzzyThreshold: joined.row.fuzzyThreshold,
+    origin: joined.row.origin,
   );
 }
 
@@ -150,6 +225,12 @@ final replacementsProvider =
     AsyncNotifierProvider<ReplacementsNotifier, List<Replacement>>(
       ReplacementsNotifier.new,
     );
+
+/// Overridable in tests (fake folder picker / extraction) so the import flow
+/// can be exercised without a real native folder-choose dialog.
+final vocabularyImportServiceProvider = Provider<VocabularyImportService>(
+  (ref) => VocabularyImportService(),
+);
 
 // ---------------------------------------------------------------------------
 // Page
@@ -164,6 +245,8 @@ class ReplacementsPage extends ConsumerStatefulWidget {
 }
 
 class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
+  bool _importing = false;
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -196,11 +279,20 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       //
       // Unlike the Snippets header this one is not platform-gated —
       // replacements run on all three platforms.
-      header: _ReplacementsToggleCard(
-        enabled: enabled,
-        onChanged: (v) => ref
-            .read(settingsProvider.notifier)
-            .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ReplacementsToggleCard(
+            enabled: enabled,
+            onChanged: (v) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
+          ),
+          _VocabularyImportCard(
+            onImport: _importFromFolder,
+            importing: _importing,
+          ),
+        ],
       ),
       asyncAll: ref.watch(replacementsProvider),
       // ⚡ Bolt: Use precompiled case-insensitive RegExp to match fields instead
@@ -245,24 +337,86 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   // ── Add / Edit dialog ────────────────────────────────────────────────
 
   Future<void> _showAddEditDialog({Replacement? existing}) async {
-    final result = await showWpFormDialog<(List<String>, String)>(
-      context: context,
-      builder: (_, a) => _ReplacementDialog(animation: a, existing: existing),
-    );
+    final result =
+        await showWpFormDialog<
+          (List<String>, String, TextReplacementMatchMode, double?)
+        >(
+          context: context,
+          builder: (_, a) =>
+              _ReplacementDialog(animation: a, existing: existing),
+        );
     if (result == null) return;
-    final (triggers, replacement) = result;
+    final (triggers, replacement, matchMode, fuzzyThreshold) = result;
     final notifier = ref.read(replacementsProvider.notifier);
     if (existing != null) {
       notifier.updateReplacement(
         existing.id,
         triggers: triggers,
         replacement: replacement,
+        matchMode: matchMode,
+        fuzzyThreshold: fuzzyThreshold,
+        origin: existing.origin,
       );
     } else {
-      notifier.add(triggers, replacement);
+      notifier.add(
+        triggers,
+        replacement,
+        matchMode: matchMode,
+        fuzzyThreshold: fuzzyThreshold,
+      );
       ref
           .read(telemetrySessionAggregatorProvider)
           .count(category: 'replacements', action: 'create');
+    }
+  }
+
+  // ── Vocabulary import ─────────────────────────────────────────────────
+
+  Future<void> _importFromFolder() async {
+    if (_importing) return;
+    final l10n = L10n.of(context);
+    setState(() => _importing = true);
+    try {
+      final notifier = ref.read(replacementsProvider.notifier);
+      final scanResult = await notifier.scanFolderForImport();
+      if (scanResult == null || !mounted) return;
+      if (scanResult.candidates.isEmpty) {
+        WpToast.show(
+          context,
+          message: l10n.replacementsImportNothingFound,
+          type: WpToastType.info,
+        );
+        return;
+      }
+
+      final selected = await Navigator.of(context).push<List<String>>(
+        MaterialPageRoute(
+          builder: (_) =>
+              VocabularyImportReviewPage(candidates: scanResult.candidates),
+        ),
+      );
+      if (selected == null || selected.isEmpty || !mounted) return;
+
+      final added = await notifier.commitImport(selected);
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: l10n.replacementsImportSummary(
+          scanResult.candidates.length,
+          added,
+          scanResult.skipped,
+        ),
+        type: WpToastType.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: l10n.replacementsImportError,
+        type: WpToastType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _importing = false);
     }
   }
 
@@ -279,9 +433,14 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
 
   Future<void> _duplicateReplacement(Replacement r) async {
     final firstTrigger = r.triggers.isNotEmpty ? r.triggers.first : 'trigger';
-    await ref.read(replacementsProvider.notifier).add([
-      '$firstTrigger (copy)',
-    ], r.replacement);
+    await ref
+        .read(replacementsProvider.notifier)
+        .add(
+          ['$firstTrigger (copy)'],
+          r.replacement,
+          matchMode: r.matchMode,
+          fuzzyThreshold: r.fuzzyThreshold,
+        );
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────
@@ -357,6 +516,59 @@ class _ReplacementsToggleCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Vocabulary import entry point
+// ---------------------------------------------------------------------------
+
+/// "Import from folder" card (PRD.md vocabulary-fuzzy-replacements, UI
+/// requirement (a)) — same card geometry as [_ReplacementsToggleCard] right
+/// above it, so the two headers read as one stacked group.
+class _VocabularyImportCard extends StatelessWidget {
+  const _VocabularyImportCard({
+    required this.onImport,
+    required this.importing,
+  });
+
+  final VoidCallback onImport;
+  final bool importing;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.xxs,
+        WpSpacing.xl,
+        0,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(WpSpacing.xxs),
+        decoration: BoxDecoration(
+          color: WpColors.cardFill,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: WpColors.borderSubtle),
+        ),
+        child: SettingRow(
+          icon: LucideIcons.folderInput,
+          label: l10n.replacementsImportFromFolder,
+          subtitle: importing
+              ? l10n.replacementsImportScanning
+              : l10n.replacementsImportHint,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          trailing: WpButton(
+            label: l10n.replacementsImportFromFolder,
+            variant: WpButtonVariant.secondary,
+            size: WpButtonSize.dense,
+            isLoading: importing,
+            onPressed: importing ? null : onImport,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Add / Edit dialog
 // ---------------------------------------------------------------------------
 
@@ -382,12 +594,20 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
   final List<TextEditingController> _triggerCtrls = [];
   final List<FocusNode> _triggerFocusNodes = [];
   late final TextEditingController _replacementCtrl;
+  late TextReplacementMatchMode _matchMode;
+  late double _fuzzyThreshold;
 
   bool get _isValid =>
       _triggerCtrls.any((c) => c.text.trim().isNotEmpty) &&
       _replacementCtrl.text.trim().isNotEmpty;
 
   bool get _isEditing => widget.existing != null;
+
+  /// PRD.md: trigger phrases below [fuzzyMinTriggerLength] are locked out of
+  /// fuzzy mode in the UI — too short and every dictated word becomes a
+  /// false hit, even at the strictest threshold.
+  bool get _fuzzyAllowed =>
+      _triggerCtrls.any((c) => c.text.trim().length >= fuzzyMinTriggerLength);
 
   @override
   void initState() {
@@ -401,6 +621,10 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
     _replacementCtrl = TextEditingController(
       text: widget.existing?.replacement ?? '',
     );
+    _matchMode = widget.existing?.matchMode ?? TextReplacementMatchMode.exact;
+    _fuzzyThreshold =
+        widget.existing?.fuzzyThreshold ??
+        vocabularyImportDefaultFuzzyThreshold;
   }
 
   @override
@@ -448,7 +672,17 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
         .map((c) => c.text.trim())
         .where((t) => t.isNotEmpty)
         .toList();
-    Navigator.of(context).pop((triggers, _replacementCtrl.text.trim()));
+    // A trigger edit that drops below the fuzzy minimum length must not
+    // leave a stale fuzzy mode behind it.
+    final matchMode = _fuzzyAllowed
+        ? _matchMode
+        : TextReplacementMatchMode.exact;
+    Navigator.of(context).pop((
+      triggers,
+      _replacementCtrl.text.trim(),
+      matchMode,
+      matchMode == TextReplacementMatchMode.fuzzy ? _fuzzyThreshold : null,
+    ));
   }
 
   @override
@@ -549,6 +783,75 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _submit(),
         ),
+        const SizedBox(height: WpSpacing.md),
+
+        // Match mode: Exact / Similar (PRD.md vocabulary-fuzzy-replacements)
+        Text(
+          l10n.replacementsMatchModeLabel,
+          style: theme.textTheme.titleSmall,
+        ),
+        const SizedBox(height: WpSpacing.xxs),
+        SegmentedButton<TextReplacementMatchMode>(
+          segments: [
+            ButtonSegment(
+              value: TextReplacementMatchMode.exact,
+              label: Text(l10n.replacementsMatchModeExact),
+            ),
+            ButtonSegment(
+              value: TextReplacementMatchMode.fuzzy,
+              label: Text(l10n.replacementsMatchModeFuzzy),
+              enabled: _fuzzyAllowed,
+            ),
+          ],
+          selected: {_matchMode},
+          onSelectionChanged: (selection) =>
+              setState(() => _matchMode = selection.first),
+        ),
+        if (!_fuzzyAllowed) ...[
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            l10n.replacementsFuzzyTooShortWarning(fuzzyMinTriggerLength),
+            style: const TextStyle(
+              color: WpColors.textMuted,
+              fontSize: WpTypography.caption,
+            ),
+          ),
+        ],
+        if (_matchMode == TextReplacementMatchMode.fuzzy) ...[
+          const SizedBox(height: WpSpacing.md),
+          Text(
+            l10n.replacementsFuzzyToleranceLabel,
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          SegmentedButton<double>(
+            segments: [
+              ButtonSegment(
+                value: fuzzyThresholdStrict,
+                label: Text(l10n.replacementsFuzzyToleranceStrict),
+              ),
+              ButtonSegment(
+                value: fuzzyThresholdStandard,
+                label: Text(l10n.replacementsFuzzyToleranceStandard),
+              ),
+              ButtonSegment(
+                value: fuzzyThresholdTolerant,
+                label: Text(l10n.replacementsFuzzyToleranceTolerant),
+              ),
+            ],
+            selected: {_fuzzyThreshold},
+            onSelectionChanged: (selection) =>
+                setState(() => _fuzzyThreshold = selection.first),
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            l10n.replacementsFuzzyToleranceHint,
+            style: const TextStyle(
+              color: WpColors.textMuted,
+              fontSize: WpTypography.caption,
+            ),
+          ),
+        ],
       ],
       actions: [
         // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
@@ -702,6 +1005,12 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                       ],
                     ),
                   ),
+                  if (widget.replacement.origin == 'imported') ...[
+                    const SizedBox(width: WpSpacing.xxs),
+                    WpAccentBadge(
+                      label: L10n.of(context).replacementsImportedBadge,
+                    ),
+                  ],
                   const SizedBox(width: WpSpacing.sm),
                   const Icon(
                     LucideIcons.arrowRight,

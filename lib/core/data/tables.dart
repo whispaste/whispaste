@@ -46,6 +46,13 @@ class HistoryEntries extends Table {
   /// value here because there is no "uncategorized" case for this rotation.
   IntColumn get colorSlot => integer().withDefault(const Constant(0))();
 
+  /// Smart Mode's "current edited version" (v22, Smart-Mode-v2 ticket 05) —
+  /// overwritten in place by every preset application (live or retroactive),
+  /// never a version stack. `null` means no preset has ever been applied to
+  /// this entry; [content] (the raw transcript) is never touched by Smart
+  /// Mode and stays the source of truth for the "raw" view.
+  TextColumn get smartModeEditedContent => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -113,6 +120,25 @@ class TextReplacements extends Table {
   TextColumn get replacement => text()();
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Match algorithm — `exact` (word-boundary regex, unchanged pre-v20
+  /// behavior) or `fuzzy` (similarity scoring, vocabulary-fuzzy-replacements
+  /// PRD, schema v20). Stored as text rather than an int enum so a raw
+  /// `SELECT` stays human-readable in the DB browser, consistent with other
+  /// text-backed enum-ish columns in this file (e.g. `source` on
+  /// `HistoryEntries`).
+  TextColumn get matchMode => text().withDefault(const Constant('exact'))();
+
+  /// Similarity threshold (0.0-1.0) for `matchMode == fuzzy`; unused and left
+  /// `null` for `exact` rows. The UI only ever offers three named steps
+  /// (Streng 0.92 / Standard 0.85 / Tolerant 0.75), not a free slider — see
+  /// PRD.md.
+  RealColumn get fuzzyThreshold => real().nullable()();
+
+  /// `manual` (default, user-authored) or `imported` (vocabulary-import
+  /// scan) — display-only distinction (PRD User Story 11), no behavioral
+  /// difference in matching.
+  TextColumn get origin => text().withDefault(const Constant('manual'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -168,6 +194,31 @@ class Snippets extends Table {
   TextColumn get title => text()();
   TextColumn get body => text()();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// `static` (default, today's only behavior — [body] is inserted verbatim)
+  /// or `interactive` (schema v21, `interactive-snippets` PRD; template
+  /// authoring added in schema v23): for `interactive`, [body] holds the
+  /// user-authored template ([interactiveSnippetPlaceholder] tokens mark
+  /// where each [SnippetFields] entry's dictated text is substituted at
+  /// trigger time, see `interactive_snippet_composer.dart`) rather than
+  /// text inserted verbatim.
+  TextColumn get kind => text().withDefault(const Constant('static'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Named fields of an `interactive`-[Snippets.kind] snippet (schema v21),
+/// N:1 to [Snippets] — analogous to [TextReplacementTriggers]. Unused for a
+/// `static` snippet. [sortOrder] fixes the strictly sequential field order
+/// the guided recording walks through (PRD: "kein Zurückspringen, kein
+/// Überspringen").
+@DataClassName('SnippetField')
+class SnippetFields extends Table {
+  TextColumn get id => text()();
+  TextColumn get snippetId => text().references(Snippets, #id)();
+  TextColumn get name => text()();
+  IntColumn get sortOrder => integer()();
 
   @override
   Set<Column> get primaryKey => {id};

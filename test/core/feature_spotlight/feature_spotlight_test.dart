@@ -35,18 +35,13 @@ void main() {
       );
     });
 
-    test(
-      'side_panel is scoped to macos+windows — no Linux native host yet',
-      () {
-        final entry = kFeatureSpotlightRegistry.firstWhere(
-          (e) => e.id == 'side_panel',
-        );
-        expect(entry.platforms, {
-          OnboardingPlatform.macos,
-          OnboardingPlatform.windows,
-        });
-      },
-    );
+    test('side_panel applies to every platform — the Linux native host shipped '
+        '(feat(side-panel): add Linux native side panel)', () {
+      final entry = kFeatureSpotlightRegistry.firstWhere(
+        (e) => e.id == 'side_panel',
+      );
+      expect(entry.platforms, isNull);
+    });
 
     test('snippet_picker applies to every platform — already shipped on '
         'macOS, Windows and Linux', () {
@@ -54,6 +49,37 @@ void main() {
         (e) => e.id == 'snippet_picker',
       );
       expect(entry.platforms, isNull);
+    });
+
+    test('interactive_snippets is declared before smart_mode — it shipped '
+        'first, so Smart Mode shows first (newest-first ordering)', () {
+      final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
+      expect(
+        ids.indexOf('interactive_snippets'),
+        lessThan(ids.indexOf('smart_mode')),
+      );
+      expect(
+        ids.indexOf('side_panel'),
+        lessThan(ids.indexOf('interactive_snippets')),
+      );
+    });
+
+    test('interactive_snippets applies to every platform', () {
+      final entry = kFeatureSpotlightRegistry.firstWhere(
+        (e) => e.id == 'interactive_snippets',
+      );
+      expect(entry.platforms, isNull);
+    });
+
+    test('smart_mode is scoped to macos+windows — the local engine is not '
+        'bundled for Linux (smartModeLibraryPathFor throws there)', () {
+      final entry = kFeatureSpotlightRegistry.firstWhere(
+        (e) => e.id == 'smart_mode',
+      );
+      expect(entry.platforms, {
+        OnboardingPlatform.macos,
+        OnboardingPlatform.windows,
+      });
     });
   });
 

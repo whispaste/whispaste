@@ -29,6 +29,13 @@ import '../../../widgets/wp_text_field.dart';
 import 'tag_management_dialog.dart';
 import '../../../core/utils/focus_helpers.dart';
 import '../../../core/utils/word_count.dart';
+import '../../../services/smart_mode/smart_mode_presets.dart'
+    show
+        SmartModePreset,
+        SmartModeTargetLanguage,
+        smartModeValidatedTargetLanguages;
+import '../../../services/smart_mode/smart_mode_retroactive_service.dart'
+    show SmartModeRetroactiveFailureReason;
 
 /// Signature of the export-entries seam used by [HistoryDetailPanel].
 ///
@@ -237,10 +244,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
   }
 
-  String _wordCountLabel(L10n l10n) {
+  String _wordCountLabel(L10n l10n, {required String displayedContent}) {
     final source = _isEditingTranscript
         ? _transcriptController.text
-        : entry.content;
+        : displayedContent;
     final words = computeWordCountFast(source);
     final readMinutes = (words / 200).ceil(); // ~200 wpm average
     final wordStr = l10n.historyWordCount(words);
@@ -248,6 +255,90 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         ? l10n.historyReadingTimeUnder1
         : l10n.historyReadingTime(readMinutes);
     return '$wordStr · $timeStr';
+  }
+
+  /// Copies whichever version (raw or edited) is currently displayed —
+  /// additive to the header's Copy button, which always copies raw content
+  /// (ticket 05: that existing, tested behavior is deliberately left alone).
+  void _copyDisplayedVersion(String displayedContent) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: displayedContent,
+      category: 'history',
+    );
+  }
+
+  /// Shows a language-picker dialog for a retroactive Translate application.
+  /// Only [smartModeValidatedTargetLanguages] are offered (currently German
+  /// only — ticket 09 validates the rest). Returns `null` if the user
+  /// cancels.
+  Future<SmartModeTargetLanguage?> _pickSmartModeTargetLanguage() {
+    final l10n = L10n.of(context);
+    return showWpDialog<SmartModeTargetLanguage>(
+      context: context,
+      title: l10n.historySmartModeSelectTargetLanguage,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final lang in smartModeValidatedTargetLanguages)
+            // loam-ignore: a11y-interactive-semantics – semantics provided by ListTile
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                lang == SmartModeTargetLanguage.german
+                    ? l10n.smartModeTargetLanguageGerman
+                    : lang.languageName,
+              ),
+              onTap: () => Navigator.of(context).pop(lang),
+            ),
+        ],
+      ),
+      actions: [
+        Builder(
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          builder: (dialogContext) => WpButton(
+            label: l10n.historyClose,
+            variant: WpButtonVariant.ghost,
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _applySmartModePreset(SmartModePreset preset) async {
+    SmartModeTargetLanguage? targetLanguage;
+    if (preset == SmartModePreset.translate) {
+      targetLanguage = await _pickSmartModeTargetLanguage();
+      if (targetLanguage == null) return;
+    }
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final result = await ref
+        .read(historyDetailProvider(entry.id).notifier)
+        .applyPreset(preset, targetLanguage: targetLanguage);
+    if (!mounted) return;
+    switch (result) {
+      case HistoryPresetApplicationSuccess():
+        WpToast.show(
+          context,
+          message: l10n.historySmartModeApplied,
+          type: WpToastType.success,
+        );
+      case HistoryPresetApplicationFailure(:final reason):
+        final message = switch (reason) {
+          SmartModeRetroactiveFailureReason.modelMissing =>
+            l10n.historySmartModeFailedModelMissing,
+          SmartModeRetroactiveFailureReason.timeout =>
+            l10n.historySmartModeFailedTimeout,
+          SmartModeRetroactiveFailureReason.engineError ||
+          SmartModeRetroactiveFailureReason.blankResult =>
+            l10n.historySmartModeFailedGeneric,
+        };
+        WpToast.show(context, message: message, type: WpToastType.error);
+    }
   }
 
   void _showShortcutHelp() {
@@ -273,7 +364,12 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final detailAsync = ref.watch(historyDetailProvider(entry.id));
-    final tags = detailAsync.asData?.value.tags ?? [];
+    final detailState = detailAsync.asData?.value;
+    final tags = detailState?.tags ?? [];
+    final hasEditedVersion = detailState?.hasEditedVersion ?? false;
+    final viewingEditedVersion = detailState?.viewingEditedVersion ?? false;
+    final applyingPreset = detailState?.applyingPreset ?? false;
+    final displayedContent = detailState?.displayedContent ?? entry.content;
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -365,6 +461,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               onCopyMarkdown: onCopyMarkdown,
               onExport: _exportEntry,
               onClose: onClose,
+              applyingPreset: applyingPreset,
+              onApplyPreset: isTrashView ? null : _applySmartModePreset,
             ),
             // No rule between header and content. The header's own bottom
             // inset and the content's top padding already leave 32 dp here,
@@ -412,9 +510,26 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           isEditing: _isEditingTranscript,
                           transcriptController: _transcriptController,
                           editorFocusNode: _editorFocusNode,
-                          wordCountLabel: _wordCountLabel(l10n),
+                          wordCountLabel: _wordCountLabel(
+                            l10n,
+                            displayedContent: displayedContent,
+                          ),
                           onToggleEdit: _toggleEdit,
                           onSaveTranscript: _saveTranscript,
+                          displayedContent: displayedContent,
+                          hasEditedVersion: hasEditedVersion,
+                          viewingEditedVersion: viewingEditedVersion,
+                          onToggleViewingEdited: hasEditedVersion
+                              ? () => ref
+                                    .read(
+                                      historyDetailProvider(entry.id).notifier,
+                                    )
+                                    .setViewingEditedVersion(
+                                      !viewingEditedVersion,
+                                    )
+                              : null,
+                          onCopyDisplayed: () =>
+                              _copyDisplayedVersion(displayedContent),
                         ),
                         // ── Notes section ──
                         const SizedBox(height: WpSpacing.lg),
@@ -554,6 +669,8 @@ class _DetailPanelHeader extends StatelessWidget {
     required this.onCopyMarkdown,
     required this.onExport,
     required this.onClose,
+    required this.applyingPreset,
+    required this.onApplyPreset,
   });
 
   final HistoryEntry entry;
@@ -573,6 +690,14 @@ class _DetailPanelHeader extends StatelessWidget {
   final VoidCallback? onCopyMarkdown;
   final VoidCallback onExport;
   final VoidCallback onClose;
+
+  /// Whether a retroactive Smart Mode preset application is in flight for
+  /// this entry (ticket 05) — disables the overflow menu's preset items.
+  final bool applyingPreset;
+
+  /// Applies a Smart Mode preset retroactively to this entry, or `null` in
+  /// the trash view where the action is not offered.
+  final void Function(SmartModePreset preset)? onApplyPreset;
 
   @override
   Widget build(BuildContext context) {
@@ -707,6 +832,8 @@ class _DetailPanelHeader extends StatelessWidget {
                 onExport: onExport,
                 onArchive: onArchive,
                 onDelete: onDelete,
+                applyingPreset: applyingPreset,
+                onApplyPreset: onApplyPreset,
               ),
             ],
             const SizedBox(width: WpSpacing.xxs),
@@ -736,6 +863,8 @@ class _DetailOverflowMenu extends StatelessWidget {
     required this.onExport,
     required this.onArchive,
     required this.onDelete,
+    required this.applyingPreset,
+    required this.onApplyPreset,
   });
 
   final HistoryEntry entry;
@@ -745,6 +874,8 @@ class _DetailOverflowMenu extends StatelessWidget {
   final VoidCallback onExport;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+  final bool applyingPreset;
+  final void Function(SmartModePreset preset)? onApplyPreset;
 
   @override
   Widget build(BuildContext context) {
@@ -770,6 +901,12 @@ class _DetailOverflowMenu extends StatelessWidget {
             onCopyMarkdown?.call();
           case 'duplicate':
             onDuplicate?.call();
+          case 'preset_cleanup':
+            onApplyPreset?.call(SmartModePreset.cleanup);
+          case 'preset_concise':
+            onApplyPreset?.call(SmartModePreset.concise);
+          case 'preset_translate':
+            onApplyPreset?.call(SmartModePreset.translate);
           case 'export':
             onExport();
           case 'archive':
@@ -795,6 +932,45 @@ class _DetailOverflowMenu extends StatelessWidget {
               label: l10n.historyDuplicate,
             ),
           ),
+        if (onApplyPreset != null) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            enabled: false,
+            height: 28,
+            child: Text(
+              l10n.historyApplySmartModePreset,
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                fontWeight: FontWeight.w600,
+                color: textSecondary,
+              ),
+            ),
+          ),
+          PopupMenuItem(
+            value: 'preset_cleanup',
+            enabled: !applyingPreset,
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.sparkles,
+              label: l10n.smartModePresetCleanup,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'preset_concise',
+            enabled: !applyingPreset,
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.minimize2,
+              label: l10n.smartModePresetConcise,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'preset_translate',
+            enabled: !applyingPreset,
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.languages,
+              label: l10n.smartModePresetTranslate,
+            ),
+          ),
+        ],
         PopupMenuItem(
           value: 'export',
           child: HistoryPopupMenuRow(
@@ -885,6 +1061,11 @@ class _DetailTranscriptZone extends StatelessWidget {
     required this.wordCountLabel,
     required this.onToggleEdit,
     required this.onSaveTranscript,
+    required this.displayedContent,
+    required this.hasEditedVersion,
+    required this.viewingEditedVersion,
+    required this.onToggleViewingEdited,
+    required this.onCopyDisplayed,
   });
 
   final HistoryEntry entry;
@@ -895,6 +1076,25 @@ class _DetailTranscriptZone extends StatelessWidget {
   final String wordCountLabel;
   final VoidCallback onToggleEdit;
   final VoidCallback onSaveTranscript;
+
+  /// The text to show in read mode — raw or edited, per
+  /// [viewingEditedVersion] (ticket 05). Edit mode always edits the raw
+  /// [HistoryEntry.content], never this.
+  final String displayedContent;
+
+  /// Whether this entry has a Smart-Mode-edited version to toggle to.
+  final bool hasEditedVersion;
+
+  /// Whether [displayedContent] is currently the edited version.
+  final bool viewingEditedVersion;
+
+  /// Flips [viewingEditedVersion]. `null` when [hasEditedVersion] is `false`
+  /// — there is nothing to toggle to.
+  final VoidCallback? onToggleViewingEdited;
+
+  /// Copies [displayedContent] — the version currently on screen, which may
+  /// differ from the header's Copy button (always raw).
+  final VoidCallback onCopyDisplayed;
 
   @override
   Widget build(BuildContext context) {
@@ -972,9 +1172,9 @@ class _DetailTranscriptZone extends StatelessWidget {
                                   // empty entry draws exactly that card, and
                                   // the point of this ticket is that the two
                                   // are one surface.
-                                  text: entry.content.isEmpty
+                                  text: displayedContent.isEmpty
                                       ? '\u200B'
-                                      : entry.content,
+                                      : displayedContent,
                                   style: WpTextField.styleFor(
                                     WpTextFieldVariant.passage,
                                     color: textPrimary,
@@ -995,6 +1195,10 @@ class _DetailTranscriptZone extends StatelessWidget {
               isEditing: isEditing,
               wordCountLabel: wordCountLabel,
               onToggleEdit: onToggleEdit,
+              hasEditedVersion: hasEditedVersion,
+              viewingEditedVersion: viewingEditedVersion,
+              onToggleViewingEdited: onToggleViewingEdited,
+              onCopyDisplayed: onCopyDisplayed,
             ),
           ],
         ],
@@ -1013,12 +1217,20 @@ class _TranscriptEditBar extends StatelessWidget {
     required this.isEditing,
     required this.wordCountLabel,
     required this.onToggleEdit,
+    required this.hasEditedVersion,
+    required this.viewingEditedVersion,
+    required this.onToggleViewingEdited,
+    required this.onCopyDisplayed,
   });
 
   final HistoryEntry entry;
   final bool isEditing;
   final String wordCountLabel;
   final VoidCallback onToggleEdit;
+  final bool hasEditedVersion;
+  final bool viewingEditedVersion;
+  final VoidCallback? onToggleViewingEdited;
+  final VoidCallback onCopyDisplayed;
 
   @override
   Widget build(BuildContext context) {
@@ -1095,6 +1307,19 @@ class _TranscriptEditBar extends StatelessWidget {
             ],
           ),
         ),
+        if (!isEditing && hasEditedVersion) ...[
+          _RawEditedToggle(
+            viewingEditedVersion: viewingEditedVersion,
+            onToggle: onToggleViewingEdited,
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+          HistoryDetailAction(
+            icon: LucideIcons.copy,
+            tooltip: L10n.of(context).historyCopyText,
+            onTap: onCopyDisplayed,
+          ),
+        ],
         const SizedBox(width: WpSpacing.xs),
         // Right: edit/save button — always right-aligned
         Tooltip(
@@ -1151,6 +1376,79 @@ class _TranscriptEditBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Raw/edited view toggle (ticket 05) — a two-segment pill, same visual
+// family as the edit/save pill it sits next to.
+// ---------------------------------------------------------------------------
+
+class _RawEditedToggle extends StatelessWidget {
+  const _RawEditedToggle({
+    required this.viewingEditedVersion,
+    required this.onToggle,
+  });
+
+  final bool viewingEditedVersion;
+  final VoidCallback? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    const accent = WpColors.accent;
+    const textMuted = WpColors.textMuted;
+
+    Widget segment(String label, bool selected) => Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: selected ? accent.withValues(alpha: 0.15) : Colors.transparent,
+        borderRadius: WpRadius.borderFull,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: WpTypography.small,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          color: selected ? accent : textMuted,
+        ),
+      ),
+    );
+
+    return Material(
+      color: WpColors.surfaceMutedFill,
+      borderRadius: WpRadius.borderFull,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // loam-ignore: a11y-interactive-semantics – semantics provided by Semantics wrapper below
+          Semantics(
+            button: true,
+            selected: !viewingEditedVersion,
+            label: l10n.historyViewRaw,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+              onTap: viewingEditedVersion ? onToggle : null,
+              child: segment(l10n.historyViewRaw, !viewingEditedVersion),
+            ),
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided by Semantics wrapper below
+          Semantics(
+            button: true,
+            selected: viewingEditedVersion,
+            label: l10n.historyViewEdited,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+              onTap: viewingEditedVersion ? null : onToggle,
+              child: segment(l10n.historyViewEdited, viewingEditedVersion),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

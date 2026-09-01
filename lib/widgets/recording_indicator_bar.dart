@@ -85,7 +85,8 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
 
   void _syncPulse() {
     if (widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing) {
+        widget.phase == RecordingPhase.transcribing ||
+        widget.phase == RecordingPhase.refining) {
       // `AnimationController.repeat()` asserts its period is > 0; reduced
       // motion (`WpMotion.durationFor` in didChangeDependencies) sets
       // `_pulse.duration` to `Duration.zero`, which would violate that
@@ -116,7 +117,11 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
   Widget build(BuildContext context) {
     final isActive =
         widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing;
+        widget.phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): the local Cleanup pass keeps the
+        // pipeline "in flight" between transcribing and done — the bar must
+        // not drop to 0px and read as finished while it's still running.
+        widget.phase == RecordingPhase.refining;
 
     final color = WpRecordingIndicatorBar.colorFor(widget.phase);
 

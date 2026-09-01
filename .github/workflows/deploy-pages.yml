@@ -53,6 +53,29 @@ jobs:
           # Ohne diese Variable überspringt der Plugin den Upload mit Warnung,
           # der Build selbst läuft trotzdem durch (siehe sentry-vite-plugin).
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Submit sitemap to IndexNow (Bing, Yandex, Naver, Seznam, Yep)
+        run: node scripts/push-indexnow.mjs
+        working-directory: website
+        env:
+          # Skript ist opt-in (Exit 0 ohne Key) — Secret muss einmalig gesetzt
+          # werden, siehe website/scripts/push-indexnow.mjs Kopfkommentar.
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+      - name: Submit sitemap to Google Search Console
+        run: node scripts/gsc-sitemap-ping.mjs
+        working-directory: website
+        # Schlägt mit 403 fehl, bis der Service Account einmalig manuell als
+        # "Uneingeschränkt"-Nutzer auf sc-domain:whispaste.de eingetragen ist
+        # (Search Console → Einstellungen → Nutzer und Berechtigungen — nicht
+        # per API möglich). Darf den Deploy nie blockieren, deshalb
+        # continue-on-error; sobald der manuelle Schritt erledigt ist, läuft
+        # er grün mit.
+        continue-on-error: true
+        env:
+          # Dedizierter Service Account whispaste-gsc-sitemap-ping@hellerio-ai
+          # mit "Uneingeschränkt"-Zugriff NUR auf sc-domain:whispaste.de (kein
+          # anderer IAM-Zugriff) — siehe website/scripts/gsc-sitemap-ping.mjs
+          # Kopfkommentar.
+          GSC_SA_KEY: ${{ secrets.GSC_SA_KEY }}
 
   deploy:
     needs: build

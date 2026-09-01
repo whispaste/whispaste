@@ -112,6 +112,9 @@ scripts/*
 !scripts/bundle-libwhisper-windows.ps1
 !scripts/build-libllama-macos.sh
 !scripts/build-smartmode-shim-macos.sh
+!scripts/build-libllama-windows.ps1
+!scripts/build-smartmode-shim-windows.ps1
+!scripts/bundle-libllama-windows.ps1
 !scripts/git-hooks/
 !scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1

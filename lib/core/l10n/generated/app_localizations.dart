@@ -2427,6 +2427,150 @@ abstract class L10n {
   /// **'Remove the replacement \"{trigger}\"? This cannot be undone.'**
   String replacementsDeleteMessage(String trigger);
 
+  /// No description provided for @replacementsImportFromFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from folder'**
+  String get replacementsImportFromFolder;
+
+  /// No description provided for @replacementsImportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.'**
+  String get replacementsImportHint;
+
+  /// No description provided for @replacementsImportSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {found}, added {added}, skipped {skipped} duplicate(s)'**
+  String replacementsImportSummary(int found, int added, int skipped);
+
+  /// No description provided for @replacementsImportScanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning the folder — this can take a moment for large projects…'**
+  String get replacementsImportScanning;
+
+  /// No description provided for @replacementsImportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed — the folder could not be scanned.'**
+  String get replacementsImportError;
+
+  /// No description provided for @replacementsImportedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported'**
+  String get replacementsImportedBadge;
+
+  /// No description provided for @replacementsImportNothingFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No new identifiers found in this folder.'**
+  String get replacementsImportNothingFound;
+
+  /// No description provided for @replacementsImportReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what to import'**
+  String get replacementsImportReviewTitle;
+
+  /// No description provided for @replacementsImportReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} candidates found — pick which ones become replacements. Nothing is added until you confirm.'**
+  String replacementsImportReviewSubtitle(int count);
+
+  /// No description provided for @replacementsImportReviewSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter candidates'**
+  String get replacementsImportReviewSearchHint;
+
+  /// No description provided for @replacementsImportReviewSelectAllFiltered.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all shown'**
+  String get replacementsImportReviewSelectAllFiltered;
+
+  /// No description provided for @replacementsImportReviewDeselectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect all'**
+  String get replacementsImportReviewDeselectAll;
+
+  /// No description provided for @replacementsImportReviewSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{selected} of {total} selected'**
+  String replacementsImportReviewSelectedCount(int selected, int total);
+
+  /// No description provided for @replacementsImportReviewNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No candidates match your filter.'**
+  String get replacementsImportReviewNoMatches;
+
+  /// No description provided for @replacementsImportReviewImportButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Import selected ({count})'**
+  String replacementsImportReviewImportButton(int count);
+
+  /// No description provided for @replacementsMatchModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching'**
+  String get replacementsMatchModeLabel;
+
+  /// No description provided for @replacementsMatchModeExact.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact'**
+  String get replacementsMatchModeExact;
+
+  /// No description provided for @replacementsMatchModeFuzzy.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar'**
+  String get replacementsMatchModeFuzzy;
+
+  /// No description provided for @replacementsFuzzyToleranceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tolerance'**
+  String get replacementsFuzzyToleranceLabel;
+
+  /// No description provided for @replacementsFuzzyToleranceStrict.
+  ///
+  /// In en, this message translates to:
+  /// **'Strict'**
+  String get replacementsFuzzyToleranceStrict;
+
+  /// No description provided for @replacementsFuzzyToleranceStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get replacementsFuzzyToleranceStandard;
+
+  /// No description provided for @replacementsFuzzyToleranceTolerant.
+  ///
+  /// In en, this message translates to:
+  /// **'Tolerant'**
+  String get replacementsFuzzyToleranceTolerant;
+
+  /// No description provided for @replacementsFuzzyToleranceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.'**
+  String get replacementsFuzzyToleranceHint;
+
+  /// No description provided for @replacementsFuzzyTooShortWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger phrases under {minLength} characters cannot use similar matching — too many false hits.'**
+  String replacementsFuzzyTooShortWarning(int minLength);
+
   /// No description provided for @snippetsSearch.
   ///
   /// In en, this message translates to:
@@ -2510,6 +2654,144 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'The text this snippet inserts…'**
   String get snippetsBodyHint;
+
+  /// No description provided for @snippetsKindLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get snippetsKindLabel;
+
+  /// No description provided for @snippetsKindStatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Static'**
+  String get snippetsKindStatic;
+
+  /// No description provided for @snippetsKindInteractive.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive'**
+  String get snippetsKindInteractive;
+
+  /// No description provided for @snippetsFieldsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fields'**
+  String get snippetsFieldsLabel;
+
+  /// No description provided for @snippetsFieldsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be guided through each field with its own short recording, in this order.'**
+  String get snippetsFieldsHint;
+
+  /// No description provided for @snippetsFieldNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Field {number} name'**
+  String snippetsFieldNameHint(int number);
+
+  /// No description provided for @snippetsFieldMoveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move field up'**
+  String get snippetsFieldMoveUp;
+
+  /// No description provided for @snippetsFieldMoveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move field down'**
+  String get snippetsFieldMoveDown;
+
+  /// No description provided for @snippetsFieldRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove field'**
+  String get snippetsFieldRemove;
+
+  /// No description provided for @snippetsFieldAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add field'**
+  String get snippetsFieldAdd;
+
+  /// No description provided for @snippetsFieldInsertIntoTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert into template'**
+  String get snippetsFieldInsertIntoTemplate;
+
+  /// No description provided for @snippetsFieldsMinWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'An interactive snippet needs at least {min, plural, one{1 named field} other{{min} named fields}}.'**
+  String snippetsFieldsMinWarning(int min);
+
+  /// No description provided for @snippetsTemplateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Template'**
+  String get snippetsTemplateLabel;
+
+  /// No description provided for @snippetsTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your snippet text, then use each field\'s insert button to place it wherever you want.'**
+  String get snippetsTemplateHint;
+
+  /// No description provided for @snippetsTemplateFieldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your text here and insert fields using the buttons above.'**
+  String get snippetsTemplateFieldHint;
+
+  /// No description provided for @snippetsTemplateMissingFieldsWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Not all fields appear in the template yet — their dictated text would go unused.'**
+  String get snippetsTemplateMissingFieldsWarning;
+
+  /// No description provided for @snippetsInteractiveBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive'**
+  String get snippetsInteractiveBadge;
+
+  /// No description provided for @interactiveSnippetBriefingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 field} other{{count} fields}} · Enter to start'**
+  String interactiveSnippetBriefingLabel(int count);
+
+  /// No description provided for @interactiveSnippetBriefingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Field 1: {name} · Esc: cancel'**
+  String interactiveSnippetBriefingHint(String name);
+
+  /// No description provided for @interactiveSnippetAnnounceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Field {index}/{count}: {name}'**
+  String interactiveSnippetAnnounceLabel(int index, int count, String name);
+
+  /// No description provided for @interactiveSnippetAnnounceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Get ready to speak…'**
+  String get interactiveSnippetAnnounceHint;
+
+  /// No description provided for @interactiveSnippetSpeakNowLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{index}/{count}: {name}'**
+  String interactiveSnippetSpeakNowLabel(String name, int index, int count);
+
+  /// No description provided for @interactiveSnippetAdvance.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get interactiveSnippetAdvance;
 
   /// No description provided for @snippetsDeleteTitle.
   ///
@@ -3122,6 +3404,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcribing…'**
   String get statusBarTranscribing;
+
+  /// No description provided for @statusBarRefining.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining…'**
+  String get statusBarRefining;
 
   /// No description provided for @statusBarDone.
   ///
@@ -3824,6 +4112,54 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Entry duplicated'**
   String get historyDuplicated;
+
+  /// No description provided for @historyViewRaw.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw'**
+  String get historyViewRaw;
+
+  /// Toggle label for the Smart Mode edited version of a history entry's transcript (ticket 05).
+  ///
+  /// In en, this message translates to:
+  /// **'Edited'**
+  String get historyViewEdited;
+
+  /// No description provided for @historyApplySmartModePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply Smart Mode preset'**
+  String get historyApplySmartModePreset;
+
+  /// No description provided for @historySmartModeApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode applied'**
+  String get historySmartModeApplied;
+
+  /// No description provided for @historySmartModeFailedModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode model not downloaded'**
+  String get historySmartModeFailedModelMissing;
+
+  /// No description provided for @historySmartModeFailedTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode timed out'**
+  String get historySmartModeFailedTimeout;
+
+  /// No description provided for @historySmartModeFailedGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode failed — please try again'**
+  String get historySmartModeFailedGeneric;
+
+  /// No description provided for @historySmartModeSelectTargetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select target language'**
+  String get historySmartModeSelectTargetLanguage;
 
   /// No description provided for @historyAddNote.
   ///
@@ -4956,6 +5292,12 @@ abstract class L10n {
   /// **'Transcribing…'**
   String get overlayTranscribing;
 
+  /// No description provided for @overlayRefining.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining…'**
+  String get overlayRefining;
+
   /// No description provided for @overlayDone.
   ///
   /// In en, this message translates to:
@@ -5015,6 +5357,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Press {hotkey} to stop'**
   String overlayKeyboardHint(String hotkey);
+
+  /// No description provided for @overlayKeyboardHintNextFieldEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter or {hotkey}: next field · Esc: cancel'**
+  String overlayKeyboardHintNextFieldEnter(String hotkey);
+
+  /// No description provided for @overlayKeyboardHintNextFieldEnterOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter: next field · Esc: cancel'**
+  String get overlayKeyboardHintNextFieldEnterOnly;
 
   /// No description provided for @overlayProcessingLocal.
   ///
@@ -6012,6 +6366,30 @@ abstract class L10n {
   /// **'Hover the screen edge to open your recent clipboard history and drag any item straight into your document.'**
   String get featureSpotlightSidePanelDescription;
 
+  /// No description provided for @featureSpotlightInteractiveSnippetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive Snippets'**
+  String get featureSpotlightInteractiveSnippetsTitle;
+
+  /// No description provided for @featureSpotlightInteractiveSnippetsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.'**
+  String get featureSpotlightInteractiveSnippetsDescription;
+
+  /// No description provided for @featureSpotlightSmartModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get featureSpotlightSmartModeTitle;
+
+  /// No description provided for @featureSpotlightSmartModeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
+  String get featureSpotlightSmartModeDescription;
+
   /// No description provided for @featureSpotlightChangelogLink.
   ///
   /// In en, this message translates to:
@@ -6401,6 +6779,258 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Try a different search term.'**
   String get sidePanelNoMatchesHint;
+
+  /// No description provided for @settingsSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get settingsSmartMode;
+
+  /// No description provided for @settingsSmartModeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local text cleanup, shortening, and translation after dictation'**
+  String get settingsSmartModeSubtitle;
+
+  /// No description provided for @smartModeStandardPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard preset'**
+  String get smartModeStandardPreset;
+
+  /// No description provided for @smartModePresetOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get smartModePresetOff;
+
+  /// No description provided for @smartModePresetOffDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'No automatic post-processing — the dictated text is used exactly as transcribed.'**
+  String get smartModePresetOffDescription;
+
+  /// No description provided for @smartModePresetCleanup.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleanup'**
+  String get smartModePresetCleanup;
+
+  /// No description provided for @smartModePresetCleanupDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.'**
+  String get smartModePresetCleanupDescription;
+
+  /// No description provided for @smartModePresetConcise.
+  ///
+  /// In en, this message translates to:
+  /// **'Concise'**
+  String get smartModePresetConcise;
+
+  /// No description provided for @smartModePresetConciseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.'**
+  String get smartModePresetConciseDescription;
+
+  /// No description provided for @smartModePresetTranslate.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate'**
+  String get smartModePresetTranslate;
+
+  /// No description provided for @smartModePresetTranslateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Translates the dictated text into the target language set below.'**
+  String get smartModePresetTranslateDescription;
+
+  /// No description provided for @smartModeTargetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Target language'**
+  String get smartModeTargetLanguage;
+
+  /// No description provided for @smartModeTargetLanguageGerman.
+  ///
+  /// In en, this message translates to:
+  /// **'German'**
+  String get smartModeTargetLanguageGerman;
+
+  /// No description provided for @smartModeTargetLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get smartModeTargetLanguageEnglish;
+
+  /// No description provided for @smartModeTargetLanguageSpanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get smartModeTargetLanguageSpanish;
+
+  /// No description provided for @smartModeTargetLanguageFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get smartModeTargetLanguageFrench;
+
+  /// No description provided for @smartModeTargetLanguagePortuguese.
+  ///
+  /// In en, this message translates to:
+  /// **'Portuguese'**
+  String get smartModeTargetLanguagePortuguese;
+
+  /// No description provided for @smartModeTargetLanguageMandarin.
+  ///
+  /// In en, this message translates to:
+  /// **'Mandarin'**
+  String get smartModeTargetLanguageMandarin;
+
+  /// No description provided for @smartModeTargetLanguageRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get smartModeTargetLanguageRussian;
+
+  /// No description provided for @smartModeDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get smartModeDownload;
+
+  /// No description provided for @smartModeDownloadComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode model ready to use'**
+  String get smartModeDownloadComplete;
+
+  /// No description provided for @smartModeRamWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited memory detected'**
+  String get smartModeRamWarningTitle;
+
+  /// No description provided for @smartModeRamWarningBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode\'s local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?'**
+  String get smartModeRamWarningBody;
+
+  /// No description provided for @smartModeRamWarningContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Download anyway'**
+  String get smartModeRamWarningContinue;
+
+  /// No description provided for @smartModeRamWarningCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get smartModeRamWarningCancel;
+
+  /// No description provided for @smartModeMemoryFootprintInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.'**
+  String get smartModeMemoryFootprintInfo;
+
+  /// No description provided for @smartModeSpeedExampleInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.'**
+  String get smartModeSpeedExampleInfo;
+
+  /// No description provided for @settingsHotkeyActionSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get settingsHotkeyActionSmartMode;
+
+  /// No description provided for @settingsSmartModeHotkeyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart-Mode hotkey'**
+  String get settingsSmartModeHotkeyEnabled;
+
+  /// No description provided for @settingsSmartModeHotkeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.'**
+  String get settingsSmartModeHotkeyHint;
+
+  /// No description provided for @settingsSmartModeHotkeyPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get settingsSmartModeHotkeyPreset;
+
+  /// No description provided for @settingsSmartModeCurrentHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Combination'**
+  String get settingsSmartModeCurrentHotkey;
+
+  /// No description provided for @settingsSmartModeHotkeyCollision.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination is already used for \"{action}\". Pick a different one.'**
+  String settingsSmartModeHotkeyCollision(String action);
+
+  /// No description provided for @settingsSmartModeHotkeyInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.'**
+  String get settingsSmartModeHotkeyInactive;
+
+  /// No description provided for @smartModeOnboardingHintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Smart Mode'**
+  String get smartModeOnboardingHintTitle;
+
+  /// No description provided for @smartModeOnboardingHintBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.'**
+  String get smartModeOnboardingHintBody;
+
+  /// No description provided for @smartModeOnboardingHintDownloadCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get smartModeOnboardingHintDownloadCta;
+
+  /// No description provided for @smartModeOnboardingHintSkipCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get smartModeOnboardingHintSkipCta;
+
+  /// No description provided for @smartModeUsageHintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Smart Mode on your next dictation'**
+  String get smartModeUsageHintTitle;
+
+  /// No description provided for @smartModeUsageHintBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here\'s what you just dictated:'**
+  String get smartModeUsageHintBody;
+
+  /// No description provided for @smartModeUsageHintCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get smartModeUsageHintCta;
+
+  /// No description provided for @smartModeUsageHintDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get smartModeUsageHintDismiss;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

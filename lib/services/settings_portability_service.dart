@@ -77,6 +77,11 @@ const Set<String> settingsPortabilityDenyList = {
   // history has nothing to do with what this one has already seen.
   'seen_feature_spotlight_ids',
   'auto_paste_off_hint_dismissed',
+  // Smart Mode post-usage discovery hint (ticket 08 of
+  // `.scratch/smart-mode-v2/`): same category as the two seen-state keys
+  // above — whether this installation already showed the one-time hint,
+  // not a preference to carry to another machine.
+  'smart_mode_usage_hint_shown',
   // AudioInputSettings — gerätegebundener Mikrofonname.
   'microphone',
   // AppSettings.toStorageMap() — reines Persistenz-Artefakt, von
@@ -183,6 +188,24 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'snippet_picker_hotkey_key_display',
   'snippet_picker_hotkey_modifiers',
   'snippet_picker_trigger',
+  // Ticket 01 of `.scratch/smart-mode-v2/` — standard preset is a genuine
+  // user preference, portable like any other section field.
+  'smart_mode_standard_preset',
+  // Ticket 03 of `.scratch/smart-mode-v2/` — same rationale as the preset
+  // above.
+  'smart_mode_target_language',
+  // Ticket 06 of `.scratch/smart-mode-v2/` — local/cloud engine choice, same
+  // rationale as the preset above. The OpenAI API key itself lives in secure
+  // storage (shared with Cloud STT) and is never portable, by design.
+  'smart_mode_provider',
+  // Ticket 04 of `.scratch/smart-mode-v2/`: fourth, independently
+  // configurable hotkey (bound to one preset) — same portability rationale
+  // as 'hotkey_*'/'quick_note_hotkey_*'/'snippet_picker_hotkey_*' above.
+  'smart_mode_hotkey_enabled',
+  'smart_mode_hotkey_key',
+  'smart_mode_hotkey_key_display',
+  'smart_mode_hotkey_modifiers',
+  'smart_mode_hotkey_preset',
   'sound_volume',
   'start_minimized',
   'stt_engine',
@@ -382,7 +405,13 @@ class SettingsPortabilityService {
       ],
       if (bundle.snippets case final snippets?)
         'snippets': [
-          for (final s in snippets) {'title': s.title, 'body': s.body},
+          for (final s in snippets)
+            {
+              'title': s.title,
+              'body': s.body,
+              'kind': s.kind,
+              'fields': s.fields,
+            },
         ],
       // v1-compat duplicates — see library doc. Derived from `settings`,
       // never a second source.
@@ -483,6 +512,13 @@ class SettingsPortabilityService {
                       id: '',
                       title: title,
                       body: '${entry['body'] ?? ''}',
+                      // Older export files (pre-interactive-snippets) have
+                      // neither key — default to a plain static snippet.
+                      kind: '${entry['kind'] ?? 'static'}',
+                      fields: switch (entry['fields']) {
+                        final List fields => [for (final f in fields) '$f'],
+                        _ => const [],
+                      },
                     ),
             ]
           : null,

@@ -455,6 +455,30 @@
       "trigger": { "type": "String" }
     }
   },
+  "replacementsImportFromFolder": "ייבוא מתיקייה",
+  "replacementsImportHint": "סורק תיקיית פרויקט לזיהוי מזהים ומוסיף אותם כהחלפות מקורבות (fuzzy) — שום דבר לא יוצא מהמכשיר שלך.",
+  "replacementsImportSummary": "נמצאו {found}, נוספו {added}, {skipped} כפילויות דולגו",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": { "type": "int" },
+      "added": { "type": "int" },
+      "skipped": { "type": "int" }
+    }
+  },
+  "replacementsImportedBadge": "יובא",
+  "replacementsMatchModeLabel": "התאמה",
+  "replacementsMatchModeExact": "מדויק",
+  "replacementsMatchModeFuzzy": "דומה",
+  "replacementsFuzzyToleranceLabel": "סבילות",
+  "replacementsFuzzyToleranceStrict": "מחמיר",
+  "replacementsFuzzyToleranceStandard": "רגיל",
+  "replacementsFuzzyToleranceTolerant": "סובלני",
+  "replacementsFuzzyTooShortWarning": "לביטויי הפעלה מתחת ל-{minLength} תווים אי אפשר להשתמש בהתאמה מקורבת — זה יוצר יותר מדי התאמות שגויות.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": { "type": "int" }
+    }
+  },
 
   "snippetsSearch": "חפש קטעים…",
   "snippetsSearchFieldLabel": "חפש קטעים",
@@ -470,6 +494,58 @@
   "snippetsTitleHint": "לדוגמה: חתימת אימייל",
   "snippetsBodyLabel": "תוכן",
   "snippetsBodyHint": "הטקסט שהקטע הזה מכניס…",
+  "snippetsKindLabel": "סוג",
+  "snippetsKindStatic": "סטטי",
+  "snippetsKindInteractive": "אינטראקטיבי",
+  "snippetsFieldsLabel": "שדות",
+  "snippetsFieldsHint": "תונחה דרך כל שדה בזה אחר זה, עם הקלטה קצרה משלו.",
+  "snippetsFieldNameHint": "שם לשדה {number}",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "הזז שדה למעלה",
+  "snippetsFieldMoveDown": "הזז שדה למטה",
+  "snippetsFieldRemove": "הסר שדה",
+  "snippetsFieldAdd": "הוסף שדה",
+  "snippetsFieldsMinWarning": "קטע אינטראקטיבי דורש לפחות {min} שדות בעלי שם.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsInteractiveBadge": "אינטראקטיבי",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{שדה אחד} other{{count} שדות}} · Enter מתחיל",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "שדה 1: {name} · Esc: ביטול",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "שדה {index}/{count}: {name}",
+  "@interactiveSnippetAnnounceLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceHint": "התכונן לדבר…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetAdvance": "הבא",
   "snippetsDeleteTitle": "מחק קטע",
   "snippetsDeleteMessage": "להסיר את הקטע \"{title}\"? אין דרך לבטל.",
   "@snippetsDeleteMessage": {
@@ -716,6 +792,14 @@
   "statusSttReady": "מודל מוכן",
   "historyDuplicate": "שכפל",
   "historyDuplicated": "רשומה שוכפלה",
+  "historyViewRaw": "מקורי",
+  "historyViewEdited": "ערוך",
+  "historyApplySmartModePreset": "החל תבנית Smart Mode",
+  "historySmartModeApplied": "Smart Mode הוחל",
+  "historySmartModeFailedModelMissing": "מודל Smart Mode לא הורד",
+  "historySmartModeFailedTimeout": "Smart Mode ארך זמן רב מדי",
+  "historySmartModeFailedGeneric": "Smart Mode נכשל — נסה שוב",
+  "historySmartModeSelectTargetLanguage": "בחר שפת יעד",
   "historyAddNote": "הוסף הערה",
   "historyEditNote": "ערוך הערה",
   "historyNotes": "הערות",
@@ -960,6 +1044,13 @@
       "hotkey": { "type": "String" }
     }
   },
+  "overlayKeyboardHintNextFieldEnter": "Enter או {hotkey}: השדה הבא · Esc: ביטול",
+  "@overlayKeyboardHintNextFieldEnter": {
+    "placeholders": {
+      "hotkey": { "type": "String" }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: השדה הבא · Esc: ביטול",
   "overlayProcessingLocal": "מקומי",
   "overlayProcessingCloud": "ענן",
   "overlayRecordingQuickNote": "מקליט לפתק",
@@ -1159,6 +1250,10 @@
   "featureSpotlightSnippetPickerDescription": "שמור קטעי טקסט לשימוש חוזר והכנס אותם בכל מקום בלחיצה על מקש קיצור או במילת הפעלה קולית – בלי להקליד שוב.",
   "featureSpotlightSidePanelTitle": "סרגל לוח הגזירים",
   "featureSpotlightSidePanelDescription": "העבר את העכבר לקצה המסך כדי לפתוח את היסטוריית לוח הגזירים שלך וגרור כל פריט ישירות למסמך.",
+  "featureSpotlightInteractiveSnippetsTitle": "קטעים אינטראקטיביים",
+  "featureSpotlightInteractiveSnippetsDescription": "קטעים עם שדות למילוי: WhisPaste מוביל אותך משדה לשדה – הכתב, הקש Enter למעבר לשדה הבא, והטקסט המוגמר מודבק בבת אחת.",
+  "featureSpotlightSmartModeTitle": "Smart Mode",
+  "featureSpotlightSmartModeDescription": "נקה, קצר או תרגם את ההכתבה שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.",
   "featureSpotlightChangelogLink": "צפייה ביומן השינויים המלא",
   "featureSpotlightReviewLabel": "צפייה חוזרת בתכונות החדשות",
   "featureSpotlightReviewAction": "הצגה",
@@ -1252,5 +1347,14 @@
       "current": { "type": "int", "example": "3" },
       "total": { "type": "int", "example": "12" }
     }
-  }
+  },
+
+  "smartModeOnboardingHintTitle": "נסה את Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט המוכתב שלך אוטומטית — לגמרי במכשיר שלך. הורד את המודל המקומי עכשיו, או הגדר אותו מאוחר יותר בהגדרות.",
+  "smartModeOnboardingHintDownloadCta": "הורדה",
+  "smartModeOnboardingHintSkipCta": "דלג",
+  "smartModeUsageHintTitle": "נסה את Smart Mode בהכתבה הבאה שלך",
+  "smartModeUsageHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם טקסט כזה אוטומטית, ישירות במכשיר שלך. הנה מה שהכתבת הרגע:",
+  "smartModeUsageHintCta": "הגדרה",
+  "smartModeUsageHintDismiss": "לא עכשיו"
 }

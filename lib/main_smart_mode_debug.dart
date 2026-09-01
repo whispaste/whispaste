@@ -10,17 +10,14 @@
 /// prompt and real elapsed time) — the point is to let the maintainer feel
 /// the real Smart-Mode UX, not just prove a marker string round-trips.
 ///
-/// MANDATORY every time — TWO things keep this side by side with the real,
+/// MANDATORY every time — keeps this side by side with the real,
 /// currently-installed WhisPaste without any confusion or interference:
-///   1. WHISPASTE_SMART_MODE_PROTOTYPE=1  — the opt-in that makes
-///      macos/embed_libllama.sh embed the llama.cpp dylibs. WITHOUT it the
-///      embed phase is a no-op, so the real app's normal builds never pick up
-///      this prototype's native code. This build NEEDS it (the FFI engine
-///      dlopens libsmartmode_shim), so it must be set here — and ONLY here.
-///   2. PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug — a distinct
-///      bundle ID.
+///   PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug — a distinct
+///   bundle ID. (macos/embed_libllama.sh now embeds the llama.cpp dylibs
+///   unconditionally for every build of the "Runner" target, Smart Mode
+///   prototype or real app alike — no env var needed for that anymore.)
 ///
-///   WHISPASTE_SMART_MODE_PROTOTYPE=1 xcodebuild \
+///   xcodebuild \
 ///     -workspace macos/Runner.xcworkspace -scheme "Runner (MAS)" \
 ///     -configuration MAS build \
 ///     PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug

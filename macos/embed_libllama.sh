@@ -1,45 +1,43 @@
 #!/usr/bin/env bash
 # embed_libllama.sh — Xcode build phase that embeds the prebuilt `libllama` +
-# `libsmartmode_shim` shared libraries (Smart-Mode-v2 prototype) into the app
-# bundle's Frameworks/ and code-signs each with the SAME identity Xcode is
-# using for this build pass — the exact same pattern as embed_libwhisper.sh,
-# just against a separate staging dir. Because these two engines' dylibs are
-# fully namespaced apart (see build-libllama-macos.sh's ggml `-llama` suffix
+# `libsmartmode_shim` shared libraries (Smart Mode) into the app bundle's
+# Frameworks/ and code-signs each with the SAME identity Xcode is using for
+# this build pass — the exact same pattern as embed_libwhisper.sh, just
+# against a separate staging dir. Because these two engines' dylibs are fully
+# namespaced apart (see build-libllama-macos.sh's ggml `-llama` suffix
 # rename), copying both sets into the same Frameworks/ directory is safe: no
 # install-name collides between libwhisper's and libllama's own ggml copies.
 #
-# ┌──────────────────────────────────────────────────────────────────────────┐
-# │ OPT-IN ONLY. This phase lives on the SHARED "Runner" target, so it runs   │
-# │ for EVERY build of the real app (Debug/Release/MAS, flutter/xcodebuild/   │
-# │ fastlane). Smart-Mode-v2 is an unshipped prototype — its dylibs must      │
-# │ NEVER land in the production app. Therefore this script is a hard no-op   │
-# │ unless the builder explicitly opts in with WHISPASTE_SMART_MODE_PROTOTYPE │
-# │ =1. A normal build touches nothing in Frameworks/ and does not grow the   │
-# │ bundle by a single byte. Only the dedicated prototype build sets the var: │
-# │                                                                            │
-# │   WHISPASTE_SMART_MODE_PROTOTYPE=1 xcodebuild \                            │
-# │     -workspace macos/Runner.xcworkspace -scheme "Runner (MAS)" \          │
-# │     -configuration MAS build \                                            │
-# │     PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug                │
-# └──────────────────────────────────────────────────────────────────────────┘
+# Runs unconditionally for every build of the "Runner" target (Debug/Release/
+# MAS) — Smart Mode ships in the real app now, the same way libwhisper does.
+# Signed with ${EXPANDED_CODE_SIGN_IDENTITY} exactly like embed_libwhisper.sh,
+# so the outer app signature seals over these dylibs with matching team
+# identity and macOS Library Validation accepts them under the sandboxed
+# "Runner (MAS)" build too, without needing the
+# `com.apple.security.cs.disable-library-validation` entitlement (verified via
+# main_smart_mode_debug.dart's "Runner (MAS)" prototype build).
 #
 # Source dylibs are produced by scripts/build-libllama-macos.sh +
 # scripts/build-smartmode-shim-macos.sh (SHA-256 pinned, @loader_path-
-# relocatable). If they are absent the phase is a no-op with a warning, so a
-# checkout that has not built libllama still compiles.
+# relocatable). Self-heals like embed_libwhisper.sh: a fresh checkout that
+# has not built libllama yet gets it built here, on first build, rather than
+# silently shipping without Smart Mode until someone notices at runtime.
 set -euo pipefail
 
-# --- Opt-in gate (see banner above). Default = no-op, protects the real app. --
-if [[ "${WHISPASTE_SMART_MODE_PROTOTYPE:-}" != "1" ]]; then
-  echo "note: [WP] Embed & Sign libllama skipped (Smart-Mode-v2 prototype not opted in; set WHISPASTE_SMART_MODE_PROTOTYPE=1 to embed). This is the normal, expected path for the real app."
-  exit 0
-fi
-
-STAGE_DIR="${SRCROOT}/../.build/libllama/macos"
+REPO_ROOT="${SRCROOT}/.."
+STAGE_DIR="${REPO_ROOT}/.build/libllama/macos"
 DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 
 if [[ ! -d "$STAGE_DIR" ]]; then
-  echo "warning: libllama staging dir not found ($STAGE_DIR) — run scripts/build-libllama-macos.sh && scripts/build-smartmode-shim-macos.sh. Skipping embed."
+  echo "note: libllama staging dir not found ($STAGE_DIR) — attempting to build it now."
+  if ! "${REPO_ROOT}/scripts/build-libllama-macos.sh" || ! "${REPO_ROOT}/scripts/build-smartmode-shim-macos.sh"; then
+    echo "warning: libllama/smartmode-shim auto-build failed — see log above. Skipping embed; run scripts/build-libllama-macos.sh && scripts/build-smartmode-shim-macos.sh manually. Smart Mode will be unavailable in this build."
+    exit 0
+  fi
+fi
+
+if [[ ! -d "$STAGE_DIR" ]]; then
+  echo "warning: libllama staging dir still not found after auto-build attempt — skipping embed. Smart Mode will be unavailable in this build."
   exit 0
 fi
 

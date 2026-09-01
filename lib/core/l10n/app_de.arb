@@ -416,6 +416,30 @@
   "replacementsReplacementHint": "z.\u00A0B. mit freundlichen Grüßen",
   "replacementsDeleteTitle": "Ersetzung löschen",
   "replacementsDeleteMessage": "Ersetzung \"{trigger}\" entfernen? Dies kann nicht rückgängig gemacht werden.",
+  "replacementsImportFromFolder": "Aus Ordner importieren",
+  "replacementsImportHint": "Durchsucht einen Projektordner nach Bezeichnern und legt sie als unscharfe (fuzzy) Ersetzungen an — nichts verlässt dein Gerät.",
+  "replacementsImportSummary": "{found} gefunden, {added} hinzugefügt, {skipped} Dublette(n) übersprungen",
+  "replacementsImportScanning": "Ordner wird durchsucht — bei großen Projekten kann das einen Moment dauern…",
+  "replacementsImportError": "Import fehlgeschlagen — der Ordner konnte nicht durchsucht werden.",
+  "replacementsImportedBadge": "Importiert",
+  "replacementsImportNothingFound": "In diesem Ordner wurden keine neuen Bezeichner gefunden.",
+  "replacementsImportReviewTitle": "Auswählen, was importiert wird",
+  "replacementsImportReviewSubtitle": "{count} Kandidaten gefunden — wähle aus, welche zu Ersetzungen werden. Es wird nichts hinzugefügt, bevor du bestätigst.",
+  "replacementsImportReviewSearchHint": "Kandidaten filtern",
+  "replacementsImportReviewSelectAllFiltered": "Alle angezeigten auswählen",
+  "replacementsImportReviewDeselectAll": "Alle abwählen",
+  "replacementsImportReviewSelectedCount": "{selected} von {total} ausgewählt",
+  "replacementsImportReviewNoMatches": "Kein Kandidat entspricht deinem Filter.",
+  "replacementsImportReviewImportButton": "Auswahl importieren ({count})",
+  "replacementsMatchModeLabel": "Abgleich",
+  "replacementsMatchModeExact": "Exakt",
+  "replacementsMatchModeFuzzy": "Ähnlich",
+  "replacementsFuzzyToleranceLabel": "Toleranz",
+  "replacementsFuzzyToleranceStrict": "Streng",
+  "replacementsFuzzyToleranceStandard": "Standard",
+  "replacementsFuzzyToleranceTolerant": "Tolerant",
+  "replacementsFuzzyToleranceHint": "Wie ähnlich eine diktierte Formulierung dem Auslöser klingen muss, damit sie noch als Treffer zählt. Streng erkennt nur nahezu identische Formulierungen — dadurch wird fast nie versehentlich etwas ersetzt, ein undeutlich diktierter Auslöser kann aber unerkannt bleiben. Standard ist ein ausgewogener Mittelweg für den Alltag. Tolerant erkennt auch deutlich abweichende Aussprache oder Formulierung, mit höherem Risiko, dass etwas ersetzt wird, das nicht gemeint war.",
+  "replacementsFuzzyTooShortWarning": "Auslöser unter {minLength} Zeichen können nicht unscharf abgeglichen werden — das erzeugt zu viele Fehltreffer.",
 
   "snippetsSearch": "Snippets suchen…",
   "snippetsSearchFieldLabel": "Snippets suchen",
@@ -431,6 +455,63 @@
   "snippetsTitleHint": "z. B. E-Mail-Signatur",
   "snippetsBodyLabel": "Text",
   "snippetsBodyHint": "Der Text, den dieser Snippet einfügt…",
+  "snippetsKindLabel": "Art",
+  "snippetsKindStatic": "Statisch",
+  "snippetsKindInteractive": "Interaktiv",
+  "snippetsFieldsLabel": "Felder",
+  "snippetsFieldsHint": "Du wirst der Reihe nach durch jedes Feld geführt, jeweils mit einer eigenen kurzen Aufnahme.",
+  "snippetsFieldNameHint": "Name für Feld {number}",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "Feld nach oben verschieben",
+  "snippetsFieldMoveDown": "Feld nach unten verschieben",
+  "snippetsFieldRemove": "Feld entfernen",
+  "snippetsFieldAdd": "Feld hinzufügen",
+  "snippetsFieldInsertIntoTemplate": "In Vorlage einfügen",
+  "snippetsFieldsMinWarning": "Ein interaktives Snippet braucht mindestens {min, plural, one{1 benanntes Feld} other{{min} benannte Felder}}.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsTemplateLabel": "Vorlage",
+  "snippetsTemplateHint": "Schreibe deinen Snippet-Text und platziere jedes Feld über den Einfügen-Button daneben an beliebiger Stelle.",
+  "snippetsTemplateFieldHint": "Schreibe hier deinen Text und füge Felder über die Buttons oben ein.",
+  "snippetsTemplateMissingFieldsWarning": "Noch nicht alle Felder werden in der Vorlage verwendet — ihr diktierter Text bliebe sonst ungenutzt.",
+  "snippetsInteractiveBadge": "Interaktiv",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{1 Feld} other{{count} Felder}} · Enter startet",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "Feld 1: {name} · Esc: Abbrechen",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "Feld {index}/{count}: {name}",
+  "@interactiveSnippetAnnounceLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceHint": "Gleich sprechen…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetAdvance": "Weiter",
   "snippetsDeleteTitle": "Snippet löschen",
   "snippetsDeleteMessage": "Snippet \"{title}\" entfernen? Dies kann nicht rückgängig gemacht werden.",
   "snippetsPickerTriggerLabel": "Trigger-Wort für den Picker",
@@ -536,6 +617,7 @@
   "statusBarBackendGpuUtilizationUnavailable": "Echte GPU-Auslastung ist plattformübergreifend nicht ohne Zusatzrechte messbar; die angezeigte Prozentzahl bezieht sich stattdessen auf die CPU-Aktivität dieses Prozesses.",
   "statusBarRecording": "Aufnahme…",
   "statusBarTranscribing": "Transkribieren…",
+  "statusBarRefining": "Wird bereinigt…",
   "statusBarDone": "Fertig",
   "statusBarHotkeyTooltip": "Globaler Hotkey: klicken zum Konfigurieren",
   "statusBarAutoPasteOffHint": "Auto-Paste deaktiviert, in Settings aktivierbar",
@@ -683,6 +765,14 @@
 
   "historyDuplicate": "Duplizieren",
   "historyDuplicated": "Eintrag dupliziert",
+  "historyViewRaw": "Rohtext",
+  "historyViewEdited": "Bearbeitet",
+  "historyApplySmartModePreset": "Smart-Mode-Preset anwenden",
+  "historySmartModeApplied": "Smart Mode angewendet",
+  "historySmartModeFailedModelMissing": "Smart-Mode-Modell nicht heruntergeladen",
+  "historySmartModeFailedTimeout": "Smart Mode hat zu lange gebraucht",
+  "historySmartModeFailedGeneric": "Smart Mode fehlgeschlagen — bitte erneut versuchen",
+  "historySmartModeSelectTargetLanguage": "Zielsprache wählen",
   "historyAddNote": "Anmerkung hinzufügen",
   "historyEditNote": "Anmerkung bearbeiten",
   "historyNotes": "Anmerkungen",
@@ -912,6 +1002,7 @@
 
   "overlayRecording": "Aufnahme",
   "overlayTranscribing": "Wird transkribiert…",
+  "overlayRefining": "Wird bereinigt…",
   "overlayDone": "Kopiert",
   "overlayDonePasted": "Eingefügt",
   "overlayDoneBoth": "Kopiert & eingefügt",
@@ -929,6 +1020,15 @@
       }
     }
   },
+  "overlayKeyboardHintNextFieldEnter": "Enter oder {hotkey}: nächstes Feld · Esc: Abbrechen",
+  "@overlayKeyboardHintNextFieldEnter": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: nächstes Feld · Esc: Abbrechen",
   "overlayProcessingLocal": "Lokal",
   "overlayProcessingCloud": "Cloud",
   "overlayRecordingQuickNote": "Aufnahme für Notiz",
@@ -1147,6 +1247,10 @@
   "featureSpotlightSnippetPickerDescription": "Speichere wiederverwendbare Textbausteine und füge sie per Hotkey oder gesprochenem Trigger überall ein – ganz ohne erneutes Tippen.",
   "featureSpotlightSidePanelTitle": "Clipboard-Seitenleiste",
   "featureSpotlightSidePanelDescription": "Fahre an den Bildschirmrand, um deinen letzten Clipboard-Verlauf zu öffnen, und ziehe jeden Eintrag direkt in dein Dokument.",
+  "featureSpotlightInteractiveSnippetsTitle": "Interaktive Snippets",
+  "featureSpotlightInteractiveSnippetsDescription": "Snippets mit Lücken: WhisPaste führt dich durch jedes Feld – diktieren, mit Enter zum nächsten, und der fertige Text wird in einem Stück eingefügt.",
+  "featureSpotlightSmartModeTitle": "Smart Mode",
+  "featureSpotlightSmartModeDescription": "Bereinige, kürze oder übersetze dein Diktat vor dem Einfügen – komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.",
   "featureSpotlightChangelogLink": "Vollständiges Changelog ansehen",
   "featureSpotlightReviewLabel": "Neue Funktionen erneut ansehen",
   "featureSpotlightReviewAction": "Anzeigen",
@@ -1251,5 +1355,55 @@
   "sidePanelSearchHint": "Suchen",
   "sidePanelSearchFieldLabel": "Diese Liste durchsuchen",
   "sidePanelNoMatches": "Keine Treffer",
-  "sidePanelNoMatchesHint": "Versuche einen anderen Suchbegriff."
+  "sidePanelNoMatchesHint": "Versuche einen anderen Suchbegriff.",
+
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "Lokale Textbereinigung, Kürzung und Übersetzung nach dem Diktieren",
+  "smartModeStandardPreset": "Standard-Preset",
+  "smartModePresetOff": "Aus",
+  "smartModePresetOffDescription": "Keine automatische Nachbearbeitung — der diktierte Text wird genau so übernommen, wie er erkannt wurde.",
+  "smartModePresetCleanup": "Bereinigen",
+  "smartModePresetCleanupDescription": "Entfernt Füllwörter wie „äh“ und korrigiert Zeichensetzung und Groß-/Kleinschreibung, ohne Wortlaut, Bedeutung oder Sprache zu verändern.",
+  "smartModePresetConcise": "Kürzen",
+  "smartModePresetConciseDescription": "Kürzt den Text, indem Wiederholungen und Füllwörter entfernt werden — alle wichtigen Fakten und die Sprache bleiben erhalten.",
+  "smartModePresetTranslate": "Übersetzen",
+  "smartModePresetTranslateDescription": "Übersetzt den diktierten Text in die unten eingestellte Zielsprache.",
+  "smartModeTargetLanguage": "Zielsprache",
+  "smartModeTargetLanguageGerman": "Deutsch",
+  "smartModeTargetLanguageEnglish": "Englisch",
+  "smartModeTargetLanguageSpanish": "Spanisch",
+  "smartModeTargetLanguageFrench": "Französisch",
+  "smartModeTargetLanguagePortuguese": "Portugiesisch",
+  "smartModeTargetLanguageMandarin": "Mandarin",
+  "smartModeTargetLanguageRussian": "Russisch",
+  "smartModeDownload": "Herunterladen",
+  "smartModeDownloadComplete": "Smart-Mode-Modell einsatzbereit",
+  "smartModeRamWarningTitle": "Wenig Arbeitsspeicher erkannt",
+  "smartModeRamWarningBody": "Das lokale Smart-Mode-Modell läuft am besten mit mindestens 8 GB RAM. Es kann auch mit weniger funktionieren, aber langsamer sein oder fehlschlagen. Trotzdem herunterladen?",
+  "smartModeRamWarningContinue": "Trotzdem herunterladen",
+  "smartModeRamWarningCancel": "Abbrechen",
+  "smartModeMemoryFootprintInfo": "Läuft vollständig auf dem Gerät. Im aktiven Zustand belegt es zusätzlich zum Speicherplatz etwa 4–5 GB RAM — geteilt mit dem Transkriptionsmodell, der tatsächliche Gesamtverbrauch hängt also auch davon ab, welches STT-Modell zusätzlich geladen ist.",
+  "smartModeSpeedExampleInfo": "Beispiel: Ein typisches Diktat mit 50 Wörtern braucht je nach Hardware etwa 1–6 Sekunden zur Verarbeitung.",
+
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "Smart-Mode-Hotkey",
+  "settingsSmartModeHotkeyHint": "Startet eine Aufnahme mit einem festen Preset, unabhängig vom Standard-Preset oben. Unterstützt Push-to-Talk genau wie der Haupt-Hotkey.",
+  "settingsSmartModeHotkeyPreset": "Preset",
+  "settingsSmartModeCurrentHotkey": "Kombination",
+  "settingsSmartModeHotkeyCollision": "Diese Kombination ist schon für „{action}“ vergeben. Wähl eine andere.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.",
+
+  "smartModeOnboardingHintTitle": "Smart Mode ausprobieren",
+  "smartModeOnboardingHintBody": "Smart Mode kann deinen diktierten Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Lade das lokale Modell jetzt herunter oder richte es später in den Einstellungen ein.",
+  "smartModeOnboardingHintDownloadCta": "Herunterladen",
+  "smartModeOnboardingHintSkipCta": "Überspringen",
+  "smartModeUsageHintTitle": "Smart Mode bei deinem nächsten Diktat ausprobieren",
+  "smartModeUsageHintBody": "Smart Mode kann Text wie diesen automatisch bereinigen, kürzen oder übersetzen — direkt auf deinem Gerät. Das hast du gerade diktiert:",
+  "smartModeUsageHintCta": "Einrichten",
+  "smartModeUsageHintDismiss": "Nicht jetzt"
 }

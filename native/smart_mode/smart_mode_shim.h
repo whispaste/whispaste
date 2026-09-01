@@ -8,6 +8,18 @@
 #ifndef WHISPASTE_SMART_MODE_SHIM_H
 #define WHISPASTE_SMART_MODE_SHIM_H
 
+// MSVC (unlike clang/gcc's default "export everything" visibility on
+// macOS/Linux, which is why this was never needed there) does not export a
+// DLL's symbols unless told to: without this, `cl.exe /LD` silently produces
+// a `smartmode_shim.dll` with zero exports, and `DynamicLibrary.lookup` on
+// the Dart side fails with "procedure not found" even though the dylib
+// loads fine.
+#if defined(_WIN32)
+#define WP_SMART_MODE_API __declspec(dllexport)
+#else
+#define WP_SMART_MODE_API __attribute__((visibility("default")))
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,7 +34,7 @@ extern "C" {
 // Returns a heap-allocated, null-terminated UTF-8 string with the model's
 // response, or NULL on failure (model/context/template init failure, decode
 // error). Caller must release the result with smart_mode_free_result.
-char* smart_mode_run(
+WP_SMART_MODE_API char* smart_mode_run(
     const char* model_path,
     const char* system_prompt,
     const char* user_text,
@@ -34,7 +46,7 @@ char* smart_mode_run(
 );
 
 // Frees a string previously returned by smart_mode_run. No-op on NULL.
-void smart_mode_free_result(char* result);
+WP_SMART_MODE_API void smart_mode_free_result(char* result);
 
 #ifdef __cplusplus
 }

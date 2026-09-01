@@ -22,6 +22,11 @@ title = "WhisPaste gitleaks config"
   regex = '''[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'''
   path = '''\.(rb|sh|ps1|py|mjs|yml|yaml)$'''
 
+  [rules.allowlist]
+    description = "GCP service-account email — identifies a dedicated, minimal-scope service account (Full access to only sc-domain:whispaste.de, no other IAM roles), not a secret. The actual credential (private key) is never in the file, only in the GSC_SA_KEY GitHub Actions secret."
+    regexTarget = "match"
+    regexes = ['''whispaste-gsc-sitemap-ping@hellerio-ai\.iam\.gserviceaccount\.com''']
+
 [allowlist]
   description = "Allowlist for false positives"
 

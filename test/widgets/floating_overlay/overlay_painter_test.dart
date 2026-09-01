@@ -12,6 +12,9 @@
 ///  - AC5: no glow/badge; calm rendering builds for every combination.
 library;
 
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
@@ -565,5 +568,98 @@ void main() {
         });
       }
     }
+  });
+
+  group('Guided-UX v2 — text actually reaches the pixels (raster diff)', () {
+    // Root-cause regression class: the snapshot's old `hint` field was
+    // serialized end-to-end and asserted in Dart-side tests, yet NO size
+    // variant ever painted it — the user saw nothing while every test was
+    // green (field-observed 2026-09-01). These tests rasterize the painter
+    // and require the guidance text to change actual pixels, closing exactly
+    // that gap for the fields the guided flow depends on.
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+    Future<Uint8List> rasterize(WpOverlayPainter painter) async {
+      final window = OverlayDesignSpec.windowSizeFor(OverlaySizeVariant.normal);
+      final recorder = ui.PictureRecorder();
+      painter.paint(Canvas(recorder), window);
+      final image = await recorder.endRecording().toImage(
+        window.width.ceil(),
+        window.height.ceil(),
+      );
+      final data = await image.toByteData();
+      return data!.buffer.asUint8List();
+    }
+
+    FloatingOverlaySnapshot guidanceSnap({String? secondaryLabel}) =>
+        FloatingOverlaySnapshot(
+          visible: true,
+          state: OverlayVisualState.transcribing,
+          label: 'Feld 1/2: Titel',
+          secondaryLabel: secondaryLabel,
+        );
+
+    test('rasterization is deterministic (control)', () async {
+      final a = await rasterize(
+        WpFloatingOverlayView.painterFor(snapshot: guidanceSnap()),
+      );
+      final b = await rasterize(
+        WpFloatingOverlayView.painterFor(snapshot: guidanceSnap()),
+      );
+      expect(a, equals(b));
+    });
+
+    test('secondaryLabel changes rendered pixels on the guidance frame — '
+        'a serialized-but-never-painted regression fails here', () async {
+      final without = await rasterize(
+        WpFloatingOverlayView.painterFor(snapshot: guidanceSnap()),
+      );
+      final withSecondary = await rasterize(
+        WpFloatingOverlayView.painterFor(
+          snapshot: guidanceSnap(secondaryLabel: 'Gleich sprechen…'),
+        ),
+      );
+      expect(
+        withSecondary,
+        isNot(equals(without)),
+        reason:
+            'the secondary guidance line must be painted, not just '
+            'serialized into the snapshot',
+      );
+    });
+
+    test('the recording state paints the elapsed/position line '
+        '("0:07 · 1/2: Titel") — the persistent field indicator', () async {
+      final bars = List<double>.generate(
+        OverlayDesignSpec.waveform.barCount,
+        (i) => (i % 7) / 7.0,
+      );
+      FloatingOverlaySnapshot recSnap(String elapsed) =>
+          FloatingOverlaySnapshot(
+            visible: true,
+            state: OverlayVisualState.recording,
+            label: '',
+            elapsed: elapsed,
+          );
+      final without = await rasterize(
+        WpFloatingOverlayView.painterFor(
+          snapshot: recSnap(''),
+          waveformBars: bars,
+        ),
+      );
+      final withIndicator = await rasterize(
+        WpFloatingOverlayView.painterFor(
+          snapshot: recSnap('0:07 · 1/2: Titel'),
+          waveformBars: bars,
+        ),
+      );
+      expect(
+        withIndicator,
+        isNot(equals(without)),
+        reason:
+            'the elapsed line carries the "i/N: field" indicator during '
+            'recording — it must reach the pixels',
+      );
+    });
   });
 }

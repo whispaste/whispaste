@@ -27,7 +27,7 @@ import 'dart:async';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whispaste/snippet_picker_render_entrypoint.dart';
+import 'package:whispaste/shared_render_engine_helpers.dart';
 
 /// Delivers [state] to the engine exactly like the embedder does: as a
 /// platform message on `flutter/lifecycle`.

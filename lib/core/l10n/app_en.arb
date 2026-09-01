@@ -531,6 +531,58 @@
       "trigger": { "type": "String" }
     }
   },
+  "replacementsImportFromFolder": "Import from folder",
+  "replacementsImportHint": "Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.",
+  "replacementsImportSummary": "Found {found}, added {added}, skipped {skipped} duplicate(s)",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": { "type": "int" },
+      "added": { "type": "int" },
+      "skipped": { "type": "int" }
+    }
+  },
+  "replacementsImportScanning": "Scanning the folder — this can take a moment for large projects…",
+  "replacementsImportError": "Import failed — the folder could not be scanned.",
+  "replacementsImportedBadge": "Imported",
+  "replacementsImportNothingFound": "No new identifiers found in this folder.",
+  "replacementsImportReviewTitle": "Choose what to import",
+  "replacementsImportReviewSubtitle": "{count} candidates found — pick which ones become replacements. Nothing is added until you confirm.",
+  "@replacementsImportReviewSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "replacementsImportReviewSearchHint": "Filter candidates",
+  "replacementsImportReviewSelectAllFiltered": "Select all shown",
+  "replacementsImportReviewDeselectAll": "Deselect all",
+  "replacementsImportReviewSelectedCount": "{selected} of {total} selected",
+  "@replacementsImportReviewSelectedCount": {
+    "placeholders": {
+      "selected": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "replacementsImportReviewNoMatches": "No candidates match your filter.",
+  "replacementsImportReviewImportButton": "Import selected ({count})",
+  "@replacementsImportReviewImportButton": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "replacementsMatchModeLabel": "Matching",
+  "replacementsMatchModeExact": "Exact",
+  "replacementsMatchModeFuzzy": "Similar",
+  "replacementsFuzzyToleranceLabel": "Tolerance",
+  "replacementsFuzzyToleranceStrict": "Strict",
+  "replacementsFuzzyToleranceStandard": "Standard",
+  "replacementsFuzzyToleranceTolerant": "Tolerant",
+  "replacementsFuzzyToleranceHint": "How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.",
+  "replacementsFuzzyTooShortWarning": "Trigger phrases under {minLength} characters cannot use similar matching — too many false hits.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": { "type": "int" }
+    }
+  },
 
   "snippetsSearch": "Search snippets…",
   "snippetsSearchFieldLabel": "Search snippets",
@@ -546,6 +598,63 @@
   "snippetsTitleHint": "e.g. Email signature",
   "snippetsBodyLabel": "Body",
   "snippetsBodyHint": "The text this snippet inserts…",
+  "snippetsKindLabel": "Type",
+  "snippetsKindStatic": "Static",
+  "snippetsKindInteractive": "Interactive",
+  "snippetsFieldsLabel": "Fields",
+  "snippetsFieldsHint": "You'll be guided through each field with its own short recording, in this order.",
+  "snippetsFieldNameHint": "Field {number} name",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "Move field up",
+  "snippetsFieldMoveDown": "Move field down",
+  "snippetsFieldRemove": "Remove field",
+  "snippetsFieldAdd": "Add field",
+  "snippetsFieldInsertIntoTemplate": "Insert into template",
+  "snippetsFieldsMinWarning": "An interactive snippet needs at least {min, plural, one{1 named field} other{{min} named fields}}.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsTemplateLabel": "Template",
+  "snippetsTemplateHint": "Write your snippet text, then use each field's insert button to place it wherever you want.",
+  "snippetsTemplateFieldHint": "Write your text here and insert fields using the buttons above.",
+  "snippetsTemplateMissingFieldsWarning": "Not all fields appear in the template yet — their dictated text would go unused.",
+  "snippetsInteractiveBadge": "Interactive",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{1 field} other{{count} fields}} · Enter to start",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "Field 1: {name} · Esc: cancel",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "Field {index}/{count}: {name}",
+  "@interactiveSnippetAnnounceLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceHint": "Get ready to speak…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetAdvance": "Next",
   "snippetsDeleteTitle": "Delete Snippet",
   "snippetsDeleteMessage": "Remove the snippet \"{title}\"? This cannot be undone.",
   "@snippetsDeleteMessage": {
@@ -661,6 +770,7 @@
   "statusBarBackendGpuUtilizationUnavailable": "Real GPU utilization can't be measured across platforms without elevated privileges; the percentage shown reflects this process's CPU activity instead.",
   "statusBarRecording": "Recording…",
   "statusBarTranscribing": "Transcribing…",
+  "statusBarRefining": "Refining…",
   "statusBarDone": "Done",
   "statusBarHotkeyTooltip": "Global hotkey: click to configure",
   "statusBarAutoPasteOffHint": "Auto-Paste off, enable in Settings",
@@ -808,6 +918,17 @@
 
   "historyDuplicate": "Duplicate",
   "historyDuplicated": "Entry duplicated",
+  "historyViewRaw": "Raw",
+  "historyViewEdited": "Edited",
+  "@historyViewEdited": {
+    "description": "Toggle label for the Smart Mode edited version of a history entry's transcript (ticket 05)."
+  },
+  "historyApplySmartModePreset": "Apply Smart Mode preset",
+  "historySmartModeApplied": "Smart Mode applied",
+  "historySmartModeFailedModelMissing": "Smart Mode model not downloaded",
+  "historySmartModeFailedTimeout": "Smart Mode timed out",
+  "historySmartModeFailedGeneric": "Smart Mode failed — please try again",
+  "historySmartModeSelectTargetLanguage": "Select target language",
   "historyAddNote": "Add annotation",
   "historyEditNote": "Edit annotation",
   "@historyEditNote": {
@@ -1049,6 +1170,7 @@
 
   "overlayRecording": "Recording",
   "overlayTranscribing": "Transcribing…",
+  "overlayRefining": "Refining…",
   "overlayDone": "Copied",
   "overlayDonePasted": "Pasted",
   "overlayDoneBoth": "Copied & Pasted",
@@ -1066,6 +1188,15 @@
       }
     }
   },
+  "overlayKeyboardHintNextFieldEnter": "Enter or {hotkey}: next field · Esc: cancel",
+  "@overlayKeyboardHintNextFieldEnter": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: next field · Esc: cancel",
   "overlayProcessingLocal": "Local",
   "overlayProcessingCloud": "Cloud",
   "overlayRecordingQuickNote": "Recording to note",
@@ -1323,6 +1454,10 @@
   "featureSpotlightSnippetPickerDescription": "Save reusable text blocks and insert them anywhere with a hotkey or a spoken trigger — no retyping needed.",
   "featureSpotlightSidePanelTitle": "Clipboard Side Panel",
   "featureSpotlightSidePanelDescription": "Hover the screen edge to open your recent clipboard history and drag any item straight into your document.",
+  "featureSpotlightInteractiveSnippetsTitle": "Interactive Snippets",
+  "featureSpotlightInteractiveSnippetsDescription": "Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.",
+  "featureSpotlightSmartModeTitle": "Smart Mode",
+  "featureSpotlightSmartModeDescription": "Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.",
   "featureSpotlightChangelogLink": "View full changelog",
   "featureSpotlightReviewLabel": "Review the new features",
   "featureSpotlightReviewAction": "Show",
@@ -1434,5 +1569,55 @@
     "description": "Accessibility label for the side panel's search field (screen readers) -- the visible hint text (sidePanelSearchHint) is not section-specific, so this names what it searches instead"
   },
   "sidePanelNoMatches": "No matches",
-  "sidePanelNoMatchesHint": "Try a different search term."
+  "sidePanelNoMatchesHint": "Try a different search term.",
+
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "Local text cleanup, shortening, and translation after dictation",
+  "smartModeStandardPreset": "Standard preset",
+  "smartModePresetOff": "Off",
+  "smartModePresetOffDescription": "No automatic post-processing — the dictated text is used exactly as transcribed.",
+  "smartModePresetCleanup": "Cleanup",
+  "smartModePresetCleanupDescription": "Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.",
+  "smartModePresetConcise": "Concise",
+  "smartModePresetConciseDescription": "Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.",
+  "smartModePresetTranslate": "Translate",
+  "smartModePresetTranslateDescription": "Translates the dictated text into the target language set below.",
+  "smartModeTargetLanguage": "Target language",
+  "smartModeTargetLanguageGerman": "German",
+  "smartModeTargetLanguageEnglish": "English",
+  "smartModeTargetLanguageSpanish": "Spanish",
+  "smartModeTargetLanguageFrench": "French",
+  "smartModeTargetLanguagePortuguese": "Portuguese",
+  "smartModeTargetLanguageMandarin": "Mandarin",
+  "smartModeTargetLanguageRussian": "Russian",
+  "smartModeDownload": "Download",
+  "smartModeDownloadComplete": "Smart Mode model ready to use",
+  "smartModeRamWarningTitle": "Limited memory detected",
+  "smartModeRamWarningBody": "Smart Mode's local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?",
+  "smartModeRamWarningContinue": "Download anyway",
+  "smartModeRamWarningCancel": "Cancel",
+  "smartModeMemoryFootprintInfo": "Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.",
+  "smartModeSpeedExampleInfo": "Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device's hardware.",
+
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "Smart-Mode hotkey",
+  "settingsSmartModeHotkeyHint": "Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.",
+  "settingsSmartModeHotkeyPreset": "Preset",
+  "settingsSmartModeCurrentHotkey": "Combination",
+  "settingsSmartModeHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.",
+
+  "smartModeOnboardingHintTitle": "Try Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.",
+  "smartModeOnboardingHintDownloadCta": "Download",
+  "smartModeOnboardingHintSkipCta": "Skip",
+  "smartModeUsageHintTitle": "Try Smart Mode on your next dictation",
+  "smartModeUsageHintBody": "Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here's what you just dictated:",
+  "smartModeUsageHintCta": "Set up",
+  "smartModeUsageHintDismiss": "Not now"
 }

@@ -24,6 +24,7 @@ import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/side_panel/side_panel_controller_interface.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/side_panel/side_panel_service.dart';
 import 'package:whispaste/services/tray_service.dart';
 import 'package:whispaste/widgets/service_bootstrap.dart';
@@ -65,6 +66,7 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   @override
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     startCalls++;
   }
@@ -77,6 +79,7 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   @override
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     toggleCalls++;
   }

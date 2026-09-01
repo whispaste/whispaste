@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
+import FeatureHighlights from "../components/FeatureHighlights.astro";
 import UseCaseCards from "../components/UseCaseCards.astro";
 import MarketingMoment from "../components/MarketingMoment.astro";
 import AppPasteDemo from "../components/AppPasteDemo.astro";
@@ -34,6 +35,8 @@ const faqKeys = [
   "offline",
   "accuracy",
   "languages",
+  "snippets",
+  "smartmode",
   "privacy",
   "windows",
   "smartscreen",
@@ -58,6 +61,8 @@ const faqKeys = [
       mit SpeedComparison entsteht):
         Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
+        SpatialJourney    deep     (band-deep, in SpatialJourney.astro)
+        FeatureHighlights spotlight (band-spotlight, in FeatureHighlights.astro)
         UseCaseCards  raised   (band-raised, in UseCaseCards.astro)
         MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
         SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
@@ -78,6 +83,7 @@ const faqKeys = [
     <Hero />
     <AppPasteDemo />
     <SpatialJourney />
+    <FeatureHighlights />
     <UseCaseCards />
     <MarketingMoment />
     <SpeedComparison />

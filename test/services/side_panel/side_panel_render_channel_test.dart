@@ -75,6 +75,67 @@ void main() {
       expect(calls.single.arguments, {'section': 'snippets', 'id': 'snip-1'});
     });
 
+    test('beginDrag sends the row payload for a text row', () async {
+      final calls = <MethodCall>[];
+      const probe = MethodChannel(name);
+      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
+
+      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+      addTearDown(channel.dispose);
+
+      channel.beginDrag(
+        SidePanelSection.transcriptions,
+        const SidePanelRow(id: 't1', title: 'Hi', content: 'Hi there'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'beginDrag');
+      expect(calls.single.arguments, {
+        'section': 'transcriptions',
+        'id': 't1',
+        'kind': 'text',
+        'content': 'Hi there',
+        'imageBytes': null,
+      });
+    });
+
+    test('beginDrag sends image bytes for an image row', () async {
+      final calls = <MethodCall>[];
+      const probe = MethodChannel(name);
+      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
+
+      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+      addTearDown(channel.dispose);
+
+      channel.beginDrag(
+        SidePanelSection.clipboardHistory,
+        const SidePanelRow(
+          id: 'c1',
+          title: 'Image',
+          kind: SidePanelRowKind.image,
+          imageBytes: [1, 2, 3],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls.single.arguments, {
+        'section': 'clipboardHistory',
+        'id': 'c1',
+        'kind': 'image',
+        'content': '',
+        'imageBytes': [1, 2, 3],
+      });
+    });
+
     test('hoverLeft invokes the host with no arguments', () async {
       final calls = <MethodCall>[];
       const probe = MethodChannel(name);

@@ -21,6 +21,7 @@ import '../../core/theme/overlay_design_spec.dart'
         OverlayStyleVariant;
 import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
+import '../snippets/interactive_snippet_controller.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
 import 'overlay_positioning.dart';
@@ -131,6 +132,19 @@ class FloatingOverlayService
   RecordingPhase _lastPhase = RecordingPhase.idle;
   L10n? _l10n;
 
+  /// True from the first guided-sequence frame (briefing/announce) until the
+  /// overlay next hides. While set, every snapshot forces the NORMAL size
+  /// variant regardless of the configured overlay size: the guided flow is
+  /// text (field names, positions, key mechanics), and the mini pill paints
+  /// no text at all during recording while compact/mini ellipsise the
+  /// announce into noise — field-tested root cause of "I see no guidance
+  /// whatsoever" (2026-09-01, user ran `overlay_size: mini`). Sticky until
+  /// hide on purpose: the sequence's final done frame arrives after the
+  /// session state is already null, and flipping back to mini exactly on
+  /// the paste-confirmation frame would resize the native shell on the one
+  /// frame the user is meant to read.
+  bool _interactiveGuidanceActive = false;
+
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
 
   @override
@@ -168,6 +182,9 @@ class FloatingOverlayService
     ref.listen(recordingElapsedProvider, (_, next) {
       _onElapsedChanged(next);
     });
+    ref.listen(interactiveSnippetControllerProvider, (prev, next) {
+      _onInteractiveSessionChanged(prev, next);
+    });
 
     final settings = ref.read(settingsProvider);
     settings.whenData((s) => _syncSettings(s));
@@ -191,6 +208,13 @@ class FloatingOverlayService
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {
       _sendSnapshot(s, phase);
+      return;
+    }
+
+    // A guided sequence's briefing/announce frames run with the pipeline
+    // still idle — a settings sync must not hide them (the idle pre-sync
+    // below exists only for truly idle, off-screen moments).
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
       return;
     }
 
@@ -298,9 +322,25 @@ class FloatingOverlayService
       case RecordingPhase.transcribing:
         _sendSnapshot(settings, next);
 
+      case RecordingPhase.refining:
+        // Smart Mode v2 (ticket 02): same "keep showing the busy pill,
+        // update the label" treatment as the transcribing → transcribing
+        // case above — no auto-hide/error-timeout scheduling here either,
+        // this phase always resolves to done (never error, ADR 0009).
+        _sendSnapshot(settings, next);
+
       case RecordingPhase.done:
         _sendSnapshot(settings, next);
-        _scheduleAutoHide();
+        // During an interactive sequence the done frame is only a beat
+        // between fields — the next announce replaces it and cancels the
+        // timer anyway. But if the sequence stalls there (a field's
+        // recording auto-stopped on max-duration/silence, no advance yet),
+        // auto-hiding would remove the user's only visible anchor while
+        // Enter still works — keep the pill up until the sequence moves on
+        // or ends (the session-end listener schedules the hide then).
+        if (!ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          _scheduleAutoHide();
+        }
 
       case RecordingPhase.error:
         _sendSnapshot(settings, next);
@@ -383,6 +423,155 @@ class FloatingOverlayService
     _sendSnapshot(settings, RecordingPhase.recording);
   }
 
+  // ── Interactive-snippet announce pre-roll ─────────────────────────────────
+
+  /// Reacts to interactive-snippet session changes (guided-sequence UX
+  /// pass). Three cases matter here; everything else is already driven by
+  /// the recording phase:
+  ///
+  /// - A session starts its BRIEFING (Enter-gated orientation before
+  ///   field 1): the pipeline is idle, no phase change will paint anything —
+  ///   this listener shows the orientation frame and it stays up until the
+  ///   user's Enter.
+  /// - A session enters a field's ANNOUNCE pre-roll: the recording pipeline
+  ///   is idle/done in that window — this listener shows the announce frame.
+  /// - The session ends: while the pipeline is idle (cancel during
+  ///   briefing/announce) the pill is hidden here; while it is `done` (the
+  ///   sequence just finished its last field) the normal done auto-hide is
+  ///   armed here, because [_handlePhaseUi] deliberately skipped it while
+  ///   the session was still active.
+  void _onInteractiveSessionChanged(
+    InteractiveSnippetSessionState? prev,
+    InteractiveSnippetSessionState? next,
+  ) {
+    if (controller == null) return;
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    if (settings.effectiveOverlayMode != OverlayMode.floating) return;
+
+    if (next != null && (next.briefing || next.announcing)) {
+      _generation++;
+      _interactiveGuidanceActive = true;
+      // A between-fields announce arrives right after the previous field's
+      // `done` armed the auto-hide — the pill must stay up for the pre-roll.
+      _autoHideTimer?.cancel();
+      if (ref.read(recordingPhaseProvider) == RecordingPhase.idle &&
+          (prev == null || next.briefing)) {
+        // Sequence start: the overlay comes up cold here (mirrors the
+        // idle → recording branch of _handlePhaseUi, same ordering rules).
+        unawaited(_setStartPosition(settings));
+      }
+      if (next.briefing) {
+        _sendBriefingSnapshot(settings, next);
+      } else {
+        _sendFieldAnnounceSnapshot(settings, next);
+      }
+      return;
+    }
+
+    if (next == null && prev != null) {
+      final phase = ref.read(recordingPhaseProvider);
+      if (phase == RecordingPhase.idle) {
+        _hideOverlay();
+      } else if (phase == RecordingPhase.done) {
+        // Sequence finished: give the paste-confirmation frame its normal
+        // linger, then hide (skipped in _handlePhaseUi while active).
+        _scheduleAutoHide();
+      }
+    }
+  }
+
+  /// Shows the Enter-gated orientation frame at sequence start: the field
+  /// count plus the first field's name and the Enter/Escape mechanics on
+  /// the secondary line. Stays up until the user presses Enter — no timer.
+  ///
+  /// Reuses [OverlayVisualState.transcribing] as the vehicle (same
+  /// reasoning as [_sendFieldAnnounceSnapshot]).
+  void _sendBriefingSnapshot(
+    AppSettings s,
+    InteractiveSnippetSessionState session,
+  ) {
+    final c = controller;
+    if (c == null) return;
+
+    final l10n = _l10n ?? _resolveL10n();
+    final label =
+        l10n?.interactiveSnippetBriefingLabel(session.fieldCount) ??
+        '${session.fieldCount} fields · Enter to start';
+    final hint =
+        l10n?.interactiveSnippetBriefingHint(session.fieldName) ??
+        'Field 1: ${session.fieldName} · Esc: cancel';
+
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.transcribing,
+      size: _guidanceSize(),
+      style: s.overlayStyleType.variant,
+      label: label,
+      secondaryLabel: hint,
+      privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
+    );
+
+    _log.debug(
+      'Overlay show: interactive-snippet briefing '
+      'fields=${session.fieldCount}',
+    );
+    c.updateSnapshot(snapshot).catchError((e, st) {
+      _log.error('Failed to send overlay briefing snapshot', e, st);
+    });
+  }
+
+  /// Shows the announce pre-roll frame: "Field i/N: name" with a quieter
+  /// "get ready" secondary line.
+  ///
+  /// Reuses [OverlayVisualState.transcribing] as the vehicle on purpose —
+  /// it is the ONE composition that paints a prominent text label in all
+  /// three size variants (normal, compact AND mini share
+  /// `WpOverlayPainter._drawTranscribing`), which is exactly what a guiding
+  /// instruction needs; the recording composition paints no text at all in
+  /// mini. The spinner reads as "preparing", and no new visual state has to
+  /// travel through the snapshot serialisation and every platform shell.
+  void _sendFieldAnnounceSnapshot(
+    AppSettings s,
+    InteractiveSnippetSessionState session,
+  ) {
+    final c = controller;
+    if (c == null) return;
+
+    final l10n = _l10n ?? _resolveL10n();
+    final text =
+        l10n?.interactiveSnippetAnnounceLabel(
+          session.fieldIndex + 1,
+          session.fieldCount,
+          session.fieldName,
+        ) ??
+        'Field ${session.fieldIndex + 1}/${session.fieldCount}: '
+            '${session.fieldName}';
+    final hint = l10n?.interactiveSnippetAnnounceHint ?? 'Get ready to speak…';
+
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.transcribing,
+      size: _guidanceSize(),
+      style: s.overlayStyleType.variant,
+      label: text,
+      secondaryLabel: hint,
+      privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
+    );
+
+    _log.debug(
+      'Overlay show: interactive-snippet announce '
+      'field=${session.fieldIndex + 1}/${session.fieldCount}',
+    );
+    c.updateSnapshot(snapshot).catchError((e, st) {
+      _log.error('Failed to send overlay announce snapshot', e, st);
+    });
+  }
+
+  /// The size variant for guided-sequence frames — always normal (see
+  /// [_interactiveGuidanceActive]).
+  OverlaySizeVariant _guidanceSize() => OverlaySizeVariant.normal;
+
   // ── Snapshot building ─────────────────────────────────────────────────────
 
   void _sendSnapshot(AppSettings s, RecordingPhase phase) {
@@ -390,7 +579,15 @@ class FloatingOverlayService
     if (c == null) return;
 
     final l10n = _l10n ?? _resolveL10n();
-    final sizeVariant = s.overlaySizeType.variant;
+    // Guided sequences force the normal size for the whole episode (see
+    // _interactiveGuidanceActive): the field-position/name text is the
+    // guidance, and mini/compact cannot carry it.
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      _interactiveGuidanceActive = true;
+    }
+    final sizeVariant = _interactiveGuidanceActive
+        ? _guidanceSize()
+        : s.overlaySizeType.variant;
     final styleVariant = s.overlayStyleType.variant;
     final elapsed = ref.read(recordingElapsedProvider);
     final recording = ref.read(recordingProvider);
@@ -441,6 +638,9 @@ class FloatingOverlayService
     final c = controller;
     if (c == null) return;
     _autoHideTimer?.cancel();
+    // The guided episode is over once the pill leaves the screen — the next
+    // regular recording gets the user's configured size again.
+    _interactiveGuidanceActive = false;
 
     // Preserve the configured size on hide. Forcing the normal size here made
     // the native shell needlessly resize on every hide (and could flash the
@@ -574,8 +774,15 @@ class FloatingOverlayService
         _onCloseClicked();
 
       case OverlayBodyClicked():
-        _log.debug('Overlay body clicked → toggleRecording');
-        ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          _log.debug('Overlay body clicked → advanceField');
+          ref
+              .read(interactiveSnippetControllerProvider.notifier)
+              .advanceField();
+        } else {
+          _log.debug('Overlay body clicked → toggleRecording');
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        }
 
       case OverlayRetryClicked():
         _log.debug('Overlay retry clicked → toggleRecording');
@@ -602,6 +809,11 @@ class FloatingOverlayService
   }
 
   void _onCloseClicked() {
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      _log.debug('Overlay close during interactive snippet → cancel sequence');
+      ref.read(interactiveSnippetControllerProvider.notifier).cancel();
+      return;
+    }
     final phase = ref.read(recordingPhaseProvider);
     if (phase == RecordingPhase.recording) {
       _log.debug('Overlay close during recording → stopRecording');
@@ -616,6 +828,11 @@ class FloatingOverlayService
     switch (action) {
       case 'cancel':
         _log.debug('Context menu: cancel recording');
+        if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          ref.read(interactiveSnippetControllerProvider.notifier).cancel();
+          _hideOverlay();
+          return;
+        }
         final phase = ref.read(recordingPhaseProvider);
         if (phase == RecordingPhase.recording) {
           ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
@@ -676,6 +893,11 @@ class FloatingOverlayService
     RecordingPhase.idle => OverlayVisualState.recording,
     RecordingPhase.recording => OverlayVisualState.recording,
     RecordingPhase.transcribing => OverlayVisualState.transcribing,
+    // Smart Mode v2's refining phase (ticket 02) reuses the "transcribing"
+    // pill animation on the native side — only the label text below
+    // distinguishes it. Adding a fifth native visual state is out of scope
+    // for this ticket (would touch macOS/Windows/Linux overlay hosts).
+    RecordingPhase.refining => OverlayVisualState.transcribing,
     RecordingPhase.done => OverlayVisualState.done,
     RecordingPhase.error => OverlayVisualState.error,
   };
@@ -687,11 +909,14 @@ class FloatingOverlayService
   String _labelFor(RecordingPhase phase, L10n? l10n, RecordingTarget target) =>
       switch (phase) {
         RecordingPhase.recording =>
-          target == RecordingTarget.quickNote
+          target == RecordingTarget.templateField
+              ? _interactiveSnippetSpeakNowLabel(l10n)
+              : target == RecordingTarget.quickNote
               ? (l10n?.overlayRecordingQuickNote ?? 'Recording to note')
               : (l10n?.overlayRecording ?? 'Recording'),
         RecordingPhase.transcribing =>
           l10n?.overlayTranscribing ?? 'Transcribing…',
+        RecordingPhase.refining => l10n?.overlayRefining ?? 'Refining…',
         RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
         RecordingPhase.error => l10n?.overlayError ?? 'Error',
         RecordingPhase.idle => '',
@@ -700,9 +925,10 @@ class FloatingOverlayService
   /// Sichtbarer Text der Pille während der Aufnahme.
   ///
   /// Bei Ziel Zwischenablage ist das unverändert der reine Zeitzähler. Bei
-  /// Ziel Schnellnotiz tritt der Zielname hinzu — das ist die einzige Stelle,
-  /// an der die Zielangabe während der Aufnahme tatsächlich auf dem Schirm
-  /// landet. Größenabhängig, weil der Text der Wellenform ihren Platz nimmt:
+  /// Ziel Schnellnotiz oder Vorlagenfeld tritt der Zielname hinzu — das ist
+  /// die einzige Stelle, an der die Zielangabe während der Aufnahme
+  /// tatsächlich auf dem Schirm landet. Größenabhängig, weil der Text der
+  /// Wellenform ihren Platz nimmt:
   ///
   /// - normal: Zeitzähler + Ziel („0:05 · Notiz") — dort ist Platz für beides.
   /// - kompakt: nur das Ziel; Zeitzähler + Ziel würde die Wellenform auf ein
@@ -713,6 +939,14 @@ class FloatingOverlayService
   ///   Text (sie ist wellenform-only), die Zielangabe erreicht dort also
   ///   niemanden — dieselbe dokumentierte Grenze wie heute schon bei
   ///   „Kopiert"/„Eingefügt". Irreführend wird sie dadurch nie.
+  ///
+  /// Für ein Vorlagenfeld (interaktives Snippet) war das vor diesem Fix ein
+  /// blinder Fleck: `_labelFor` berechnete zwar "Feld i/N: Name", aber
+  /// [WpOverlayPainter] malt während `recording` ausschließlich `timerText`
+  /// (`overlay_painter.dart`, `_isRecording ? timerText : statusText`) — das
+  /// Label erreichte den Bildschirm nie, nur den Screenreader. Der Nutzer sah
+  /// beim Aufnehmen eines Feldes also nur eine Wellenform plus Zeitzähler,
+  /// ohne zu wissen, welches Feld gerade läuft.
   String _recordingTextFor(
     Duration elapsed,
     OverlaySizeVariant size,
@@ -720,8 +954,12 @@ class FloatingOverlayService
     L10n? l10n,
   ) {
     final timer = _formatElapsed(elapsed);
-    if (target != RecordingTarget.quickNote) return timer;
-    final targetName = l10n?.overlayTargetQuickNote ?? 'Note';
+    final targetName = switch (target) {
+      RecordingTarget.quickNote => l10n?.overlayTargetQuickNote ?? 'Note',
+      RecordingTarget.templateField => _interactiveSnippetSpeakNowLabel(l10n),
+      RecordingTarget.clipboard => null,
+    };
+    if (targetName == null) return timer;
     return switch (size) {
       OverlaySizeVariant.normal =>
         l10n?.overlayRecordingTargetTimer(timer, targetName) ??
@@ -744,6 +982,23 @@ class FloatingOverlayService
       final enabled = quickNote
           ? s.quickNoteHotkey.quickNoteHotkeyEnabled
           : s.hotkeyEnabled;
+      if (target == RecordingTarget.templateField) {
+        // Enter/Escape sind sequenz-gebunden immer registriert (siehe
+        // InteractiveSnippetController) — der Hinweis nennt sie daher auch
+        // dann, wenn der Haupt-Hotkey abgeschaltet ist.
+        if (!enabled) {
+          return l10n?.overlayKeyboardHintNextFieldEnterOnly ??
+              'Enter: next field · Esc: cancel';
+        }
+        final hotkey = formatHotkeyShortcut(
+          s.hotkeyModifiers,
+          s.hotkeyKey,
+          l10n: l10n,
+          displayOverride: s.hotkey.hotkeyKeyDisplay,
+        );
+        return l10n?.overlayKeyboardHintNextFieldEnter(hotkey) ??
+            'Enter or $hotkey: next field · Esc: cancel';
+      }
       if (enabled) {
         final hotkey = quickNote
             ? formatHotkeyShortcut(
@@ -768,7 +1023,31 @@ class FloatingOverlayService
           ? (l10n?.overlayProcessingLocal ?? 'Local')
           : (l10n?.overlayProcessingCloud ?? 'Cloud');
     }
+    // Smart Mode v2 (ticket 02): the Cleanup pass is always local-model
+    // inference (this ticket's whole scope), regardless of which STT
+    // provider produced the transcript.
+    if (phase == RecordingPhase.refining) {
+      return l10n?.overlayProcessingLocal ?? 'Local';
+    }
     return '';
+  }
+
+  /// "Speak now: `<name>` (i/N)" instruction for the field currently being
+  /// recorded in an interactive-snippet sequence (guided-sequence UX pass —
+  /// the earlier "Field i/N: name" label named the field but did not TELL
+  /// the user what to do, which is what the maintainer flagged). Falls back
+  /// to the plain recording label if, unexpectedly, no sequence is active
+  /// (e.g. a stray `templateField` snapshot).
+  String _interactiveSnippetSpeakNowLabel(L10n? l10n) {
+    final session = ref.read(interactiveSnippetControllerProvider);
+    if (session == null) return l10n?.overlayRecording ?? 'Recording';
+    return l10n?.interactiveSnippetSpeakNowLabel(
+          session.fieldName,
+          session.fieldIndex + 1,
+          session.fieldCount,
+        ) ??
+        'Speak now: ${session.fieldName} '
+            '(${session.fieldIndex + 1}/${session.fieldCount})';
   }
 
   String _formatElapsed(Duration elapsed) {

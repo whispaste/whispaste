@@ -156,6 +156,13 @@ class _SidePanelRenderAppState
                         );
                         channel.rowClicked(section, id);
                       },
+                      onRowDragStart: (section, row) {
+                        debugPrint(
+                          '[side-panel-engine] row drag started: '
+                          '${section.name}/${row.id} at ${DateTime.now()}',
+                        );
+                        channel.beginDrag(section, row);
+                      },
                       onClose: _closeNow,
                     ),
                   ),

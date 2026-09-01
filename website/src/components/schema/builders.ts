@@ -97,6 +97,12 @@ export interface SoftwareApplicationOptions {
    * Locale-spezifische Auswahl aus `public/screenshots/<locale>/`.
    */
   readonly screenshots?: readonly string[];
+  /**
+   * Optional explizit überschreibbare Feature-Liste; default ist die
+   * lokalisierte Auswahl aus den `highlights.*.title`-Keys (sichtbares
+   * Gegenstück: `FeatureHighlights.astro` auf beiden Index-Pages).
+   */
+  readonly featureList?: readonly string[];
 }
 
 /**
@@ -125,7 +131,32 @@ export function defaultScreenshotsFor(locale: Locale): readonly string[] {
     `${SITE_ORIGIN}/screenshots/${slug}/dark/03_voice_shortcuts.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/04_settings.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/05_analytics.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/06_smart_mode.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/07_snippet_picker.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/08_interactive_snippet.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/09_side_panel.png`,
   ];
+}
+
+/**
+ * Feature-Keys für die Default-`featureList` — Reihenfolge spiegelt die
+ * Karten in `FeatureHighlights.astro` (Google verlangt für Rich Results
+ * zwar keine `featureList`, Schema.org empfiehlt aber sichtbaren
+ * Seiteninhalt als Quelle; die Titel-Keys sind genau das).
+ */
+export const DEFAULT_FEATURE_KEYS: readonly string[] = [
+  "hotkey",
+  "snippets",
+  "smartmode",
+  "sidepanel",
+  "history",
+  "privacy",
+  "hardware",
+];
+
+/** Lokalisierte Default-`featureList` aus den `highlights.*.title`-Keys. */
+export function defaultFeatureListFor(locale: Locale): readonly string[] {
+  return DEFAULT_FEATURE_KEYS.map((key) => t(locale, `highlights.${key}.title`));
 }
 
 /**
@@ -152,6 +183,7 @@ export function buildSoftwareApplicationSchema(
     options.operatingSystems ?? DEFAULT_OPERATING_SYSTEMS
   ).join(", ");
   const screenshot = options.screenshots ?? defaultScreenshotsFor(locale);
+  const featureList = options.featureList ?? defaultFeatureListFor(locale);
 
   return {
     "@context": SCHEMA_CONTEXT,
@@ -177,6 +209,7 @@ export function buildSoftwareApplicationSchema(
     publisher: { "@id": ORGANIZATION_ID },
     downloadUrl: `${GITHUB_REPO_URL}/releases/latest`,
     screenshot,
+    featureList,
   };
 }
 

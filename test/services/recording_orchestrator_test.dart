@@ -11,6 +11,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
@@ -34,9 +35,19 @@ import 'package:whispaste/services/path_service.dart'
         sttModelPath,
         retainedAudioDirOverride,
         retainedAudioDir;
+import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeEngineProvider;
+import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
+import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
+    show legacyInteractiveSnippetTemplate;
+import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_service.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
@@ -46,6 +57,41 @@ import 'package:whispaste/services/tray_service.dart';
 // ---------------------------------------------------------------------------
 // Fakes
 // ---------------------------------------------------------------------------
+
+/// Minimal fake [HotKeyRegistrar] for the session-scoped
+/// interactive-snippet keys (Enter/Escape): records registrations and
+/// exposes the captured keyDown handlers so a test can synthesize presses.
+class FakeSessionKeyRegistrar implements HotKeyRegistrar {
+  final List<HotKey> registered = [];
+  final Map<int, HotKeyHandler> keyDownHandlersByKeyId = {};
+
+  @override
+  bool get supportsKeyUp => false;
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) async {
+    registered.add(hotKey);
+    if (keyDownHandler != null) {
+      keyDownHandlersByKeyId[hotKey.logicalKey.keyId] = keyDownHandler;
+    }
+  }
+
+  @override
+  Future<void> unregister(HotKey hotKey) async {
+    registered.removeWhere((k) => k.identifier == hotKey.identifier);
+  }
+
+  bool isRegistered(LogicalKeyboardKey key) =>
+      registered.any((k) => k.logicalKey == key);
+
+  /// Synthesizes a key-down of [key] through the captured handler.
+  void press(LogicalKeyboardKey key) =>
+      keyDownHandlersByKeyId[key.keyId]?.call(HotKey(key: key));
+}
 
 /// Fake audio service — no real hardware interaction.
 class FakeAudioService extends AudioServiceNotifier {
@@ -334,6 +380,60 @@ class FakeModelDownloadNotifier extends ModelDownloadNotifier {
   @override
   ModelDownloadState build() {
     return ModelDownloadState(downloadedModels: _downloadedModels);
+  }
+}
+
+/// Fake Smart Mode model download state (ticket 02) — pins
+/// [SmartModeDownloadState.modelDownloaded] without touching disk.
+class FakeSmartModeDownloadNotifier extends SmartModeDownloadNotifier {
+  FakeSmartModeDownloadNotifier({this.modelDownloaded = true});
+
+  final bool modelDownloaded;
+
+  @override
+  SmartModeDownloadState build() =>
+      SmartModeDownloadState(modelDownloaded: modelDownloaded);
+}
+
+/// Fake [SmartModeEngine] (ticket 02) — configurable success/failure/timeout
+/// behaviour, no real FFI/model involved.
+class FakeSmartModeEngine implements SmartModeEngine {
+  FakeSmartModeEngine({
+    this.resultToReturn,
+    this.errorToThrow,
+    this.delay = Duration.zero,
+  });
+
+  /// Text to return on success. Ignored if [errorToThrow] is set.
+  String? resultToReturn;
+
+  /// If set, [run] throws this instead of returning [resultToReturn].
+  Object? errorToThrow;
+
+  /// Artificial delay before resolving/throwing — used to exercise the
+  /// orchestrator's own timeout.
+  Duration delay;
+
+  int runCalls = 0;
+  String? lastSystemPrompt;
+  String? lastUserText;
+
+  @override
+  Future<String> run({
+    required String systemPrompt,
+    required String userText,
+  }) async {
+    runCalls++;
+    lastSystemPrompt = systemPrompt;
+    lastUserText = userText;
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
+    final error = errorToThrow;
+    if (error != null) {
+      throw error;
+    }
+    return resultToReturn ?? userText;
   }
 }
 
@@ -1024,6 +1124,78 @@ void main() {
       },
     );
 
+    test('selecting an interactive snippet starts its guided field sequence '
+        'instead of pasting anything', () async {
+      // Production wiring lives in WpServiceBootstrap (not exercised by this
+      // container-only test) to keep SnippetPickerService free of a
+      // file-level import cycle with InteractiveSnippetController — mirror
+      // it here.
+      container
+          .read(snippetPickerServiceProvider.notifier)
+          .onInteractiveSnippetSelected = (snippet) async {
+        final fields = await db.readSnippetFields(snippet.id);
+        await container
+            .read(interactiveSnippetControllerProvider.notifier)
+            .start(fields, template: snippet.body);
+      };
+      container
+              .read(interactiveSnippetControllerProvider.notifier)
+              .announceDuration =
+          Duration.zero;
+      await container.read(settingsProvider.future);
+      await db.upsertSnippetWithFields(
+        id: 's1',
+        title: 'Bug Report',
+        body: 'Titel\n{{Titel}}\n\nReproduktion\n{{Reproduktion}}',
+        createdAt: DateTime.now(),
+        kind: 'interactive',
+        fieldNames: const ['Titel', 'Reproduktion'],
+      );
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      // The picker item carries the field names as its preview body, not
+      // the (unused) static `body` column.
+      expect(fakeSnippetPicker.showCalls, hasLength(1));
+      expect(
+        fakeSnippetPicker.showCalls.single.single['body'],
+        'Titel · Reproduktion',
+      );
+
+      fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
+      // Unlike a static-snippet paste (a couple of microtask hops), priming
+      // crosses several genuine Timer-based async gaps — a single
+      // zero-delay wait isn't reliably enough, so poll briefly instead.
+      for (
+        var i = 0;
+        i < 20 && container.read(interactiveSnippetControllerProvider) == null;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.typeCalls, 0);
+
+      final session = container.read(interactiveSnippetControllerProvider);
+      expect(session, isNotNull);
+      expect(session!.fieldIndex, 0);
+      expect(session.fieldCount, 2);
+      expect(session.fieldName, 'Titel');
+      // Guided-UX v2: the sequence opens with the Enter-gated briefing —
+      // no microphone until the user advances. (The phase is still `done`
+      // from the trigger-word dictation that opened the picker; the claim
+      // here is only that the sequence did not open the mic.)
+      expect(session.stage, InteractiveSnippetStage.briefing);
+      expect(
+        container.read(recordingProvider).phase,
+        isNot(RecordingPhase.recording),
+      );
+    });
+
     test('a transcript that only contains the trigger word as a substring '
         '(not an exact match) runs the normal pipeline instead', () async {
       await container.read(settingsProvider.future);
@@ -1138,6 +1310,117 @@ void main() {
   // Snippet-Picker hotkey (ticket 26) — opens the panel directly by hotkey,
   // WITHOUT starting a recording, STT run, or history entry.
   // =========================================================================
+
+  group('Interactive-snippet guided sequence (guided-UX v2)', () {
+    // The fake model file outlives a single test (scratch dir is only
+    // cleaned in tearDownAll) — remove it again so the later preflight
+    // tests still see a missing model.
+    tearDown(() {
+      final modelPath = sttModelPath('whisper-small');
+      if (modelPath != null && File(modelPath).existsSync()) {
+        File(modelPath).deleteSync();
+      }
+    });
+
+    /// Seeds a two-field snippet and starts its sequence — lands in the
+    /// Enter-gated briefing stage.
+    Future<InteractiveSnippetController> startSequence() async {
+      ensureFakeLocalSttFilesExist();
+      await container.read(settingsProvider.future);
+      await db.upsertSnippetWithFields(
+        id: 'gs1',
+        title: 'Guided',
+        body: '{{Titel}}\n\n{{Text}}',
+        createdAt: DateTime.now(),
+        kind: 'interactive',
+        fieldNames: const ['Titel', 'Text'],
+      );
+      final fields = await db.readSnippetFields('gs1');
+      final ctrl = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      ctrl.announceDuration = Duration.zero;
+      // Let the orchestrator's build() pre-warm settle first.
+      container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await ctrl.start(fields, template: '{{Titel}}\n\n{{Text}}');
+      return ctrl;
+    }
+
+    test('starts in the briefing stage with the microphone closed; Enter '
+        '(advanceField) opens field 1', () async {
+      final ctrl = await startSequence();
+
+      var session = container.read(interactiveSnippetControllerProvider)!;
+      expect(session.stage, InteractiveSnippetStage.briefing);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+
+      await ctrl.advanceField();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      session = container.read(interactiveSnippetControllerProvider)!;
+      expect(session.stage, InteractiveSnippetStage.recording);
+      expect(session.fieldIndex, 0);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    });
+
+    test('Escape during the briefing cancels the sequence without ever '
+        'touching the pipeline', () async {
+      final ctrl = await startSequence();
+      expect(
+        container.read(interactiveSnippetControllerProvider)!.stage,
+        InteractiveSnippetStage.briefing,
+      );
+
+      await ctrl.cancel();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+
+    test('a field recording that auto-stopped on its own (max-duration or '
+        'silence guard: pipeline lands in done without the controller '
+        'seeing a stop) is collected by the next Enter instead of '
+        'stranding the sequence', () async {
+      // Field-tested stranding, 2026-09-01: the max-duration guard fired
+      // mid-field, `advanceField`'s recording-phase guard then no-op'd every
+      // Enter and the session (incl. the hijacked main hotkey) stayed stuck
+      // until an app restart.
+      final ctrl = await startSequence();
+      await ctrl.advanceField(); // briefing → field 1 recording
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // Simulate the guard's auto-stop: the orchestrator stops itself,
+      // bypassing the controller entirely.
+      fakeStt.transcriptToReturn = 'auto-stopped take';
+      await container
+          .read(recordingOrchestratorProvider.notifier)
+          .stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+      // Enter must now collect the take and move on to field 2.
+      await ctrl.advanceField();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      final session = container.read(interactiveSnippetControllerProvider);
+      expect(session, isNotNull);
+      expect(session!.fieldIndex, 1);
+      expect(session.fieldName, 'Text');
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // Finish the last field the same auto-stopped way — the sequence must
+      // complete and reset.
+      fakeStt.transcriptToReturn = 'second take';
+      await container
+          .read(recordingOrchestratorProvider.notifier)
+          .stopRecording();
+      await ctrl.advanceField();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+    });
+  });
 
   group('Snippet-Picker hotkey (ticket 26)', () {
     late FakeSnippetPickerController fakeSnippetPicker;
@@ -4094,6 +4377,808 @@ void main() {
         );
       },
     );
+  });
+
+  // =========================================================================
+  // Interactive snippets (guided multi-field recording sequence)
+  // =========================================================================
+
+  group('InteractiveSnippetController', () {
+    List<SnippetField> fields(List<String> names) => [
+      for (var i = 0; i < names.length; i++)
+        SnippetField(id: 'f$i', snippetId: 's1', name: names[i], sortOrder: i),
+    ];
+
+    test(
+      'runs every field in order and pastes exactly one composed result',
+      () async {
+        ensureFakeLocalSttFilesExist();
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final controller = container.read(
+          interactiveSnippetControllerProvider.notifier,
+        )..announceDuration = Duration.zero;
+        await controller.start(
+          fields(['Titel', 'Beschreibung']),
+          template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+        );
+        // Guided-UX v2: start() parks in the Enter-gated briefing; the
+        // first advanceField (Enter) opens field 1.
+        expect(
+          container.read(interactiveSnippetControllerProvider)?.stage,
+          InteractiveSnippetStage.briefing,
+        );
+        await controller.advanceField();
+        expect(
+          container.read(interactiveSnippetControllerProvider)?.fieldName,
+          'Titel',
+        );
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        fakeStt.transcriptToReturn = 'Login schlägt fehl';
+        await controller.advanceField();
+        expect(
+          container.read(interactiveSnippetControllerProvider)?.fieldName,
+          'Beschreibung',
+        );
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        fakeStt.transcriptToReturn = 'Login funktioniert nicht mehr.';
+        await controller.advanceField();
+
+        expect(container.read(interactiveSnippetControllerProvider), isNull);
+        expect(
+          clipboardText,
+          'Titel\nLogin schlägt fehl\n\nBeschreibung\n'
+          'Login funktioniert nicht mehr.',
+        );
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.single.content, clipboardText);
+      },
+    );
+
+    test(
+      'composes into a free-form user template, not just the legacy layout',
+      () async {
+        ensureFakeLocalSttFilesExist();
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final controller = container.read(
+          interactiveSnippetControllerProvider.notifier,
+        )..announceDuration = Duration.zero;
+        await controller.start(
+          fields(['Name', 'Thema']),
+          template: 'Hallo {{Name}}, danke für deine Anfrage zu {{Thema}}!',
+        );
+        await controller.advanceField(); // briefing → field 1 recording
+
+        fakeStt.transcriptToReturn = 'Anna';
+        await controller.advanceField();
+        fakeStt.transcriptToReturn = 'die Rechnung';
+        await controller.advanceField();
+
+        expect(
+          clipboardText,
+          'Hallo Anna, danke für deine Anfrage zu die Rechnung!',
+        );
+      },
+    );
+
+    test('a field transcription failure discards the whole sequence', () async {
+      ensureFakeLocalSttFilesExist();
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      clipboardText = 'Untouched';
+
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
+      await controller.advanceField(); // briefing → field 1 recording
+
+      fakeStt.transcriptToReturn = 'Titel-Text';
+      await controller.advanceField();
+
+      fakeStt.transcribeThrows = true;
+      await controller.advanceField();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(clipboardText, 'Untouched');
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('cancelling mid-field discards everything, no partial save', () async {
+      ensureFakeLocalSttFilesExist();
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      clipboardText = 'Untouched';
+
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
+      await controller.advanceField(); // briefing → field 1 recording
+      fakeStt.transcriptToReturn = 'Titel-Text';
+      await controller.advanceField();
+
+      await controller.cancel();
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(clipboardText, 'Untouched');
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('a single field is accepted — a legitimate one-field template '
+        '(a8445010 relaxed the old two-field minimum)', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Nur ein Feld']),
+        template: legacyInteractiveSnippetTemplate(['Nur ein Feld']),
+      );
+
+      expect(container.read(interactiveSnippetControllerProvider), isNotNull);
+      await controller.advanceField(); // briefing → field 1 recording
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    });
+
+    test('zero fields is rejected — no session starts', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(fields([]), template: '');
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+
+    test('announce pre-roll: publishes the get-ready state before the mic '
+        'opens', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      final gate = Completer<void>();
+      controller.announceDelay = (_) => gate.future;
+
+      await controller.start(
+        fields(['Titel']),
+        template: legacyInteractiveSnippetTemplate(['Titel']),
+      );
+      // Guided-UX v2: start() parks in the briefing; the pre-roll gate is
+      // crossed by the first advanceField (Enter).
+      expect(
+        container.read(interactiveSnippetControllerProvider)?.briefing,
+        isTrue,
+      );
+      final advanceFuture = controller.advanceField();
+      // advanceField() crosses a few genuine async hops before it parks on
+      // the pre-roll gate — poll briefly.
+      for (
+        var i = 0;
+        i < 40 &&
+            container.read(interactiveSnippetControllerProvider)?.announcing !=
+                true;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      final session = container.read(interactiveSnippetControllerProvider);
+      expect(session?.announcing, isTrue);
+      expect(
+        container.read(recordingProvider).phase,
+        RecordingPhase.idle,
+        reason: 'the microphone must stay closed during the pre-roll',
+      );
+
+      gate.complete();
+      await advanceFuture;
+
+      expect(
+        container.read(interactiveSnippetControllerProvider)?.announcing,
+        isFalse,
+      );
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      await controller.cancel();
+    });
+
+    test('cancel during the announce pre-roll never opens the mic', () async {
+      ensureFakeLocalSttFilesExist();
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      );
+      final gate = Completer<void>();
+      controller.announceDelay = (_) => gate.future;
+
+      await controller.start(
+        fields(['Titel']),
+        template: legacyInteractiveSnippetTemplate(['Titel']),
+      );
+      final advanceFuture = controller.advanceField();
+      for (
+        var i = 0;
+        i < 40 &&
+            container.read(interactiveSnippetControllerProvider)?.announcing !=
+                true;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(
+        container.read(interactiveSnippetControllerProvider)?.announcing,
+        isTrue,
+      );
+
+      await controller.cancel();
+      gate.complete();
+      await advanceFuture;
+
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+
+    test('registers Enter/Escape for the sequence; Enter advances and the '
+        'keys are gone once the sequence finishes', () async {
+      ensureFakeLocalSttFilesExist();
+      final sessionKeys = FakeSessionKeyRegistrar();
+      container
+          .read(hotkeyServiceProvider.notifier)
+          .injectRegistrar(sessionKeys);
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Titel']),
+        template: legacyInteractiveSnippetTemplate(['Titel']),
+      );
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isTrue);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isTrue);
+
+      // First Enter leaves the briefing and opens field 1's recording.
+      sessionKeys.press(LogicalKeyboardKey.enter);
+      for (
+        var i = 0;
+        i < 40 &&
+            container.read(recordingProvider).phase != RecordingPhase.recording;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // The fake registrar never delivers key-up (supportsKeyUp: false), so
+      // `keyHeld` stays set and a second press within the 1200 ms
+      // auto-repeat window would be swallowed as OS key-repeat. Real macOS
+      // clears the hold via key-up; here we simply step past the window.
+      await Future<void>.delayed(const Duration(milliseconds: 1250));
+
+      fakeStt.transcriptToReturn = 'Nur ein Feld';
+      sessionKeys.press(LogicalKeyboardKey.enter);
+      // The key handler fires advanceField unawaited — poll for the end of
+      // the (single-field) sequence.
+      for (
+        var i = 0;
+        i < 40 && container.read(interactiveSnippetControllerProvider) != null;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      // _reset() fires the key unregistration without awaiting it — give the
+      // pending registrar round trip a moment to settle before asserting.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(
+        sessionKeys.isRegistered(LogicalKeyboardKey.enter),
+        isFalse,
+        reason:
+            'a leaked bare-Enter grab would swallow Enter in every other app',
+      );
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
+    });
+
+    test('Escape cancels the whole sequence and the session keys are '
+        'unregistered', () async {
+      ensureFakeLocalSttFilesExist();
+      final sessionKeys = FakeSessionKeyRegistrar();
+      container
+          .read(hotkeyServiceProvider.notifier)
+          .injectRegistrar(sessionKeys);
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
+      await controller.advanceField(); // briefing → field 1 recording
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      sessionKeys.press(LogicalKeyboardKey.escape);
+      for (
+        var i = 0;
+        i < 40 && container.read(interactiveSnippetControllerProvider) != null;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      // _reset() fires the key unregistration without awaiting it — give the
+      // pending registrar round trip a moment to settle before asserting.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isFalse);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('a mid-sequence transcription failure (abort path) also '
+        'unregisters the session keys', () async {
+      ensureFakeLocalSttFilesExist();
+      final sessionKeys = FakeSessionKeyRegistrar();
+      container
+          .read(hotkeyServiceProvider.notifier)
+          .injectRegistrar(sessionKeys);
+      final controller = container.read(
+        interactiveSnippetControllerProvider.notifier,
+      )..announceDuration = Duration.zero;
+
+      await controller.start(
+        fields(['Titel', 'Beschreibung']),
+        template: legacyInteractiveSnippetTemplate(['Titel', 'Beschreibung']),
+      );
+      await controller.advanceField(); // briefing → field 1 recording
+
+      fakeStt.transcribeThrows = true;
+      await controller.advanceField();
+
+      // _reset() fires the key unregistration without awaiting it — give the
+      // pending registrar round trip a moment to settle before asserting.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(container.read(interactiveSnippetControllerProvider), isNull);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.enter), isFalse);
+      expect(sessionKeys.isRegistered(LogicalKeyboardKey.escape), isFalse);
+    });
+  });
+
+  // =========================================================================
+  // Smart Mode v2: local Cleanup pipeline (ticket 02)
+  // =========================================================================
+
+  group('Smart Mode v2: local Cleanup pipeline (ticket 02)', () {
+    late FakeSmartModeEngine fakeSmartModeEngine;
+    late FakeSystemAttentionService fakeAttention;
+
+    ProviderContainer buildSmartModeContainer(
+      AppSettings settings, {
+      bool modelDownloaded = true,
+    }) {
+      return ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          smartModeDownloadProvider.overrideWith(
+            () =>
+                FakeSmartModeDownloadNotifier(modelDownloaded: modelDownloaded),
+          ),
+          smartModeEngineProvider.overrideWith((ref) => fakeSmartModeEngine),
+          systemAttentionServiceProvider.overrideWith((ref) {
+            fakeAttention = FakeSystemAttentionService(ref);
+            return fakeAttention;
+          }),
+        ],
+      );
+    }
+
+    AppSettings settingsWithPreset(String preset) => AppSettings(
+      stt: const SttSettings(model: 'whisper-small', language: 'English'),
+      afterTranscriptionSection: const AfterTranscriptionSettings(
+        afterTranscription: 'clipboard',
+      ),
+      onboarding: const OnboardingSettings(onboardingCompleted: true),
+      smartMode: SmartModeSettings(standardPreset: preset),
+    );
+
+    setUp(() {
+      fakeSmartModeEngine = FakeSmartModeEngine();
+    });
+
+    tearDown(() {
+      RecordingOrchestrator.smartModeCleanupTimeoutOverride = null;
+    });
+
+    test('standard preset "off" (factory default) never calls the engine — '
+        'the transcript is pasted completely unchanged', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('off'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Raw dictated text with, um, filler';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'Raw dictated text with, um, filler');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('standard preset "cleanup" with a downloaded model replaces the '
+        'pasted text with the engine result', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Cleaned text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text with um filler';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(fakeSmartModeEngine.lastUserText, 'raw text with um filler');
+      expect(clipboardText, 'Cleaned text.');
+      expect(
+        fakeAttention.requestAttentionCalls,
+        0,
+        reason: 'A successful Cleanup pass must not fire a notification',
+      );
+    });
+
+    test('standard preset "cleanup" but no model downloaded falls back to the '
+        'raw transcript and fires an OS notification, without ever calling '
+        'the engine', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        settingsWithPreset('cleanup'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model missing';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'raw text, model missing');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('cloud provider ("openai") ignores the local model-downloaded gate '
+        'entirely — the engine is still called even with no model installed '
+        '(ADR 0010: strict either-or, no auto-failover to local)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'cleanup',
+            provider: 'openai',
+          ),
+        ),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Cleaned via cloud.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, no local model, cloud selected';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(clipboardText, 'Cleaned via cloud.');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('an engine failure (e.g. model load / decode error) falls back to '
+        'the raw transcript and fires an OS notification — the paste is '
+        'never blocked (ADR 0009)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.errorToThrow = StateError(
+        'smart_mode_library_load_failed: simulated',
+      );
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, engine failed';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(clipboardText, 'raw text, engine failed');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test(
+      'an engine call exceeding the timeout falls back to the raw '
+      'transcript and fires an OS notification, not the error phase',
+      () async {
+        RecordingOrchestrator.smartModeCleanupTimeoutOverride = const Duration(
+          milliseconds: 20,
+        );
+        container.dispose();
+        container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeSmartModeEngine.delay = const Duration(milliseconds: 200);
+        fakeSmartModeEngine.resultToReturn = 'should never be used';
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'raw text, engine too slow';
+        await orch.stopRecording();
+        // The engine call is still running in the background past the
+        // runner's timeout — give it time to finish so it doesn't leak into
+        // the next test.
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+
+        expect(clipboardText, 'raw text, engine too slow');
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.done,
+          reason: 'A refining timeout must resolve to done, never error',
+        );
+        expect(fakeAttention.requestAttentionCalls, 1);
+        expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      },
+    );
+
+    test('a blank engine result is treated as a failure — never pastes an '
+        'empty string where the user dictated real content', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = '   ';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, blank result';
+      await orch.stopRecording();
+
+      expect(clipboardText, 'raw text, blank result');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('standard preset "concise" with a downloaded model replaces the '
+        'pasted text with the shortened engine result', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('concise'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Shortened text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text with lots of redundant filler';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeConciseSystemPrompt,
+      );
+      expect(clipboardText, 'Shortened text.');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('standard preset "concise" but no model downloaded falls back to the '
+        'raw transcript and fires an OS notification', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        settingsWithPreset('concise'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model missing';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'raw text, model missing');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('standard preset "translate" with the default (English) target '
+        'language replaces the pasted text with the translated engine '
+        'result', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('translate'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Translated text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text in some language';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 1);
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.english),
+      );
+      expect(clipboardText, 'Translated text.');
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test('standard preset "translate" but no model downloaded falls back to '
+        'the raw transcript and fires an OS notification', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        settingsWithPreset('translate'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model missing';
+      await orch.stopRecording();
+
+      expect(fakeSmartModeEngine.runCalls, 0);
+      expect(clipboardText, 'raw text, model missing');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('an unrecognized/not-yet-validated target-language settings value '
+        'falls back to English rather than crashing (ticket-09 forward '
+        'compatibility)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'translate',
+            targetLanguage: 'xx',
+          ),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Translated text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text';
+      await orch.stopRecording();
+
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.english),
+      );
+      expect(clipboardText, 'Translated text.');
+    });
+
+    test('Smart-Mode hotkey override uses its own target language, not the '
+        'standard preset\'s (ticket 09)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'off',
+            targetLanguage: 'en',
+          ),
+          smartModeHotkey: SmartModeHotkeySettings(
+            smartModeHotkeyPreset: 'translate',
+            smartModeHotkeyTargetLanguage: 'fr',
+          ),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      container
+          .read(smartModeHotkeyOverridePresetProvider.notifier)
+          .set(SmartModePreset.translate);
+      fakeSmartModeEngine.resultToReturn = 'Texte traduit.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text in some language';
+      await orch.stopRecording();
+
+      expect(
+        fakeSmartModeEngine.lastSystemPrompt,
+        smartModeTranslateSystemPrompt(SmartModeTargetLanguage.french),
+      );
+      expect(clipboardText, 'Texte traduit.');
+    });
   });
 }
 

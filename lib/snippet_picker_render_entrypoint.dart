@@ -39,7 +39,8 @@ import 'core/theme/overlay_design_spec.dart';
 import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
 import 'services/snippet_picker/snippet_picker_render_channel.dart';
-import 'shared_render_engine_helpers.dart' show RenderEngineState;
+import 'shared_render_engine_helpers.dart'
+    show RenderEngineState, detachFromEmbedderAppLifecycle;
 import 'widgets/wp_search_field.dart';
 
 /// Private channel between the native picker shell and this render engine.
@@ -57,50 +58,17 @@ const String _renderChannelName = 'com.whispaste.snippet_picker_render';
 /// entrypoint delegates here so the real wiring stays in this cohesive file.
 void runSnippetPickerEngine() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Root cause of the live "arrow keys don't visibly navigate the picker"
+  // bug (verified 2026-08-13 with tagged debug instrumentation; the full log
+  // evidence is in the fix commit's message): a bogus
+  // `AppLifecycleState.hidden` from the embedder froze this engine on the
+  // single frame the native `contentViewController` reattach forces per
+  // `show()`, and made `FocusManager` drop the search field's primary focus.
+  // See [detachFromEmbedderAppLifecycle] for the mechanism; the matching
+  // animation gating lives in [SnippetPickerBody.visible].
   detachFromEmbedderAppLifecycle();
   debugPrint('[snippet-picker-engine] runSnippetPickerEngine booted');
   runApp(const _SnippetPickerRenderApp());
-}
-
-/// Detaches this render engine from the embedder's app-lifecycle stream.
-///
-/// Root cause of the live "arrow keys don't visibly navigate the picker"
-/// bug (verified live with tagged debug instrumentation, 2026-08-13; the
-/// full log evidence is in the fix commit's message): each macOS
-/// `FlutterEngine` derives an app-lifecycle state from per-engine
-/// active/visible flags fed by app-global `NSApplication`
-/// activation/occlusion notifications. This secondary engine boots at
-/// prewarm, ~2.5 s after launch, and `FlutterAppLifecycleDelegate`'s
-/// `addDelegate` does not replay the current state to a late registrant —
-/// so both flags start stale-`NO`, and for a close-to-tray app the
-/// app-global signals bear no relation to the picker panel's actual
-/// visibility anyway. The engine therefore sat in
-/// `AppLifecycleState.hidden` while the panel was on screen, which broke
-/// the picker twice over:
-///
-///  - `SchedulerBinding` disables frame scheduling for `hidden`
-///    (`framesEnabled = false`), so every arrow-key `setState` updated
-///    `_moveHighlight`'s index without ever painting. The only frame per
-///    `show()` was the one the native `contentViewController` reattach
-///    forces via a metrics change — i.e. the panel was frozen on its first
-///    frame, which is exactly what the user saw (log signature: all
-///    `_moveHighlight` lines with correct indices, then a burst of queued
-///    post-frame callbacks firing together on the next show's forced
-///    frame).
-///  - `FocusManager`'s desktop lifecycle listener suspends primary focus on
-///    any transition away from `resumed`, so whenever such a transition
-///    landed after `_resetForShow`'s `requestFocus()`, the search field
-///    silently lost focus again (the earlier round's
-///    `searchFocus=false`-on-every-keystroke symptom).
-///
-/// The fix: this engine's real visibility is governed solely by the native
-/// host's `show()`/`dismiss()` (relayed as `setItems` / `panelHidden`), so
-/// the correct lifecycle for it is "always live". Replacing the
-/// `flutter/lifecycle` handler unhooks `SchedulerBinding`/`FocusManager`
-/// from the bogus embedder signal; animation cost while hidden is gated on
-/// the relayed visibility instead (see [SnippetPickerBody.visible]).
-void detachFromEmbedderAppLifecycle() {
-  SystemChannels.lifecycle.setMessageHandler((message) async => message);
 }
 
 class _SnippetPickerRenderApp extends StatefulWidget {
@@ -311,17 +279,31 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     duration: OverlayDesignSpec.liquidDriftPeriod,
   );
 
-  /// Live filter across BOTH title and body (ticket AC).
+  /// Live filter across BOTH title and body (ticket AC), ranked by match
+  /// relevance rather than left in the original list order: a title match
+  /// is a stronger signal of intent than a body-only match, and a title
+  /// starting with the query beats one merely containing it — otherwise a
+  /// query like "impl" ranks a snippet whose body happens to mention the
+  /// word above one titled "Implementierung" (reported by the user, e.g.
+  /// "Debugging" outranking "Implementierung" for that query).
   List<SnippetPickerRenderItem> get _filtered {
     if (_query.isEmpty) return widget.items;
     // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
     // new lowercased strings for title and body on every item in the tight loop.
     final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
-    return widget.items
-        .where(
-          (i) => searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
-        )
-        .toList();
+    final lowerQuery = _query.toLowerCase();
+    final matches = <(SnippetPickerRenderItem item, int rank)>[];
+    for (final item in widget.items) {
+      final titleMatch = searchRegex.hasMatch(item.title);
+      final bodyMatch = searchRegex.hasMatch(item.body);
+      if (!titleMatch && !bodyMatch) continue;
+      final rank = titleMatch
+          ? (item.title.toLowerCase().startsWith(lowerQuery) ? 0 : 1)
+          : 2;
+      matches.add((item, rank));
+    }
+    matches.sort((a, b) => a.$2.compareTo(b.$2));
+    return matches.map((m) => m.$1).toList();
   }
 
   @override

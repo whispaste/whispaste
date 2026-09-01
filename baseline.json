@@ -3,39 +3,39 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
-      "fingerprint": "c01c5e0a3f3b3a8a",
-      "ruleId": "complexity-hotspots",
-      "filePath": "lib/core/config/settings_provider.dart",
-      "line": 490,
-      "message": "AppSettings.copyWithSections [kind=logic]: cyclomatic=22, cognitive=21 (cyclomatic 22 > 20)"
+      "fingerprint": "52532a02ec4b5927",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 1534,
+      "message": "2 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:1534, lib/core/recording/recording_state.dart:99"
     },
     {
-      "fingerprint": "52df5ea417369933",
+      "fingerprint": "5c94187143cb524b",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1160,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1160, lib/core/data/database.dart:2211"
+      "line": 1321,
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1321, lib/core/data/database.dart:2507"
     },
     {
-      "fingerprint": "125b0806d0218a78",
+      "fingerprint": "a25ff9358981008d",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1169,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1169, lib/core/data/database.dart:2220"
+      "line": 1330,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1330, lib/core/data/database.dart:2516"
     },
     {
-      "fingerprint": "0bd5e7a0670e6859",
+      "fingerprint": "0be77f9424dbe3a2",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1667,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1667, lib/core/data/database.dart:2303"
+      "line": 1828,
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1828, lib/core/data/database.dart:2599"
     },
     {
-      "fingerprint": "ffcd8bd89e63efd4",
+      "fingerprint": "1054b297a174250e",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1679,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1679, lib/core/data/database.dart:2315"
+      "line": 1840,
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1840, lib/core/data/database.dart:2611"
     },
     {
       "fingerprint": "0cf57d299a06d8ec",
@@ -45,20 +45,6 @@
       "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:133, lib/features/notes/notes_page.dart:363"
     },
     {
-      "fingerprint": "a4d4dfe1b7df293d",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 86,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:86, lib/features/snippets/snippets_page.dart:66"
-    },
-    {
-      "fingerprint": "704b5203e8472579",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 126,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:126, lib/features/snippets/snippets_page.dart:106"
-    },
-    {
       "fingerprint": "bc2554a1bedc4b79",
       "ruleId": "code-duplicates",
       "filePath": "lib/services/history/history_exporter.dart",
@@ -66,18 +52,11 @@
       "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
     },
     {
-      "fingerprint": "788b1de15a43115e",
+      "fingerprint": "4083db2252791af8",
       "ruleId": "code-duplicates",
       "filePath": "lib/services/hotkey_service.dart",
-      "line": 436,
-      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:436, lib/services/hotkey_service.dart:477"
-    },
-    {
-      "fingerprint": "04f9846953938c39",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/services/hotkey_service.dart",
-      "line": 560,
-      "message": "2 occurrences of duplicated block (87 tokens): lib/services/hotkey_service.dart:560, lib/services/hotkey_service.dart:582"
+      "line": 537,
+      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:537, lib/services/hotkey_service.dart:578"
     },
     {
       "fingerprint": "688bcf13f0d6cc9f",

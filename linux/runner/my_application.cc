@@ -9,6 +9,7 @@
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
+#include "side_panel_host.h"
 #include "snippet_picker_host.h"
 
 struct _MyApplication {
@@ -30,6 +31,10 @@ struct _MyApplication {
   // picker's 2nd-engine window (visual-refresh-2026 ticket 30). Same
   // lifecycle as floating_overlay_host/floating_button_host above.
   SnippetPickerHost* snippet_picker_host;
+  // Owns the public Side-Panel MethodChannel, the clipboard-history
+  // snapshot-on-open channel, and lazily manages the panel's 2nd-engine
+  // window (issue 06). Same lifecycle as the hosts above.
+  SidePanelHost* side_panel_host;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -106,6 +111,7 @@ static void my_application_activate(GApplication* application) {
   self->floating_button_host = new FloatingButtonHost(main_messenger);
   self->desktop_paste_host = new DesktopPasteHost(main_messenger);
   self->snippet_picker_host = new SnippetPickerHost(main_messenger);
+  self->side_panel_host = new SidePanelHost(main_messenger);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -161,6 +167,8 @@ static void my_application_dispose(GObject* object) {
   self->desktop_paste_host = nullptr;
   delete self->snippet_picker_host;
   self->snippet_picker_host = nullptr;
+  delete self->side_panel_host;
+  self->side_panel_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

@@ -251,3 +251,33 @@ enum GpuAcceleration {
   const GpuAcceleration(this.value);
   final String value;
 }
+
+// ---------------------------------------------------------------------------
+// Smart Mode Provider (ADR 0010: local/cloud strict either-or)
+// ---------------------------------------------------------------------------
+
+/// Smart Mode's local-vs-cloud engine selection. Unlike STT (which allows
+/// local + a choice of cloud providers), Smart Mode is a strict either-or
+/// with exactly one cloud option in v1 (OpenAI) — see
+/// `docs/adr/0010-smart-mode-lokal-oder-cloud-nur-openai.md`. Modeled as its
+/// own enum (rather than reusing [SttProviderType]) so a future second cloud
+/// provider is additive here without touching STT.
+enum SmartModeProviderType {
+  local('local'),
+  openAI('openai');
+
+  const SmartModeProviderType(this.value);
+
+  /// The string persisted in SQLite.
+  final String value;
+
+  /// Look up by persisted [value]. Falls back to [local].
+  static SmartModeProviderType fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return local;
+  }
+
+  bool get isLocal => this == local;
+}

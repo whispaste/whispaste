@@ -17,6 +17,7 @@ class SidePanelRow {
     required this.id,
     required this.title,
     this.subtitle = '',
+    this.content = '',
     this.kind = SidePanelRowKind.text,
     this.imageBytes,
     this.colorSlot,
@@ -26,6 +27,18 @@ class SidePanelRow {
   final String title;
   final String subtitle;
   final SidePanelRowKind kind;
+
+  /// The full, unabridged insertable text for this row -- e.g. a
+  /// transcription's complete content or a snippet's complete body, as
+  /// opposed to [title], which may be a short display label (a snippet's
+  /// name) rather than what actually gets inserted.
+  ///
+  /// Populated for [SidePanelRowKind.text] rows so a later synchronous
+  /// native drag (issue 11) can read it straight from the snapshot without a
+  /// round-trip to the main engine (see PRD.md issue 10). Empty for
+  /// [SidePanelRowKind.image] rows, which carry their full content in
+  /// [imageBytes] instead.
+  final String content;
 
   /// Pre-downscaled thumbnail bytes -- present only when [kind] is
   /// [SidePanelRowKind.image]. The panel never decodes a full-size image
@@ -44,6 +57,7 @@ class SidePanelRow {
     'id': id,
     'title': title,
     'subtitle': subtitle,
+    'content': content,
     'kind': kind.name,
     'imageBytes': imageBytes,
     'colorSlot': colorSlot,
@@ -53,6 +67,7 @@ class SidePanelRow {
     id: map['id'] as String? ?? '',
     title: map['title'] as String? ?? '',
     subtitle: map['subtitle'] as String? ?? '',
+    content: map['content'] as String? ?? '',
     kind: SidePanelRowKind.values.firstWhere(
       (k) => k.name == map['kind'],
       orElse: () => SidePanelRowKind.text,

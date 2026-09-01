@@ -1348,6 +1348,95 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get replacementsImportFromFolder => 'Aus Ordner importieren';
+
+  @override
+  String get replacementsImportHint =>
+      'Durchsucht einen Projektordner nach Bezeichnern und legt sie als unscharfe (fuzzy) Ersetzungen an — nichts verlässt dein Gerät.';
+
+  @override
+  String replacementsImportSummary(int found, int added, int skipped) {
+    return '$found gefunden, $added hinzugefügt, $skipped Dublette(n) übersprungen';
+  }
+
+  @override
+  String get replacementsImportScanning =>
+      'Ordner wird durchsucht — bei großen Projekten kann das einen Moment dauern…';
+
+  @override
+  String get replacementsImportError =>
+      'Import fehlgeschlagen — der Ordner konnte nicht durchsucht werden.';
+
+  @override
+  String get replacementsImportedBadge => 'Importiert';
+
+  @override
+  String get replacementsImportNothingFound =>
+      'In diesem Ordner wurden keine neuen Bezeichner gefunden.';
+
+  @override
+  String get replacementsImportReviewTitle => 'Auswählen, was importiert wird';
+
+  @override
+  String replacementsImportReviewSubtitle(int count) {
+    return '$count Kandidaten gefunden — wähle aus, welche zu Ersetzungen werden. Es wird nichts hinzugefügt, bevor du bestätigst.';
+  }
+
+  @override
+  String get replacementsImportReviewSearchHint => 'Kandidaten filtern';
+
+  @override
+  String get replacementsImportReviewSelectAllFiltered =>
+      'Alle angezeigten auswählen';
+
+  @override
+  String get replacementsImportReviewDeselectAll => 'Alle abwählen';
+
+  @override
+  String replacementsImportReviewSelectedCount(int selected, int total) {
+    return '$selected von $total ausgewählt';
+  }
+
+  @override
+  String get replacementsImportReviewNoMatches =>
+      'Kein Kandidat entspricht deinem Filter.';
+
+  @override
+  String replacementsImportReviewImportButton(int count) {
+    return 'Auswahl importieren ($count)';
+  }
+
+  @override
+  String get replacementsMatchModeLabel => 'Abgleich';
+
+  @override
+  String get replacementsMatchModeExact => 'Exakt';
+
+  @override
+  String get replacementsMatchModeFuzzy => 'Ähnlich';
+
+  @override
+  String get replacementsFuzzyToleranceLabel => 'Toleranz';
+
+  @override
+  String get replacementsFuzzyToleranceStrict => 'Streng';
+
+  @override
+  String get replacementsFuzzyToleranceStandard => 'Standard';
+
+  @override
+  String get replacementsFuzzyToleranceTolerant => 'Tolerant';
+
+  @override
+  String get replacementsFuzzyToleranceHint =>
+      'Wie ähnlich eine diktierte Formulierung dem Auslöser klingen muss, damit sie noch als Treffer zählt. Streng erkennt nur nahezu identische Formulierungen — dadurch wird fast nie versehentlich etwas ersetzt, ein undeutlich diktierter Auslöser kann aber unerkannt bleiben. Standard ist ein ausgewogener Mittelweg für den Alltag. Tolerant erkennt auch deutlich abweichende Aussprache oder Formulierung, mit höherem Risiko, dass etwas ersetzt wird, das nicht gemeint war.';
+
+  @override
+  String replacementsFuzzyTooShortWarning(int minLength) {
+    return 'Auslöser unter $minLength Zeichen können nicht unscharf abgeglichen werden — das erzeugt zu viele Fehltreffer.';
+  }
+
+  @override
   String get snippetsSearch => 'Snippets suchen…';
 
   @override
@@ -1390,6 +1479,103 @@ class L10nDe extends L10n {
 
   @override
   String get snippetsBodyHint => 'Der Text, den dieser Snippet einfügt…';
+
+  @override
+  String get snippetsKindLabel => 'Art';
+
+  @override
+  String get snippetsKindStatic => 'Statisch';
+
+  @override
+  String get snippetsKindInteractive => 'Interaktiv';
+
+  @override
+  String get snippetsFieldsLabel => 'Felder';
+
+  @override
+  String get snippetsFieldsHint =>
+      'Du wirst der Reihe nach durch jedes Feld geführt, jeweils mit einer eigenen kurzen Aufnahme.';
+
+  @override
+  String snippetsFieldNameHint(int number) {
+    return 'Name für Feld $number';
+  }
+
+  @override
+  String get snippetsFieldMoveUp => 'Feld nach oben verschieben';
+
+  @override
+  String get snippetsFieldMoveDown => 'Feld nach unten verschieben';
+
+  @override
+  String get snippetsFieldRemove => 'Feld entfernen';
+
+  @override
+  String get snippetsFieldAdd => 'Feld hinzufügen';
+
+  @override
+  String get snippetsFieldInsertIntoTemplate => 'In Vorlage einfügen';
+
+  @override
+  String snippetsFieldsMinWarning(int min) {
+    String _temp0 = intl.Intl.pluralLogic(
+      min,
+      locale: localeName,
+      other: '$min benannte Felder',
+      one: '1 benanntes Feld',
+    );
+    return 'Ein interaktives Snippet braucht mindestens $_temp0.';
+  }
+
+  @override
+  String get snippetsTemplateLabel => 'Vorlage';
+
+  @override
+  String get snippetsTemplateHint =>
+      'Schreibe deinen Snippet-Text und platziere jedes Feld über den Einfügen-Button daneben an beliebiger Stelle.';
+
+  @override
+  String get snippetsTemplateFieldHint =>
+      'Schreibe hier deinen Text und füge Felder über die Buttons oben ein.';
+
+  @override
+  String get snippetsTemplateMissingFieldsWarning =>
+      'Noch nicht alle Felder werden in der Vorlage verwendet — ihr diktierter Text bliebe sonst ungenutzt.';
+
+  @override
+  String get snippetsInteractiveBadge => 'Interaktiv';
+
+  @override
+  String interactiveSnippetBriefingLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Felder',
+      one: '1 Feld',
+    );
+    return '$_temp0 · Enter startet';
+  }
+
+  @override
+  String interactiveSnippetBriefingHint(String name) {
+    return 'Feld 1: $name · Esc: Abbrechen';
+  }
+
+  @override
+  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
+    return 'Feld $index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAnnounceHint => 'Gleich sprechen…';
+
+  @override
+  String interactiveSnippetSpeakNowLabel(String name, int index, int count) {
+    return '$index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAdvance => 'Weiter';
 
   @override
   String get snippetsDeleteTitle => 'Snippet löschen';
@@ -1729,6 +1915,9 @@ class L10nDe extends L10n {
 
   @override
   String get statusBarTranscribing => 'Transkribieren…';
+
+  @override
+  String get statusBarRefining => 'Wird bereinigt…';
 
   @override
   String get statusBarDone => 'Fertig';
@@ -2143,6 +2332,33 @@ class L10nDe extends L10n {
 
   @override
   String get historyDuplicated => 'Eintrag dupliziert';
+
+  @override
+  String get historyViewRaw => 'Rohtext';
+
+  @override
+  String get historyViewEdited => 'Bearbeitet';
+
+  @override
+  String get historyApplySmartModePreset => 'Smart-Mode-Preset anwenden';
+
+  @override
+  String get historySmartModeApplied => 'Smart Mode angewendet';
+
+  @override
+  String get historySmartModeFailedModelMissing =>
+      'Smart-Mode-Modell nicht heruntergeladen';
+
+  @override
+  String get historySmartModeFailedTimeout =>
+      'Smart Mode hat zu lange gebraucht';
+
+  @override
+  String get historySmartModeFailedGeneric =>
+      'Smart Mode fehlgeschlagen — bitte erneut versuchen';
+
+  @override
+  String get historySmartModeSelectTargetLanguage => 'Zielsprache wählen';
 
   @override
   String get historyAddNote => 'Anmerkung hinzufügen';
@@ -2829,6 +3045,9 @@ class L10nDe extends L10n {
   String get overlayTranscribing => 'Wird transkribiert…';
 
   @override
+  String get overlayRefining => 'Wird bereinigt…';
+
+  @override
   String get overlayDone => 'Kopiert';
 
   @override
@@ -2859,6 +3078,15 @@ class L10nDe extends L10n {
   String overlayKeyboardHint(String hotkey) {
     return 'Drücke $hotkey zum Stoppen';
   }
+
+  @override
+  String overlayKeyboardHintNextFieldEnter(String hotkey) {
+    return 'Enter oder $hotkey: nächstes Feld · Esc: Abbrechen';
+  }
+
+  @override
+  String get overlayKeyboardHintNextFieldEnterOnly =>
+      'Enter: nächstes Feld · Esc: Abbrechen';
 
   @override
   String get overlayProcessingLocal => 'Lokal';
@@ -3436,6 +3664,20 @@ class L10nDe extends L10n {
       'Fahre an den Bildschirmrand, um deinen letzten Clipboard-Verlauf zu öffnen, und ziehe jeden Eintrag direkt in dein Dokument.';
 
   @override
+  String get featureSpotlightInteractiveSnippetsTitle => 'Interaktive Snippets';
+
+  @override
+  String get featureSpotlightInteractiveSnippetsDescription =>
+      'Snippets mit Lücken: WhisPaste führt dich durch jedes Feld – diktieren, mit Enter zum nächsten, und der fertige Text wird in einem Stück eingefügt.';
+
+  @override
+  String get featureSpotlightSmartModeTitle => 'Smart Mode';
+
+  @override
+  String get featureSpotlightSmartModeDescription =>
+      'Bereinige, kürze oder übersetze dein Diktat vor dem Einfügen – komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.';
+
+  @override
   String get featureSpotlightChangelogLink => 'Vollständiges Changelog ansehen';
 
   @override
@@ -3654,4 +3896,145 @@ class L10nDe extends L10n {
 
   @override
   String get sidePanelNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
+
+  @override
+  String get settingsSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeSubtitle =>
+      'Lokale Textbereinigung, Kürzung und Übersetzung nach dem Diktieren';
+
+  @override
+  String get smartModeStandardPreset => 'Standard-Preset';
+
+  @override
+  String get smartModePresetOff => 'Aus';
+
+  @override
+  String get smartModePresetOffDescription =>
+      'Keine automatische Nachbearbeitung — der diktierte Text wird genau so übernommen, wie er erkannt wurde.';
+
+  @override
+  String get smartModePresetCleanup => 'Bereinigen';
+
+  @override
+  String get smartModePresetCleanupDescription =>
+      'Entfernt Füllwörter wie „äh“ und korrigiert Zeichensetzung und Groß-/Kleinschreibung, ohne Wortlaut, Bedeutung oder Sprache zu verändern.';
+
+  @override
+  String get smartModePresetConcise => 'Kürzen';
+
+  @override
+  String get smartModePresetConciseDescription =>
+      'Kürzt den Text, indem Wiederholungen und Füllwörter entfernt werden — alle wichtigen Fakten und die Sprache bleiben erhalten.';
+
+  @override
+  String get smartModePresetTranslate => 'Übersetzen';
+
+  @override
+  String get smartModePresetTranslateDescription =>
+      'Übersetzt den diktierten Text in die unten eingestellte Zielsprache.';
+
+  @override
+  String get smartModeTargetLanguage => 'Zielsprache';
+
+  @override
+  String get smartModeTargetLanguageGerman => 'Deutsch';
+
+  @override
+  String get smartModeTargetLanguageEnglish => 'Englisch';
+
+  @override
+  String get smartModeTargetLanguageSpanish => 'Spanisch';
+
+  @override
+  String get smartModeTargetLanguageFrench => 'Französisch';
+
+  @override
+  String get smartModeTargetLanguagePortuguese => 'Portugiesisch';
+
+  @override
+  String get smartModeTargetLanguageMandarin => 'Mandarin';
+
+  @override
+  String get smartModeTargetLanguageRussian => 'Russisch';
+
+  @override
+  String get smartModeDownload => 'Herunterladen';
+
+  @override
+  String get smartModeDownloadComplete => 'Smart-Mode-Modell einsatzbereit';
+
+  @override
+  String get smartModeRamWarningTitle => 'Wenig Arbeitsspeicher erkannt';
+
+  @override
+  String get smartModeRamWarningBody =>
+      'Das lokale Smart-Mode-Modell läuft am besten mit mindestens 8 GB RAM. Es kann auch mit weniger funktionieren, aber langsamer sein oder fehlschlagen. Trotzdem herunterladen?';
+
+  @override
+  String get smartModeRamWarningContinue => 'Trotzdem herunterladen';
+
+  @override
+  String get smartModeRamWarningCancel => 'Abbrechen';
+
+  @override
+  String get smartModeMemoryFootprintInfo =>
+      'Läuft vollständig auf dem Gerät. Im aktiven Zustand belegt es zusätzlich zum Speicherplatz etwa 4–5 GB RAM — geteilt mit dem Transkriptionsmodell, der tatsächliche Gesamtverbrauch hängt also auch davon ab, welches STT-Modell zusätzlich geladen ist.';
+
+  @override
+  String get smartModeSpeedExampleInfo =>
+      'Beispiel: Ein typisches Diktat mit 50 Wörtern braucht je nach Hardware etwa 1–6 Sekunden zur Verarbeitung.';
+
+  @override
+  String get settingsHotkeyActionSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeHotkeyEnabled => 'Smart-Mode-Hotkey';
+
+  @override
+  String get settingsSmartModeHotkeyHint =>
+      'Startet eine Aufnahme mit einem festen Preset, unabhängig vom Standard-Preset oben. Unterstützt Push-to-Talk genau wie der Haupt-Hotkey.';
+
+  @override
+  String get settingsSmartModeHotkeyPreset => 'Preset';
+
+  @override
+  String get settingsSmartModeCurrentHotkey => 'Kombination';
+
+  @override
+  String settingsSmartModeHotkeyCollision(String action) {
+    return 'Diese Kombination ist schon für „$action“ vergeben. Wähl eine andere.';
+  }
+
+  @override
+  String get settingsSmartModeHotkeyInactive =>
+      'Diese Kombination ließ sich nicht registrieren — der Smart-Mode-Hotkey ist derzeit nicht aktiv. Wähl eine andere Kombination.';
+
+  @override
+  String get smartModeOnboardingHintTitle => 'Smart Mode ausprobieren';
+
+  @override
+  String get smartModeOnboardingHintBody =>
+      'Smart Mode kann deinen diktierten Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Lade das lokale Modell jetzt herunter oder richte es später in den Einstellungen ein.';
+
+  @override
+  String get smartModeOnboardingHintDownloadCta => 'Herunterladen';
+
+  @override
+  String get smartModeOnboardingHintSkipCta => 'Überspringen';
+
+  @override
+  String get smartModeUsageHintTitle =>
+      'Smart Mode bei deinem nächsten Diktat ausprobieren';
+
+  @override
+  String get smartModeUsageHintBody =>
+      'Smart Mode kann Text wie diesen automatisch bereinigen, kürzen oder übersetzen — direkt auf deinem Gerät. Das hast du gerade diktiert:';
+
+  @override
+  String get smartModeUsageHintCta => 'Einrichten';
+
+  @override
+  String get smartModeUsageHintDismiss => 'Nicht jetzt';
 }

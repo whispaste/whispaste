@@ -350,6 +350,43 @@ void main() {
       );
     });
 
+    test('transcription and snippet rows carry the full insertable content, '
+        'not just the (possibly shorter) display title', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([
+              _historyEntry().copyWith(
+                title: 'Short label',
+                content: 'The full, unabridged transcript body.',
+              ),
+            ]),
+          ),
+        ],
+      );
+      await container.read(snippetsProvider.future);
+      await container
+          .read(snippetsProvider.notifier)
+          .add('Greeting', 'Hello, full snippet body here.');
+      final service = _readService(container);
+      await service.open();
+
+      final snapshot = fakePanel.snapshots.last;
+      expect(
+        snapshot.transcriptions.single.content,
+        'The full, unabridged transcript body.',
+      );
+      expect(
+        snapshot.snippets.single.content,
+        'Hello, full snippet body here.',
+      );
+    });
+
     test('an unresolved row id does not paste anything', () async {
       container = buildContainer();
       final service = _readService(container);

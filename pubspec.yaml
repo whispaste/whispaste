@@ -99,6 +99,10 @@ dependencies:
 
   # Export (DOCX ZIP generation)
   archive: ^4.0.4
+  # Fuzzy string similarity scoring for the fuzzy text-replacement match
+  # mode (vocabulary-fuzzy-replacements PRD) — more mature/established than
+  # the same author's newer rapidfuzz package at spec time.
+  fuzzywuzzy: ^1.2.0
   # Pure-Dart diagnostics core — shared between In-App-Diagnostik and CLI.
   whispaste_diagnostics:
     path: packages/whispaste_diagnostics

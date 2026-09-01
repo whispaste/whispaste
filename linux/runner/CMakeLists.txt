@@ -16,6 +16,8 @@ add_executable(${BINARY_NAME}
   "desktop_paste_host.cc"
   "snippet_picker_window.cc"
   "snippet_picker_host.cc"
+  "side_panel_window.cc"
+  "side_panel_host.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 

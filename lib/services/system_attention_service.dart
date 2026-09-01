@@ -40,6 +40,13 @@ enum AttentionKind {
   /// simulated paste) — restarting WhisPaste elevated is the fix, distinct
   /// from the generic [pasteFailedUnknown] bucket.
   pasteBlockedElevation,
+
+  /// Smart Mode v2 (ticket 02): the local Cleanup pass failed (model load,
+  /// decode error, or timeout) and the raw transcript was pasted instead —
+  /// the paste itself succeeded, so this is purely informational, unlike
+  /// every other [AttentionKind] here (see ADR 0009 — Smart Mode never
+  /// blocks the paste).
+  smartModeFallback,
 }
 
 class SystemAttentionService {
