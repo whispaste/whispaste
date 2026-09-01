@@ -733,9 +733,10 @@ class FloatingOverlayService
   /// Sichtbarer Text der Pille während der Aufnahme.
   ///
   /// Bei Ziel Zwischenablage ist das unverändert der reine Zeitzähler. Bei
-  /// Ziel Schnellnotiz tritt der Zielname hinzu — das ist die einzige Stelle,
-  /// an der die Zielangabe während der Aufnahme tatsächlich auf dem Schirm
-  /// landet. Größenabhängig, weil der Text der Wellenform ihren Platz nimmt:
+  /// Ziel Schnellnotiz oder Vorlagenfeld tritt der Zielname hinzu — das ist
+  /// die einzige Stelle, an der die Zielangabe während der Aufnahme
+  /// tatsächlich auf dem Schirm landet. Größenabhängig, weil der Text der
+  /// Wellenform ihren Platz nimmt:
   ///
   /// - normal: Zeitzähler + Ziel („0:05 · Notiz") — dort ist Platz für beides.
   /// - kompakt: nur das Ziel; Zeitzähler + Ziel würde die Wellenform auf ein
@@ -746,6 +747,14 @@ class FloatingOverlayService
   ///   Text (sie ist wellenform-only), die Zielangabe erreicht dort also
   ///   niemanden — dieselbe dokumentierte Grenze wie heute schon bei
   ///   „Kopiert"/„Eingefügt". Irreführend wird sie dadurch nie.
+  ///
+  /// Für ein Vorlagenfeld (interaktives Snippet) war das vor diesem Fix ein
+  /// blinder Fleck: `_labelFor` berechnete zwar "Feld i/N: Name", aber
+  /// [WpOverlayPainter] malt während `recording` ausschließlich `timerText`
+  /// (`overlay_painter.dart`, `_isRecording ? timerText : statusText`) — das
+  /// Label erreichte den Bildschirm nie, nur den Screenreader. Der Nutzer sah
+  /// beim Aufnehmen eines Feldes also nur eine Wellenform plus Zeitzähler,
+  /// ohne zu wissen, welches Feld gerade läuft.
   String _recordingTextFor(
     Duration elapsed,
     OverlaySizeVariant size,
@@ -753,8 +762,12 @@ class FloatingOverlayService
     L10n? l10n,
   ) {
     final timer = _formatElapsed(elapsed);
-    if (target != RecordingTarget.quickNote) return timer;
-    final targetName = l10n?.overlayTargetQuickNote ?? 'Note';
+    final targetName = switch (target) {
+      RecordingTarget.quickNote => l10n?.overlayTargetQuickNote ?? 'Note',
+      RecordingTarget.templateField => _interactiveSnippetFieldLabel(l10n),
+      RecordingTarget.clipboard => null,
+    };
+    if (targetName == null) return timer;
     return switch (size) {
       OverlaySizeVariant.normal =>
         l10n?.overlayRecordingTargetTimer(timer, targetName) ??

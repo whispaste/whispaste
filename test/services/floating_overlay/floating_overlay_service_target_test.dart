@@ -25,6 +25,18 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
+import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
+
+// ── Fake interactive-snippet session notifier ────────────────────────────────
+
+/// Lets a test set the session state directly, without driving a real
+/// `InteractiveSnippetController.start()` sequence (which would need a fully
+/// wired `RecordingOrchestrator` this lightweight harness doesn't build).
+class _FakeInteractiveSnippetNotifier extends InteractiveSnippetController {
+  void setSession(InteractiveSnippetSessionState? session) {
+    state = session;
+  }
+}
 
 // ── Fake controller ───────────────────────────────────────────────────────────
 
@@ -138,6 +150,9 @@ _Harness _build(FakeAsync async, {AppSettings? settings}) {
       ),
       floatingOverlayServiceProvider.overrideWith(
         () => _TestableService(fake, now: () => epoch.add(async.elapsed)),
+      ),
+      interactiveSnippetControllerProvider.overrideWith(
+        _FakeInteractiveSnippetNotifier.new,
       ),
     ],
   );
@@ -288,6 +303,72 @@ void main() {
           h.dispose();
         }
       });
+    });
+  });
+
+  group('Aufnahme eines interaktiven Snippet-Feldes', () {
+    test('zeigt Feldindex und -name im sichtbaren Text der normalen Größe '
+        '(vorher: nur der bloße Zeitzähler, siehe WpOverlayPainter '
+        '"_isRecording ? timerText : statusText")', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          (h.container.read(interactiveSnippetControllerProvider.notifier)
+                  as _FakeInteractiveSnippetNotifier)
+              .setSession(
+                const InteractiveSnippetSessionState(
+                  fieldIndex: 0,
+                  fieldCount: 2,
+                  fieldName: 'Vorname',
+                ),
+              );
+          _record(h, async, target: RecordingTarget.templateField);
+
+          final expectedLabel = _l10n.interactiveSnippetFieldLabel(
+            1,
+            2,
+            'Vorname',
+          );
+          expect(h.snapshot.elapsed, contains(expectedLabel));
+          // Der Zeitzähler bleibt in der normalen Größe erhalten.
+          expect(h.snapshot.elapsed, contains('0:0'));
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('verkürzt den sichtbaren Text in kompakt und mini auf das Feld', () {
+      for (final size in [
+        FloatingOverlaySize.compact,
+        FloatingOverlaySize.mini,
+      ]) {
+        FakeAsync().run((async) {
+          final h = _build(async, settings: _settings(size: size));
+          try {
+            (h.container.read(interactiveSnippetControllerProvider.notifier)
+                    as _FakeInteractiveSnippetNotifier)
+                .setSession(
+                  const InteractiveSnippetSessionState(
+                    fieldIndex: 1,
+                    fieldCount: 2,
+                    fieldName: 'Nachname',
+                  ),
+                );
+            _record(h, async, target: RecordingTarget.templateField);
+
+            expect(
+              h.snapshot.elapsed,
+              _l10n.interactiveSnippetFieldLabel(2, 2, 'Nachname'),
+              reason:
+                  'Größe ${size.value}: nur das Feld, sonst frisst der Text '
+                  'die Wellenform auf',
+            );
+          } finally {
+            h.dispose();
+          }
+        });
+      }
     });
   });
 
