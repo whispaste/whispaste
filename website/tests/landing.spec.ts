@@ -41,7 +41,7 @@ test('FAQ section is visible and has accordion items', async ({ page }) => {
   const faq = page.locator('#faq');
   await faq.scrollIntoViewIfNeeded();
   await expect(faq).toBeVisible();
-  await expect(faq.locator('details')).toHaveCount(10);
+  await expect(faq.locator('details')).toHaveCount(12);
 });
 
 test('legal pages load without 404s', async ({ page }) => {
