@@ -1434,6 +1434,17 @@ void main() {
       // point.
       expect(enter.single.modifiers ?? const <HotKeyModifier>[], isEmpty);
       expect(escape.single.modifiers ?? const <HotKeyModifier>[], isEmpty);
+      // Regression (crash report 2026-09-01): `modifiers` must be an empty
+      // list, not `null`. A `null` list serializes via `HotKey.toJson()` as
+      // `'modifiers': null`, which the macOS plugin force-casts with
+      // `as! Array<String>` (HotkeyManagerMacosPlugin.swift:49) — that cast
+      // on a null value aborts the process (SIGABRT / swift_dynamicCast
+      // failure), crashing the app the moment an interactive snippet
+      // registers its Enter/Escape keys.
+      expect(enter.single.modifiers, isNotNull);
+      expect(escape.single.modifiers, isNotNull);
+      expect(enter.single.toJson()['modifiers'], isNotNull);
+      expect(escape.single.toJson()['modifiers'], isNotNull);
 
       registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!(
         enter.single,

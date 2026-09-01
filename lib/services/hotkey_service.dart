@@ -739,7 +739,7 @@ class HotkeyService extends Notifier<void> {
       // The sequence already ended before this key's turn came — skip.
       return;
     }
-    final hotKey = HotKey(key: key);
+    final hotKey = HotKey(key: key, modifiers: const []);
     try {
       await _registrar.register(
         hotKey,
