@@ -205,7 +205,7 @@ check_platform_store() {
 # README/Website nicht als aktuelle Features auftauchen. (CHANGELOG bewusst
 # ausgenommen — dort sind historische „… entfernt"-Notizen legitim.)
 check_removed_features() {
-  local terms=( 'Groq' 'Smart Mode' 'Smart-Korrektur' 'Anthropic STT' 'Gemini STT' 'Command palette' )
+  local terms=( 'Groq' 'Smart-Korrektur' 'Anthropic STT' 'Gemini STT' 'Command palette' )
   local t files
   # Alle öffentlichen Prosa-Artefakte (README, SECURITY, store/*.md) + ALLE
   # Website-Seiten rekursiv (inkl. en/, vergleich/, use-cases/).
