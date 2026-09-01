@@ -1,0 +1,184 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+// Sechs Karten unter der Lead-Karte (Hotkey→Text). Icon-Pfade sind
+// Lucide-Outlines (24×24, stroke), inline statt Icon-Font — wie die
+// übrigen SVGs der Site.
+const cards = [
+  {
+    key: 'snippets',
+    icon: 'M13 4H8.8c-1.68 0-2.52 0-3.16.33a3 3 0 0 0-1.31 1.3C4 6.29 4 7.13 4 8.8v6.4c0 1.68 0 2.52.33 3.16a3 3 0 0 0 1.3 1.31c.65.33 1.49.33 3.17.33h6.4c1.68 0 2.52 0 3.16-.33a3 3 0 0 0 1.31-1.3c.33-.65.33-1.49.33-3.17V11M9 15h2m-2-4h5M18.4 2.6a2.1 2.1 0 0 1 3 3L16 11l-4 1 1-4Z',
+  },
+  {
+    key: 'smartmode',
+    icon: 'M12 3v3m0 12v3M5.6 5.6l2.2 2.2m8.4 8.4 2.2 2.2M3 12h3m12 0h3M5.6 18.4l2.2-2.2m8.4-8.4 2.2-2.2M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z',
+  },
+  {
+    key: 'sidepanel',
+    icon: 'M4 4h16c.55 0 1 .45 1 1v14c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V5c0-.55.45-1 1-1Zm5 0v16M6 8h1m-1 3h1m-1 3h1',
+  },
+  {
+    key: 'history',
+    icon: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5m4-1v5l4 2',
+  },
+  {
+    key: 'privacy',
+    icon: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z',
+  },
+  {
+    key: 'hardware',
+    icon: 'M6 9a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Zm3 0h6v6H9ZM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4',
+  },
+] as const;
+---
+
+<!-- FeatureHighlights — Funktionsüberblick zwischen SpatialJourney (deep)
+     und UseCaseCards (raised). Nutzen-zuerst-Copy, Details stehen im FAQ
+     und in der Screenshot-Galerie (interner Link unten). -->
+<section id="features" class="band band-spotlight py-24 sm:py-32 relative scroll-mt-20">
+  <div class="relative max-w-5xl mx-auto px-6">
+    <div class="text-center mb-14">
+      <SectionEyebrow key="highlights.label" class="reveal-up" />
+      <h2 class="section-title wp-kinetic-line">
+        <span data-i18n="highlights.titleLead">{t(lang, 'highlights.titleLead')}</span><!--
+        --><span class="text-gradient-brand" data-i18n="highlights.titleAccent">{t(lang, 'highlights.titleAccent')}</span><!--
+        --><span data-i18n="highlights.titleTail">{t(lang, 'highlights.titleTail')}</span>
+      </h2>
+    </div>
+
+    {/* Lead-Karte: der Kernmechanismus (Hotkey→Text) in voller Breite. */}
+    <div class="feature-card feature-card--lead scroll-reveal">
+      <span class="feature-card__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm7 10a7 7 0 0 1-14 0m7 7v3" />
+        </svg>
+      </span>
+      <div>
+        <h3 class="feature-card__title" data-i18n="highlights.hotkey.title">{t(lang, 'highlights.hotkey.title')}</h3>
+        <p class="feature-card__desc" data-i18n="highlights.hotkey.desc">{t(lang, 'highlights.hotkey.desc')}</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6 stagger-children scroll-reveal">
+      {cards.map(({ key, icon }) => (
+        <div class="feature-card stagger-item">
+          <span class="feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d={icon} />
+            </svg>
+          </span>
+          <div>
+            <h3 class="feature-card__title" data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</h3>
+            <p class="feature-card__desc" data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <p class="text-center mt-10">
+      <a href="#app-screenshots" class="feature-gallery-link">
+        <span data-i18n="highlights.galleryLink">{t(lang, 'highlights.galleryLink')}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
+      </a>
+    </p>
+  </div>
+</section>
+
+<style>
+  .feature-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-radius: var(--radius-card);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--color-brand-card);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow), box-shadow 0.3s var(--ease-flow);
+  }
+
+  .feature-card:hover {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .feature-card--lead {
+    padding: 2rem 1.75rem;
+  }
+
+  .feature-card__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
+  }
+
+  .feature-card__icon svg {
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+
+  .feature-card__title {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-bottom: 0.375rem;
+    line-height: 1.3;
+  }
+
+  .feature-card__desc {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--color-ink-muted);
+  }
+
+  .feature-gallery-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-brand-cyan);
+    text-decoration: none;
+  }
+
+  .feature-gallery-link svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    transition: transform 0.25s var(--ease-flow);
+  }
+
+  .feature-gallery-link:hover svg {
+    transform: translateX(4px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feature-card,
+    .feature-gallery-link svg {
+      transition: none;
+    }
+
+    .feature-card:hover {
+      transform: none;
+      box-shadow: var(--shadow-card);
+    }
+
+    .feature-gallery-link:hover svg {
+      transform: none;
+    }
+  }
+</style>

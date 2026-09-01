@@ -52,6 +52,12 @@ describe("buildSoftwareApplicationSchema", () => {
     expect(schema.description as string).toContain("Desktop-Sprach-Eingabe-Tool");
     expect(schema.description as string).toMatch(/lokal/i);
     expect(schema.description as string).toMatch(/Cursor/i);
+    // featureList mirrors the visible FeatureHighlights cards (localized).
+    expect(Array.isArray(schema.featureList)).toBe(true);
+    expect(schema.featureList).toHaveLength(7);
+    expect(schema.featureList as readonly string[]).toContain(
+      "Smart Mode: bereinigen, kürzen, übersetzen",
+    );
   });
 
   it("EN variant: switches inLanguage and url to en-US / /en/", () => {
@@ -66,16 +72,21 @@ describe("buildSoftwareApplicationSchema", () => {
     for (const url of schema.screenshot as readonly string[]) {
       expect(url).toMatch(/\/screenshots\/en\//);
     }
+    expect(schema.featureList as readonly string[]).toContain(
+      "Smart Mode: clean up, shorten, translate",
+    );
   });
 
-  it("honours optional overrides for OS list and screenshots", () => {
+  it("honours optional overrides for OS list, screenshots, and featureList", () => {
     const schema = buildSoftwareApplicationSchema({
       locale: "de",
       operatingSystems: ["Windows 11"],
       screenshots: ["https://example.test/shot.png"],
+      featureList: ["One feature"],
     });
     expect(schema.operatingSystem).toBe("Windows 11");
     expect(schema.screenshot).toEqual(["https://example.test/shot.png"]);
+    expect(schema.featureList).toEqual(["One feature"]);
   });
 
   it("defaults operatingSystem list covers Windows, macOS and Linux per PRD §C", () => {
