@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/l10n/persisted_l10n.dart';
 import 'package:whispaste/core/l10n/persisted_locale.dart';
 
@@ -88,6 +89,18 @@ void main() {
       writeLocaleMirror('fr');
       final l10n = await resolvePersistedL10n();
       expect(l10n.localeName, 'en');
+    });
+
+    // Regression guard: the allowlist used to be a hardcoded literal that
+    // drifted out of sync with the generated locale list (missed 'ru' when
+    // it was added). Iterating L10n.supportedLocales instead of naming
+    // codes means a newly added locale is covered automatically.
+    test('resolves every locale L10n ships translations for', () async {
+      for (final locale in L10n.supportedLocales) {
+        writeLocaleMirror(locale.languageCode);
+        final l10n = await resolvePersistedL10n();
+        expect(l10n.localeName, locale.languageCode);
+      }
     });
 
     // Regression guard for the 2026-09-01 `EXC_BAD_ACCESS` inside
