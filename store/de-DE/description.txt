@@ -15,4 +15,4 @@ Jede Aufnahme wird automatisch gespeichert. Durchsuchen, anheften, archivieren u
 Definiere ein kurzes Stichwort: WhisPaste ersetzt es vor dem Einfügen durch den vollständigen Text. Ideal für Signaturen, Anredeformeln und häufig benötigte Formulierungen.
 
 🎛️ FÜR DEINEN ARBEITSALLTAG
-Push-to-talk oder Toggle · Floating Button über allen Fenstern · System-Tray · Autostart mit Windows · Deutsch, Englisch und Hebräisch
+Push-to-talk oder Toggle · Floating Button über allen Fenstern · System-Tray · Autostart mit Windows · Deutsch, Englisch, Hebräisch und Russisch

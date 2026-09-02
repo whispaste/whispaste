@@ -13,4 +13,4 @@ VOICE SHORTCUTS
 Say a short trigger: WhisPaste expands it into the full text before it's inserted. Perfect for signatures, greetings, and frequently typed phrases.
 
 BUILT FOR DAILY WORK
-Push-to-talk or toggle · Floating Button above your other windows · Menu bar integration · Launch at Login · Light, Dark, and System appearance · English, German, and Hebrew UI
+Push-to-talk or toggle · Floating Button above your other windows · Menu bar integration · Launch at Login · Light, Dark, and System appearance · English, German, Hebrew, and Russian UI

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.72
+
+### New Features
+
+- **Русский: WhisPaste ist jetzt auch auf Russisch verfügbar.** Vierte Oberflächensprache neben Deutsch, Englisch und Hebräisch — Beitrag aus der Community.
+
+### Bug Fixes
+
+- **Hebräische Übersetzung vervollständigt:** 88 zuvor unübersetzte Oberflächentexte (u. a. Smart Mode, Textersetzungen-Import, Side Panel) ergänzt.
+- **Sprachauswahl in Floating-Fenstern** (z. B. Schnelleinfüge-Panel) berücksichtigte neu hinzugefügte Oberflächensprachen nicht automatisch — betraf zuletzt Russisch. Die Auswahl leitet sich jetzt aus der tatsächlich ausgelieferten Sprachliste ab, statt aus einer separat gepflegten Kopie.
+
 ## 1.2.71
 
 ### New Features
