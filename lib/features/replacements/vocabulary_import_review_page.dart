@@ -58,11 +58,16 @@ class _VocabularyImportReviewPageState
     setState(() {
       _query = query;
       final lower = query.trim().toLowerCase();
-      _filtered = lower.isEmpty
-          ? widget.candidates
-          : widget.candidates
-                .where((c) => c.toLowerCase().contains(lower))
-                .toList();
+
+      if (lower.isEmpty) {
+        _filtered = widget.candidates;
+      } else {
+        // Precompile RegExp to avoid allocating thousands of lowercased strings
+        // via `String.toLowerCase()` on each keystroke for large candidate lists,
+        // which can cause severe GC spikes.
+        final regex = RegExp(RegExp.escape(lower), caseSensitive: false);
+        _filtered = widget.candidates.where((c) => regex.hasMatch(c)).toList();
+      }
     });
   }
 
