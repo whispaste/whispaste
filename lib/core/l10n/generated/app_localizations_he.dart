@@ -337,7 +337,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsAutostartSyncFailed =>
-      'Autostart couldn\'t be registered with the operating system. This may be a permissions issue or your OS version isn\'t supported.';
+      'לא ניתן היה לרשום את ההפעלה האוטומטית במערכת ההפעלה. ייתכן שמדובר בבעיית הרשאות או שגרסת מערכת ההפעלה שלכם אינה נתמכת.';
 
   @override
   String get settingsShowNotifications => 'הצג התראות';
@@ -494,7 +494,7 @@ class L10nHe extends L10n {
 
   @override
   String get pasteFailureElevationBlocked =>
-      'Auto-Paste blocked: the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.';
+      'ההדבקה האוטומטית נחסמה: האפליקציה היעד פועלת בהרשאות מנהל. הפעילו את WhisPaste גם כמנהל כדי להדביק בה.';
 
   @override
   String get pasteFailureGeneric =>
@@ -527,10 +527,10 @@ class L10nHe extends L10n {
 
   @override
   String get pasteCapabilityWhyMac =>
-      'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.';
+      'WhisPaste זקוקה להרשאה כדי להקליד טקסט באפליקציה שבה אתם עובדים — ב-macOS ההרשאה הזו נקראת \"נגישות\".';
 
   @override
-  String get pasteCapabilityTroubleshoot => 'Having trouble?';
+  String get pasteCapabilityTroubleshoot => 'יש בעיה?';
 
   @override
   String get pasteCapabilityRepairHint =>
@@ -825,7 +825,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsAdvancedSubtitle =>
-      'Reset, error reporting, updates, and system behavior';
+      'איפוס, דיווח שגיאות, עדכונים והתנהגות המערכת';
 
   @override
   String get settingsResetToDefaults => 'אפס להגדרות ברירת מחדל';
@@ -1136,7 +1136,7 @@ class L10nHe extends L10n {
   String get analyticsTimeSaved => 'זמן שנחסך';
 
   @override
-  String get analyticsAvgLatency => 'Avg. Speed';
+  String get analyticsAvgLatency => 'מהירות ממוצעת';
 
   @override
   String get analyticsRecordingActivity => 'פעילות הקלטה';
@@ -1336,48 +1336,48 @@ class L10nHe extends L10n {
 
   @override
   String get replacementsImportScanning =>
-      'Scanning the folder — this can take a moment for large projects…';
+      'סורק את התיקייה — זה עשוי לקחת רגע בפרויקטים גדולים…';
 
   @override
   String get replacementsImportError =>
-      'Import failed — the folder could not be scanned.';
+      'הייבוא נכשל — לא ניתן היה לסרוק את התיקייה.';
 
   @override
   String get replacementsImportedBadge => 'יובא';
 
   @override
   String get replacementsImportNothingFound =>
-      'No new identifiers found in this folder.';
+      'לא נמצאו מזהים חדשים בתיקייה זו.';
 
   @override
-  String get replacementsImportReviewTitle => 'Choose what to import';
+  String get replacementsImportReviewTitle => 'בחרו מה לייבא';
 
   @override
   String replacementsImportReviewSubtitle(int count) {
-    return '$count candidates found — pick which ones become replacements. Nothing is added until you confirm.';
+    return 'נמצאו $count מועמדים — בחרו אילו יהפכו להחלפות. שום דבר לא יתווסף עד שתאשרו.';
   }
 
   @override
-  String get replacementsImportReviewSearchHint => 'Filter candidates';
+  String get replacementsImportReviewSearchHint => 'סינון מועמדים';
 
   @override
-  String get replacementsImportReviewSelectAllFiltered => 'Select all shown';
+  String get replacementsImportReviewSelectAllFiltered => 'בחר את כל המוצגים';
 
   @override
-  String get replacementsImportReviewDeselectAll => 'Deselect all';
+  String get replacementsImportReviewDeselectAll => 'בטל בחירת הכול';
 
   @override
   String replacementsImportReviewSelectedCount(int selected, int total) {
-    return '$selected of $total selected';
+    return '$selected מתוך $total נבחרו';
   }
 
   @override
   String get replacementsImportReviewNoMatches =>
-      'No candidates match your filter.';
+      'אין מועמדים התואמים לסינון שלכם.';
 
   @override
   String replacementsImportReviewImportButton(int count) {
-    return 'Import selected ($count)';
+    return 'ייבא נבחרים ($count)';
   }
 
   @override
@@ -1403,7 +1403,7 @@ class L10nHe extends L10n {
 
   @override
   String get replacementsFuzzyToleranceHint =>
-      'How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.';
+      'עד כמה דומה צריך להישמע ביטוי מוכתב לטריגר כדי שעדיין ייחשב כהתאמה. מחמיר תופס רק ניסוח כמעט זהה, כך שכמעט שום דבר לא מוחלף בטעות, אך טריגר שנאמר בצורה לא ברורה עלול לחמוק בלי התאמה. רגיל הוא ברירת מחדל מאוזנת לשימוש יומיומי. סובלני תופס גם הגייה או ניסוח שונים באופן ניכר, בסיכון גבוה יותר להתאמת משהו שלא היה מיועד להחלפה.';
 
   @override
   String replacementsFuzzyTooShortWarning(int minLength) {
@@ -1488,7 +1488,7 @@ class L10nHe extends L10n {
   String get snippetsFieldAdd => 'הוסף שדה';
 
   @override
-  String get snippetsFieldInsertIntoTemplate => 'Insert into template';
+  String get snippetsFieldInsertIntoTemplate => 'הוסף לתוך התבנית';
 
   @override
   String snippetsFieldsMinWarning(int min) {
@@ -1496,19 +1496,19 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get snippetsTemplateLabel => 'Template';
+  String get snippetsTemplateLabel => 'תבנית';
 
   @override
   String get snippetsTemplateHint =>
-      'Write your snippet text, then use each field\'s insert button to place it wherever you want.';
+      'כתבו את טקסט הקטע, ולאחר מכן השתמשו בכפתור ההוספה של כל שדה כדי למקם אותו במקום הרצוי.';
 
   @override
   String get snippetsTemplateFieldHint =>
-      'Write your text here and insert fields using the buttons above.';
+      'כתבו כאן את הטקסט שלכם והוסיפו שדות באמצעות הכפתורים שלמעלה.';
 
   @override
   String get snippetsTemplateMissingFieldsWarning =>
-      'Not all fields appear in the template yet — their dictated text would go unused.';
+      'לא כל השדות מופיעים עדיין בתבנית — הטקסט המוכתב שלהם יישאר בלתי מנוצל.';
 
   @override
   String get snippetsInteractiveBadge => 'אינטראקטיבי';
@@ -1646,11 +1646,11 @@ class L10nHe extends L10n {
       'זיהוי דיבור מקומי וענן: מהיר, מדויק, רב-לשוני.';
 
   @override
-  String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
+  String get aboutParakeet => 'NVIDIA Parakeet ו-sherpa-onnx';
 
   @override
   String get aboutParakeetDesc =>
-      'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).';
+      'זיהוי דיבור מקומי, מותאם למהירות על חומרת CPU רגילה (כ-25 שפות).';
 
   @override
   String get aboutPrivacyFirst => 'פרטיות קודמת לכול';
@@ -1875,7 +1875,7 @@ class L10nHe extends L10n {
   String get statusBarTranscribing => 'מתמלל…';
 
   @override
-  String get statusBarRefining => 'Refining…';
+  String get statusBarRefining => 'מעודן…';
 
   @override
   String get statusBarDone => 'הסתיים';
@@ -2302,7 +2302,7 @@ class L10nHe extends L10n {
 
   @override
   String get historyVoiceNoteHint =>
-      'Tip: say “tag: name” or “correct: text” while recording.';
+      'טיפ: אמרו \"tag: שם\" או \"correct: טקסט\" בזמן ההקלטה.';
 
   @override
   String get historyNoteAdded => 'הערה נוספה';
@@ -2633,11 +2633,11 @@ class L10nHe extends L10n {
       'המשך לפעול במגש המערכת כשסוגרים את החלון';
 
   @override
-  String get settingsSidePanelEnabled => 'Clipboard Quick-Paste Panel';
+  String get settingsSidePanelEnabled => 'סרגל הדבקה מהירה';
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
-      'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history';
+      'סרגל שנפתח בהצבעה על קצה המסך השמאלי, לתמלולים, קטעים והיסטוריית לוח הגזירים';
 
   @override
   String get settingsErrorReporting => 'דיווח שגיאות';
@@ -2967,7 +2967,7 @@ class L10nHe extends L10n {
   String get overlayTranscribing => 'מתמלל…';
 
   @override
-  String get overlayRefining => 'Refining…';
+  String get overlayRefining => 'מעודן…';
 
   @override
   String get overlayDone => 'הועתק';
@@ -3043,7 +3043,7 @@ class L10nHe extends L10n {
   String get a11yRecordingOverlay => 'שכבת הקלטה';
 
   @override
-  String get a11ySidePanel => 'Quick paste panel';
+  String get a11ySidePanel => 'סרגל הדבקה מהירה';
 
   @override
   String get trayStatusRecording => 'מקליט…';
@@ -3076,7 +3076,7 @@ class L10nHe extends L10n {
   String get undo => 'בטל';
 
   @override
-  String get hintDismiss => 'Dismiss hint';
+  String get hintDismiss => 'סגור רמז';
 
   @override
   String get voiceNoteButton => 'הערת קול';
@@ -3383,7 +3383,7 @@ class L10nHe extends L10n {
 
   @override
   String get cpuFallbackToast =>
-      'Transcription is taking a little longer than usual right now, it\'s still working.';
+      'התמלול לוקח כרגע קצת יותר זמן מהרגיל, אך הוא עדיין פועל.';
 
   @override
   String get recoveryExhaustedToast =>
@@ -3461,39 +3461,39 @@ class L10nHe extends L10n {
   String get settingsGpuAccelerationDisabled => 'CPU בלבד';
 
   @override
-  String get settingsSttEngine => 'Engine';
+  String get settingsSttEngine => 'מנוע';
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet';
+      'Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה על חומרת CPU בלבד, אך מכסה כ-25 שפות ועדיין ללא backend של GPU';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
 
   @override
-  String get settingsSttEngineParakeet => 'Parakeet (fastest, ~25 languages)';
+  String get settingsSttEngineParakeet => 'Parakeet (המהיר ביותר, כ-25 שפות)';
 
   @override
-  String get parakeetModelTitle => 'Parakeet TDT model';
+  String get parakeetModelTitle => 'מודל Parakeet TDT';
 
   @override
   String get parakeetModelSubtitle =>
-      'One-time download (~640 MB), then runs fully offline';
+      'הורדה חד-פעמית (כ-640MB), ולאחר מכן פועל לגמרי במצב לא מקוון';
 
   @override
-  String get parakeetModelDownload => 'Download';
+  String get parakeetModelDownload => 'הורד';
 
   @override
-  String get parakeetModelDownloading => 'Downloading…';
+  String get parakeetModelDownloading => 'מוריד…';
 
   @override
-  String get parakeetModelInstalled => 'Installed';
+  String get parakeetModelInstalled => 'מותקן';
 
   @override
-  String get parakeetModelDelete => 'Delete';
+  String get parakeetModelDelete => 'מחק';
 
   @override
-  String get parakeetModelCancel => 'Cancel';
+  String get parakeetModelCancel => 'בטל';
 
   @override
   String get settingsSearchHint => 'חיפוש הגדרות…';
@@ -3775,149 +3775,149 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get sidePanelTranscriptionsTitle => 'Transcriptions';
+  String get sidePanelTranscriptionsTitle => 'תמלולים';
 
   @override
-  String get sidePanelSnippetsTitle => 'Snippets';
+  String get sidePanelSnippetsTitle => 'קטעים';
 
   @override
-  String get sidePanelClipboardHistoryTitle => 'Clipboard History';
+  String get sidePanelClipboardHistoryTitle => 'היסטוריית לוח הגזירים';
 
   @override
-  String get sidePanelClipboardHistoryEmpty => 'Nothing copied yet';
+  String get sidePanelClipboardHistoryEmpty => 'עדיין לא הועתק כלום';
 
   @override
   String get sidePanelClipboardHistoryEmptyHint =>
-      'Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.';
+      'כל מה שתעתיקו בזמן ש-WhisPaste פועלת יופיע כאן — מתנקה עם הפעלה מחדש של האפליקציה.';
 
   @override
-  String get sidePanelClose => 'Close panel';
+  String get sidePanelClose => 'סגור סרגל';
 
   @override
-  String get sidePanelSearchHint => 'Search';
+  String get sidePanelSearchHint => 'חיפוש';
 
   @override
-  String get sidePanelSearchFieldLabel => 'Search this list';
+  String get sidePanelSearchFieldLabel => 'חיפוש ברשימה זו';
 
   @override
-  String get sidePanelNoMatches => 'No matches';
+  String get sidePanelNoMatches => 'אין התאמות';
 
   @override
-  String get sidePanelNoMatchesHint => 'Try a different search term.';
+  String get sidePanelNoMatchesHint => 'נסו מונח חיפוש אחר.';
 
   @override
   String get settingsSmartMode => 'Smart Mode';
 
   @override
   String get settingsSmartModeSubtitle =>
-      'Local text cleanup, shortening, and translation after dictation';
+      'ניקוי טקסט, קיצור ותרגום מקומיים לאחר ההכתבה';
 
   @override
-  String get smartModeStandardPreset => 'Standard preset';
+  String get smartModeStandardPreset => 'פריסט רגיל';
 
   @override
-  String get smartModePresetOff => 'Off';
+  String get smartModePresetOff => 'כבוי';
 
   @override
   String get smartModePresetOffDescription =>
-      'No automatic post-processing — the dictated text is used exactly as transcribed.';
+      'אין עיבוד אוטומטי לאחר ההקלטה — הטקסט המוכתב משמש בדיוק כפי שתומלל.';
 
   @override
-  String get smartModePresetCleanup => 'Cleanup';
+  String get smartModePresetCleanup => 'ניקוי';
 
   @override
   String get smartModePresetCleanupDescription =>
-      'Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.';
+      'מסיר מילות מילוי כמו \"אה\" ומתקן פיסוק ורישיות, בלי לשנות את הניסוח, המשמעות או השפה.';
 
   @override
-  String get smartModePresetConcise => 'Concise';
+  String get smartModePresetConcise => 'תמצות';
 
   @override
   String get smartModePresetConciseDescription =>
-      'Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.';
+      'מקצר את הטקסט על ידי הסרת חזרות ומילוי, תוך שמירה על כל עובדה חשובה, באותה שפה.';
 
   @override
-  String get smartModePresetTranslate => 'Translate';
+  String get smartModePresetTranslate => 'תרגום';
 
   @override
   String get smartModePresetTranslateDescription =>
-      'Translates the dictated text into the target language set below.';
+      'מתרגם את הטקסט המוכתב לשפת היעד שנקבעה למטה.';
 
   @override
-  String get smartModeTargetLanguage => 'Target language';
+  String get smartModeTargetLanguage => 'שפת יעד';
 
   @override
-  String get smartModeTargetLanguageGerman => 'German';
+  String get smartModeTargetLanguageGerman => 'גרמנית';
 
   @override
-  String get smartModeTargetLanguageEnglish => 'English';
+  String get smartModeTargetLanguageEnglish => 'אנגלית';
 
   @override
-  String get smartModeTargetLanguageSpanish => 'Spanish';
+  String get smartModeTargetLanguageSpanish => 'ספרדית';
 
   @override
-  String get smartModeTargetLanguageFrench => 'French';
+  String get smartModeTargetLanguageFrench => 'צרפתית';
 
   @override
-  String get smartModeTargetLanguagePortuguese => 'Portuguese';
+  String get smartModeTargetLanguagePortuguese => 'פורטוגזית';
 
   @override
-  String get smartModeTargetLanguageMandarin => 'Mandarin';
+  String get smartModeTargetLanguageMandarin => 'מנדרינית';
 
   @override
-  String get smartModeTargetLanguageRussian => 'Russian';
+  String get smartModeTargetLanguageRussian => 'רוסית';
 
   @override
-  String get smartModeDownload => 'Download';
+  String get smartModeDownload => 'הורד';
 
   @override
-  String get smartModeDownloadComplete => 'Smart Mode model ready to use';
+  String get smartModeDownloadComplete => 'מודל Smart Mode מוכן לשימוש';
 
   @override
-  String get smartModeRamWarningTitle => 'Limited memory detected';
+  String get smartModeRamWarningTitle => 'זוהה זיכרון מוגבל';
 
   @override
   String get smartModeRamWarningBody =>
-      'Smart Mode\'s local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?';
+      'המודל המקומי של Smart Mode פועל בצורה הטובה ביותר עם 8GB זיכרון RAM ומעלה. הוא עשוי לעבוד גם עם פחות, אך עלול לפעול לאט או להיכשל במכשיר זה. להוריד בכל זאת?';
 
   @override
-  String get smartModeRamWarningContinue => 'Download anyway';
+  String get smartModeRamWarningContinue => 'הורד בכל זאת';
 
   @override
-  String get smartModeRamWarningCancel => 'Cancel';
+  String get smartModeRamWarningCancel => 'בטל';
 
   @override
   String get smartModeMemoryFootprintInfo =>
-      'Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.';
+      'פועל לגמרי במכשיר. בזמן פעילות הוא צורך כ-4–5GB זיכרון RAM בנוסף לשטח האחסון — משותף עם מודל התמלול, כך שהצריכה הכוללת תלויה גם באיזה מודל STT טעון בנוסף.';
 
   @override
   String get smartModeSpeedExampleInfo =>
-      'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.';
+      'לדוגמה: הכתבה טיפוסית של 50 מילים אורכת כ-1–6 שניות לעיבוד, בהתאם לחומרת המכשיר שלכם.';
 
   @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override
-  String get settingsSmartModeHotkeyEnabled => 'Smart-Mode hotkey';
+  String get settingsSmartModeHotkeyEnabled => 'מקש קיצור ל-Smart Mode';
 
   @override
   String get settingsSmartModeHotkeyHint =>
-      'Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.';
+      'מתחיל הקלטה עם פריסט קבוע, ללא תלות בפריסט הרגיל שלמעלה. תומך ב-Push-to-Talk בדיוק כמו מקש הקיצור הראשי.';
 
   @override
-  String get settingsSmartModeHotkeyPreset => 'Preset';
+  String get settingsSmartModeHotkeyPreset => 'פריסט';
 
   @override
-  String get settingsSmartModeCurrentHotkey => 'Combination';
+  String get settingsSmartModeCurrentHotkey => 'צירוף מקשים';
 
   @override
   String settingsSmartModeHotkeyCollision(String action) {
-    return 'This combination is already used for \"$action\". Pick a different one.';
+    return 'צירוף זה כבר משמש עבור \"$action\". בחרו צירוף אחר.';
   }
 
   @override
   String get settingsSmartModeHotkeyInactive =>
-      'This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.';
+      'לא ניתן היה לרשום צירוף זה — מקש הקיצור של Smart Mode אינו פעיל כרגע. בחרו צירוף אחר.';
 
   @override
   String get smartModeOnboardingHintTitle => 'נסה את Smart Mode';
