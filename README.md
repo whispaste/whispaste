@@ -60,7 +60,7 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
 
-**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE interface · Autostart · System tray
+**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU interface · Autostart · System tray
 
 ## Development
 
