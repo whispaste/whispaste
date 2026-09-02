@@ -20,6 +20,7 @@ class NotesListView extends StatelessWidget {
     required this.focusedId,
     required this.onNoteTap,
     required this.onCopy,
+    required this.onDuplicate,
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
@@ -39,6 +40,7 @@ class NotesListView extends StatelessWidget {
   final String? focusedId;
   final ValueChanged<Note> onNoteTap;
   final ValueChanged<Note> onCopy;
+  final ValueChanged<Note> onDuplicate;
   final ValueChanged<Note> onFavoriteToggle;
 
   /// Make the given note the quick note (exclusive — the previous mark is
@@ -78,6 +80,7 @@ class NotesListView extends StatelessWidget {
             isFocused: note.id == focusedId,
             onTap: () => onNoteTap(note),
             onCopy: () => onCopy(note),
+            onDuplicate: () => onDuplicate(note),
             onFavoriteToggle: () => onFavoriteToggle(note),
             onQuickNoteSet: () => onQuickNoteSet(note),
             onQuickNoteClear: onQuickNoteClear,

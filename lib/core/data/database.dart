@@ -2425,6 +2425,40 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Creates a new, empty note and returns it.
+  /// Duplicate a note with a new ID.
+  Future<Note?> duplicateNote(String noteId) {
+    return _writeCoordinator.write<Note?>(() async {
+      final original = await (select(
+        notes,
+      )..where((n) => n.id.equals(noteId))).getSingleOrNull();
+      if (original == null) return null;
+
+      final newId = _uuid();
+      final now = DateTime.now();
+
+      final companion = NotesCompanion.insert(
+        id: newId,
+        content: original.content,
+        pinned: const Value(false),
+        isQuickNote: const Value(false),
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await into(notes).insert(companion);
+
+      return Note(
+        id: newId,
+        content: original.content,
+        pinned: false,
+        isQuickNote: false,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+    });
+  }
+
   Future<Note> createNote() {
     return _writeCoordinator.write<Note>(() async {
       final id = _uuid();

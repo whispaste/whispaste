@@ -340,6 +340,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     });
   }
 
+  Future<void> _duplicateNote(Note note) async {
+    final dup = await _actions.duplicate(note.id);
+    if (!mounted || dup == null) return;
+    _selectNote(dup);
+  }
+
   Future<void> _selectNote(Note note) async {
     if (note.id == _selectedNoteId) return;
     await _leaveCurrentNote();
@@ -858,6 +864,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
               duration: const Duration(seconds: 2),
             );
           },
+          onDuplicate: _duplicateNote,
           onCloseEditor: _closeEditor,
           onFavoriteToggle: _toggleFavorite,
           onQuickNoteSet: _setQuickNote,
