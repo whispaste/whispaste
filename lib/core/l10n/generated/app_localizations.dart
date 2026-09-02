@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' as intl;
 import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_he.dart';
+import 'app_localizations_ru.dart';
 
 // ignore_for_file: type=lint
 
@@ -97,6 +98,7 @@ abstract class L10n {
     Locale('de'),
     Locale('en'),
     Locale('he'),
+    Locale('ru'),
   ];
 
   /// No description provided for @appName.
@@ -7043,7 +7045,7 @@ class _L10nDelegate extends LocalizationsDelegate<L10n> {
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['de', 'en', 'he'].contains(locale.languageCode);
+      <String>['de', 'en', 'he', 'ru'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_L10nDelegate old) => false;
@@ -7058,6 +7060,8 @@ L10n lookupL10n(Locale locale) {
       return L10nEn();
     case 'he':
       return L10nHe();
+    case 'ru':
+      return L10nRu();
   }
 
   throw FlutterError(
