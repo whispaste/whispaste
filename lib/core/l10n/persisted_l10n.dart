@@ -4,7 +4,12 @@ import 'generated/app_localizations.dart';
 import 'persisted_locale.dart';
 
 /// Locale codes WhisPaste ships translations for.
-const _supported = {'de', 'en', 'he'};
+///
+/// Derived from [L10n.supportedLocales] rather than duplicated as a literal
+/// set: a hardcoded copy silently drifted out of sync when 'ru' was added
+/// (floating render engines kept falling back to English for it) even
+/// though every other locale-aware picker already reads the generated list.
+final _supported = L10n.supportedLocales.map((l) => l.languageCode).toSet();
 
 /// Resolves [L10n] from the persisted locale without a [Localizations]
 /// ancestor.
