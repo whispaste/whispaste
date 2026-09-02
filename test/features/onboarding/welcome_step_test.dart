@@ -81,9 +81,9 @@ void main() {
           reason: 'expected native label for ${locale.languageCode}',
         );
       }
-      // Sanity: today's bundled locales are de/en/he, so we expect
-      // exactly three labels — guards against accidental duplication.
-      expect(L10n.supportedLocales.length, 3);
+      // Sanity: today's bundled locales are de/en/he/ru, so we expect
+      // exactly four labels — guards against accidental duplication.
+      expect(L10n.supportedLocales.length, 4);
     });
 
     testWidgets('updates locale when the German label is tapped', (

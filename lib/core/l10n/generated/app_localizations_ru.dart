@@ -1143,7 +1143,7 @@ class L10nRu extends L10n {
   }
 
   @override
-  String get onboardingWelcome => 'Скажите один раз. Вставьте где угодно.';
+  String get onboardingWelcome => 'Скажите раз. Вставьте где угодно.';
 
   @override
   String get feedbackTitle => 'Отправить отзыв';
@@ -2846,25 +2846,25 @@ class L10nRu extends L10n {
       'Как запускается приложение, и как выглядит оверлей записи.';
 
   @override
-  String get onboardingBeat1Title => 'Нажмите кнопку, скажите, готово';
+  String get onboardingBeat1Title => 'Хоткей, голос, готово';
 
   @override
   String get onboardingBeat1Caption =>
-      'Запись начинается мгновенно — ваши слова превращаются в текст на месте курсора.';
+      'Запись начинается мгновенно — слова становятся текстом у курсора.';
 
   @override
-  String get onboardingBeat2Title => 'Работает локально, на вашем железе';
+  String get onboardingBeat2Title => 'Локально, на вашем железе';
 
   @override
   String get onboardingBeat2Caption =>
-      'Транскрипция происходит на вашем устройстве — интернет не нужен.';
+      'Транскрипция — на вашем устройстве, интернет не нужен.';
 
   @override
-  String get onboardingBeat3Title => 'Везде, где вы печатаете';
+  String get onboardingBeat3Title => 'Везде, где печатаете';
 
   @override
   String get onboardingBeat3Caption =>
-      'Браузер, почта, редактор — WhisPaste работает в любом приложении.';
+      'Браузер, почта, редактор — WhisPaste работает везде.';
 
   @override
   String get onboardingMicChipReady => 'Микрофон готов';
@@ -2897,14 +2897,14 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingModelGpuCpuFallback =>
-      'Оптимизированное GPU-ускорение недоступно, приложение будет использовать CPU';
+      'Оптимизированное ускорение GPU недоступно, используется CPU';
 
   @override
   String get onboardingModelEngineParakeetLabel => 'Быстро и в Европе';
 
   @override
   String get onboardingModelEngineParakeetDesc =>
-      'Самый быстрый способ набрать текст примерно на 25 европейских языках, включая немецкий. Отлично работает на любом железе, с GPU и без.';
+      'Самый быстрый способ набрать текст на ~25 европейских языках, включая немецкий. Работает на любой технике, с GPU и без.';
 
   @override
   String get onboardingModelEngineWhisperLabel => 'Все 99 языков';
