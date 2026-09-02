@@ -2438,7 +2438,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
       final companion = NotesCompanion.insert(
         id: newId,
-        content: original.content,
+        content: Value(original.content),
         pinned: const Value(false),
         isQuickNote: const Value(false),
         createdAt: now,

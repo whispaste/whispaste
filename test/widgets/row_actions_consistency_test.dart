@@ -60,6 +60,7 @@ Widget _historyRow() => HistoryEntryRow(
   isSelected: false,
   onTap: () {},
   onCopy: () {},
+  onDuplicate: () {},
   onPin: () {},
   onDelete: () {},
 );
@@ -69,6 +70,7 @@ Widget _compactRow() => HistoryCompactRow(
   isSelected: false,
   onTap: () {},
   onCopy: () {},
+  onDuplicate: () {},
   onPin: () {},
   onDelete: () {},
 );
@@ -81,6 +83,7 @@ Widget _notesRow({bool isQuickNote = false}) => NotesListTile(
   isFocused: false,
   onTap: () {},
   onCopy: () {},
+  onDuplicate: () {},
   onFavoriteToggle: () {},
   onQuickNoteSet: () {},
   onQuickNoteClear: () {},
