@@ -57,12 +57,20 @@ class _VocabularyImportReviewPageState
   void _applyFilter(String query) {
     setState(() {
       _query = query;
-      final lower = query.trim().toLowerCase();
-      _filtered = lower.isEmpty
-          ? widget.candidates
-          : widget.candidates
-                .where((c) => c.toLowerCase().contains(lower))
-                .toList();
+      final trimmed = query.trim();
+      if (trimmed.isEmpty) {
+        _filtered = widget.candidates;
+        return;
+      }
+
+      // ⚡ Bolt: Precompile case-insensitive RegExp to avoid allocating new
+      // lowercased String objects on every item in the tight loop.
+      // This view handles ~10,000 items according to the PRD, where
+      // repeated `.toLowerCase()` causes massive GC pressure during search.
+      final searchRegex = RegExp(RegExp.escape(trimmed), caseSensitive: false);
+      _filtered = widget.candidates
+          .where((c) => searchRegex.hasMatch(c))
+          .toList();
     });
   }
 
