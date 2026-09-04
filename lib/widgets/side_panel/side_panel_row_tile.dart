@@ -87,7 +87,7 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
           onExit: (_) => setState(() => _isHovered = false),
           child: WpFocusRing(
             focusNode: _focusNode,
-            radius: WpRadius.borderLg,
+            radius: WpRadius.lg,
             child: GestureDetector(
               onHorizontalDragStart: widget.onDragStart == null
                   ? null
