@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.73
+
+### Maintenance
+
+- **Onboarding-Schritt-Tracking korrigiert:** der erste Willkommens-Schritt wurde in der anonymen Nutzungsstatistik silently untererfasst, wenn Einstellungen synchron geladen wurden (der Standardfall bei einer frischen Installation).
+- **Neue, wöchentlich rotierende Kohorten-Kennung** für die anonyme Nutzungsstatistik: ermöglicht verlässlichere Wiederkehrer-Auswertungen pro Kalenderwoche, ohne ein Gerät dauerhaft zu identifizieren — Details in der Datenschutzerklärung (Abschnitt 15).
+
 ## 1.2.72
 
 ### New Features
