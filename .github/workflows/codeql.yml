@@ -41,14 +41,46 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: c-cpp
-          build-mode: none
+          build-mode: manual
           config-file: .github/codeql/codeql-config-cpp.yml
+
+      # build-mode: none left CodeQL unable to resolve Win32/GDI+/Flutter
+      # embedder types, producing false positives (e.g. output parameters
+      # misread as globals, `std::vector` misread as a variable named
+      # "vector"). A real build gives it accurate type info instead.
+      - name: Build Windows runner
+        run: flutter build windows --debug
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:c-cpp"
+
+  analyze-actions:
+    name: Analyze GitHub Actions workflows
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:actions"
