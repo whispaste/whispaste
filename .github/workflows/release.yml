@@ -691,11 +691,13 @@ jobs:
       # Uploads package + listing metadata (title/description/features/
       # keywords/release notes from store/) and COMMITS the submission —
       # unlike the previous msstore-CLI job, this does reach Certification
-      # automatically. That's safe for Pricing V2: the classic API leaves
-      # Pricing untouched (see the script's own pricing rationale in its
-      # header), so the submission simply carries forward whatever price is
-      # already live in Partner Center — never a €0/reset listing. Still
-      # verify the live price once after the first real run of this job (see
+      # automatically. Pricing (store/defaults.json's default.PriceId) is
+      # explicitly written on every submission since 2026-09-04 (Microsoft
+      # support confirmed the account's Pricing V2 "Base" GET value can
+      # never be passed through untouched — see the script's own header for
+      # the full trail). scripts/verify-ms-store-listing.ps1 checks the
+      # written price against defaults.json after every submission; run it
+      # manually after the first real run following any PriceId change (see
       # docs/store-release.md).
       - name: Submit to Microsoft Store (classic DevCenter API, commits)
         id: submit
