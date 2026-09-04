@@ -57,12 +57,18 @@ class _VocabularyImportReviewPageState
   void _applyFilter(String query) {
     setState(() {
       _query = query;
-      final lower = query.trim().toLowerCase();
-      _filtered = lower.isEmpty
-          ? widget.candidates
-          : widget.candidates
-                .where((c) => c.toLowerCase().contains(lower))
-                .toList();
+      final trimmed = query.trim();
+      if (trimmed.isEmpty) {
+        _filtered = widget.candidates;
+      } else {
+        // ⚡ Bolt: Precompile RegExp with `caseSensitive: false` before the loop
+        // to avoid allocating thousands of new lowercased String objects via
+        // `toLowerCase()` per keystroke on large vocabulary imports (10k+ candidates).
+        final regex = RegExp(RegExp.escape(trimmed), caseSensitive: false);
+        _filtered = widget.candidates
+            .where((c) => regex.hasMatch(c))
+            .toList();
+      }
     });
   }
 
