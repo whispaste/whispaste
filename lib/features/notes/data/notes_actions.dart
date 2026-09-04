@@ -18,6 +18,13 @@ class NotesActions {
 
   Future<Note> create() => _db.createNote();
 
+  /// Duplicates a note with the given content, returning the newly created note.
+  Future<Note> duplicate(String content) async {
+    final newNote = await create();
+    await save(newNote.id, content);
+    return (await getNote(newNote.id)) ?? newNote;
+  }
+
   /// One-shot read of a single note — the deep-link case (open exactly this
   /// note), where the id is known but the note may not be in the currently
   /// streamed list at all (wrong filter, list not emitted yet). Returns

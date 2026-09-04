@@ -574,6 +574,16 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     );
   }
 
+  Future<void> _duplicateNote(Note note) async {
+    await _autosave.flush();
+    final contentToDuplicate = (note.id == _selectedNoteId)
+        ? _editorController.text
+        : note.content;
+    final newNote = await _actions.duplicate(contentToDuplicate);
+    if (!mounted) return;
+    _selectNote(newNote);
+  }
+
   /// Only reachable from the trash view (list tile / editor toolbar there).
   Future<void> _deleteForever(Note note) async {
     // Flush first, same as favourite/trash: any pending autosave write
@@ -858,6 +868,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
               duration: const Duration(seconds: 2),
             );
           },
+          onDuplicate: _duplicateNote,
           onCloseEditor: _closeEditor,
           onFavoriteToggle: _toggleFavorite,
           onQuickNoteSet: _setQuickNote,

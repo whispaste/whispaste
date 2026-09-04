@@ -8,3 +8,8 @@
 ## 2025-02-18 - Note Copy Action and Telemetry Avoidance
 **Learning:** In WhisPaste, note contents are explicitly on a telemetry negative list (unlike history entries). When adding standard actions like copying notes to the clipboard, do not reuse the general `copyToClipboardWithToast` utility because it emits a telemetry event.
 **Action:** Sprout should use `Clipboard.setData(ClipboardData(text: content))` followed by `WpToast.show(...)` directly when working with privacy-sensitive content like notes.
+## 2024-05-18 - Note Duplication
+
+**Learning:** When implementing actions that duplicate the currently active entry in a live editor (like a note), it's crucial to first flush any pending autosaves and fetch the live content directly from the editor controller rather than the cached `note` object, to ensure unsaved edits aren't lost in the duplicate.
+
+**Action:** Before duplicating an active entry, call `await _autosave.flush()` and determine the content dynamically: `(note.id == _selectedNoteId) ? _editorController.text : note.content`.

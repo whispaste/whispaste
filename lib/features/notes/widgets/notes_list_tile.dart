@@ -28,6 +28,7 @@ class NotesListTile extends StatefulWidget {
     required this.isFocused,
     required this.onTap,
     required this.onCopy,
+    required this.onDuplicate,
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
@@ -51,6 +52,7 @@ class NotesListTile extends StatefulWidget {
   final bool isFocused;
   final VoidCallback onTap;
   final VoidCallback onCopy;
+  final VoidCallback onDuplicate;
   final VoidCallback onFavoriteToggle;
 
   /// Makes this note the quick note. Offered only while it is *not* already
@@ -298,6 +300,13 @@ class _NotesListTileState extends State<NotesListTile> {
                             icon: LucideIcons.copy,
                             tooltip: l10n.notesCopy,
                             onTap: widget.onCopy,
+                            dense: true,
+                          ),
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            icon: LucideIcons.files,
+                            tooltip: l10n.actionDuplicate,
+                            onTap: widget.onDuplicate,
                             dense: true,
                           ),
                           if (!widget.note.isQuickNote)
