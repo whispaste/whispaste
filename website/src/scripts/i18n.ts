@@ -553,8 +553,8 @@ export const i18n: Record<string, Record<string, string>> = {
     // `voice command` / `voice translator`; the explanatory copy frames
     // WhisPaste as a `voice-input tool` with `transcripts` as the artefact.
     'explainer.whisperDesktop.breadcrumb': 'Whisper desktop',
-    'explainer.whisperDesktop.seoTitle': 'The Whisper Desktop App — Free & 100% Local | WhisPaste',
-    'explainer.whisperDesktop.seoDescription': 'WhisPaste turns OpenAI Whisper into a real desktop app: press a hotkey, speak, and the transcript lands at your cursor — free, open-source, 100% local.',
+    'explainer.whisperDesktop.seoTitle': 'Whisper Desktop App — Free Download, 100% Local | WhisPaste',
+    'explainer.whisperDesktop.seoDescription': 'Free, open-source Whisper app for Windows, macOS & Linux. Press a hotkey, speak — your text appears at the cursor instantly. 100% offline, no upload.',
     'explainer.whisperDesktop.heroHeading': 'Whisper Desktop, made simple: speak and get text, instantly.',
     'explainer.whisperDesktop.heroLead': 'WhisPaste is a free, open-source desktop app that turns your voice into text anywhere on your computer. Press a hotkey, speak, and the words appear right where your cursor is — no typing, no cloud, no account needed.',
     'explainer.whisperDesktop.faq.whatIs.q': 'What is a "Whisper desktop app"?',
@@ -1414,8 +1414,8 @@ export const i18n: Record<string, Record<string, string>> = {
     // Erklär-Texte rahmen WhisPaste als `Sprach-Eingabe-Tool` mit
     // `Transkript` als Artefakt.
     'explainer.whisperDesktop.breadcrumb': 'Whisper Desktop',
-    'explainer.whisperDesktop.seoTitle': 'Whisper als Desktop-App — kostenlos & 100 % lokal | WhisPaste',
-    'explainer.whisperDesktop.seoDescription': 'WhisPaste macht aus OpenAI Whisper eine echte Desktop-App: Hotkey drücken, sprechen, das Transkript landet am Cursor — kostenlos, quelloffen, 100 % lokal.',
+    'explainer.whisperDesktop.seoTitle': 'Whisper Desktop-App — Kostenloser Download, 100 % lokal | WhisPaste',
+    'explainer.whisperDesktop.seoDescription': 'Kostenlose Open-Source-Whisper-App für Windows, macOS & Linux: Hotkey drücken, sprechen – der Text erscheint sofort am Cursor. 100 % offline, kein Upload.',
     'explainer.whisperDesktop.heroHeading': 'Whisper Desktop, ganz einfach: sprechen und sofort Text bekommen.',
     'explainer.whisperDesktop.heroLead': 'WhisPaste ist eine kostenlose, quelloffene Desktop-App, die deine Stimme in Text verwandelt — überall auf deinem Computer. Hotkey drücken, sprechen, und der Text erscheint genau dort, wo dein Cursor steht — kein Tippen, keine Cloud, kein Konto nötig.',
     'explainer.whisperDesktop.faq.whatIs.q': 'Was ist eine „Whisper-Desktop-App“?',

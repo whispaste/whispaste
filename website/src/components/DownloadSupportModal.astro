@@ -228,6 +228,7 @@ const macReviewUrl = STORES.macos.reviewUrl;
       if (sessionStorage.getItem(SESSION_KEY)) return;
       sessionStorage.setItem(SESSION_KEY, '1');
       modal.showModal();
+      track('Support-Modal Shown');
     }
 
     function close() {
