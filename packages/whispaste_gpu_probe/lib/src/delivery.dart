@@ -44,9 +44,7 @@ Future<void> defaultDeliveryLauncher(
 /// default browser.
 ///
 /// - macOS: `open <htmlPath>`
-/// - Windows: `cmd /c start "" <htmlPath>`
-///   (the empty title arg is required so paths with spaces are handled
-///   correctly by `start`)
+/// - Windows: `explorer <htmlPath>`
 /// - Other (Linux …): `xdg-open <htmlPath>`
 ///
 /// [platformOverride] defaults to [Platform.operatingSystem]; inject for
@@ -55,7 +53,7 @@ List<String> openInBrowserCommand(String htmlPath, {String? platformOverride}) {
   final os = platformOverride ?? Platform.operatingSystem;
   return switch (os) {
     'macos' => ['open', htmlPath],
-    'windows' => ['cmd', '/c', 'start', '', htmlPath],
+    'windows' => ['explorer', htmlPath],
     _ => ['xdg-open', htmlPath],
   };
 }
@@ -119,7 +117,7 @@ String buildMailtoUrl({
 /// local mail client.
 ///
 /// - macOS: `open <mailtoUrl>`
-/// - Windows: `cmd /c start "" <mailtoUrl>`
+/// - Windows: `explorer <mailtoUrl>`
 /// - Other: `xdg-open <mailtoUrl>`
 ///
 /// [platform] defaults to [Platform.operatingSystem]; inject for tests.
@@ -130,7 +128,7 @@ String buildMailtoUrl({
   final os = platform ?? Platform.operatingSystem;
   return switch (os) {
     'macos' => (executable: 'open', arguments: [mailtoUrl]),
-    'windows' => (executable: 'cmd', arguments: ['/c', 'start', '', mailtoUrl]),
+    'windows' => (executable: 'explorer', arguments: [mailtoUrl]),
     _ => (executable: 'xdg-open', arguments: [mailtoUrl]),
   };
 }
