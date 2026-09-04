@@ -38,6 +38,7 @@ class NoteEditorPanel extends StatelessWidget {
     required this.focusNode,
     this.scrollEditorToEnd,
     required this.onClose,
+    required this.onDuplicate,
     required this.onToggleFavorite,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
@@ -64,6 +65,7 @@ class NoteEditorPanel extends StatelessWidget {
   /// it directly).
   final Listenable? scrollEditorToEnd;
   final VoidCallback onClose;
+  final VoidCallback onDuplicate;
   final VoidCallback onToggleFavorite;
 
   /// Make this note the quick note — offered only while it is not already the
@@ -283,6 +285,19 @@ class NoteEditorPanel extends StatelessWidget {
                             ),
                           ),
                         ] else ...[
+                          Semantics(
+                            label: l10n.actionDuplicate,
+                            button: true,
+                            child: IconButton(
+                              onPressed: onDuplicate,
+                              tooltip: l10n.actionDuplicate,
+                              icon: const Icon(
+                                LucideIcons.files,
+                                size: WpIconSize.md,
+                                color: textMuted,
+                              ),
+                            ),
+                          ),
                           Semantics(
                             label: note.pinned
                                 ? l10n.notesUnfavorite

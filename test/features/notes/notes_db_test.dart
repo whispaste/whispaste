@@ -312,6 +312,44 @@ void main() {
     });
   });
 
+  group('duplicateNote', () {
+    test('copies content into a new note with a distinct id', () async {
+      final original = await db.createNote();
+      await db.updateNoteContent(original.id, 'Hello world');
+
+      final copy = await db.duplicateNote(original.id);
+
+      expect(copy, isNotNull);
+      expect(copy!.id, isNot(original.id));
+      expect(copy.content, 'Hello world');
+    });
+
+    test('copies tags from the original note', () async {
+      final original = await db.createNote();
+      final tag = await db.createTag('duplicate-me');
+      await db.tagNote(original.id, tag.id);
+
+      final copy = await db.duplicateNote(original.id);
+
+      expect(await db.tagsForNote(copy!.id), hasLength(1));
+      expect((await db.tagsForNote(copy.id)).single.id, tag.id);
+    });
+
+    test('does not mutate the original note', () async {
+      final original = await db.createNote();
+      await db.updateNoteContent(original.id, 'keep me');
+
+      await db.duplicateNote(original.id);
+
+      final stillOriginal = await db.getNote(original.id);
+      expect(stillOriginal?.content, 'keep me');
+    });
+
+    test('returns null for an unknown id', () async {
+      expect(await db.duplicateNote('missing'), isNull);
+    });
+  });
+
   group('watchTrashNotes', () {
     test(
       'returns only soft-deleted notes, most recently deleted first',
