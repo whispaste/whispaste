@@ -406,6 +406,10 @@ jobs:
   website:
     name: Website
     runs-on: ubuntu-latest
+    # See the Windows job's timeout-minutes comment. This job additionally
+    # bounds its own slowest step (npm audit) per-attempt below, so this is
+    # a backstop for a genuine hang elsewhere, not the audit retry itself.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: website
@@ -430,11 +434,15 @@ jobs:
       # Retried: like the sqlite3/cppcheck flakes above, npm's registry
       # occasionally returns a transient 503 for the audit endpoint —
       # observed hanging ~7min before failing in runs 33844870433 and
-      # 33843372608, unrelated to the code under test.
+      # 33843372608, unrelated to the code under test. Each attempt is itself
+      # bounded (`timeout 120`) rather than trusting npm to eventually give
+      # up on its own — live run 33849170730 showed a single attempt still
+      # hanging past 15min with zero output, which would otherwise let 3
+      # retries exceed the job timeout instead of failing fast and clearly.
       - name: Audit dependencies
         run: |
           for attempt in 1 2 3; do
-            npm audit --audit-level=high && break
+            timeout 120 npm audit --audit-level=high && break
             if [ "$attempt" -eq 3 ]; then
               echo "::error::npm audit failed after 3 attempts."
               exit 1
