@@ -20,3 +20,8 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2025-01-20 - GC pressure during vocabulary import review
 **Learning:** In Flutter lists doing string matching inside a tight loop over thousands of records (e.g., vocabulary candidates), using `.toLowerCase()` forces O(N) heap allocations for lowercased Strings on every keystroke, leading to high GC pressure.
 **Action:** For large lists (10k+ items), precompile a `RegExp` with `caseSensitive: false` and `RegExp.escape(query)` before the loop, and use `regex.hasMatch(item)` instead, turning O(N) allocations into O(1) overhead. (As noted previously, do NOT apply this to small lists like `WpSearchableListPage._filtered`).
+
+## 2026-09-04 - REJECTED: Silencing CI checks for transient errors
+**Rejected:** Attempted to fix a transient 503 error from `npm audit` by setting `continue-on-error: true` in `.github/workflows/ci.yml`.
+**Learning:** Never artificially make CI checks green by disabling strict failure conditions (e.g., `continue-on-error: true`), as this hides legitimate future failures. If an external service like `registry.npmjs.org` throws 503s intermittently, the correct fix is implementing retry logic with backoff, not bypassing the check.
+**Action:** If a CI job fails due to an external/transient issue, implement a retry mechanism or wait for the maintainer to fix it. Do not change CI configuration to ignore failures without explicit instruction.
