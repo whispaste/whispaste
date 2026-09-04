@@ -101,7 +101,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">6. Core Principle</h2>
             <p>
-              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud transcription service. The app does collect <strong class="text-white">anonymous, aggregated usage statistics</strong> and optional crash reports to guide development; these are cookieless, carry no account or device identifier, never contain your audio, text, or history, and can be switched off at any time (see section&nbsp;15).
+              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud transcription service. The app does collect <strong class="text-white">anonymous, aggregated usage statistics</strong> and optional crash reports to guide development; these are cookieless, carry no account or user identifier (a purely local, weekly-rotating pseudonymous marker is included — never a persistent device ID, see section&nbsp;15), never contain your audio, text, or history, and can be switched off at any time (see section&nbsp;15).
             </p>
           </section>
 
@@ -194,10 +194,10 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">15. Anonymous Usage Statistics &amp; Crash Reports</h2>
             <p>
-              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> by default via a Matomo server, plus optional crash reports (Sentry). Both are cookieless and carry no account, user, or device identifier. For Matomo, the IP address is fully anonymised server-side, and an active operating-system Do-Not-Track setting is honoured.
+              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> by default via a Matomo server, plus optional crash reports (Sentry). Both are cookieless and carry no account or user identifier. For Matomo, the IP address is fully anonymised server-side, and an active operating-system Do-Not-Track setting is honoured. For week-level analysis (e.g. returning usage within the same week), a purely locally generated pseudonymous marker is also sent: a hash of a random, never-transmitted device value and the current calendar week. This value automatically changes every week and cannot be linked across weeks — it is therefore not a persistent device identifier.
             </p>
             <p>
-              <strong class="text-white">Never</strong> transmitted: your audio, transcribed text, history, snippets, tags, notes, API keys, concrete hotkeys, file paths, cursor position, or the target application. Only aggregated event counters and categories are collected (app version, platform, selected provider, install channel, language). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong class="text-white">Settings → Privacy</strong>.
+              <strong class="text-white">Never</strong> transmitted: your audio, transcribed text, history, snippets, tags, notes, API keys, concrete hotkeys, file paths, cursor position, or the target application. Only aggregated event counters and categories are collected (app version, platform, selected provider, install channel, language, the weekly-rotating cohort marker described above). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong class="text-white">Settings → Privacy</strong>; when usage statistics are off, no cohort marker is generated or sent either.
             </p>
           </section>
 

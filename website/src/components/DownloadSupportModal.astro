@@ -27,15 +27,15 @@ const macReviewUrl = STORES.macos.reviewUrl;
     <h2 class="dlm-title" id="dlm-title" data-i18n="downloadModal.heading">{t(lang, "downloadModal.heading")}</h2>
     <p class="dlm-body" data-i18n="downloadModal.body">{t(lang, "downloadModal.body")}</p>
 
-    <!-- Action list -->
+    <!-- Action list — P5 (Matomo product analysis 2026-09-04): the
+         platform-specific store review comes first. A store rating is the
+         higher-ROI action here (it feeds the MS Store/App Store discovery
+         algorithms directly and is exactly what this visitor just did —
+         download for that platform), so it leads; the GitHub star, relevant
+         to every visitor regardless of OS, follows. Provisional ordering
+         from current best-practice reasoning alone (no A/B data yet — T6's
+         impression tracking just shipped); revisit once that data exists. -->
     <ul class="dlm-actions">
-      <li>
-        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-github" data-testid="modal-star-github">
-          <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span data-i18n="downloadModal.starGitHub">{t(lang, "downloadModal.starGitHub")}</span>
-          <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
-      </li>
       <li data-platform-btn="windows">
         <a href={msReviewUrl} target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-windows" data-testid="modal-star-windows">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -47,6 +47,13 @@ const macReviewUrl = STORES.macos.reviewUrl;
         <a href={macReviewUrl} target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-macos" data-testid="modal-star-macos">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span data-i18n="downloadModal.rateAppStore">{t(lang, "downloadModal.rateAppStore")}</span>
+          <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </li>
+      <li>
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-github" data-testid="modal-star-github">
+          <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-i18n="downloadModal.starGitHub">{t(lang, "downloadModal.starGitHub")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
