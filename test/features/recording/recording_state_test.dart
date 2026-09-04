@@ -151,6 +151,10 @@ void main() {
             case RecordingPhase.transcribing:
               n.startRecording();
               n.stopRecording();
+            case RecordingPhase.refining:
+              n.startRecording();
+              n.stopRecording();
+              n.startRefining('raw text');
             case RecordingPhase.done:
               n.startRecording();
               n.stopRecording();
@@ -185,6 +189,10 @@ void main() {
             case RecordingPhase.transcribing:
               n.startRecording();
               n.stopRecording();
+            case RecordingPhase.refining:
+              n.startRecording();
+              n.stopRecording();
+              n.startRefining('raw text');
             case RecordingPhase.done:
               n.startRecording();
               n.stopRecording();

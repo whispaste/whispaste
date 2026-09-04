@@ -18,6 +18,9 @@ import 'package:sentry_drift/sentry_drift.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 
+import '../../services/snippets/interactive_snippet_composer.dart'
+    show legacyInteractiveSnippetTemplate;
+import '../l10n/persisted_locale.dart';
 import '../logging/app_logger.dart';
 import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
@@ -38,6 +41,15 @@ class ReplacementWithTriggers {
   final List<String> triggers;
 }
 
+/// A [Snippet] joined with its field names (`SnippetFields`, schema v21),
+/// ordered by `sortOrder`. [fields] is empty for a `static` snippet.
+class SnippetWithFields {
+  const SnippetWithFields({required this.row, required this.fields});
+
+  final Snippet row;
+  final List<String> fields;
+}
+
 @DriftDatabase(
   tables: [
     HistoryEntries,
@@ -50,6 +62,7 @@ class ReplacementWithTriggers {
     EntryTags,
     HotkeyLatencyEntries,
     Snippets,
+    SnippetFields,
     Notes,
     NoteTags,
   ],
@@ -96,7 +109,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,6 +169,19 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 19) {
         await _addQuickNoteColumn();
+      }
+      if (from < 20) {
+        await _addFuzzyReplacementColumns();
+      }
+      if (from < 21) {
+        await m.createTable(snippetFields);
+        await _addSnippetKindColumn();
+      }
+      if (from < 22) {
+        await _addSmartModeEditedContentColumn();
+      }
+      if (from < 23) {
+        await _backfillInteractiveSnippetTemplates();
       }
     },
     beforeOpen: (details) async {
@@ -472,6 +498,141 @@ class HistoryDatabase extends _$HistoryDatabase {
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
       debugPrint('[Migration] Could not add notes is_quick_note column: $e');
+    }
+  }
+
+  /// Adds `match_mode`/`fuzzy_threshold`/`origin` to `text_replacements` if
+  /// missing (v20 migration, vocabulary-fuzzy-replacements PRD). Additive:
+  /// every pre-existing row keeps matching exactly as before, since
+  /// `match_mode` defaults to `'exact'` and `origin` to `'manual'`.
+  @visibleForTesting
+  Future<void> addFuzzyReplacementColumnsForTesting() =>
+      _addFuzzyReplacementColumns();
+
+  /// Adds `kind` to `snippets` if missing (v21 migration,
+  /// interactive-snippets PRD). Additive: every pre-existing row keeps
+  /// behaving exactly as before, since `kind` defaults to `'static'`.
+  @visibleForTesting
+  Future<void> addSnippetKindColumnForTesting() => _addSnippetKindColumn();
+
+  Future<void> _addSnippetKindColumn() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('snippets')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('kind')) {
+        debugPrint('[Migration] Adding column "kind" to snippets');
+        await customStatement(
+          "ALTER TABLE snippets ADD COLUMN kind TEXT NOT NULL DEFAULT 'static'",
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint('[Migration] Could not add snippets kind column: $e');
+    }
+  }
+
+  /// Adds `smart_mode_edited_content` to `history_entries` if missing (v22
+  /// migration, Smart-Mode-v2 ticket 05). Additive and nullable: every
+  /// pre-existing row simply has no edited version yet (`null`) until a
+  /// Smart Mode preset is applied to it, live or retroactively.
+  @visibleForTesting
+  Future<void> addSmartModeEditedContentColumnForTesting() =>
+      _addSmartModeEditedContentColumn();
+
+  Future<void> _addSmartModeEditedContentColumn() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('smart_mode_edited_content')) {
+        debugPrint(
+          '[Migration] Adding column "smart_mode_edited_content" to '
+          'history_entries',
+        );
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN '
+          'smart_mode_edited_content TEXT',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not add history_entries '
+        'smart_mode_edited_content column: $e',
+      );
+    }
+  }
+
+  /// One-time backfill for `interactive` snippets created before templates
+  /// existed (schema v23): their `body` was written as `''` and the composed
+  /// output came from a fixed heading-per-field layout instead. Rewrites
+  /// `body` to [legacyInteractiveSnippetTemplate] of their current fields so
+  /// composed output stays byte-for-byte identical after the upgrade.
+  @visibleForTesting
+  Future<void> backfillInteractiveSnippetTemplatesForTesting() =>
+      _backfillInteractiveSnippetTemplates();
+
+  Future<void> _backfillInteractiveSnippetTemplates() async {
+    try {
+      final rows = await (select(
+        snippets,
+      )..where((s) => s.kind.equals('interactive'))).get();
+      for (final row in rows) {
+        final fields = await readSnippetFields(row.id);
+        final template = legacyInteractiveSnippetTemplate([
+          for (final f in fields) f.name,
+        ]);
+        await (update(snippets)..where((s) => s.id.equals(row.id))).write(
+          SnippetsCompanion(body: Value(template)),
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not backfill interactive snippet templates: $e',
+      );
+    }
+  }
+
+  Future<void> _addFuzzyReplacementColumns() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('text_replacements')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('match_mode')) {
+        debugPrint(
+          '[Migration] Adding column "match_mode" to text_replacements',
+        );
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN match_mode '
+          "TEXT NOT NULL DEFAULT 'exact'",
+        );
+      }
+      if (!colNames.contains('fuzzy_threshold')) {
+        debugPrint(
+          '[Migration] Adding column "fuzzy_threshold" to text_replacements',
+        );
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN fuzzy_threshold REAL',
+        );
+      }
+      if (!colNames.contains('origin')) {
+        debugPrint('[Migration] Adding column "origin" to text_replacements');
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN origin '
+          "TEXT NOT NULL DEFAULT 'manual'",
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint(
+        '[Migration] Could not add text_replacements fuzzy columns: $e',
+      );
     }
   }
 
@@ -1820,15 +1981,21 @@ class HistoryDatabase extends _$HistoryDatabase {
   // ---------------------------------------------------------------------------
 
   /// Reads all persisted app settings from the local key-value table.
+  ///
+  /// Also refreshes the `locale` sidecar mirror — this is the read the main
+  /// engine performs at startup, so it heals a missing or stale mirror before
+  /// any secondary engine boots. See [writeLocaleMirror].
   Future<Map<String, String>> readAppSettings() async {
     final rows = await customSelect(
       'SELECT key, value FROM app_settings',
     ).get();
 
-    return {
+    final values = {
       for (final row in rows)
         row.read<String>('key'): row.read<String>('value'),
     };
+    writeLocaleMirror(values['locale']);
+    return values;
   }
 
   /// Writes the complete settings snapshot to the local key-value table.
@@ -1842,6 +2009,9 @@ class HistoryDatabase extends _$HistoryDatabase {
         );
       }
     });
+    // Keep the sidecar the secondary engines read in sync with the row that
+    // just landed, so they never have to open SQLite for it.
+    writeLocaleMirror(values['locale']);
   }
 
   /// Removes all persisted settings, causing the app to fall back to defaults.
@@ -1963,6 +2133,9 @@ class HistoryDatabase extends _$HistoryDatabase {
     required List<String> triggers,
     required String replacement,
     required DateTime createdAt,
+    String matchMode = 'exact',
+    double? fuzzyThreshold,
+    String origin = 'manual',
   }) async {
     assert(triggers.isNotEmpty, 'a replacement needs at least one trigger');
     await transaction(() async {
@@ -1972,6 +2145,9 @@ class HistoryDatabase extends _$HistoryDatabase {
           trigger: Value(triggers.first),
           replacement: Value(replacement),
           createdAt: Value(createdAt),
+          matchMode: Value(matchMode),
+          fuzzyThreshold: Value(fuzzyThreshold),
+          origin: Value(origin),
         ),
       );
       await (delete(
@@ -2031,11 +2207,63 @@ class HistoryDatabase extends _$HistoryDatabase {
     return _snippetsQuery().watch();
   }
 
+  Future<List<SnippetWithFields>> readAllSnippetsWithFields() async {
+    final rows = await _snippetsFieldsJoinQuery().get();
+    return _groupSnippetFieldRows(rows);
+  }
+
+  Stream<List<SnippetWithFields>> watchAllSnippetsWithFields() {
+    if (_isClosed) return const Stream.empty();
+    return _snippetsFieldsJoinQuery().watch().map(_groupSnippetFieldRows);
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _snippetsFieldsJoinQuery() {
+    // Same two-ordering-term shape as [_replacementsJoinQuery] — parent
+    // rowid first (stable creation order), then the child's own sortOrder
+    // as the tiebreak within one snippet's fields.
+    return select(snippets).join([
+      leftOuterJoin(
+        snippetFields,
+        snippetFields.snippetId.equalsExp(snippets.id),
+      ),
+    ])..orderBy([
+      OrderingTerm(expression: const CustomExpression<int>('snippets.rowid')),
+      OrderingTerm(expression: snippetFields.sortOrder),
+    ]);
+  }
+
+  /// Groups flat join rows back into one [SnippetWithFields] per snippet,
+  /// preserving every parent row via the left outer join even when it has
+  /// zero field rows (a `static` snippet, or an `interactive` one whose
+  /// fields haven't backfilled).
+  List<SnippetWithFields> _groupSnippetFieldRows(List<TypedResult> rows) {
+    final order = <String>[];
+    final snippetById = <String, Snippet>{};
+    final fieldsById = <String, List<String>>{};
+    for (final row in rows) {
+      final snippet = row.readTable(snippets);
+      if (!snippetById.containsKey(snippet.id)) {
+        order.add(snippet.id);
+        snippetById[snippet.id] = snippet;
+        fieldsById[snippet.id] = [];
+      }
+      final field = row.readTableOrNull(snippetFields);
+      if (field != null) {
+        fieldsById[snippet.id]!.add(field.name);
+      }
+    }
+    return [
+      for (final id in order)
+        SnippetWithFields(row: snippetById[id]!, fields: fieldsById[id]!),
+    ];
+  }
+
   Future<void> upsertSnippet({
     required String id,
     required String title,
     required String body,
     required DateTime createdAt,
+    String kind = 'static',
   }) {
     return into(snippets).insertOnConflictUpdate(
       SnippetsCompanion(
@@ -2043,18 +2271,86 @@ class HistoryDatabase extends _$HistoryDatabase {
         title: Value(title),
         body: Value(body),
         createdAt: Value(createdAt),
+        kind: Value(kind),
       ),
     );
   }
 
-  Future<void> deleteSnippet(String id) {
-    return (delete(snippets)..where((s) => s.id.equals(id))).go();
+  /// Upserts a snippet and its complete field list in one transaction —
+  /// `fieldNames` is the full ordered list (not a delta), mirroring
+  /// [upsertReplacementWithTriggers]. Pass an empty list for a `static`
+  /// snippet (no fields).
+  Future<void> upsertSnippetWithFields({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+    required String kind,
+    required List<String> fieldNames,
+  }) {
+    return transaction(() async {
+      await upsertSnippet(
+        id: id,
+        title: title,
+        body: body,
+        createdAt: createdAt,
+        kind: kind,
+      );
+      await replaceSnippetFields(snippetId: id, fieldNames: fieldNames);
+    });
   }
 
-  /// Deletes all snippets. Used by settings import (portability) so the
-  /// imported file becomes the exact new contents rather than being merged
-  /// with existing entries.
-  Future<void> deleteAllSnippets() => delete(snippets).go();
+  Future<void> deleteSnippet(String id) {
+    return transaction(() async {
+      await (delete(snippetFields)..where((f) => f.snippetId.equals(id))).go();
+      await (delete(snippets)..where((s) => s.id.equals(id))).go();
+    });
+  }
+
+  /// Deletes all snippets (and their fields). Used by settings import
+  /// (portability) so the imported file becomes the exact new contents
+  /// rather than being merged with existing entries.
+  Future<void> deleteAllSnippets() {
+    return transaction(() async {
+      await delete(snippetFields).go();
+      await delete(snippets).go();
+    });
+  }
+
+  /// Reads every [SnippetField] for [snippetId], ordered by `sortOrder`
+  /// (PRD: "kein Zurückspringen, kein Überspringen" — the strict field
+  /// sequence an interactive snippet's guided recording walks through).
+  Future<List<SnippetField>> readSnippetFields(String snippetId) {
+    return (select(snippetFields)
+          ..where((f) => f.snippetId.equals(snippetId))
+          ..orderBy([(f) => OrderingTerm(expression: f.sortOrder)]))
+        .get();
+  }
+
+  /// Replaces the complete field list of an `interactive` snippet in one
+  /// transaction — `fieldNames` is the full ordered list (not a delta),
+  /// mirroring [upsertReplacementWithTriggers]'s replace-triggers approach.
+  Future<void> replaceSnippetFields({
+    required String snippetId,
+    required List<String> fieldNames,
+  }) {
+    return transaction(() async {
+      await (delete(
+        snippetFields,
+      )..where((f) => f.snippetId.equals(snippetId))).go();
+      await batch((b) {
+        b.insertAll(snippetFields, [
+          for (var i = 0; i < fieldNames.length; i++)
+            SnippetFieldsCompanion.insert(
+              id: '${snippetId}_f$i',
+              snippetId: snippetId,
+              name: fieldNames[i],
+              sortOrder: i,
+            ),
+        ]);
+      });
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Notes

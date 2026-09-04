@@ -209,6 +209,21 @@ Future<void> _tapNext(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Taps the final "Los geht's" action and dismisses the one-time Smart Mode
+/// discovery dialog (ticket 08 of `.scratch/smart-mode-v2/`) it now shows —
+/// [_tapNext]'s plain `pumpAndSettle` would otherwise settle on the dialog
+/// still open rather than on the completed flow, since [_complete] awaits it
+/// before writing `onboardingCompleted`.
+Future<void> _tapFinish(WidgetTester tester, L10n l10n) async {
+  await tester.tap(find.byKey(kOnboardingNextButtonKey));
+  await tester.pumpAndSettle();
+  final skip = find.text(l10n.smartModeOnboardingHintSkipCta);
+  if (skip.evaluate().isNotEmpty) {
+    await tester.tap(skip);
+    await tester.pumpAndSettle();
+  }
+}
+
 /// Assertiert die Shell-Navigation der aktuellen Seite: genau zwei
 /// Navigationsaktionen (Zurück + Weiter), kein Überspringen.
 void _expectExactlyTwoNavActions(WidgetTester tester, {required int page}) {
@@ -350,7 +365,7 @@ void main() {
         // Vor dem abschließenden Tap ist onboardingCompleted noch false.
         expect(settings.state.value!.onboarding.onboardingCompleted, isFalse);
 
-        await _tapNext(tester);
+        await _tapFinish(tester, l10n);
 
         expect(
           settings.state.value!.onboarding.onboardingCompleted,
@@ -486,7 +501,7 @@ void main() {
             reason: 'Der Notausgang muss die Mikrofon-Bedingung umgehen.',
           );
 
-          await _tapNext(tester);
+          await _tapFinish(tester, l10n);
           expect(settings.state.value!.onboarding.onboardingCompleted, isTrue);
         } finally {
           debugDefaultTargetPlatformOverride = null;

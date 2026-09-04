@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.72
+
+### New Features
+
+- **Русский: WhisPaste ist jetzt auch auf Russisch verfügbar.** Vierte Oberflächensprache neben Deutsch, Englisch und Hebräisch — Beitrag aus der Community.
+
+### Bug Fixes
+
+- **Hebräische Übersetzung vervollständigt:** 88 zuvor unübersetzte Oberflächentexte (u. a. Smart Mode, Textersetzungen-Import, Side Panel) ergänzt.
+- **Sprachauswahl in Floating-Fenstern** (z. B. Schnelleinfüge-Panel) berücksichtigte neu hinzugefügte Oberflächensprachen nicht automatisch — betraf zuletzt Russisch. Die Auswahl leitet sich jetzt aus der tatsächlich ausgelieferten Sprachliste ab, statt aus einer separat gepflegten Kopie.
+
+## 1.2.71
+
+### New Features
+
+- **Smart Mode: optionale, lokale KI-Nachbearbeitung direkt nach der Transkription.** Drei Presets — „Bereinigen" entfernt Füllwörter und korrigiert die Interpunktion, „Kürzen" strafft den Text ohne Fakten zu verlieren, „Übersetzen" überträgt ihn in eine von sieben validierten Zielsprachen (Deutsch, Englisch, Spanisch, Französisch, Portugiesisch, Mandarin, Russisch). Läuft auf macOS und Windows auf einem lokalen KI-Modell — der Text verlässt dein Gerät nicht; optional auch über einen eigenen OpenAI-Cloud-Provider nutzbar. Presets lassen sich am Haupt-Hotkey oder an einem eigenen zweiten Smart-Mode-Hotkey (mit eigener Zielsprache) hinterlegen und nachträglich auch auf bestehende Verlaufseinträge anwenden.
+- **Interaktive Textbausteine:** Vorlagen mit mehreren Feldern, durch die WhisPaste dich Feld für Feld führt (mit Ansage vor jedem Feld), bevor der fertige Text in einem Stück eingefügt wird — eine Erweiterung der bisherigen Textbausteine für mehrteilige, wiederkehrende Diktate.
+- **Vokabular-Import für Textersetzungen:** eigene Begriffslisten importieren, mit unscharfem Abgleich (Fuzzy-Matching) gegen bestehende Ersetzungen und einem Review-Schritt vor der Übernahme.
+- **Linux zieht beim Schnelleinfüge-Panel mit macOS/Windows gleich:** natives Side-Panel-Fenster, inklusive Zwischenablage-Snapshot beim Öffnen. Unter macOS lassen sich Einträge jetzt außerdem per Drag-and-drop direkt aus dem Panel herausziehen.
+
 ## 1.2.70
 
 ### Bug Fixes

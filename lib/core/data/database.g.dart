@@ -222,6 +222,17 @@ class $HistoryEntriesTable extends HistoryEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _smartModeEditedContentMeta =
+      const VerificationMeta('smartModeEditedContent');
+  @override
+  late final GeneratedColumn<String> smartModeEditedContent =
+      GeneratedColumn<String>(
+        'smart_mode_edited_content',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -242,6 +253,7 @@ class $HistoryEntriesTable extends HistoryEntries
     titleEdited,
     deletedAt,
     colorSlot,
+    smartModeEditedContent,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -376,6 +388,15 @@ class $HistoryEntriesTable extends HistoryEntries
         colorSlot.isAcceptableOrUnknown(data['color_slot']!, _colorSlotMeta),
       );
     }
+    if (data.containsKey('smart_mode_edited_content')) {
+      context.handle(
+        _smartModeEditedContentMeta,
+        smartModeEditedContent.isAcceptableOrUnknown(
+          data['smart_mode_edited_content']!,
+          _smartModeEditedContentMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -457,6 +478,10 @@ class $HistoryEntriesTable extends HistoryEntries
         DriftSqlType.int,
         data['${effectivePrefix}color_slot'],
       )!,
+      smartModeEditedContent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}smart_mode_edited_content'],
+      ),
     );
   }
 
@@ -492,6 +517,13 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   /// content category — the 9th slot, `WpCategorySlot.neutral`, is never a
   /// value here because there is no "uncategorized" case for this rotation.
   final int colorSlot;
+
+  /// Smart Mode's "current edited version" (v22, Smart-Mode-v2 ticket 05) —
+  /// overwritten in place by every preset application (live or retroactive),
+  /// never a version stack. `null` means no preset has ever been applied to
+  /// this entry; [content] (the raw transcript) is never touched by Smart
+  /// Mode and stays the source of truth for the "raw" view.
+  final String? smartModeEditedContent;
   const HistoryEntry({
     required this.id,
     required this.content,
@@ -511,6 +543,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     required this.titleEdited,
     this.deletedAt,
     required this.colorSlot,
+    this.smartModeEditedContent,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -535,6 +568,11 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['color_slot'] = Variable<int>(colorSlot);
+    if (!nullToAbsent || smartModeEditedContent != null) {
+      map['smart_mode_edited_content'] = Variable<String>(
+        smartModeEditedContent,
+      );
+    }
     return map;
   }
 
@@ -560,6 +598,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ? const Value.absent()
           : Value(deletedAt),
       colorSlot: Value(colorSlot),
+      smartModeEditedContent: smartModeEditedContent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(smartModeEditedContent),
     );
   }
 
@@ -589,6 +630,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       titleEdited: serializer.fromJson<bool>(json['titleEdited']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       colorSlot: serializer.fromJson<int>(json['colorSlot']),
+      smartModeEditedContent: serializer.fromJson<String?>(
+        json['smartModeEditedContent'],
+      ),
     );
   }
   @override
@@ -613,6 +657,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       'titleEdited': serializer.toJson<bool>(titleEdited),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'colorSlot': serializer.toJson<int>(colorSlot),
+      'smartModeEditedContent': serializer.toJson<String?>(
+        smartModeEditedContent,
+      ),
     };
   }
 
@@ -635,6 +682,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     bool? titleEdited,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? colorSlot,
+    Value<String?> smartModeEditedContent = const Value.absent(),
   }) => HistoryEntry(
     id: id ?? this.id,
     content: content ?? this.content,
@@ -654,6 +702,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     titleEdited: titleEdited ?? this.titleEdited,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     colorSlot: colorSlot ?? this.colorSlot,
+    smartModeEditedContent: smartModeEditedContent.present
+        ? smartModeEditedContent.value
+        : this.smartModeEditedContent,
   );
   HistoryEntry copyWithCompanion(HistoryEntriesCompanion data) {
     return HistoryEntry(
@@ -683,6 +734,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           : this.titleEdited,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       colorSlot: data.colorSlot.present ? data.colorSlot.value : this.colorSlot,
+      smartModeEditedContent: data.smartModeEditedContent.present
+          ? data.smartModeEditedContent.value
+          : this.smartModeEditedContent,
     );
   }
 
@@ -706,7 +760,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ..write('archived: $archived, ')
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('colorSlot: $colorSlot')
+          ..write('colorSlot: $colorSlot, ')
+          ..write('smartModeEditedContent: $smartModeEditedContent')
           ..write(')'))
         .toString();
   }
@@ -731,6 +786,7 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     titleEdited,
     deletedAt,
     colorSlot,
+    smartModeEditedContent,
   );
   @override
   bool operator ==(Object other) =>
@@ -753,7 +809,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           other.archived == this.archived &&
           other.titleEdited == this.titleEdited &&
           other.deletedAt == this.deletedAt &&
-          other.colorSlot == this.colorSlot);
+          other.colorSlot == this.colorSlot &&
+          other.smartModeEditedContent == this.smartModeEditedContent);
 }
 
 class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
@@ -775,6 +832,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
   final Value<bool> titleEdited;
   final Value<DateTime?> deletedAt;
   final Value<int> colorSlot;
+  final Value<String?> smartModeEditedContent;
   final Value<int> rowid;
   const HistoryEntriesCompanion({
     this.id = const Value.absent(),
@@ -795,6 +853,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.colorSlot = const Value.absent(),
+    this.smartModeEditedContent = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HistoryEntriesCompanion.insert({
@@ -816,6 +875,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.colorSlot = const Value.absent(),
+    this.smartModeEditedContent = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        timestamp = Value(timestamp);
@@ -838,6 +898,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Expression<bool>? titleEdited,
     Expression<DateTime>? deletedAt,
     Expression<int>? colorSlot,
+    Expression<String>? smartModeEditedContent,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -860,6 +921,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       if (titleEdited != null) 'title_edited': titleEdited,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (colorSlot != null) 'color_slot': colorSlot,
+      if (smartModeEditedContent != null)
+        'smart_mode_edited_content': smartModeEditedContent,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -883,6 +946,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Value<bool>? titleEdited,
     Value<DateTime?>? deletedAt,
     Value<int>? colorSlot,
+    Value<String?>? smartModeEditedContent,
     Value<int>? rowid,
   }) {
     return HistoryEntriesCompanion(
@@ -905,6 +969,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       titleEdited: titleEdited ?? this.titleEdited,
       deletedAt: deletedAt ?? this.deletedAt,
       colorSlot: colorSlot ?? this.colorSlot,
+      smartModeEditedContent:
+          smartModeEditedContent ?? this.smartModeEditedContent,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -968,6 +1034,11 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     if (colorSlot.present) {
       map['color_slot'] = Variable<int>(colorSlot.value);
     }
+    if (smartModeEditedContent.present) {
+      map['smart_mode_edited_content'] = Variable<String>(
+        smartModeEditedContent.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -995,6 +1066,7 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('colorSlot: $colorSlot, ')
+          ..write('smartModeEditedContent: $smartModeEditedContent, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2638,8 +2710,49 @@ class $TextReplacementsTable extends TextReplacements
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _matchModeMeta = const VerificationMeta(
+    'matchMode',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, trigger, replacement, createdAt];
+  late final GeneratedColumn<String> matchMode = GeneratedColumn<String>(
+    'match_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('exact'),
+  );
+  static const VerificationMeta _fuzzyThresholdMeta = const VerificationMeta(
+    'fuzzyThreshold',
+  );
+  @override
+  late final GeneratedColumn<double> fuzzyThreshold = GeneratedColumn<double>(
+    'fuzzy_threshold',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originMeta = const VerificationMeta('origin');
+  @override
+  late final GeneratedColumn<String> origin = GeneratedColumn<String>(
+    'origin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('manual'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trigger,
+    replacement,
+    createdAt,
+    matchMode,
+    fuzzyThreshold,
+    origin,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2684,6 +2797,27 @@ class $TextReplacementsTable extends TextReplacements
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('match_mode')) {
+      context.handle(
+        _matchModeMeta,
+        matchMode.isAcceptableOrUnknown(data['match_mode']!, _matchModeMeta),
+      );
+    }
+    if (data.containsKey('fuzzy_threshold')) {
+      context.handle(
+        _fuzzyThresholdMeta,
+        fuzzyThreshold.isAcceptableOrUnknown(
+          data['fuzzy_threshold']!,
+          _fuzzyThresholdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('origin')) {
+      context.handle(
+        _originMeta,
+        origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
+      );
+    }
     return context;
   }
 
@@ -2709,6 +2843,18 @@ class $TextReplacementsTable extends TextReplacements
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      matchMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}match_mode'],
+      )!,
+      fuzzyThreshold: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fuzzy_threshold'],
+      ),
+      origin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin'],
+      )!,
     );
   }
 
@@ -2723,11 +2869,33 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
   final String trigger;
   final String replacement;
   final DateTime createdAt;
+
+  /// Match algorithm — `exact` (word-boundary regex, unchanged pre-v20
+  /// behavior) or `fuzzy` (similarity scoring, vocabulary-fuzzy-replacements
+  /// PRD, schema v20). Stored as text rather than an int enum so a raw
+  /// `SELECT` stays human-readable in the DB browser, consistent with other
+  /// text-backed enum-ish columns in this file (e.g. `source` on
+  /// `HistoryEntries`).
+  final String matchMode;
+
+  /// Similarity threshold (0.0-1.0) for `matchMode == fuzzy`; unused and left
+  /// `null` for `exact` rows. The UI only ever offers three named steps
+  /// (Streng 0.92 / Standard 0.85 / Tolerant 0.75), not a free slider — see
+  /// PRD.md.
+  final double? fuzzyThreshold;
+
+  /// `manual` (default, user-authored) or `imported` (vocabulary-import
+  /// scan) — display-only distinction (PRD User Story 11), no behavioral
+  /// difference in matching.
+  final String origin;
   const TextReplacement({
     required this.id,
     required this.trigger,
     required this.replacement,
     required this.createdAt,
+    required this.matchMode,
+    this.fuzzyThreshold,
+    required this.origin,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2736,6 +2904,11 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     map['trigger'] = Variable<String>(trigger);
     map['replacement'] = Variable<String>(replacement);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['match_mode'] = Variable<String>(matchMode);
+    if (!nullToAbsent || fuzzyThreshold != null) {
+      map['fuzzy_threshold'] = Variable<double>(fuzzyThreshold);
+    }
+    map['origin'] = Variable<String>(origin);
     return map;
   }
 
@@ -2745,6 +2918,11 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       trigger: Value(trigger),
       replacement: Value(replacement),
       createdAt: Value(createdAt),
+      matchMode: Value(matchMode),
+      fuzzyThreshold: fuzzyThreshold == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fuzzyThreshold),
+      origin: Value(origin),
     );
   }
 
@@ -2758,6 +2936,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       trigger: serializer.fromJson<String>(json['trigger']),
       replacement: serializer.fromJson<String>(json['replacement']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      matchMode: serializer.fromJson<String>(json['matchMode']),
+      fuzzyThreshold: serializer.fromJson<double?>(json['fuzzyThreshold']),
+      origin: serializer.fromJson<String>(json['origin']),
     );
   }
   @override
@@ -2768,6 +2949,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       'trigger': serializer.toJson<String>(trigger),
       'replacement': serializer.toJson<String>(replacement),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'matchMode': serializer.toJson<String>(matchMode),
+      'fuzzyThreshold': serializer.toJson<double?>(fuzzyThreshold),
+      'origin': serializer.toJson<String>(origin),
     };
   }
 
@@ -2776,11 +2960,19 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     String? trigger,
     String? replacement,
     DateTime? createdAt,
+    String? matchMode,
+    Value<double?> fuzzyThreshold = const Value.absent(),
+    String? origin,
   }) => TextReplacement(
     id: id ?? this.id,
     trigger: trigger ?? this.trigger,
     replacement: replacement ?? this.replacement,
     createdAt: createdAt ?? this.createdAt,
+    matchMode: matchMode ?? this.matchMode,
+    fuzzyThreshold: fuzzyThreshold.present
+        ? fuzzyThreshold.value
+        : this.fuzzyThreshold,
+    origin: origin ?? this.origin,
   );
   TextReplacement copyWithCompanion(TextReplacementsCompanion data) {
     return TextReplacement(
@@ -2790,6 +2982,11 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ? data.replacement.value
           : this.replacement,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      matchMode: data.matchMode.present ? data.matchMode.value : this.matchMode,
+      fuzzyThreshold: data.fuzzyThreshold.present
+          ? data.fuzzyThreshold.value
+          : this.fuzzyThreshold,
+      origin: data.origin.present ? data.origin.value : this.origin,
     );
   }
 
@@ -2799,13 +2996,24 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ..write('id: $id, ')
           ..write('trigger: $trigger, ')
           ..write('replacement: $replacement, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('matchMode: $matchMode, ')
+          ..write('fuzzyThreshold: $fuzzyThreshold, ')
+          ..write('origin: $origin')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, trigger, replacement, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    trigger,
+    replacement,
+    createdAt,
+    matchMode,
+    fuzzyThreshold,
+    origin,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2813,7 +3021,10 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           other.id == this.id &&
           other.trigger == this.trigger &&
           other.replacement == this.replacement &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.matchMode == this.matchMode &&
+          other.fuzzyThreshold == this.fuzzyThreshold &&
+          other.origin == this.origin);
 }
 
 class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
@@ -2821,12 +3032,18 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
   final Value<String> trigger;
   final Value<String> replacement;
   final Value<DateTime> createdAt;
+  final Value<String> matchMode;
+  final Value<double?> fuzzyThreshold;
+  final Value<String> origin;
   final Value<int> rowid;
   const TextReplacementsCompanion({
     this.id = const Value.absent(),
     this.trigger = const Value.absent(),
     this.replacement = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.matchMode = const Value.absent(),
+    this.fuzzyThreshold = const Value.absent(),
+    this.origin = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TextReplacementsCompanion.insert({
@@ -2834,6 +3051,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     required String trigger,
     required String replacement,
     required DateTime createdAt,
+    this.matchMode = const Value.absent(),
+    this.fuzzyThreshold = const Value.absent(),
+    this.origin = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        trigger = Value(trigger),
@@ -2844,6 +3064,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Expression<String>? trigger,
     Expression<String>? replacement,
     Expression<DateTime>? createdAt,
+    Expression<String>? matchMode,
+    Expression<double>? fuzzyThreshold,
+    Expression<String>? origin,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2851,6 +3074,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       if (trigger != null) 'trigger': trigger,
       if (replacement != null) 'replacement': replacement,
       if (createdAt != null) 'created_at': createdAt,
+      if (matchMode != null) 'match_mode': matchMode,
+      if (fuzzyThreshold != null) 'fuzzy_threshold': fuzzyThreshold,
+      if (origin != null) 'origin': origin,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2860,6 +3086,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Value<String>? trigger,
     Value<String>? replacement,
     Value<DateTime>? createdAt,
+    Value<String>? matchMode,
+    Value<double?>? fuzzyThreshold,
+    Value<String>? origin,
     Value<int>? rowid,
   }) {
     return TextReplacementsCompanion(
@@ -2867,6 +3096,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       trigger: trigger ?? this.trigger,
       replacement: replacement ?? this.replacement,
       createdAt: createdAt ?? this.createdAt,
+      matchMode: matchMode ?? this.matchMode,
+      fuzzyThreshold: fuzzyThreshold ?? this.fuzzyThreshold,
+      origin: origin ?? this.origin,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2886,6 +3118,15 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (matchMode.present) {
+      map['match_mode'] = Variable<String>(matchMode.value);
+    }
+    if (fuzzyThreshold.present) {
+      map['fuzzy_threshold'] = Variable<double>(fuzzyThreshold.value);
+    }
+    if (origin.present) {
+      map['origin'] = Variable<String>(origin.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2899,6 +3140,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
           ..write('trigger: $trigger, ')
           ..write('replacement: $replacement, ')
           ..write('createdAt: $createdAt, ')
+          ..write('matchMode: $matchMode, ')
+          ..write('fuzzyThreshold: $fuzzyThreshold, ')
+          ..write('origin: $origin, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3962,8 +4206,18 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
   @override
-  List<GeneratedColumn> get $columns => [id, title, body, createdAt];
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('static'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, title, body, createdAt, kind];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4005,6 +4259,12 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
     return context;
   }
 
@@ -4030,6 +4290,10 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
     );
   }
 
@@ -4044,11 +4308,18 @@ class Snippet extends DataClass implements Insertable<Snippet> {
   final String title;
   final String body;
   final DateTime createdAt;
+
+  /// `static` (default, today's only behavior — [body] is inserted verbatim)
+  /// or `interactive` (schema v21, `interactive-snippets` PRD): [body] is
+  /// unused, the field contents instead come from a guided multi-field
+  /// recording sequence at trigger time — see [SnippetFields].
+  final String kind;
   const Snippet({
     required this.id,
     required this.title,
     required this.body,
     required this.createdAt,
+    required this.kind,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4057,6 +4328,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
     map['title'] = Variable<String>(title);
     map['body'] = Variable<String>(body);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['kind'] = Variable<String>(kind);
     return map;
   }
 
@@ -4066,6 +4338,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       title: Value(title),
       body: Value(body),
       createdAt: Value(createdAt),
+      kind: Value(kind),
     );
   }
 
@@ -4079,6 +4352,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       title: serializer.fromJson<String>(json['title']),
       body: serializer.fromJson<String>(json['body']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      kind: serializer.fromJson<String>(json['kind']),
     );
   }
   @override
@@ -4089,6 +4363,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       'title': serializer.toJson<String>(title),
       'body': serializer.toJson<String>(body),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'kind': serializer.toJson<String>(kind),
     };
   }
 
@@ -4097,11 +4372,13 @@ class Snippet extends DataClass implements Insertable<Snippet> {
     String? title,
     String? body,
     DateTime? createdAt,
+    String? kind,
   }) => Snippet(
     id: id ?? this.id,
     title: title ?? this.title,
     body: body ?? this.body,
     createdAt: createdAt ?? this.createdAt,
+    kind: kind ?? this.kind,
   );
   Snippet copyWithCompanion(SnippetsCompanion data) {
     return Snippet(
@@ -4109,6 +4386,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       title: data.title.present ? data.title.value : this.title,
       body: data.body.present ? data.body.value : this.body,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      kind: data.kind.present ? data.kind.value : this.kind,
     );
   }
 
@@ -4118,13 +4396,14 @@ class Snippet extends DataClass implements Insertable<Snippet> {
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('body: $body, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('kind: $kind')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, body, createdAt);
+  int get hashCode => Object.hash(id, title, body, createdAt, kind);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4132,7 +4411,8 @@ class Snippet extends DataClass implements Insertable<Snippet> {
           other.id == this.id &&
           other.title == this.title &&
           other.body == this.body &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.kind == this.kind);
 }
 
 class SnippetsCompanion extends UpdateCompanion<Snippet> {
@@ -4140,12 +4420,14 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
   final Value<String> title;
   final Value<String> body;
   final Value<DateTime> createdAt;
+  final Value<String> kind;
   final Value<int> rowid;
   const SnippetsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.body = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SnippetsCompanion.insert({
@@ -4153,6 +4435,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     required String title,
     required String body,
     required DateTime createdAt,
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -4163,6 +4446,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     Expression<String>? title,
     Expression<String>? body,
     Expression<DateTime>? createdAt,
+    Expression<String>? kind,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4170,6 +4454,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
       if (title != null) 'title': title,
       if (body != null) 'body': body,
       if (createdAt != null) 'created_at': createdAt,
+      if (kind != null) 'kind': kind,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4179,6 +4464,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     Value<String>? title,
     Value<String>? body,
     Value<DateTime>? createdAt,
+    Value<String>? kind,
     Value<int>? rowid,
   }) {
     return SnippetsCompanion(
@@ -4186,6 +4472,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
       title: title ?? this.title,
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
+      kind: kind ?? this.kind,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4205,6 +4492,9 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4218,6 +4508,318 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
           ..write('title: $title, ')
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
+          ..write('kind: $kind, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SnippetFieldsTable extends SnippetFields
+    with TableInfo<$SnippetFieldsTable, SnippetField> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SnippetFieldsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _snippetIdMeta = const VerificationMeta(
+    'snippetId',
+  );
+  @override
+  late final GeneratedColumn<String> snippetId = GeneratedColumn<String>(
+    'snippet_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES snippets (id)',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, snippetId, name, sortOrder];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'snippet_fields';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SnippetField> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('snippet_id')) {
+      context.handle(
+        _snippetIdMeta,
+        snippetId.isAcceptableOrUnknown(data['snippet_id']!, _snippetIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_snippetIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sortOrderMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SnippetField map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SnippetField(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      snippetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}snippet_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+    );
+  }
+
+  @override
+  $SnippetFieldsTable createAlias(String alias) {
+    return $SnippetFieldsTable(attachedDatabase, alias);
+  }
+}
+
+class SnippetField extends DataClass implements Insertable<SnippetField> {
+  final String id;
+  final String snippetId;
+  final String name;
+  final int sortOrder;
+  const SnippetField({
+    required this.id,
+    required this.snippetId,
+    required this.name,
+    required this.sortOrder,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['snippet_id'] = Variable<String>(snippetId);
+    map['name'] = Variable<String>(name);
+    map['sort_order'] = Variable<int>(sortOrder);
+    return map;
+  }
+
+  SnippetFieldsCompanion toCompanion(bool nullToAbsent) {
+    return SnippetFieldsCompanion(
+      id: Value(id),
+      snippetId: Value(snippetId),
+      name: Value(name),
+      sortOrder: Value(sortOrder),
+    );
+  }
+
+  factory SnippetField.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SnippetField(
+      id: serializer.fromJson<String>(json['id']),
+      snippetId: serializer.fromJson<String>(json['snippetId']),
+      name: serializer.fromJson<String>(json['name']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'snippetId': serializer.toJson<String>(snippetId),
+      'name': serializer.toJson<String>(name),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+    };
+  }
+
+  SnippetField copyWith({
+    String? id,
+    String? snippetId,
+    String? name,
+    int? sortOrder,
+  }) => SnippetField(
+    id: id ?? this.id,
+    snippetId: snippetId ?? this.snippetId,
+    name: name ?? this.name,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
+  SnippetField copyWithCompanion(SnippetFieldsCompanion data) {
+    return SnippetField(
+      id: data.id.present ? data.id.value : this.id,
+      snippetId: data.snippetId.present ? data.snippetId.value : this.snippetId,
+      name: data.name.present ? data.name.value : this.name,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SnippetField(')
+          ..write('id: $id, ')
+          ..write('snippetId: $snippetId, ')
+          ..write('name: $name, ')
+          ..write('sortOrder: $sortOrder')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, snippetId, name, sortOrder);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SnippetField &&
+          other.id == this.id &&
+          other.snippetId == this.snippetId &&
+          other.name == this.name &&
+          other.sortOrder == this.sortOrder);
+}
+
+class SnippetFieldsCompanion extends UpdateCompanion<SnippetField> {
+  final Value<String> id;
+  final Value<String> snippetId;
+  final Value<String> name;
+  final Value<int> sortOrder;
+  final Value<int> rowid;
+  const SnippetFieldsCompanion({
+    this.id = const Value.absent(),
+    this.snippetId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SnippetFieldsCompanion.insert({
+    required String id,
+    required String snippetId,
+    required String name,
+    required int sortOrder,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       snippetId = Value(snippetId),
+       name = Value(name),
+       sortOrder = Value(sortOrder);
+  static Insertable<SnippetField> custom({
+    Expression<String>? id,
+    Expression<String>? snippetId,
+    Expression<String>? name,
+    Expression<int>? sortOrder,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (snippetId != null) 'snippet_id': snippetId,
+      if (name != null) 'name': name,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SnippetFieldsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? snippetId,
+    Value<String>? name,
+    Value<int>? sortOrder,
+    Value<int>? rowid,
+  }) {
+    return SnippetFieldsCompanion(
+      id: id ?? this.id,
+      snippetId: snippetId ?? this.snippetId,
+      name: name ?? this.name,
+      sortOrder: sortOrder ?? this.sortOrder,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (snippetId.present) {
+      map['snippet_id'] = Variable<String>(snippetId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SnippetFieldsCompanion(')
+          ..write('id: $id, ')
+          ..write('snippetId: $snippetId, ')
+          ..write('name: $name, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4923,6 +5525,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   late final $HotkeyLatencyEntriesTable hotkeyLatencyEntries =
       $HotkeyLatencyEntriesTable(this);
   late final $SnippetsTable snippets = $SnippetsTable(this);
+  late final $SnippetFieldsTable snippetFields = $SnippetFieldsTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
   @override
@@ -4940,6 +5543,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     entryTags,
     hotkeyLatencyEntries,
     snippets,
+    snippetFields,
     notes,
     noteTags,
   ];
@@ -4965,6 +5569,7 @@ typedef $$HistoryEntriesTableCreateCompanionBuilder =
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
       Value<int> colorSlot,
+      Value<String?> smartModeEditedContent,
       Value<int> rowid,
     });
 typedef $$HistoryEntriesTableUpdateCompanionBuilder =
@@ -4987,6 +5592,7 @@ typedef $$HistoryEntriesTableUpdateCompanionBuilder =
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
       Value<int> colorSlot,
+      Value<String?> smartModeEditedContent,
       Value<int> rowid,
     });
 
@@ -5153,6 +5759,11 @@ class $$HistoryEntriesTableFilterComposer
 
   ColumnFilters<int> get colorSlot => $composableBuilder(
     column: $table.colorSlot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get smartModeEditedContent => $composableBuilder(
+    column: $table.smartModeEditedContent,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5330,6 +5941,11 @@ class $$HistoryEntriesTableOrderingComposer
     column: $table.colorSlot,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get smartModeEditedContent => $composableBuilder(
+    column: $table.smartModeEditedContent,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HistoryEntriesTableAnnotationComposer
@@ -5402,6 +6018,11 @@ class $$HistoryEntriesTableAnnotationComposer
 
   GeneratedColumn<int> get colorSlot =>
       $composableBuilder(column: $table.colorSlot, builder: (column) => column);
+
+  GeneratedColumn<String> get smartModeEditedContent => $composableBuilder(
+    column: $table.smartModeEditedContent,
+    builder: (column) => column,
+  );
 
   Expression<T> entryNotesRefs<T extends Object>(
     Expression<T> Function($$EntryNotesTableAnnotationComposer a) f,
@@ -5531,6 +6152,7 @@ class $$HistoryEntriesTableTableManager
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> colorSlot = const Value.absent(),
+                Value<String?> smartModeEditedContent = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion(
                 id: id,
@@ -5551,6 +6173,7 @@ class $$HistoryEntriesTableTableManager
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
                 colorSlot: colorSlot,
+                smartModeEditedContent: smartModeEditedContent,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5573,6 +6196,7 @@ class $$HistoryEntriesTableTableManager
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> colorSlot = const Value.absent(),
+                Value<String?> smartModeEditedContent = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion.insert(
                 id: id,
@@ -5593,6 +6217,7 @@ class $$HistoryEntriesTableTableManager
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
                 colorSlot: colorSlot,
+                smartModeEditedContent: smartModeEditedContent,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6767,6 +7392,9 @@ typedef $$TextReplacementsTableCreateCompanionBuilder =
       required String trigger,
       required String replacement,
       required DateTime createdAt,
+      Value<String> matchMode,
+      Value<double?> fuzzyThreshold,
+      Value<String> origin,
       Value<int> rowid,
     });
 typedef $$TextReplacementsTableUpdateCompanionBuilder =
@@ -6775,6 +7403,9 @@ typedef $$TextReplacementsTableUpdateCompanionBuilder =
       Value<String> trigger,
       Value<String> replacement,
       Value<DateTime> createdAt,
+      Value<String> matchMode,
+      Value<double?> fuzzyThreshold,
+      Value<String> origin,
       Value<int> rowid,
     });
 
@@ -6847,6 +7478,21 @@ class $$TextReplacementsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get matchMode => $composableBuilder(
+    column: $table.matchMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fuzzyThreshold => $composableBuilder(
+    column: $table.fuzzyThreshold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> textReplacementTriggersRefs(
     Expression<bool> Function($$TextReplacementTriggersTableFilterComposer f) f,
   ) {
@@ -6902,6 +7548,21 @@ class $$TextReplacementsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get matchMode => $composableBuilder(
+    column: $table.matchMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fuzzyThreshold => $composableBuilder(
+    column: $table.fuzzyThreshold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TextReplacementsTableAnnotationComposer
@@ -6926,6 +7587,17 @@ class $$TextReplacementsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get matchMode =>
+      $composableBuilder(column: $table.matchMode, builder: (column) => column);
+
+  GeneratedColumn<double> get fuzzyThreshold => $composableBuilder(
+    column: $table.fuzzyThreshold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get origin =>
+      $composableBuilder(column: $table.origin, builder: (column) => column);
 
   Expression<T> textReplacementTriggersRefs<T extends Object>(
     Expression<T> Function($$TextReplacementTriggersTableAnnotationComposer a)
@@ -6989,12 +7661,18 @@ class $$TextReplacementsTableTableManager
                 Value<String> trigger = const Value.absent(),
                 Value<String> replacement = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> matchMode = const Value.absent(),
+                Value<double?> fuzzyThreshold = const Value.absent(),
+                Value<String> origin = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion(
                 id: id,
                 trigger: trigger,
                 replacement: replacement,
                 createdAt: createdAt,
+                matchMode: matchMode,
+                fuzzyThreshold: fuzzyThreshold,
+                origin: origin,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7003,12 +7681,18 @@ class $$TextReplacementsTableTableManager
                 required String trigger,
                 required String replacement,
                 required DateTime createdAt,
+                Value<String> matchMode = const Value.absent(),
+                Value<double?> fuzzyThreshold = const Value.absent(),
+                Value<String> origin = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion.insert(
                 id: id,
                 trigger: trigger,
                 replacement: replacement,
                 createdAt: createdAt,
+                matchMode: matchMode,
+                fuzzyThreshold: fuzzyThreshold,
+                origin: origin,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8251,6 +8935,7 @@ typedef $$SnippetsTableCreateCompanionBuilder =
       required String title,
       required String body,
       required DateTime createdAt,
+      Value<String> kind,
       Value<int> rowid,
     });
 typedef $$SnippetsTableUpdateCompanionBuilder =
@@ -8259,8 +8944,33 @@ typedef $$SnippetsTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String> body,
       Value<DateTime> createdAt,
+      Value<String> kind,
       Value<int> rowid,
     });
+
+final class $$SnippetsTableReferences
+    extends BaseReferences<_$HistoryDatabase, $SnippetsTable, Snippet> {
+  $$SnippetsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$SnippetFieldsTable, List<SnippetField>>
+  _snippetFieldsRefsTable(_$HistoryDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.snippetFields,
+        aliasName: 'snippets__id__snippet_fields__snippet_id',
+      );
+
+  $$SnippetFieldsTableProcessedTableManager get snippetFieldsRefs {
+    final manager = $$SnippetFieldsTableTableManager(
+      $_db,
+      $_db.snippetFields,
+    ).filter((f) => f.snippetId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_snippetFieldsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$SnippetsTableFilterComposer
     extends Composer<_$HistoryDatabase, $SnippetsTable> {
@@ -8290,6 +9000,36 @@ class $$SnippetsTableFilterComposer
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> snippetFieldsRefs(
+    Expression<bool> Function($$SnippetFieldsTableFilterComposer f) f,
+  ) {
+    final $$SnippetFieldsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.snippetFields,
+      getReferencedColumn: (t) => t.snippetId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetFieldsTableFilterComposer(
+            $db: $db,
+            $table: $db.snippetFields,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SnippetsTableOrderingComposer
@@ -8320,6 +9060,11 @@ class $$SnippetsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SnippetsTableAnnotationComposer
@@ -8342,6 +9087,34 @@ class $$SnippetsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  Expression<T> snippetFieldsRefs<T extends Object>(
+    Expression<T> Function($$SnippetFieldsTableAnnotationComposer a) f,
+  ) {
+    final $$SnippetFieldsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.snippetFields,
+      getReferencedColumn: (t) => t.snippetId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetFieldsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.snippetFields,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SnippetsTableTableManager
@@ -8355,9 +9128,9 @@ class $$SnippetsTableTableManager
           $$SnippetsTableAnnotationComposer,
           $$SnippetsTableCreateCompanionBuilder,
           $$SnippetsTableUpdateCompanionBuilder,
-          (Snippet, BaseReferences<_$HistoryDatabase, $SnippetsTable, Snippet>),
+          (Snippet, $$SnippetsTableReferences),
           Snippet,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool snippetFieldsRefs})
         > {
   $$SnippetsTableTableManager(_$HistoryDatabase db, $SnippetsTable table)
     : super(
@@ -8376,12 +9149,14 @@ class $$SnippetsTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> body = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SnippetsCompanion(
                 id: id,
                 title: title,
                 body: body,
                 createdAt: createdAt,
+                kind: kind,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8390,18 +9165,55 @@ class $$SnippetsTableTableManager
                 required String title,
                 required String body,
                 required DateTime createdAt,
+                Value<String> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SnippetsCompanion.insert(
                 id: id,
                 title: title,
                 body: body,
                 createdAt: createdAt,
+                kind: kind,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SnippetsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({snippetFieldsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (snippetFieldsRefs) db.snippetFields,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (snippetFieldsRefs)
+                    await $_getPrefetchedData<
+                      Snippet,
+                      $SnippetsTable,
+                      SnippetField
+                    >(
+                      currentTable: table,
+                      referencedTable: $$SnippetsTableReferences
+                          ._snippetFieldsRefsTable(db),
+                      managerFromTypedResult: (p0) => $$SnippetsTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).snippetFieldsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.snippetId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -8416,9 +9228,314 @@ typedef $$SnippetsTableProcessedTableManager =
       $$SnippetsTableAnnotationComposer,
       $$SnippetsTableCreateCompanionBuilder,
       $$SnippetsTableUpdateCompanionBuilder,
-      (Snippet, BaseReferences<_$HistoryDatabase, $SnippetsTable, Snippet>),
+      (Snippet, $$SnippetsTableReferences),
       Snippet,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool snippetFieldsRefs})
+    >;
+typedef $$SnippetFieldsTableCreateCompanionBuilder =
+    SnippetFieldsCompanion Function({
+      required String id,
+      required String snippetId,
+      required String name,
+      required int sortOrder,
+      Value<int> rowid,
+    });
+typedef $$SnippetFieldsTableUpdateCompanionBuilder =
+    SnippetFieldsCompanion Function({
+      Value<String> id,
+      Value<String> snippetId,
+      Value<String> name,
+      Value<int> sortOrder,
+      Value<int> rowid,
+    });
+
+final class $$SnippetFieldsTableReferences
+    extends
+        BaseReferences<_$HistoryDatabase, $SnippetFieldsTable, SnippetField> {
+  $$SnippetFieldsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $SnippetsTable _snippetIdTable(_$HistoryDatabase db) =>
+      db.snippets.createAlias('snippet_fields__snippet_id__snippets__id');
+
+  $$SnippetsTableProcessedTableManager get snippetId {
+    final $_column = $_itemColumn<String>('snippet_id')!;
+
+    final manager = $$SnippetsTableTableManager(
+      $_db,
+      $_db.snippets,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_snippetIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SnippetFieldsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $SnippetFieldsTable> {
+  $$SnippetFieldsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SnippetsTableFilterComposer get snippetId {
+    final $$SnippetsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.snippetId,
+      referencedTable: $db.snippets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetsTableFilterComposer(
+            $db: $db,
+            $table: $db.snippets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SnippetFieldsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $SnippetFieldsTable> {
+  $$SnippetFieldsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SnippetsTableOrderingComposer get snippetId {
+    final $$SnippetsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.snippetId,
+      referencedTable: $db.snippets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetsTableOrderingComposer(
+            $db: $db,
+            $table: $db.snippets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SnippetFieldsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $SnippetFieldsTable> {
+  $$SnippetFieldsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  $$SnippetsTableAnnotationComposer get snippetId {
+    final $$SnippetsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.snippetId,
+      referencedTable: $db.snippets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.snippets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SnippetFieldsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $SnippetFieldsTable,
+          SnippetField,
+          $$SnippetFieldsTableFilterComposer,
+          $$SnippetFieldsTableOrderingComposer,
+          $$SnippetFieldsTableAnnotationComposer,
+          $$SnippetFieldsTableCreateCompanionBuilder,
+          $$SnippetFieldsTableUpdateCompanionBuilder,
+          (SnippetField, $$SnippetFieldsTableReferences),
+          SnippetField,
+          PrefetchHooks Function({bool snippetId})
+        > {
+  $$SnippetFieldsTableTableManager(
+    _$HistoryDatabase db,
+    $SnippetFieldsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SnippetFieldsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SnippetFieldsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SnippetFieldsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> snippetId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SnippetFieldsCompanion(
+                id: id,
+                snippetId: snippetId,
+                name: name,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String snippetId,
+                required String name,
+                required int sortOrder,
+                Value<int> rowid = const Value.absent(),
+              }) => SnippetFieldsCompanion.insert(
+                id: id,
+                snippetId: snippetId,
+                name: name,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SnippetFieldsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({snippetId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (snippetId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.snippetId,
+                                referencedTable: $$SnippetFieldsTableReferences
+                                    ._snippetIdTable(db),
+                                referencedColumn: $$SnippetFieldsTableReferences
+                                    ._snippetIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SnippetFieldsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $SnippetFieldsTable,
+      SnippetField,
+      $$SnippetFieldsTableFilterComposer,
+      $$SnippetFieldsTableOrderingComposer,
+      $$SnippetFieldsTableAnnotationComposer,
+      $$SnippetFieldsTableCreateCompanionBuilder,
+      $$SnippetFieldsTableUpdateCompanionBuilder,
+      (SnippetField, $$SnippetFieldsTableReferences),
+      SnippetField,
+      PrefetchHooks Function({bool snippetId})
     >;
 typedef $$NotesTableCreateCompanionBuilder =
     NotesCompanion Function({
@@ -9121,6 +10238,8 @@ class $HistoryDatabaseManager {
       $$HotkeyLatencyEntriesTableTableManager(_db, _db.hotkeyLatencyEntries);
   $$SnippetsTableTableManager get snippets =>
       $$SnippetsTableTableManager(_db, _db.snippets);
+  $$SnippetFieldsTableTableManager get snippetFields =>
+      $$SnippetFieldsTableTableManager(_db, _db.snippetFields);
   $$NotesTableTableManager get notes =>
       $$NotesTableTableManager(_db, _db.notes);
   $$NoteTagsTableTableManager get noteTags =>

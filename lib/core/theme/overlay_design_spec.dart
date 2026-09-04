@@ -1349,6 +1349,25 @@ abstract final class OverlayDesignSpec {
   /// of the notch ramp.
   static const double transcribingWaveNotchPadPx = 6.0;
 
+  // -- Secondary text line (guided-sequence frames) --------------------------
+
+  /// Font-size factor of the secondary line relative to the layout's
+  /// `timerFontSize` (14 px normal → ~11 px). Used identically by the
+  /// painter and by [pillWidthForText]'s measurement so the sizing never
+  /// drifts from what gets drawn.
+  static const double secondaryTextScale = 0.78;
+
+  /// Vertical offset of the primary line's centre above the pill centre
+  /// when a secondary line is painted (two-line transcribing composition).
+  static const double secondaryTextPrimaryDy = -8.0;
+
+  /// Vertical offset of the secondary line's centre below the pill centre.
+  static const double secondaryTextSecondaryDy = 10.0;
+
+  /// Opacity of the secondary line's white fill — quieter than the primary
+  /// instruction, still readable over the glass.
+  static const double secondaryTextOpacity = 0.78;
+
   // -- Font weights (theme-wide, not scaled) ---------------------------------
 
   /// Recording timer weight (bold).
@@ -1606,22 +1625,35 @@ abstract final class OverlayDesignSpec {
     OverlayDesignState state,
     OverlaySizeSpec sizeSpec,
     OverlayLayoutSpec layout,
-    String text,
-  ) {
+    String text, {
+    String secondaryText = '',
+  }) {
     final baseWidth = pillWidthFor(state, sizeSpec);
     // Mini paints status text only while transcribing (state-distinction
     // pass); its other states stay glyph-only — nothing to grow for.
     final paintsText =
         !sizeSpec.minimalContent || state == OverlayDesignState.transcribing;
     if (!paintsText) return baseWidth;
-    if (text.isEmpty) return baseWidth;
+    if (text.isEmpty && secondaryText.isEmpty) return baseWidth;
     // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry:
     // textLeft sits at padH + dotInset + timerGap from the pill's left edge,
     // and padH is reserved again on the right — solved for the pill width
-    // that gives the measured text exactly enough room.
+    // that gives the measured text exactly enough room. A secondary line
+    // (guided-sequence frames) shares the same left edge at its smaller
+    // font; whichever line measures wider drives the pill.
     final measuredTextWidth = _measureTextWidth(text, layout.timerFontSize);
+    final measuredSecondaryWidth =
+        secondaryText.isEmpty || sizeSpec.minimalContent
+        ? 0.0
+        : _measureTextWidth(
+            secondaryText,
+            layout.timerFontSize * secondaryTextScale,
+          );
+    final widestLine = measuredTextWidth > measuredSecondaryWidth
+        ? measuredTextWidth
+        : measuredSecondaryWidth;
     final requiredWidth =
-        measuredTextWidth + 2 * layout.padH + layout.dotInset + layout.timerGap;
+        widestLine + 2 * layout.padH + layout.dotInset + layout.timerGap;
     return requiredWidth.clamp(baseWidth, sizeSpec.width);
   }
 

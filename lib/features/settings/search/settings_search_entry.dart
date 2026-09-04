@@ -95,6 +95,22 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     ],
   ),
   SettingsSearchEntry(
+    id: 'smartMode',
+    sectionKey: 'smartMode',
+    titleDe: 'Smart Mode',
+    titleEn: 'Smart Mode',
+    subtitleDe: 'Nachbearbeitung nach dem Diktieren',
+    subtitleEn: 'Post-processing after dictation',
+    keywords: [
+      // DE
+      'Preset', 'Aufräumen', 'Kürzen', 'Übersetzen', 'Gemma', 'Modell',
+      'herunterladen', 'Nachbearbeitung', 'Textbereinigung',
+      // EN
+      'preset', 'cleanup', 'concise', 'translate', 'gemma', 'model',
+      'download', 'post-processing', 'polish',
+    ],
+  ),
+  SettingsSearchEntry(
     id: 'audio',
     sectionKey: 'audio',
     titleDe: 'Audio',

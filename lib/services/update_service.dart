@@ -445,7 +445,11 @@ class UpdateNotifier extends Notifier<UpdateState> {
     // neutral — also protects the Windows installer relaunch.
     final recordingPhase = ref.read(recordingProvider).phase;
     if (recordingPhase == RecordingPhase.recording ||
-        recordingPhase == RecordingPhase.transcribing) {
+        recordingPhase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): the local Cleanup pass keeps a
+        // dictation in flight between transcribing and done — an install
+        // restart during that window would still lose the transcript.
+        recordingPhase == RecordingPhase.refining) {
       _log.info(
         'installUpdate deferred — recording in progress '
         '($recordingPhase)',

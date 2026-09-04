@@ -1,25 +1,32 @@
 /// Real in-process [SmartModeEngine] backed by a bundled `libllama` +
 /// `libsmartmode_shim` via `dart:ffi` (llama.cpp b10150, Gemma-4-E2B-it).
-/// Prototype sibling to [WhisperFfiEngine] — same bundling mechanism
-/// (Xcode "[WP] Embed & Sign libllama" phase, `../Frameworks/` resolution,
-/// `@loader_path`-relocatable dylibs), same Apple Guideline 2.5.2
-/// no-runtime-code-download constraint, but deliberately NOT
-/// isolate-hosted and NOT persistent-context yet: [run] loads the ~2.9GB
-/// GGUF, generates once, and frees everything on every call. That
-/// simplification is fine for validating "does the sandbox-embedded native
-/// engine work at all" — the next step once this is proven is a
-/// long-lived context, following whisper_isolate_engine.dart's pattern.
+/// Prototype sibling to [WhisperFfiEngine] — same bundling mechanism per
+/// platform (macOS: Xcode "[WP] Embed & Sign libllama" phase, `../Frameworks/`
+/// resolution, `@loader_path`-relocatable dylibs, Apple Guideline 2.5.2
+/// no-runtime-code-download constraint; Windows: DLLs staged next to
+/// `whispaste.exe` under a dedicated `smart_mode\` subdirectory, see
+/// [smartModeLibraryPathFor]), but deliberately NOT isolate-hosted and NOT
+/// persistent-context yet: [run] loads the ~2.9GB GGUF, generates once, and
+/// frees everything on every call. That simplification is fine for
+/// validating "does the bundled native engine work at all" — the next step
+/// once this is proven is a long-lived context, following
+/// whisper_isolate_engine.dart's pattern.
 library;
 
 import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/config/settings_enums.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/utils/windows_dll_search_path.dart';
 import '../path_service.dart';
 import 'smart_mode_engine.dart';
+import 'smart_mode_openai_engine.dart';
 
 final _log = AppLogger('SmartModeFfi');
 
@@ -49,28 +56,56 @@ typedef _SmartModeFreeResultNative =
     ffi.Void Function(ffi.Pointer<Utf8> result);
 typedef _SmartModeFreeResultDart = void Function(ffi.Pointer<Utf8> result);
 
+/// Test-only override for the directory [smartModeModelPath] resolves
+/// against, mirroring [sttDirOverride]. Must stay null in production code.
+String? smartModeModelDirOverride;
+
 /// `models/smart_mode/<filename>` under [appDataDir] — a sibling of
 /// [sttDir], not reusing it, since Smart-Mode-v2 models are a distinct asset
 /// class (chat/instruct GGUF, not Whisper encoder-decoder GGML) with their
 /// own licensing/attribution surface (Apache 2.0, see
 /// `.scratch/smart-mode-v2/research-gemma-4-e2b-license-and-config.md`).
 String smartModeModelPath({String filename = 'gemma-4-E2B-it-Q4_K_M.gguf'}) =>
-    p.join(appDataDir(), 'models', 'smart_mode', filename);
+    p.join(
+      smartModeModelDirOverride ?? p.join(appDataDir(), 'models', 'smart_mode'),
+      filename,
+    );
 
 /// Absolute path to the bundled `libsmartmode_shim` shared library, resolved
 /// relative to [Platform.resolvedExecutable] exactly like
-/// [whisperLibraryPathFor] — macOS only for this prototype (proving the App
-/// Sandbox embed mechanism was the explicit ask; Windows/Linux bundling is a
-/// straightforward follow-up once this is validated, not a new problem).
-String defaultSmartModeLibraryPath() {
-  if (!Platform.isMacOS) {
-    throw UnsupportedError(
-      'SmartModeFfiEngine prototype targets macOS only (App Sandbox validation scope)',
+/// [whisperLibraryPathFor].
+String defaultSmartModeLibraryPath() =>
+    smartModeLibraryPathFor(Platform.resolvedExecutable);
+
+/// Pure resolver behind [defaultSmartModeLibraryPath], split out for unit
+/// tests exactly like [whisperLibraryPathFor]. Given the app [executablePath],
+/// returns the bundled `libsmartmode_shim` path for the current OS:
+/// - macOS: `<App>.app/Contents/MacOS/<exe>` → `../Frameworks/libsmartmode_shim.dylib`
+///   (embedded by the "[WP] Embed & Sign libllama" Xcode phase, see
+///   `macos/embed_libllama.sh` — runs for every build).
+/// - Windows: `smart_mode\smartmode_shim.dll` next to `whispaste.exe` — a
+///   dedicated subdirectory, NOT the Flutter bundle root that
+///   [whisperLibraryPathFor] uses. Reason: llama.cpp vendors its own copy of
+///   `ggml` (see `build-libllama-windows.ps1`), independently pinned from
+///   whisper.cpp's vendored copy and not guaranteed ABI-compatible with it —
+///   staging both engines' `ggml*.dll` under the same directory would let one
+///   silently overwrite/shadow the other's build. macOS avoids this by
+///   renaming every ggml dylib with a `-llama` suffix instead (see
+///   `build-libllama-macos.sh`); Windows instead keeps the two engines'
+///   native libraries in disjoint directories, which needs no dylib-renaming
+///   or relinking. Linux support is not part of this ticket.
+String smartModeLibraryPathFor(String executablePath) {
+  final execDir = p.dirname(executablePath);
+  if (Platform.isMacOS) {
+    return p.normalize(
+      p.join(execDir, '..', 'Frameworks', 'libsmartmode_shim.dylib'),
     );
   }
-  final execDir = p.dirname(Platform.resolvedExecutable);
-  return p.normalize(
-    p.join(execDir, '..', 'Frameworks', 'libsmartmode_shim.dylib'),
+  if (Platform.isWindows) {
+    return p.join(execDir, 'smart_mode', 'smartmode_shim.dll');
+  }
+  throw UnsupportedError(
+    'SmartModeFfiEngine is not bundled for this platform yet',
   );
 }
 
@@ -93,6 +128,7 @@ class SmartModeFfiEngine implements SmartModeEngine {
 
     final ffi.DynamicLibrary dylib;
     try {
+      ensureWindowsDllSearchPath(_libraryPath);
       dylib = ffi.DynamicLibrary.open(_libraryPath);
     } catch (e) {
       throw StateError('smart_mode_library_load_failed: $e');
@@ -139,3 +175,22 @@ class SmartModeFfiEngine implements SmartModeEngine {
     }
   }
 }
+
+/// Production [SmartModeEngine] — [RecordingOrchestrator] (ticket 02) reads
+/// this via [Ref.read], never watches it: the engine is stateless per call,
+/// so there is nothing to react to. Tests override this provider with a fake
+/// implementing [SmartModeEngine] instead of constructing a real
+/// [SmartModeFfiEngine] (which would `dlopen` a native library that doesn't
+/// exist in the test environment).
+///
+/// Selects local vs. cloud per [SmartModeSettings.provider] (ticket 06,
+/// ADR 0010: strict either-or, never both).
+final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
+  final providerType = SmartModeProviderType.fromValue(
+    ref.watch(settingsProvider).value?.smartMode.provider,
+  );
+  return switch (providerType) {
+    SmartModeProviderType.local => SmartModeFfiEngine(),
+    SmartModeProviderType.openAI => SmartModeOpenAiEngine(ref: ref),
+  };
+});

@@ -33,7 +33,9 @@
   "historyItemsSelected": "{count} נבחרו",
   "@historyItemsSelected": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "historyMerge": "מזג",
@@ -53,13 +55,17 @@
   "historyWordCount": "{count} מילים",
   "@historyWordCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "historyReadingTime": "{minutes} דק' קריאה",
   "@historyReadingTime": {
     "placeholders": {
-      "minutes": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "historyReadingTimeUnder1": "פחות מדקה קריאה",
@@ -72,7 +78,9 @@
   "historyNoResultsHint": "אין תמלולים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
   "@historyNoResultsHint": {
     "placeholders": {
-      "query": { "type": "String" }
+      "query": {
+        "type": "String"
+      }
     }
   },
   "historyTrashEmpty": "האשפה ריקה",
@@ -81,7 +89,13 @@
   "historyEmptyTrashConfirm": "לרוקן את האשפה?",
   "historyEmptyTrashConfirmMessage": "פעולה זו תמחק לצמיתות את כל הפריטים באשפה. אין דרך לבטל.",
   "historyTrashEmptied": "{count, plural, =1{האשפה רוקנה — פריט אחד נמחק} other{האשפה רוקנה — {count} פריטים נמחקו}}",
-  "@historyTrashEmptied": { "placeholders": { "count": { "type": "int" } } },
+  "@historyTrashEmptied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "historyNoArchivedItems": "אין פריטים בארכיון",
   "historyNoArchivedItemsHint": "העבר תמלולים לארכיון כדי לשמור אותם\nבלי שיופיעו ברשימה הראשית.",
   "historyNoRecordingsHint": "לחץ על כפתור ההקלטה או השתמש בקיצור כדי להתחיל.\nהתמלולים שלך יופיעו כאן.",
@@ -96,7 +110,13 @@
   "historyUndo": "בטל",
   "historyEntriesMerged": "רשומות מוזגו",
   "historyMergeConfirm": "למזג {count} רשומות?",
-  "@historyMergeConfirm": { "placeholders": { "count": { "type": "int" } } },
+  "@historyMergeConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "historyMergeConfirmMessage": "הרשומות הנבחרות ימוזגו לאחת. אין דרך לבטל.",
   "historyExitSelection": "צא מבחירה",
   "historySelectMultiple": "בחר מספר",
@@ -112,7 +132,9 @@
   "historyResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
   "@historyResultCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "historySelectAll": "בחר הכל",
@@ -210,7 +232,9 @@
   "pasteCapabilityRepairDone": "{count, plural, =0{לא נמצאו רשומות ישנות. נסה הדבקה.}=1{נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.}other{נוקו {count} רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.}}",
   "@pasteCapabilityRepairDone": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "pasteCapabilityRepairNothingToClear": "לא נמצאה רשומה ישנה. סביר להניח שהפעלה מחדש תעזור עכשיו.",
@@ -319,7 +343,9 @@
   "migrationComplete": "{count, plural, one{תמלול אחד הועבר מ-WhisPaste 1.x} other{{count} תמלולים הועברו מ-WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "settingsOff": "כבוי",
@@ -351,7 +377,9 @@
   "aboutVersion": "גרסה {version}",
   "@aboutVersion": {
     "placeholders": {
-      "version": { "type": "String" }
+      "version": {
+        "type": "String"
+      }
     }
   },
   "onboardingWelcome": "דבר פעם אחת. הדבק בכל מקום.",
@@ -392,20 +420,28 @@
   "analyticsThisWeek": "{delta} השבוע",
   "@analyticsThisWeek": {
     "placeholders": {
-      "delta": { "type": "String" }
+      "delta": {
+        "type": "String"
+      }
     }
   },
   "analyticsVsLastMonth": "{delta} לעומת החודש הקודם",
   "@analyticsVsLastMonth": {
     "placeholders": {
-      "delta": { "type": "String" }
+      "delta": {
+        "type": "String"
+      }
     }
   },
   "analyticsDurationHoursMinutes": "{hours}ש׳ {minutes}ד׳",
   "@analyticsDurationHoursMinutes": {
     "placeholders": {
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" }
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "analyticsDurationLt15s": "פחות מ-15 שניות",
@@ -416,13 +452,17 @@
   "analyticsSavedAmount": "{amount} נחסך",
   "@analyticsSavedAmount": {
     "placeholders": {
-      "amount": { "type": "String" }
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "analyticsSpentAmount": "{amount} הוצא",
   "@analyticsSpentAmount": {
     "placeholders": {
-      "amount": { "type": "String" }
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "replacementsSearch": "חפש החלפות…",
@@ -452,10 +492,43 @@
   "replacementsDeleteMessage": "להסיר את הקיצור \"{trigger}\"? אין דרך לבטל.",
   "@replacementsDeleteMessage": {
     "placeholders": {
-      "trigger": { "type": "String" }
+      "trigger": {
+        "type": "String"
+      }
     }
   },
-
+  "replacementsImportFromFolder": "ייבוא מתיקייה",
+  "replacementsImportHint": "סורק תיקיית פרויקט לזיהוי מזהים ומוסיף אותם כהחלפות מקורבות (fuzzy) — שום דבר לא יוצא מהמכשיר שלך.",
+  "replacementsImportSummary": "נמצאו {found}, נוספו {added}, {skipped} כפילויות דולגו",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": {
+        "type": "int"
+      },
+      "added": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsImportedBadge": "יובא",
+  "replacementsMatchModeLabel": "התאמה",
+  "replacementsMatchModeExact": "מדויק",
+  "replacementsMatchModeFuzzy": "דומה",
+  "replacementsFuzzyToleranceLabel": "סבילות",
+  "replacementsFuzzyToleranceStrict": "מחמיר",
+  "replacementsFuzzyToleranceStandard": "רגיל",
+  "replacementsFuzzyToleranceTolerant": "סובלני",
+  "replacementsFuzzyTooShortWarning": "לביטויי הפעלה מתחת ל-{minLength} תווים אי אפשר להשתמש בהתאמה מקורבת — זה יוצר יותר מדי התאמות שגויות.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": {
+        "type": "int"
+      }
+    }
+  },
   "snippetsSearch": "חפש קטעים…",
   "snippetsSearchFieldLabel": "חפש קטעים",
   "snippetsAdd": "הוסף",
@@ -470,11 +543,85 @@
   "snippetsTitleHint": "לדוגמה: חתימת אימייל",
   "snippetsBodyLabel": "תוכן",
   "snippetsBodyHint": "הטקסט שהקטע הזה מכניס…",
+  "snippetsKindLabel": "סוג",
+  "snippetsKindStatic": "סטטי",
+  "snippetsKindInteractive": "אינטראקטיבי",
+  "snippetsFieldsLabel": "שדות",
+  "snippetsFieldsHint": "תונחה דרך כל שדה בזה אחר זה, עם הקלטה קצרה משלו.",
+  "snippetsFieldNameHint": "שם לשדה {number}",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "snippetsFieldMoveUp": "הזז שדה למעלה",
+  "snippetsFieldMoveDown": "הזז שדה למטה",
+  "snippetsFieldRemove": "הסר שדה",
+  "snippetsFieldAdd": "הוסף שדה",
+  "snippetsFieldsMinWarning": "קטע אינטראקטיבי דורש לפחות {min} שדות בעלי שם.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "snippetsInteractiveBadge": "אינטראקטיבי",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{שדה אחד} other{{count} שדות}} · Enter מתחיל",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactiveSnippetBriefingHint": "שדה 1: {name} · Esc: ביטול",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "שדה {index}/{count}: {name}",
+  "@interactiveSnippetAnnounceLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "interactiveSnippetAnnounceHint": "התכונן לדבר…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactiveSnippetAdvance": "הבא",
   "snippetsDeleteTitle": "מחק קטע",
   "snippetsDeleteMessage": "להסיר את הקטע \"{title}\"? אין דרך לבטל.",
   "@snippetsDeleteMessage": {
     "placeholders": {
-      "title": { "type": "String" }
+      "title": {
+        "type": "String"
+      }
     }
   },
   "snippetsPickerTriggerLabel": "מילת הפעלה לבוחר הקטעים",
@@ -488,7 +635,6 @@
   "snippetsPickerUnavailable": "בוחר הקטעים עדיין אינו זמין בפלטפורמה הזו.",
   "snippetsPickerSemanticsLabel": "בוחר הקטעים",
   "snippetsPickerInsertAction": "הוסף",
-
   "aboutTagline": "מדיבור לטקסט, מיד.",
   "aboutWhatsNew": "מה חדש",
   "aboutGitHub": "GitHub",
@@ -623,14 +769,32 @@
   "qualityTierPremiumDesc": "דיוק גבוה להקלטות ארוכות ותוכן מורכב.",
   "qualityTierRecommended": "מומלץ למכשיר שלך",
   "qualityTierDownloadSize": "הורדה {size}",
-  "@qualityTierDownloadSize": { "placeholders": { "size": { "type": "String" } } },
+  "@qualityTierDownloadSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "qualityTierDownloadAndContinue": "הורד מודל",
   "qualityTierChooseDifferent": "בחר רמת איכות אחרת",
   "qualityTierActive": "פעיל",
   "qualityTierInfoSlow": "איכות מיטבית, לוקח פי {ratio} יותר זמן",
-  "@qualityTierInfoSlow": { "placeholders": { "ratio": { "type": "String" } } },
+  "@qualityTierInfoSlow": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
   "qualityTierInfoSlowerThanCompact": "איכות מיטבית, איטי פי {ratio} מ-Small",
-  "@qualityTierInfoSlowerThanCompact": { "placeholders": { "ratio": { "type": "String" } } },
+  "@qualityTierInfoSlowerThanCompact": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
   "qualityTierInfoModerate": "איזון טוב בין מהירות לאיכות",
   "qualityTierBenchmarkReRun": "הרץ בדיקה מחדש",
   "qualityTierBenchmarkRun": "הרץ בדיקת ביצועים",
@@ -638,9 +802,27 @@
   "qualityTierActionOverride": "השתמש בכל זאת",
   "qualityTierActionOverrideHint": "השתמש ברמה זו למרות האזהרה",
   "qualityTierModelTooltip": "Whisper {modelName} · {size}",
-  "@qualityTierModelTooltip": { "placeholders": { "modelName": { "type": "String" }, "size": { "type": "String" } } },
+  "@qualityTierModelTooltip": {
+    "placeholders": {
+      "modelName": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
-  "@analyticsModelDisplayName": { "placeholders": { "tierLabel": { "type": "String" }, "modelLabel": { "type": "String" } } },
+  "@analyticsModelDisplayName": {
+    "placeholders": {
+      "tierLabel": {
+        "type": "String"
+      },
+      "modelLabel": {
+        "type": "String"
+      }
+    }
+  },
   "settingsQualityBasic": "בסיסי",
   "settingsQualityBalanced": "מאוזן",
   "settingsQualityHigh": "איכות גבוהה",
@@ -662,7 +844,9 @@
   "oomRecoveryTrySmallerHint": "עבור ל-{model} ונסה שוב",
   "@oomRecoveryTrySmallerHint": {
     "placeholders": {
-      "model": { "type": "String" }
+      "model": {
+        "type": "String"
+      }
     }
   },
   "oomRecoverySwitchCloud": "עבור לענן",
@@ -674,14 +858,18 @@
   "oomRecoveryDowngrading": "עובר ל-{model}…",
   "@oomRecoveryDowngrading": {
     "placeholders": {
-      "model": { "type": "String" }
+      "model": {
+        "type": "String"
+      }
     }
   },
   "oomRecoverySwitchingCloud": "עובר לזיהוי דיבור בענן…",
   "oomRecoveryAttemptFailed": "מודל {model} גם נכשל. מנסה את הבא…",
   "@oomRecoveryAttemptFailed": {
     "placeholders": {
-      "model": { "type": "String" }
+      "model": {
+        "type": "String"
+      }
     }
   },
   "infoSttCudaOomFallbackModel": "איכות הופחתה: ה-GPU נגמר לו הזיכרון. עברתי למודל קל יותר.",
@@ -716,6 +904,14 @@
   "statusSttReady": "מודל מוכן",
   "historyDuplicate": "שכפל",
   "historyDuplicated": "רשומה שוכפלה",
+  "historyViewRaw": "מקורי",
+  "historyViewEdited": "ערוך",
+  "historyApplySmartModePreset": "החל תבנית Smart Mode",
+  "historySmartModeApplied": "Smart Mode הוחל",
+  "historySmartModeFailedModelMissing": "מודל Smart Mode לא הורד",
+  "historySmartModeFailedTimeout": "Smart Mode ארך זמן רב מדי",
+  "historySmartModeFailedGeneric": "Smart Mode נכשל — נסה שוב",
+  "historySmartModeSelectTargetLanguage": "בחר שפת יעד",
   "historyAddNote": "הוסף הערה",
   "historyEditNote": "ערוך הערה",
   "historyNotes": "הערות",
@@ -733,21 +929,66 @@
   "tagManageTitle": "ניהול תגיות",
   "tagManageEmpty": "עדיין לא נוצרו תגיות.",
   "tagUsageCount": "{count, plural, =0{לא בשימוש} =1{רשומה אחת} other{{count} רשומות}}",
-  "@tagUsageCount": { "placeholders": { "count": { "type": "int" } } },
+  "@tagUsageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tagOverflowMore": "{count, plural, =1{תגית נוספת אחת} other{עוד {count} תגיות}}",
-  "@tagOverflowMore": { "placeholders": { "count": { "type": "int" } } },
+  "@tagOverflowMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tagDeleteConfirmTitle": "למחוק תגית?",
   "tagDeleteConfirmMessage": "התגית \"{name}\" משמשת ב-{count, plural, =1{רשומה אחת} other{{count} רשומות}}. היא תוסר מכולן.",
-  "@tagDeleteConfirmMessage": { "placeholders": { "name": { "type": "String" }, "count": { "type": "int" } } },
+  "@tagDeleteConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tagDeleted": "תגית \"{name}\" נמחקה",
-  "@tagDeleted": { "placeholders": { "name": { "type": "String" } } },
+  "@tagDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "tagDeleteUnusedTitle": "למחוק תגיות שאינן בשימוש?",
   "tagDeleteUnusedMessage": "{count, plural, =1{תגית אחת} other{{count} תגיות}} שאינן בשימוש יימחקו לצמיתות.",
-  "@tagDeleteUnusedMessage": { "placeholders": { "count": { "type": "int" } } },
+  "@tagDeleteUnusedMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tagDeleteUnusedAction": "מחק {count} שאינן בשימוש",
-  "@tagDeleteUnusedAction": { "placeholders": { "count": { "type": "int" } } },
+  "@tagDeleteUnusedAction": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tagDeletedUnused": "{count, plural, =1{תגית אחת} other{{count} תגיות}} נמחקו",
-  "@tagDeletedUnused": { "placeholders": { "count": { "type": "int" } } },
+  "@tagDeletedUnused": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "historyEditTranscript": "ערוך תמלול",
   "historyTranscriptSaved": "תמלול נשמר",
   "historySaveTranscript": "שמור",
@@ -782,9 +1023,21 @@
   "historySortOldest": "ישן ביותר",
   "historySortLongest": "ארוך ביותר",
   "historySearchActiveTag": "#{tag}",
-  "@historySearchActiveTag": { "placeholders": { "tag": { "type": "String" } } },
+  "@historySearchActiveTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
   "historySearchActiveLang": "lang:{code}",
-  "@historySearchActiveLang": { "placeholders": { "code": { "type": "String" } } },
+  "@historySearchActiveLang": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
   "historySearchSuggestTag": "סנן לפי תגית",
   "historySearchSuggestLang": "סנן לפי שפה",
   "settingsKeyboardShortcut": "קיצור מקלדת",
@@ -799,7 +1052,6 @@
   "settingsHotkeyRecorderClear": "נקה",
   "settingsHotkeyRecorderModifierHint": "כל שילוב מקשי Modifier אפשרי: למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R",
   "settingsHotkeyRecorderInvalidKey": "לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1-F12) או מקש חץ.",
-
   "settingsHotkeyActionRecording": "התחלת/עצירת הקלטה",
   "settingsHotkeyActionQuickNote": "פתק מהיר",
   "settingsQuickNoteHotkeyEnabled": "קיצור לפתק מהיר",
@@ -808,11 +1060,12 @@
   "settingsQuickNoteHotkeyCollision": "הצירוף הזה כבר משמש עבור \"{action}\". בחר צירוף אחר.",
   "@settingsQuickNoteHotkeyCollision": {
     "placeholders": {
-      "action": { "type": "String" }
+      "action": {
+        "type": "String"
+      }
     }
   },
   "settingsQuickNoteHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לפתק מהיר אינו פעיל כרגע. בחר צירוף אחר.",
-
   "settingsHotkeyActionSnippetPicker": "בוחר הקטעים",
   "settingsSnippetPickerHotkeyEnabled": "קיצור לבוחר הקטעים",
   "settingsSnippetPickerHotkeyHint": "פותח את בוחר הקטעים מיד — בלי הקלטה ובלי מילת ההפעלה המדוברת.",
@@ -820,7 +1073,9 @@
   "settingsSnippetPickerHotkeyCollision": "הצירוף הזה כבר משמש עבור \"{action}\". בחר צירוף אחר.",
   "@settingsSnippetPickerHotkeyCollision": {
     "placeholders": {
-      "action": { "type": "String" }
+      "action": {
+        "type": "String"
+      }
     }
   },
   "settingsSnippetPickerHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לבוחר הקטעים אינו פעיל כרגע. בחר צירוף אחר.",
@@ -829,8 +1084,12 @@
   "hotkeyConflictWarning": "קיצור דרך זה שמור על ידי {platform} ({note}) ועלול לא לפעול.",
   "@hotkeyConflictWarning": {
     "placeholders": {
-      "platform": { "type": "String" },
-      "note": { "type": "String" }
+      "platform": {
+        "type": "String"
+      },
+      "note": {
+        "type": "String"
+      }
     }
   },
   "settingsGeminiApiKey": "מפתח Gemini",
@@ -873,7 +1132,16 @@
   "onboardingPrivacyCrashToggle": "שליחת דיווחי קריסה אנונימיים",
   "onboardingPrivacyCrashToggleHint": "עוזר לתקן באגים, פעיל כברירת מחדל, ניתן לכבות בכל עת",
   "onboardingStepOf": "שלב {current} מתוך {total}",
-  "@onboardingStepOf": { "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } } },
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "onboardingAppearancePageTitle": "מראה",
   "onboardingAppearancePageSubtitle": "איך האפליקציה מופעלת, ואיך נראית שכבת ההקלטה.",
   "onboardingBeat1Title": "לחץ על הקיצור, דבר, סיימת",
@@ -910,7 +1178,16 @@
   "onboardingTestRecordingDoneMessage": "זהו! כך זה עובד בדיוק בכל אפליקציה.",
   "onboardingTestRecordingReassurance": "רק בדיקה, הטקסט נשאר בשדה הזה.",
   "onboardingTestRecordingReassuranceWithDuration": "רק בדיקה, הטקסט נשאר בשדה הזה — הקלטות נעצרות אוטומטית אחרי {seconds} שניות, ניתן לשנות זאת בהגדרות ← {section}.",
-  "@onboardingTestRecordingReassuranceWithDuration": { "placeholders": { "seconds": { "type": "int" }, "section": { "type": "String" } } },
+  "@onboardingTestRecordingReassuranceWithDuration": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      },
+      "section": {
+        "type": "String"
+      }
+    }
+  },
   "onboardingReadyTitle": "הכל מוכן!",
   "onboardingReadySubtitle": "ככה משתמשים ב-WhisPaste",
   "onboardingReadyStep1": "לחץ על הקיצור כדי להתחיל להקליט",
@@ -930,14 +1207,12 @@
   "onboardingTriggerModeToggleHint": "לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים",
   "onboardingTriggerSystemWideHint": "עובד בכל המערכת — לא רק בתוך WhisPaste.",
   "onboardingStartUsing": "בוא נתחיל",
-
   "onboardingReviewExit": "סגירת המבוא",
   "onboardingReviewDone": "סיום",
   "onboardingReviewEntry": "מבוא",
   "onboardingReviewSubtitle": "אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.",
   "onboardingReviewLabel": "צפייה חוזרת במבוא",
   "onboardingReviewAction": "פתיחה",
-
   "onboardingRevisionNoticeTitle": "יש עדכון ל-WhisPaste — ההגדרות שלכם נשארות כפי שהן.",
   "onboardingRevisionExit": "יציאה מהמבוא",
   "onboardingRevisionExitConfirmTitle": "לצאת מהמבוא?",
@@ -957,9 +1232,20 @@
   "overlayKeyboardHint": "לחץ {hotkey} כדי לעצור",
   "@overlayKeyboardHint": {
     "placeholders": {
-      "hotkey": { "type": "String" }
+      "hotkey": {
+        "type": "String"
+      }
     }
   },
+  "overlayKeyboardHintNextFieldEnter": "Enter או {hotkey}: השדה הבא · Esc: ביטול",
+  "@overlayKeyboardHintNextFieldEnter": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: השדה הבא · Esc: ביטול",
   "overlayProcessingLocal": "מקומי",
   "overlayProcessingCloud": "ענן",
   "overlayRecordingQuickNote": "מקליט לפתק",
@@ -967,8 +1253,12 @@
   "overlayRecordingTargetTimer": "{elapsed} · {target}",
   "@overlayRecordingTargetTimer": {
     "placeholders": {
-      "elapsed": { "type": "String" },
-      "target": { "type": "String" }
+      "elapsed": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
     }
   },
   "overlayDoneQuickNote": "נוסף לפתק",
@@ -995,7 +1285,9 @@
   "voiceTagAdded": "תגית \"{tag}\" נוספה בקול",
   "@voiceTagAdded": {
     "placeholders": {
-      "tag": { "type": "String" }
+      "tag": {
+        "type": "String"
+      }
     }
   },
   "voiceCorrectionApplied": "תמלול תוקן בקול",
@@ -1004,13 +1296,17 @@
   "updateAvailable": "עדכון זמין: v{version}",
   "@updateAvailable": {
     "placeholders": {
-      "version": { "type": "String" }
+      "version": {
+        "type": "String"
+      }
     }
   },
   "updateDownloading": "מוריד עדכון… {percent}%",
   "@updateDownloading": {
     "placeholders": {
-      "percent": { "type": "int" }
+      "percent": {
+        "type": "int"
+      }
     }
   },
   "updateReadyToInstall": "עדכון מוכן, לחץ להתקנה",
@@ -1024,7 +1320,9 @@
   "updateStatusBarChip": "v{version} זמין",
   "@updateStatusBarChip": {
     "placeholders": {
-      "version": { "type": "String" }
+      "version": {
+        "type": "String"
+      }
     }
   },
   "settingsOverlaySize": "גודל שכבה",
@@ -1055,7 +1353,13 @@
   "settingsHistoryAutoTrashDays": "מחק אשפה אוטומטית אחרי",
   "settingsHistoryAutoTrashNever": "לעולם לא",
   "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{יום אחד} other{{count} ימים}}",
-  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } },
+  "@settingsHistoryAutoTrashDaysLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsHistoryRetentionPreset": "שמירה",
   "settingsHistoryPresetMinimal": "מינימלי",
   "settingsHistoryPresetStandard": "רגיל",
@@ -1067,7 +1371,13 @@
   "settingsSttIdleTimeoutSubtitle": "כמה זמן המנוע נשאר טעון אחרי שימוש",
   "settingsSttIdleTimeoutKeepAlive": "תמיד פעיל",
   "settingsSttIdleTimeoutMinutes": "{count, plural, =1{דקה אחת} other{{count} דקות}}",
-  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } },
+  "@settingsSttIdleTimeoutMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "reviewPromptTitle": "אתה נהנה מ-WhisPaste?",
   "reviewPromptBody": "הדירוג שלך עוזר לאחרים לגלות את האפליקציה וממשיך את הפיתוח.",
   "reviewPromptYes": "אוהב מאוד!",
@@ -1078,7 +1388,6 @@
   "reviewPromptGateBody": "רק שאלה קצרה אלינו, זו אינה דירוג בחנות.",
   "reviewPromptGateYes": "כן, אני אוהב את זה",
   "reviewPromptGateNo": "לא ממש",
-
   "reviewSupportEntry": "דרגו ותמוכו ב-WhisPaste",
   "reviewSupportLabel": "הדירוג שלך",
   "reviewSupportSubtitle": "הדירוג שלך עוזר לאחרים לגלות את WhisPaste ותומך בפרויקט.",
@@ -1087,8 +1396,14 @@
   "insufficientRamBody": "WhisPaste דורש לפחות {requiredGb} GB RAM. למערכת שלך יש {detectedGb} GB.\n\nעם פחות זיכרון, מנוע ה-AI עלול להיכשל.",
   "@insufficientRamBody": {
     "placeholders": {
-      "detectedGb": { "type": "double", "format": "decimalPattern", "decimalDigits": 1 },
-      "requiredGb": { "type": "int" }
+      "detectedGb": {
+        "type": "double",
+        "format": "decimalPattern",
+        "decimalDigits": 1
+      },
+      "requiredGb": {
+        "type": "int"
+      }
     }
   },
   "insufficientRamQuit": "צא מ-WhisPaste",
@@ -1097,14 +1412,12 @@
   "insufficientRamYourSystem": "המערכת שלך",
   "insufficientRamRequired": "נדרש",
   "settingsLanguageHebrew": "עברית",
-
   "exportFormatPickerTitle": "בחר פורמט ייצוא",
   "exportFormatText": "טקסט",
   "exportFormatMarkdown": "Markdown",
   "exportFormatCsv": "CSV",
   "exportFormatJson": "JSON",
   "exportFormatWord": "Word",
-
   "recoveryExhaustedToast": "Voice service cannot start. Please restart the app or reload the voice model.",
   "recoveryExhaustedAction": "Open settings",
   "recoveryVcRuntimeToast": "Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.",
@@ -1118,18 +1431,15 @@
   "historyWriteFailedAction": "Copy diagnostics",
   "factoryResetFailedToast": "Factory reset incomplete. Restart the app?",
   "factoryResetFailedAction": "Quit app",
-
   "errorSttRejectEmpty": "אין אודיו לתמלול, נסה להקליט שוב.",
   "errorSttRejectInvalidWav": "קובץ האודיו פגום, נסה להקליט שוב.",
   "errorSttRejectUnsupportedLanguage": "השפה אינה נתמכת על ידי מנוע הדיבור המקומי, בדוק את השפה בהגדרות.",
   "errorSttRejectPromptTooLong": "אוצר המילים המותאם ארוך מדי, קצר אותו בהגדרות.",
-
   "settingsGpuAcceleration": "האצת גרפיקה",
   "settingsGpuAccelerationSubtitle": "קובע אם שירות הדיבור ישתמש ב-GPU או CPU לזיהוי מקומי",
   "settingsGpuAccelerationAuto": "אוטומטי (מומלץ)",
   "settingsGpuAccelerationEnabled": "GPU (כפוי)",
   "settingsGpuAccelerationDisabled": "CPU בלבד",
-
   "settingsSearchHint": "חיפוש הגדרות…",
   "settingsSearchNoResults": "אין תוצאות",
   "settingsSearchNoResultsHint": "נסה מונח חיפוש אחר.",
@@ -1137,17 +1447,17 @@
   "settingsSearchResultCount": "{count, plural, =0{אין תוצאות} other{{count} תוצאות}}",
   "@settingsSearchResultCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
-
   "settingsPrivacy": "Privacy",
   "settingsPrivacySubtitle": "Control what data WhisPaste shares",
   "settingsShareUsageStats": "Share anonymous usage statistics",
   "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers, help us understand how WhisPaste is used",
   "settingsRetainRecentAudio": "Keep recent recordings",
   "settingsRetainRecentAudioSubtitle": "Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically",
-
   "storeThankYouTitle": "תודה על תמיכתך!",
   "storeThankYouBody": "אנחנו שמחים שאתה איתנו. אם WhisPaste עוזר לך בעבודה, דירוג קצר יעשה עבורנו הבדל גדול.",
   "storeThankYouCtaStore": "★ דרג בחנות",
@@ -1159,10 +1469,13 @@
   "featureSpotlightSnippetPickerDescription": "שמור קטעי טקסט לשימוש חוזר והכנס אותם בכל מקום בלחיצה על מקש קיצור או במילת הפעלה קולית – בלי להקליד שוב.",
   "featureSpotlightSidePanelTitle": "סרגל לוח הגזירים",
   "featureSpotlightSidePanelDescription": "העבר את העכבר לקצה המסך כדי לפתוח את היסטוריית לוח הגזירים שלך וגרור כל פריט ישירות למסמך.",
+  "featureSpotlightInteractiveSnippetsTitle": "קטעים אינטראקטיביים",
+  "featureSpotlightInteractiveSnippetsDescription": "קטעים עם שדות למילוי: WhisPaste מוביל אותך משדה לשדה – הכתב, הקש Enter למעבר לשדה הבא, והטקסט המוגמר מודבק בבת אחת.",
+  "featureSpotlightSmartModeTitle": "Smart Mode",
+  "featureSpotlightSmartModeDescription": "נקה, קצר או תרגם את ההכתבה שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.",
   "featureSpotlightChangelogLink": "צפייה ביומן השינויים המלא",
   "featureSpotlightReviewLabel": "צפייה חוזרת בתכונות החדשות",
   "featureSpotlightReviewAction": "הצגה",
-
   "notesNewNote": "פתק חדש",
   "notesEmptyTitle": "עוד אין פתקים",
   "notesEmptyHint": "צור פתק כדי להתחיל לאסוף טקסט מכל מקום.",
@@ -1179,7 +1492,9 @@
   "notesQuickNoteHotkeyChange": "שינוי הקיצור לפתק מהיר — כרגע {combination}",
   "@notesQuickNoteHotkeyChange": {
     "placeholders": {
-      "combination": { "type": "String" }
+      "combination": {
+        "type": "String"
+      }
     }
   },
   "notesQuickNoteHotkeyOff": "הקיצור לפתק מהיר כבוי.",
@@ -1201,40 +1516,51 @@
   "notesNoResultsHint": "אין פתקים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
   "@notesNoResultsHint": {
     "placeholders": {
-      "query": { "type": "String" }
+      "query": {
+        "type": "String"
+      }
     }
   },
   "notesResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
   "@notesResultCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "notesExport": "ייצא",
-
   "markdownToolbarBold": "מודגש ({shortcut})",
   "@markdownToolbarBold": {
     "placeholders": {
-      "shortcut": { "type": "String", "example": "Ctrl+B" }
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+B"
+      }
     }
   },
   "markdownToolbarItalic": "נטוי ({shortcut})",
   "@markdownToolbarItalic": {
     "placeholders": {
-      "shortcut": { "type": "String", "example": "Ctrl+I" }
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+I"
+      }
     }
   },
   "markdownToolbarHeading": "כותרת",
   "markdownToolbarBulletList": "רשימת תבליטים ({shortcut})",
   "@markdownToolbarBulletList": {
     "placeholders": {
-      "shortcut": { "type": "String", "example": "Ctrl+Shift+L" }
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+Shift+L"
+      }
     }
   },
   "markdownToolbarNumberedList": "רשימה ממוספרת",
   "markdownToolbarQuote": "ציטוט",
   "markdownToolbarCode": "קוד",
-
   "findReplaceToggle": "חיפוש והחלפה בטקסט הזה",
   "findReplaceFindLabel": "חיפוש בטקסט הזה",
   "findReplaceFindHint": "חיפוש…",
@@ -1249,8 +1575,141 @@
   "findReplaceMatchCount": "{current} מתוך {total}",
   "@findReplaceMatchCount": {
     "placeholders": {
-      "current": { "type": "int", "example": "3" },
-      "total": { "type": "int", "example": "12" }
+      "current": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "12"
+      }
     }
-  }
+  },
+  "smartModeOnboardingHintTitle": "נסה את Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט המוכתב שלך אוטומטית — לגמרי במכשיר שלך. הורד את המודל המקומי עכשיו, או הגדר אותו מאוחר יותר בהגדרות.",
+  "smartModeOnboardingHintDownloadCta": "הורדה",
+  "smartModeOnboardingHintSkipCta": "דלג",
+  "smartModeUsageHintTitle": "נסה את Smart Mode בהכתבה הבאה שלך",
+  "smartModeUsageHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם טקסט כזה אוטומטית, ישירות במכשיר שלך. הנה מה שהכתבת הרגע:",
+  "smartModeUsageHintCta": "הגדרה",
+  "smartModeUsageHintDismiss": "לא עכשיו",
+  "settingsAutostartSyncFailed": "לא ניתן היה לרשום את ההפעלה האוטומטית במערכת ההפעלה. ייתכן שמדובר בבעיית הרשאות או שגרסת מערכת ההפעלה שלכם אינה נתמכת.",
+  "pasteFailureElevationBlocked": "ההדבקה האוטומטית נחסמה: האפליקציה היעד פועלת בהרשאות מנהל. הפעילו את WhisPaste גם כמנהל כדי להדביק בה.",
+  "pasteCapabilityWhyMac": "WhisPaste זקוקה להרשאה כדי להקליד טקסט באפליקציה שבה אתם עובדים — ב-macOS ההרשאה הזו נקראת \"נגישות\".",
+  "pasteCapabilityTroubleshoot": "יש בעיה?",
+  "settingsAdvancedSubtitle": "איפוס, דיווח שגיאות, עדכונים והתנהגות המערכת",
+  "analyticsAvgLatency": "מהירות ממוצעת",
+  "replacementsImportScanning": "סורק את התיקייה — זה עשוי לקחת רגע בפרויקטים גדולים…",
+  "replacementsImportError": "הייבוא נכשל — לא ניתן היה לסרוק את התיקייה.",
+  "replacementsImportNothingFound": "לא נמצאו מזהים חדשים בתיקייה זו.",
+  "replacementsImportReviewTitle": "בחרו מה לייבא",
+  "replacementsImportReviewSubtitle": "נמצאו {count} מועמדים — בחרו אילו יהפכו להחלפות. שום דבר לא יתווסף עד שתאשרו.",
+  "@replacementsImportReviewSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsImportReviewSearchHint": "סינון מועמדים",
+  "replacementsImportReviewSelectAllFiltered": "בחר את כל המוצגים",
+  "replacementsImportReviewDeselectAll": "בטל בחירת הכול",
+  "replacementsImportReviewSelectedCount": "{selected} מתוך {total} נבחרו",
+  "@replacementsImportReviewSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsImportReviewNoMatches": "אין מועמדים התואמים לסינון שלכם.",
+  "replacementsImportReviewImportButton": "ייבא נבחרים ({count})",
+  "@replacementsImportReviewImportButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsFuzzyToleranceHint": "עד כמה דומה צריך להישמע ביטוי מוכתב לטריגר כדי שעדיין ייחשב כהתאמה. מחמיר תופס רק ניסוח כמעט זהה, כך שכמעט שום דבר לא מוחלף בטעות, אך טריגר שנאמר בצורה לא ברורה עלול לחמוק בלי התאמה. רגיל הוא ברירת מחדל מאוזנת לשימוש יומיומי. סובלני תופס גם הגייה או ניסוח שונים באופן ניכר, בסיכון גבוה יותר להתאמת משהו שלא היה מיועד להחלפה.",
+  "snippetsFieldInsertIntoTemplate": "הוסף לתוך התבנית",
+  "snippetsTemplateLabel": "תבנית",
+  "snippetsTemplateHint": "כתבו את טקסט הקטע, ולאחר מכן השתמשו בכפתור ההוספה של כל שדה כדי למקם אותו במקום הרצוי.",
+  "snippetsTemplateFieldHint": "כתבו כאן את הטקסט שלכם והוסיפו שדות באמצעות הכפתורים שלמעלה.",
+  "snippetsTemplateMissingFieldsWarning": "לא כל השדות מופיעים עדיין בתבנית — הטקסט המוכתב שלהם יישאר בלתי מנוצל.",
+  "aboutParakeet": "NVIDIA Parakeet ו-sherpa-onnx",
+  "aboutParakeetDesc": "זיהוי דיבור מקומי, מותאם למהירות על חומרת CPU רגילה (כ-25 שפות).",
+  "statusBarRefining": "מעודן…",
+  "historyVoiceNoteHint": "טיפ: אמרו \"tag: שם\" או \"correct: טקסט\" בזמן ההקלטה.",
+  "settingsSidePanelEnabled": "סרגל הדבקה מהירה",
+  "settingsSidePanelEnabledSubtitle": "סרגל שנפתח בהצבעה על קצה המסך השמאלי, לתמלולים, קטעים והיסטוריית לוח הגזירים",
+  "overlayRefining": "מעודן…",
+  "a11ySidePanel": "סרגל הדבקה מהירה",
+  "hintDismiss": "סגור רמז",
+  "cpuFallbackToast": "התמלול לוקח כרגע קצת יותר זמן מהרגיל, אך הוא עדיין פועל.",
+  "settingsSttEngine": "מנוע",
+  "settingsSttEngineSubtitle": "Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה על חומרת CPU בלבד, אך מכסה כ-25 שפות ועדיין ללא backend של GPU",
+  "settingsSttEngineWhisper": "Whisper",
+  "settingsSttEngineParakeet": "Parakeet (המהיר ביותר, כ-25 שפות)",
+  "parakeetModelTitle": "מודל Parakeet TDT",
+  "parakeetModelSubtitle": "הורדה חד-פעמית (כ-640MB), ולאחר מכן פועל לגמרי במצב לא מקוון",
+  "parakeetModelDownload": "הורד",
+  "parakeetModelDownloading": "מוריד…",
+  "parakeetModelInstalled": "מותקן",
+  "parakeetModelDelete": "מחק",
+  "parakeetModelCancel": "בטל",
+  "sidePanelTranscriptionsTitle": "תמלולים",
+  "sidePanelSnippetsTitle": "קטעים",
+  "sidePanelClipboardHistoryTitle": "היסטוריית לוח הגזירים",
+  "sidePanelClipboardHistoryEmpty": "עדיין לא הועתק כלום",
+  "sidePanelClipboardHistoryEmptyHint": "כל מה שתעתיקו בזמן ש-WhisPaste פועלת יופיע כאן — מתנקה עם הפעלה מחדש של האפליקציה.",
+  "sidePanelClose": "סגור סרגל",
+  "sidePanelSearchHint": "חיפוש",
+  "sidePanelSearchFieldLabel": "חיפוש ברשימה זו",
+  "sidePanelNoMatches": "אין התאמות",
+  "sidePanelNoMatchesHint": "נסו מונח חיפוש אחר.",
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "ניקוי טקסט, קיצור ותרגום מקומיים לאחר ההכתבה",
+  "smartModeStandardPreset": "פריסט רגיל",
+  "smartModePresetOff": "כבוי",
+  "smartModePresetOffDescription": "אין עיבוד אוטומטי לאחר ההקלטה — הטקסט המוכתב משמש בדיוק כפי שתומלל.",
+  "smartModePresetCleanup": "ניקוי",
+  "smartModePresetCleanupDescription": "מסיר מילות מילוי כמו \"אה\" ומתקן פיסוק ורישיות, בלי לשנות את הניסוח, המשמעות או השפה.",
+  "smartModePresetConcise": "תמצות",
+  "smartModePresetConciseDescription": "מקצר את הטקסט על ידי הסרת חזרות ומילוי, תוך שמירה על כל עובדה חשובה, באותה שפה.",
+  "smartModePresetTranslate": "תרגום",
+  "smartModePresetTranslateDescription": "מתרגם את הטקסט המוכתב לשפת היעד שנקבעה למטה.",
+  "smartModeTargetLanguage": "שפת יעד",
+  "smartModeTargetLanguageGerman": "גרמנית",
+  "smartModeTargetLanguageEnglish": "אנגלית",
+  "smartModeTargetLanguageSpanish": "ספרדית",
+  "smartModeTargetLanguageFrench": "צרפתית",
+  "smartModeTargetLanguagePortuguese": "פורטוגזית",
+  "smartModeTargetLanguageMandarin": "מנדרינית",
+  "smartModeTargetLanguageRussian": "רוסית",
+  "smartModeDownload": "הורד",
+  "smartModeDownloadComplete": "מודל Smart Mode מוכן לשימוש",
+  "smartModeRamWarningTitle": "זוהה זיכרון מוגבל",
+  "smartModeRamWarningBody": "המודל המקומי של Smart Mode פועל בצורה הטובה ביותר עם 8GB זיכרון RAM ומעלה. הוא עשוי לעבוד גם עם פחות, אך עלול לפעול לאט או להיכשל במכשיר זה. להוריד בכל זאת?",
+  "smartModeRamWarningContinue": "הורד בכל זאת",
+  "smartModeRamWarningCancel": "בטל",
+  "smartModeMemoryFootprintInfo": "פועל לגמרי במכשיר. בזמן פעילות הוא צורך כ-4–5GB זיכרון RAM בנוסף לשטח האחסון — משותף עם מודל התמלול, כך שהצריכה הכוללת תלויה גם באיזה מודל STT טעון בנוסף.",
+  "smartModeSpeedExampleInfo": "לדוגמה: הכתבה טיפוסית של 50 מילים אורכת כ-1–6 שניות לעיבוד, בהתאם לחומרת המכשיר שלכם.",
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "מקש קיצור ל-Smart Mode",
+  "settingsSmartModeHotkeyHint": "מתחיל הקלטה עם פריסט קבוע, ללא תלות בפריסט הרגיל שלמעלה. תומך ב-Push-to-Talk בדיוק כמו מקש הקיצור הראשי.",
+  "settingsSmartModeHotkeyPreset": "פריסט",
+  "settingsSmartModeCurrentHotkey": "צירוף מקשים",
+  "settingsSmartModeHotkeyCollision": "צירוף זה כבר משמש עבור \"{action}\". בחרו צירוף אחר.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "לא ניתן היה לרשום צירוף זה — מקש הקיצור של Smart Mode אינו פעיל כרגע. בחרו צירוף אחר."
 }

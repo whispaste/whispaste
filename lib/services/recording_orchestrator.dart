@@ -36,6 +36,10 @@ import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
 import 'snippet_picker/snippet_picker_service.dart';
+import 'smart_mode/smart_mode_ffi_engine.dart' show smartModeEngineProvider;
+import 'smart_mode/smart_mode_model_download_service.dart'
+    show smartModeDownloadProvider;
+import 'smart_mode/smart_mode_presets.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
@@ -239,22 +243,42 @@ class RecordingOrchestrator extends Notifier<void> {
   /// button, main hotkey) is unaffected.
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {
       await stopRecording();
       return;
     }
-    if (recording.phase == RecordingPhase.transcribing) return;
+    if (recording.phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): the Cleanup pass keeps the pipeline
+        // busy here too — without this, a second hotkey press mid-refining
+        // would fall through to `startRecording()`, which the state machine
+        // then rejects as an invariant violation (no `start` transition is
+        // defined from `refining`) after already mutating unrelated
+        // orchestrator state (recordingTargetProvider, `_startInFlight`).
+        recording.phase == RecordingPhase.refining) {
+      return;
+    }
     // idle, done, or error → start. Kick off server warm-up before preflight
     // to maximise the parallel window.
     unawaited(_prewarmStt());
-    await startRecording(target: target);
+    await startRecording(
+      target: target,
+      forcedSmartModePreset: forcedSmartModePreset,
+    );
   }
 
   /// Starts the recording pipeline.
+  ///
+  /// [forcedSmartModePreset] (ticket 04 of `.scratch/smart-mode-v2/`)
+  /// overrides `settings.smartMode.standardPreset` for this recording only —
+  /// used by the Smart-Mode hotkey, which applies its own bound preset
+  /// independently of the main hotkey's standard-preset setting. `null` (the
+  /// default) means "use the standard preset as usual".
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
   }) async {
     // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
     // latency KPI. Peeked (not consumed) synchronously, before any `await`
@@ -268,6 +292,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // left over from an aborted/ignored start is structurally impossible
     // rather than dependent on covering every abort path.
     ref.read(recordingTargetProvider.notifier).set(target);
+    ref
+        .read(smartModeHotkeyOverridePresetProvider.notifier)
+        .set(forcedSmartModePreset);
 
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
@@ -888,6 +915,33 @@ class RecordingOrchestrator extends Notifier<void> {
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
+    // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
+    // Runs before history-save/snippet-picker/paste so every downstream
+    // consumer of `finalText` sees the same (possibly refined) value — this
+    // ticket replaces the transcript in place, it does not keep a separate
+    // raw+edited pair (that's the History data model, PRODUCT-SPEC §7, a
+    // later ticket's scope). Skipped for the onboarding sandbox recording,
+    // same as history-save below — a Smart Mode failure notification during
+    // the guided test-recording step would be a confusing false alarm, and
+    // "off" (the factory default, ticket 01) is a pure no-op path so this
+    // whole block never runs for a recording with no active preset.
+    // Ticket 04: the Smart-Mode hotkey's bound preset overrides the standard
+    // preset for this recording only — see startRecording's doc comment.
+    final hotkeyPreset = ref.read(smartModeHotkeyOverridePresetProvider);
+    final activePreset =
+        hotkeyPreset ??
+        smartModePresetFromSettingsValue(settings.smartMode.standardPreset);
+    if (sandboxTranscriptSink == null && activePreset != SmartModePreset.off) {
+      finalText = await _runSmartModeRefine(
+        sid,
+        finalText,
+        runner,
+        activePreset,
+        _activeSmartModeTargetLanguage(settings, hotkeyPreset != null),
+        settings,
+      );
+    }
+
     // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
     // A transcript that matches the picker's trigger word exactly (after
     // normalization) never reaches history/replacements or paste. An empty
@@ -1007,6 +1061,133 @@ class RecordingOrchestrator extends Notifier<void> {
     // once per run in _trackPipelineOutcome) already records the success path.
 
     return true;
+  }
+
+  /// Timeout for the Smart Mode Cleanup engine call itself — the primary
+  /// timeout, expected to fire (if anything does) well before
+  /// [RecordingNotifier]'s own `refining`-phase safety-net guard (30s). Local
+  /// inference is measured at 0.3–2.5s for a typical dictation (ADR 0009);
+  /// this budget is generous headroom for slower hardware, not the expected
+  /// case.
+  static const _smartModeCleanupTimeout = Duration(seconds: 15);
+
+  /// Test-only override for [_smartModeCleanupTimeout] — lets tests exercise
+  /// the timeout branch in well under a second instead of waiting 15 real
+  /// seconds. Mirrors [sttDirOverride]'s "test-only, must stay null in
+  /// production" convention. Must stay `null` in production code.
+  @visibleForTesting
+  static Duration? smartModeCleanupTimeoutOverride;
+
+  /// The hotkey's own target language is independent of the standard
+  /// preset's (settings_sections.dart, SmartModeHotkeySettings doc comment)
+  /// — a recording refined under the hotkey override must use *its*
+  /// language, never fall through to the standard preset's.
+  SmartModeTargetLanguage _activeSmartModeTargetLanguage(
+    AppSettings settings,
+    bool useHotkeyOverride,
+  ) {
+    return smartModeTargetLanguageFromSettingsValue(
+      useHotkeyOverride
+          ? settings.smartModeHotkey.smartModeHotkeyTargetLanguage
+          : settings.smartMode.targetLanguage,
+    );
+  }
+
+  /// Runs the active Smart Mode preset ([SmartModePreset.cleanup],
+  /// [SmartModePreset.concise], or [SmartModePreset.translate]) over
+  /// [rawText] and returns the result — or [rawText] unchanged on any
+  /// failure (model missing, load error, decode error, timeout, blank
+  /// result), firing a clearly-visible OS notification in that case. Smart
+  /// Mode never blocks the paste (ADR 0009): the caller always gets a usable
+  /// string back, never a thrown exception. [preset] is never
+  /// [SmartModePreset.off] — the caller already filters that out.
+  Future<String> _runSmartModeRefine(
+    String sid,
+    String rawText,
+    PipelineStepRunner runner,
+    SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
+    AppSettings settings,
+  ) async {
+    final provider = SmartModeProviderType.fromValue(
+      settings.smartMode.provider,
+    );
+    // Strict either-or (ADR 0010): the local-model-downloaded gate only
+    // applies to the local provider. Cloud never falls back to a locally
+    // installed model even if one exists — a missing/invalid API key or a
+    // network failure surfaces as the same silent-fallback path below, via
+    // the engine itself throwing.
+    if (provider.isLocal &&
+        !ref.read(smartModeDownloadProvider).modelDownloaded) {
+      _log.info(
+        '[$sid] Smart Mode $preset selected but model not downloaded — '
+        'falling back to raw transcript',
+      );
+      _notifySmartModeFallback();
+      return rawText;
+    }
+
+    final systemPrompt = smartModeSystemPromptFor(
+      preset,
+      targetLanguage: targetLanguage,
+    );
+
+    _stateMachine.transition(
+      RecordingIntent.startRefining,
+      transcript: rawText,
+    );
+
+    final result = await runner.run<String>(
+      'smart_mode_refine',
+      () => ref
+          .read(smartModeEngineProvider)
+          .run(systemPrompt: systemPrompt, userText: rawText),
+      timeout: smartModeCleanupTimeoutOverride ?? _smartModeCleanupTimeout,
+    );
+
+    switch (result) {
+      case Ok(:final value):
+        if (value.trim().isEmpty) {
+          // A blank/whitespace-only response is treated as a failure — never
+          // silently paste an empty string where the user dictated real
+          // content.
+          _log.warning('[$sid] Smart Mode $preset returned empty result');
+          _notifySmartModeFallback();
+          return rawText;
+        }
+        _log.debug('[$sid] Smart Mode $preset succeeded');
+        return value;
+      case StepTimeout():
+        _log.warning(
+          '[$sid] Smart Mode $preset timed out after '
+          '${_smartModeCleanupTimeout.inSeconds}s',
+        );
+        _notifySmartModeFallback();
+        return rawText;
+      case FailedWith(:final error):
+        _log.warning('[$sid] Smart Mode $preset failed: $error');
+        _notifySmartModeFallback();
+        return rawText;
+    }
+  }
+
+  /// Fires the OS notification for a Smart Mode fallback (ticket 02) — the
+  /// paste itself still succeeds with the raw transcript, so unlike every
+  /// other [SystemAttentionService] call site in this file this is purely
+  /// informational: no tray "action needed" badge (there's nothing to click
+  /// through to fix) and no error sound (nothing actually failed from the
+  /// user's point of view — their text still landed).
+  void _notifySmartModeFallback() {
+    unawaited(
+      ref
+          .read(systemAttentionServiceProvider)
+          .requestAttention(
+            kind: AttentionKind.smartModeFallback,
+            title: 'WhisPaste: Smart Mode übersprungen',
+            body:
+                'Die Nachbearbeitung konnte nicht angewendet werden — der unbearbeitete Text wurde trotzdem eingefügt.',
+          ),
+    );
   }
 
   /// Logs the outcome of the after-transcription action step (Step 5).
@@ -1430,7 +1611,11 @@ class RecordingOrchestrator extends Notifier<void> {
     }
     final phase = ref.read(recordingProvider).phase;
     if (phase == RecordingPhase.recording ||
-        phase == RecordingPhase.transcribing) {
+        phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): a Cleanup pass still owns the pending
+        // paste target here — opening the picker now would race it exactly
+        // like the transcribing case above.
+        phase == RecordingPhase.refining) {
       _log.info('Snippet-Picker hotkey ignored: recording in progress');
       return;
     }
@@ -1447,6 +1632,64 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
+  /// Captures the paste target once, before the first field of an
+  /// interactive snippet starts recording. Individual `templateField`
+  /// recordings deliberately skip [pasterProvider]'s `prime()` (see
+  /// [startRecording] — "a quick-note target never pastes anywhere"), so
+  /// without this call the originally-focused app would never be captured
+  /// and [completeInteractiveSnippet] would have nothing to paste into.
+  Future<void> primeForInteractiveSnippet() async {
+    await ref.read(pasterProvider)?.prime();
+  }
+
+  /// Called by `InteractiveSnippetController` once every field of an
+  /// interactive snippet has been recorded and composed into [composedText].
+  /// Runs the same history-save (exactly one entry for the whole snippet,
+  /// never one per field) and clipboard/paste step a regular `clipboard`
+  /// recording runs after transcription — without going through the
+  /// audio/transcription pipeline itself, since the text is already final.
+  Future<void> completeInteractiveSnippet({
+    required String composedText,
+    required Duration audioDuration,
+  }) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final saved = await ref
+        .read(recordingStoreProvider)
+        .save(
+          RecordingInput(
+            transcript: composedText,
+            audioDuration: audioDuration,
+            modelId: settings.transcriptionModelId,
+            isLocal: settings.sttProviderType.isLocal,
+            languageCode: settings.sttLanguageCode,
+            // Each field already had replacements applied to it individually
+            // (via its own templateField recording's history-save step) —
+            // running them again over the composed text (headings included)
+            // would risk a heading incidentally matching a trigger phrase.
+            applyTextReplacements: false,
+            historyMaxEntries: settings.historyMaxEntries,
+            wordCount: computeWordCountFast(composedText),
+            processingDurationSec: 0,
+            recordDailyStat: false,
+          ),
+        );
+
+    final action = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+    );
+    switch (action) {
+      case AfterTranscriptionAction.nothing:
+        return;
+      case AfterTranscriptionAction.clipboard:
+        await _copyTranscriptToClipboard(saved.processedTranscript);
+      case AfterTranscriptionAction.paste:
+        await _pasteTranscript(saved.processedTranscript, settings);
+      case AfterTranscriptionAction.clipboardAndPaste:
+        await _copyTranscriptToClipboard(saved.processedTranscript);
+        await _pasteTranscript(saved.processedTranscript, settings);
+    }
+  }
+
   Future<String?> _saveToHistory(
     String transcript,
     Duration audioDuration,
@@ -1459,9 +1702,14 @@ class RecordingOrchestrator extends Notifier<void> {
       final wordCount = computeWordCountFast(transcript);
       // A quick note already lives in Notes — it must not also land in
       // Verlauf (see _handleAfterTranscription's quickNote branch below,
-      // which appends to the note instead of clipboard/paste).
-      final isQuickNote =
-          ref.read(recordingTargetProvider) == RecordingTarget.quickNote;
+      // which appends to the note instead of clipboard/paste). A template
+      // field is one piece of a still-in-progress interactive snippet — only
+      // the final composed result (assembled by
+      // `InteractiveSnippetController`) gets its own single history entry,
+      // never the individual fields.
+      final target = ref.read(recordingTargetProvider);
+      final isQuickNote = target == RecordingTarget.quickNote;
+      final isTemplateField = target == RecordingTarget.templateField;
 
       final saved = await store.save(
         RecordingInput(
@@ -1474,13 +1722,18 @@ class RecordingOrchestrator extends Notifier<void> {
           historyMaxEntries: settings.historyMaxEntries,
           wordCount: wordCount,
           processingDurationSec: processingDurationSec,
-          insertHistoryEntry: !isQuickNote,
+          insertHistoryEntry: !isQuickNote && !isTemplateField,
         ),
       );
 
       if (isQuickNote) {
         _log.info(
           'Applied text replacements for quick note (not saved to '
+          'history)',
+        );
+      } else if (isTemplateField) {
+        _log.info(
+          'Applied text replacements for template field (not saved to '
           'history)',
         );
       } else {
@@ -1501,9 +1754,11 @@ class RecordingOrchestrator extends Notifier<void> {
       // history entry to link the audio to. Takes priority over the
       // user-facing retention setting below — a live diagnosis session
       // wants every WAV kept in place, uncapped, not rotated away.
-      if (kRetainDebugAudio && !isQuickNote) {
+      if (kRetainDebugAudio && !isQuickNote && !isTemplateField) {
         await _linkDebugAudioAttachment(saved.entryId, wavPath);
-      } else if (settings.privacy.retainRecentAudio && !isQuickNote) {
+      } else if (settings.privacy.retainRecentAudio &&
+          !isQuickNote &&
+          !isTemplateField) {
         await _retainRecentAudio(saved.entryId, wavPath);
       }
 
@@ -1787,6 +2042,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
     if (ref.read(recordingTargetProvider) == RecordingTarget.quickNote) {
       await _appendToQuickNote(transcript);
+      return;
+    }
+
+    // A template field's transcript is picked up by
+    // `InteractiveSnippetController` from `RecordingState.transcript` once
+    // this recording completes — it is neither copied to the clipboard nor
+    // pasted anywhere on its own (only the composed, whole-snippet result
+    // is, once every field is done).
+    if (ref.read(recordingTargetProvider) == RecordingTarget.templateField) {
       return;
     }
 

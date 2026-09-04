@@ -636,6 +636,68 @@ void main() {
 
       await db.close();
     });
+  });
+
+  group('Fuzzy-replacement migration (v19 → v20)', () {
+    test(
+      'adds match_mode/fuzzy_threshold/origin columns to text_replacements',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+        final cols = await db
+            .customSelect("PRAGMA table_info('text_replacements')")
+            .get();
+        final colNames = cols.map((r) => r.data['name'] as String).toSet();
+        expect(colNames.contains('match_mode'), true);
+        expect(colNames.contains('fuzzy_threshold'), true);
+        expect(colNames.contains('origin'), true);
+
+        await db.close();
+      },
+    );
+
+    test(
+      'a pre-v20 row keeps matching exactly as before (default exact/manual)',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.upsertReplacementWithTriggers(
+          id: 'r1',
+          triggers: ['omw'],
+          replacement: 'on my way',
+          createdAt: DateTime.now(),
+        );
+
+        final rows = await db.readAllReplacements();
+        expect(rows.single.row.matchMode, 'exact');
+        expect(rows.single.row.origin, 'manual');
+        expect(rows.single.row.fuzzyThreshold, null);
+
+        await db.close();
+      },
+    );
+
+    test('migration is idempotent — a second run does not error or overwrite '
+        'existing values', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: ['id'],
+        replacement: 'ID',
+        createdAt: DateTime.now(),
+        matchMode: 'fuzzy',
+        fuzzyThreshold: 0.85,
+        origin: 'imported',
+      );
+
+      await db.addFuzzyReplacementColumnsForTesting();
+
+      final rows = await db.readAllReplacements();
+      expect(rows.single.row.matchMode, 'fuzzy');
+      expect(rows.single.row.fuzzyThreshold, 0.85);
+      expect(rows.single.row.origin, 'imported');
+
+      await db.close();
+    });
 
     test(
       'migration is idempotent — re-running the index guard does not error',
@@ -648,6 +710,133 @@ void main() {
         // error — mirrors the color-slot migration's idempotency guarantee.
         await db.ensureNotesIndexesForTesting();
         await db.ensureNotesIndexesForTesting();
+
+        await db.close();
+      },
+    );
+  });
+
+  group('Smart Mode edited-content migration (v21 → v22)', () {
+    test('adds smart_mode_edited_content column to history_entries', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+      final cols = await db
+          .customSelect("PRAGMA table_info('history_entries')")
+          .get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      expect(colNames.contains('smart_mode_edited_content'), true);
+
+      await db.close();
+    });
+
+    test('a pre-v22 entry has no edited version until one is set', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(id: 'e1', timestamp: DateTime(2025, 1)),
+      );
+
+      final entry = await db.getEntry('e1');
+      expect(entry!.smartModeEditedContent, null);
+
+      await db.updateEntry(
+        'e1',
+        const HistoryEntriesCompanion(
+          smartModeEditedContent: Value('cleaned up text'),
+        ),
+      );
+      final updated = await db.getEntry('e1');
+      expect(updated!.smartModeEditedContent, 'cleaned up text');
+      expect(updated.content, ''); // raw content untouched
+
+      await db.close();
+    });
+
+    test('migration is idempotent — a second run does not error or overwrite '
+        'existing values', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(id: 'e1', timestamp: DateTime(2025, 1)),
+      );
+      await db.updateEntry(
+        'e1',
+        const HistoryEntriesCompanion(
+          smartModeEditedContent: Value('already edited'),
+        ),
+      );
+
+      await db.addSmartModeEditedContentColumnForTesting();
+
+      final entry = await db.getEntry('e1');
+      expect(entry!.smartModeEditedContent, 'already edited');
+
+      await db.close();
+    });
+  });
+
+  group('Interactive snippet template migration (v22 → v23)', () {
+    test('backfills a pre-v23 interactive snippet\'s empty body with the '
+        'legacy field-heading template', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertSnippetWithFields(
+        id: 's1',
+        title: 'Bug Report',
+        body: '',
+        createdAt: DateTime(2025, 1),
+        kind: 'interactive',
+        fieldNames: const ['Titel', 'Reproduktion'],
+      );
+
+      await db.backfillInteractiveSnippetTemplatesForTesting();
+
+      final rows = await db.readAllSnippetsWithFields();
+      expect(
+        rows.single.row.body,
+        'Titel\n{{Titel}}\n\nReproduktion\n{{Reproduktion}}',
+      );
+
+      await db.close();
+    });
+
+    test('leaves a static snippet\'s body untouched', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertSnippetWithFields(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime(2025, 1),
+        kind: 'static',
+        fieldNames: const [],
+      );
+
+      await db.backfillInteractiveSnippetTemplatesForTesting();
+
+      final rows = await db.readAllSnippetsWithFields();
+      expect(rows.single.row.body, 'Hello there!');
+
+      await db.close();
+    });
+
+    test(
+      'migration is idempotent — a second run produces the same template',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.upsertSnippetWithFields(
+          id: 's1',
+          title: 'Bug Report',
+          body: '',
+          createdAt: DateTime(2025, 1),
+          kind: 'interactive',
+          fieldNames: const ['Titel', 'Reproduktion'],
+        );
+
+        await db.backfillInteractiveSnippetTemplatesForTesting();
+        await db.backfillInteractiveSnippetTemplatesForTesting();
+
+        final rows = await db.readAllSnippetsWithFields();
+        expect(
+          rows.single.row.body,
+          'Titel\n{{Titel}}\n\nReproduktion\n{{Reproduktion}}',
+        );
 
         await db.close();
       },

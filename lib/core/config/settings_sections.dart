@@ -1402,6 +1402,7 @@ class OnboardingSettings {
     this.onboardingFlowVersion = 0,
     this.onboardingContentVersion = 0,
     this.seenFeatureSpotlightIds = '',
+    this.smartModeUsageHintShown = false,
   });
 
   final bool onboardingCompleted;
@@ -1447,6 +1448,14 @@ class OnboardingSettings {
   /// it stays pending behind onboarding, a manual review, or a revision run.
   final String seenFeatureSpotlightIds;
 
+  /// Whether the one-time, post-usage Smart Mode discovery hint (ticket 08
+  /// of `.scratch/smart-mode-v2/`) has already been shown. Shown at most
+  /// once, regardless of user action, to users who have not engaged with
+  /// Smart Mode (standard preset still `off`) after their first completed
+  /// recording — covers both onboarding-skippers and pre-existing users who
+  /// onboarded before this feature shipped.
+  final bool smartModeUsageHintShown;
+
   static const OnboardingSettings defaults = OnboardingSettings();
 
   factory OnboardingSettings.fromMap(Map<String, String> v) =>
@@ -1478,6 +1487,11 @@ class OnboardingSettings {
         ),
         seenFeatureSpotlightIds:
             v['seen_feature_spotlight_ids'] ?? defaults.seenFeatureSpotlightIds,
+        smartModeUsageHintShown: _readBool(
+          v,
+          'smart_mode_usage_hint_shown',
+          defaults.smartModeUsageHintShown,
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -1487,6 +1501,7 @@ class OnboardingSettings {
     'onboarding_flow_version': '$onboardingFlowVersion',
     'onboarding_content_version': '$onboardingContentVersion',
     'seen_feature_spotlight_ids': seenFeatureSpotlightIds,
+    'smart_mode_usage_hint_shown': '$smartModeUsageHintShown',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -1500,6 +1515,7 @@ class OnboardingSettings {
     int? onboardingFlowVersion,
     int? onboardingContentVersion,
     String? seenFeatureSpotlightIds,
+    bool? smartModeUsageHintShown,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
@@ -1510,6 +1526,8 @@ class OnboardingSettings {
         onboardingContentVersion ?? this.onboardingContentVersion,
     seenFeatureSpotlightIds:
         seenFeatureSpotlightIds ?? this.seenFeatureSpotlightIds,
+    smartModeUsageHintShown:
+        smartModeUsageHintShown ?? this.smartModeUsageHintShown,
   );
 
   @override
@@ -1521,7 +1539,8 @@ class OnboardingSettings {
           onboardingCurrentStep == other.onboardingCurrentStep &&
           onboardingFlowVersion == other.onboardingFlowVersion &&
           onboardingContentVersion == other.onboardingContentVersion &&
-          seenFeatureSpotlightIds == other.seenFeatureSpotlightIds;
+          seenFeatureSpotlightIds == other.seenFeatureSpotlightIds &&
+          smartModeUsageHintShown == other.smartModeUsageHintShown;
 
   @override
   int get hashCode => Object.hash(
@@ -1531,6 +1550,7 @@ class OnboardingSettings {
     onboardingFlowVersion,
     onboardingContentVersion,
     seenFeatureSpotlightIds,
+    smartModeUsageHintShown,
   );
 }
 
@@ -1841,6 +1861,223 @@ class SettingsAutosaveSettings {
 }
 
 // ===========================================================================
+// Section 21 — Smart Mode
+// ===========================================================================
+
+/// Smart-Mode-v2 settings (`.scratch/smart-mode-v2/`).
+///
+/// [standardPreset] is the only field ticket 01 needs — everything else the
+/// feature will grow (target language in ticket 03, hotkey-preset in ticket
+/// 04, local/cloud provider choice in ticket 06) is added by those tickets as
+/// their own fields on this same section, not restructured in here.
+class SmartModeSettings {
+  const SmartModeSettings({
+    this.standardPreset = 'off',
+    this.targetLanguage = 'en',
+    this.provider = 'local',
+  });
+
+  /// One of `off` / `cleanup` / `concise` / `translate`. Defaults to `off` —
+  /// an update to an existing installation must not change dictation
+  /// behavior until the user actively opts in (ADR-independent product
+  /// requirement, ticket 01).
+  final String standardPreset;
+
+  /// Standard target language for the [translate] preset, as an ISO 639-1
+  /// code. Applies to both live paths that can trigger Translate (the
+  /// standard preset here, and the Smart-Mode hotkey added by ticket 04) —
+  /// there is no per-invocation language picker (PRODUCT-SPEC §5, neither
+  /// live path has a selection moment).
+  ///
+  /// Ticket 03's 18-sentence batch test validated both `de` (German) and
+  /// `en` (English, 5 DE→EN cases) — the other five official target
+  /// languages (es/fr/pt/zh/ru) are modeled here so the pipeline and this
+  /// field are generic, but ticket 09 gates each one's UI visibility behind
+  /// its own validation spike before it can actually be chosen. Defaults to
+  /// `en`: translating into the language the user is already dictating in
+  /// is a no-op for most users, so German cannot be the sensible default
+  /// despite being validated too; harmless while `standardPreset` defaults
+  /// to `off`.
+  final String targetLanguage;
+
+  /// Local-vs-cloud engine selection, as a [SmartModeProviderType.value].
+  /// Strict either-or per ADR 0010 — never both at once, no per-preset mix.
+  /// Defaults to `local`.
+  final String provider;
+
+  static const SmartModeSettings defaults = SmartModeSettings();
+
+  factory SmartModeSettings.fromMap(Map<String, String> v) => SmartModeSettings(
+    standardPreset: v['smart_mode_standard_preset'] ?? defaults.standardPreset,
+    targetLanguage: v['smart_mode_target_language'] ?? defaults.targetLanguage,
+    provider: v['smart_mode_provider'] ?? defaults.provider,
+  );
+
+  Map<String, String> toMap() => {
+    'smart_mode_standard_preset': standardPreset,
+    'smart_mode_target_language': targetLanguage,
+    'smart_mode_provider': provider,
+  };
+
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the SttSettings comment above and the other
+  // section classes in this file); it is established repo-wide boilerplate,
+  // not accidental duplication.
+  SmartModeSettings copyWith({
+    String? standardPreset,
+    String? targetLanguage,
+    String? provider,
+  }) => SmartModeSettings(
+    standardPreset: standardPreset ?? this.standardPreset,
+    targetLanguage: targetLanguage ?? this.targetLanguage,
+    provider: provider ?? this.provider,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SmartModeSettings &&
+          standardPreset == other.standardPreset &&
+          targetLanguage == other.targetLanguage &&
+          provider == other.provider;
+
+  @override
+  int get hashCode => Object.hash(standardPreset, targetLanguage, provider);
+}
+
+// ===========================================================================
+// Section 21b — Smart-Mode hotkey
+// ===========================================================================
+
+/// Settings for the Smart-Mode hotkey (ticket 04) — a fourth, independently
+/// configurable global hotkey. Unlike [QuickNoteHotkeySettings] and
+/// [SnippetPickerHotkeySettings] it also carries a bound [smartModeHotkeyPreset]
+/// (one of `cleanup`/`concise`/`translate` — never `off`, see ADR 0008: one
+/// extra hotkey, not one per preset), applied regardless of the
+/// [SmartModeSettings.standardPreset] the main hotkey uses.
+class SmartModeHotkeySettings {
+  const SmartModeHotkeySettings({
+    this.smartModeHotkeyEnabled = false,
+    this.smartModeHotkeyKey = 'M',
+    this.smartModeHotkeyKeyDisplay = '',
+    this.smartModeHotkeyModifiers = 'ctrl+shift',
+    this.smartModeHotkeyPreset = 'cleanup',
+    this.smartModeHotkeyTargetLanguage = 'en',
+  });
+
+  /// Off by default — an existing user must opt in, never gets a system-wide
+  /// shortcut silently claimed by an update.
+  final bool smartModeHotkeyEnabled;
+
+  /// Canonical storage token for the non-modifier key, as consumed by
+  /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
+  final String smartModeHotkeyKey;
+
+  /// User-visible label for [smartModeHotkeyKey] (see
+  /// [HotkeySettings.hotkeyKeyDisplay]).
+  final String smartModeHotkeyKeyDisplay;
+
+  final String smartModeHotkeyModifiers;
+
+  /// The preset applied whenever this hotkey triggers a recording. One of
+  /// `cleanup`/`concise`/`translate` — deliberately never `off` (a disabled
+  /// hotkey is expressed via [smartModeHotkeyEnabled], not via this field).
+  final String smartModeHotkeyPreset;
+
+  /// Target language used when [smartModeHotkeyPreset] is `translate` —
+  /// independent of [SmartModeSettings.targetLanguage] (the standard
+  /// preset's own target language), since the two presets can run with
+  /// different destination languages (e.g. a hotkey dedicated to
+  /// translating into English while the standard preset stays off). One of
+  /// [smartModeValidatedTargetLanguages]' codes; `en` default for the same
+  /// no-self-translation reason as the standard preset's default.
+  final String smartModeHotkeyTargetLanguage;
+
+  static const SmartModeHotkeySettings defaults = SmartModeHotkeySettings();
+
+  factory SmartModeHotkeySettings.fromMap(Map<String, String> v) =>
+      SmartModeHotkeySettings(
+        smartModeHotkeyEnabled: _readBool(
+          v,
+          'smart_mode_hotkey_enabled',
+          defaults.smartModeHotkeyEnabled,
+        ),
+        smartModeHotkeyKey:
+            v['smart_mode_hotkey_key'] ?? defaults.smartModeHotkeyKey,
+        smartModeHotkeyKeyDisplay:
+            v['smart_mode_hotkey_key_display'] ??
+            defaults.smartModeHotkeyKeyDisplay,
+        smartModeHotkeyModifiers:
+            v['smart_mode_hotkey_modifiers'] ??
+            defaults.smartModeHotkeyModifiers,
+        smartModeHotkeyPreset:
+            v['smart_mode_hotkey_preset'] ?? defaults.smartModeHotkeyPreset,
+        smartModeHotkeyTargetLanguage:
+            v['smart_mode_hotkey_target_language'] ??
+            defaults.smartModeHotkeyTargetLanguage,
+      );
+
+  Map<String, String> toMap() => {
+    'smart_mode_hotkey_enabled': '$smartModeHotkeyEnabled',
+    'smart_mode_hotkey_key': smartModeHotkeyKey,
+    'smart_mode_hotkey_key_display': smartModeHotkeyKeyDisplay,
+    'smart_mode_hotkey_modifiers': smartModeHotkeyModifiers,
+    'smart_mode_hotkey_preset': smartModeHotkeyPreset,
+    'smart_mode_hotkey_target_language': smartModeHotkeyTargetLanguage,
+  };
+
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the SttSettings comment above and the other
+  // section classes in this file); it is established repo-wide boilerplate,
+  // not accidental duplication.
+  SmartModeHotkeySettings copyWith({
+    bool? smartModeHotkeyEnabled,
+    String? smartModeHotkeyKey,
+    String? smartModeHotkeyKeyDisplay,
+    String? smartModeHotkeyModifiers,
+    String? smartModeHotkeyPreset,
+    String? smartModeHotkeyTargetLanguage,
+  }) => SmartModeHotkeySettings(
+    smartModeHotkeyEnabled:
+        smartModeHotkeyEnabled ?? this.smartModeHotkeyEnabled,
+    smartModeHotkeyKey: smartModeHotkeyKey ?? this.smartModeHotkeyKey,
+    smartModeHotkeyKeyDisplay:
+        smartModeHotkeyKeyDisplay ?? this.smartModeHotkeyKeyDisplay,
+    smartModeHotkeyModifiers:
+        smartModeHotkeyModifiers ?? this.smartModeHotkeyModifiers,
+    smartModeHotkeyPreset: smartModeHotkeyPreset ?? this.smartModeHotkeyPreset,
+    smartModeHotkeyTargetLanguage:
+        smartModeHotkeyTargetLanguage ?? this.smartModeHotkeyTargetLanguage,
+  );
+
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file
+  // (see the copyWith comment above), not accidental duplication.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SmartModeHotkeySettings &&
+          smartModeHotkeyEnabled == other.smartModeHotkeyEnabled &&
+          smartModeHotkeyKey == other.smartModeHotkeyKey &&
+          smartModeHotkeyKeyDisplay == other.smartModeHotkeyKeyDisplay &&
+          smartModeHotkeyModifiers == other.smartModeHotkeyModifiers &&
+          smartModeHotkeyPreset == other.smartModeHotkeyPreset &&
+          smartModeHotkeyTargetLanguage == other.smartModeHotkeyTargetLanguage;
+
+  @override
+  int get hashCode => Object.hash(
+    smartModeHotkeyEnabled,
+    smartModeHotkeyKey,
+    smartModeHotkeyKeyDisplay,
+    smartModeHotkeyModifiers,
+    smartModeHotkeyPreset,
+    smartModeHotkeyTargetLanguage,
+  );
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 
@@ -1864,4 +2101,12 @@ SnippetPickerHotkeySettings buildDefaultSnippetPickerHotkeySettings() =>
       snippetPickerHotkeyModifiers: Platform.isMacOS
           ? 'meta+shift'
           : 'ctrl+shift',
+    );
+
+/// Build a [SmartModeHotkeySettings] with the platform-correct default
+/// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+M` combination
+/// (ticket 04).
+SmartModeHotkeySettings buildDefaultSmartModeHotkeySettings() =>
+    SmartModeHotkeySettings(
+      smartModeHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
     );

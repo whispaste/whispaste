@@ -10,10 +10,53 @@ library;
 import 'dart:async';
 
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/persisted_l10n.dart';
+
+/// Detaches a secondary render engine from the embedder's app-lifecycle
+/// stream.
+///
+/// Every macOS `FlutterEngine` derives an app-lifecycle state from two
+/// per-engine flags (`_active` / `_visible`) that are fed exclusively by
+/// **app-global** `NSApplication` activation and occlusion notifications, and
+/// both start out `NO`: `FlutterAppLifecycleRegistrar.addDelegate` never
+/// replays the current state to a late registrant. A secondary engine that
+/// boots after launch therefore carries a stale `_visible = NO` until macOS
+/// happens to post the next occlusion change — and for a close-to-tray app
+/// that fires rarely, while `applicationWillResignActive` (which maps
+/// `_active = NO` + stale `_visible = NO` straight onto
+/// `AppLifecycleState.hidden`) fires every time the user clicks back into the
+/// app they are dictating into.
+///
+/// A single bogus `hidden` is enough to wedge such an engine for the rest of
+/// the session: [SchedulerBinding] answers it with `framesEnabled = false`,
+/// after which `scheduleFrame()` is a no-op, so every `setState` and every
+/// running [AnimationController] updates state without ever producing a
+/// frame. The panel then keeps showing whatever was last composited (for the
+/// overlay: the fully transparent frame its hide snapshot left behind), no
+/// matter how healthy the native shell and the relay channel are.
+///
+/// These engines have no meaningful app lifecycle of their own — their real
+/// visibility is governed solely by their native host's show/hide, which is
+/// already relayed in-band (the picker's `setItems`/`panelHidden`, the
+/// overlay's `FloatingOverlaySnapshot.visible`). So the correct lifecycle for
+/// them is "always live"; replacing the `flutter/lifecycle` handler unhooks
+/// [SchedulerBinding] and `FocusManager` from the bogus embedder signal.
+///
+/// Callers MUST gate their continuous animations on the relayed visibility
+/// instead — with frames never lifecycle-disabled any more, an ungated
+/// `repeat()` would repaint an ordered-out window for the whole session.
+///
+/// First diagnosed live for the Snippet-Picker engine (2026-08-13), then for
+/// the floating overlay (2026-09-01) with the same signature: the render
+/// engine logs every relayed snapshot while the native panel reports
+/// `isVisible=true` at a correct on-screen frame, and nothing is painted.
+void detachFromEmbedderAppLifecycle() {
+  SystemChannels.lifecycle.setMessageHandler((message) async => message);
+}
 
 /// Abstract base for the two render-engine State classes.
 ///

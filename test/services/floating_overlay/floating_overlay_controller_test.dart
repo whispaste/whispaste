@@ -143,7 +143,7 @@ void main() {
       },
     );
 
-    test('toMap() includes all 13 keys', () {
+    test('toMap() includes all 14 keys', () {
       const snap = FloatingOverlaySnapshot(
         visible: false,
         state: OverlayVisualState.recording,
@@ -151,7 +151,7 @@ void main() {
       );
 
       final map = snap.toMap();
-      expect(map.keys, hasLength(13));
+      expect(map.keys, hasLength(14));
       expect(map.keys.toSet(), {
         'visible',
         'state',
@@ -159,6 +159,7 @@ void main() {
         'style',
         'compact',
         'label',
+        'secondaryLabel',
         'elapsed',
         'hint',
         'transcript',

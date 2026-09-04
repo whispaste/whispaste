@@ -24,6 +24,7 @@ import 'sections/privacy_section.dart';
 import 'sections/recording_sections.dart';
 import 'sections/review_support_section.dart';
 import 'sections/settings_portability_section.dart';
+import 'sections/smart_mode_section.dart';
 import 'sections/stt_section.dart';
 import 'sections/updates_section.dart';
 import 'settings_widgets.dart';
@@ -51,6 +52,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _sectionKeys = <String, GlobalKey>{
     'interface': GlobalKey(),
     'stt': GlobalKey(),
+    'smartMode': GlobalKey(),
     'audio': GlobalKey(),
     'afterTranscription': GlobalKey(),
     'overlay': GlobalKey(),
@@ -213,6 +215,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         () => sectionCard(
           'stt',
           SpeechRecognitionSection(key: _sectionKeys['stt']),
+        ),
+      ),
+      (
+        'smartMode',
+        () => sectionCard(
+          'smartMode',
+          SmartModeSection(key: _sectionKeys['smartMode']),
         ),
       ),
       (

@@ -12,6 +12,7 @@ void main() {
       RecordingPhase.idle => FloatingButtonVisualState.idle,
       RecordingPhase.recording => FloatingButtonVisualState.recording,
       RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
+      RecordingPhase.refining => FloatingButtonVisualState.transcribing,
       RecordingPhase.done => FloatingButtonVisualState.done,
       RecordingPhase.error => FloatingButtonVisualState.error,
     };
@@ -30,6 +31,13 @@ void main() {
     test('transcribing maps to transcribing', () {
       expect(
         mapPhase(RecordingPhase.transcribing),
+        FloatingButtonVisualState.transcribing,
+      );
+    });
+
+    test('refining maps to transcribing (Smart Mode v2, ticket 02)', () {
+      expect(
+        mapPhase(RecordingPhase.refining),
         FloatingButtonVisualState.transcribing,
       );
     });

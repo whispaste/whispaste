@@ -3,6 +3,8 @@
 /// Uses [FakeHotKeyRegistrar] to avoid real platform-channel calls.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,6 +101,29 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
 
   /// Simulates the native host reporting the watched hotkey's release.
   void emitKeyUp() => _onKeyUp?.call();
+}
+
+/// A [FakeHotKeyRegistrar] whose [register] can be held open via [gate] —
+/// used to drive the epoch-guard race of the session-scoped
+/// interactive-snippet keys deterministically.
+class GatedHotKeyRegistrar extends FakeHotKeyRegistrar {
+  /// While non-null, [register] parks on this completer before delegating.
+  Completer<void>? gate;
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) async {
+    final g = gate;
+    if (g != null) await g.future;
+    await super.register(
+      hotKey,
+      keyDownHandler: keyDownHandler,
+      keyUpHandler: keyUpHandler,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1155,6 +1180,204 @@ void main() {
     );
   });
 
+  group('HotkeyService — Smart-Mode action (ticket 04)', () {
+    test('registers independently of the other three hotkeys', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      await service.updateQuickNoteHotkey(key: LogicalKeyboardKey.keyN);
+      await service.updateSnippetPickerHotkey(key: LogicalKeyboardKey.keyE);
+      await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+      expect(registrar.registered, hasLength(4));
+      expect(
+        registrar.registered.map((k) => k.logicalKey),
+        containsAll([
+          LogicalKeyboardKey.keyD,
+          LogicalKeyboardKey.keyN,
+          LogicalKeyboardKey.keyE,
+          LogicalKeyboardKey.keyM,
+        ]),
+      );
+    });
+
+    test(
+      'a failed Smart-Mode registration reports conflict without a safe-default fallback',
+      () async {
+        final registrar = FakeHotKeyRegistrar()
+          ..throwOnFirstRegister = TypeError();
+        final service = _makeService(registrar);
+
+        await expectLater(
+          service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM),
+          completes,
+        );
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.space,
+          ),
+          isFalse,
+          reason: 'ticket 04 forbids a safe-default fallback for this action',
+        );
+        expect(registrar.registered, isEmpty);
+      },
+    );
+
+    test(
+      'a failed Smart-Mode registration does not affect the other already-registered hotkeys',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        registrar.throwOnFirstRegister = TypeError();
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'keyUpHandler IS registered for the Smart-Mode action when the '
+      'registrar supports keyUp — push-to-talk parity with the main hotkey',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+        final service = _makeService(registrar);
+
+        var pressed = false;
+        var released = false;
+        service.onSmartModeHotkeyPressed = () => pressed = true;
+        service.onSmartModeHotkeyReleased = () => released = true;
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(
+          registrar.capturedKeyUpHandler,
+          isNotNull,
+          reason: 'ticket 04 requires push-to-talk parity with the main hotkey',
+        );
+
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+        registrar.capturedKeyUpHandler!(registrar.registered.first);
+
+        expect(pressed, isTrue);
+        expect(released, isTrue);
+      },
+    );
+
+    test(
+      'keyUpHandler is not registered for the Smart-Mode action when the '
+      'registrar does not support keyUp (Windows/Linux: toggle-only for now)',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(registrar.capturedKeyUpHandler, isNull);
+      },
+    );
+
+    test(
+      'Smart-Mode registration does not start the shared keyboard-up monitor',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        expect(monitor.started, isEmpty);
+      },
+    );
+
+    test(
+      'Smart-Mode key-down fires onSmartModeHotkeyPressed exactly once per press',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var presses = 0;
+        service.onSmartModeHotkeyPressed = () => presses++;
+
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+
+        expect(presses, 1);
+      },
+    );
+
+    test(
+      'auto-repeat suppression is independent of the other three actions',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var globalPresses = 0;
+        var smartModePresses = 0;
+        service.onHotkeyPressed = () => globalPresses++;
+        service.onSmartModeHotkeyPressed = () => smartModePresses++;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        await service.updateSmartModeHotkey(key: LogicalKeyboardKey.keyM);
+
+        final globalDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyD.keyId]!;
+        final smartModeDown =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.keyM.keyId]!;
+        final globalHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyD,
+        );
+        final smartModeHotKey = registrar.registered.firstWhere(
+          (k) => k.logicalKey == LogicalKeyboardKey.keyM,
+        );
+
+        globalDown(globalHotKey);
+        globalDown(globalHotKey);
+        expect(globalPresses, 1);
+
+        smartModeDown(smartModeHotKey);
+        expect(smartModePresses, 1);
+      },
+    );
+  });
+
+  group('smartModeHotkeyRegistrationStatusProvider', () {
+    test('starts unknown and reflects .set() calls independently', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(smartModeHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+
+      container
+          .read(smartModeHotkeyRegistrationStatusProvider.notifier)
+          .set(HotkeyRegistrationStatus.conflict);
+
+      expect(
+        container.read(smartModeHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.conflict,
+      );
+      // Independent of the other three status providers.
+      expect(
+        container.read(hotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+      expect(
+        container.read(snippetPickerHotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.unknown,
+      );
+    });
+  });
+
   group('snippetPickerHotkeyRegistrationStatusProvider', () {
     test('starts unknown and reflects .set() calls independently', () {
       final container = ProviderContainer();
@@ -1182,6 +1405,200 @@ void main() {
         container.read(quickNoteHotkeyRegistrationStatusProvider),
         HotkeyRegistrationStatus.unknown,
       );
+    });
+  });
+
+  group('HotkeyService — session-scoped interactive-snippet keys', () {
+    Iterable<HotKey> stillRegistered(
+      FakeHotKeyRegistrar registrar,
+      LogicalKeyboardKey key,
+    ) => registrar.registered.where((k) => k.logicalKey == key);
+
+    test('registers bare Enter and Escape, keyDown dispatches the '
+        'callbacks', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      var advanceCalls = 0;
+      var cancelCalls = 0;
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () => advanceCalls++,
+        onCancel: () => cancelCalls++,
+      );
+
+      final enter = stillRegistered(registrar, LogicalKeyboardKey.enter);
+      final escape = stillRegistered(registrar, LogicalKeyboardKey.escape);
+      expect(enter, hasLength(1));
+      expect(escape, hasLength(1));
+      // Bare keys — a modifier would defeat the whole "just press Enter"
+      // point.
+      expect(enter.single.modifiers ?? const <HotKeyModifier>[], isEmpty);
+      expect(escape.single.modifiers ?? const <HotKeyModifier>[], isEmpty);
+      // Regression (crash report 2026-09-01): `modifiers` must be an empty
+      // list, not `null`. A `null` list serializes via `HotKey.toJson()` as
+      // `'modifiers': null`, which the macOS plugin force-casts with
+      // `as! Array<String>` (HotkeyManagerMacosPlugin.swift:49) — that cast
+      // on a null value aborts the process (SIGABRT / swift_dynamicCast
+      // failure), crashing the app the moment an interactive snippet
+      // registers its Enter/Escape keys.
+      expect(enter.single.modifiers, isNotNull);
+      expect(escape.single.modifiers, isNotNull);
+      expect(enter.single.toJson()['modifiers'], isNotNull);
+      expect(escape.single.toJson()['modifiers'], isNotNull);
+
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!(
+        enter.single,
+      );
+      expect(advanceCalls, 1);
+      expect(cancelCalls, 0);
+
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.escape.keyId]!(
+        escape.single,
+      );
+      expect(cancelCalls, 1);
+    });
+
+    test('unregister removes both keys and stale handlers dispatch '
+        'nothing', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      var advanceCalls = 0;
+      var cancelCalls = 0;
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () => advanceCalls++,
+        onCancel: () => cancelCalls++,
+      );
+      await service.unregisterInteractiveSnippetKeys();
+
+      expect(stillRegistered(registrar, LogicalKeyboardKey.enter), isEmpty);
+      expect(stillRegistered(registrar, LogicalKeyboardKey.escape), isEmpty);
+
+      // A key event that slips through after unregister (native race) must
+      // not fire the callbacks of the ended sequence.
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!(
+        HotKey(key: LogicalKeyboardKey.enter),
+      );
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.escape.keyId]!(
+        HotKey(key: LogicalKeyboardKey.escape),
+      );
+      expect(advanceCalls, 0);
+      expect(cancelCalls, 0);
+    });
+
+    test('a failed Enter registration does not take Escape down', () async {
+      final registrar = FakeHotKeyRegistrar()
+        ..throwOnFirstRegister = TypeError();
+      final service = _makeService(registrar);
+      var cancelCalls = 0;
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () {},
+        onCancel: () => cancelCalls++,
+      );
+
+      expect(stillRegistered(registrar, LogicalKeyboardKey.enter), isEmpty);
+      final escape = stillRegistered(registrar, LogicalKeyboardKey.escape);
+      expect(escape, hasLength(1));
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.escape.keyId]!(
+        escape.single,
+      );
+      expect(cancelCalls, 1);
+    });
+
+    test('an unregister racing a still-pending registration leaves no '
+        'system-wide key grab behind (epoch guard)', () async {
+      final registrar = GatedHotKeyRegistrar();
+      final service = _makeService(registrar);
+      final gate = Completer<void>();
+      registrar.gate = gate;
+
+      final pending = service.registerInteractiveSnippetKeys(
+        onAdvance: () {},
+        onCancel: () {},
+      );
+      // The sequence ends while the Enter registration is still parked on
+      // the gate.
+      await service.unregisterInteractiveSnippetKeys();
+      registrar.gate = null;
+      gate.complete();
+      await pending;
+
+      expect(
+        stillRegistered(registrar, LogicalKeyboardKey.enter),
+        isEmpty,
+        reason:
+            'The late-completing Enter registration must undo itself — a '
+            'leaked bare-Enter grab would swallow Enter in every app',
+      );
+      expect(stillRegistered(registrar, LogicalKeyboardKey.escape), isEmpty);
+    });
+
+    test('a second sequence replaces the first registration instead of '
+        'stacking a duplicate', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () {},
+        onCancel: () {},
+      );
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () {},
+        onCancel: () {},
+      );
+
+      expect(
+        stillRegistered(registrar, LogicalKeyboardKey.enter),
+        hasLength(1),
+      );
+      expect(
+        stillRegistered(registrar, LogicalKeyboardKey.escape),
+        hasLength(1),
+      );
+    });
+
+    test('without key-up delivery a rapid double-Enter is debounced as OS '
+        'auto-repeat', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      var advanceCalls = 0;
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () => advanceCalls++,
+        onCancel: () {},
+      );
+
+      final handler =
+          registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!;
+      final key = HotKey(key: LogicalKeyboardKey.enter);
+      handler(key);
+      handler(key);
+
+      expect(advanceCalls, 1);
+    });
+
+    test('with key-up delivery (macOS) a released Enter is honoured again '
+        'immediately', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+      final service = _makeService(registrar);
+      var advanceCalls = 0;
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () => advanceCalls++,
+        onCancel: () {},
+      );
+
+      final down =
+          registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!;
+      final up =
+          registrar.keyUpHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!;
+      final key = HotKey(key: LogicalKeyboardKey.enter);
+      down(key);
+      up(key);
+      down(key);
+
+      expect(advanceCalls, 2);
     });
   });
 }

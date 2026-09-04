@@ -43,5 +43,5 @@ WhisPaste is open source under the MIT license. The full source is on GitHub, ev
 - **License:** MIT. Open source, source available on GitHub, audit every line.
 - **Privacy:** Offline by default. On-device transcription runs without any internet connection; the cloud path is opt-in and audio travels directly from your device to the provider you choose, never through a WhisPaste server. No account is required, and optional crash reports can be turned off at any time.
 - **System requirements:** 8 GB of RAM is required and enforced at startup. A dedicated GPU with 2 to 4 GB of VRAM speeds up transcription by roughly five times — Vulkan on Windows and Linux covers NVIDIA, AMD, and Intel with a single build, and Metal accelerates Apple Silicon — but a GPU is not required. CPU fallback is always available, and the Parakeet engine is CPU-only by design.
-- **Languages:** Up to 99 spoken languages with the Whisper engine (about 25 with the faster Parakeet engine). The interface is available in English, German, and Hebrew.
+- **Languages:** Up to 99 spoken languages with the Whisper engine (about 25 with the faster Parakeet engine). The interface is available in English, German, Hebrew, and Russian.
 - **Pricing:** A small one-time purchase, no subscription, no recurring fees, no feature gating.

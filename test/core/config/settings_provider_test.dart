@@ -475,6 +475,61 @@ void main() {
     );
   });
 
+  group('smartMode settings (ticket 01 of smart-mode-v2)', () {
+    test('defaults: standard preset is off', () {
+      final defaults = AppSettings.defaults;
+      expect(defaults.smartMode.standardPreset, 'off');
+    });
+
+    test('missing storage keys fall back to off (an update never silently '
+        'turns Smart Mode on)', () {
+      final settings = AppSettings.fromStorageMap(const {});
+      expect(settings.smartMode.standardPreset, 'off');
+    });
+
+    test('round-trips through toStorageMap/fromStorageMap', () {
+      const original = SmartModeSettings(
+        standardPreset: 'translate',
+        targetLanguage: 'de',
+      );
+      const settings = AppSettings(smartMode: original);
+
+      final restored = AppSettings.fromStorageMap(settings.toStorageMap());
+
+      expect(restored.smartMode, original);
+    });
+
+    test('copyWithSections replaces only smartMode', () {
+      final base = AppSettings.defaults;
+      final updated = base.copyWithSections(
+        smartMode: base.smartMode.copyWith(standardPreset: 'cleanup'),
+      );
+
+      expect(updated.smartMode.standardPreset, 'cleanup');
+      expect(updated.hotkey, base.hotkey);
+      expect(updated.stt, base.stt);
+    });
+
+    test('targetLanguage (ticket 03) defaults to English', () {
+      final defaults = AppSettings.defaults;
+      expect(defaults.smartMode.targetLanguage, 'en');
+    });
+
+    test('missing targetLanguage storage key falls back to English', () {
+      final settings = AppSettings.fromStorageMap(const {});
+      expect(settings.smartMode.targetLanguage, 'en');
+    });
+
+    test('copyWith updates only targetLanguage, leaving standardPreset '
+        'untouched', () {
+      const original = SmartModeSettings(standardPreset: 'translate');
+      final updated = original.copyWith(targetLanguage: 'en');
+
+      expect(updated.targetLanguage, 'en');
+      expect(updated.standardPreset, 'translate');
+    });
+  });
+
   group('sound mute migration (issue 12)', () {
     /// Helper: build a fresh container seeded with the given storage map.
     Future<(ProviderContainer, HistoryDatabase)> buildSeeded(

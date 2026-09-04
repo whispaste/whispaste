@@ -15,4 +15,4 @@ Every recording is saved automatically. Search, tag, pin, archive, and export to
 Say a short trigger: WhisPaste expands it into the full text before pasting. Perfect for signatures, greetings, and frequently typed phrases.
 
 🎛️ BUILT FOR DAILY WORK
-Push-to-talk or toggle · Floating Button above your desktop · System tray integration · Auto-start with Windows · English, German, and Hebrew UI
+Push-to-talk or toggle · Floating Button above your desktop · System tray integration · Auto-start with Windows · English, German, Hebrew, and Russian UI

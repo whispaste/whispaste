@@ -145,6 +145,27 @@ final snippetPickerHotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatus
     >(SnippetPickerHotkeyRegistrationStatusController.new);
 
+/// Notifier holding the [HotkeyRegistrationStatus] for the Smart-Mode hotkey
+/// (ticket 04 of `.scratch/smart-mode-v2/`) — kept fully separate from the
+/// other status providers so a conflict on one action never surfaces as a
+/// conflict on another.
+class SmartModeHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the Smart-Mode [HotkeyRegistrationStatus] state.
+final smartModeHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      SmartModeHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(SmartModeHotkeyRegistrationStatusController.new);
+
 // ---------------------------------------------------------------------------
 // Safe-default hotkey
 // ---------------------------------------------------------------------------
@@ -214,6 +235,24 @@ class HotkeyService extends Notifier<void> {
   /// per its own doc comment above.
   static const _snippetPickerActionId = 'snippetPicker';
 
+  /// Action identifier for the fourth, push-to-talk-capable Smart-Mode
+  /// hotkey (ticket 04 of `.scratch/smart-mode-v2/`). Unlike
+  /// [_quickNoteActionId]/[_snippetPickerActionId] it mirrors
+  /// [_globalActionId]'s push-to-talk support (ADR 0008: one extra hotkey,
+  /// behaving like the main one, not a lesser toggle-only action).
+  static const _smartModeActionId = 'smartMode';
+
+  /// Action identifiers for the two SESSION-SCOPED interactive-snippet keys
+  /// (Enter → advance field, Escape → cancel sequence). Unlike every other
+  /// action these are never registered from settings: capturing bare Enter
+  /// or Escape system-wide while the app merely runs would swallow those
+  /// keys in every other application. They exist only between
+  /// [registerInteractiveSnippetKeys] and
+  /// [unregisterInteractiveSnippetKeys], i.e. exactly while an
+  /// interactive-snippet guided sequence is active.
+  static const _snippetAdvanceActionId = 'snippetAdvance';
+  static const _snippetCancelActionId = 'snippetCancel';
+
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
 
@@ -241,6 +280,18 @@ class HotkeyService extends Notifier<void> {
   /// no "released" callback either (ticket 26).
   VoidCallback? onSnippetPickerHotkeyPressed;
 
+  /// Callback fired when the Smart-Mode hotkey is pressed (key-down).
+  VoidCallback? onSmartModeHotkeyPressed;
+
+  /// Callback fired when the Smart-Mode hotkey is released (key-up).
+  ///
+  /// Only fires where key-up delivery is available for this action — on
+  /// macOS via the registrar (same as [onHotkeyReleased]). On Windows/Linux
+  /// the shared [_monitor] channel is reserved for the global hotkey (see its
+  /// class doc), so the Smart-Mode hotkey is toggle-only there for now — a
+  /// documented, accepted platform gap (ticket 04), not a bug.
+  VoidCallback? onSmartModeHotkeyReleased;
+
   /// Whether the current platform can deliver key-up events for global hotkeys.
   ///
   /// macOS gets key-up from the registrar; Windows gets it from the RawInput
@@ -251,6 +302,22 @@ class HotkeyService extends Notifier<void> {
   bool _initialized = false;
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
+  bool _smartModeInitialized = false;
+
+  /// Callbacks for the session-scoped interactive-snippet keys. Set by
+  /// [registerInteractiveSnippetKeys], cleared by
+  /// [unregisterInteractiveSnippetKeys] — never wired from
+  /// [WpServiceBootstrap] like the persistent actions, because they only
+  /// exist for the lifetime of one guided sequence.
+  VoidCallback? _onInteractiveSnippetAdvance;
+  VoidCallback? _onInteractiveSnippetCancel;
+
+  /// Monotonic epoch guarding the register/unregister race on the
+  /// session-scoped keys: [unregisterInteractiveSnippetKeys] bumps it, and a
+  /// registration that completes only AFTER such a bump immediately
+  /// unregisters itself again instead of leaking a system-wide Enter/Escape
+  /// grab past the end of the sequence.
+  int _snippetKeysEpoch = 0;
 
   /// Per-action registration + held-key state, keyed by action id (see
   /// [_globalActionId], [_quickNoteActionId]). A held key on one action must
@@ -303,39 +370,42 @@ class HotkeyService extends Notifier<void> {
         }
       }
 
-      final quickNoteChanged =
-          previous.quickNoteHotkey.quickNoteHotkeyKey !=
-              current.quickNoteHotkey.quickNoteHotkeyKey ||
-          previous.quickNoteHotkey.quickNoteHotkeyModifiers !=
-              current.quickNoteHotkey.quickNoteHotkeyModifiers ||
-          previous.quickNoteHotkey.quickNoteHotkeyEnabled !=
-              current.quickNoteHotkey.quickNoteHotkeyEnabled;
-      if (quickNoteChanged) {
-        if (current.quickNoteHotkey.quickNoteHotkeyEnabled) {
-          unawaited(_registerQuickNoteFromSettings(current));
-        } else {
-          unawaited(_unregisterAction(_quickNoteActionId, stopMonitor: false));
-          _log.info('Quick-note hotkey disabled by user');
-        }
-      }
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.quickNoteHotkey.quickNoteHotkeyKey,
+        key: current.quickNoteHotkey.quickNoteHotkeyKey,
+        prevModifiers: previous.quickNoteHotkey.quickNoteHotkeyModifiers,
+        modifiers: current.quickNoteHotkey.quickNoteHotkeyModifiers,
+        prevEnabled: previous.quickNoteHotkey.quickNoteHotkeyEnabled,
+        enabled: current.quickNoteHotkey.quickNoteHotkeyEnabled,
+        actionId: _quickNoteActionId,
+        label: 'Quick-note',
+        register: () => _registerQuickNoteFromSettings(current),
+      );
 
-      final snippetPickerChanged =
-          previous.snippetPickerHotkey.snippetPickerHotkeyKey !=
-              current.snippetPickerHotkey.snippetPickerHotkeyKey ||
-          previous.snippetPickerHotkey.snippetPickerHotkeyModifiers !=
-              current.snippetPickerHotkey.snippetPickerHotkeyModifiers ||
-          previous.snippetPickerHotkey.snippetPickerHotkeyEnabled !=
-              current.snippetPickerHotkey.snippetPickerHotkeyEnabled;
-      if (snippetPickerChanged) {
-        if (current.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
-          unawaited(_registerSnippetPickerFromSettings(current));
-        } else {
-          unawaited(
-            _unregisterAction(_snippetPickerActionId, stopMonitor: false),
-          );
-          _log.info('Snippet-Picker hotkey disabled by user');
-        }
-      }
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.snippetPickerHotkey.snippetPickerHotkeyKey,
+        key: current.snippetPickerHotkey.snippetPickerHotkeyKey,
+        prevModifiers:
+            previous.snippetPickerHotkey.snippetPickerHotkeyModifiers,
+        modifiers: current.snippetPickerHotkey.snippetPickerHotkeyModifiers,
+        prevEnabled: previous.snippetPickerHotkey.snippetPickerHotkeyEnabled,
+        enabled: current.snippetPickerHotkey.snippetPickerHotkeyEnabled,
+        actionId: _snippetPickerActionId,
+        label: 'Snippet-Picker',
+        register: () => _registerSnippetPickerFromSettings(current),
+      );
+
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.smartModeHotkey.smartModeHotkeyKey,
+        key: current.smartModeHotkey.smartModeHotkeyKey,
+        prevModifiers: previous.smartModeHotkey.smartModeHotkeyModifiers,
+        modifiers: current.smartModeHotkey.smartModeHotkeyModifiers,
+        prevEnabled: previous.smartModeHotkey.smartModeHotkeyEnabled,
+        enabled: current.smartModeHotkey.smartModeHotkeyEnabled,
+        actionId: _smartModeActionId,
+        label: 'Smart-Mode',
+        register: () => _registerSmartModeFromSettings(current),
+      );
     });
 
     Future.microtask(() async {
@@ -349,8 +419,39 @@ class HotkeyService extends Notifier<void> {
       if (settings.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
         await _registerSnippetPickerFromSettings(settings);
       }
+      if (settings.smartModeHotkey.smartModeHotkeyEnabled) {
+        await _registerSmartModeFromSettings(settings);
+      }
     });
     ref.onDispose(_destroy);
+  }
+
+  /// Shared change-detection + register/unregister handling for the three
+  /// secondary hotkeys (quick-note, Snippet-Picker, Smart-Mode) inside the
+  /// [settingsProvider] listener in [build]. Split out purely to keep
+  /// [build]'s cyclomatic complexity under the project's static-analysis
+  /// threshold.
+  void _handleSecondaryHotkeySettingsChange({
+    required String prevKey,
+    required String key,
+    required String prevModifiers,
+    required String modifiers,
+    required bool prevEnabled,
+    required bool enabled,
+    required String actionId,
+    required String label,
+    required Future<void> Function() register,
+  }) {
+    final changed =
+        prevKey != key || prevModifiers != modifiers || prevEnabled != enabled;
+    if (!changed) return;
+
+    if (enabled) {
+      unawaited(register());
+    } else {
+      unawaited(_unregisterAction(actionId, stopMonitor: false));
+      _log.info('$label hotkey disabled by user');
+    }
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -505,6 +606,172 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Re-registers the Smart-Mode hotkey (ticket 04) with a new combination.
+  ///
+  /// Unlike [updateQuickNoteHotkey]/[updateSnippetPickerHotkey] this wires a
+  /// key-up handler wherever the registrar supports it (macOS today — see
+  /// [HotKeyRegistrar.supportsKeyUp]), giving push-to-talk parity with
+  /// [updateHotkey]. On platforms without registrar key-up (Windows/Linux)
+  /// this stays toggle-only, since the shared [_monitor] RawInput channel is
+  /// reserved for the global action — a documented, accepted gap for this
+  /// ticket, not a silent omission.
+  ///
+  /// Same no-safe-default-fallback contract as the other two secondary
+  /// hotkeys and for the same reason: an unexpectedly-claimed fallback key
+  /// triggering an unwanted Smart-Mode recording is worse than a hotkey that
+  /// does nothing.
+  Future<void> updateSmartModeHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) async {
+    if (!_isDesktop) return;
+    await _unregisterAction(_smartModeActionId, stopMonitor: false);
+
+    final hotKey = HotKey(key: key, modifiers: modifiers);
+    _stateFor(_smartModeActionId).registeredHotKey = hotKey;
+
+    try {
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(_smartModeActionId, 'SmartMode'),
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) => _handleKeyUp(_smartModeActionId, 'SmartMode')
+            : null,
+      );
+      _log.info('Smart-Mode hotkey registered successfully');
+      _setSmartModeStatus(HotkeyRegistrationStatus.success);
+    } on Object catch (e) {
+      _setSmartModeStatus(HotkeyRegistrationStatus.conflict);
+      _stateFor(_smartModeActionId).registeredHotKey = null;
+      final keyCode = key.keyId.toRadixString(16);
+      _log.warning(
+        'Failed to register Smart-Mode hotkey (key=0x$keyCode): $e '
+        '— staying unregistered, no safe-default fallback',
+      );
+    }
+  }
+
+  /// Registers the session-scoped interactive-snippet keys: bare **Enter**
+  /// (advance to the next field) and bare **Escape** (cancel the sequence).
+  ///
+  /// MUST only be called while an interactive-snippet guided sequence is
+  /// starting, and MUST be paired with [unregisterInteractiveSnippetKeys] on
+  /// every exit path of that sequence (finish, cancel, abort) — a bare
+  /// system-wide Enter grab left behind would swallow Enter in every other
+  /// application. `InteractiveSnippetController` owns that pairing; this
+  /// service additionally unregisters both keys in [_destroy] as a last
+  /// line of defence.
+  ///
+  /// Failure contract mirrors the secondary hotkeys: a key that cannot be
+  /// registered (already claimed elsewhere) is logged and simply stays
+  /// unavailable — the sequence continues, the main hotkey path still
+  /// advances fields. Each key registers independently, so an Enter
+  /// conflict does not take Escape down with it (or vice versa).
+  Future<void> registerInteractiveSnippetKeys({
+    required VoidCallback onAdvance,
+    required VoidCallback onCancel,
+  }) async {
+    if (!_isDesktop) return;
+    // Claim this sequence's epoch SYNCHRONOUSLY, before the cleanup await
+    // below. Capturing after an await would open a race:
+    // [unregisterInteractiveSnippetKeys] could land during that await, and
+    // the epoch captured afterwards would match the post-bump value — making
+    // this already-ended sequence look current and letting its key grabs
+    // survive. ONE epoch for both keys: if the sequence ends while either
+    // registration is still in flight, both key registrations see the stale
+    // epoch — the pending one undoes itself, the not-yet-started one is
+    // skipped.
+    final epoch = ++_snippetKeysEpoch;
+    // Idempotent: drop any previous session's registration first.
+    await _unregisterInteractiveSnippetActions();
+    if (epoch != _snippetKeysEpoch) {
+      // The sequence was ended (or replaced) while the cleanup above was in
+      // flight — don't resurrect the callbacks or register any key.
+      return;
+    }
+    _onInteractiveSnippetAdvance = onAdvance;
+    _onInteractiveSnippetCancel = onCancel;
+    await _registerSessionKey(
+      _snippetAdvanceActionId,
+      LogicalKeyboardKey.enter,
+      'Snippet-advance (Enter)',
+      epoch,
+    );
+    await _registerSessionKey(
+      _snippetCancelActionId,
+      LogicalKeyboardKey.escape,
+      'Snippet-cancel (Escape)',
+      epoch,
+    );
+  }
+
+  /// Removes the session-scoped interactive-snippet keys (see
+  /// [registerInteractiveSnippetKeys]). Safe to call when nothing is
+  /// registered.
+  Future<void> unregisterInteractiveSnippetKeys() async {
+    _snippetKeysEpoch++;
+    _onInteractiveSnippetAdvance = null;
+    _onInteractiveSnippetCancel = null;
+    await _unregisterInteractiveSnippetActions();
+  }
+
+  /// Drops both session-scoped key registrations WITHOUT bumping the epoch —
+  /// the shared cleanup between [unregisterInteractiveSnippetKeys] (which
+  /// bumps) and [registerInteractiveSnippetKeys] (which has already claimed
+  /// its own fresh epoch before calling this).
+  Future<void> _unregisterInteractiveSnippetActions() async {
+    await _unregisterAction(_snippetAdvanceActionId, stopMonitor: false);
+    await _unregisterAction(_snippetCancelActionId, stopMonitor: false);
+  }
+
+  /// Registers one session-scoped key for [actionId]. Stores the [HotKey]
+  /// only after the registrar call succeeded (unlike the settings-driven
+  /// `update*` methods, which store first): if an unregister raced past the
+  /// pending call, nothing must be left behind that [_unregisterAction]
+  /// already missed — the epoch check below closes exactly that window.
+  Future<void> _registerSessionKey(
+    String actionId,
+    LogicalKeyboardKey key,
+    String label,
+    int epoch,
+  ) async {
+    if (epoch != _snippetKeysEpoch) {
+      // The sequence already ended before this key's turn came — skip.
+      return;
+    }
+    final hotKey = HotKey(key: key, modifiers: const []);
+    try {
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(actionId, label),
+        // Where key-up is available (macOS registrar), clear the held state
+        // so a quick successive press within the auto-repeat window is not
+        // swallowed as OS key-repeat.
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) => _handleKeyUp(actionId, label)
+            : null,
+      );
+      if (epoch != _snippetKeysEpoch) {
+        // The sequence ended while the registration was in flight — undo it
+        // immediately instead of leaking a system-wide key grab.
+        _log.info('$label registration outlived its sequence — undoing');
+        try {
+          await _registrar.unregister(hotKey);
+        } on Object catch (e) {
+          _log.debug('$label late unregister failed (non-fatal): $e');
+        }
+        return;
+      }
+      _stateFor(actionId).registeredHotKey = hotKey;
+      _log.info('$label registered for interactive-snippet sequence');
+    } on Object catch (e) {
+      _stateFor(actionId).registeredHotKey = null;
+      _log.warning(
+        'Failed to register $label: $e — the sequence continues without it',
+      );
+    }
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
   Future<void> _registerFromSettings(AppSettings settings) async {
@@ -552,49 +819,79 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
-  /// Sibling of [_registerFromSettings] for the quick-note action. No
-  /// ArgumentError/safe-default handling is needed here (unlike the global
-  /// path): this is a brand-new settings key, so there is no legacy DB with a
-  /// pre-fix corrupted `quick_note_hotkey_key` to self-heal, and ticket 20
-  /// explicitly forbids a safe-default fallback for this action anyway.
-  Future<void> _registerQuickNoteFromSettings(AppSettings settings) async {
-    final quickNote = settings.quickNoteHotkey;
+  /// Shared implementation behind [_registerQuickNoteFromSettings],
+  /// [_registerSnippetPickerFromSettings] and [_registerSmartModeFromSettings]
+  /// — all three secondary hotkeys share the same brand-new-settings-key
+  /// contract: no legacy DB with a pre-fix corrupted value to self-heal, and
+  /// no safe-default fallback (an unexpectedly-claimed fallback key doing the
+  /// wrong thing is worse than a hotkey that does nothing).
+  Future<void> _registerSecondaryHotkeyFromSettings({
+    required String key,
+    required String modifiers,
+    required Future<void> Function({
+      required LogicalKeyboardKey key,
+      List<HotKeyModifier> modifiers,
+    })
+    update,
+    required void Function() markInitialized,
+    required void Function(HotkeyRegistrationStatus) setStatus,
+    required String label,
+  }) async {
     try {
-      await updateQuickNoteHotkey(
-        key: resolveKey(quickNote.quickNoteHotkeyKey),
-        modifiers: resolveModifiers(quickNote.quickNoteHotkeyModifiers),
+      await update(
+        key: resolveKey(key),
+        modifiers: resolveModifiers(modifiers),
       );
-      _quickNoteInitialized = true;
+      markInitialized();
       _log.info(
-        'Quick-note hotkey synced from settings: '
-        '${formatHotkeyShortcut(quickNote.quickNoteHotkeyModifiers, quickNote.quickNoteHotkeyKey)}',
+        '$label hotkey synced from settings: '
+        '${formatHotkeyShortcut(modifiers, key)}',
       );
     } on Object catch (e) {
-      _setQuickNoteStatus(HotkeyRegistrationStatus.conflict);
-      _log.warning('Failed to register quick-note hotkey: $e');
+      setStatus(HotkeyRegistrationStatus.conflict);
+      _log.warning('Failed to register $label hotkey: $e');
     }
   }
 
-  /// Sibling of [_registerFromSettings]/[_registerQuickNoteFromSettings] for
-  /// the Snippet-Picker action (ticket 26). Same reasoning as the quick-note
-  /// sibling: brand-new settings key, no legacy corrupted value to self-heal,
-  /// and no safe-default fallback for this action either.
-  Future<void> _registerSnippetPickerFromSettings(AppSettings settings) async {
+  /// Sibling of [_registerFromSettings] for the quick-note action (ticket 20).
+  Future<void> _registerQuickNoteFromSettings(AppSettings settings) {
+    final quickNote = settings.quickNoteHotkey;
+    return _registerSecondaryHotkeyFromSettings(
+      key: quickNote.quickNoteHotkeyKey,
+      modifiers: quickNote.quickNoteHotkeyModifiers,
+      update: updateQuickNoteHotkey,
+      markInitialized: () => _quickNoteInitialized = true,
+      setStatus: _setQuickNoteStatus,
+      label: 'Quick-note',
+    );
+  }
+
+  /// Sibling of [_registerFromSettings] for the Snippet-Picker action
+  /// (ticket 26).
+  Future<void> _registerSnippetPickerFromSettings(AppSettings settings) {
     final snippetPicker = settings.snippetPickerHotkey;
-    try {
-      await updateSnippetPickerHotkey(
-        key: resolveKey(snippetPicker.snippetPickerHotkeyKey),
-        modifiers: resolveModifiers(snippetPicker.snippetPickerHotkeyModifiers),
-      );
-      _snippetPickerInitialized = true;
-      _log.info(
-        'Snippet-Picker hotkey synced from settings: '
-        '${formatHotkeyShortcut(snippetPicker.snippetPickerHotkeyModifiers, snippetPicker.snippetPickerHotkeyKey)}',
-      );
-    } on Object catch (e) {
-      _setSnippetPickerStatus(HotkeyRegistrationStatus.conflict);
-      _log.warning('Failed to register Snippet-Picker hotkey: $e');
-    }
+    return _registerSecondaryHotkeyFromSettings(
+      key: snippetPicker.snippetPickerHotkeyKey,
+      modifiers: snippetPicker.snippetPickerHotkeyModifiers,
+      update: updateSnippetPickerHotkey,
+      markInitialized: () => _snippetPickerInitialized = true,
+      setStatus: _setSnippetPickerStatus,
+      label: 'Snippet-Picker',
+    );
+  }
+
+  /// Sibling of [_registerFromSettings] for the Smart-Mode action
+  /// (ticket 04).
+  Future<void> _registerSmartModeFromSettings(AppSettings settings) {
+    final smartMode = settings.smartModeHotkey;
+    return _registerSecondaryHotkeyFromSettings(
+      key: smartMode.smartModeHotkeyKey,
+      modifiers: smartMode.smartModeHotkeyModifiers,
+      update: updateSmartModeHotkey,
+      markInitialized: () => _smartModeInitialized = true,
+      setStatus: _setSmartModeStatus,
+      label: 'Smart-Mode',
+    );
   }
 
   /// Writes [status] to [hotkeyRegistrationStatusProvider] if a Riverpod ref
@@ -632,6 +929,17 @@ class HotkeyService extends Notifier<void> {
     } on Object catch (e) {
       _log.debug(
         'Snippet-Picker hotkey status update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Smart-Mode sibling of [_setStatus] — same standalone-test guard.
+  void _setSmartModeStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref.read(smartModeHotkeyRegistrationStatusProvider.notifier).set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Smart-Mode hotkey status update skipped (standalone test instance): $e',
       );
     }
   }
@@ -734,13 +1042,26 @@ class HotkeyService extends Notifier<void> {
       // (it doesn't start a recording at all, ticket 26), so the
       // hotkey→overlay latency marker doesn't apply.
       onSnippetPickerHotkeyPressed?.call();
+    } else if (actionId == _smartModeActionId) {
+      // Same t₀ stamp rationale as the quick-note action — this action also
+      // drives the recording overlay.
+      PerfMarkers.instance.markHotkeyPressed();
+      onSmartModeHotkeyPressed?.call();
+    } else if (actionId == _snippetAdvanceActionId) {
+      // No perf mark — the field advance ends a recording rather than
+      // starting the hotkey→overlay hot path this marker measures.
+      _onInteractiveSnippetAdvance?.call();
+    } else if (actionId == _snippetCancelActionId) {
+      _onInteractiveSnippetCancel?.call();
     }
   }
 
-  /// Handles a hotkey key-up (macOS only; global action only — the
-  /// quick-note action never wires a keyUpHandler). Clears the held state so
-  /// the next press is honoured immediately, and forwards to
-  /// [onHotkeyReleased].
+  /// Handles a hotkey key-up (macOS only; global and Smart-Mode actions only
+  /// — the quick-note and Snippet-Picker actions never wire a keyUpHandler).
+  /// Clears the held state so the next press is honoured immediately, and
+  /// forwards to [onHotkeyReleased]/[onSmartModeHotkeyReleased]. The
+  /// session-scoped interactive-snippet keys also land here purely for the
+  /// held-state clearing — they have no released callback.
   void _handleKeyUp(String actionId, String label) {
     final state = _stateFor(actionId);
     // Ignore a key-up with no matching key-down. The Windows RawInput monitor
@@ -753,6 +1074,8 @@ class HotkeyService extends Notifier<void> {
     _log.info('$label hotkey released');
     if (actionId == _globalActionId) {
       onHotkeyReleased?.call();
+    } else if (actionId == _smartModeActionId) {
+      onSmartModeHotkeyReleased?.call();
     }
   }
 
@@ -795,6 +1118,15 @@ class HotkeyService extends Notifier<void> {
       await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
       _log.info('Snippet-Picker hotkey unregistered');
     }
+    if (_smartModeInitialized) {
+      await _unregisterAction(_smartModeActionId, stopMonitor: false);
+      _log.info('Smart-Mode hotkey unregistered');
+    }
+    // Last line of defence for the session-scoped interactive-snippet keys:
+    // normally InteractiveSnippetController unregisters them on every
+    // sequence exit path, but a teardown mid-sequence must not leak a
+    // system-wide Enter/Escape grab. No-op when nothing is registered.
+    await unregisterInteractiveSnippetKeys();
   }
 
   static bool get _isDesktop =>

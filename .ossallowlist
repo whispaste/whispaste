@@ -101,6 +101,9 @@ scripts/build-libwhisper-linux.sh
 scripts/bundle-libwhisper-windows.ps1
 scripts/build-libllama-macos.sh
 scripts/build-smartmode-shim-macos.sh
+scripts/build-libllama-windows.ps1
+scripts/build-smartmode-shim-windows.ps1
+scripts/bundle-libllama-windows.ps1
 
 # Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
 native/
@@ -125,6 +128,7 @@ scripts/verify-ms-store-listing.ps1
 tools/appstore/
 tools/appstore-screens/
 tools/store-icons/
+tools/testimonials/
 
 # iOS-Build-Automation
 fastlane/

@@ -1,7 +1,7 @@
 name: whispaste
 description: "Cross-platform dictation — hotkey, speak, paste anywhere."
 publish_to: 'none'
-version: 1.2.70+38
+version: 1.2.72+40
 
 environment:
   sdk: ^3.12.0
@@ -99,6 +99,10 @@ dependencies:
 
   # Export (DOCX ZIP generation)
   archive: ^4.0.4
+  # Fuzzy string similarity scoring for the fuzzy text-replacement match
+  # mode (vocabulary-fuzzy-replacements PRD) — more mature/established than
+  # the same author's newer rapidfuzz package at spec time.
+  fuzzywuzzy: ^1.2.0
   # Pure-Dart diagnostics core — shared between In-App-Diagnostik and CLI.
   whispaste_diagnostics:
     path: packages/whispaste_diagnostics
@@ -186,7 +190,7 @@ msix_config:
   publisher_display_name: silvio_lindstedt
   identity_name: 12342SilvioLindstedt.WhisPaste
   publisher: CN=F08EEF05-5870-4208-B156-E597A1AB80B0
-  msix_version: 1.2.70.0
+  msix_version: 1.2.72.0
   store: true
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient

@@ -63,6 +63,8 @@ class AppSettings {
     this.privacy = const PrivacySettings(),
     this.portabilityPaths = const SettingsPortabilityPathSettings(),
     this.autosave = const SettingsAutosaveSettings(),
+    this.smartMode = const SmartModeSettings(),
+    this.smartModeHotkey = const SmartModeHotkeySettings(),
   });
 
   // ---------------------------------------------------------------------------
@@ -134,6 +136,14 @@ class AppSettings {
   /// Autosicherung — event-driven automatic backup of the portable bundle
   /// (Ticket 26). Off by default.
   final SettingsAutosaveSettings autosave;
+
+  /// Smart Mode v2 settings (`.scratch/smart-mode-v2/`) — standard preset,
+  /// off by default.
+  final SmartModeSettings smartMode;
+
+  /// Smart-Mode hotkey settings (fourth, independently configurable hotkey —
+  /// bound to one of the three presets, ticket 04).
+  final SmartModeHotkeySettings smartModeHotkey;
 
   // ---------------------------------------------------------------------------
   // @Deprecated shims — delegate to sections.
@@ -380,6 +390,7 @@ class AppSettings {
     hotkey: buildDefaultHotkeySettings(),
     quickNoteHotkey: buildDefaultQuickNoteHotkeySettings(),
     snippetPickerHotkey: buildDefaultSnippetPickerHotkeySettings(),
+    smartModeHotkey: buildDefaultSmartModeHotkeySettings(),
   );
 
   /// Creates settings from persisted key-value storage.
@@ -406,6 +417,8 @@ class AppSettings {
       privacy: PrivacySettings.fromMap(values),
       portabilityPaths: SettingsPortabilityPathSettings.fromMap(values),
       autosave: SettingsAutosaveSettings.fromMap(values),
+      smartMode: SmartModeSettings.fromMap(values),
+      smartModeHotkey: SmartModeHotkeySettings.fromMap(values),
     );
   }
 
@@ -469,6 +482,8 @@ class AppSettings {
     ...privacy.toMap(),
     ...portabilityPaths.toMap(),
     ...autosave.toMap(),
+    ...smartMode.toMap(),
+    ...smartModeHotkey.toMap(),
   };
 
   // ---------------------------------------------------------------------------
@@ -483,10 +498,6 @@ class AppSettings {
   ///   stt: settings.stt.copyWith(model: 'whisper-large-v3-turbo'),
   /// );
   /// ```
-  // loam-ignore: complexity-hotspots – mechanical field ?? this.field chain,
-  // one branch per settings section; splitting it would break the
-  // section-based copy API's single-call shape without reducing real
-  // complexity.
   AppSettings copyWithSections({
     InterfaceSettings? interface_,
     AudioInputSettings? audioInput,
@@ -509,6 +520,54 @@ class AppSettings {
     PrivacySettings? privacy,
     SettingsPortabilityPathSettings? portabilityPaths,
     SettingsAutosaveSettings? autosave,
+    SmartModeSettings? smartMode,
+    SmartModeHotkeySettings? smartModeHotkey,
+  }) {
+    return _copyWithSectionsGroupA(
+      interface_: interface_,
+      audioInput: audioInput,
+      recordingSafety: recordingSafety,
+      stt: stt,
+      sound: sound,
+      afterTranscriptionSection: afterTranscriptionSection,
+      overlay: overlay,
+      cloudProvider: cloudProvider,
+      behavior: behavior,
+      audioProcessing: audioProcessing,
+      updates: updates,
+      history: history,
+    )._copyWithSectionsGroupB(
+      hotkey: hotkey,
+      quickNoteHotkey: quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey,
+      windowPosition: windowPosition,
+      onboarding: onboarding,
+      benchmark: benchmark,
+      privacy: privacy,
+      portabilityPaths: portabilityPaths,
+      autosave: autosave,
+      smartMode: smartMode,
+      smartModeHotkey: smartModeHotkey,
+    );
+  }
+
+  /// First half of [copyWithSections] (split purely to keep each function's
+  /// cyclomatic complexity under the project's static-analysis threshold —
+  /// each `??` fallback is an independent branch, and one function covering
+  /// all sections would exceed it).
+  AppSettings _copyWithSectionsGroupA({
+    InterfaceSettings? interface_,
+    AudioInputSettings? audioInput,
+    RecordingSafetySettings? recordingSafety,
+    SttSettings? stt,
+    SoundSettings? sound,
+    AfterTranscriptionSettings? afterTranscriptionSection,
+    OverlaySettings? overlay,
+    CloudProviderSettings? cloudProvider,
+    BehaviorSettings? behavior,
+    AudioProcessingSettings? audioProcessing,
+    UpdateSettings? updates,
+    HistorySettings? history,
   }) {
     return AppSettings(
       interface_: interface_ ?? this.interface_,
@@ -524,6 +583,47 @@ class AppSettings {
       audioProcessing: audioProcessing ?? this.audioProcessing,
       updates: updates ?? this.updates,
       history: history ?? this.history,
+      hotkey: hotkey,
+      quickNoteHotkey: quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey,
+      windowPosition: windowPosition,
+      onboarding: onboarding,
+      benchmark: benchmark,
+      privacy: privacy,
+      portabilityPaths: portabilityPaths,
+      autosave: autosave,
+      smartMode: smartMode,
+      smartModeHotkey: smartModeHotkey,
+    );
+  }
+
+  /// Second half of [copyWithSections] — see [_copyWithSectionsGroupA].
+  AppSettings _copyWithSectionsGroupB({
+    HotkeySettings? hotkey,
+    QuickNoteHotkeySettings? quickNoteHotkey,
+    SnippetPickerHotkeySettings? snippetPickerHotkey,
+    WindowPositionSettings? windowPosition,
+    OnboardingSettings? onboarding,
+    BenchmarkSettings? benchmark,
+    PrivacySettings? privacy,
+    SettingsPortabilityPathSettings? portabilityPaths,
+    SettingsAutosaveSettings? autosave,
+    SmartModeSettings? smartMode,
+    SmartModeHotkeySettings? smartModeHotkey,
+  }) {
+    return AppSettings(
+      interface_: interface_,
+      audioInput: audioInput,
+      recordingSafety: recordingSafety,
+      stt: stt,
+      sound: sound,
+      afterTranscriptionSection: afterTranscriptionSection,
+      overlay: overlay,
+      cloudProvider: cloudProvider,
+      behavior: behavior,
+      audioProcessing: audioProcessing,
+      updates: updates,
+      history: history,
       hotkey: hotkey ?? this.hotkey,
       quickNoteHotkey: quickNoteHotkey ?? this.quickNoteHotkey,
       snippetPickerHotkey: snippetPickerHotkey ?? this.snippetPickerHotkey,
@@ -533,6 +633,8 @@ class AppSettings {
       privacy: privacy ?? this.privacy,
       portabilityPaths: portabilityPaths ?? this.portabilityPaths,
       autosave: autosave ?? this.autosave,
+      smartMode: smartMode ?? this.smartMode,
+      smartModeHotkey: smartModeHotkey ?? this.smartModeHotkey,
     );
   }
 
@@ -711,9 +813,15 @@ class AppSettings {
       portabilityPaths: portabilityPaths,
       autosave: autosave,
       // Same pass-through requirement as above — quickNoteHotkey/
-      // snippetPickerHotkey have no legacy top-level parameter either.
+      // snippetPickerHotkey/smartMode/smartModeHotkey have no legacy
+      // top-level parameter either. `smartMode` was missing here before this
+      // fix, meaning every deprecated-copyWith call (e.g. app.dart's
+      // window-maximize toggle) silently reset the Smart Mode standard
+      // preset + target language back to their constructor defaults.
       quickNoteHotkey: quickNoteHotkey,
       snippetPickerHotkey: snippetPickerHotkey,
+      smartMode: smartMode,
+      smartModeHotkey: smartModeHotkey,
     );
   }
 
@@ -742,10 +850,12 @@ class AppSettings {
           benchmark == other.benchmark &&
           privacy == other.privacy &&
           portabilityPaths == other.portabilityPaths &&
-          autosave == other.autosave;
+          autosave == other.autosave &&
+          smartMode == other.smartMode &&
+          smartModeHotkey == other.smartModeHotkey;
 
   // Object.hash() caps at 20 positional arguments; this aggregate now has
-  // 21 sections, so hashAll's list form (no arg-count limit) is required —
+  // 22 sections, so hashAll's list form (no arg-count limit) is required —
   // switching it here rather than only at the moment of overflow keeps this
   // list's order trivially diffable against the field list above.
   @override
@@ -771,6 +881,8 @@ class AppSettings {
     privacy,
     portabilityPaths,
     autosave,
+    smartMode,
+    smartModeHotkey,
   ]);
 }
 

@@ -67,6 +67,17 @@ class SnippetPickerService
 
   bool _isOpen = false;
 
+  /// Wired by the composition root (`WpServiceBootstrap`), never imported
+  /// here directly: `InteractiveSnippetController` sits above
+  /// `RecordingOrchestrator`, and this service is itself reached FROM the
+  /// orchestrator (`RecordingOrchestrator` → `snippet_picker_dispatch.dart` →
+  /// this file) to open the panel from a spoken trigger — importing the
+  /// controller here would close that into a file-level import cycle.
+  /// Routing the selection back out through a plain callback keeps this
+  /// service's own dependency direction one-way (down towards
+  /// [Paster]/[SnippetItem] only).
+  Future<void> Function(SnippetItem snippet)? onInteractiveSnippetSelected;
+
   /// Whether the panel is currently open (a [show] call succeeded and
   /// neither a selection nor a cancellation event has arrived yet). Read by
   /// [RecordingOrchestrator.openSnippetPickerViaHotkey] (ticket 26) to avoid
@@ -127,7 +138,11 @@ class SnippetPickerService
     await c.show(
       items: [
         for (final item in items)
-          {'id': item.id, 'title': item.title, 'body': item.body},
+          {
+            'id': item.id,
+            'title': item.title,
+            'body': item.isInteractive ? item.fields.join(' · ') : item.body,
+          },
       ],
     );
     _isOpen = true;
@@ -140,6 +155,17 @@ class SnippetPickerService
       _log.warning('Snippet-Picker selected unknown id: $id');
       return;
     }
+
+    if (snippet.isInteractive) {
+      final onSelected = onInteractiveSnippetSelected;
+      if (onSelected == null) {
+        _log.warning('Interactive snippet selected but no handler is wired');
+        return;
+      }
+      await onSelected(snippet);
+      return;
+    }
+
     final paster = ref.read(pasterProvider);
     if (paster == null) return;
 

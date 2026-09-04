@@ -35,6 +35,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 
 import '../../../core/logging/app_logger.dart';
+import '../../../core/utils/windows_dll_search_path.dart';
 import '../../audio/pcm_wav_codec.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
@@ -86,35 +87,6 @@ String defaultWhisperVadModelPath() =>
 String whisperVadModelPathFor(String executablePath) {
   final libraryDir = p.dirname(whisperLibraryPathFor(executablePath));
   return p.join(libraryDir, 'ggml-silero-v5.1.2.bin');
-}
-
-/// Windows only: makes the OS loader search [libraryPath]'s own directory
-/// when resolving `whisper.dll`'s transitive dependencies (the bundled
-/// `ggml*.dll` backends).
-///
-/// Verified during v1.2.45 release prep: a bare `DynamicLibrary.open()` on
-/// the bundled `whisper.dll` fails with Win32 error 126 ("The specified
-/// module could not be found") even with every `ggml*.dll` sitting right
-/// next to it — the default search order only covers the directory of the
-/// original EXE for a DEPENDENCY's own dependencies, not the directory of
-/// each intermediate DLL in the chain. `SetDllDirectoryW` adds that
-/// directory to the search path used for those transitive lookups.
-/// macOS/Linux don't need this — their `@loader_path`/`$ORIGIN` rpaths,
-/// embedded into the dylibs/.so at build time, already cover it.
-void _ensureWindowsDllSearchPath(String libraryPath) {
-  if (!Platform.isWindows) return;
-  final kernel32 = ffi.DynamicLibrary.open('kernel32.dll');
-  final setDllDirectoryW = kernel32
-      .lookupFunction<
-        ffi.Int32 Function(ffi.Pointer<Utf16>),
-        int Function(ffi.Pointer<Utf16>)
-      >('SetDllDirectoryW');
-  final dirPointer = p.dirname(libraryPath).toNativeUtf16();
-  try {
-    setDllDirectoryW(dirPointer);
-  } finally {
-    malloc.free(dirPointer);
-  }
 }
 
 /// One segment whisper.cpp emitted for a [WhisperFfiEngine.transcribe] call.
@@ -230,7 +202,7 @@ class WhisperFfiEngine implements WhisperEngine {
         : null;
 
     try {
-      _ensureWindowsDllSearchPath(_libraryPath);
+      ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
       _ensureBackendsLoaded(dylib, _libraryPath);
       _confirmedBackend = _confirmBackend(dylib, _backend);

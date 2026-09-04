@@ -1,7 +1,8 @@
 /// Unit tests for [RecordingStateMachine].
 ///
 /// Covers:
-/// 1. All 11 allowed transitions from the PRD state-machine table.
+/// 1. All 11 allowed transitions from the PRD state-machine table, plus the
+///    3 `refining` transitions added by Smart Mode v2 (ticket 02).
 /// 2. A representative set of rejected transitions (invariant violations).
 /// 3. Sentry breadcrumb is attempted on rejected transitions (no crash).
 /// 4. Side-effect ordering (state mutated by the notifier, not the machine).
@@ -39,6 +40,13 @@ void goToRecording(ProviderContainer c) {
 void goToTranscribing(ProviderContainer c) {
   c.read(recordingProvider.notifier).startRecording();
   c.read(recordingProvider.notifier).stopRecording();
+}
+
+/// Drives to [RecordingPhase.refining] (Smart Mode v2, ticket 02).
+void goToRefining(ProviderContainer c) {
+  c.read(recordingProvider.notifier).startRecording();
+  c.read(recordingProvider.notifier).stopRecording();
+  c.read(recordingProvider.notifier).startRefining('raw transcript');
 }
 
 /// Drives to [RecordingPhase.done].
@@ -83,10 +91,12 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Group 1: All 11 allowed transitions from the PRD table
+  // Group 1: All allowed transitions from the PRD table (11 original cells
+  // plus the 3 Smart-Mode-v2 `refining` cells added by ticket 02, inline
+  // below where they sit in the phase sequence).
   // ---------------------------------------------------------------------------
 
-  group('Allowed transitions — all 11 cells', () {
+  group('Allowed transitions — all 11 original cells + refining (ticket 02)', () {
     late ProviderContainer c;
     late RecordingStateMachine machine;
 
@@ -147,6 +157,35 @@ void main() {
       machine.transition(RecordingIntent.fail, errorMessage: 'stt_failed');
       expect(phase(c), RecordingPhase.error);
       expect(errorMessage(c), 'stt_failed');
+    });
+
+    // Smart Mode v2 (ticket 02): transcribing ─startRefining→ refining
+    test('transcribing ─startRefining→ refining', () {
+      goToTranscribing(c);
+      machine.transition(
+        RecordingIntent.startRefining,
+        transcript: 'raw transcript',
+      );
+      expect(phase(c), RecordingPhase.refining);
+      // The raw transcript is stored immediately, so a guard-fire fallback
+      // has something to complete with even before the engine call returns.
+      expect(transcript(c), 'raw transcript');
+    });
+
+    // Smart Mode v2 (ticket 02): refining ─complete→ done
+    test('refining ─complete→ done', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.complete, transcript: 'cleaned text');
+      expect(phase(c), RecordingPhase.done);
+      expect(transcript(c), 'cleaned text');
+    });
+
+    // Smart Mode v2 (ticket 02): refining ─reset→ idle (forced teardown,
+    // e.g. user cancels while the Cleanup pass is still running).
+    test('refining ─reset→ idle (forced teardown)', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.reset);
+      expect(phase(c), RecordingPhase.idle);
     });
 
     // 7. done ─reset→ idle
@@ -270,6 +309,44 @@ void main() {
       machine.transition(RecordingIntent.oomRetry);
       expect(phase(c), RecordingPhase.transcribing);
     });
+
+    // Smart Mode v2 (ticket 02): `refining` only ever leaves via `complete`
+    // or `reset` — never `fail`. That is the mechanical enforcement of ADR
+    // 0009 (Smart Mode never blocks the paste): a failed/timed-out engine
+    // call falls back to `complete` with the raw transcript, it never
+    // routes through `fail`/`error`.
+    test('refining ─fail→ rejected (phase stays refining)', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.fail, errorMessage: 'ignored');
+      expect(phase(c), RecordingPhase.refining);
+    });
+
+    test('refining ─start→ rejected (phase stays refining)', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.start);
+      expect(phase(c), RecordingPhase.refining);
+    });
+
+    test('refining ─stop→ rejected (phase stays refining)', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.stop);
+      expect(phase(c), RecordingPhase.refining);
+    });
+
+    test('refining ─guardFire→ rejected (phase stays refining)', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.guardFire);
+      expect(phase(c), RecordingPhase.refining);
+    });
+
+    test('refining ─oomRetry→ rejected (phase stays refining)', () {
+      goToRefining(c);
+      machine.transition(RecordingIntent.oomRetry);
+      expect(phase(c), RecordingPhase.refining);
+    });
+
+    // Note: refining ─reset is ALLOWED (reset is allowed from all phases).
+    // This slot in the rejected group is intentionally omitted.
 
     test('done ─start→ rejected (phase stays done)', () {
       goToDone(c);

@@ -93,6 +93,12 @@ class WpFloatingOverlayView extends StatefulWidget {
   static String statusTextFor(FloatingOverlaySnapshot snapshot) =>
       snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label;
 
+  /// The secondary text line painted for [snapshot] (guided-sequence
+  /// frames) — mirrors [painterFor]'s `secondaryText` selection for the
+  /// same no-drift reason as [statusTextFor].
+  static String secondaryTextFor(FloatingOverlaySnapshot snapshot) =>
+      snapshot.secondaryLabel ?? '';
+
   /// Builds the spec-sourced [WpOverlayPainter] for [snapshot].
   ///
   /// The whole painter configuration is derived from [OverlayDesignSpec] here —
@@ -132,6 +138,7 @@ class WpFloatingOverlayView extends StatefulWidget {
           : const [],
       timerText: snapshot.elapsed,
       statusText: statusTextFor(snapshot),
+      secondaryText: secondaryTextFor(snapshot),
       progress: snapshot.progress,
       dotPulse: dotPulse,
       paintFill: paintFill,
@@ -260,6 +267,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       initialSizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
       WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
     );
     _pillFromWidth = initialWidth;
     _pillToWidth = initialWidth;
@@ -307,17 +315,64 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         sizeSpec,
         OverlayDesignSpec.layoutFor(widget.snapshot.size),
         WpFloatingOverlayView.statusTextFor(widget.snapshot),
+        secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
       );
       _pillFromWidth = targetWidth;
       _pillToWidth = targetWidth;
       _pillWidth.stop();
       _pillWidth.value = 1.0;
-    } else if (widget.animate) {
-      // Resume the dot pulse + liquid-glass drift now that reduced-motion
-      // is off.
-      _dot.repeat(reverse: true);
-      _glass.repeat();
     }
+    _syncContinuousAnimations();
+  }
+
+  /// Runs the two perpetual animations — the accent-dot pulse and the
+  /// liquid-glass drift — exactly while the overlay is on screen.
+  ///
+  /// The visibility gate is what makes the render engine's
+  /// `detachFromEmbedderAppLifecycle()` safe: with this engine no longer
+  /// adopting the embedder's app-global lifecycle, nothing disables frame
+  /// production any more, so an ungated `repeat()` would keep repainting the
+  /// ordered-out native panel for the rest of the app session. Before the
+  /// detach that cost was capped by an accident — the same bogus
+  /// `AppLifecycleState.hidden` that wedged the overlay invisible also
+  /// happened to stop these tickers.
+  void _syncContinuousAnimations() {
+    if (widget.animate && !_reducedMotion && widget.snapshot.visible) {
+      if (!_dot.isAnimating) _dot.repeat(reverse: true);
+      if (!_glass.isAnimating) _glass.repeat();
+      return;
+    }
+    _dot.stop();
+    _glass.stop();
+    if (_reducedMotion || !widget.animate) {
+      // Static frame: the pulse rests at full and the glass at phase 0.
+      // A merely-hidden overlay keeps its values — nothing is on screen to
+      // notice, and the next appear starts from a live phase.
+      _dot.value = 1.0;
+      _glass.value = 0.0;
+    }
+  }
+
+  /// Re-targets the pill width on a text-only change within the same visible
+  /// state (e.g. the guided sequence's briefing → announce frames, or
+  /// transcribing → refining label swaps) — so longer/shorter text is not
+  /// stuck with the previous frame's width and ellipsised for no reason.
+  void _retargetPillOnTextChange(WpFloatingOverlayView oldWidget) {
+    if (widget.snapshot.state != oldWidget.snapshot.state ||
+        widget.snapshot.size != oldWidget.snapshot.size ||
+        !widget.snapshot.visible ||
+        !oldWidget.snapshot.visible) {
+      return;
+    }
+    final textChanged =
+        WpFloatingOverlayView.statusTextFor(widget.snapshot) !=
+            WpFloatingOverlayView.statusTextFor(oldWidget.snapshot) ||
+        WpFloatingOverlayView.secondaryTextFor(widget.snapshot) !=
+            WpFloatingOverlayView.secondaryTextFor(oldWidget.snapshot);
+    if (!textChanged) return;
+    _startPillSpring(
+      WpFloatingOverlayView.designStateFor(widget.snapshot.state),
+    );
   }
 
   @override
@@ -340,6 +395,8 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         // the next appear starts from the correct initial value.
         _appear.value = 0.0;
       }
+      // Start/stop the perpetual pulse + drift with the panel itself.
+      _syncContinuousAnimations();
     } else if (widget.snapshot.visible &&
         _appear.status == AnimationStatus.dismissed) {
       // Re-show guard: a visible snapshot arrived but the appear controller is
@@ -356,6 +413,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       // current state so the re-shown recording capsule is full-width and the
       // waveform is not clipped away.
       _snapPillToCurrentState();
+      _syncContinuousAnimations();
     }
 
     // Size-only change (e.g. the Settings size picker / WpOverlayRealPreview
@@ -375,6 +433,8 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         oldWidget.snapshot.visible) {
       _snapPillToCurrentState();
     }
+
+    _retargetPillOnTextChange(oldWidget);
 
     // State-transition crossfade + pill-width spring:
     // recording → transcribing → done/error.
@@ -410,15 +470,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
 
     // Handle changes to the animate flag (e.g. settings preview ↔ live overlay).
     if (widget.animate != oldWidget.animate) {
-      if (widget.animate && !_reducedMotion) {
-        _dot.repeat(reverse: true);
-        _glass.repeat();
-      } else {
-        _dot.stop();
-        _dot.value = 1.0;
-        _glass.stop();
-        _glass.value = 0.0;
-      }
+      _syncContinuousAnimations();
     }
   }
 
@@ -468,6 +520,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       sizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
       WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
     );
     _pillFromWidth = width;
     _pillToWidth = width;
@@ -487,6 +540,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       sizeSpec,
       OverlayDesignSpec.layoutFor(widget.snapshot.size),
       WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      secondaryText: WpFloatingOverlayView.secondaryTextFor(widget.snapshot),
     );
     final currentWidth = _currentPillWidth;
 
