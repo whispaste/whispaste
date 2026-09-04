@@ -10,26 +10,33 @@ void main() {
   // asserts the resolver points at the bundled `libsmartmode_shim` next to
   // the executable, not a bare loader-search name.
   group('smartModeLibraryPathFor', () {
-    test('resolves the bundled library relative to the executable', () {
-      final resolved = smartModeLibraryPathFor(
-        p.join('/Apps', 'WhisPaste.app', 'Contents', 'MacOS', 'whispaste'),
-      );
-      expect(p.isAbsolute(resolved), isTrue);
-      if (Platform.isMacOS) {
-        expect(
-          resolved,
-          p.join(
-            '/Apps',
-            'WhisPaste.app',
-            'Contents',
-            'Frameworks',
-            'libsmartmode_shim.dylib',
-          ),
+    test(
+      'resolves the bundled library relative to the executable',
+      () {
+        final resolved = smartModeLibraryPathFor(
+          p.join('/Apps', 'WhisPaste.app', 'Contents', 'MacOS', 'whispaste'),
         );
-      } else if (Platform.isWindows) {
-        expect(resolved, endsWith(p.join('smart_mode', 'smartmode_shim.dll')));
-      }
-    }, skip: Platform.isLinux ? kLinuxNotBundledSkipReason : null);
+        expect(p.isAbsolute(resolved), isTrue);
+        if (Platform.isMacOS) {
+          expect(
+            resolved,
+            p.join(
+              '/Apps',
+              'WhisPaste.app',
+              'Contents',
+              'Frameworks',
+              'libsmartmode_shim.dylib',
+            ),
+          );
+        } else if (Platform.isWindows) {
+          expect(
+            resolved,
+            endsWith(p.join('smart_mode', 'smartmode_shim.dll')),
+          );
+        }
+      },
+      skip: Platform.isLinux ? kLinuxNotBundledSkipReason : null,
+    );
 
     test('Windows: lives in a dedicated subdirectory, not the bundle root '
         '(avoids colliding with libwhisper\'s own ggml*.dll build)', () {
