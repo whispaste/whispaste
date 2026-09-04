@@ -36,6 +36,7 @@ jobs:
   validate-input:
     name: Validate tag format
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check whisper_tag format
         run: |
@@ -55,6 +56,7 @@ jobs:
     # VS2026 image by 2026-06-15. Pinning to windows-2025 keeps the known-good
     # toolchain stable across that migration.
     runs-on: windows-2025
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
@@ -162,6 +164,7 @@ jobs:
     # the runner's Visual Studio install via vswhere, so an unannounced VS2026
     # image swap could move/rename those DLLs and silently break the CPU floor.
     runs-on: windows-2025
+    timeout-minutes: 30
     # Why this job exists (FLUTTER_WHISPASTE-A0):
     # The upstream `whisper-blas-bin-x64.zip` is the CPU floor every GPU
     # fallback ultimately drops to — but its binaries dynamically link the
@@ -255,6 +258,7 @@ jobs:
     permissions:
       contents: write
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -278,7 +282,7 @@ jobs:
       - name: Build
         run: |
           cd whisper.cpp
-          cmake --build build --config Release -j $(sysctl -n hw.ncpu)
+          cmake --build build --config Release -j "$(sysctl -n hw.ncpu)"
           echo "Build complete"
 
       - name: Package
@@ -327,6 +331,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Builds a fully static whisper-server for Linux x64.
     # Static flags ensure the binary runs on any glibc-based distro without
     # requiring the user to install libstdc++/libgcc or any shared whisper libs.
@@ -367,7 +372,7 @@ jobs:
       - name: Build
         run: |
           cd whisper.cpp
-          cmake --build build --config Release -j $(nproc)
+          cmake --build build --config Release -j "$(nproc)"
           echo "Build complete"
 
       - name: Smoke test – --help
@@ -442,6 +447,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 

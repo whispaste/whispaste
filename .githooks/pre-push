@@ -361,6 +361,29 @@ EOF
   echo "  Loam: clean"
 fi
 
+# actionlint (GitHub-Actions-Workflow-Syntax/-Semantik, sparsam: nur wenn
+# installiert). Fängt genau die Fehlerklasse ab, die sonst erst als roter
+# CI-Run sichtbar wird: falsche runs-on/needs/if-Expressions, unbekannte
+# Contexts, kaputte Matrix-Syntax, sowie eingebettete run:-Shell-Skripte via
+# integriertem shellcheck. Läuft immer über den vollen Workflow-Ordner (nicht
+# nur die Push-Range) — dieselbe Prüfung, die `gh workflow` letztlich auch
+# über die YAML laufen lässt, nur lokal und ohne Runner-Zeit zu verbrauchen.
+if command -v actionlint >/dev/null 2>&1; then
+  echo ""; echo "actionlint (GitHub Actions workflow lint)..."
+  if ! actionlint "$ROOT"/.github/workflows/*.yml 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: actionlint fand Workflow-Probleme           ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  actionlint: clean"
+else
+  echo "⚠ actionlint nicht installiert — Workflow-Lint übersprungen. Empfohlen: brew install actionlint" >&2
+fi
+
 # Semgrep SAST (sparsam: nur wenn installiert)
 if command -v semgrep >/dev/null 2>&1; then
   echo ""; echo "Semgrep SAST scan..."
