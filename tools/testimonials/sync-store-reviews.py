@@ -47,6 +47,7 @@ REQUIRES
   pip install pyjwt[crypto] requests
 """
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -147,7 +148,17 @@ def fetch_mas_reviews(min_rating, max_pages=5):
             text = f"{title} {body}".strip() if title and title != body else (body or title)
             if not text:
                 continue
-            reviews.append({"rating": rating, "text": text, "source": "mas", "source_ref": item["id"]})
+            reviews.append(
+                {
+                    "rating": rating,
+                    "text": text,
+                    "source": "mas",
+                    "source_ref": item["id"],
+                    # ISO 8601 already, e.g. "2026-08-25T12:00:00-07:00" -
+                    # Postgres timestamptz parses it as-is.
+                    "received_at": attrs.get("createdDate"),
+                }
+            )
         pages += 1
         next_link = resp.get("links", {}).get("next")
         path = next_link.replace(ASC_BASE, "") if next_link else None
@@ -157,6 +168,18 @@ def fetch_mas_reviews(min_rating, max_pages=5):
 
 
 # ─── Microsoft Store (Partner Center Analytics API) ─────────────────────────
+
+def parse_ms_review_date(value):
+    """Parse the reviews endpoint's "date" field (e.g. "8/23/2026 1:32:43 PM",
+    UTC) into an ISO 8601 string Postgres can store as timestamptz."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.datetime.strptime(value, "%m/%d/%Y %I:%M:%S %p")
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=datetime.timezone.utc).isoformat()
+
 
 def fetch_ms_reviews(min_rating, days):
     env = load_env_file(MS_CREDENTIALS_FILE)
@@ -213,7 +236,15 @@ def fetch_ms_reviews(min_rating, days):
         if not ref:
             # Fallback for any response shape without a stable id.
             ref = hashlib.sha256(f"{item.get('date', '')}|{text}".encode()).hexdigest()
-        reviews.append({"rating": rating, "text": text, "source": "microsoft_store", "source_ref": ref})
+        reviews.append(
+            {
+                "rating": rating,
+                "text": text,
+                "source": "microsoft_store",
+                "source_ref": ref,
+                "received_at": parse_ms_review_date(item.get("date")),
+            }
+        )
 
     print(f"[ms] fetched {len(reviews)} review(s) with rating >= {min_rating}", file=sys.stderr)
     return reviews
@@ -243,16 +274,17 @@ def upsert_reviews(reviews, dry_run):
         sys.exit(f"Missing SUPABASE_ACCESS_TOKEN in {SUPABASE_ENV_FILE}")
 
     values_sql = ",\n".join(
-        f"({r['rating']}, {sql_literal(r['text'])}, {sql_literal(r['source'])}, {sql_literal(r['source_ref'])})"
+        f"({r['rating']}, {sql_literal(r['text'])}, {sql_literal(r['source'])}, {sql_literal(r['source_ref'])}, "
+        f"{sql_literal(r['received_at']) + '::timestamptz' if r.get('received_at') else 'now()'})"
         for r in reviews
     )
     query = f"""
         WITH inserted AS (
-            INSERT INTO public.user_feedback (rating, feedback_text, source, source_ref)
-            SELECT rating, feedback_text, source, source_ref
+            INSERT INTO public.user_feedback (rating, feedback_text, source, source_ref, received_at)
+            SELECT rating, feedback_text, source, source_ref, received_at
             FROM (VALUES
                 {values_sql}
-            ) AS v(rating, feedback_text, source, source_ref)
+            ) AS v(rating, feedback_text, source, source_ref, received_at)
             ON CONFLICT (source, source_ref) WHERE source_ref IS NOT NULL DO NOTHING
             RETURNING id
         )
