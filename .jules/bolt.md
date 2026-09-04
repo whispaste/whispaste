@@ -1,6 +1,6 @@
 ## 2024-05-18 - Case-insensitive filtering in Dart tight loops
 **Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
-**Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead.
+**Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
 
 ## 2026-08-16 - REJECTED, do not resubmit: RegExp-precompile on `WpSearchableListPage._filtered`
 **Rejected 11 times** (#39, #40, #44, #48, #50, #53, #55, #58, #61, #63, #64) — this is the single most
@@ -17,9 +17,6 @@ to. **Do not propose this again without an actual before/after benchmark number 
 `git log` on `dev` only shows *accepted* changes; it will never show you the 10 times this exact idea
 was already rejected, because rejected PRs never touch `dev`.
 
-## 2024-05-18 - Case-insensitive filtering in Dart tight loops
-**Learning:** Using `String.toLowerCase()` inside a tight `where` loop in Dart allocates a new String for every item evaluated. In lists of strings like search results or tag lists, this creates massive GC pressure.
-**Action:** Use a precompiled `RegExp` with `caseSensitive: false` before the loop, and use `searchRegex.hasMatch(item)` inside the loop instead. Note: Do not apply to `WpSearchableListPage._filtered`.
 ## 2025-01-20 - GC pressure during vocabulary import review
 **Learning:** In Flutter lists doing string matching inside a tight loop over thousands of records (e.g., vocabulary candidates), using `.toLowerCase()` forces O(N) heap allocations for lowercased Strings on every keystroke, leading to high GC pressure.
 **Action:** For large lists (10k+ items), precompile a `RegExp` with `caseSensitive: false` and `RegExp.escape(query)` before the loop, and use `regex.hasMatch(item)` instead, turning O(N) allocations into O(1) overhead. (As noted previously, do NOT apply this to small lists like `WpSearchableListPage._filtered`).
