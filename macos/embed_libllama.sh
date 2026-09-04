@@ -30,7 +30,10 @@ DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "note: libllama staging dir not found ($STAGE_DIR) — attempting to build it now."
-  if ! "${REPO_ROOT}/scripts/build-libllama-macos.sh" || ! "${REPO_ROOT}/scripts/build-smartmode-shim-macos.sh"; then
+  # bash-invoked (not exec'd) for the same reason as embed_libwhisper.sh: a
+  # lost +x bit must never silently degrade to "skip embed" without at least
+  # running the script.
+  if ! bash "${REPO_ROOT}/scripts/build-libllama-macos.sh" || ! bash "${REPO_ROOT}/scripts/build-smartmode-shim-macos.sh"; then
     echo "warning: libllama/smartmode-shim auto-build failed — see log above. Skipping embed; run scripts/build-libllama-macos.sh && scripts/build-smartmode-shim-macos.sh manually. Smart Mode will be unavailable in this build."
     exit 0
   fi
