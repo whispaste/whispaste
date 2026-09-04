@@ -67,8 +67,6 @@ end
 # app on Pricing/App-Version workflow that has an editable version — raises
 # via UI.user_error! if either the app or an editable version can't be found.
 def attach_latest_build_to_editable_version(bundle_id:, platform:)
-  require 'fastlane_core/build_watcher'
-
   app = Spaceship::ConnectAPI::App.find(bundle_id)
   UI.user_error!("App Store Connect: no app found for bundle ID #{bundle_id}") unless app
 
@@ -76,28 +74,28 @@ def attach_latest_build_to_editable_version(bundle_id:, platform:)
   UI.user_error!("App Store Connect: no editable App Store version found for #{bundle_id} (#{platform})") unless version
 
   UI.message("Waiting for build #{version.version_string} (#{platform}) to finish Apple's processing (this can take several minutes)...")
-  # app_version MUST be passed explicitly, scoped to the editable version we
-  # just resolved above. Without it, select_latest:true has no version to
-  # filter on (see FastlaneCore::BuildWatcher::matching_build) and falls back
-  # to Spaceship::ConnectAPI::Build.all with no version filter at all — its
-  # "first" result is whatever the API's default listing order happens to
-  # return, which is NOT guaranteed to be the build we just uploaded and can
-  # silently be a stale build left over from a completely different marketing
-  # version. Confirmed live 2026-07-29: this exact call, unscoped, attached
-  # build 1.2.61 (2) to the 1.2.63 editable version.
-  build = FastlaneCore::BuildWatcher.wait_for_build_processing_to_be_complete(
-    app_id:                          app.id,
-    app_version:                     version.version_string,
-    platform:                        platform,
-    poll_interval:                   15,
-    return_when_build_appears:       false,
-    return_spaceship_testflight_build: false,
-    select_latest:                   true
-  )
-
-  UI.message("Attaching build #{build.app_version} (#{build.version}) to App Store Connect version #{version.version_string}...")
-  version.select_build(build_id: build.id)
-  UI.success("App Store Connect version #{version.version_string} now points at build #{build.app_version} (#{build.version}).")
+  # Deliberately NOT using FastlaneCore::BuildWatcher's select_latest:true —
+  # it queries Spaceship::ConnectAPI::Build.all(version:) and picks `.first`,
+  # trusting the API's default listing order to be newest-first. It isn't
+  # reliably that: confirmed live 2026-09-04 — after re-uploading a corrected
+  # build 42 to recover from a defective build 41 (see mas_release's
+  # MAS_BUILD_NUMBER comment), select_latest:true attached the STALE,
+  # defective build 41 back onto the editable 1.2.73 version, because it was
+  # older/first in the API's response while both shared the same app_version.
+  # Poll and pick explicitly by the highest numeric build (version.version)
+  # among builds that have finished processing, instead of trusting order.
+  loop do
+    builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version.version_string, platform: platform)
+    processed = builds.reject { |b| b.processing_state == "PROCESSING" }
+    unless processed.empty?
+      build = processed.max_by { |b| b.version.to_i }
+      UI.message("Attaching build #{build.app_version} (#{build.version}) to App Store Connect version #{version.version_string}...")
+      version.select_build(build_id: build.id)
+      UI.success("App Store Connect version #{version.version_string} now points at build #{build.app_version} (#{build.version}).")
+      return
+    end
+    sleep(15)
+  end
 end
 
 # Deterministically cleans up duplicate Mac App Store screenshots via
