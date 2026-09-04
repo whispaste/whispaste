@@ -22,3 +22,7 @@ button's hit area, or remove the now-duplicate inner button, but never both.
 ## 2026-08-31 - Added keyboard accessibility to interactive GestureDetector
 **Learning:** Replaced a bare `GestureDetector` inside a `Semantics` wrapper with an `InkWell` wrapped in a `WpFocusRing`, following the established 'house idiom' to enable proper keyboard focus states while retaining correct semantics and hover states via `AnimatedContainer` without interfering visual side effects.
 **Action:** Always use an `InkWell` + `WpFocusRing` combination (making the InkWell's standard colors transparent if an `AnimatedContainer` already handles them) to ensure interactive tap areas are properly focusable.
+
+## 2026-09-12 - Accessibility on side panel row tiles
+**Learning:** `WpSidePanelRowTile` (the dense row used in the floating quick-paste panel) used a bare `GestureDetector` that was not accessible to keyboard users because it couldn't receive focus. However, adding `InkWell` to provide focus requires care, as its default hover and splash visuals will clash with the custom animated colors provided by `WpListTileSurface`.
+**Action:** When adding keyboard accessibility to list rows handled by `WpListTileSurface`, wrap them with `InkWell` + `WpFocusRing` and set the `InkWell`'s `focusColor`, `hoverColor`, `splashColor`, and `highlightColor` to `Colors.transparent`. Furthermore, pass the explicit focus state from a `FocusNode` into the `WpListTileSurface` so it can orchestrate the correct appearance.

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/side_panel/side_panel_snapshot.dart';
+import '../wp_focus_ring.dart';
 import '../wp_list_tile_surface.dart';
 
 /// One row of the side panel -- click-to-insert, a leading glyph disc in the
@@ -54,6 +55,24 @@ class WpSidePanelRowTile extends StatefulWidget {
 
 class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
   bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'WpSidePanelRowTile');
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,77 +80,94 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
     return Semantics(
       button: true,
       label: row.subtitle.isEmpty ? row.title : '${row.title}, ${row.subtitle}',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          onHorizontalDragStart: widget.onDragStart == null
-              ? null
-              : (_) => widget.onDragStart!(),
-          child: WpListTileSurface(
-            variant: WpListTileVariant.panel,
-            isHovered: _isHovered,
-            child: Row(
-              children: [
-                if (row.kind == SidePanelRowKind.image &&
-                    row.imageBytes != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: WpSpacing.sm),
-                    child: ClipRRect(
-                      borderRadius: WpRadius.borderSm,
-                      child: Image.memory(
-                        Uint8List.fromList(row.imageBytes!),
-                        width: _RowGlyphDisc.size,
-                        height: _RowGlyphDisc.size,
-                        fit: BoxFit.cover,
-                        // The enclosing Semantics(label: ...) already names
-                        // this row; the thumbnail itself carries no extra
-                        // information for screen readers.
-                        excludeFromSemantics: true,
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(right: WpSpacing.sm),
-                    child: _RowGlyphDisc(
-                      icon: widget.leadingIcon,
-                      colorSlot: row.colorSlot,
-                    ),
-                  ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.lg,
+            child: GestureDetector(
+              onHorizontalDragStart: widget.onDragStart == null
+                  ? null
+                  : (_) => widget.onDragStart!(),
+              child: InkWell(
+                onTap: widget.onTap,
+                focusNode: _focusNode,
+                borderRadius: WpRadius.borderLg,
+                // WpListTileSurface handles all hover/focus/tap styling.
+                // Suppress InkWell's default visual feedback.
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: WpListTileSurface(
+                  variant: WpListTileVariant.panel,
+                  isHovered: _isHovered,
+                  isFocused: _focusNode.hasFocus,
+                  child: Row(
                     children: [
-                      Text(
-                        row.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: WpColors.textPrimary,
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (row.subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          row.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: WpColors.textMuted,
-                            fontSize: WpTypography.caption,
+                      if (row.kind == SidePanelRowKind.image &&
+                          row.imageBytes != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: WpSpacing.sm),
+                          child: ClipRRect(
+                            borderRadius: WpRadius.borderSm,
+                            child: Image.memory(
+                              Uint8List.fromList(row.imageBytes!),
+                              width: _RowGlyphDisc.size,
+                              height: _RowGlyphDisc.size,
+                              fit: BoxFit.cover,
+                              // The enclosing Semantics(label: ...) already names
+                              // this row; the thumbnail itself carries no extra
+                              // information for screen readers.
+                              excludeFromSemantics: true,
+                            ),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(right: WpSpacing.sm),
+                          child: _RowGlyphDisc(
+                            icon: widget.leadingIcon,
+                            colorSlot: row.colorSlot,
                           ),
                         ),
-                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              row.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: WpColors.textPrimary,
+                                fontSize: WpTypography.body,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (row.subtitle.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                row.subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: WpColors.textMuted,
+                                  fontSize: WpTypography.caption,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
