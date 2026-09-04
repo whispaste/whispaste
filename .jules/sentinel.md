@@ -11,3 +11,7 @@
 **Vulnerability:** Command injection when opening Windows URLs (such as `mailto:`) using `Process.run('cmd', ['/c', 'start', '', url])` in Dart.
 **Learning:** `cmd.exe`'s complex parsing rules can evaluate special shell characters like `&` in unsanitized URLs even if they are passed correctly as arguments in `CreateProcess` via Dart's `Process.run`. Using `cmd` to open external resources exposes the app to unintended command execution.
 **Prevention:** Avoid `cmd.exe`. Always use `explorer` directly (e.g., `Process.run('explorer', [url])`) to safely open URLs and files on Windows without going through a command interpreter.
+## 2025-02-28 - Flaky CI vs Security Check
+**Vulnerability:** Flaky CI tests due to upstream failures in `npm audit` should not be bypassed by setting `continue-on-error: true`.
+**Learning:** Even if `npm audit` is throwing 503 errors due to upstream infrastructure unreliability, bypassing it introduces a severe security regression because actual high severity vulnerabilities will no longer fail the build. A security PR must not silence security gates.
+**Prevention:** If an upstream service like `npm audit` is failing intermittently, do not modify the CI script to ignore errors. Retry the CI job or wait for the upstream service to recover.
