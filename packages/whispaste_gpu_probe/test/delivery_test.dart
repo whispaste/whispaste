@@ -22,7 +22,7 @@ void main() {
       expect(cmd, equals(['open', '/tmp/report.html']));
     });
 
-    test('windows: cmd /c start "" <htmlPath>', () {
+    test('windows: explorer <htmlPath>', () {
       final cmd = openInBrowserCommand(
         r'C:\Users\test\Desktop\report.html',
         platformOverride: 'windows',
@@ -30,10 +30,7 @@ void main() {
       expect(
         cmd,
         equals([
-          'cmd',
-          '/c',
-          'start',
-          '',
+          'explorer',
           r'C:\Users\test\Desktop\report.html',
         ]),
       );
@@ -132,11 +129,11 @@ void main() {
       expect(cmd.arguments, equals([url]));
     });
 
-    test('windows: cmd /c start "" <mailtoUrl>', () {
+    test('windows: explorer <mailtoUrl>', () {
       const url = 'mailto:test@example.com';
       final cmd = mailOpenCommand(url, platform: 'windows');
-      expect(cmd.executable, equals('cmd'));
-      expect(cmd.arguments, equals(['/c', 'start', '', url]));
+      expect(cmd.executable, equals('explorer'));
+      expect(cmd.arguments, equals([url]));
     });
 
     test('linux: xdg-open <mailtoUrl>', () {
@@ -222,7 +219,7 @@ void main() {
       expect(calls[1].$2, equals(['/tmp/report.html']));
     });
 
-    test('second call on windows uses cmd /c start for html', () async {
+    test('second call on windows uses explorer for html', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
@@ -234,10 +231,10 @@ void main() {
         launcher: fakeLauncher,
       );
 
-      expect(calls[1].$1, equals('cmd'));
+      expect(calls[1].$1, equals('explorer'));
       expect(
         calls[1].$2,
-        equals(['/c', 'start', '', r'C:\Users\test\Desktop\report.html']),
+        equals([r'C:\Users\test\Desktop\report.html']),
       );
     });
 
