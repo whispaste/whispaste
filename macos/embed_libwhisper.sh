@@ -26,7 +26,12 @@ DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 # so CI/lint-only checkouts without the source tree still compile.
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "note: libwhisper staging dir not found ($STAGE_DIR) — attempting to build it now."
-  if ! "${REPO_ROOT}/scripts/build-libwhisper-macos.sh"; then
+  # Invoked via `bash` (not exec'd directly) so a lost +x bit on the script
+  # (silently reverted to it once — see git history of this file, mode 100644
+  # committed accidentally) can never again turn a real build failure into a
+  # silent "skip embed" — the real MAS archive that shipped that way had NO
+  # on-device Whisper engine at all, with the build still reporting success.
+  if ! bash "${REPO_ROOT}/scripts/build-libwhisper-macos.sh"; then
     echo "warning: libwhisper auto-build failed — see log above. Skipping embed; run scripts/build-libwhisper-macos.sh manually."
     exit 0
   fi
