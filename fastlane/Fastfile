@@ -224,11 +224,18 @@ platform :mac do
       # bundler/setup and failing with "Could not find fastlane-2.237.0 ...
       # in locally installed gems". Must be unset explicitly alongside
       # RUBYOPT, not implied by it.
+      # MAS_BUILD_NUMBER: optional escape hatch, ONLY for recovering from an
+      # ASC "bundle version already used" rejection (-19232) without bumping
+      # pubspec.yaml's global build number, which the Windows/Linux/macOS-
+      # DevID tracks already published against. Normal runs omit it and get
+      # pubspec.yaml's build number, same as every other platform.
+      build_number_override = ENV["MAS_BUILD_NUMBER"]
+      build_number_flag = build_number_override ? " --build-number=#{build_number_override}" : ""
       sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
          "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
          "RBENV_VERSION=system " \
          "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
-         "flutter build macos --release --dart-define=WHISPASTE_MAS=true")
+         "flutter build macos --release --dart-define=WHISPASTE_MAS=true#{build_number_flag}")
     end
 
     build_mac_app(
