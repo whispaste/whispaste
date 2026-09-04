@@ -5,15 +5,11 @@
 ### Bug Fixes
 
 - **Store-Bewertungen auf der Website zeigen jetzt das echte Veröffentlichungsdatum** statt des Zeitpunkts, zu dem wir sie zuletzt synchronisiert haben.
-- **Onboarding-Schritt-Tracking korrigiert:** der erste Willkommens-Schritt wurde in der anonymen Nutzungsstatistik silently untererfasst, wenn Einstellungen synchron geladen wurden (der Standardfall bei einer frischen Installation).
-- **Lokal gebaute Website-Vorschauen** feuerten versehentlich echte Matomo-Treffer gegen den Live-Tracker statt nur in der Entwicklungsumgebung zu bleiben.
 
 ### Maintenance
 
-- **Neue, wöchentlich rotierende Kohorten-Kennung** für die anonyme Nutzungsstatistik: ermöglicht verlässlichere Wiederkehrer-Auswertungen pro Kalenderwoche, ohne ein Gerät dauerhaft zu identifizieren — Details in der Datenschutzerklärung (Abschnitt 15).
-- **Anonyme Nutzungsstatistik um ein tägliches, nicht-granulares "Alive"-Signal ergänzt** — hilft, die aktive Installationsbasis grober einzuschätzen, unabhängig von den detaillierten Nutzungs-Events; unterliegt derselben Opt-out-Einstellung.
-- **Sichtbarkeits-Tracking für den Support-Hinweis nach dem Download** ergänzt (bisher nur Klicks, jetzt auch Einblendungen) — Grundlage für die nächste Optimierungsrunde.
 - **Reihenfolge der Support-Aktionen nach dem Download angepasst:** die Store-Bewertung des jeweiligen Betriebssystems steht jetzt vor dem GitHub-Stern, da sie direkter zur Auffindbarkeit im jeweiligen Store beiträgt.
+- **Anonyme Nutzungsstatistik erweitert** um eine wöchentlich rotierende Kohorten-Kennung für verlässlichere Wiederkehrer-Auswertungen, ohne ein Gerät dauerhaft zu identifizieren — Details in der Datenschutzerklärung (Abschnitt 15).
 
 ## 1.2.72
 
