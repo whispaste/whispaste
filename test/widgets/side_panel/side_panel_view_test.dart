@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/theme/tokens.dart';
@@ -128,6 +129,50 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.clipboardList));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Copied text'));
+      await tester.pump();
+
+      expect(tappedSection, SidePanelSection.clipboardHistory);
+      expect(tappedId, 'clip-42');
+    });
+
+    testWidgets('a row can be activated by keyboard alone', (tester) async {
+      SidePanelSection? tappedSection;
+      String? tappedId;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidePanelView(
+            snapshot: const SidePanelSnapshot(
+              clipboardHistory: [
+                SidePanelRow(id: 'clip-42', title: 'Copied text'),
+              ],
+            ),
+            onRowTap: (section, id) {
+              tappedSection = section;
+              tappedId = id;
+            },
+            onClose: _noopClose,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(LucideIcons.clipboardList));
+      await tester.pumpAndSettle();
+
+      final inkWell = tester.widget<InkWell>(
+        find.descendant(
+          of: find.byType(WpSidePanelRowTile),
+          matching: find.byType(InkWell),
+        ),
+      );
+      expect(
+        inkWell.focusNode,
+        isNotNull,
+        reason: 'the row must own a focus node to be reachable by Tab',
+      );
+      inkWell.focusNode!.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
 
       expect(tappedSection, SidePanelSection.clipboardHistory);
