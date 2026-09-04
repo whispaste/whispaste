@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
@@ -685,5 +686,120 @@ void main() {
 
       await Future<void>.delayed(Duration.zero);
     });
+  });
+
+  group('cohortPseudonymDimension — T4 weekly-rotating cohort pseudonym', () {
+    test('is a 16-character lowercase hex string', () {
+      final value = cohortPseudonymDimension(
+        salt: 'salt',
+        now: DateTime.utc(2026, 9, 4),
+      );
+      expect(RegExp(r'^[0-9a-f]{16}$').hasMatch(value), isTrue);
+    });
+
+    test('is stable for two dates in the same ISO week', () {
+      final monday = cohortPseudonymDimension(
+        salt: 'salt',
+        now: DateTime.utc(2026, 8, 31), // Monday of ISO week 2026-W36
+      );
+      final sunday = cohortPseudonymDimension(
+        salt: 'salt',
+        now: DateTime.utc(2026, 9, 6), // Sunday of the same ISO week
+      );
+      expect(monday, sunday);
+    });
+
+    test('changes for a date in the next ISO week', () {
+      final week36 = cohortPseudonymDimension(
+        salt: 'salt',
+        now: DateTime.utc(2026, 9, 6),
+      );
+      final week37 = cohortPseudonymDimension(
+        salt: 'salt',
+        now: DateTime.utc(2026, 9, 7), // Monday of ISO week 2026-W37
+      );
+      expect(week36, isNot(week37));
+    });
+
+    test('differs for two different salts in the same week', () {
+      final now = DateTime.utc(2026, 9, 4);
+      expect(
+        cohortPseudonymDimension(salt: 'salt-a', now: now),
+        isNot(cohortPseudonymDimension(salt: 'salt-b', now: now)),
+      );
+    });
+  });
+
+  group('generateCohortPseudonymSalt — T4', () {
+    test('is a 32-character lowercase hex string', () {
+      final salt = generateCohortPseudonymSalt();
+      expect(RegExp(r'^[0-9a-f]{32}$').hasMatch(salt), isTrue);
+    });
+
+    test('two calls produce different salts', () {
+      expect(
+        generateCohortPseudonymSalt(),
+        isNot(generateCohortPseudonymSalt()),
+      );
+    });
+  });
+
+  group('sendDailyAlivePingIfDue — T5 daily alive ping', () {
+    test(
+      'sends one ping and records the date when none is stored yet',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        var requestCount = 0;
+        final client = MockClient((request) async {
+          requestCount++;
+          expect(request.url.path, contains('matomo.php'));
+          return http.Response('', 200);
+        });
+        final service = _makeService(client: client);
+
+        await service.sendDailyAlivePingIfDue(prefs);
+
+        expect(requestCount, 1);
+        expect(prefs.getString('telemetry_alive_ping_last_date'), isNotNull);
+      },
+    );
+
+    test('does not send a second ping the same day', () async {
+      final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+      SharedPreferences.setMockInitialValues({
+        'telemetry_alive_ping_last_date': today,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      var requestCount = 0;
+      final client = MockClient((request) async {
+        requestCount++;
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+
+      await service.sendDailyAlivePingIfDue(prefs);
+
+      expect(requestCount, 0);
+    });
+
+    test(
+      'sends nothing without consent (opt-out honoured, not bypassed)',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        var requestCount = 0;
+        final client = MockClient((request) async {
+          requestCount++;
+          return http.Response('', 200);
+        });
+        final service = _makeService(client: client, consentGranted: false);
+
+        await service.sendDailyAlivePingIfDue(prefs);
+
+        expect(requestCount, 0);
+        expect(prefs.getString('telemetry_alive_ping_last_date'), isNull);
+      },
+    );
   });
 }

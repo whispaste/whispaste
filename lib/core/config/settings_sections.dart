@@ -1627,6 +1627,7 @@ class PrivacySettings {
   const PrivacySettings({
     this.shareUsageStats = true,
     this.retainRecentAudio = false,
+    this.cohortPseudonymSalt,
   });
 
   final bool shareUsageStats;
@@ -1635,6 +1636,14 @@ class PrivacySettings {
   /// a persistent app-data directory instead of deleting it after
   /// transcription — for debugging and for restoring past dictations.
   final bool retainRecentAudio;
+
+  /// Locally generated, never-transmitted random salt for the weekly-rotating
+  /// cohort pseudonym sent to Matomo as `dimension7` (see `telemetry_service`
+  /// `cohortPseudonymDimension`). Lazily created on first telemetry dispatch
+  /// while [shareUsageStats] is true — hardware/install-bound like
+  /// `benchmarkHardwareId`, so it is denylisted from settings export/import
+  /// (`settingsPortabilityDenyList`).
+  final String? cohortPseudonymSalt;
 
   static const PrivacySettings defaults = PrivacySettings();
 
@@ -1649,28 +1658,38 @@ class PrivacySettings {
       'retain_recent_audio',
       defaults.retainRecentAudio,
     ),
+    cohortPseudonymSalt: v['cohort_pseudonym_salt']?.isEmpty ?? true
+        ? null
+        : v['cohort_pseudonym_salt'],
   );
 
   Map<String, String> toMap() => {
     'share_usage_stats': '$shareUsageStats',
     'retain_recent_audio': '$retainRecentAudio',
+    'cohort_pseudonym_salt': cohortPseudonymSalt ?? '',
   };
 
-  PrivacySettings copyWith({bool? shareUsageStats, bool? retainRecentAudio}) =>
-      PrivacySettings(
-        shareUsageStats: shareUsageStats ?? this.shareUsageStats,
-        retainRecentAudio: retainRecentAudio ?? this.retainRecentAudio,
-      );
+  PrivacySettings copyWith({
+    bool? shareUsageStats,
+    bool? retainRecentAudio,
+    String? cohortPseudonymSalt,
+  }) => PrivacySettings(
+    shareUsageStats: shareUsageStats ?? this.shareUsageStats,
+    retainRecentAudio: retainRecentAudio ?? this.retainRecentAudio,
+    cohortPseudonymSalt: cohortPseudonymSalt ?? this.cohortPseudonymSalt,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is PrivacySettings &&
           shareUsageStats == other.shareUsageStats &&
-          retainRecentAudio == other.retainRecentAudio;
+          retainRecentAudio == other.retainRecentAudio &&
+          cohortPseudonymSalt == other.cohortPseudonymSalt;
 
   @override
-  int get hashCode => Object.hash(shareUsageStats, retainRecentAudio);
+  int get hashCode =>
+      Object.hash(shareUsageStats, retainRecentAudio, cohortPseudonymSalt);
 }
 
 // ===========================================================================

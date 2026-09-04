@@ -171,6 +171,11 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // its own portable 'history_*' preferences above).
   'retain_recent_audio',
   'share_usage_stats',
+  // T4 (Matomo product analysis 2026-09-04): device-local random salt for
+  // the weekly-rotating cohort pseudonym — hardware/install-bound like
+  // 'benchmark_hardware_id' above, would be meaningless (and privacy-adverse,
+  // it would let two devices collide into one cohort) on a different machine.
+  'cohort_pseudonym_salt',
   // Clipboard quick-paste side panel toggle — a display preference like the
   // other 'show_*' keys below it.
   'side_panel_enabled',
