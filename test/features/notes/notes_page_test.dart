@@ -538,6 +538,39 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 5));
     });
 
+    testWidgets(
+      'duplicating a note creates a second tile with the same content',
+      (tester) async {
+        // Real in-memory db (notesProvider left un-overridden) — duplication
+        // is a genuine db write/re-query, same rationale as the "brand-new
+        // note" test above.
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: _noTagOverrides,
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.pumpAndSettle();
+        await tester.enterText(_editorTextFields(), 'Duplicate me');
+        await tester.pumpAndSettle();
+
+        expect(find.byType(NotesListTile), findsOneWidget);
+
+        await tester.tap(find.byTooltip(l10n.actionDuplicate));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(NotesListTile), findsNWidgets(2));
+        expect(find.text('Duplicate me'), findsWidgets); // both tiles + editor
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+
     testWidgets('favorite star reflects the pinned state', (tester) async {
       final notes = [
         _sampleNote(id: 'n1', content: 'Pinned note', pinned: true),
