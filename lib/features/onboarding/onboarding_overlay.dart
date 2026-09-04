@@ -319,6 +319,18 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// re-trigger a step jump.
   bool _stepHydrated = false;
 
+  /// Guards the one-time entry telemetry for the step the overlay first
+  /// shows. Separate from [_stepHydrated]: that flag gates the step *jump*,
+  /// this one only dedupes the 'step' event for whichever step ends up
+  /// visible first. Needed because [_hydrateStepFromSettings] used to skip
+  /// tracking entirely whenever the saved position already matched
+  /// [_currentStep] (the common case — settings resolve synchronously and a
+  /// fresh install starts at step 0 either way) — silently dropping the
+  /// onboarding-entry event for most first-time sessions and undercounting
+  /// the first step relative to every later one in the funnel (Matomo
+  /// product analysis, 2026-09-04).
+  bool _entryTracked = false;
+
   /// Cached notifier references so [dispose] can stop polling without
   /// touching `ref` — Riverpod forbids `ref` access after deactivation.
   /// The overlay owns the provider scope, so sudden window-close (X tapped,
@@ -370,6 +382,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // Settings weren't loaded synchronously — track the tentative first
       // step; _hydrateStepFromSettings corrects both the step and this
       // telemetry once settings resolve.
+      _entryTracked = true;
       _trackStep('step', _onboardingSteps().first);
     }
   }
@@ -417,7 +430,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     } else {
       saved = onboarding.onboardingCurrentStep.clamp(0, steps.length - 1);
     }
-    if (saved == _currentStep) return;
+    if (saved == _currentStep) {
+      // No step jump needed (fresh install: saved defaults to 0, same as
+      // _currentStep), but the entry event still needs to fire exactly once —
+      // see [_entryTracked].
+      if (!_entryTracked) {
+        _entryTracked = true;
+        _trackStep('step', steps[saved]);
+      }
+      return;
+    }
     if (mounted) {
       setState(() {
         _previousStep = saved;
@@ -427,6 +449,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       _previousStep = saved;
       _currentStep = saved;
     }
+    _entryTracked = true;
     _trackStep('step', steps[saved]);
   }
 
