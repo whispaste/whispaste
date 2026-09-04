@@ -32,6 +32,13 @@ const langToggleLabel = lang === 'de' ? 'EN' : 'DE';
 // searchers actually intend to sponsor. The link is kept in the footer.
 const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
 const backHref = lang === 'de' ? '/' : '/en/';
+
+// Subpages don't own the landing page's in-page anchors, so the same nav
+// row links back to the homepage section instead of scrolling nowhere —
+// keeps the primary nav (and its Download CTA) visible and consistent on
+// every page instead of the old bare "Zurück" link, which read as a
+// leftover utility row rather than real navigation.
+const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#${id}`);
 ---
 
 <nav
@@ -41,7 +48,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
   class="fixed top-0 inset-x-0 z-50 px-4 pt-3 sm:pt-4 pointer-events-none"
 >
   <div
-    class={`nav-pill pointer-events-auto mx-auto px-5 sm:px-6 h-14 flex items-center justify-between rounded-2xl border border-white/[0.08] ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
+    class={`nav-pill pointer-events-auto mx-auto px-5 sm:px-6 h-14 flex items-center justify-between rounded-2xl border border-white/[0.08] max-w-6xl`}
   >
     <a
       href={variant === "subpage" ? backHref : "#"}
@@ -61,20 +68,22 @@ const backHref = lang === 'de' ? '/' : '/en/';
         sie sich zwischen 640–879px kaputt (zweizeiliges "Wie funktioniert's",
         kollabierte Lücken, CTA-Überlauf aus der Pill). 640–1023px nutzt jetzt
         das Kompakt-Muster: Hamburger + sichtbarer Download-CTA. */}
-    {variant === "landing" && (
-      <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-ink-muted">
-        <a href="#app-paste-demo" class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-        <a href="#engines" class="hover:text-white transition-colors" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-        <a href="#languages" class="hover:text-white transition-colors" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-        <a href="#faq" class="hover:text-white transition-colors" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-        <a href="#support" class="hover:text-white transition-colors" data-i18n="nav.support">{t(lang, "nav.support")}</a>
-      </div>
-    )}
+    {/* Link-Zeile und Aktionsgruppe (Sprache/GitHub/Download) werden auf
+        Unterseiten identisch gerendert wie auf der Landingpage, nur mit
+        Ankern zurück zur Homepage-Sektion (anchor()) statt reiner In-Page-
+        Anker — vorher hatten Unterseiten nur "Zurück" + Sprache, was dünn
+        und wenig konversionsstark wirkte. */}
+    <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-ink-muted">
+      <a href={anchor("app-paste-demo")} class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+      <a href={anchor("engines")} class="hover:text-white transition-colors" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
+      <a href={anchor("languages")} class="hover:text-white transition-colors" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
+      <a href={anchor("faq")} class="hover:text-white transition-colors" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+      <a href={anchor("support")} class="hover:text-white transition-colors" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+    </div>
     {/* Rechte Aktionsgruppe: Utilities (Sprache/Theme/GitHub) nur ab lg,
         der Download-CTA schon ab sm (640–1023px behält so die eine primäre
         Aktion sichtbar in der Pill), Hamburger bis unter lg. */}
-    {variant === "landing" && (
-      <div class="flex shrink-0 items-center gap-3 lg:gap-5 text-sm text-ink-muted">
+    <div class="flex shrink-0 items-center gap-3 lg:gap-5 text-sm text-ink-muted">
       <div class="hidden lg:flex shrink-0 items-center gap-5 text-sm text-ink-muted">
         <button
           id="langToggle"
@@ -129,28 +138,14 @@ const backHref = lang === 'de' ? '/' : '/en/';
         <svg id="menuBtnIcon" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
       </button>
       </div>
-    )}
-    {variant === "subpage" && (
-      <div class="flex items-center gap-4 text-sm text-ink-muted">
-        <a href={backHref} class="hover:text-white transition-colors" data-i18n="nav.back">{t(lang, "nav.back")}</a>
-        <button
-          id="langToggle"
-          data-testid="lang-toggle"
-          aria-label={t(lang, "nav.switchLanguageAria")}
-          data-i18n-aria="nav.switchLanguageAria"
-          class="lang-toggle-btn text-ink-muted hover:text-white transition-colors font-medium"
-        >{langToggleLabel}</button>
-      </div>
-    )}
   </div>
-  {variant === "landing" && (
-    <div id="mobileMenu" class="lg:hidden hidden pointer-events-auto mx-auto mt-2 max-w-6xl rounded-2xl border border-white/[0.08] overflow-hidden">
+  <div id="mobileMenu" class="lg:hidden hidden pointer-events-auto mx-auto mt-2 max-w-6xl rounded-2xl border border-white/[0.08] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
-        <a href="#app-paste-demo" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-        <a href="#engines" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-        <a href="#languages" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-        <a href="#faq" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-        <a href="#support" class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+        <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href={anchor("engines")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
+        <a href={anchor("languages")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
+        <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+        <a href={anchor("support")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
           <button id="mobileLangToggle" class="lang-toggle-btn text-ink-muted hover:text-white transition-colors text-sm font-medium" aria-label={t(lang, "nav.switchLanguageAria")} data-i18n-aria="nav.switchLanguageAria">{langToggleLabel}</button>
           <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub">
@@ -180,8 +175,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
           </span>
         </a>
       </div>
-    </div>
-  )}
+  </div>
 </nav>
 
 <script is:inline>

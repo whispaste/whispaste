@@ -95,7 +95,15 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
     <Nav variant="subpage" />
 
     <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
-      <div class="max-w-3xl mx-auto">
+      {/* Matches the nav pill's own max-w-6xl exactly (Nav.astro), and adds
+          the same px-5 sm:px-6 the pill applies to ITS OWN content (see
+          .nav-pill in Nav.astro) — the pill's outer rounded edge sits at
+          the same x-position as this div's outer edge (both max-w-6xl,
+          centered under the same viewport), so without this inner padding
+          the page content started flush with — or even past — the pill's
+          corner instead of lining up with the wordmark/nav-links text
+          inside it. */}
+      <div class="max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-5 sm:px-6">
         {/*
           Visuelle Breadcrumb-Leiste — dieselben Items wie das
           `BreadcrumbList`-Schema (Google Rich Results verlangt
@@ -136,12 +144,38 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
               />
             </div>
           )}
+          {/* Kein separates Icon/Bildmarke im Hero selbst (versucht und
+              wieder verworfen, 2026-09-04 — Nutzer-Feedback: "wirkt nicht
+              gut", "nicht unsere Wortbildmarke"). Markenpräsenz auf dieser
+              Seite kommt weiter ausschließlich über die feste Nav-Wortmarke
+              (Nav.astro) und, für diese Page, die neue Benefit-Leiste
+              direkt unterhalb des Heros. */}
           <h1 class="lp-hero-title text-3xl sm:text-4xl mb-4 leading-tight">{hero.heading}</h1>
           <p class="lp-hero-lead text-lg leading-relaxed">{hero.lead}</p>
+          {/* Echter primärer CTA-Button statt reinem Text-Link — critique.md
+              P0: ein kleiner Scroll-Link wurde von Erstbesuchern leicht als
+              nicht-klickbar übersehen. Gleiche visuelle Sprache wie der
+              CTA-Block am Seitenende (unten), damit "das ist der
+              Download-Button" sofort erkennbar ist, egal wo auf der Seite
+              man ihn zuerst sieht. */}
+          <a
+            href={cta.href}
+            class="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-6 py-3 font-semibold text-brand-darker transition-transform hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+          >
+            <span>{cta.label}</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
         </header>
 
-        {/* Sections-Slot — Konsumenten füllen mit `<section>`-Blöcken */}
-        <div class="landing-content space-y-10">
+        {/* Sections-Slot — Konsumenten füllen mit `<section>`-Blöcken.
+            No gap utility here: each section's own vertical padding plus
+            its edge-feathered band tint (see .landing-content :global(section)
+            below) carries the rhythm, the same way homepage bands sit flush
+            against each other instead of leaving a plain gap between them. */}
+        <div class="landing-content">
           <slot />
         </div>
 
@@ -177,6 +211,7 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
               <path d="m12 5 7 7-7 7" />
             </svg>
           </a>
+          <p class="lp-cta-trust mt-4 text-sm">{t(lang, "explainer.cta.trust")}</p>
         </aside>
       </div>
     </main>
@@ -225,35 +260,87 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
     font-weight: 700;
     letter-spacing: -0.015em;
     color: var(--color-ink);
+    /* At the widened xl:max-w-6xl column, an unconstrained h1 gave
+       text-wrap: balance (global.css) a ~1100px box to balance a ~70-char
+       headline into — it still only needs 2 lines, so balance centers the
+       break for even line length and leaves the first line far short of
+       the box edge (a large, odd-looking gap). 43rem is the minimum box
+       width the current DE headline still balances into exactly 2 lines
+       at (measured via Range.getClientRects against the live text) —
+       any narrower and it tips into 3 short lines, any wider just adds
+       unused space back. At this width both lines run to within ~10-30px
+       of the box edge, so the wrap reads as a natural late break instead
+       of an arbitrary early cutoff, without touching the shared
+       text-wrap: balance rule other headings rely on. */
+    max-width: 43rem;
   }
   .lp-hero-lead {
     color: var(--color-ink-muted);
-    max-width: 48ch;
+  }
+  .lp-cta-trust {
+    color: var(--color-ink-subtle);
   }
 
-  /* Long-tail / use-case body: airy editorial sections.
-     Colours come from the dark-only theme tokens (--color-ink / -muted /
-     brand). A slim cyan rail replaces the old flat panel for a lighter,
-     more editorial rhythm. */
+  /* Long-tail / use-case body: same tonal-band rhythm as the homepage
+     (.band / .band-raised / .band-deep in global.css), not a separate
+     "docs page" language of bordered boxes on a plain background. Each
+     section keeps the reading column's own width/padding (so per-page
+     overrides like the FAQ block's `padding: 0` or the photo block's
+     `overflow: hidden` still apply unchanged) — only the tint bleeds to
+     the full viewport via the ::after pseudo-element, exactly like the
+     homepage bands, so a "card" never floats on a plain background and
+     the width complaint (narrow, boxed) goes away without every consumer
+     page having to restructure its markup.
+
+     The odd/even alternation below is PURELY a rhythm device — it marks
+     "a new section started" the way a page break would, nothing more. It
+     is intentionally NOT tied to content meaning (e.g. "cyan tint =
+     feature/benefit section"): consumer pages add/remove/reorder
+     `<section>`s freely per their own content, and a meaning-carrying
+     tint would silently become wrong the moment a page's section count
+     changes by one. Do not repurpose `nth-of-type(odd)` as a "highlight
+     this section" hook — add an explicit class on that page's section
+     instead. */
   .landing-content :global(section) {
     position: relative;
-    background: color-mix(in srgb, var(--color-brand-card) 42%, transparent);
-    border: 1px solid var(--color-brand-border);
-    border-radius: var(--radius-surface);
-    padding: 1.6rem 1.75rem 1.6rem 2rem;
+    isolation: isolate;
+    padding: 2.75rem 0;
   }
-  .landing-content :global(section)::before {
+  .landing-content :global(section)::after {
     content: "";
     position: absolute;
-    left: 0;
-    top: 1.6rem;
-    bottom: 1.6rem;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-    background: linear-gradient(
-      var(--color-brand-cyan),
-      color-mix(in srgb, var(--color-brand-cyan) 25%, transparent)
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    z-index: -1;
+    pointer-events: none;
+    --band-fade: clamp(48px, 8vh, 120px);
+    mask-image: linear-gradient(
+      180deg,
+      transparent 0,
+      black var(--band-fade),
+      black calc(100% - var(--band-fade)),
+      transparent 100%
     );
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0,
+      black var(--band-fade),
+      black calc(100% - var(--band-fade)),
+      transparent 100%
+    );
+  }
+  .landing-content :global(section:nth-of-type(odd))::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-brand-cyan) 6%, var(--surface-dark)) 0%,
+      var(--surface-dark) 260px
+    );
+  }
+  .landing-content :global(section:nth-of-type(even))::after {
+    background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
   }
   .landing-content :global(section h2) {
     font-family: var(--font-display);
@@ -263,10 +350,15 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
     color: var(--color-ink);
     margin-bottom: 0.75rem;
   }
+  /* No ch-cap here: the reading column's own width (max-w-3xl up to
+     xl:52rem/2xl:60rem on the wrapper in the layout markup above) already
+     bounds the line length sensibly per breakpoint. An extra fixed 62ch cap
+     on top of that produced a narrow text column with a large dead-space
+     gutter on wide screens — the opposite of the "use the available width"
+     direction — so paragraphs/lists now fill the section's own width. */
   .landing-content :global(section p) {
     color: var(--color-ink-muted);
     line-height: 1.7;
-    max-width: 62ch;
   }
   .landing-content :global(section p + p) {
     margin-top: 0.85rem;
@@ -277,7 +369,6 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
     margin-top: 0.85rem;
     padding-left: 1.35rem;
     list-style: disc;
-    max-width: 62ch;
   }
   .landing-content :global(section ul li + li) {
     margin-top: 0.4rem;

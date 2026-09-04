@@ -6,9 +6,12 @@
  * lend itself to localisation. `alternateSlugs` still emits the correct
  * hreflang pair.
  */
+import { Picture } from "astro:assets";
 import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
 import HowToSchema from "../../components/schema/HowToSchema.astro";
 import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import SectionEyebrow from "../../components/SectionEyebrow.astro";
+import heroDevice from "../../assets/hero-device/hero-device-clean-en.png";
 import { t, localePath } from "../../scripts/i18n.ts";
 
 const lang = "en" as const;
@@ -98,47 +101,91 @@ const relatedPages = [
   alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
-  <section>
-    <dl class="faq-list">
-      {faqQuestions.map((entry) => (
-        <div class="faq-item">
-          <dt>{entry.question}</dt>
-          <dd>{entry.answer}</dd>
+  {/* Benefit strip: short "why WhisPaste" triad right after the hero,
+      BEFORE the search-intent-driven HowTo/FAQ block — critique.md P1
+      (2026-09-04): the page previously pitched its value only implicitly
+      through the technical-detail section. Deliberately NOT a `<section>`
+      (so it doesn't pick up the alternating band tint below, see the
+      LandingPageLayout.astro comment on that tint's meaninglessness) —
+      this block gets its own, intentional cyan accent because it actually
+      carries brand identity/core value. */}
+  <div class="benefit-strip reveal-up">
+    <div class="benefit-item">
+      <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+      <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.benefits.offline.title")}</h3>
+      <p class="benefit-body">{t(lang, "explainer.whisperDesktop.benefits.offline.body")}</p>
+    </div>
+    <div class="benefit-item">
+      <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+      </svg>
+      <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.benefits.setup.title")}</h3>
+      <p class="benefit-body">{t(lang, "explainer.whisperDesktop.benefits.setup.body")}</p>
+    </div>
+    <div class="benefit-item">
+      <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <rect x="9" y="9" width="6" height="6" />
+        <path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2" />
+      </svg>
+      <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.benefits.hardware.title")}</h3>
+      <p class="benefit-body">{t(lang, "explainer.whisperDesktop.benefits.hardware.body")}</p>
+    </div>
+  </div>
+
+  <section aria-labelledby="howto-heading">
+    <h2 id="howto-heading">{t(lang, "explainer.whisperDesktop.howTo.name")}</h2>
+
+    <div class="howto-diagram reveal-up">
+      <div class="howto-diagram-row" aria-hidden="true">
+        <div class="howto-diagram-line"></div>
+        <div class="howto-diagram-dot howto-diagram-dot--1"></div>
+        <div class="howto-diagram-dot howto-diagram-dot--2"></div>
+
+        <div class="howto-diagram-node">
+          <svg class="howto-diagram-icon" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" class="howto-diagram-icon-box" />
+            <rect x="20" y="27" width="40" height="26" rx="6" stroke="var(--color-brand-cyan)" stroke-width="2" />
+            <path d="M32 40h16" stroke="var(--color-brand-cyan)" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="howto-diagram-label">{t(lang, "explainer.whisperDesktop.howTo.diagram.hotkey")}</span>
         </div>
-      ))}
-    </dl>
-  </section>
 
-  <FAQPageSchema locale={lang} questions={faqQuestions} />
+        <div class="howto-diagram-node">
+          <svg class="howto-diagram-icon" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" class="howto-diagram-icon-box" />
+            <rect x="32" y="18" width="16" height="26" rx="8" stroke="var(--color-brand-cyan)" stroke-width="2" />
+            <path d="M24 38a16 16 0 0 0 32 0" stroke="var(--color-brand-cyan)" stroke-width="2" stroke-linecap="round" />
+            <path d="M40 54v8" stroke="var(--color-brand-cyan)" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="howto-diagram-label">{t(lang, "explainer.whisperDesktop.howTo.diagram.speak")}</span>
+        </div>
 
-  <h2>{t(lang, "explainer.whisperDesktop.technicalDetails.heading")}</h2>
+        <div class="howto-diagram-node">
+          <svg class="howto-diagram-icon" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" class="howto-diagram-icon-box" />
+            <path d="M18 30h32M18 40h44M18 50h28" stroke="var(--color-ink-muted)" stroke-width="2" stroke-linecap="round" />
+            <rect x="48" y="46" width="2" height="10" fill="var(--color-brand-cyan)" class="howto-diagram-cursor" />
+          </svg>
+          <span class="howto-diagram-label">{t(lang, "explainer.whisperDesktop.howTo.diagram.paste")}</span>
+        </div>
+      </div>
+      <p class="howto-diagram-caption">{t(lang, "explainer.whisperDesktop.howTo.diagram.caption")}</p>
+    </div>
 
-  <section>
-    <h3>{t(lang, "explainer.whisperDesktop.section.setup.heading")}</h3>
-    <p>{t(lang, "explainer.whisperDesktop.section.setup.body")}</p>
-  </section>
-
-  <section>
-    <h3>{t(lang, "explainer.whisperDesktop.section.performance.heading")}</h3>
-    <p>{t(lang, "explainer.whisperDesktop.section.performance.body")}</p>
-  </section>
-
-  <section>
-    <h3>{t(lang, "explainer.whisperDesktop.section.localVsCloud.heading")}</h3>
-    <p>{t(lang, "explainer.whisperDesktop.section.localVsCloud.body")}</p>
     <ol class="howto-steps">
-      <li>
-        <h4>{t(lang, "explainer.whisperDesktop.howTo.step1.name")}</h4>
-        <p>{t(lang, "explainer.whisperDesktop.howTo.step1.text")}</p>
-      </li>
-      <li>
-        <h4>{t(lang, "explainer.whisperDesktop.howTo.step2.name")}</h4>
-        <p>{t(lang, "explainer.whisperDesktop.howTo.step2.text")}</p>
-      </li>
-      <li>
-        <h4>{t(lang, "explainer.whisperDesktop.howTo.step3.name")}</h4>
-        <p>{t(lang, "explainer.whisperDesktop.howTo.step3.text")}</p>
-      </li>
+      {howToSteps.map((step, index) => (
+        <li class="howto-step">
+          <span class="howto-step-num wp-nums" aria-hidden="true">{index + 1}</span>
+          <div class="howto-step-body">
+            <h3>{step.name}</h3>
+            <p>{step.text}</p>
+          </div>
+        </li>
+      ))}
     </ol>
   </section>
 
@@ -148,41 +195,546 @@ const relatedPages = [
     description={t(lang, "explainer.whisperDesktop.heroLead")}
     steps={howToSteps}
   />
+
+  <section class="device-photo-block">
+    <figure class="device-photo reveal-up">
+      <Picture
+        src={heroDevice}
+        formats={["avif", "webp"]}
+        fallbackFormat="jpg"
+        widths={[480, 640, 960, 1280, 1600, 1800]}
+        sizes="(min-width: 56rem) 56rem, 100vw"
+        alt=""
+        loading="lazy"
+        decoding="async"
+        class="device-photo__img"
+      />
+    </figure>
+    <p class="device-photo__caption">{t(lang, "explainer.whisperDesktop.devicePhoto.caption")}</p>
+  </section>
+
+  <section class="section-divider">
+    <h2>{t(lang, "explainer.whisperDesktop.technicalDetails.heading")}</h2>
+  </section>
+
+  <section>
+    {/* Icon row instead of a bare h3+p: critique.md P2 (2026-09-04) — this
+        section sat between two illustrated neighbours with zero visual
+        anchor, reading as unfinished rather than deliberately minimal. */}
+    <div class="detail-heading-row">
+      <svg class="detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+      </svg>
+      <h3 class="detail-heading">{t(lang, "explainer.whisperDesktop.section.setup.heading")}</h3>
+    </div>
+    <p>{t(lang, "explainer.whisperDesktop.section.setup.body")}</p>
+  </section>
+
+  <section>
+    {/* Two-column at lg+: the chart is a paired visual for the paragraph's
+        own 1x/5x claim, not separate content, so on wide screens it sits
+        beside the text instead of stacking below it and leaving the second
+        half of the row empty. Stays a single stacked column below lg. */}
+    <div class="perf-section-grid">
+      <div>
+        <h3 class="detail-heading">{t(lang, "explainer.whisperDesktop.section.performance.heading")}</h3>
+        <p>{t(lang, "explainer.whisperDesktop.section.performance.body")}</p>
+      </div>
+      <div class="perf-chart reveal-up">
+        <div class="perf-row" aria-hidden="true">
+          <div class="perf-row__head">
+            <span class="perf-row__label">{t(lang, "explainer.whisperDesktop.section.performance.chart.cpu")}</span>
+            <span class="perf-row__value wp-nums">~1×</span>
+          </div>
+          <div class="perf-track"><div class="perf-fill perf-fill--cpu"></div></div>
+        </div>
+        <div class="perf-row" aria-hidden="true">
+          <div class="perf-row__head">
+            <span class="perf-row__label perf-row__label--brand">{t(lang, "explainer.whisperDesktop.section.performance.chart.gpu")}</span>
+            <span class="perf-row__value perf-row__value--brand wp-nums">~5×</span>
+          </div>
+          <div class="perf-track"><div class="perf-fill perf-fill--gpu"></div></div>
+        </div>
+        <p class="perf-caption">{t(lang, "explainer.whisperDesktop.section.performance.chart.caption")}</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="detail-heading-row">
+      <svg class="detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+      <h3 class="detail-heading">{t(lang, "explainer.whisperDesktop.section.localVsCloud.heading")}</h3>
+    </div>
+    <p>{t(lang, "explainer.whisperDesktop.section.localVsCloud.body")}</p>
+  </section>
+
+  <section class="faq-block" aria-labelledby="faq-heading">
+    <SectionEyebrow key="faq.label" />
+    <h2 id="faq-heading">
+      <span>{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand">{t(lang, "faq.titleAccent")}</span>
+    </h2>
+    <div class="faq-accordion">
+      {faqQuestions.map((entry) => (
+        <details class="faq-item">
+          <summary>
+            {entry.question}
+            <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="faq-answer">{entry.answer}</div>
+        </details>
+      ))}
+    </div>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
 </LandingPageLayout>
 
 <style>
-  .faq-list {
-    margin-top: 1rem;
+  /* Lead visual for "How it works": hotkey → speak → text-at-cursor, the
+     same three-node story the numbered steps tell in words. Purely
+     supplementary (the caption + step list already carry the content for
+     assistive tech), so the row is aria-hidden and only the caption stays
+     in the accessibility tree. Labels are real HTML, not SVG <text>: SVG
+     text scales with the SVG's rendered width (viewBox units), so on a
+     540px-wide diagram the 13px label shrank to ~11px, and on a narrow
+     mobile column it shrank further — HTML text keeps a fixed rem size at
+     any container width instead. Icons reuse the site's plain stroke
+     vocabulary (stroke-width 2, currentColor-equivalent token colors) —
+     no new icon style invented. */
+  .howto-diagram {
+    margin: 1.5rem auto 0;
+    max-width: 34rem;
   }
-  .faq-item + .faq-item {
-    margin-top: 1rem;
+  .howto-diagram-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-items: start;
+    --icon-size: clamp(3.375rem, 16vw, 5rem);
   }
-  .faq-list dt {
-    color: #e5e7eb;
+  .howto-diagram-line {
+    position: absolute;
+    top: calc(var(--icon-size) / 2 - 0.75px);
+    left: calc(100% / 6);
+    right: calc(100% / 6);
+    height: 1.5px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--color-brand-border) 0 2px,
+      transparent 2px 11px
+    );
+  }
+  .howto-diagram-dot {
+    position: absolute;
+    top: calc(var(--icon-size) / 2);
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: var(--color-brand-cyan);
+    animation: howto-dot-pulse 2.4s var(--ease-flow) infinite;
+  }
+  .howto-diagram-dot--1 {
+    left: 33.333%;
+  }
+  .howto-diagram-dot--2 {
+    left: 66.667%;
+    animation-delay: 0.6s;
+  }
+  @keyframes howto-dot-pulse {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 1; }
+  }
+  .howto-diagram-node {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625rem;
+  }
+  .howto-diagram-icon {
+    display: block;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.25));
+  }
+  .howto-diagram-icon-box {
+    fill: color-mix(in srgb, var(--color-brand-cyan) 7%, var(--color-brand-card));
+    stroke: color-mix(in srgb, var(--color-brand-cyan) 28%, transparent);
+    stroke-width: 1.5;
+  }
+  .howto-diagram-label {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
     font-weight: 600;
-    margin-bottom: 0.25rem;
+    color: var(--color-ink-muted);
+    text-align: center;
   }
-  .faq-list dd {
-    color: #9ca3af;
-    line-height: 1.6;
-    margin: 0;
+  .howto-diagram-cursor {
+    animation: cursor-blink 0.8s step-end infinite;
   }
-  .howto-steps {
+  .howto-diagram-caption {
     margin-top: 1rem;
-    padding-left: 1.25rem;
-    list-style: decimal;
-    color: #9ca3af;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
   }
-  .howto-steps li + li {
-    margin-top: 0.75rem;
+  @media (prefers-reduced-motion: reduce) {
+    .howto-diagram-dot,
+    .howto-diagram-cursor {
+      animation: none;
+      opacity: 1;
+    }
   }
-  .howto-steps h4 {
-    color: #e5e7eb;
+
+  /* Real photo, not another diagram — a single WhisPaste-in-use shot, the
+     same "Hero-Device" render already trusted on download.astro/Support.astro
+     (no invented reference imagery).
+
+     NOT full-bleed (reverted 2026-09-04, user feedback): the source render
+     is 2688x1536px. Stretched to 100vw it looked sharp on a typical laptop
+     window, but on a larger/scaled desktop monitor the CSS box regularly
+     exceeds ~2688 physical px (any window wider than ~1344 CSS px at a
+     common 2x/125-150% display scale factor already does), and the
+     browser has no higher-resolution source to fall back to — it visibly
+     upscales and blurs. A framed card capped at 56rem (896px) stays sharp
+     even at 3x scaling (2688px physical) against this exact source, on
+     any monitor. The plain caption strip that full-bleed needed (to sit
+     on the bare viewport-width band) is gone too — the caption is now a
+     normal caption below a normal photo, like the diagram/chart captions
+     elsewhere on this page, not a separate colored stripe. */
+  .device-photo {
+    max-width: 56rem;
+    margin: 0 auto;
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    border: 1px solid var(--color-brand-border);
+    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.35);
+  }
+  .device-photo :global(.device-photo__img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2688 / 1536;
+    object-fit: cover;
+    object-position: 62% 42%;
+  }
+  .device-photo__caption {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
+  }
+
+  .perf-section-grid {
+    display: grid;
+    gap: 2rem;
+    align-items: center;
+  }
+  @media (min-width: 1024px) {
+    .perf-section-grid {
+      grid-template-columns: 1fr 22rem;
+      gap: 3rem;
+    }
+  }
+
+  /* Performance visual: CPU vs. GPU as two proportional bars (1x / 5x),
+     the same track+fill language as the homepage's typing-vs-speaking
+     comparison (SpeedComparison.astro) — same material, this page's own
+     numbers. Decorative restatement of the paragraph's own claim, hence
+     aria-hidden on the rows; the caption stays announced. */
+  .perf-chart {
+    margin-top: 1.5rem;
+    max-width: 30rem;
+  }
+  @media (min-width: 1024px) {
+    .perf-chart {
+      margin-top: 0;
+      max-width: none;
+    }
+  }
+  .perf-row + .perf-row {
+    margin-top: 1rem;
+  }
+  .perf-row__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+  }
+  .perf-row__label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-ink-muted);
+  }
+  .perf-row__label--brand {
+    color: var(--color-ink);
+  }
+  .perf-row__value {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--color-ink-muted);
+    letter-spacing: -0.02em;
+  }
+  .perf-row__value--brand {
+    color: var(--color-brand-cyan);
+  }
+  .perf-track {
+    position: relative;
+    height: 0.875rem;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-ink-subtle) 18%, transparent);
+    overflow: hidden;
+  }
+  .perf-fill {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    transform-origin: left center;
+  }
+  .perf-fill--cpu {
+    width: 20%;
+    background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
+  }
+  .perf-fill--gpu {
+    width: 100%;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-brand-cyan) 75%, #0b7fa0) 0%,
+      var(--color-brand-cyan) 100%
+    );
+    box-shadow: 0 0 16px color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+  }
+  .perf-caption {
+    margin-top: 0.875rem;
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
+  }
+  @supports (animation-timeline: view()) {
+    .perf-fill {
+      transform: scaleX(0);
+      animation: perf-fill-in 1s var(--ease-flow) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+  @keyframes perf-fill-in {
+    to { transform: scaleX(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .perf-fill {
+      animation: none !important;
+      transform: none !important;
+    }
+  }
+
+  /* How-it-works: numbered step flow, one shared card (inherited from
+     LandingPageLayout's `.landing-content section` rail treatment) — the
+     numbers carry real sequence information (install → download model →
+     speak), not a decorative 01/02/03. */
+  .howto-steps {
+    margin-top: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .howto-step {
+    position: relative;
+    display: flex;
+    gap: 1rem;
+  }
+  .howto-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 1.125rem;
+    top: 2.5rem;
+    bottom: -1.5rem;
+    width: 1px;
+    background: var(--color-brand-border);
+  }
+  .howto-step-num {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
+    color: var(--color-brand-cyan);
+    font-weight: 700;
+    font-size: 0.9375rem;
+    position: relative;
+    z-index: 1;
+  }
+  .howto-step-body h3 {
+    color: var(--color-ink);
     font-weight: 600;
     font-size: 1rem;
     margin-bottom: 0.25rem;
   }
-  .howto-steps p {
-    line-height: 1.55;
+  .howto-step-body p {
+    color: var(--color-ink-muted);
+    line-height: 1.6;
+  }
+
+  /* Technical-detail subsection titles were plain <h3> with no styling rule
+     to match (LandingPageLayout's card treatment only styles `section h2`) —
+     they rendered as unstyled browser-default text. Explicit class instead
+     of relying on the layout's h2 selector, since these stay h3 under the
+     "Technical details" h2 divider for a correct heading outline. */
+  h3.detail-heading {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-size: 1.25rem;
+    color: var(--color-ink);
+    margin-bottom: 0;
+  }
+  .detail-heading-row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.5rem;
+  }
+  .detail-icon {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0.375rem;
+    border-radius: 0.625rem;
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 28%, transparent);
+  }
+
+  /* Benefit strip: standalone, deliberately brand-colored block right
+     after the hero (see markup comment above) — 3 columns from sm up,
+     stacked below. Its own card look instead of the section band tint,
+     so it reads as intentional rather than an automatic rhythm cell. */
+  .benefit-strip {
+    margin-top: -2rem;
+    margin-bottom: 2.75rem;
+    display: grid;
+    gap: 1.25rem;
+    padding: 1.75rem;
+    border-radius: var(--radius-card);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-brand-cyan) 9%, var(--color-brand-card)) 0%,
+      var(--color-brand-card) 100%
+    );
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+  }
+  @media (min-width: 640px) {
+    .benefit-strip {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .benefit-icon {
+    width: 1.375rem;
+    height: 1.375rem;
+    color: var(--color-brand-cyan);
+  }
+  .benefit-title {
+    margin-top: 0.75rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-ink);
+  }
+  .benefit-body {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-ink-muted);
+  }
+
+  /* FAQ: the same glass accordion as the homepage's signature FAQ component
+     (`.faq-item`, `.faq-item::details-content` — global.css), so this page's
+     FAQ reads as the same material instead of a flat definition list. No
+     background/border/padding override needed anymore — the layout's band
+     tint (LandingPageLayout.astro) already gives this section the same
+     rhythm as its neighbours. */
+  .faq-block :global(.wp-eyebrow) {
+    margin-bottom: 0.5rem;
+  }
+  .faq-block h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-size: 1.5rem;
+    color: var(--color-ink);
+    margin-bottom: 1.25rem;
+  }
+  .faq-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .faq-item {
+    background: var(--color-brand-card);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--color-brand-border);
+    overflow: hidden;
+  }
+  .faq-item summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    color: var(--color-ink);
+    font-weight: 600;
+    list-style: none;
+  }
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq-item summary::marker {
+    content: "";
+  }
+  .faq-chevron {
+    flex-shrink: 0;
+    color: var(--color-ink-subtle);
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .faq-item[open] .faq-chevron {
+    transform: rotate(180deg);
+  }
+  .faq-answer {
+    padding: 0 1.25rem 1.1rem;
+    color: var(--color-ink-muted);
+    line-height: 1.65;
+  }
+  .faq-item {
+    interpolate-size: allow-keywords;
+  }
+  .faq-item::details-content {
+    opacity: 0;
+    block-size: 0;
+    overflow-y: clip;
+    transition:
+      content-visibility var(--dur-slow) allow-discrete,
+      opacity var(--dur-slow) var(--ease-flow),
+      block-size var(--dur-slow) var(--ease-flow);
+  }
+  .faq-item[open]::details-content {
+    opacity: 1;
+    block-size: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item::details-content,
+    .faq-chevron {
+      transition: none;
+    }
   }
 </style>
