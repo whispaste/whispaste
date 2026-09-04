@@ -11,9 +11,12 @@
       match store/ byte-for-byte (ignoring a UTF-8 BOM and trailing
       whitespace, which the classic API round-trip harmlessly adds).
    3. The live, publicly-served price is not Free/€0 (the pricing.priceId
-      reset, 2026-07-30) — checked against the public DisplayCatalog API for
-      every market in -Markets, with an explicit CDN-cache-lag caveat since
-      that API is not authoritative, just a fast independent cross-check.
+      reset, 2026-07-30) AND the Submission API's pricing.priceId matches
+      store/defaults.json's default.PriceId (the value submit-ms-store.ps1
+      writes on every submission since 2026-09-04 — see its header) —
+      checked against the public DisplayCatalog API for every market in
+      -Markets, with an explicit CDN-cache-lag caveat since that API is not
+      authoritative, just a fast independent cross-check.
 
   Exits non-zero if anything looks wrong, so it can gate a release script
   later if desired — for now it's meant to be run and read by a human (or
@@ -101,23 +104,27 @@ foreach ($locale in $managedLocales) {
 }
 
 # ── 3. Live price vs. Free/€0 ────────────────────────────────────────────────
-# Two independent, NEITHER fully authoritative, signals — checked via search
-# (2026-07-30) for a real read API for "Preise und Verfügbarkeit": Microsoft's
-# "Product Ingestion API" looked promising but only covers Azure Marketplace
-# offers (VMs/SaaS/etc.), not regular Windows Store consumer apps like this
-# one. No documented read-only API exists for Pricing V2's actual served
-# price. Partner Center's own "Preise und Verfügbarkeit" page remains the
-# only ground truth — a human must confirm it there before trusting either
-# signal below.
+# RESOLVED 2026-09-04 (Microsoft support ticket API TrackingID#2608200050000071
+# — see scripts/submit-ms-store.ps1's header and docs/store-release.md):
+# pricing.priceId is now a STRONG signal, not a weak one — submit-ms-store.ps1
+# explicitly writes store/defaults.json's default.PriceId on every submission,
+# so the last published submission's priceId must equal that same value.
+# 'Base' (the unwritable read-only sentinel that caused the original
+# "InvalidParameterValue" incident) or 'Free' here means the write silently
+# didn't take (or defaults.json's PriceId was 'Free' on purpose) — either way
+# worth a hard look, not just a manual cross-check. The DisplayCatalog probe
+# below remains a genuinely independent second signal (public-facing served
+# price, not just what the Submission API reports back).
 Write-Host ""
-Write-Host ":: Check 3/3 — price signals (both are cross-checks, NEITHER is ground truth — verify in Partner Center 'Preise und Verfügbarkeit' directly)"
+Write-Host ":: Check 3/3 — price signals (verify in Partner Center 'Preise und Verfügbarkeit' if either signal looks wrong)"
 try {
-  $priceIdSignal = $sub.pricing.priceId
-  if ($priceIdSignal -eq 'Free' -or [string]::IsNullOrEmpty($priceIdSignal)) {
-    $problems += "Classic Submission API's pricing.priceId reads '$priceIdSignal' on the last published submission — weak signal, but worth a manual check"
-    Write-Warning "   pricing.priceId (legacy, weak signal): '$priceIdSignal'"
+  $expectedPriceId = $defaults.default.PriceId
+  $priceIdSignal    = $sub.pricing.priceId
+  if ($priceIdSignal -ne $expectedPriceId) {
+    $problems += "Classic Submission API's pricing.priceId reads '$priceIdSignal' on the last published submission, expected '$expectedPriceId' (store/defaults.json's default.PriceId) — submit-ms-store.ps1's price write may not have taken"
+    Write-Warning "   pricing.priceId: '$priceIdSignal' (expected '$expectedPriceId')"
   } else {
-    Write-Host "   pricing.priceId (legacy, weak signal): '$priceIdSignal'"
+    Write-Host "   pricing.priceId: '$priceIdSignal' (matches store/defaults.json)"
   }
 } catch {
   Write-Host "   pricing.priceId: not readable ($($_.Exception.Message))"

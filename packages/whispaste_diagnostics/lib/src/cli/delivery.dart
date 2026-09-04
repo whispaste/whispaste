@@ -70,7 +70,7 @@ String buildMailtoUrl({
 /// local mail client.
 ///
 /// - macOS: `open <mailtoUrl>`
-/// - Windows: `cmd /c start "" <mailtoUrl>`
+/// - Windows: `explorer <mailtoUrl>`
 /// - Other: `xdg-open <mailtoUrl>`
 ///
 /// [platform] defaults to [Platform.operatingSystem]; inject for tests.
@@ -81,7 +81,7 @@ String buildMailtoUrl({
   final os = platform ?? Platform.operatingSystem;
   return switch (os) {
     'macos' => (executable: 'open', arguments: [mailtoUrl]),
-    'windows' => (executable: 'cmd', arguments: ['/c', 'start', '', mailtoUrl]),
+    'windows' => (executable: 'explorer', arguments: [mailtoUrl]),
     _ => (executable: 'xdg-open', arguments: [mailtoUrl]),
   };
 }

@@ -47,6 +47,33 @@ EOF
   esac
 }
 
+# ── 0. macOS MAS-Plugin-Registrant-Guard (Self-Heal, working-tree only) ─
+# Belt-and-suspenders alongside the pre-commit self-heal (which only fixes
+# what's actually staged) and the mas-guard clean filter (which git only
+# consults for add/diff/commit, never for `git status`'s modified-list —
+# see macos/patch_plugin_registrant_guard.py for the full mechanism). This
+# guarantees the working-tree file is physically guarded right after every
+# push, not just logically clean in git's eyes, so `git status` reads
+# clean immediately afterward too, not just "impossible to commit unguarded".
+if command -v python3 >/dev/null 2>&1; then
+  _registrant="$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift"
+  python3 "$ROOT/macos/patch_plugin_registrant_guard.py" "$_registrant" >/dev/null 2>&1 || true
+  # If the guarded file now matches HEAD byte-for-byte (the routine case --
+  # Flutter regenerated it, we just restored the guard), `git status`'s fast
+  # stat-based check can still flag it "modified" purely from the rewritten
+  # mtime (git does not consult the mas-guard clean filter for that check --
+  # see .gitattributes). `git add` here is safe ONLY because we just proved
+  # via `git diff --quiet` that staging it is a true no-op content-wise; it
+  # refreshes the index's cached stat so `git status` reads clean right after
+  # this push, instead of a phantom "M" lingering until the next `git add`.
+  # If real content differs (e.g. an actual new plugin was registered since
+  # the last commit), `git diff --quiet` fails and we deliberately leave it
+  # alone for a real, reviewed commit.
+  if [ -f "$_registrant" ] && git diff --quiet -- "$_registrant" 2>/dev/null; then
+    git add -- "$_registrant" 2>/dev/null || true
+  fi
+fi
+
 # ── 1. Allowlist-Schranke (Push-Range + HEAD-Baum) ──────────────────────
 if [ ! -f "$ALLOWLIST" ]; then
   echo "pre-push: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
@@ -359,6 +386,29 @@ EOF
     exit 1
   fi
   echo "  Loam: clean"
+fi
+
+# actionlint (GitHub-Actions-Workflow-Syntax/-Semantik, sparsam: nur wenn
+# installiert). Fängt genau die Fehlerklasse ab, die sonst erst als roter
+# CI-Run sichtbar wird: falsche runs-on/needs/if-Expressions, unbekannte
+# Contexts, kaputte Matrix-Syntax, sowie eingebettete run:-Shell-Skripte via
+# integriertem shellcheck. Läuft immer über den vollen Workflow-Ordner (nicht
+# nur die Push-Range) — dieselbe Prüfung, die `gh workflow` letztlich auch
+# über die YAML laufen lässt, nur lokal und ohne Runner-Zeit zu verbrauchen.
+if command -v actionlint >/dev/null 2>&1; then
+  echo ""; echo "actionlint (GitHub Actions workflow lint)..."
+  if ! actionlint "$ROOT"/.github/workflows/*.yml 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: actionlint fand Workflow-Probleme           ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  actionlint: clean"
+else
+  echo "⚠ actionlint nicht installiert — Workflow-Lint übersprungen. Empfohlen: brew install actionlint" >&2
 fi
 
 # Semgrep SAST (sparsam: nur wenn installiert)

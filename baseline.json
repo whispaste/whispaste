@@ -10,32 +10,32 @@
       "message": "2 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:1534, lib/core/recording/recording_state.dart:99"
     },
     {
-      "fingerprint": "5c94187143cb524b",
+      "fingerprint": "429cc42f943f00a3",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1321,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1321, lib/core/data/database.dart:2507"
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1321, lib/core/data/database.dart:2543"
     },
     {
-      "fingerprint": "a25ff9358981008d",
+      "fingerprint": "e2e9badb969f38e0",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1330,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1330, lib/core/data/database.dart:2516"
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1330, lib/core/data/database.dart:2552"
     },
     {
-      "fingerprint": "0be77f9424dbe3a2",
+      "fingerprint": "fd34e8f08a246c0b",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1828,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1828, lib/core/data/database.dart:2599"
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1828, lib/core/data/database.dart:2635"
     },
     {
-      "fingerprint": "1054b297a174250e",
+      "fingerprint": "3b3798e7bbb853a8",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1840,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1840, lib/core/data/database.dart:2611"
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1840, lib/core/data/database.dart:2647"
     },
     {
       "fingerprint": "0cf57d299a06d8ec",

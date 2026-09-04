@@ -19,6 +19,23 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 ALLOWLIST="$ROOT/.ossallowlist"
 
+# ── -1. Self-install: mas-guard git clean filter (idempotent) ──────────
+# .gitattributes assigns macos/Flutter/GeneratedPluginRegistrant.swift to
+# the `mas-guard` filter, but git filter *commands* live in local config,
+# not .gitattributes — every clone/worktree needs this set once. Doing it
+# here (cheapest, runs on every commit) means it self-installs without a
+# separate manual setup step. This is what actually closes the gap the 3c
+# self-heal below can't: 3c only fixes the file at commit time, but a
+# routine `flutter analyze`/`flutter test` drops the guard right after and
+# the working tree reads dirty until the *next* commit or Xcode build. The
+# filter normalizes the file for every `git status`/`git diff` in between,
+# so that in-between state never looks like an uncommitted change.
+if [ "$(git config --local --get filter.mas-guard.clean 2>/dev/null || true)" != "python3 \"$ROOT/macos/patch_plugin_registrant_guard.py\" --stdin" ]; then
+  git config --local filter.mas-guard.clean "python3 \"$ROOT/macos/patch_plugin_registrant_guard.py\" --stdin"
+  git config --local filter.mas-guard.smudge cat
+  git config --local filter.mas-guard.required false
+fi
+
 # ── 0. Branch-Schutz (kein Commit auf main/master) ─────────────────────
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then

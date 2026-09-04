@@ -8,3 +8,7 @@
 ## 2025-02-18 - Note Copy Action and Telemetry Avoidance
 **Learning:** In WhisPaste, note contents are explicitly on a telemetry negative list (unlike history entries). When adding standard actions like copying notes to the clipboard, do not reuse the general `copyToClipboardWithToast` utility because it emits a telemetry event.
 **Action:** Sprout should use `Clipboard.setData(ClipboardData(text: content))` followed by `WpToast.show(...)` directly when working with privacy-sensitive content like notes.
+
+## 2025-03-01 - Add Note Duplication action
+**Learning:** Extending list item actions by reusing existing infrastructure, such as standard icons (`LucideIcons.files`) and translation strings (`L10n.of(context).actionDuplicate`), is a reliable way to fulfill Sprout tasks across similar view types (e.g. extending features from Snippets to Notes). When manipulating data stored in SQLite, mirroring the existing write operations (like `duplicateEntry` logic from `database.dart`) is essential to preserve data safety.
+**Action:** When adding missing actions to a list, carefully verify if underlying database actions exist. If not, safely mirror existing database methods, ensuring complete callback plumbing down through widget trees (`NotesSplitView` -> `NotesListView` -> `NotesListTile` -> `NoteEditorPanel`).

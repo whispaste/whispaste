@@ -78,6 +78,7 @@ void main() {
             controller: controller,
             focusNode: focusNode,
             onClose: () {},
+            onDuplicate: () {},
             // Ticket-04/05/07 toolbar actions — irrelevant for the clipboard
             // behavior under test, so plain no-ops.
             onToggleFavorite: () {},

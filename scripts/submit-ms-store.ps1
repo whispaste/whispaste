@@ -22,28 +22,41 @@
   of the msstore-CLI's PascalCase one (Title/Description/Features/Keywords/
   ReleaseNotes under Listings.<locale>.BaseListing).
 
-  Pricing is deliberately never touched here, same rationale as
-  apply-store-metadata.mjs: WhisPaste's account is on Pricing V2, and every
-  attempt to write Pricing.PriceId through either API failed at commit with
-  "Price Tier is not supported". The price stays a one-time manual step in
-  Partner Center → Pricing and availability.
+  RESOLVED 2026-09-04 (Microsoft support ticket API TrackingID#2608200050000071
+  — see docs/store-release.md and ~/.claude/infrastructure/microsoft-
+  partner-center.md §12 for the full trail): pricing.priceId is NOT
+  unwritable for this account, and it must NEVER be passed through
+  untouched or omitted. Microsoft's own Engineering Team confirmed the root
+  cause of every "Base is not a valid PriceId" / "Pricing data was not
+  provided" failure since 2026-08-20 (see history below): the GET response
+  returns "Base" as an internal read-only sentinel for accounts on the
+  newer schedule-based pricing model — it is NEVER a legal PUT value.
+  Because isAdvancedPricingModel is true for this account, PUT requires an
+  explicit "Free" or "Tier1001"+ value (legacy Tier2-Tier96 are rejected
+  for this pricing model); the field must be present with a valid value on
+  EVERY PUT, since the classic API does a full replacement and a missing
+  field silently defaults to Free. This script now reads that value from
+  store/defaults.json ("default.PriceId") and writes it explicitly on every
+  submission — see "Set pricing.priceId" below for the mechanism and the
+  hard-fail guard that prevents a repeat of this incident.
+
+  ── History (kept for the git-blame trail; the mechanism below supersedes
+  all of it — do not act on any belief stated in this history) ──
   CORRECTION (2026-07-30): an earlier version of this script believed a
   committed submission "simply carries forward whatever price is already
   live" as long as `priceId` was set to null. That is false and caused a
   real live price reset to Free — see the comment above the (now removed)
   pricing block near "Update listings" for the full finding.
   CORRECTION AGAIN (2026-08-20): passing `pricing` through untouched from
-  the clone is now ALSO rejected by the API on the submission PUT itself
-  ("'Base' is not a valid PriceId for base price."), even though this
-  script never reads or writes it — confirmed the rejected value is the
-  account's own live, currently-serving price, not something corrupted by
-  this script. Omitting `pricing` entirely is rejected too ("Pricing data
-  was not provided"). This appears to be a Microsoft-side tightening with
-  no known safe payload left for this account on this classic API — see the
-  comment near "Replace application packages" for the full investigation,
-  and docs/store-release.md for current status. Until resolved, this script
-  cannot complete a submission update for this app; do not retry `pricing`
-  permutations against the live app without explicit user sign-off first.
+  the clone was then ALSO rejected by the API on the submission PUT itself
+  ("'Base' is not a valid PriceId for base price."), even though the
+  script at the time never read or wrote it — confirmed the rejected value
+  was the account's own live, currently-serving price, not something
+  corrupted by this script. Omitting `pricing` entirely was rejected too
+  ("Pricing data was not provided"). At the time this looked like a
+  Microsoft-side tightening with no known safe payload — Microsoft's own
+  support ticket above proved that belief wrong: there was a third option
+  (a concrete Tier10xx value) that nobody had tried yet.
 
   IMAGES (added 2026-07-29): despite docs/store-release.md's older claim that
   listing images aren't API-controllable, Microsoft's docs
@@ -61,6 +74,12 @@
   existing tools/appstore-screens generate.cjs output — run
   `npm run generate:all` in tools/appstore-screens/ before this script if
   that output is stale) and staged into the upload ZIP under `images/<locale>/`.
+
+  PRICING: `store/defaults.json`'s `default.PriceId` (a "Free" or
+  "Tier1001"+ string, see the header's "RESOLVED 2026-09-04" section above)
+  is written to `pricing.priceId` on every submission, replacing whatever
+  the clone returned. The script hard-fails before any network call if that
+  value isn't a syntactically valid tier — see "Set pricing.priceId" below.
 
 .PARAMETER AppId
   Store App ID. WhisPaste: 9P22JVKRQ2V0
@@ -220,6 +239,30 @@ function Write-Summary {
   }
 }
 
+# ── Validate pricing.priceId BEFORE touching the live submission ──────────────
+# Mechanical guard against a repeat of the 2026-08-20/2026-09-04 incident
+# chain (see header): fail loudly here, before any API call (auth, pending-
+# submission delete, clone), rather than mid-flight after the live
+# submission has already been deleted/cloned. Validates syntax only — it
+# cannot know whether the tier's actual EUR/USD amount matches WhisPaste's
+# intended price; that still requires a human to have looked it up once in
+# Partner Center → Pricing and availability → the tier conversion table.
+$defaults = Get-Content (Join-Path $StoreDir 'defaults.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$priceId  = $defaults.default.PriceId
+if ($priceId -ne 'Free' -and $priceId -notmatch '^Tier(1[0-9]{3}|[2-9][0-9]?)$') {
+  throw @"
+$StoreDir/defaults.json's default.PriceId ('$priceId') is not a valid
+Microsoft Store price tier. Set it to 'Free' or a 'TierNNNN' value looked
+up in Partner Center -> Pricing and availability -> the tier conversion
+table for WhisPaste's real price (isAdvancedPricingModel accounts use the
+Tier1001+ range; legacy Tier2-Tier96 are rejected for this pricing model
+per Microsoft support ticket API TrackingID#2608200050000071 -- see this
+script's header and docs/store-release.md). Never guess a tier number:
+committing a wrong-but-valid-looking tier silently changes the live price.
+"@
+}
+Write-Host ":: pricing.priceId = '$priceId' (from $StoreDir/defaults.json)"
+
 # ── Authenticate ──────────────────────────────────────────────────────────────
 
 Write-Host ":: Authenticating with Partner Center API..."
@@ -266,12 +309,23 @@ $subId     = $sub.id
 $uploadUrl = $sub.fileUploadUrl
 Write-Host "   Submission ID: $subId"
 
+# ── Set pricing.priceId ────────────────────────────────────────────────────────
+# The clone above carries whatever the GET response returns for pricing —
+# for this account that is the literal string "Base", an internal read-only
+# sentinel Microsoft's Engineering Team confirmed is NEVER a legal PUT value
+# (see header's "RESOLVED 2026-09-04"). Overwrite it with the validated
+# $priceId from store/defaults.json; leave every other pricing sub-field
+# (isAdvancedPricingModel, trialPeriod, marketSpecificPricings, sales) from
+# the clone untouched — only priceId itself was ever the problem.
+Write-Host ":: Setting pricing.priceId = '$priceId'..."
+$sub.pricing.priceId = $priceId
+
 # ── Load managed listing content from store/ (Title/Description/Features/ ────
 # ── Keywords/ReleaseNotes — same field set as apply-store-metadata.mjs) ───────
+# $defaults was already loaded above for the pricing.priceId validation.
 
 Write-Host ":: Loading store listing content..."
-$defaults = Get-Content (Join-Path $StoreDir 'defaults.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$title    = $defaults.default.Title
+$title = $defaults.default.Title
 if (-not $title) { throw "$StoreDir/defaults.json is missing default.Title." }
 
 $managed = @{}
@@ -385,85 +439,20 @@ foreach ($locale in $LOCALE_MAP.Values) {
     $bl | Add-Member -NotePropertyName 'images' `
       -NotePropertyValue @($existingNonScreenshots + $newScreenshots) -Force
   }
-  # Pricing is NOT part of baseListing (it's a top-level submission field) and
-  # is never touched anywhere in this script — see the header comment.
+  # Pricing is NOT part of baseListing (it's a top-level submission field);
+  # it was already set once, explicitly, right after the clone above — see
+  # "Set pricing.priceId" and the header's "RESOLVED 2026-09-04" section.
 }
 
-# CORRECTED 2026-07-30 (the block this replaces was wrong and cost a real,
-# live price reset — do not restore it):
-#
-# The previous version set `pricing.priceId = $null` on every submission,
-# believing that was the one PUT-safe shape that "leaves the live price
-# untouched" for a Pricing V2 / Advanced Pricing Model account. It does NOT.
-# `pricing.isAdvancedPricingModel` is genuinely read-only — verified live
-# 2026-07-30 by PUTting it explicitly to `$true` on a real draft submission:
-# the PUT was accepted (no error), but a fresh GET immediately after read it
-# back as `false` again — at the time, every fresh draft clone carried
-# `isAdvancedPricingModel: false` regardless of the account's real live
-# state, so it had no way to be told "use the real Advanced Pricing
-# schedule"; writing ANY `priceId`, including `null`, on top of that is
-# what forced the account into the legacy single-global-price interpretation
-# and reset the live price to Free/$0 on that submission.
-# UPDATE (2026-08-20): this is no longer the account's state. A live GET now
-# reads `isAdvancedPricingModel: true` on both the published submission and
-# a fresh clone — the account has since genuinely completed its Pricing V2
-# migration. The mechanism above is kept for the historical record (git
-# blame trail), but do not reason from "clones always read back `false`"
-# any more; verify current state with a fresh GET instead of trusting this
-# comment's numbers.
-#
-# There is no known API-safe value for this field on a Pricing V2 account.
-# Per Microsoft's own docs (learn.microsoft.com/windows/uwp/monetize/
-# manage-app-submissions): "You can't use this API with apps or add-ons that
-# are on Pricing Version 2." Take that literally — `pricing` is passed
-# through 100% untouched from the clone, nothing here reads or writes it.
-#
-# CONSEQUENCE — mandatory manual step after EVERY commit, no exceptions:
-# verify the live price via the public DisplayCatalog API (or Partner
-# Center's "Preise und Verfügbarkeit" directly) and re-apply it manually if
-# it shows Free/$0. See docs/store-release.md §"Microsoft-Store-
-# Automatisierung" and the release-windows-store skill's Phase 4 checklist —
-# both now carry this as a required post-release check, not an optional one.
-#
-# CORRECTED AGAIN (2026-08-20): "pass `pricing` through 100% untouched" was
-# never actually verified against a real commit cycle before now — the
-# v1.2.67 run was the first, and it disproved the premise. The PUT was
-# rejected with `InvalidParameterValue` / target `"pricing"` /
-# "'Base' is not a valid PriceId for base price." — even though nothing in
-# this script reads or writes `pricing`.
-#
-# Investigated locally (read-only GETs, no writes) the same day: BOTH the
-# live-published submission AND a fresh draft clone carry the identical
-# `pricing` object — `priceId: "Base"`, `isAdvancedPricingModel: true`,
-# same trialPeriod/marketSpecificPricings/sales. So the value being
-# rejected is not something this script or any prior run corrupted — it is
-# the account's own live, currently-serving price, rejected by Microsoft's
-# own API on PUT. Omitting the `pricing` property entirely was also tried
-# (locally, `-SkipCommit`, draft-only) and rejected the other way:
-# "Pricing data was not provided in the request." Neither "send it
-# untouched" nor "omit it" passes PUT validation any more for this account.
-#
-# This is a Microsoft-side regression/tightening, not a bug in this script's
-# logic — matches Microsoft's own docs ("You can't use this API with apps
-# or add-ons that are on Pricing Version 2"), now apparently enforced as a
-# hard rejection instead of the previous silent inconsistency. Confirmed
-# 2026-08-20 in the Partner Center UI itself: this account's real price
-# ($2.99, market group "Default", 240 markets) lives entirely in a
-# schedule/market-group model that has no `Tier<nnnn>` representation any
-# more — `priceId: "Base"` is a placeholder for that schedule, not a
-# writable legacy tier, which is why both "send it untouched" and "omit it"
-# fail on PUT: there is no valid *value* for `priceId` any more, in either
-# direction.
-#
-# TRIED AND REJECTED (2026-08-20, user sign-off obtained, verified via
-# -SkipCommit draft before ever committing): dropping only the `priceId`
-# sub-field while keeping the rest of `pricing` DOES make the PUT succeed —
-# but a GET of the resulting draft showed `priceId` had silently defaulted
-# to `"Free"` and `isAdvancedPricingModel` to `false`. That is the exact
-# 2026-07-30 incident shape. It was caught on a draft, nothing went live,
-# but committing this would have reset the real price again. DO NOT ship
-# this "fix" — there is still no known safe payload. `pricing` is passed
-# through 100% untouched, same as before this section was ever touched.
+# Pricing (`$sub.pricing.priceId`) is deliberately handled ONCE, right after
+# the clone (see "Set pricing.priceId" above), not here — everything else in
+# this loop only ever touched `baseListing`, never the top-level `pricing`
+# object, so there was never a second place for it to belong. The full
+# 2026-07-30 → 2026-09-04 incident history (three wrong beliefs in a row:
+# "priceId = null is safe", "pass pricing through untouched is safe", "no
+# safe payload exists at all") lives in the header comment and
+# docs/store-release.md — do not re-derive it here; read those before
+# touching pricing logic again.
 
 # ── Replace application packages ──────────────────────────────────────────────
 # The API rejects a PUT that just swaps in a new package array — existing

@@ -45,6 +45,12 @@ jobs:
   flutter-app:
     name: Flutter App (Windows)
     runs-on: windows-latest
+    # Mirrors the macOS job's timeout: without an explicit limit, a hung step
+    # only gets killed by the 360min GitHub default — run 33364827323 saw a
+    # Windows job still going at 81min before an unrelated concurrency
+    # cancellation ended it. 35min matches the macOS budget for the same
+    # analyze+test+build+integration-test sequence.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
 
@@ -238,7 +244,11 @@ jobs:
           security create-keychain -p "" ci-secure-storage.keychain
           security set-keychain-settings ci-secure-storage.keychain
           security unlock-keychain -p "" ci-secure-storage.keychain
-          security list-keychains -d user -s ci-secure-storage.keychain $(security list-keychains -d user | sed 's/"//g')
+          existing_keychains=()
+          while read -r kc; do
+            [ -n "$kc" ] && existing_keychains+=("$kc")
+          done < <(security list-keychains -d user | sed 's/"//g')
+          security list-keychains -d user -s ci-secure-storage.keychain "${existing_keychains[@]}"
           security default-keychain -s ci-secure-storage.keychain
 
       # Verifies flutter_secure_storage against the real macOS
@@ -256,6 +266,8 @@ jobs:
   flutter-app-linux:
     name: Flutter App (Linux)
     runs-on: ubuntu-latest
+    # See the Windows job's timeout-minutes comment — same rationale applies.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
 
@@ -314,7 +326,9 @@ jobs:
         run: |
           dart pub global activate loam 0.1.14
           export PATH="$PATH:$HOME/.pub-cache/bin"
-          export DART_SDK="$(dirname "$(command -v flutter)")/cache/dart-sdk"
+          flutter_bin="$(command -v flutter)"
+          dart_sdk="$(dirname "$flutter_bin")/cache/dart-sdk"
+          export DART_SDK="$dart_sdk"
           loam gate --no-update-check
 
       # Reproduzierbare, plattformidentische Unit-/Widget-/App-Flow-Tests
@@ -352,6 +366,9 @@ jobs:
   golden-tests:
     name: Golden Tests (macOS)
     runs-on: macos-latest
+    # See the Windows job's timeout-minutes comment. A normal run finishes in
+    # ~9min; 20min gives headroom without masking an actual stuck job.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -389,6 +406,10 @@ jobs:
   website:
     name: Website
     runs-on: ubuntu-latest
+    # See the Windows job's timeout-minutes comment. This job additionally
+    # bounds its own slowest step (npm audit) per-attempt below, so this is
+    # a backstop for a genuine hang elsewhere, not the audit retry itself.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: website
@@ -410,9 +431,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Retried: like the sqlite3/cppcheck flakes above, npm's registry
+      # occasionally returns a transient 503 for the audit endpoint —
+      # observed hanging ~7min before failing in runs 33844870433 and
+      # 33843372608, unrelated to the code under test. Each attempt is itself
+      # bounded (`timeout 120`) rather than trusting npm to eventually give
+      # up on its own — live run 33849170730 showed a single attempt still
+      # hanging past 15min with zero output, which would otherwise let 3
+      # retries exceed the job timeout instead of failing fast and clearly.
       - name: Audit dependencies
-        run: npm audit --audit-level=high
-        continue-on-error: false
+        run: |
+          for attempt in 1 2 3; do
+            timeout 120 npm audit --audit-level=high && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::npm audit failed after 3 attempts."
+              exit 1
+            fi
+            echo "npm audit failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
 
       - name: Build
         run: npm run build

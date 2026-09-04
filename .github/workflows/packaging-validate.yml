@@ -31,6 +31,7 @@ jobs:
   scoop:
     name: Scoop manifest (JSON parse + required fields)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -47,9 +48,6 @@ jobs:
           echo "  ✓ JSON parse OK"
 
           # 2. Required top-level fields
-          REQUIRED_FIELDS="version url_or_arch hash_or_arch bin autoupdate"
-          MISSING=""
-
           python3 - "$MANIFEST" <<'PYEOF'
           import json, sys, pathlib
 
@@ -99,6 +97,7 @@ jobs:
   winget:
     name: winget manifest (winget validate)
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -149,6 +148,7 @@ jobs:
   homebrew:
     name: Homebrew cask (ruby syntax + required stanzas)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -182,6 +182,7 @@ jobs:
   flatpak:
     name: Flatpak manifest (YAML + finish-args + AppStream + desktop)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -277,6 +278,7 @@ jobs:
   appimage-deb:
     name: AppImage + .deb (script syntax + control metadata)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -349,6 +351,7 @@ jobs:
   snap:
     name: Snap manifest (YAML + required keys + plugs + confinement)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:

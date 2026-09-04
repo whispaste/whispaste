@@ -80,7 +80,45 @@ ClipboardBackup BackupClipboard(HWND owner) {
   return backup;
 }
 
-bool WriteClipboardText(HWND owner, const std::wstring& text) {
+// Marks the clipboard contents just written as exempt from Windows'
+// clipboard-history (Win+V) and cloud-clipboard monitors, per the formats
+// documented for opting individual clipboard writes out of history
+// (https://learn.microsoft.com/windows/win32/dataxchg/clipboard-history):
+// "ExcludeClipboardContentFromMonitorProcessing" hides the write entirely,
+// while "CanIncludeInClipboardHistory"/"CanUploadToCloudClipboard" (DWORD 0)
+// cover clients that only honor the more specific opt-outs. Must be called
+// with the clipboard already open; does not close it.
+void ExcludeFromClipboardHistory() {
+  const wchar_t* const kFormatNames[] = {
+      L"ExcludeClipboardContentFromMonitorProcessing",
+      L"CanIncludeInClipboardHistory",
+      L"CanUploadToCloudClipboard",
+  };
+  for (const wchar_t* name : kFormatNames) {
+    UINT format = ::RegisterClipboardFormatW(name);
+    if (format == 0) continue;
+    HGLOBAL handle = ::GlobalAlloc(GMEM_MOVEABLE, sizeof(DWORD));
+    if (handle == nullptr) continue;
+    auto* value = static_cast<DWORD*>(::GlobalLock(handle));
+    if (value == nullptr) {
+      ::GlobalFree(handle);
+      continue;
+    }
+    *value = 0;
+    ::GlobalUnlock(handle);
+    if (::SetClipboardData(format, handle) == nullptr) {
+      ::GlobalFree(handle);
+    }
+  }
+}
+
+// `exclude_from_history` marks the write as exempt from clipboard-history /
+// cloud-clipboard capture. Used for the transient text we place on the
+// clipboard purely to drive a Ctrl+V into the target app -- never for
+// restoring the user's own prior clipboard contents (see RestoreClipboard),
+// since that content is the user's real clipboard, not our scratch value.
+bool WriteClipboardText(HWND owner, const std::wstring& text,
+                        bool exclude_from_history = true) {
   if (!::OpenClipboard(owner)) return false;
   ::EmptyClipboard();
   const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
@@ -102,13 +140,16 @@ bool WriteClipboardText(HWND owner, const std::wstring& text) {
     ::CloseClipboard();
     return false;
   }
+  if (exclude_from_history) {
+    ExcludeFromClipboardHistory();
+  }
   ::CloseClipboard();
   return true;
 }
 
 void RestoreClipboard(HWND owner, const ClipboardBackup& backup) {
   if (backup.had_text) {
-    WriteClipboardText(owner, backup.text);
+    WriteClipboardText(owner, backup.text, /*exclude_from_history=*/false);
   } else if (::OpenClipboard(owner)) {
     ::EmptyClipboard();
     ::CloseClipboard();

@@ -121,10 +121,10 @@ void main() {
       expect(cmd.arguments, equals([mailtoUrl]));
     });
 
-    test('Windows: cmd /c start "" <mailtoUrl>', () {
+    test('Windows: explorer <mailtoUrl>', () {
       final cmd = mailOpenCommand(mailtoUrl, platform: 'windows');
-      expect(cmd.executable, equals('cmd'));
-      expect(cmd.arguments, equals(['/c', 'start', '', mailtoUrl]));
+      expect(cmd.executable, equals('explorer'));
+      expect(cmd.arguments, equals([mailtoUrl]));
     });
 
     test('Linux fallback: xdg-open <mailtoUrl>', () {
@@ -179,7 +179,7 @@ void main() {
       expect(args.first, startsWith('mailto:'));
     });
 
-    test('Windows: uses explorer for reveal and cmd for mail', () async {
+    test('Windows: uses explorer for both reveal and mail', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
@@ -190,7 +190,7 @@ void main() {
 
       expect(calls, hasLength(2));
       expect(calls[0].$1, equals('explorer'));
-      expect(calls[1].$1, equals('cmd'));
+      expect(calls[1].$1, equals('explorer'));
     });
 
     test(
