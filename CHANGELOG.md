@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.73
+
+### Bug Fixes
+
+- **Store-Bewertungen auf der Website zeigen jetzt das echte Veröffentlichungsdatum** statt des Zeitpunkts, zu dem wir sie zuletzt synchronisiert haben.
+
+### Maintenance
+
+- **Reihenfolge der Support-Aktionen nach dem Download angepasst:** die Store-Bewertung des jeweiligen Betriebssystems steht jetzt vor dem GitHub-Stern, da sie direkter zur Auffindbarkeit im jeweiligen Store beiträgt.
+- **Anonyme Nutzungsstatistik erweitert** um eine wöchentlich rotierende Kohorten-Kennung für verlässlichere Wiederkehrer-Auswertungen, ohne ein Gerät dauerhaft zu identifizieren — Details in der Datenschutzerklärung (Abschnitt 15).
+
 ## 1.2.72
 
 ### New Features

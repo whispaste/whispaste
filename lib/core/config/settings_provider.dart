@@ -709,6 +709,7 @@ class AppSettings {
     DateTime? benchmarkTimestamp,
     bool? shareUsageStats,
     bool? retainRecentAudio,
+    String? cohortPseudonymSalt,
   }) {
     return AppSettings(
       interface_: interface_.copyWith(
@@ -801,6 +802,7 @@ class AppSettings {
       privacy: privacy.copyWith(
         shareUsageStats: shareUsageStats,
         retainRecentAudio: retainRecentAudio,
+        cohortPseudonymSalt: cohortPseudonymSalt,
       ),
       // Neither section has a legacy top-level parameter in this API, so
       // both are pure pass-throughs — but they have to be *written*: this

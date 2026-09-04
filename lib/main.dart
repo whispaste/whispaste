@@ -490,9 +490,15 @@ void _scheduleStartupSideEffects(
   // Anonymous usage telemetry (opt-out). No-op without consent, config, or
   // when OS Do-Not-Track is set. The app_version dimension on this event
   // doubles as version-adoption signal.
-  container
-      .read(telemetryProvider)
-      .trackEvent(category: 'lifecycle', action: 'start');
+  final telemetry = container.read(telemetryProvider);
+  telemetry.trackEvent(category: 'lifecycle', action: 'start');
+  // T5 (Matomo product analysis 2026-09-04): coarse, once-per-day
+  // active-install signal, deliberately separate from the granular event
+  // above — see `TelemetryService.sendDailyAlivePingIfDue` for the
+  // consent/opt-out caveat.
+  unawaited(
+    SharedPreferences.getInstance().then(telemetry.sendDailyAlivePingIfDue),
+  );
 
   // Best-effort graceful teardown on logout/kill. macOS/Linux emit SIGTERM on
   // session end; SIGINT covers Ctrl+C everywhere. Windows has no real

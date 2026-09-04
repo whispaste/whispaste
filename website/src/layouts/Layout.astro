@@ -162,20 +162,26 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
     {/* WARNUNG: NIEMALS _paq.push(["setAnonymizeIp", ...]) ergänzen — keine gültige Matomo-5-
         JS-Methode, wirft TypeError und bricht die _paq-Queue ab (trackPageView läuft nie ->
         Tracking-Totalausfall, Juni 2026). IP-Anonymisierung passiert serverseitig in Matomo. */}
+    {/* Runtime-Hostname-Guard zusätzlich zum `import.meta.env.PROD`-Build-Flag: ein lokal
+        ausgeführter Production-Build (`astro build && astro preview`) setzt PROD ebenfalls,
+        feuerte damit bislang echte Hits gegen die Live-Instanz (Matomo-Analyse 2026-09-04 fand
+        hunderte Visits mit Entry/Exit-Page `http://127.0.0.1:4321/…` in den echten Site-4-Daten). */}
     {import.meta.env.PROD && (
-      <script is:inline set:html={`var _paq = (window._paq = window._paq || []);
-_paq.push(["disableCookies"]);
-_paq.push(["enableHeartBeatTimer"]);
-_paq.push(["trackPageView"]);
-_paq.push(["enableLinkTracking"]);
-(function () {
-  _paq.push(["setTrackerUrl", "https://matomo.silvio-und-maik.de/matomo.php"]);
-  _paq.push(["setSiteId", "4"]);
-  var d = document, g = d.createElement("script");
-  g.src = "https://matomo.silvio-und-maik.de/matomo.js";
-  g.async = true;
-  d.head.appendChild(g);
-})();`} />
+      <script is:inline set:html={`if (!/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(location.hostname)) {
+  var _paq = (window._paq = window._paq || []);
+  _paq.push(["disableCookies"]);
+  _paq.push(["enableHeartBeatTimer"]);
+  _paq.push(["trackPageView"]);
+  _paq.push(["enableLinkTracking"]);
+  (function () {
+    _paq.push(["setTrackerUrl", "https://matomo.silvio-und-maik.de/matomo.php"]);
+    _paq.push(["setSiteId", "4"]);
+    var d = document, g = d.createElement("script");
+    g.src = "https://matomo.silvio-und-maik.de/matomo.js";
+    g.async = true;
+    d.head.appendChild(g);
+  })();
+}`} />
     )}
     {/* Engagement-Event „Download gestartet" → Matomo. Hört auf das bestehende
         download:triggered-CustomEvent (Store-/Apple-Button); Name = erkanntes OS

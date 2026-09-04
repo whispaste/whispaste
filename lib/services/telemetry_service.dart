@@ -23,12 +23,15 @@
 library;
 
 import 'dart:async';
+import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_info.dart' as app_info;
 import '../core/config/settings_provider.dart';
@@ -38,6 +41,10 @@ import 'deploy_channel_service.dart';
 import 'update_channel_service.dart';
 
 final _log = AppLogger('TelemetryService');
+
+/// SharedPreferences key for [TelemetryService.sendDailyAlivePingIfDue]'s
+/// dedup marker (T5).
+const String _aliveLastPingDateKey = 'telemetry_alive_ping_last_date';
 
 /// Settings keys that may be reported when a setting changes. Only the KEY
 /// (never the value) is sent, and only keys on this static whitelist — an
@@ -69,6 +76,54 @@ String _generateSessionVisitorId() {
 
 /// Single visitor ID for the current app process (in-memory only).
 final String _appSessionVisitorId = _generateSessionVisitorId();
+
+// ---------------------------------------------------------------------------
+// T4 — weekly-rotating cohort pseudonym (Matomo product analysis 2026-09-04)
+// ---------------------------------------------------------------------------
+//
+// PRD Säule D forbids a persistent cross-session id, so returning-visitor
+// measurement today relies on Matomo's own IP+UA heuristic (unreliable under
+// dynamic IPs/NAT/VPN). This adds an opt-in-only alternative: a categorical
+// value that groups visits into weekly cohorts without ever identifying a
+// device across weeks — a new value appears automatically every Monday, and
+// the salt it's derived from never leaves the device (not sent to Matomo,
+// not included in settings export/import).
+
+/// Generates a random 32-hex-char salt for [PrivacySettings.cohortPseudonymSalt].
+/// Persisted locally once (see `telemetryProvider`); never transmitted itself.
+String generateCohortPseudonymSalt() {
+  final random = Random.secure();
+  return List.generate(
+    16,
+    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ).join();
+}
+
+/// ISO-8601 week label ("2026-W36") for [now] — the rotation boundary for the
+/// cohort pseudonym. ISO week 1 is the week containing the year's first
+/// Thursday; weeks run Monday..Sunday.
+String _isoWeekLabel(DateTime now) {
+  final date = DateTime.utc(now.year, now.month, now.day);
+  final thursday = date.add(Duration(days: 3 - ((date.weekday + 6) % 7)));
+  final firstThursday = DateTime.utc(thursday.year, 1, 4);
+  final firstWeekMonday = firstThursday.subtract(
+    Duration(days: (firstThursday.weekday + 6) % 7),
+  );
+  final week = (thursday.difference(firstWeekMonday).inDays / 7).floor() + 1;
+  return '${thursday.year}-W${week.toString().padLeft(2, '0')}';
+}
+
+/// Hashes [salt] together with the current ISO week into a categorical
+/// dimension value — stable for one device for one calendar week, then
+/// automatically different the next, so it can never accumulate into a
+/// long-lived cross-session identifier. Only called while
+/// `PrivacySettings.shareUsageStats` is true (same consent gate as every
+/// other telemetry field).
+String cohortPseudonymDimension({required String salt, DateTime? now}) {
+  final week = _isoWeekLabel((now ?? DateTime.now()).toUtc());
+  final digest = sha256.convert(utf8.encode('$salt|$week'));
+  return digest.toString().substring(0, 16);
+}
 
 final class TelemetryService {
   TelemetryService({
@@ -134,6 +189,26 @@ final class TelemetryService {
   void trackSettingChange(String settingKey) {
     if (!kTrackableSettingKeys.contains(settingKey)) return;
     trackEvent(category: 'settings', action: 'change', name: settingKey);
+  }
+
+  /// T5 (Matomo product analysis 2026-09-04): a single aggregated, non-event
+  /// "alive" hit per calendar day — deliberately separate from the granular
+  /// opt-in event stream above, for a coarser but steadier active-install
+  /// signal (the ~4.000 Visits/90-Tage app-telemetry sample cannot itself be
+  /// extrapolated into an install count).
+  ///
+  /// Still gated by [_shouldDispatch] like everything else in this class —
+  /// an opted-out install sends no ping either. That means this undercounts
+  /// the true active-install base by the opted-out share; a consent-
+  /// independent count would need an explicit product/privacy-policy
+  /// decision (PRD Säule D) that this service does not make unilaterally, so
+  /// it was deliberately not implemented here.
+  Future<void> sendDailyAlivePingIfDue(SharedPreferences prefs) async {
+    if (!_shouldDispatch) return;
+    final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+    if (prefs.getString(_aliveLastPingDateKey) == today) return;
+    await _sendSafely({'url': 'app://whispaste/alive', 'action_name': 'alive'});
+    await prefs.setString(_aliveLastPingDateKey, today);
   }
 
   Future<void> flush() async {
@@ -302,6 +377,32 @@ final telemetryProvider = Provider<TelemetryService>((ref) {
   final updateChannel =
       ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
 
+  // T4: only compute/persist the cohort salt once consent is actually
+  // granted — an undecided or opted-out user gets no local salt at all.
+  String? cohortDimension;
+  final existingSalt = settings?.privacy.cohortPseudonymSalt;
+  if (consent) {
+    final salt = (existingSalt != null && existingSalt.isNotEmpty)
+        ? existingSalt
+        : generateCohortPseudonymSalt();
+    if (existingSalt == null || existingSalt.isEmpty) {
+      // Fire-and-forget: telemetry must never block app startup or crash on
+      // a persistence failure (same rationale as `_sendSafely` below). The
+      // freshly generated salt is still used for this session's dimension
+      // immediately, so the very first opted-in session already cohorts
+      // correctly even before the write lands.
+      unawaited(
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(cohortPseudonymSalt: salt))
+            .catchError(
+              (e) => _log.debug('cohort salt persist failed (non-fatal): $e'),
+            ),
+      );
+    }
+    cohortDimension = cohortPseudonymDimension(salt: salt);
+  }
+
   return TelemetryService(
     client: ref.watch(_telemetryHttpClientProvider),
     endpointUrl: _matomoUrl,
@@ -318,6 +419,7 @@ final telemetryProvider = Provider<TelemetryService>((ref) {
         deployChannel: channel,
         updateChannel: updateChannel,
       ),
+      'dimension7': ?cohortDimension,
     },
   );
 });
