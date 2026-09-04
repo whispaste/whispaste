@@ -35,9 +35,13 @@ try {
   });
   if (res.ok) {
     const data = await res.json();
-    // PostgREST returns an array directly (no wrapper object).
+    // PostgREST returns an array directly (no wrapper object). The rating
+    // gate (uncurated text needs rating >= 4; curated text bypasses it) is
+    // already enforced server-side by the public_testimonials view — no
+    // need to re-check it here, and doing so would silently re-exclude
+    // curated low-rating testimonials the view now deliberately allows.
     testimonials = (Array.isArray(data) ? data : []).filter(
-      (t: Testimonial) => t.text && t.rating >= 4
+      (t: Testimonial) => !!t.text
     );
   }
 } catch {
