@@ -222,6 +222,7 @@ Widget _notesList() => NotesListView(
   focusedId: null,
   onNoteTap: (_) {},
   onCopy: (_) {},
+  onDuplicate: (_) {},
   onFavoriteToggle: (_) {},
   onQuickNoteSet: (_) {},
   onQuickNoteClear: () {},

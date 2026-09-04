@@ -18,6 +18,8 @@ class NotesActions {
 
   Future<Note> create() => _db.createNote();
 
+  Future<Note?> duplicate(String noteId) => _db.duplicateNote(noteId);
+
   /// One-shot read of a single note — the deep-link case (open exactly this
   /// note), where the id is known but the note may not be in the currently
   /// streamed list at all (wrong filter, list not emitted yet). Returns
