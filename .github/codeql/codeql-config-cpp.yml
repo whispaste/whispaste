@@ -1,5 +1,14 @@
 # CodeQL configuration for WhisPaste C++ analysis.
 # Covers the native Windows runner code and excludes generated build output.
+#
+# `paths`/`paths-ignore` below only take effect under build-mode: none.
+# The C++ job in codeql.yml runs build-mode: manual (a real `flutter build
+# windows` for accurate type info), and GitHub silently ignores both lists
+# for compiled languages in that mode — so this exclusion does NOT keep
+# `build/` (the CMake FetchContent tree, e.g. sentry-native) out of the
+# scan. That filtering happens post-hoc on the SARIF output in codeql.yml
+# instead (`filter-sarif` step). Kept here anyway since it's harmless and
+# documents intent, but don't rely on it for the compiled job.
 
 queries:
   - uses: security-and-quality
