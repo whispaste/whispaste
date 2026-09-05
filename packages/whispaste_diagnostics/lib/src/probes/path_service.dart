@@ -402,6 +402,12 @@ List<DataRootEntry> resolveAllDataRoots({
 @visibleForTesting
 String? resolvedExecutableOverride;
 
+/// The running executable's path, honoring [resolvedExecutableOverride] when
+/// set by a test. Other files in this package must go through this instead of
+/// reading the test-only override directly.
+String resolvedExecutablePath() =>
+    resolvedExecutableOverride ?? Platform.resolvedExecutable;
+
 /// Derives the MSIX **Package Family Name** (`Name_PublisherId`) from a
 /// `…\WindowsApps\<PackageFullName>\…` executable path, or `null` when the path
 /// is not inside a WindowsApps package directory.
@@ -486,7 +492,7 @@ String deVirtualizeMsixChildPath(String path) {
   if (!Platform.isWindows) return path;
   return deVirtualizeMsixChildPathFor(
     path: path,
-    exePath: resolvedExecutableOverride ?? Platform.resolvedExecutable,
+    exePath: resolvedExecutablePath(),
     appData: Platform.environment['APPDATA'],
     localAppData: Platform.environment['LOCALAPPDATA'],
   );

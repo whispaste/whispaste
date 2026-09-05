@@ -148,6 +148,13 @@ def fetch_mas_reviews(min_rating, max_pages=5):
             text = f"{title} {body}".strip() if title and title != body else (body or title)
             if not text:
                 continue
+            created_date = attrs.get("createdDate")
+            if not created_date:
+                # See the matching guard in fetch_ms_reviews: never let a
+                # missing date fall through to upsert_reviews' `now()`
+                # fallback and get mislabeled as "just received".
+                print(f"[mas] skipping review {item['id']} — missing createdDate", file=sys.stderr)
+                continue
             reviews.append(
                 {
                     "rating": rating,
@@ -156,7 +163,7 @@ def fetch_mas_reviews(min_rating, max_pages=5):
                     "source_ref": item["id"],
                     # ISO 8601 already, e.g. "2026-08-25T12:00:00-07:00" -
                     # Postgres timestamptz parses it as-is.
-                    "received_at": attrs.get("createdDate"),
+                    "received_at": created_date,
                 }
             )
         pages += 1
@@ -236,13 +243,27 @@ def fetch_ms_reviews(min_rating, days):
         if not ref:
             # Fallback for any response shape without a stable id.
             ref = hashlib.sha256(f"{item.get('date', '')}|{text}".encode()).hexdigest()
+        received_at = parse_ms_review_date(item.get("date"))
+        if received_at is None:
+            # Never let an unparseable/missing date fall through to
+            # upsert_reviews' `now()` fallback: that fallback is meant for
+            # sources that genuinely have no submission date, not for a
+            # transient API/parsing hiccup silently mislabeling a review as
+            # "just received" (2026-09-05 incident, feedback ID
+            # 2e2ff024-a7d6-49fc-b7e0-d22f986c2c34 — see also the
+            # ON CONFLICT DO UPDATE fix in upsert_reviews below).
+            print(
+                f"[ms] skipping review {ref} — unparseable date {item.get('date')!r}",
+                file=sys.stderr,
+            )
+            continue
         reviews.append(
             {
                 "rating": rating,
                 "text": text,
                 "source": "microsoft_store",
                 "source_ref": ref,
-                "received_at": parse_ms_review_date(item.get("date")),
+                "received_at": received_at,
             }
         )
 
@@ -278,17 +299,29 @@ def upsert_reviews(reviews, dry_run):
         f"{sql_literal(r['received_at']) + '::timestamptz' if r.get('received_at') else 'now()'})"
         for r in reviews
     )
+    # ON CONFLICT DO UPDATE (received_at only) rather than DO NOTHING: an
+    # already-synced row must still pick up a corrected received_at if a
+    # earlier bug (or a store API quirk) inserted it with the wrong date -
+    # otherwise every future re-sync silently perpetuates the bad value
+    # forever. Only received_at is touched; curated_text/approved_for_display
+    # (human-curated) and status (triage state) are never overwritten here.
     query = f"""
-        WITH inserted AS (
+        WITH upserted AS (
             INSERT INTO public.user_feedback (rating, feedback_text, source, source_ref, received_at)
             SELECT rating, feedback_text, source, source_ref, received_at
             FROM (VALUES
                 {values_sql}
             ) AS v(rating, feedback_text, source, source_ref, received_at)
-            ON CONFLICT (source, source_ref) WHERE source_ref IS NOT NULL DO NOTHING
-            RETURNING id
+            ON CONFLICT (source, source_ref) WHERE source_ref IS NOT NULL DO UPDATE
+                SET received_at = EXCLUDED.received_at
+                WHERE EXCLUDED.received_at IS NOT NULL
+                    AND user_feedback.received_at IS DISTINCT FROM EXCLUDED.received_at
+            RETURNING id, (xmax = 0) AS was_insert
         )
-        SELECT count(*) AS inserted_count FROM inserted;
+        SELECT
+            count(*) FILTER (WHERE was_insert) AS inserted_count,
+            count(*) FILTER (WHERE NOT was_insert) AS corrected_count
+        FROM upserted;
     """
 
     status, resp = http(
@@ -301,8 +334,12 @@ def upsert_reviews(reviews, dry_run):
         sys.exit(f"Supabase write failed: HTTP {status}\n{resp}")
 
     inserted_count = resp[0]["inserted_count"] if resp else 0
-    skipped = len(reviews) - int(inserted_count)
-    print(f"Inserted {inserted_count} new review(s), skipped {skipped} already-synced duplicate(s).")
+    corrected_count = resp[0]["corrected_count"] if resp else 0
+    skipped = len(reviews) - int(inserted_count) - int(corrected_count)
+    print(
+        f"Inserted {inserted_count} new review(s), corrected {corrected_count} "
+        f"already-synced received_at value(s), skipped {skipped} unchanged duplicate(s)."
+    )
     if int(inserted_count) > 0:
         print(
             "New rows land as approved_for_display = false (enforced server-side). "

@@ -500,6 +500,61 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // gatherDiagnosticsReport — DLL presence must be checked next to the
+  // running executable, not in sttDir (2026-09-05 field report).
+  //
+  // Since the whisper-server subprocess was retired for the in-process FFI
+  // engine, whisper.dll/ggml*.dll/the VC++ runtime live next to the app's
+  // executable — sttDir only ever holds the downloaded .bin model file.
+  // A DLL-presence check against sttDir would therefore report every
+  // healthy, current install as "missing DLL" unconditionally.
+  // -------------------------------------------------------------------------
+  group(
+    'gatherDiagnosticsReport — engine DLL directory (2026-09-05 field report)',
+    () {
+      late Directory tmp;
+
+      setUp(() {
+        tmp = Directory.systemTemp.createTempSync('wd_engine_dll_gather_');
+      });
+
+      tearDown(() {
+        gatherIsWindowsOverride = null;
+        sttDirOverride = null;
+        resolvedExecutableOverride = null;
+        if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+      });
+
+      test('a healthy install (engine DLLs next to the exe, only the model in '
+          'sttDir) is not flagged as missing DLLs', () async {
+        gatherIsWindowsOverride = true;
+
+        // sttDir: only the downloaded model, as the FFI-era app actually
+        // leaves it — no whisper.dll/ggml*.dll/VC++ runtime here anymore.
+        final sttDirPath = Directory(p.join(tmp.path, 'models', 'stt'))
+          ..createSync(recursive: true);
+        File(
+          p.join(sttDirPath.path, 'ggml-small-q5_1.bin'),
+        ).writeAsStringSync('model bytes');
+        sttDirOverride = sttDirPath.path;
+
+        // Engine dir: everything analyzeDllDeps expects, next to the exe.
+        final engineDir = Directory(p.join(tmp.path, 'engine'))
+          ..createSync(recursive: true);
+        for (final dll in kExpectedWhisperServerDlls) {
+          File(p.join(engineDir.path, dll)).writeAsStringSync('dll bytes');
+        }
+        resolvedExecutableOverride = p.join(engineDir.path, 'whispaste.exe');
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(report, isNot(contains('Missing bundled DLL')));
+        expect(report, isNot(contains('VC++ runtime DLL(s) missing')));
+      });
+    },
+  );
+
+  // -------------------------------------------------------------------------
   // gatherDiagnosticsReport — Slice 2: multi-root listing
   //
   // Drives the multi-root (EXE + MSIX) report path via gatherAllDataRootsResolver-

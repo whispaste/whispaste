@@ -21,11 +21,11 @@
 # path before `DynamicLibrary.open`, exactly like the whisper engine already
 # does for its own bundle-root DLLs).
 #
-# OPT-IN, mirrors macos/embed_libllama.sh: Smart-Mode-v2's local FFI path is
-# not yet wired into normal production builds (see macos/embed_libllama.sh's
-# WHISPASTE_SMART_MODE_PROTOTYPE gate) — this script is meant to be invoked
-# by the same dedicated prototype/validation build, not the regular Windows
-# release pipeline, until that gate is lifted product-wide.
+# Smart Mode ships in the real app now (Settings → Smart Mode → On-Device is
+# selectable on every platform, no build-time gate) — same status as
+# macos/embed_libllama.sh, which runs unconditionally for every macOS build.
+# This script is invoked from the regular Windows release workflow
+# (.github/workflows/release.yml), not a separate prototype build.
 #
 # Usage:
 #   pwsh scripts/bundle-libllama-windows.ps1 -Source <dir-with-dlls> `

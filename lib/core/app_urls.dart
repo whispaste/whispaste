@@ -48,3 +48,8 @@ const String kKofiUrl = 'https://ko-fi.com/silviol';
 /// Maintainer's X (Twitter) profile. Used by the About page's links section
 /// and the public website's footer.
 const String kMaintainerXUrl = 'https://x.com/silviolindstedt';
+
+/// Public Votepit ideas & voting board. Used by the feedback page's
+/// thank-you view and the settings review/support section.
+const String kVotepitBoardUrl =
+    'https://app.votepit.com/silvio-und-maik/whispaste';

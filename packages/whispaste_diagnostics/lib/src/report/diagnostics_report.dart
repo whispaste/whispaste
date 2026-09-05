@@ -457,9 +457,16 @@ Future<String> gatherDiagnosticsReport({
   final backend = gpu?.optimalBackend;
 
   final sttFiles = listServerDirFiles(sttDirPath);
-  final vcPresent = Platform.isWindows
-      ? vcRuntimeDllsPresent(sttDirPath)
-      : null;
+
+  // The in-process FFI engine (whisper_ffi_engine.dart) loads whisper.dll
+  // and its ggml* backend DLLs from next to the running executable, not
+  // from sttDirPath — that directory only ever holds the downloaded .bin
+  // model file since the whisper-server subprocess was retired.
+  // Checking sttDirPath here would report every current install's bundled
+  // engine DLLs as "missing" unconditionally (false positive).
+  final engineDirPath = p.dirname(resolvedExecutablePath());
+  final engineDirFiles = listServerDirFiles(engineDirPath);
+  final vcPresent = isWindows ? vcRuntimeDllsPresent(engineDirPath) : null;
 
   // New probes (slices 2+3). Each is best-effort: a failure degrades that
   // section to null rather than aborting the whole report.
@@ -510,9 +517,9 @@ Future<String> gatherDiagnosticsReport({
   VerdictResult? verdict;
   try {
     final dllAnalysis = analyzeDllDeps(
-      presentDlls: buildDllPresenceSet(sttFiles),
+      presentDlls: buildDllPresenceSet(engineDirFiles),
       backend: backend,
-      windowsContext: Platform.isWindows,
+      windowsContext: isWindows,
     );
     verdict = buildVerdict(
       dllAnalysis: dllAnalysis,

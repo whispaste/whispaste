@@ -678,6 +678,19 @@ class _ThankYouView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [_ReviewSupportCtas(ts: ts, isWindows: isWindows)],
                 ),
+                const SizedBox(height: WpSpacing.lg),
+                // Quietest element on the page, on purpose: the reader just
+                // finished giving feedback, so a link to the public ideas
+                // board is a natural next step — but it must not compete with
+                // the review/support card above it, so it gets no card, no
+                // fill, just the ghost variant's plain text-button register.
+                // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                WpButton(
+                  label: l10n.feedbackIdeasLink,
+                  variant: WpButtonVariant.ghost,
+                  icon: LucideIcons.lightbulb,
+                  onPressed: () => _launchExternalUrl(kVotepitBoardUrl),
+                ),
               ],
             ),
           ),

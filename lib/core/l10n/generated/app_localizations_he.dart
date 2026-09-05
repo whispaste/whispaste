@@ -3324,6 +3324,15 @@ class L10nHe extends L10n {
   String get reviewSupportAction => 'דרגו';
 
   @override
+  String get ideasBoardLabel => 'רעיונות ובקשות לתכונות';
+
+  @override
+  String get ideasBoardAction => 'צפו בלוח';
+
+  @override
+  String get feedbackIdeasLink => 'הציעו רעיונות והצביעו עליהם';
+
+  @override
   String get insufficientRamTitle => 'אין מספיק זיכרון';
 
   @override

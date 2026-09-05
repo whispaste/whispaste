@@ -191,6 +191,53 @@ jobs:
           }
           Write-Host "whisper.dll present: $((Get-Item $dll).Length) bytes"
 
+      # ── Bundle libllama + smartmode_shim (Smart Mode's on-device FFI engine) ─
+      # Settings → Smart Mode → On-Device is selectable on every platform with
+      # no build-time gate (see smart_mode_section.dart) and macOS already
+      # embeds libllama unconditionally in every build (embed_libllama.sh) —
+      # this closes the matching Windows gap: without it, every Windows build
+      # shipped a Settings option ("On-Device") that could never actually
+      # work, because smart_mode\smartmode_shim.dll was never produced or
+      # bundled anywhere in this pipeline.
+      - name: Cache libllama build (Windows)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/windows
+          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      # Reuses the same cl.exe/link.exe on PATH that "Activate MSVC dev
+      # environment (x64)" put there for the libwhisper build above —
+      # ilammy/msvc-dev-cmd persists PATH/env for the rest of the job, no
+      # need to re-run it.
+      - name: Build libllama (Windows)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: pwsh scripts/build-libllama-windows.ps1
+
+      - name: Build smartmode_shim (Windows)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: pwsh scripts/build-smartmode-shim-windows.ps1
+
+      - name: Stage libllama next to whispaste.exe
+        shell: pwsh
+        run: pwsh scripts/bundle-libllama-windows.ps1 -Source .build/libllama/windows
+
+      - name: Verify smartmode_shim is embedded
+        shell: pwsh
+        run: |
+          $dll = "build\windows\x64\runner\Release\smart_mode\smartmode_shim.dll"
+          if (-not (Test-Path $dll)) {
+            Write-Host "::error::smartmode_shim.dll missing from $dll — on-device Smart Mode would be broken in this build."
+            exit 1
+          }
+          Write-Host "smartmode_shim.dll present: $((Get-Item $dll).Length) bytes"
+
       # Upload native PDB/DLL debug symbols so Sentry can symbolicate
       # native crash frames. Skipped silently when the secret is unset
       # (e.g. on forks). Symbol upload does NOT count against Sentry's

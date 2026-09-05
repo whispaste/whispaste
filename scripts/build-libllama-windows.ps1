@@ -27,8 +27,18 @@
 # Usage:  pwsh scripts/build-libllama-windows.ps1
 # Output: .build\libllama\windows\{llama.dll,ggml*.dll,SHA256SUMS}
 #
-# Requires: cmake, Visual Studio 2022 (or Build Tools) with the C++ workload,
-# a checked-out llama.cpp source tree (see LLAMA_SRC below).
+# Requires: cmake + Ninja on PATH, run from a Developer PowerShell / Developer
+# Command Prompt for VS 2022 (so cl.exe/link.exe resolve — same requirement
+# as build-smartmode-shim-windows.ps1, which must run right after this in the
+# same shell), a checked-out llama.cpp source tree (see LLAMA_SRC below).
+#
+# Uses the Ninja generator, NOT "Visual Studio 17 2022" — see
+# bundle-libwhisper-windows.ps1's sibling CI job comment: the VS IDE
+# generator's own vswhere-based instance-detection failed outright in GitHub
+# Actions' windows-latest runner (confirmed live, v1.2.48 Windows job) even
+# though the same runner has VS installed. Ninja + ilammy/msvc-dev-cmd (cl.exe
+# on PATH) is the same combination the whisper.cpp Windows build already
+# relies on in CI, and sidesteps that generator-detection failure entirely.
 [CmdletBinding()]
 param()
 $ErrorActionPreference = "Stop"
@@ -59,7 +69,7 @@ Write-Host "[1/3] source verified: $LlamaTag @ $LlamaPinnedCommit"
 
 # --- 2. Configure + build shared libs (Vulkan + CPU, backend-dl) -----------
 Write-Host "[2/3] cmake configure + build (Vulkan + CPU, shared, backend-dl) ..."
-cmake -S $LlamaSrc -B $BuildDir -G "Visual Studio 17 2022" -A x64 `
+cmake -S $LlamaSrc -B $BuildDir -G Ninja `
   -DCMAKE_BUILD_TYPE=Release `
   -DBUILD_SHARED_LIBS=ON `
   -DGGML_VULKAN=ON `
