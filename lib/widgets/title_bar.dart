@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 import 'brand_wordmark.dart';
 
 /// Gaming-launcher–style title bar with brand wordmark PNG.
@@ -82,6 +83,24 @@ class _WindowButton extends StatefulWidget {
 
 class _WindowButtonState extends State<_WindowButton> {
   bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'WindowButton');
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,22 +115,32 @@ class _WindowButtonState extends State<_WindowButton> {
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onPressed,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.hoverIn),
-            curve: WpMotion.defaultCurve,
-            width: 40,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _isHovered ? hoverBg : (WpColors.hoverTransparent),
-              borderRadius: BorderRadius.circular(WpRadius.sm),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              widget.icon,
-              size: 15,
-              color: _isHovered ? hoverFg : mutedColor,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.sm,
+          child: InkWell(
+            onTap: widget.onPressed,
+            focusNode: _focusNode,
+            borderRadius: BorderRadius.circular(WpRadius.sm),
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.hoverIn),
+              curve: WpMotion.defaultCurve,
+              width: 40,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _isHovered || _focusNode.hasFocus ? hoverBg : WpColors.hoverTransparent,
+                borderRadius: BorderRadius.circular(WpRadius.sm),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                widget.icon,
+                size: 15,
+                color: _isHovered || _focusNode.hasFocus ? hoverFg : mutedColor,
+              ),
             ),
           ),
         ),
@@ -130,13 +159,26 @@ class _MaximizeButton extends StatefulWidget {
 class _MaximizeButtonState extends State<_MaximizeButton> {
   bool _isHovered = false;
   bool _isMaximized = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'MaximizeButton');
 
   @override
   void initState() {
     super.initState();
+    _focusNode.addListener(_onFocusChange);
     windowManager.isMaximized().then((v) {
       if (mounted) setState(() => _isMaximized = v);
     });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -152,29 +194,39 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: () async {
-            if (_isMaximized) {
-              await windowManager.unmaximize();
-            } else {
-              await windowManager.maximize();
-            }
-            if (mounted) setState(() => _isMaximized = !_isMaximized);
-          },
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.hoverIn),
-            curve: WpMotion.defaultCurve,
-            width: 40,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _isHovered ? hoverBg : (WpColors.hoverTransparent),
-              borderRadius: BorderRadius.circular(WpRadius.sm),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
-              size: 14,
-              color: _isHovered ? hoverFg : mutedColor,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.sm,
+          child: InkWell(
+            onTap: () async {
+              if (_isMaximized) {
+                await windowManager.unmaximize();
+              } else {
+                await windowManager.maximize();
+              }
+              if (mounted) setState(() => _isMaximized = !_isMaximized);
+            },
+            focusNode: _focusNode,
+            borderRadius: BorderRadius.circular(WpRadius.sm),
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.hoverIn),
+              curve: WpMotion.defaultCurve,
+              width: 40,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _isHovered || _focusNode.hasFocus ? hoverBg : WpColors.hoverTransparent,
+                borderRadius: BorderRadius.circular(WpRadius.sm),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
+                size: 14,
+                color: _isHovered || _focusNode.hasFocus ? hoverFg : mutedColor,
+              ),
             ),
           ),
         ),
