@@ -24,7 +24,8 @@
 <p align="center">
   <a href="https://whispaste.de"><b>🌐 Website</b></a>&ensp;·&ensp;
   <a href="../../releases/latest"><b>📦 Releases</b></a>&ensp;·&ensp;
-  <a href="#development"><b>🏗️ Build</b></a>
+  <a href="#development"><b>🏗️ Build</b></a>&ensp;·&ensp;
+  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>💡 Vote on Ideas</b></a>
 </p>
 
 <p align="center">
