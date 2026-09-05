@@ -510,7 +510,7 @@ void FloatingButtonHost::ShowNativeContextMenu() {
 
   HMENU menu = CreatePopupMenu();
   for (size_t i = 0; i < context_menu_items_.size(); ++i) {
-    const auto& [id, wlabel] = context_menu_items_[i];
+    const auto& wlabel = context_menu_items_[i].second;
     if (wlabel == L"---") {
       // "---" is the separator convention (matches macOS).
       AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);

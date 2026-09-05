@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "auto_updater.cpp"
+#include "auto_updater.h"
 
 namespace auto_updater_windows {
 

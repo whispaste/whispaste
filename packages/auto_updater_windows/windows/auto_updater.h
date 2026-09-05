@@ -1,3 +1,6 @@
+#ifndef FLUTTER_PLUGIN_AUTO_UPDATER_WINDOWS_AUTO_UPDATER_H_
+#define FLUTTER_PLUGIN_AUTO_UPDATER_WINDOWS_AUTO_UPDATER_H_
+
 #include "WinSparkle-0.9.3/include/winsparkle.h"
 
 #include <flutter/event_channel.h>
@@ -21,10 +24,6 @@ void __onShutdownRequestCallback();
 void __onDidFindUpdateCallback();
 void __onDidNotFindUpdateCallback();
 void __onUpdateCancelledCallback();
-void __onUpdateSkippedCallback();
-void __onUpdatePostponedCallback();
-void __onUpdateDismissedCallback();
-void __onUserRunInstallerCallback();
 
 class AutoUpdater {
  public:
@@ -76,12 +75,6 @@ void AutoUpdater::SetFeedURL(std::string feedURL) {
   win_sparkle_set_did_find_update_callback(__onDidFindUpdateCallback);
   win_sparkle_set_did_not_find_update_callback(__onDidNotFindUpdateCallback);
   win_sparkle_set_update_cancelled_callback(__onUpdateCancelledCallback);
-
-  // TODO: These will be supported once we update WinSparkle to >0.8.0
-  // win_sparkle_set_update_skipped_callback(__onUpdateSkippedCallback);
-  // win_sparkle_set_update_postponed_callback(__onUpdatePostponedCallback);
-  // win_sparkle_set_update_dismissed_callback(__onUpdateDismissedCallback);
-  // win_sparkle_set_user_run_installer_callback(__onUserRunInstallerCallback);
 }
 
 void AutoUpdater::CheckForUpdates() {
@@ -147,32 +140,6 @@ void __onUpdateCancelledCallback() {
     return;
   autoUpdater->OnWinSparkleEvent("updateCancelled");
 }
-
-void __onUpdateSkippedCallback() {
-  AutoUpdater* autoUpdater = AutoUpdater::GetInstance();
-  if (autoUpdater == nullptr)
-    return;
-  autoUpdater->OnWinSparkleEvent("updateSkipped");
-}
-
-void __onUpdatePostponedCallback() {
-  AutoUpdater* autoUpdater = AutoUpdater::GetInstance();
-  if (autoUpdater == nullptr)
-    return;
-  autoUpdater->OnWinSparkleEvent("updatePostponed");
-}
-
-void __onUpdateDismissedCallback() {
-  AutoUpdater* autoUpdater = AutoUpdater::GetInstance();
-  if (autoUpdater == nullptr)
-    return;
-  autoUpdater->OnWinSparkleEvent("updateDismissed");
-}
-
-void __onUserRunInstallerCallback() {
-  AutoUpdater* autoUpdater = AutoUpdater::GetInstance();
-  if (autoUpdater == nullptr)
-    return;
-  autoUpdater->OnWinSparkleEvent("userRunInstaller");
-}
 }  // namespace
+
+#endif  // FLUTTER_PLUGIN_AUTO_UPDATER_WINDOWS_AUTO_UPDATER_H_
