@@ -62,9 +62,33 @@ jobs:
       - name: Build Windows runner
         run: flutter build windows --debug
 
+      # codeql-config-cpp.yml's `paths`/`paths-ignore` only apply to
+      # compiled languages under build-mode: none — with a real build above,
+      # GitHub silently ignores both, so CodeQL extracts everything the
+      # compiler touches, including the CMake FetchContent tree under
+      # `build/` (sentry-native + its crashpad/zlib/mpack sub-vendors —
+      # ~460 findings in third-party code that isn't even in this repo,
+      # `build/` is gitignored). Filtering the SARIF post-hoc is GitHub's
+      # documented workaround for this build-mode limitation.
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
+          category: "/language:c-cpp"
+          output: sarif-results
+          upload: false
+
+      - name: Filter out vendored build output
+        uses: advanced-security/filter-sarif@v1
+        with:
+          patterns: |
+            -**/build/**
+          input: sarif-results/cpp.sarif
+          output: sarif-results/cpp.sarif
+
+      - name: Upload filtered SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/cpp.sarif
           category: "/language:c-cpp"
 
   analyze-actions:

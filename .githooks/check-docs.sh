@@ -138,8 +138,13 @@ for f in $ENGLISH_FILES; do
   if printf '%s' "$c" | grep -qE '<[^>]+@[^>]+>' 2>/dev/null; then
     err "$f: E-Mail-Adresse (Anzeigename <addr>) in öffentlicher Markdown"
   fi
-  # German markers — public GH Markdown must be English
-  if printf '%s' "$c" | LC_ALL=C grep -qE "$GERMAN_RE"; then
+  # German markers — public GH Markdown must be English. Scanned on a
+  # copy with link/href targets blanked out first: a URL is an opaque
+  # identifier, not prose, and a hyphenated slug in one (e.g. a sponsor
+  # or org name like "…/silvio-und-maik/…") can otherwise false-positive
+  # on "und" between two non-alpha boundary chars.
+  c_prose="$(printf '%s' "$c" | sed -E 's/\]\([^)]*\)/]()/g; s/(href|src)="[^"]*"/\1=""/g')"
+  if printf '%s' "$c_prose" | LC_ALL=C grep -qE "$GERMAN_RE"; then
     err "$f: deutsche Sprachmarker — öffentliche GitHub-Markdown muss Englisch sein"
   fi
 done
