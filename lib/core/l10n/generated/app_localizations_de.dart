@@ -3406,6 +3406,15 @@ class L10nDe extends L10n {
   String get reviewSupportAction => 'Bewerten';
 
   @override
+  String get ideasBoardLabel => 'Ideen & Featurewünsche';
+
+  @override
+  String get ideasBoardAction => 'Board ansehen';
+
+  @override
+  String get feedbackIdeasLink => 'Ideen vorschlagen & abstimmen';
+
+  @override
   String get insufficientRamTitle => 'Zu wenig Arbeitsspeicher';
 
   @override

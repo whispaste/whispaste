@@ -3378,6 +3378,15 @@ class L10nEn extends L10n {
   String get reviewSupportAction => 'Rate';
 
   @override
+  String get ideasBoardLabel => 'Ideas & feature requests';
+
+  @override
+  String get ideasBoardAction => 'View board';
+
+  @override
+  String get feedbackIdeasLink => 'Suggest & vote on ideas';
+
+  @override
   String get insufficientRamTitle => 'Not Enough Memory';
 
   @override

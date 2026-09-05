@@ -3442,6 +3442,15 @@ class L10nRu extends L10n {
   String get reviewSupportAction => 'Оценить';
 
   @override
+  String get ideasBoardLabel => 'Идеи и пожелания';
+
+  @override
+  String get ideasBoardAction => 'Открыть доску';
+
+  @override
+  String get feedbackIdeasLink => 'Предложить идею и проголосовать';
+
+  @override
   String get insufficientRamTitle => 'Недостаточно памяти';
 
   @override

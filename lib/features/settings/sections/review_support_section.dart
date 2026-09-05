@@ -31,16 +31,39 @@ class ReviewSupportSection extends ConsumerWidget {
       title: l10n.reviewSupportEntry,
       subtitle: l10n.reviewSupportSubtitle,
       padding: EdgeInsets.zero,
-      child: SettingRow(
-        icon: LucideIcons.star,
-        label: l10n.reviewSupportLabel,
-        trailing: WpButton(
-          label: l10n.reviewSupportAction,
-          variant: WpButtonVariant.secondary,
-          onPressed: _launchReviewSupport,
-        ),
+      child: Column(
+        children: [
+          SettingRow(
+            icon: LucideIcons.star,
+            label: l10n.reviewSupportLabel,
+            trailing: WpButton(
+              label: l10n.reviewSupportAction,
+              variant: WpButtonVariant.secondary,
+              onPressed: _launchReviewSupport,
+            ),
+          ),
+          // Same quiet, gate-free register as the row above — an
+          // opt-in destination for users who want to shape the roadmap,
+          // not a prompt anyone is pushed toward.
+          SettingRow(
+            icon: LucideIcons.lightbulb,
+            label: l10n.ideasBoardLabel,
+            trailing: WpButton(
+              label: l10n.ideasBoardAction,
+              variant: WpButtonVariant.secondary,
+              onPressed: _launchIdeasBoard,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _launchIdeasBoard() async {
+    final uri = Uri.parse(kVotepitBoardUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   // Platform-branched review URL, consistent with the review-prompt dialog's

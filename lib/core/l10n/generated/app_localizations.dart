@@ -5936,6 +5936,24 @@ abstract class L10n {
   /// **'Rate'**
   String get reviewSupportAction;
 
+  /// No description provided for @ideasBoardLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Ideas & feature requests'**
+  String get ideasBoardLabel;
+
+  /// No description provided for @ideasBoardAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View board'**
+  String get ideasBoardAction;
+
+  /// No description provided for @feedbackIdeasLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggest & vote on ideas'**
+  String get feedbackIdeasLink;
+
   /// No description provided for @insufficientRamTitle.
   ///
   /// In en, this message translates to:
