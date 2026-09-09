@@ -7112,6 +7112,30 @@ abstract class L10n {
   /// **'Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.'**
   String get smartModeOnboardingHintBody;
 
+  /// No description provided for @smartModeOnboardingHintExampleBeforeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw dictation'**
+  String get smartModeOnboardingHintExampleBeforeLabel;
+
+  /// No description provided for @smartModeOnboardingHintExampleBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing'**
+  String get smartModeOnboardingHintExampleBefore;
+
+  /// No description provided for @smartModeOnboardingHintExampleAfterLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode result'**
+  String get smartModeOnboardingHintExampleAfterLabel;
+
+  /// No description provided for @smartModeOnboardingHintExampleAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.'**
+  String get smartModeOnboardingHintExampleAfter;
+
   /// No description provided for @smartModeOnboardingHintDownloadCta.
   ///
   /// In en, this message translates to:

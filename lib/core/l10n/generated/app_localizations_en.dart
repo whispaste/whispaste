@@ -4055,6 +4055,20 @@ class L10nEn extends L10n {
       'Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.';
 
   @override
+  String get smartModeOnboardingHintExampleBeforeLabel => 'Raw dictation';
+
+  @override
+  String get smartModeOnboardingHintExampleBefore =>
+      'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing';
+
+  @override
+  String get smartModeOnboardingHintExampleAfterLabel => 'Smart Mode result';
+
+  @override
+  String get smartModeOnboardingHintExampleAfter =>
+      'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.';
+
+  @override
   String get smartModeOnboardingHintDownloadCta => 'Download';
 
   @override

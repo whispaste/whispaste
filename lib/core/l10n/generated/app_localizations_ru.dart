@@ -4128,6 +4128,20 @@ class L10nRu extends L10n {
       'Умный режим может автоматически очищать, сокращать или переводить текст — прямо на устройстве. Скачайте модель сейчас или настройте позже.';
 
   @override
+  String get smartModeOnboardingHintExampleBeforeLabel => 'Raw dictation';
+
+  @override
+  String get smartModeOnboardingHintExampleBefore =>
+      'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing';
+
+  @override
+  String get smartModeOnboardingHintExampleAfterLabel => 'Smart Mode result';
+
+  @override
+  String get smartModeOnboardingHintExampleAfter =>
+      'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.';
+
+  @override
   String get smartModeOnboardingHintDownloadCta => 'Скачать';
 
   @override

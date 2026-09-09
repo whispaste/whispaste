@@ -1634,6 +1634,10 @@
 
   "smartModeOnboardingHintTitle": "Try Smart Mode",
   "smartModeOnboardingHintBody": "Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.",
+  "smartModeOnboardingHintExampleBeforeLabel": "Raw dictation",
+  "smartModeOnboardingHintExampleBefore": "so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing",
+  "smartModeOnboardingHintExampleAfterLabel": "Smart Mode result",
+  "smartModeOnboardingHintExampleAfter": "So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.",
   "smartModeOnboardingHintDownloadCta": "Download",
   "smartModeOnboardingHintSkipCta": "Skip",
   "smartModeUsageHintTitle": "Try Smart Mode on your next dictation",

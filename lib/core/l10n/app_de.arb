@@ -1420,6 +1420,10 @@
 
   "smartModeOnboardingHintTitle": "Smart Mode ausprobieren",
   "smartModeOnboardingHintBody": "Smart Mode kann deinen diktierten Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Lade das lokale Modell jetzt herunter oder richte es später in den Einstellungen ein.",
+  "smartModeOnboardingHintExampleBeforeLabel": "Rohdiktat",
+  "smartModeOnboardingHintExampleBefore": "also äh das kundenmeeting wurde auf donnerstag um drei uhr verschoben und wir brauchen noch die aktualisierten folien vom marketing",
+  "smartModeOnboardingHintExampleAfterLabel": "Smart-Mode-Ergebnis",
+  "smartModeOnboardingHintExampleAfter": "Also, das Kundenmeeting wurde auf Donnerstag um drei Uhr verschoben, und wir brauchen noch die aktualisierten Folien vom Marketing.",
   "smartModeOnboardingHintDownloadCta": "Herunterladen",
   "smartModeOnboardingHintSkipCta": "Überspringen",
   "smartModeUsageHintTitle": "Smart Mode bei deinem nächsten Diktat ausprobieren",

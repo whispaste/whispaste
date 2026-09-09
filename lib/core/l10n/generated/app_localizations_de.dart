@@ -4089,6 +4089,20 @@ class L10nDe extends L10n {
       'Smart Mode kann deinen diktierten Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Lade das lokale Modell jetzt herunter oder richte es später in den Einstellungen ein.';
 
   @override
+  String get smartModeOnboardingHintExampleBeforeLabel => 'Rohdiktat';
+
+  @override
+  String get smartModeOnboardingHintExampleBefore =>
+      'also äh das kundenmeeting wurde auf donnerstag um drei uhr verschoben und wir brauchen noch die aktualisierten folien vom marketing';
+
+  @override
+  String get smartModeOnboardingHintExampleAfterLabel => 'Smart-Mode-Ergebnis';
+
+  @override
+  String get smartModeOnboardingHintExampleAfter =>
+      'Also, das Kundenmeeting wurde auf Donnerstag um drei Uhr verschoben, und wir brauchen noch die aktualisierten Folien vom Marketing.';
+
+  @override
   String get smartModeOnboardingHintDownloadCta => 'Herunterladen';
 
   @override
