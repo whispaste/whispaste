@@ -130,6 +130,26 @@ class OverlaySection extends ConsumerWidget {
               ),
             ),
             settingsInlineBreak,
+            // ── Live transcript (ticket 11) ─────────────────────────────
+            // Off by default: the PRD keeps the existing, deliberately
+            // minimal waveform-only overlay as the default/selectable
+            // behaviour (privacy/reduction) — live text is an opt-in
+            // error-transparency trade-off, not the other way round.
+            SettingRow(
+              icon: LucideIcons.captions,
+              label: l10n.settingsOverlayLiveTranscript,
+              subtitle: l10n.settingsOverlayLiveTranscriptSubtitle,
+              semanticToggledValue: settings.overlayShowLiveTranscript,
+              trailing: settingsToggle(
+                value: settings.overlayShowLiveTranscript,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(overlayShowLiveTranscript: v),
+                    ),
+              ),
+            ),
+            settingsInlineBreak,
             // Preview at real (1:1) size in its own full-width row so the
             // Normal vs. Compact difference is actually recognisable. FittedBox
             // inside only scales down on windows narrower than the real pill.

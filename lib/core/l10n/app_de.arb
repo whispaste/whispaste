@@ -1126,6 +1126,8 @@
   "settingsOverlayStyleSubtitle": "Wähle zwischen Glas-Effekt oder volldeckender Darstellung",
   "settingsOverlayStyleGlass": "Glas",
   "settingsOverlayStyleSolid": "Volldeckend",
+  "settingsOverlayLiveTranscript": "Live-Transkript",
+  "settingsOverlayLiveTranscriptSubtitle": "Zeigt den erkannten Text schon während der Transkription statt nur der Wellenform",
   "overlayRetry": "Erneut versuchen",
   "overlayDismiss": "Schließen",
   "overlayContextCancel": "Aufnahme abbrechen",

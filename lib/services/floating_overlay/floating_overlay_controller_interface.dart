@@ -34,6 +34,7 @@ class FloatingOverlaySnapshot {
     this.doneMessage,
     this.progress = 0.0,
     this.secondaryLabel,
+    this.liveTranscript,
   });
 
   final bool visible;
@@ -64,6 +65,12 @@ class FloatingOverlaySnapshot {
   /// never paints it.
   final String? secondaryLabel;
 
+  /// Live/partial recognized text, shown instead of the waveform while
+  /// [state] is [OverlayVisualState.transcribing], only when the user has
+  /// opted into the live-transcript overlay setting (ticket 11). Null/empty
+  /// keeps the classic waveform-only composition — the default.
+  final String? liveTranscript;
+
   Map<String, dynamic> toMap() => {
     'visible': visible,
     'state': state.name,
@@ -83,6 +90,7 @@ class FloatingOverlaySnapshot {
     'doneMessage': doneMessage,
     'progress': progress,
     'secondaryLabel': secondaryLabel,
+    'liveTranscript': liveTranscript,
   };
 
   /// Rebuilds a snapshot from its [toMap] form.
@@ -122,6 +130,7 @@ class FloatingOverlaySnapshot {
       doneMessage: map['doneMessage'] as String?,
       progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
       secondaryLabel: map['secondaryLabel'] as String?,
+      liveTranscript: map['liveTranscript'] as String?,
     );
   }
 }

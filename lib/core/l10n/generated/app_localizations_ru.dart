@@ -3375,6 +3375,13 @@ class L10nRu extends L10n {
   String get settingsOverlayStyleSolid => 'Сплошной';
 
   @override
+  String get settingsOverlayLiveTranscript => 'Живая расшифровка';
+
+  @override
+  String get settingsOverlayLiveTranscriptSubtitle =>
+      'Показывать распознанный текст по мере расшифровки вместо только формы волны';
+
+  @override
   String get overlayRetry => 'Повторить';
 
   @override

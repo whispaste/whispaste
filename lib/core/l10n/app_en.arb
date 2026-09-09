@@ -1333,6 +1333,8 @@
   "settingsOverlayStyleSubtitle": "Choose between glass or a solid opaque look",
   "settingsOverlayStyleGlass": "Glass",
   "settingsOverlayStyleSolid": "Solid",
+  "settingsOverlayLiveTranscript": "Live transcript",
+  "settingsOverlayLiveTranscriptSubtitle": "Show recognized text as it's transcribed, instead of the waveform only",
   "overlayRetry": "Retry",
   "overlayDismiss": "Dismiss",
   "overlayContextCancel": "Cancel recording",

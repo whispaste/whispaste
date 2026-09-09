@@ -3314,6 +3314,13 @@ class L10nEn extends L10n {
   String get settingsOverlayStyleSolid => 'Solid';
 
   @override
+  String get settingsOverlayLiveTranscript => 'Live transcript';
+
+  @override
+  String get settingsOverlayLiveTranscriptSubtitle =>
+      'Show recognized text as it\'s transcribed, instead of the waveform only';
+
+  @override
   String get overlayRetry => 'Retry';
 
   @override

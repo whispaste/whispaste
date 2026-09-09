@@ -1352,6 +1352,8 @@
   "settingsOverlayStyleSubtitle": "בחר בין מראה זכוכית למראה אטום מלא",
   "settingsOverlayStyleGlass": "זכוכית",
   "settingsOverlayStyleSolid": "אטום",
+  "settingsOverlayLiveTranscript": "תמלול חי",
+  "settingsOverlayLiveTranscriptSubtitle": "הצג את הטקסט המתמלל בזמן אמת, במקום תצוגת גל בלבד",
   "overlayRetry": "נסה שוב",
   "overlayDismiss": "סגור",
   "overlayContextCancel": "בטל הקלטה",

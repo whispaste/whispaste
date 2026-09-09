@@ -345,6 +345,9 @@ class AppSettings {
   OverlayStyle get overlayStyleType =>
       OverlayStyle.fromValue(overlay.overlayStyle);
 
+  /// Whether the overlay shows the live/partial recognized text (ticket 11).
+  bool get overlayShowLiveTranscript => overlay.overlayShowLiveTranscript;
+
   /// Resolved model ID — falls back to `whisper-medium` if empty.
   ///
   /// **Whisper-only.** This also resolves Whisper model *paths* (preflight,
@@ -686,6 +689,7 @@ class AppSettings {
     String? overlaySize,
     String? overlayStyle,
     bool? showFloatingButton,
+    bool? overlayShowLiveTranscript,
     String? openAiApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
@@ -762,6 +766,7 @@ class AppSettings {
         overlaySize: overlaySize,
         overlayStyle: overlayStyle,
         showFloatingButton: showFloatingButton,
+        overlayShowLiveTranscript: overlayShowLiveTranscript,
       ),
       cloudProvider: cloudProvider.copyWith(
         openAiApiKey: openAiApiKey,

@@ -633,6 +633,7 @@ class OverlaySettings {
     this.overlaySize = 'normal',
     this.overlayStyle = 'glass',
     this.showFloatingButton = false,
+    this.overlayShowLiveTranscript = false,
   });
 
   final bool showOverlay;
@@ -650,6 +651,15 @@ class OverlaySettings {
   final String overlayStyle;
 
   final bool showFloatingButton;
+
+  /// Whether the overlay shows the live/partial recognized text (as far as
+  /// the active STT engine has decoded it) instead of staying waveform-only.
+  ///
+  /// Defaults to `false`: the ticket 11 PRD explicitly keeps the existing,
+  /// deliberately minimal waveform-only overlay as the default/selectable
+  /// behaviour (privacy/reduction — no in-progress text on screen unless the
+  /// user opts in), with live text as an opt-in error-transparency trade-off.
+  final bool overlayShowLiveTranscript;
 
   static const OverlaySettings defaults = OverlaySettings();
 
@@ -671,6 +681,11 @@ class OverlaySettings {
     ),
     // 'floating_button_size' is intentionally not read — removed in issue 11.
     // Old configs may have it; the key is silently ignored (no migration needed).
+    overlayShowLiveTranscript: _readBool(
+      v,
+      'overlay_show_live_transcript',
+      defaults.overlayShowLiveTranscript,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -680,6 +695,7 @@ class OverlaySettings {
     'overlay_size': overlaySize,
     'overlay_style': overlayStyle,
     'show_floating_button': '$showFloatingButton',
+    'overlay_show_live_transcript': '$overlayShowLiveTranscript',
   };
 
   OverlaySettings copyWith({
@@ -689,6 +705,7 @@ class OverlaySettings {
     String? overlaySize,
     String? overlayStyle,
     bool? showFloatingButton,
+    bool? overlayShowLiveTranscript,
   }) => OverlaySettings(
     showOverlay: showOverlay ?? this.showOverlay,
     overlayMode: overlayMode ?? this.overlayMode,
@@ -696,6 +713,8 @@ class OverlaySettings {
     overlaySize: overlaySize ?? this.overlaySize,
     overlayStyle: overlayStyle ?? this.overlayStyle,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
+    overlayShowLiveTranscript:
+        overlayShowLiveTranscript ?? this.overlayShowLiveTranscript,
   );
 
   @override
@@ -707,7 +726,8 @@ class OverlaySettings {
           overlayStartPosition == other.overlayStartPosition &&
           overlaySize == other.overlaySize &&
           overlayStyle == other.overlayStyle &&
-          showFloatingButton == other.showFloatingButton;
+          showFloatingButton == other.showFloatingButton &&
+          overlayShowLiveTranscript == other.overlayShowLiveTranscript;
 
   @override
   int get hashCode => Object.hash(
@@ -717,6 +737,7 @@ class OverlaySettings {
     overlaySize,
     overlayStyle,
     showFloatingButton,
+    overlayShowLiveTranscript,
   );
 }
 

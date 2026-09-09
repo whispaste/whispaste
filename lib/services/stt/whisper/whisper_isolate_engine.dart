@@ -87,6 +87,15 @@ class _TranscribeResult {
   final String? failureKind;
 }
 
+/// Forwards one [WhisperFfiEngine.partialTranscript] event across the
+/// isolate boundary (ticket 11, live-transcript overlay option). Sent from
+/// the worker isolate to the main isolate every time the worker's engine
+/// callback fires — see the worker's `partialSub` in [_whisperIsolateMain].
+class _PartialTranscriptUpdate {
+  const _PartialTranscriptUpdate(this.text);
+  final String text;
+}
+
 class _UnloadRequest {
   const _UnloadRequest();
 }
@@ -111,10 +120,17 @@ void _whisperIsolateMain(SendPort mainSendPort) {
 
   WhisperFfiEngine? engine;
 
+  // Forwards the worker's engine partial-transcript events to the main
+  // isolate (ticket 11) — started once, right after the engine that owns the
+  // stream exists, so it survives across every transcribe() call on this
+  // worker rather than being re-wired per call.
+  StreamSubscription<String>? partialSub;
+
   Future<void> handleMessage(dynamic message) async {
     switch (message) {
       case final _LoadRequest req:
         try {
+          final isNewEngine = engine == null;
           engine ??= WhisperFfiEngine(
             libraryPath: req.config.libraryPath,
             backend: req.config.backend,
@@ -123,6 +139,11 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             modelPath: req.modelPath,
             vadModelPath: req.vadModelPath,
           );
+          if (isNewEngine) {
+            partialSub = engine!.partialTranscript.listen((text) {
+              mainSendPort.send(_PartialTranscriptUpdate(text));
+            });
+          }
           mainSendPort.send(const _LoadResult(ok: true));
         } catch (e) {
           mainSendPort.send(_LoadResult(ok: false, error: '$e'));
@@ -169,6 +190,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
         mainSendPort.send(const _UnloadAck());
 
       case _ShutdownRequest():
+        await partialSub?.cancel();
         await engine?.unload();
         workerPort.close();
         // Isolate.exit's finalMessage is delivered atomically as the isolate
@@ -201,7 +223,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
 
 /// [WhisperEngine] that delegates to a [WhisperFfiEngine] running inside a
 /// dedicated worker isolate. See file doc comment for why.
-class WhisperIsolateEngine implements WhisperEngine {
+class WhisperIsolateEngine implements WhisperEngine, PartialTranscriptSource {
   WhisperIsolateEngine({String? libraryPath, WhisperBackend? backend})
     : _config = _EngineConfig(
         libraryPath: libraryPath,
@@ -220,6 +242,15 @@ class WhisperIsolateEngine implements WhisperEngine {
 
   bool _isLoaded = false;
   String? _errorMessage;
+
+  /// Re-broadcasts [_PartialTranscriptUpdate] messages relayed from the
+  /// worker isolate's [WhisperFfiEngine.partialTranscript] (ticket 11). See
+  /// [_handleWorkerMessage].
+  final StreamController<String> _partialController =
+      StreamController<String>.broadcast();
+
+  @override
+  Stream<String> get partialTranscript => _partialController.stream;
 
   @override
   WhisperEngineStatus get status => WhisperEngineStatus(
@@ -447,6 +478,8 @@ class WhisperIsolateEngine implements WhisperEngine {
         _loadCompleter?.complete(r);
       case final _TranscribeResult r:
         _pending.remove(r.requestId)?.complete(r);
+      case final _PartialTranscriptUpdate u:
+        _partialController.add(u.text);
       case _UnloadAck():
         _unloadCompleter?.complete();
     }

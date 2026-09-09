@@ -90,8 +90,25 @@ class WpFloatingOverlayView extends StatefulWidget {
   /// state — mirrors [painterFor]'s `statusText` selection so pill-width
   /// sizing ([OverlayDesignSpec.pillWidthForText]) never drifts from what
   /// gets drawn.
-  static String statusTextFor(FloatingOverlaySnapshot snapshot) =>
-      snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label;
+  ///
+  /// Ticket 11 (live-transcript overlay option): while transcribing, a
+  /// non-empty [FloatingOverlaySnapshot.liveTranscript] replaces the generic
+  /// "Transcribing…" label with the recognized text so far — the user sees
+  /// misrecognitions as whisper decodes them instead of only after pasting.
+  /// [FloatingOverlayService] only ever populates `liveTranscript` when the
+  /// user opted into the setting; empty/null here always means "not shown",
+  /// so this helper needs no settings lookup of its own. The shared
+  /// [_drawTranscribing] composition (spinner + label + processing-ripple
+  /// waveform notch) already handles arbitrary text — including ellipsis on
+  /// overflow and the pill-width spring — identically for every size
+  /// variant, so no painter changes are needed for this to "just work".
+  static String statusTextFor(FloatingOverlaySnapshot snapshot) {
+    if (snapshot.state == OverlayVisualState.transcribing) {
+      final live = snapshot.liveTranscript;
+      if (live != null && live.trim().isNotEmpty) return live;
+    }
+    return snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label;
+  }
 
   /// The secondary text line painted for [snapshot] (guided-sequence
   /// frames) — mirrors [painterFor]'s `secondaryText` selection for the

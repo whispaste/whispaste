@@ -25,6 +25,7 @@
 /// source instead of working around the crash.
 library;
 
+import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:math' as math;
@@ -41,6 +42,20 @@ import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
 
 final _log = AppLogger('WhisperFfi');
+
+/// Native signature of `whisper_full_params.new_segment_callback` ("called
+/// for every newly generated text segment", `whisper_bindings.dart`) — used
+/// to register the live/partial-transcript callback (ticket 11) per
+/// [WhisperFfiEngine._decodeOnce] call. Not in the ffigen-generated
+/// `whisper_bindings.dart` (do-not-edit) itself, only the struct field's
+/// inline type is, so a matching typedef lives here instead.
+typedef WhisperNewSegmentCallbackNative =
+    ffi.Void Function(
+      ffi.Pointer<whisper_context> ctx,
+      ffi.Pointer<whisper_state> state,
+      ffi.Int nNew,
+      ffi.Pointer<ffi.Void> userData,
+    );
 
 /// Absolute path to the `libwhisper` shared library bundled next to the running
 /// app, per platform. `libwhisper` (plus its `ggml*` backends) is embedded and
@@ -134,7 +149,7 @@ class WhisperSegment {
 /// [transcribe] runs synchronously on the calling isolate — acceptable here
 /// because this slice does not wire the engine into any UI path. Isolate
 /// offload is deferred to Issue 03.
-class WhisperFfiEngine implements WhisperEngine {
+class WhisperFfiEngine implements WhisperEngine, PartialTranscriptSource {
   WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
     : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
       _backend = backend ?? WhisperBackend.cpu,
@@ -178,6 +193,50 @@ class WhisperFfiEngine implements WhisperEngine {
   /// [AppLogger] being initialized. Not used by any production call site.
   List<WhisperSegment> get lastSegments => List.unmodifiable(_lastSegments);
   List<WhisperSegment> _lastSegments = const [];
+
+  // ── Live/partial transcript (ticket 11) ──────────────────────────────────
+  //
+  // whisper.cpp's `new_segment_callback` (set per-call on `whisper_full_
+  // params`, not globally like `whisper_log_set`) fires synchronously on
+  // this same isolate's thread once for every newly completed segment
+  // *during* a `whisper_full` call — see [_decodeOnce]. `.isolateLocal` (not
+  // `.listener`, unlike [_ensureLogCallbackRegistered]'s ggml log callback)
+  // is correct and safe here because the callback only ever fires on the
+  // thread that is blocked inside `whisper_full`, i.e. this isolate's own —
+  // there is no cross-thread hazard to guard against.
+  final StreamController<String> _partialController =
+      StreamController<String>.broadcast();
+
+  @override
+  Stream<String> get partialTranscript => _partialController.stream;
+
+  /// Text already produced by earlier chunks of the CURRENT [transcribe]
+  /// call ([_transcribeInChunks] splits long recordings at pauses — see its
+  /// doc comment). Reset to `''` at the top of [transcribe]; advanced after
+  /// each chunk's [_decodeOnce] completes. The in-flight chunk's own
+  /// progressively-growing text is appended to this prefix by
+  /// [_emitPartialTranscript] on every `new_segment_callback` firing, so a
+  /// listener always sees the whole transcript-so-far, not just the current
+  /// chunk's.
+  String _partialPrefix = '';
+
+  /// Joins every segment decoded so far in [ctx] onto [_partialPrefix] and
+  /// broadcasts it — the `new_segment_callback` body. Mirrors exactly how
+  /// [_decodeOnce] itself joins segments into its final return value, so a
+  /// listener's last event before completion equals that chunk's result.
+  void _emitPartialTranscript(
+    WhisperBindings bindings,
+    ffi.Pointer<whisper_context> ctx,
+  ) {
+    if (!_partialController.hasListener) return;
+    final buffer = StringBuffer(_partialPrefix);
+    final n = bindings.whisper_full_n_segments(ctx);
+    for (var i = 0; i < n; i++) {
+      final textPtr = bindings.whisper_full_get_segment_text(ctx, i);
+      buffer.write(textPtr.cast<Utf8>().toDartString());
+    }
+    _partialController.add(buffer.toString());
+  }
 
   @override
   WhisperEngineStatus get status => WhisperEngineStatus(
@@ -544,6 +603,9 @@ class WhisperFfiEngine implements WhisperEngine {
     final samples = pcm16WavBytesToFloat32(wavBytes);
     if (samples.isEmpty) return '';
 
+    // New call: no prior chunk's text to prefix live updates with.
+    _partialPrefix = '';
+
     // ── VAD-trim diagnostic (2026-08-27) ────────────────────────────────
     // Debug-level only (see `_logSegments`' doc comment on the release-mode
     // gate) so this adds no per-call overhead in production. Logged before
@@ -799,6 +861,9 @@ class WhisperFfiEngine implements WhisperEngine {
         resetLastSegments: i == 0,
       );
       buffer.write(chunkText);
+      // Advance the live-transcript prefix so the next chunk's callback
+      // firings report the whole transcript-so-far, not just its own text.
+      _partialPrefix = buffer.toString();
       segmentIndexOffset = _lastSegments.length;
 
       final tail = continuityContextFrom(chunkText);
@@ -1024,7 +1089,30 @@ class WhisperFfiEngine implements WhisperEngine {
         params.vad_params.speech_pad_ms = _vadSpeechPadMsUnderNoise;
       }
 
-      final rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
+      // ── Live/partial transcript callback (ticket 11) ───────────────────
+      // Registered per-call (unlike `whisper_log_set`, `new_segment_callback`
+      // is a field on `whisper_full_params`, not a global) so it is always
+      // torn down in this same `finally` block, never left dangling on a
+      // freed context. No-op cost when nobody is listening — the callback
+      // body's own `hasListener` guard skips the segment walk entirely.
+      final segmentCallable =
+          ffi.NativeCallable<WhisperNewSegmentCallbackNative>.isolateLocal((
+            ffi.Pointer<whisper_context> segCtx,
+            ffi.Pointer<whisper_state> segState,
+            int nNew,
+            ffi.Pointer<ffi.Void> userData,
+          ) {
+            _emitPartialTranscript(bindings, segCtx);
+          });
+      params.new_segment_callback = segmentCallable.nativeFunction;
+      params.new_segment_callback_user_data = ffi.nullptr;
+
+      final int rc;
+      try {
+        rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
+      } finally {
+        segmentCallable.close();
+      }
       if (rc != 0) {
         // whisper.cpp reports decode failures as a generic non-zero return
         // without a taxonomy that separates OOM / GPU-fault / transient. Map

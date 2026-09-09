@@ -248,6 +248,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   // reachable), so `_engine!` is safe at every other call site.
   WhisperEngine? _engine;
 
+  /// Live/partial-transcript stream of the currently active engine (ticket
+  /// 11), or `null` if that engine doesn't support it (see
+  /// [PartialTranscriptSource]'s doc comment — e.g. no engine loaded yet, or
+  /// a future non-whisper local engine). Read fresh on every access rather
+  /// than cached: the CPU-fallback path (see [_downgradeToCpuFallback]-style
+  /// call sites around `_engine = cpuEngine`) can swap [_engine] to a
+  /// different instance mid-session, and a stale stream reference would
+  /// silently stop emitting.
+  Stream<String>? get partialTranscriptStream {
+    final e = _engine;
+    if (e is PartialTranscriptSource) {
+      return (e as PartialTranscriptSource).partialTranscript;
+    }
+    return null;
+  }
+
   @override
   SttStatus build() {
     _engine = ref.read(whisperEngineProvider);

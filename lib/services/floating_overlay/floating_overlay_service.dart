@@ -22,6 +22,7 @@ import '../../core/theme/overlay_design_spec.dart'
 import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
 import '../snippets/interactive_snippet_controller.dart';
+import '../stt/stt_bundle.dart' show localSttBundleProvider;
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
 import 'overlay_positioning.dart';
@@ -145,6 +146,25 @@ class FloatingOverlayService
   /// frame the user is meant to read.
   bool _interactiveGuidanceActive = false;
 
+  // ── Live/partial transcript (ticket 11) ──────────────────────────────────
+
+  /// Subscription to the active STT engine's live-transcript stream (see
+  /// [PartialTranscriptSource]), active only while [_lastPhase] is
+  /// [RecordingPhase.transcribing] and the user opted into
+  /// `AppSettings.overlayShowLiveTranscript`. Started/stopped in
+  /// [_updateLiveTranscriptLifecycle] rather than once for the service's
+  /// whole lifetime: re-reading `partialTranscriptStream` fresh on every
+  /// transcribing episode picks up an engine swap (e.g. the GPU→CPU
+  /// fallback) instead of listening to a stream a since-replaced engine no
+  /// longer feeds.
+  StreamSubscription<String>? _partialSub;
+
+  /// Text emitted so far by [_partialSub] for the current transcribing
+  /// episode. Empty when no live text has arrived yet, the setting is off,
+  /// or the active engine has no partial support — [_sendSnapshot] then
+  /// falls back to the classic "Transcribing…" label.
+  String _liveTranscript = '';
+
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
 
   @override
@@ -168,6 +188,7 @@ class FloatingOverlayService
     ref.onDispose(() {
       _autoHideTimer?.cancel();
       _waveformTimer?.cancel();
+      _partialSub?.cancel();
     });
 
     ref.listen(settingsProvider, (_, next) {
@@ -249,6 +270,7 @@ class FloatingOverlayService
     _lastPhase = next;
 
     _updateWaveformLifecycle(prev, next);
+    _updateLiveTranscriptLifecycle(prev, next, settings);
     await _handlePhaseUi(prev, next, settings);
   }
 
@@ -408,6 +430,47 @@ class FloatingOverlayService
     _waveformTimer = null;
     _isInReleaseOut = false;
     _releaseOutStart = null;
+  }
+
+  // ── Live/partial transcript lifecycle ─────────────────────────────────────
+
+  /// Starts/stops [_partialSub] around exactly the [RecordingPhase.
+  /// transcribing] window — the only phase in which whisper.cpp's
+  /// per-segment callback (`WhisperFfiEngine.partialTranscript`, wired via
+  /// [PartialTranscriptSource]) actually fires: this app transcribes each
+  /// recording in one batch after capture stops, so there is no partial
+  /// text to show *during* [RecordingPhase.recording] itself — only while
+  /// the just-captured audio is being decoded.
+  void _updateLiveTranscriptLifecycle(
+    RecordingPhase prev,
+    RecordingPhase next,
+    AppSettings settings,
+  ) {
+    if (next == RecordingPhase.transcribing &&
+        prev != RecordingPhase.transcribing) {
+      _partialSub?.cancel();
+      _liveTranscript = '';
+      if (!settings.overlayShowLiveTranscript) return;
+      final stream = ref
+          .read(localSttBundleProvider.notifier)
+          .partialTranscriptStream;
+      if (stream == null) return;
+      _partialSub = stream.listen(_onLiveTranscriptUpdate);
+    } else if (prev == RecordingPhase.transcribing &&
+        next != RecordingPhase.transcribing) {
+      _partialSub?.cancel();
+      _partialSub = null;
+      _liveTranscript = '';
+    }
+  }
+
+  void _onLiveTranscriptUpdate(String text) {
+    _liveTranscript = text;
+    if (controller == null) return;
+    if (_lastPhase != RecordingPhase.transcribing) return;
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    _sendSnapshot(settings, RecordingPhase.transcribing);
   }
 
   // ── Elapsed timer updates ─────────────────────────────────────────────────
@@ -623,6 +686,10 @@ class FloatingOverlayService
           ? doneMessageFor(s.afterTranscription, l10n, target: target)
           : null,
       progress: progress,
+      liveTranscript:
+          phase == RecordingPhase.transcribing && s.overlayShowLiveTranscript
+          ? _liveTranscript
+          : null,
     );
 
     _log.debug(

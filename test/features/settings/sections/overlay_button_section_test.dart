@@ -3,7 +3,8 @@
 /// Covers:
 /// - OverlaySection: consolidated start-position dropdown (off = overlay
 ///   disabled; real position = overlay enabled). No separate show-overlay
-///   toggle row.
+///   toggle row (the live-transcript opt-in added by ticket 11 is a
+///   differently-purposed toggle and is exempt from this guard).
 /// - OverlaySection: the overlay-size setting is a [WpOverlaySizeSelector]
 ///   (visual card selector), not a dropdown (Ticket 13) — the start-position
 ///   and style rows are unaffected and stay `DropdownButton<String>`.
@@ -290,7 +291,11 @@ void main() {
       (tester) async {
         if (!_isDesktop) return; // Platform guard.
 
-        // Even with overlay enabled, no Switch widget should appear.
+        // Even with overlay enabled, no *show/hide-overlay* Switch should
+        // appear — that toggle was consolidated into the position dropdown
+        // above. Ticket 11 adds one legitimate, differently-purposed Switch
+        // (the live-transcript opt-in), so exactly one Switch is now
+        // expected here, not zero.
         final notifier = _FakeSettingsNotifier(
           AppSettings.defaults.copyWithSections(
             overlay: const OverlaySettings(overlayMode: 'floating'),
@@ -305,7 +310,7 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        expect(find.byType(Switch), findsNothing);
+        expect(find.byType(Switch), findsOneWidget);
       },
     );
 
@@ -331,15 +336,16 @@ void main() {
 
         // Preview is present as its own row, rendered at real (1:1) size …
         expect(find.byType(WpOverlayRealPreview), findsOneWidget);
-        // … set off by its own break: one before the size row, one before the
-        // style row, one before the standalone preview row → three breaks in
-        // the floating sub-section.
+        // … set off by its own break: one before the size row, one before
+        // the style row, one before the live-transcript toggle row (ticket
+        // 11), one before the standalone preview row → four breaks in the
+        // floating sub-section.
         //
         // These were `Divider`s until Ticket 08 turned every non-load-bearing
         // settings rule into spacing; what the assertion is about — that the
         // preview is a *separated row* and not a trailing part of the size
         // row — is unchanged, only the thing doing the separating is.
-        expect(find.byWidget(settingsInlineBreak), findsNWidgets(3));
+        expect(find.byWidget(settingsInlineBreak), findsNWidgets(4));
       },
     );
 

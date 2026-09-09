@@ -5816,6 +5816,18 @@ abstract class L10n {
   /// **'Solid'**
   String get settingsOverlayStyleSolid;
 
+  /// No description provided for @settingsOverlayLiveTranscript.
+  ///
+  /// In en, this message translates to:
+  /// **'Live transcript'**
+  String get settingsOverlayLiveTranscript;
+
+  /// No description provided for @settingsOverlayLiveTranscriptSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show recognized text as it\'s transcribed, instead of the waveform only'**
+  String get settingsOverlayLiveTranscriptSubtitle;
+
   /// No description provided for @overlayRetry.
   ///
   /// In en, this message translates to:

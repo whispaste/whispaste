@@ -142,3 +142,27 @@ abstract class WhisperEngine {
   /// Frees the native context and model. Safe to call when not loaded.
   Future<void> unload();
 }
+
+/// Optional capability: an engine that can report the transcript-so-far while
+/// [WhisperEngine.transcribe] is still decoding (ticket 11, live-transcript
+/// overlay option).
+///
+/// A separate, `implements`-only interface rather than a new member on
+/// [WhisperEngine] itself on purpose: several unrelated test doubles
+/// implement [WhisperEngine] directly (`implements WhisperEngine` copies
+/// only the interface, not [WhisperFfiEngine]'s bodies), and this feature is
+/// genuinely optional per the PRD ("for engines without partial results, the
+/// waveform display stays unchanged — do NOT fake a live feeling
+/// artificially"). Consumers probe for it with `engine is
+/// PartialTranscriptSource` instead of every [WhisperEngine] having to grow a
+/// no-op implementation.
+abstract class PartialTranscriptSource {
+  /// Broadcast stream of the transcript accumulated so far for the
+  /// in-flight [WhisperEngine.transcribe] call.
+  ///
+  /// Emits the full text-so-far (not a delta) once per newly completed
+  /// whisper.cpp segment — mirrors how [WhisperEngine.transcribe] itself
+  /// joins segments into the final result. Never emits outside an in-flight
+  /// [WhisperEngine.transcribe] call.
+  Stream<String> get partialTranscript;
+}

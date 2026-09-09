@@ -946,6 +946,8 @@
   "settingsOverlayStyleSubtitle": "Выберите между стеклянным или сплошным непрозрачным видом",
   "settingsOverlayStyleGlass": "Стекло",
   "settingsOverlayStyleSolid": "Сплошной",
+  "settingsOverlayLiveTranscript": "Живая расшифровка",
+  "settingsOverlayLiveTranscriptSubtitle": "Показывать распознанный текст по мере расшифровки вместо только формы волны",
   "overlayRetry": "Повторить",
   "overlayDismiss": "Скрыть",
   "overlayContextCancel": "Отменить запись",

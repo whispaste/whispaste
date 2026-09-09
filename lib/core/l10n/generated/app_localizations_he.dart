@@ -3261,6 +3261,13 @@ class L10nHe extends L10n {
   String get settingsOverlayStyleSolid => 'אטום';
 
   @override
+  String get settingsOverlayLiveTranscript => 'תמלול חי';
+
+  @override
+  String get settingsOverlayLiveTranscriptSubtitle =>
+      'הצג את הטקסט המתמלל בזמן אמת, במקום תצוגת גל בלבד';
+
+  @override
   String get overlayRetry => 'נסה שוב';
 
   @override

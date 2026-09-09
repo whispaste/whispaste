@@ -3344,6 +3344,13 @@ class L10nDe extends L10n {
   String get settingsOverlayStyleSolid => 'Volldeckend';
 
   @override
+  String get settingsOverlayLiveTranscript => 'Live-Transkript';
+
+  @override
+  String get settingsOverlayLiveTranscriptSubtitle =>
+      'Zeigt den erkannten Text schon während der Transkription statt nur der Wellenform';
+
+  @override
   String get overlayRetry => 'Erneut versuchen';
 
   @override
