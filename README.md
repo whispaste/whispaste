@@ -25,7 +25,11 @@
   <a href="https://whispaste.de"><b>🌐 Website</b></a>&ensp;·&ensp;
   <a href="../../releases/latest"><b>📦 Releases</b></a>&ensp;·&ensp;
   <a href="#development"><b>🏗️ Build</b></a>&ensp;·&ensp;
-  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>💡 Vote on Ideas</b></a>
+  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>💡 Vote on Ideas</b></a>&ensp;·&ensp;
+  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>🗺️ Roadmap</b></a>
+</p>
+<p align="center">
+  <sub>The roadmap reflects rough current direction, not a binding schedule for individual items.</sub>
 </p>
 
 <p align="center">

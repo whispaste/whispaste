@@ -12,6 +12,13 @@ reproduction steps for bugs.
 For open-ended questions or discussion, use [GitHub
 Discussions](../../discussions) instead of opening an issue.
 
+## Where to look before proposing something big
+
+The [Roadmap / Vote on Ideas board](https://app.votepit.com/silvio-und-maik/whispaste)
+shows the current rough direction and what other people have already proposed —
+check there first so your idea doesn't overlap with something already planned or
+in progress. It reflects direction, not a binding schedule.
+
 ## Contributing code
 
 1. Fork the repo and create a branch off `main`.
