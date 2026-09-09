@@ -13,7 +13,10 @@ import 'dart:convert';
 
 import 'package:shelf/shelf.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'automation_api_router.dart';
+
+final _log = AppLogger('AutomationApiSnippetRoutes');
 
 /// The three JSON-decodable outcomes [insertSnippetByName] can report,
 /// kept independent of `SnippetInsertByNameResult` so this file has no
@@ -69,7 +72,8 @@ AutomationApiRouteGroup snippetInsertRoutes({
           case AutomationApiSnippetInsertOutcome.pasteFailed:
             return _jsonResponse(500, {'error': 'insert_failed'});
         }
-      } catch (_) {
+      } catch (e, st) {
+        _log.warning('POST /v1/snippets/insert: insertByName threw', e, st);
         return _jsonResponse(500, {'error': 'insert_failed'});
       }
     });

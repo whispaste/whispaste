@@ -15,7 +15,10 @@ import 'dart:convert';
 
 import 'package:shelf/shelf.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'automation_api_router.dart';
+
+final _log = AppLogger('AutomationApiHistoryRoutes');
 
 /// Route group: fetches the most-recently-transcribed history entry.
 ///
@@ -35,7 +38,8 @@ AutomationApiRouteGroup historyLatestRoutes({
           return _jsonResponse(404, {'error': 'no_history_entry'});
         }
         return _jsonResponse(200, entry);
-      } catch (_) {
+      } catch (e, st) {
+        _log.warning('GET /v1/history/latest: fetchLatestEntry threw', e, st);
         return _jsonResponse(500, {'error': 'fetch_failed'});
       }
     });
