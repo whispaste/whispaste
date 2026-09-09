@@ -30,6 +30,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:shelf/shelf.dart';
 
 import '../../core/config/settings_provider.dart';
@@ -245,19 +246,23 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   /// [historyDetailProvider], the same detail-panel data source the History
   /// UI uses, so no history query logic is duplicated here.
   ///
-  /// [historyEntriesProvider] is read via a one-shot [Ref.listen] (rather
-  /// than `.future`) because a `StreamProvider`'s underlying subscription is
-  /// paused while it has no active listener — `ref.read(provider.future)`
-  /// alone never becomes one, so it would await forever on a provider
-  /// nothing else in this process is currently watching (as this endpoint
-  /// is, whenever the History page itself is closed).
+  /// [historyEntriesProvider] and [historyDetailProvider] are both read via
+  /// a one-shot [Ref.listen] (rather than `.future`/`ref.read`) because
+  /// neither provider has anything else keeping it alive on this headless
+  /// path (the History page normally does that while it's open):
+  /// [historyEntriesProvider]'s underlying stream subscription is paused
+  /// without an active listener, so `ref.read(provider.future)` alone would
+  /// await forever; [historyDetailProvider] is `autoDispose` and can be
+  /// torn down between its own internal `await`s (its `build()` reads the
+  /// database twice) once nothing is listening — a bare `ref.read(...future)`
+  /// doesn't count, and hit exactly that "Ref used after dispose" failure in
+  /// production once the DB round-trip (a real background isolate, unlike
+  /// tests' in-memory one) took long enough for the gap to matter.
   Future<Map<String, Object?>?> _fetchLatestHistoryEntry() async {
     final entries = await _readOnce(historyEntriesProvider);
     if (entries.isEmpty) return null;
 
-    final detail = await ref.read(
-      historyDetailProvider(entries.first.id).future,
-    );
+    final detail = await _readOnce(historyDetailProvider(entries.first.id));
     final entry = detail.entry;
     return {
       'id': entry.id,
@@ -270,9 +275,9 @@ class AutomationApiController extends Notifier<AutomationApiState> {
 
   /// Resolves to [provider]'s next emitted value, holding an active
   /// listener for exactly long enough to receive it — see
-  /// [_fetchLatestHistoryEntry]'s doc comment on why `.future` alone is not
-  /// enough for a `StreamProvider`.
-  Future<T> _readOnce<T>(StreamProvider<T> provider) {
+  /// [_fetchLatestHistoryEntry]'s doc comment on why `.future`/`ref.read`
+  /// alone is not enough here.
+  Future<T> _readOnce<T>(ProviderListenable<AsyncValue<T>> provider) {
     final completer = Completer<T>();
     final subscription = ref.listen<AsyncValue<T>>(provider, (previous, next) {
       next.when(

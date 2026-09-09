@@ -13,6 +13,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -562,6 +563,50 @@ void main() {
       final response = await _get(port, path: '/v1/history/latest');
 
       expect(response.statusCode, 401);
+    });
+
+    test('succeeds against a real background-isolate database — '
+        'in-memory tests\' single-isolate DB round-trips too fast to expose '
+        'this, but production hit exactly this timing: historyDetailProvider '
+        'is autoDispose and nothing else in this headless path was watching '
+        'it, so a bare `ref.read(...future)` let it get disposed between its '
+        'own two internal DB awaits (build() reads getEntry, then '
+        'tagsForEntry) — surfacing as a 500 with a disposed-Ref error logged '
+        'behind it', () async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'wp_automation_api_history_test',
+      );
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final db = HistoryDatabase.forTesting(
+        NativeDatabase.createInBackground(
+          File(p.join(tempDir.path, 'history.db')),
+        ),
+      );
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'bg-entry',
+          content: const Value('background-isolate transcript'),
+          title: const Value('Background'),
+          timestamp: DateTime.utc(2026, 9, 9),
+        ),
+      );
+
+      container = buildContainer(db: db);
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _get(
+        port,
+        path: '/v1/history/latest',
+        bearer: token,
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['id'], 'bg-entry');
+      expect(body['content'], 'background-isolate transcript');
     });
   });
 
