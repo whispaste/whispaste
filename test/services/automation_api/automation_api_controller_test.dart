@@ -368,6 +368,56 @@ void main() {
         expect(state.requestedPort, basePort);
       },
     );
+
+    test('disabling after an all-ports-occupied failure actually clears the '
+        'error state — syncWithSettings must not compare shouldRun only '
+        'against _server.isRunning, since a failed start never set that to '
+        'true in the first place', () async {
+      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final basePort = probe.port;
+      await probe.close();
+
+      final blockers = <ServerSocket>[];
+      for (var i = 0; i < kAutomationApiPortFallbackAttempts; i++) {
+        blockers.add(
+          await ServerSocket.bind(InternetAddress.loopbackIPv4, basePort + i),
+        );
+      }
+      addTearDown(() async {
+        for (final blocker in blockers) {
+          await blocker.close();
+        }
+      });
+
+      container = buildContainer(port: basePort);
+      final controller = container.read(
+        automationApiControllerProvider.notifier,
+      );
+
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: AutomationApiSettings(
+            enabled: true,
+            customPort: basePort,
+          ),
+        ),
+      );
+      expect(
+        container.read(automationApiControllerProvider).runState,
+        AutomationApiRunState.error,
+      );
+
+      // Turn the setting off again — the underlying server never bound
+      // anything, so _server.isRunning was false both before and after
+      // this call. If syncWithSettings short-circuits on that comparison
+      // alone, the error state survives the toggle.
+      await controller.syncWithSettings(AppSettings.defaults);
+
+      final state = container.read(automationApiControllerProvider);
+      expect(state.runState, AutomationApiRunState.stopped);
+      expect(state.port, isNull);
+      expect(state.requestedPort, isNull);
+    });
   });
 
   group('GET /v1/history/latest', () {

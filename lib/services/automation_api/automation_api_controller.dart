@@ -127,12 +127,19 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   /// about redundant start/stop churn.
   Future<void> syncWithSettings(AppSettings settings) async {
     final shouldRun = settings.automationApi.enabled;
-    if (shouldRun == _server.isRunning) return;
-    if (shouldRun) {
-      await _start(settings);
-    } else {
+    if (!shouldRun) {
+      // `_server.isRunning` only ever reflects a *successful* bind, so it
+      // stays false throughout a failed start (state.runState == error).
+      // Comparing shouldRun against it alone would short-circuit here and
+      // never call _stop(), leaving that error state stuck forever even
+      // though the setting is now off. Compare against our own state
+      // instead — it's the only thing that actually tracks "error".
+      if (state.runState == AutomationApiRunState.stopped) return;
       await _stop();
+      return;
     }
+    if (_server.isRunning) return;
+    await _start(settings);
   }
 
   Future<void> _start(AppSettings settings) async {
