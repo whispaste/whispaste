@@ -1,0 +1,62 @@
+name: stale
+
+# Marks inactive issues/PRs as stale and closes them after further inactivity,
+# so abandoned reports/PRs don't silently accumulate (solo-maintainer repo,
+# no triage team to sweep these manually).
+#
+# Periods (documented here, not just in the action's defaults):
+# - 60 days of inactivity -> marked stale.
+# - 14 more days without activity on top of that -> closed automatically.
+#   A new comment or commit resets the clock and removes the stale label.
+#
+# Exemptions: issues/PRs carrying a label that signals someone already wants
+# to act on them are left alone entirely, even if inactive:
+# - "good first issue" / "help wanted" (existing repo labels — intentionally
+#   left open for a contributor to pick up, possibly for a long time).
+# - "ready-for-agent" (existing repo label — triage already concluded it's
+#   worth implementing; staleness here reflects agent capacity, not that the
+#   issue lost relevance).
+# No "stale" label existed in this repo before this workflow (checked via
+# `gh label list`), so actions/stale's default label name is used as-is.
+#
+# Note: scheduled workflows only run from the repository's default branch
+# (main), so this cron activates after the next `dev` -> `main` merge; use
+# workflow_dispatch to run it immediately on any branch.
+on:
+  schedule:
+    - cron: '30 3 * * *' # daily, 03:30 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark/close stale issues and PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: 'good first issue,help wanted,ready-for-agent'
+          exempt-pr-labels: 'good first issue,help wanted,ready-for-agent'
+          stale-issue-message: >
+            This issue has had no activity for 60 days and is being marked
+            as stale. It will be closed in 14 days if there is no further
+            activity.
+          stale-pr-message: >
+            This pull request has had no activity for 60 days and is being
+            marked as stale. It will be closed in 14 days if there is no
+            further activity.
+          close-issue-message: >
+            Closing due to inactivity. Feel free to reopen or file a new
+            issue if this is still relevant.
+          close-pr-message: >
+            Closing due to inactivity. Feel free to reopen or open a new
+            pull request if this is still relevant.
+          close-issue-reason: not_planned
