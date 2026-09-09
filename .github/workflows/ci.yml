@@ -384,7 +384,7 @@ jobs:
       - name: Loam ratchet gate (a11y + slop + duplicates + exports + complexity + cycles)
         continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
-          dart pub global activate loam 0.1.14
+          dart pub global activate loam 0.1.15
           export PATH="$PATH:$HOME/.pub-cache/bin"
           flutter_bin="$(command -v flutter)"
           dart_sdk="$(dirname "$flutter_bin")/cache/dart-sdk"
