@@ -510,6 +510,22 @@ void main() {
       expect(updated.stt, base.stt);
     });
 
+    test(
+      'copyWithSections with an unrelated section preserves automationApi',
+      () {
+        final base = AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        );
+        expect(base.automationApi.enabled, isTrue);
+
+        final updated = base.copyWithSections(
+          smartMode: base.smartMode.copyWith(standardPreset: 'cleanup'),
+        );
+
+        expect(updated.automationApi.enabled, isTrue);
+      },
+    );
+
     test('targetLanguage (ticket 03) defaults to English', () {
       final defaults = AppSettings.defaults;
       expect(defaults.smartMode.targetLanguage, 'en');

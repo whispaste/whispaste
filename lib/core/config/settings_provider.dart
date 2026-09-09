@@ -605,6 +605,7 @@ class AppSettings {
       autosave: autosave,
       smartMode: smartMode,
       smartModeHotkey: smartModeHotkey,
+      automationApi: automationApi,
     );
   }
 
