@@ -18,6 +18,7 @@ import '../../../widgets/floating_button/floating_button_view.dart';
 import '../../../widgets/overlay_preview.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
+import '../widgets/overlay_size_selector.dart';
 
 // ---------------------------------------------------------------------------
 // Recording Overlay section
@@ -96,20 +97,14 @@ class OverlaySection extends ConsumerWidget {
               icon: LucideIcons.maximize2,
               label: l10n.settingsOverlaySize,
               subtitle: l10n.settingsOverlaySizeSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.overlaySizeType.value,
-                items: FloatingOverlaySize.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsOverlaySizeNormal,
-                  l10n.settingsOverlaySizeCompact,
-                  l10n.settingsOverlaySizeMini,
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
+              trailing: WpOverlaySizeSelector(
+                value: settings.overlaySizeType,
+                onChanged: (size) {
                   ref
                       .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(overlaySize: v));
+                      .updateSettings(
+                        (s) => s.copyWith(overlaySize: size.value),
+                      );
                 },
               ),
             ),

@@ -4,6 +4,9 @@
 /// - OverlaySection: consolidated start-position dropdown (off = overlay
 ///   disabled; real position = overlay enabled). No separate show-overlay
 ///   toggle row.
+/// - OverlaySection: the overlay-size setting is a [WpOverlaySizeSelector]
+///   (visual card selector), not a dropdown (Ticket 13) — the start-position
+///   and style rows are unaffected and stay `DropdownButton<String>`.
 /// - OverlaySection: real overlay preview (WpOverlayRealPreview / WpFloatingOverlayView)
 ///   in its own full-size row below the size row when enabled, absent when disabled.
 /// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true).
@@ -29,6 +32,7 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show settingsInlineBreak;
+import 'package:whispaste/features/settings/widgets/overlay_size_selector.dart';
 import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 import 'package:whispaste/widgets/overlay_preview.dart';
@@ -163,8 +167,10 @@ void main() {
           OverlayMode.floating.value,
         );
         expect(notifier.state.value!.overlay.showOverlay, isTrue);
-        // Start-position + size + style dropdowns now all visible.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(3));
+        // Start-position + style dropdowns visible; the size setting is now
+        // the WpOverlaySizeSelector card control (Ticket 13), not a dropdown.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+        expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
       },
     );
 
@@ -189,8 +195,10 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // Floating mode reveals start-position + size + style dropdowns.
-      expect(find.byType(DropdownButton<String>), findsNWidgets(3));
+      // Floating mode reveals start-position + style dropdowns and the
+      // overlay-size card selector.
+      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
     });
 
     // -- AC (a) ---------------------------------------------------------------
@@ -214,8 +222,10 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // Floating: 3 dropdowns visible.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(3));
+        // Floating: start-position + style dropdowns, and the size card
+        // selector.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+        expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
 
         // Simulate 'Aus' selection callback.
         notifier.updateSettings(
@@ -230,6 +240,7 @@ void main() {
         expect(notifier.state.value!.overlay.showOverlay, isFalse);
         // Only start-position dropdown remains; size row hidden.
         expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(find.byType(WpOverlaySizeSelector), findsNothing);
         expect(find.byType(WpOverlayRealPreview), findsNothing);
       },
     );
@@ -269,7 +280,8 @@ void main() {
         OverlayMode.floating.value,
       );
       expect(notifier.state.value!.overlay.showOverlay, isTrue);
-      expect(find.byType(DropdownButton<String>), findsNWidgets(3));
+      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
     });
 
     // -- AC (c) ---------------------------------------------------------------
@@ -611,6 +623,106 @@ void main() {
         find.byKey(const ValueKey('overlay-real-preview-normal')),
         findsNothing,
       );
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // OverlaySection — overlay-size card selector (Ticket 13)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('OverlaySection overlay-size card selector', () {
+    testWidgets('three size cards render, keyed by size value', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(overlayMode: 'floating'),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      // WpFloatingOverlayView has an infinite AnimationController — pump() only.
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('overlay-size-card-normal')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('overlay-size-card-compact')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('overlay-size-card-mini')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the compact card applies overlaySize exactly like the '
+        'former dropdown (same underlying setting key)', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlaySize: 'normal',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(notifier.state.value!.overlay.overlaySize, 'normal');
+
+      await tester.tap(find.byKey(const ValueKey('overlay-size-card-compact')));
+      await tester.pump();
+
+      expect(notifier.state.value!.overlay.overlaySize, 'compact');
+      // The real preview reacts to the same write the old dropdown made.
+      expect(
+        find.byKey(const ValueKey('overlay-real-preview-compact')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the mini card sets overlaySize to mini', (
+      tester,
+    ) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlaySize: 'normal',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('overlay-size-card-mini')));
+      await tester.pump();
+
+      expect(notifier.state.value!.overlay.overlaySize, 'mini');
     });
   });
 
