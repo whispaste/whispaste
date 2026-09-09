@@ -1461,13 +1461,25 @@
       "port": { "type": "int" }
     }
   },
-  "settingsAutomationApiStatusStopped": "Nicht aktiv",
-  "settingsAutomationApiStatusError": "Start fehlgeschlagen — Port {port} ist evtl. schon belegt",
-  "@settingsAutomationApiStatusError": {
+  "settingsAutomationApiStatusRunningFallback": "Aktiv auf Port {port} (Port {requestedPort} war belegt)",
+  "@settingsAutomationApiStatusRunningFallback": {
     "placeholders": {
-      "port": { "type": "int" }
+      "port": { "type": "int" },
+      "requestedPort": { "type": "int" }
     }
   },
+  "settingsAutomationApiStatusStopped": "Nicht aktiv",
+  "settingsAutomationApiStatusError": "Kein freier Port im Bereich {start}–{end} gefunden",
+  "@settingsAutomationApiStatusError": {
+    "placeholders": {
+      "start": { "type": "int" },
+      "end": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiCustomPortLabel": "Benutzerdefinierter Port",
+  "settingsAutomationApiCustomPortSubtitle": "Leer lassen für automatische Portwahl — weicht bei Belegung automatisch aus",
+  "settingsAutomationApiCustomPortHint": "Automatisch",
+  "settingsAutomationApiCustomPortInvalid": "Bitte einen Port zwischen 1024 und 65535 eingeben",
   "settingsAutomationApiToken": "Bearer-Token",
   "settingsAutomationApiTokenSubtitle": "Als \"Authorization: Bearer <token>\" senden — jede Anfrage ohne gültigen Token wird abgelehnt",
   "settingsAutomationApiRegenerate": "Neu erzeugen",

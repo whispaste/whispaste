@@ -34,6 +34,7 @@ import 'package:shelf/shelf.dart';
 
 import '../../core/config/settings_provider.dart';
 import '../../core/data/history_providers.dart';
+import '../../core/logging/app_logger.dart';
 import '../../features/history/data/history_detail_provider.dart';
 import '../snippet_picker/snippet_picker_service.dart';
 import 'automation_api_auth_middleware.dart';
@@ -43,11 +44,22 @@ import 'automation_api_server.dart';
 import 'automation_api_snippet_routes.dart';
 import 'automation_api_token_store.dart';
 
-/// Fixed port the automation API listens on. Not user-configurable — out of
-/// this ticket's scope (the acceptance criteria only ask that the *current*
-/// port be displayed, not that it be chosen) — high enough to avoid the
-/// most common local dev-server collisions (3000/5173/8080/…).
+final _log = AppLogger('AutomationApiController');
+
+/// Default port the automation API targets when the user hasn't set
+/// [AutomationApiSettings.customPort] — high enough to avoid the most
+/// common local dev-server collisions (3000/5173/8080/…).
+///
+/// This is only the *first* port tried: if binding to the target port
+/// (`customPort ?? kAutomationApiDefaultPort`) fails — most commonly
+/// `EADDRINUSE` — [AutomationApiController] automatically tries the next
+/// [kAutomationApiPortFallbackAttempts] consecutive ports before giving up.
 const kAutomationApiDefaultPort = 8765;
+
+/// Number of consecutive ports (starting at the target port) that
+/// [AutomationApiController] tries to bind before entering
+/// [AutomationApiRunState.error].
+const kAutomationApiPortFallbackAttempts = 20;
 
 enum AutomationApiRunState { stopped, running, error }
 
@@ -55,6 +67,7 @@ class AutomationApiState {
   const AutomationApiState({
     this.runState = AutomationApiRunState.stopped,
     this.port,
+    this.requestedPort,
     this.token,
   });
 
@@ -62,6 +75,12 @@ class AutomationApiState {
 
   /// The bound port while [runState] is `running`; `null` otherwise.
   final int? port;
+
+  /// The target port (`customPort ?? kAutomationApiDefaultPort`) the
+  /// current start attempt was configured for — set whenever [runState] is
+  /// `running` or `error`, `null` while `stopped`. Differs from [port] only
+  /// when the target was already taken and a fallback port bound instead.
+  final int? requestedPort;
 
   /// The current bearer token, once one has ever been generated — kept
   /// visible across a stop/start cycle so settings can still show/copy it
@@ -110,13 +129,13 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     final shouldRun = settings.automationApi.enabled;
     if (shouldRun == _server.isRunning) return;
     if (shouldRun) {
-      await _start();
+      await _start(settings);
     } else {
       await _stop();
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start(AppSettings settings) async {
     final tokenStore = ref.read(automationApiTokenStoreProvider);
     var token = await tokenStore.readToken();
     token ??= await tokenStore.regenerate();
@@ -130,19 +149,41 @@ class AutomationApiController extends Notifier<AutomationApiState> {
         .addMiddleware(bearerTokenAuth(currentToken: tokenStore.readToken))
         .addHandler(router.handler);
 
-    try {
-      final boundPort = await _server.start(port: port, handler: handler);
-      state = AutomationApiState(
-        runState: AutomationApiRunState.running,
-        port: boundPort,
-        token: token,
-      );
-    } catch (_) {
-      state = AutomationApiState(
-        runState: AutomationApiRunState.error,
-        token: token,
-      );
+    final targetPort = settings.automationApi.customPort ?? port;
+
+    // Try the target port first, then fall back to the next consecutive
+    // ports (most commonly needed after `EADDRINUSE`) before giving up —
+    // see the doc comment on [kAutomationApiPortFallbackAttempts].
+    for (
+      var attempt = 0;
+      attempt < kAutomationApiPortFallbackAttempts;
+      attempt++
+    ) {
+      try {
+        final boundPort = await _server.start(
+          port: targetPort + attempt,
+          handler: handler,
+        );
+        state = AutomationApiState(
+          runState: AutomationApiRunState.running,
+          port: boundPort,
+          requestedPort: targetPort,
+          token: token,
+        );
+        return;
+      } catch (e) {
+        // Bind failed (most likely the port is already in use) — log at
+        // `debug` (this is the *expected* path whenever the target port is
+        // taken, not an error) and try the next one.
+        _log.debug('Bind to port ${targetPort + attempt} failed', e);
+      }
     }
+
+    state = AutomationApiState(
+      runState: AutomationApiRunState.error,
+      requestedPort: targetPort,
+      token: token,
+    );
   }
 
   Future<void> _stop() async {
@@ -243,6 +284,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     state = AutomationApiState(
       runState: state.runState,
       port: state.port,
+      requestedPort: state.requestedPort,
       token: token,
     );
     return token;

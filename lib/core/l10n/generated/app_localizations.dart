@@ -7262,6 +7262,15 @@ abstract class L10n {
   /// **'Running on port {port}'**
   String settingsAutomationApiStatusRunning(int port);
 
+  /// No description provided for @settingsAutomationApiStatusRunningFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Running on port {port} (port {requestedPort} was in use)'**
+  String settingsAutomationApiStatusRunningFallback(
+    int port,
+    int requestedPort,
+  );
+
   /// No description provided for @settingsAutomationApiStatusStopped.
   ///
   /// In en, this message translates to:
@@ -7271,8 +7280,32 @@ abstract class L10n {
   /// No description provided for @settingsAutomationApiStatusError.
   ///
   /// In en, this message translates to:
-  /// **'Failed to start — port {port} may already be in use'**
-  String settingsAutomationApiStatusError(int port);
+  /// **'No free port found in range {start}–{end}'**
+  String settingsAutomationApiStatusError(int start, int end);
+
+  /// No description provided for @settingsAutomationApiCustomPortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom port'**
+  String get settingsAutomationApiCustomPortLabel;
+
+  /// No description provided for @settingsAutomationApiCustomPortSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for automatic port selection — falls back automatically if it\'s taken'**
+  String get settingsAutomationApiCustomPortSubtitle;
+
+  /// No description provided for @settingsAutomationApiCustomPortHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get settingsAutomationApiCustomPortHint;
+
+  /// No description provided for @settingsAutomationApiCustomPortInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a port between 1024 and 65535'**
+  String get settingsAutomationApiCustomPortInvalid;
 
   /// No description provided for @settingsAutomationApiToken.
   ///

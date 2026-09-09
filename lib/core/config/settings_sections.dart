@@ -36,6 +36,15 @@ double _readDouble(Map<String, String> v, String key, double fallback) =>
 int _readInt(Map<String, String> v, String key, int fallback) =>
     int.tryParse(v[key] ?? '') ?? fallback;
 
+/// Like [_readInt], but for a field whose absence means "unset" (`null`)
+/// rather than falling back to a default value.
+int? _readNullableInt(Map<String, String> v, String key) =>
+    int.tryParse(v[key] ?? '');
+
+/// Sentinel for `copyWith` parameters that must distinguish "not passed"
+/// from "explicitly set to null" — see [AutomationApiSettings.copyWith].
+const _unset = Object();
+
 Map<QualityTier, double>? _readBenchmarkRtf(String? value) {
   if (value == null || value.isEmpty) return null;
   try {
@@ -2144,41 +2153,66 @@ class SmartModeHotkeySettings {
 // ===========================================================================
 
 /// Local automation API settings (ticket 03,
-/// `.scratch/local-automation-api/`) — a loopback-only HTTP server power
-/// users can script dictation against.
+/// `.scratch/local-automation-api/`; port robustness/custom port follow-up
+/// `.scratch/automation-api-port-robustness/`) — a loopback-only HTTP server
+/// power users can script dictation against.
 ///
-/// Only the on/off switch is persisted here. The bearer token lives in
-/// secure storage (`wp_automation_api_token`, see
+/// The bearer token lives in secure storage (`wp_automation_api_token`, see
 /// `lib/services/automation_api/automation_api_token_store.dart`), never in
 /// this flat settings map — same separation `CloudProviderSettings` uses for
-/// API keys. The listening port is runtime state (exposed by
-/// `AutomationApiController`), not a persisted setting.
+/// API keys. The *actually bound* port is runtime state (exposed by
+/// `AutomationApiController`), not a persisted setting — only the user's
+/// requested [customPort] is.
 class AutomationApiSettings {
-  const AutomationApiSettings({this.enabled = false});
+  const AutomationApiSettings({this.enabled = false, this.customPort});
 
   /// Whether the local automation API server should be running. Off by
   /// default — the ticket's first acceptance criterion.
   final bool enabled;
+
+  /// User-chosen port to bind to; `null` (the default) means "automatic" —
+  /// the server targets [kAutomationApiDefaultPort] and, on a bind
+  /// failure, automatically tries a small range of alternates (see
+  /// `AutomationApiController._start`).
+  final int? customPort;
 
   static const AutomationApiSettings defaults = AutomationApiSettings();
 
   factory AutomationApiSettings.fromMap(Map<String, String> v) =>
       AutomationApiSettings(
         enabled: _readBool(v, 'automation_api_enabled', defaults.enabled),
+        customPort: _readNullableInt(v, 'automation_api_custom_port'),
       );
 
-  Map<String, String> toMap() => {'automation_api_enabled': '$enabled'};
+  Map<String, String> toMap() => {
+    'automation_api_enabled': '$enabled',
+    'automation_api_custom_port': customPort?.toString() ?? '',
+  };
 
-  AutomationApiSettings copyWith({bool? enabled}) =>
-      AutomationApiSettings(enabled: enabled ?? this.enabled);
+  /// [customPort] defaults to the private [_unset] sentinel so
+  /// `copyWith(customPort: null)` can explicitly clear it back to
+  /// "automatic" — omitting the argument entirely leaves the current value
+  /// untouched, the same distinction every other nullable field in this
+  /// file cannot make (none of them are ever cleared once set).
+  AutomationApiSettings copyWith({
+    bool? enabled,
+    Object? customPort = _unset,
+  }) => AutomationApiSettings(
+    enabled: enabled ?? this.enabled,
+    customPort: identical(customPort, _unset)
+        ? this.customPort
+        : customPort as int?,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is AutomationApiSettings && enabled == other.enabled;
+      other is AutomationApiSettings &&
+          enabled == other.enabled &&
+          customPort == other.customPort;
 
   @override
-  int get hashCode => enabled.hashCode;
+  int get hashCode => Object.hash(enabled, customPort);
 }
 
 // ===========================================================================

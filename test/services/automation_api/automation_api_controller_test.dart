@@ -120,7 +120,14 @@ void main() {
   late ProviderContainer container;
   var triggerCallCount = 0;
 
-  ProviderContainer buildContainer({HistoryDatabase? db, _FakePaster? paster}) {
+  ProviderContainer buildContainer({
+    HistoryDatabase? db,
+    _FakePaster? paster,
+    // Ephemeral (OS-assigned) by default, same as every other test in this
+    // file. Port-fallback tests below override it with a specific,
+    // deliberately pre-occupied port.
+    int port = 0,
+  }) {
     triggerCallCount = 0;
     return ProviderContainer(
       overrides: [
@@ -133,7 +140,7 @@ void main() {
         if (paster != null) pasterProvider.overrideWithValue(paster),
         automationApiControllerProvider.overrideWith(
           () => AutomationApiController(
-            port: 0,
+            port: port,
             triggerDictation: (ref) async {
               triggerCallCount++;
             },
@@ -284,6 +291,83 @@ void main() {
     final secondPort = container.read(automationApiControllerProvider).port;
 
     expect(firstPort, secondPort);
+  });
+
+  group('port fallback (port robustness ticket)', () {
+    test('the target port is already bound → the controller falls back to '
+        'the next free port and reports both the actual and requested port '
+        'in state', () async {
+      // Hold a real socket open on a port the controller will then be
+      // asked to target, forcing its first bind attempt to fail exactly
+      // the way a real EADDRINUSE would.
+      final blocker = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final occupiedPort = blocker.port;
+      addTearDown(blocker.close);
+
+      container = buildContainer(port: occupiedPort);
+      final controller = container.read(
+        automationApiControllerProvider.notifier,
+      );
+
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: AutomationApiSettings(
+            enabled: true,
+            customPort: occupiedPort,
+          ),
+        ),
+      );
+
+      final state = container.read(automationApiControllerProvider);
+      expect(state.isRunning, isTrue);
+      expect(state.requestedPort, occupiedPort);
+      expect(state.port, isNot(occupiedPort));
+      expect(state.port! > occupiedPort, isTrue);
+    });
+
+    test(
+      'the target port and every fallback candidate are all bound → '
+      'error state with the requested port (not just an actual bound one)',
+      () async {
+        // Occupy the target port and every port the fallback loop would
+        // try after it (kAutomationApiPortFallbackAttempts consecutive
+        // ports), so every single bind attempt fails.
+        final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        final basePort = probe.port;
+        await probe.close();
+
+        final blockers = <ServerSocket>[];
+        for (var i = 0; i < kAutomationApiPortFallbackAttempts; i++) {
+          blockers.add(
+            await ServerSocket.bind(InternetAddress.loopbackIPv4, basePort + i),
+          );
+        }
+        addTearDown(() async {
+          for (final blocker in blockers) {
+            await blocker.close();
+          }
+        });
+
+        container = buildContainer(port: basePort);
+        final controller = container.read(
+          automationApiControllerProvider.notifier,
+        );
+
+        await controller.syncWithSettings(
+          AppSettings.defaults.copyWithSections(
+            automationApi: AutomationApiSettings(
+              enabled: true,
+              customPort: basePort,
+            ),
+          ),
+        );
+
+        final state = container.read(automationApiControllerProvider);
+        expect(state.runState, AutomationApiRunState.error);
+        expect(state.port, isNull);
+        expect(state.requestedPort, basePort);
+      },
+    );
   });
 
   group('GET /v1/history/latest', () {

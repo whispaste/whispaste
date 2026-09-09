@@ -4084,12 +4084,34 @@ class L10nHe extends L10n {
   }
 
   @override
+  String settingsAutomationApiStatusRunningFallback(
+    int port,
+    int requestedPort,
+  ) {
+    return 'Running on port $port (port $requestedPort was in use)';
+  }
+
+  @override
   String get settingsAutomationApiStatusStopped => 'Not running';
 
   @override
-  String settingsAutomationApiStatusError(int port) {
-    return 'Failed to start — port $port may already be in use';
+  String settingsAutomationApiStatusError(int start, int end) {
+    return 'No free port found in range $start–$end';
   }
+
+  @override
+  String get settingsAutomationApiCustomPortLabel => 'Custom port';
+
+  @override
+  String get settingsAutomationApiCustomPortSubtitle =>
+      'Leave empty for automatic port selection — falls back automatically if it\'s taken';
+
+  @override
+  String get settingsAutomationApiCustomPortHint => 'Automatic';
+
+  @override
+  String get settingsAutomationApiCustomPortInvalid =>
+      'Enter a port between 1024 and 65535';
 
   @override
   String get settingsAutomationApiToken => 'Bearer token';

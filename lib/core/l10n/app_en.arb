@@ -1675,13 +1675,25 @@
       "port": { "type": "int" }
     }
   },
-  "settingsAutomationApiStatusStopped": "Not running",
-  "settingsAutomationApiStatusError": "Failed to start — port {port} may already be in use",
-  "@settingsAutomationApiStatusError": {
+  "settingsAutomationApiStatusRunningFallback": "Running on port {port} (port {requestedPort} was in use)",
+  "@settingsAutomationApiStatusRunningFallback": {
     "placeholders": {
-      "port": { "type": "int" }
+      "port": { "type": "int" },
+      "requestedPort": { "type": "int" }
     }
   },
+  "settingsAutomationApiStatusStopped": "Not running",
+  "settingsAutomationApiStatusError": "No free port found in range {start}–{end}",
+  "@settingsAutomationApiStatusError": {
+    "placeholders": {
+      "start": { "type": "int" },
+      "end": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiCustomPortLabel": "Custom port",
+  "settingsAutomationApiCustomPortSubtitle": "Leave empty for automatic port selection — falls back automatically if it's taken",
+  "settingsAutomationApiCustomPortHint": "Automatic",
+  "settingsAutomationApiCustomPortInvalid": "Enter a port between 1024 and 65535",
   "settingsAutomationApiToken": "Bearer token",
   "settingsAutomationApiTokenSubtitle": "Send it as \"Authorization: Bearer <token>\" — every request without it is rejected",
   "settingsAutomationApiRegenerate": "Regenerate",

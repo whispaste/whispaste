@@ -155,4 +155,57 @@ void main() {
       expect(a == b, isFalse);
     });
   });
+
+  group('AutomationApiSettings.customPort', () {
+    test('defaults to null — "automatic"', () {
+      expect(AutomationApiSettings.defaults.customPort, isNull);
+    });
+
+    test('toMap -> fromMap round-trip preserves a custom value', () {
+      const settings = AutomationApiSettings(customPort: 9000);
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.customPort, 9000);
+    });
+
+    test('toMap -> fromMap round-trip preserves null', () {
+      const settings = AutomationApiSettings();
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.customPort, isNull);
+    });
+
+    test('missing key in map falls back to null', () {
+      final map = Map<String, String>.from(
+        AutomationApiSettings.defaults.toMap(),
+      )..remove('automation_api_custom_port');
+      final restored = AutomationApiSettings.fromMap(map);
+      expect(restored.customPort, isNull);
+    });
+
+    test('copyWith() without arguments keeps the previous value', () {
+      const original = AutomationApiSettings(customPort: 9000);
+      final updated = original.copyWith();
+      expect(updated.customPort, 9000);
+    });
+
+    test('copyWith(customPort: value) sets it', () {
+      const original = AutomationApiSettings();
+      final updated = original.copyWith(customPort: 9000);
+      expect(updated.customPort, 9000);
+    });
+
+    test(
+      'copyWith(customPort: null) explicitly clears it back to automatic',
+      () {
+        const original = AutomationApiSettings(customPort: 9000);
+        final updated = original.copyWith(customPort: null);
+        expect(updated.customPort, isNull);
+      },
+    );
+
+    test('two instances differing only in customPort are unequal', () {
+      const a = AutomationApiSettings(customPort: 9000);
+      const b = AutomationApiSettings(customPort: 9001);
+      expect(a == b, isFalse);
+    });
+  });
 }

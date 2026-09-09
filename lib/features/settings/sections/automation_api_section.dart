@@ -15,6 +15,7 @@ import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
 
 class AutomationApiSection extends ConsumerWidget {
@@ -49,6 +50,8 @@ class AutomationApiSection extends ConsumerWidget {
                   ),
             ),
           ),
+          settingsInlineBreak,
+          _CustomPortField(initialValue: settings.automationApi.customPort),
           if (enabled) ...[
             settingsInlineBreak,
             SettingRow(
@@ -101,11 +104,19 @@ class AutomationApiSection extends ConsumerWidget {
   String _statusLabel(L10n l10n, AutomationApiState state) =>
       switch (state.runState) {
         AutomationApiRunState.running =>
-          l10n.settingsAutomationApiStatusRunning(state.port ?? 0),
+          state.port != null && state.port != state.requestedPort
+              ? l10n.settingsAutomationApiStatusRunningFallback(
+                  state.port!,
+                  state.requestedPort ?? state.port!,
+                )
+              : l10n.settingsAutomationApiStatusRunning(state.port ?? 0),
         AutomationApiRunState.stopped =>
           l10n.settingsAutomationApiStatusStopped,
         AutomationApiRunState.error => l10n.settingsAutomationApiStatusError(
-          kAutomationApiDefaultPort,
+          state.requestedPort ?? kAutomationApiDefaultPort,
+          (state.requestedPort ?? kAutomationApiDefaultPort) +
+              kAutomationApiPortFallbackAttempts -
+              1,
         ),
       };
 
@@ -134,5 +145,101 @@ class AutomationApiSection extends ConsumerWidget {
     if (!confirmed) return;
 
     await ref.read(automationApiControllerProvider.notifier).regenerateToken();
+  }
+}
+
+/// Lowest/highest port [AutomationApiSettings.customPort] accepts — ports
+/// below 1024 are privileged and locally meaningless anyway.
+const kAutomationApiCustomPortMin = 1024;
+const kAutomationApiCustomPortMax = 65535;
+
+/// Validates raw text-field input for [AutomationApiSettings.customPort].
+/// Empty input is valid (→ "automatic" / `null`); otherwise the value must
+/// be a plain integer within [kAutomationApiCustomPortMin]–
+/// [kAutomationApiCustomPortMax]. Exposed standalone so it can be unit
+/// tested without mounting the widget.
+bool isValidAutomationApiCustomPortInput(String value) {
+  if (value.isEmpty) return true;
+  final parsed = int.tryParse(value);
+  return parsed != null &&
+      parsed >= kAutomationApiCustomPortMin &&
+      parsed <= kAutomationApiCustomPortMax;
+}
+
+// ---------------------------------------------------------------------------
+// Custom port text field
+// ---------------------------------------------------------------------------
+
+class _CustomPortField extends ConsumerStatefulWidget {
+  const _CustomPortField({required this.initialValue});
+
+  final int? initialValue;
+
+  @override
+  ConsumerState<_CustomPortField> createState() => _CustomPortFieldState();
+}
+
+class _CustomPortFieldState extends ConsumerState<_CustomPortField> {
+  late final TextEditingController _ctrl;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialValue?.toString() ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant _CustomPortField old) {
+    super.didUpdateWidget(old);
+    final text = widget.initialValue?.toString() ?? '';
+    if (old.initialValue != widget.initialValue && _ctrl.text != text) {
+      _ctrl.text = text;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    if (!isValidAutomationApiCustomPortInput(value)) {
+      setState(
+        () => _error = L10n.of(context).settingsAutomationApiCustomPortInvalid,
+      );
+      return;
+    }
+    setState(() => _error = null);
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            automationApi: s.automationApi.copyWith(
+              customPort: value.isEmpty ? null : int.parse(value),
+            ),
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return SettingRow(
+      icon: LucideIcons.hash,
+      label: l10n.settingsAutomationApiCustomPortLabel,
+      subtitle: _error ?? l10n.settingsAutomationApiCustomPortSubtitle,
+      trailing: SizedBox(
+        width: 120,
+        child: WpTextField(
+          controller: _ctrl,
+          variant: WpTextFieldVariant.form,
+          semanticsLabel: l10n.settingsAutomationApiCustomPortLabel,
+          hintText: l10n.settingsAutomationApiCustomPortHint,
+          onChanged: _onChanged,
+        ),
+      ),
+    );
   }
 }

@@ -4181,12 +4181,34 @@ class L10nDe extends L10n {
   }
 
   @override
+  String settingsAutomationApiStatusRunningFallback(
+    int port,
+    int requestedPort,
+  ) {
+    return 'Aktiv auf Port $port (Port $requestedPort war belegt)';
+  }
+
+  @override
   String get settingsAutomationApiStatusStopped => 'Nicht aktiv';
 
   @override
-  String settingsAutomationApiStatusError(int port) {
-    return 'Start fehlgeschlagen — Port $port ist evtl. schon belegt';
+  String settingsAutomationApiStatusError(int start, int end) {
+    return 'Kein freier Port im Bereich $start–$end gefunden';
   }
+
+  @override
+  String get settingsAutomationApiCustomPortLabel => 'Benutzerdefinierter Port';
+
+  @override
+  String get settingsAutomationApiCustomPortSubtitle =>
+      'Leer lassen für automatische Portwahl — weicht bei Belegung automatisch aus';
+
+  @override
+  String get settingsAutomationApiCustomPortHint => 'Automatisch';
+
+  @override
+  String get settingsAutomationApiCustomPortInvalid =>
+      'Bitte einen Port zwischen 1024 und 65535 eingeben';
 
   @override
   String get settingsAutomationApiToken => 'Bearer-Token';
