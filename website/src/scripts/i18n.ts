@@ -8,7 +8,7 @@ export const i18n: Record<string, Record<string, string>> = {
   en: {
     'meta.title.default': 'WhisPaste: Voice to text, pasted anywhere',
     'meta.description.default': 'Desktop voice-input tool that turns your voice into text right at the cursor, offline or with cloud providers. Free & open source for Windows, macOS & Linux.',
-    'meta.title.home': 'WhisPaste: Voice input in every desktop app',
+    'meta.title.home': 'WhisPaste — Free, Open-Source Voice Dictation for Desktop',
     'meta.description.home': 'Press a hotkey and speak. WhisPaste inserts the transcript at your cursor and runs locally by default on Windows, macOS and Linux. Free and open source.',
     'meta.title.download': 'Download WhisPaste: voice input for Windows, macOS & Linux',
     'meta.description.download': 'Download WhisPaste for Windows, macOS and Linux — free, open source and fully local. No account, no cloud, no subscription.',
@@ -883,7 +883,7 @@ export const i18n: Record<string, Record<string, string>> = {
   de: {
     'meta.title.default': 'WhisPaste: Spracheingabe direkt am Cursor',
     'meta.description.default': 'Desktop-Sprach-Eingabe-Tool, das deine Stimme in Text verwandelt, offline oder mit Cloud-Anbietern. Kostenlos & Open Source.',
-    'meta.title.home': 'WhisPaste: Spracheingabe direkt am Cursor',
+    'meta.title.home': 'WhisPaste – Kostenlose, quelloffene Spracheingabe am Desktop',
     'meta.description.home': 'Tastenkürzel drücken, sprechen: WhisPaste fügt den Text am Cursor ein und läuft lokal auf Windows, macOS und Linux. Kostenlos & quelloffen.',
     'meta.title.download': 'WhisPaste herunterladen: Spracheingabe für Windows, macOS & Linux',
     'meta.description.download': 'WhisPaste für Windows, macOS und Linux herunterladen — kostenlos, quelloffen und komplett lokal. Kein Konto, keine Cloud, kein Abo.',
