@@ -215,6 +215,20 @@ const String gpuDetectionFailed = 'gpu-detection-failed';
 const String sttGpuLoadCrashRecovered = 'stt-gpu-load-crash-recovered';
 
 // ---------------------------------------------------------------------------
+// Ticket 10 (GPU-vendor-distribution telemetry, 2026-09). One anonymous
+// "vendor" + "platform" info-level signal per session on Windows/Linux,
+// feeding a later data-driven CUDA-build decision (see
+// `.scratch/fluidvoice-catchup/issues/10-gpu-vendor-telemetrie.md`). Not a
+// failure — captured as `info`, distinct from [gpuDetectionFailed].
+// ---------------------------------------------------------------------------
+
+/// Anonymous GPU-vendor-distribution signal (Ticket 10). Captured at most
+/// once per app session, Windows/Linux only, via [CrashReporter.captureError]
+/// with `severity: 'info'` — reuses the existing opt-out Sentry channel, no
+/// new consent mechanism.
+const String gpuVendorTelemetry = 'gpu-vendor-telemetry';
+
+// ---------------------------------------------------------------------------
 // Full iterable for tooling (e.g. „verify no inline fingerprint string in
 // the codebase appears outside this file"). Order is irrelevant — Sentry
 // treats fingerprints as a set of strings, not an ordered list.
@@ -255,4 +269,6 @@ const List<String> allCrashFingerprints = <String>[
   sttStartupDeadline,
   gpuDetectionFailed,
   sttGpuLoadCrashRecovered,
+  // Ticket 10 (GPU-vendor-distribution telemetry, 2026-09).
+  gpuVendorTelemetry,
 ];

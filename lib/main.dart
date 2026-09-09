@@ -317,7 +317,12 @@ Future<void> _runApp(List<String> args) async {
   // regardless of available/forced GPU acceleration (never re-evaluated
   // afterwards). detectGpu() never throws — worst case this adds a few
   // seconds to cold start on a slow probe, never hangs.
-  await container.read(hw.gpuInfoProvider.future);
+  final gpu = await container.read(hw.gpuInfoProvider.future);
+
+  // Ticket 10 — anonymous GPU-vendor-distribution signal for a later
+  // CUDA-build decision, over the existing opt-out Sentry channel (same
+  // consent gate as `initHardwareInfoTelemetry` above). Windows/Linux only.
+  hw.reportGpuVendorTelemetry(gpu);
 
   _scheduleStartupSideEffects(container, settings);
 
