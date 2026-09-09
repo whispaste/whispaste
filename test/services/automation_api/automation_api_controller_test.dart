@@ -13,12 +13,33 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shelf/shelf.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
+import 'package:whispaste/services/automation_api/automation_api_server.dart';
 import 'package:whispaste/services/paste/paster.dart';
+
+/// Delays only the *first-ever* call to [start] before delegating to the
+/// real bind logic — used to deterministically reproduce the race where a
+/// second, concurrent `_start()` reaches the real bind well before the
+/// first one (which is what actually happened in production: the first
+/// call's token-store read was slow, giving a second, redundant
+/// `syncWithSettings` call time to win the real bind first).
+class _FirstCallDelayedServer extends AutomationApiServer {
+  bool _delayedOnce = false;
+
+  @override
+  Future<int> start({required int port, required Handler handler}) async {
+    if (!_delayedOnce) {
+      _delayedOnce = true;
+      await Future.delayed(const Duration(milliseconds: 30));
+    }
+    return super.start(port: port, handler: handler);
+  }
+}
 
 class _FakeSecureKeyStore implements SecureKeyStore {
   final Map<String, String> store = {};
@@ -127,6 +148,7 @@ void main() {
     // file. Port-fallback tests below override it with a specific,
     // deliberately pre-occupied port.
     int port = 0,
+    AutomationApiServer? server,
   }) {
     triggerCallCount = 0;
     return ProviderContainer(
@@ -141,6 +163,7 @@ void main() {
         automationApiControllerProvider.overrideWith(
           () => AutomationApiController(
             port: port,
+            server: server,
             triggerDictation: (ref) async {
               triggerCallCount++;
             },
@@ -417,6 +440,48 @@ void main() {
       expect(state.runState, AutomationApiRunState.stopped);
       expect(state.port, isNull);
       expect(state.requestedPort, isNull);
+    });
+
+    test('a second syncWithSettings firing while the first is still starting '
+        '(e.g. an unrelated settings write racing the toggle) must not '
+        'clobber the successful "running" state with a false "error" — '
+        'mirrors the real app.dart settings listener firing twice for one '
+        'toggle', () async {
+      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final targetPort = probe.port;
+      await probe.close();
+
+      // The delayed server deterministically reproduces the production
+      // timing: the first `_start()` call's real bind is slow (in
+      // production this was the token-store/keychain read), giving a
+      // second, concurrent call time to reach the real bind first.
+      container = buildContainer(
+        port: targetPort,
+        server: _FirstCallDelayedServer(),
+      );
+      final controller = container.read(
+        automationApiControllerProvider.notifier,
+      );
+
+      final settings = AppSettings.defaults.copyWithSections(
+        automationApi: AutomationApiSettings(
+          enabled: true,
+          customPort: targetPort,
+        ),
+      );
+
+      // Neither call is awaited before the next starts — both run their
+      // synchronous prelude (reading `state`/`_server.isRunning`) before
+      // either's first `await` resumes, exactly like two settings-changed
+      // notifications firing back-to-back in app.dart.
+      final first = controller.syncWithSettings(settings);
+      final second = controller.syncWithSettings(settings);
+      await Future.wait([first, second]);
+
+      final state = container.read(automationApiControllerProvider);
+      expect(state.runState, AutomationApiRunState.running);
+      expect(state.port, targetPort);
+      expect(state.requestedPort, targetPort);
     });
   });
 

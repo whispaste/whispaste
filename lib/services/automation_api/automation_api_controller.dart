@@ -121,11 +121,32 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     return const AutomationApiState();
   }
 
+  /// Serializes [syncWithSettings]/[shutdown] against each other. Both call
+  /// into [_start]/[_stop], which are not reentrant (they mutate the shared
+  /// [_server] and [state] across several `await` points) — without this,
+  /// `app.dart`'s settings listener firing a second time (e.g. the autosave
+  /// scheduler's debounced write-back touching an unrelated section) while
+  /// the first call's [_start] is still awaiting its token/bind work would
+  /// run a second, concurrent [_start] that either double-binds a port or
+  /// (once the first bind has landed) fails all of its own fallback
+  /// attempts against the now-already-running [_server] and overwrites the
+  /// correctly-running state with a false "error".
+  Future<void> _queue = Future.value();
+
+  Future<T> _serialized<T>(Future<T> Function() operation) {
+    final result = _queue.then((_) => operation());
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
   /// Reconciles the running server with `settings.automationApi.enabled`.
   /// A no-op when the desired state already matches the actual one, so
   /// callers can invoke this on every settings change without worrying
   /// about redundant start/stop churn.
-  Future<void> syncWithSettings(AppSettings settings) async {
+  Future<void> syncWithSettings(AppSettings settings) =>
+      _serialized(() => _syncWithSettingsSerialized(settings));
+
+  Future<void> _syncWithSettingsSerialized(AppSettings settings) async {
     final shouldRun = settings.automationApi.enabled;
     _log.info(
       'syncWithSettings: shouldRun=$shouldRun currentRunState=${state.runState} '
@@ -294,8 +315,10 @@ class AutomationApiController extends Notifier<AutomationApiState> {
 
   /// Unconditionally stops the server, regardless of the current settings
   /// value — used by `graceful_shutdown.dart` on app quit, where the intent
-  /// is "close every socket now", not "reconcile with settings".
-  Future<void> shutdown() => _stop();
+  /// is "close every socket now", not "reconcile with settings". Goes
+  /// through the same [_serialized] queue as [syncWithSettings] so it can't
+  /// race an in-flight [_start].
+  Future<void> shutdown() => _serialized(_stop);
 
   /// Generates a fresh token, immediately invalidating the previous one —
   /// the auth middleware reads the token store on every request, so this
