@@ -1449,6 +1449,30 @@
   "smartModeUsageHintCta": "Einrichten",
   "smartModeUsageHintDismiss": "Nicht jetzt",
 
+  "settingsAutomationApi": "Lokale Automatisierungs-API",
+  "settingsAutomationApiSubtitle": "Diktat aus eigenen Skripten über eine nur lokal erreichbare HTTP-API auslösen",
+  "settingsAutomationApiEnable": "Lokale Automatisierungs-API aktivieren",
+  "settingsAutomationApiEnableSubtitle": "Bindet nur an 127.0.0.1/::1 — aus dem Netzwerk nie erreichbar",
+  "settingsAutomationApiStatusRunning": "Aktiv auf Port {port}",
+  "@settingsAutomationApiStatusRunning": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiStatusStopped": "Nicht aktiv",
+  "settingsAutomationApiStatusError": "Start fehlgeschlagen — Port {port} ist evtl. schon belegt",
+  "@settingsAutomationApiStatusError": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiToken": "Bearer-Token",
+  "settingsAutomationApiTokenSubtitle": "Als \"Authorization: Bearer <token>\" senden — jede Anfrage ohne gültigen Token wird abgelehnt",
+  "settingsAutomationApiRegenerate": "Neu erzeugen",
+  "settingsAutomationApiRegenerateConfirmTitle": "Token neu erzeugen?",
+  "settingsAutomationApiRegenerateConfirmMessage": "Der aktuelle Token funktioniert danach sofort nicht mehr. Skripte, die ihn nutzen, brauchen den neuen.",
+  "settingsAutomationApiCopyToken": "Token kopieren",
+  "settingsAutomationApiTokenCopied": "Token in die Zwischenablage kopiert",
   "historyCharacterCount": "{count} Zeichen",
   "historyPastedInto": "Eingefügt in {app}",
   "historyShowOriginalTranscript": "Original-Transkript anzeigen",

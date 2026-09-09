@@ -33,6 +33,7 @@ import 'side_panel_render_entrypoint.dart';
 import 'snippet_picker_render_entrypoint.dart';
 import 'services/audio_service.dart';
 import 'services/auto_updater_service.dart';
+import 'services/automation_api/automation_api_controller.dart';
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -40,6 +41,7 @@ import 'services/graceful_shutdown.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
+import 'services/recording_orchestrator.dart';
 import 'services/single_instance_service.dart';
 import 'services/sound_feedback_service.dart';
 import 'services/stt/whisper/gpu_load_crash_guard.dart';
@@ -92,7 +94,25 @@ Future<ProviderContainer> bootstrapAppContainer({
   List<ProviderObserver> observers = const [],
 }) async {
   final container = ProviderContainer(
-    overrides: [...overrides],
+    overrides: [
+      // Local automation API (ticket 03) dictation trigger, wired to the
+      // same use case the main hotkey calls. Deliberately supplied here
+      // (main.dart is never imported by anything else) rather than as a
+      // default inside automation_api_controller.dart, which would
+      // otherwise have to import recording_orchestrator.dart directly and
+      // close an import cycle back through graceful_shutdown.dart -> that
+      // file -> macos_lifecycle_channel.dart. Listed first so a caller's
+      // own override (e.g. in tests, though none currently reuse this
+      // function) can still take precedence by appearing later.
+      automationApiControllerProvider.overrideWith(
+        () => AutomationApiController(
+          triggerDictation: (ref) => ref
+              .read(recordingOrchestratorProvider.notifier)
+              .toggleRecording(),
+        ),
+      ),
+      ...overrides,
+    ],
     observers: observers,
   );
   await container.read(settingsProvider.future);

@@ -4154,6 +4154,59 @@ class L10nDe extends L10n {
   String get smartModeUsageHintDismiss => 'Nicht jetzt';
 
   @override
+  String get settingsAutomationApi => 'Lokale Automatisierungs-API';
+
+  @override
+  String get settingsAutomationApiSubtitle =>
+      'Diktat aus eigenen Skripten über eine nur lokal erreichbare HTTP-API auslösen';
+
+  @override
+  String get settingsAutomationApiEnable =>
+      'Lokale Automatisierungs-API aktivieren';
+
+  @override
+  String get settingsAutomationApiEnableSubtitle =>
+      'Bindet nur an 127.0.0.1/::1 — aus dem Netzwerk nie erreichbar';
+
+  @override
+  String settingsAutomationApiStatusRunning(int port) {
+    return 'Aktiv auf Port $port';
+  }
+
+  @override
+  String get settingsAutomationApiStatusStopped => 'Nicht aktiv';
+
+  @override
+  String settingsAutomationApiStatusError(int port) {
+    return 'Start fehlgeschlagen — Port $port ist evtl. schon belegt';
+  }
+
+  @override
+  String get settingsAutomationApiToken => 'Bearer-Token';
+
+  @override
+  String get settingsAutomationApiTokenSubtitle =>
+      'Als \"Authorization: Bearer <token>\" senden — jede Anfrage ohne gültigen Token wird abgelehnt';
+
+  @override
+  String get settingsAutomationApiRegenerate => 'Neu erzeugen';
+
+  @override
+  String get settingsAutomationApiRegenerateConfirmTitle =>
+      'Token neu erzeugen?';
+
+  @override
+  String get settingsAutomationApiRegenerateConfirmMessage =>
+      'Der aktuelle Token funktioniert danach sofort nicht mehr. Skripte, die ihn nutzen, brauchen den neuen.';
+
+  @override
+  String get settingsAutomationApiCopyToken => 'Token kopieren';
+
+  @override
+  String get settingsAutomationApiTokenCopied =>
+      'Token in die Zwischenablage kopiert';
+
+  @override
   String historyCharacterCount(int count) {
     return '$count Zeichen';
   }

@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
+import 'automation_api/automation_api_controller.dart';
 import 'stt_engine_lifecycle_provider.dart';
 import 'telemetry_service.dart';
 
@@ -30,6 +31,18 @@ Future<void> runGracefulEngineShutdown(ProviderContainer container) async {
         .timeout(const Duration(seconds: 10));
   } catch (e) {
     _log.debug('STT engine stop failed during shutdown (non-fatal): $e');
+  }
+
+  try {
+    // Local automation API (ticket 03) — single-instance, in-process server;
+    // close its socket(s) explicitly rather than relying on process exit,
+    // same reasoning as the DB close below.
+    await container
+        .read(automationApiControllerProvider.notifier)
+        .shutdown()
+        .timeout(const Duration(seconds: 2), onTimeout: () {});
+  } catch (e) {
+    _log.debug('Automation API stop failed during shutdown (non-fatal): $e');
   }
 
   try {

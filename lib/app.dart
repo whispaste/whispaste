@@ -53,6 +53,7 @@ import 'services/paste/tcc_reset_notice.dart';
 import 'services/permissions/mic_permission_notifier.dart';
 import 'services/permissions/startup_permission_gate.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
+import 'services/automation_api/automation_api_controller.dart';
 import 'services/microphone_selection_service.dart';
 import 'services/settings_autosave_service.dart';
 import 'services/settings_portability_service.dart'
@@ -419,6 +420,25 @@ class _AppShellState extends ConsumerState<_AppShell>
     });
 
     _setupSettingsAutosave();
+    _setupAutomationApiLifecycle();
+  }
+
+  /// Starts/stops the local automation API server (ticket 03,
+  /// `.scratch/local-automation-api/`) to match
+  /// `settings.automationApi.enabled` — single-instance, same process, tied
+  /// to app lifecycle exactly like the autosave scheduler above.
+  /// `fireImmediately` also starts it on launch if it was left enabled from
+  /// a previous session.
+  void _setupAutomationApiLifecycle() {
+    ref.listenManual(settingsProvider, (_, next) {
+      final settings = next.value;
+      if (settings == null) return;
+      unawaited(
+        ref
+            .read(automationApiControllerProvider.notifier)
+            .syncWithSettings(settings),
+      );
+    }, fireImmediately: true);
   }
 
   /// Arms the Autosicherung triggers (Ticket 26, decisions E11a–E11d).

@@ -84,5 +84,17 @@ void main() {
       expect(restored.textReplacementsEnabled, isTrue);
       expect(restored.onboardingCompleted, isTrue);
     });
+
+    test('automationApi.enabled survives round-trip', () {
+      final custom = AppSettings.defaults.copyWithSections(
+        automationApi: AppSettings.defaults.automationApi.copyWith(
+          enabled: true,
+        ),
+      );
+
+      final restored = AppSettings.fromStorageMap(custom.toStorageMap());
+
+      expect(restored.automationApi.enabled, isTrue);
+    });
   });
 }

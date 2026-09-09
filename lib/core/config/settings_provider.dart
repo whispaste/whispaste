@@ -64,6 +64,7 @@ class AppSettings {
     this.autosave = const SettingsAutosaveSettings(),
     this.smartMode = const SmartModeSettings(),
     this.smartModeHotkey = const SmartModeHotkeySettings(),
+    this.automationApi = const AutomationApiSettings(),
   });
 
   // ---------------------------------------------------------------------------
@@ -143,6 +144,10 @@ class AppSettings {
   /// Smart-Mode hotkey settings (fourth, independently configurable hotkey —
   /// bound to one of the three presets, ticket 04).
   final SmartModeHotkeySettings smartModeHotkey;
+
+  /// Local automation API settings (ticket 03,
+  /// `.scratch/local-automation-api/`) — off by default.
+  final AutomationApiSettings automationApi;
 
   // ---------------------------------------------------------------------------
   // @Deprecated shims — delegate to sections.
@@ -418,6 +423,7 @@ class AppSettings {
       autosave: SettingsAutosaveSettings.fromMap(values),
       smartMode: SmartModeSettings.fromMap(values),
       smartModeHotkey: SmartModeHotkeySettings.fromMap(values),
+      automationApi: AutomationApiSettings.fromMap(values),
     );
   }
 
@@ -483,6 +489,7 @@ class AppSettings {
     ...autosave.toMap(),
     ...smartMode.toMap(),
     ...smartModeHotkey.toMap(),
+    ...automationApi.toMap(),
   };
 
   // ---------------------------------------------------------------------------
@@ -521,6 +528,7 @@ class AppSettings {
     SettingsAutosaveSettings? autosave,
     SmartModeSettings? smartMode,
     SmartModeHotkeySettings? smartModeHotkey,
+    AutomationApiSettings? automationApi,
   }) {
     return _copyWithSectionsGroupA(
       interface_: interface_,
@@ -547,6 +555,7 @@ class AppSettings {
       autosave: autosave,
       smartMode: smartMode,
       smartModeHotkey: smartModeHotkey,
+      automationApi: automationApi,
     );
   }
 
@@ -609,6 +618,7 @@ class AppSettings {
     SettingsAutosaveSettings? autosave,
     SmartModeSettings? smartMode,
     SmartModeHotkeySettings? smartModeHotkey,
+    AutomationApiSettings? automationApi,
   }) {
     return AppSettings(
       interface_: interface_,
@@ -634,6 +644,7 @@ class AppSettings {
       autosave: autosave ?? this.autosave,
       smartMode: smartMode ?? this.smartMode,
       smartModeHotkey: smartModeHotkey ?? this.smartModeHotkey,
+      automationApi: automationApi ?? this.automationApi,
     );
   }
 
@@ -823,6 +834,9 @@ class AppSettings {
       snippetPickerHotkey: snippetPickerHotkey,
       smartMode: smartMode,
       smartModeHotkey: smartModeHotkey,
+      // automationApi has no legacy top-level parameter either — same
+      // pass-through requirement as above.
+      automationApi: automationApi,
     );
   }
 
@@ -853,7 +867,8 @@ class AppSettings {
           portabilityPaths == other.portabilityPaths &&
           autosave == other.autosave &&
           smartMode == other.smartMode &&
-          smartModeHotkey == other.smartModeHotkey;
+          smartModeHotkey == other.smartModeHotkey &&
+          automationApi == other.automationApi;
 
   // Object.hash() caps at 20 positional arguments; this aggregate now has
   // 22 sections, so hashAll's list form (no arg-count limit) is required —
@@ -884,6 +899,7 @@ class AppSettings {
     autosave,
     smartMode,
     smartModeHotkey,
+    automationApi,
   ]);
 }
 

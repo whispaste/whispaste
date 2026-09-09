@@ -4058,6 +4058,56 @@ class L10nHe extends L10n {
   String get smartModeUsageHintDismiss => 'לא עכשיו';
 
   @override
+  String get settingsAutomationApi => 'Local Automation API';
+
+  @override
+  String get settingsAutomationApiSubtitle =>
+      'Trigger dictation from your own scripts over a loopback-only HTTP API';
+
+  @override
+  String get settingsAutomationApiEnable => 'Enable local automation API';
+
+  @override
+  String get settingsAutomationApiEnableSubtitle =>
+      'Binds only to 127.0.0.1/::1 — never reachable from the network';
+
+  @override
+  String settingsAutomationApiStatusRunning(int port) {
+    return 'Running on port $port';
+  }
+
+  @override
+  String get settingsAutomationApiStatusStopped => 'Not running';
+
+  @override
+  String settingsAutomationApiStatusError(int port) {
+    return 'Failed to start — port $port may already be in use';
+  }
+
+  @override
+  String get settingsAutomationApiToken => 'Bearer token';
+
+  @override
+  String get settingsAutomationApiTokenSubtitle =>
+      'Send it as \"Authorization: Bearer <token>\" — every request without it is rejected';
+
+  @override
+  String get settingsAutomationApiRegenerate => 'Regenerate';
+
+  @override
+  String get settingsAutomationApiRegenerateConfirmTitle => 'Regenerate token?';
+
+  @override
+  String get settingsAutomationApiRegenerateConfirmMessage =>
+      'The current token stops working immediately. Any script using it will need the new one.';
+
+  @override
+  String get settingsAutomationApiCopyToken => 'Copy token';
+
+  @override
+  String get settingsAutomationApiTokenCopied => 'Token copied to clipboard';
+
+  @override
   String historyCharacterCount(int count) {
     return '$count תווים';
   }

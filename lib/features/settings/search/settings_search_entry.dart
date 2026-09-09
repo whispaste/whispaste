@@ -284,6 +284,22 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     ],
   ),
   SettingsSearchEntry(
+    id: 'automationApi',
+    sectionKey: 'automationApi',
+    titleDe: 'Lokale Automatisierungs-API',
+    titleEn: 'Local Automation API',
+    subtitleDe: 'Diktat per Skript auslösen',
+    subtitleEn: 'Trigger dictation from your own scripts',
+    keywords: [
+      // DE
+      'Automatisierung', 'API', 'Skript', 'Token', 'Bearer', 'HTTP',
+      'localhost', 'Port',
+      // EN
+      'automation', 'api', 'script', 'token', 'bearer', 'http', 'localhost',
+      'port',
+    ],
+  ),
+  SettingsSearchEntry(
     id: 'updates',
     sectionKey: 'updates',
     titleDe: 'Updates',

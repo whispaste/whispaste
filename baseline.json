@@ -353,6 +353,20 @@
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
+      "fingerprint": "d87f3b15693e536e",
+      "ruleId": "slop-narrative-comment",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 2163,
+      "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
+    },
+    {
+      "fingerprint": "06e2b1d0a12d6fbd",
+      "ruleId": "slop-narrative-comment",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 2165,
+      "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
+    },
+    {
       "fingerprint": "035fc605ed78019b",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",

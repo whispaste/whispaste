@@ -2119,6 +2119,48 @@ class SmartModeHotkeySettings {
 }
 
 // ===========================================================================
+// Section 23 — Local Automation API
+// ===========================================================================
+
+/// Local automation API settings (ticket 03,
+/// `.scratch/local-automation-api/`) — a loopback-only HTTP server power
+/// users can script dictation against.
+///
+/// Only the on/off switch is persisted here. The bearer token lives in
+/// secure storage (`wp_automation_api_token`, see
+/// `lib/services/automation_api/automation_api_token_store.dart`), never in
+/// this flat settings map — same separation `CloudProviderSettings` uses for
+/// API keys. The listening port is runtime state (exposed by
+/// `AutomationApiController`), not a persisted setting.
+class AutomationApiSettings {
+  const AutomationApiSettings({this.enabled = false});
+
+  /// Whether the local automation API server should be running. Off by
+  /// default — the ticket's first acceptance criterion.
+  final bool enabled;
+
+  static const AutomationApiSettings defaults = AutomationApiSettings();
+
+  factory AutomationApiSettings.fromMap(Map<String, String> v) =>
+      AutomationApiSettings(
+        enabled: _readBool(v, 'automation_api_enabled', defaults.enabled),
+      );
+
+  Map<String, String> toMap() => {'automation_api_enabled': '$enabled'};
+
+  AutomationApiSettings copyWith({bool? enabled}) =>
+      AutomationApiSettings(enabled: enabled ?? this.enabled);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AutomationApiSettings && enabled == other.enabled;
+
+  @override
+  int get hashCode => enabled.hashCode;
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 

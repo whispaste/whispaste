@@ -1,0 +1,173 @@
+/// Lifecycle controller for the local automation API (ticket 03,
+/// `.scratch/local-automation-api/`).
+///
+/// Ties together [AutomationApiServer] (transport), [AutomationApiRouter]
+/// (routes), [bearerTokenAuth] (auth), and [AutomationApiTokenStore]
+/// (credential persistence) behind one Riverpod [Notifier] the settings UI
+/// and app startup/shutdown both drive:
+///   - `app.dart` calls [syncWithSettings] whenever [AppSettings] changes,
+///     starting/stopping the server to match `settings.automationApi.enabled`
+///     (single-instance, same process, tied to app lifecycle — no separate
+///     background service).
+///   - The settings section reads [state] to show status/port/token and
+///     calls [regenerateToken].
+///
+/// The dictation-trigger route calls [triggerDictation], which `main.dart`
+/// wires to the exact use case the main hotkey calls
+/// (`RecordingOrchestrator.toggleRecording`) via a provider override — so no
+/// dictation logic is duplicated in the HTTP layer. This file deliberately
+/// does not import `recording_orchestrator.dart` itself: that file (via
+/// `system_attention_service.dart`) imports
+/// `core/platform/macos_lifecycle_channel.dart`, which imports
+/// `graceful_shutdown.dart`, which imports *this* file to call [shutdown] —
+/// importing `recording_orchestrator.dart` here would close that into an
+/// import cycle. Injecting the trigger function instead (same seam
+/// `RecordingTriggerHandler` uses for the hotkey path, see
+/// `lib/services/recording_trigger_handler.dart` and its wiring in
+/// `lib/widgets/service_bootstrap.dart`) keeps this module decoupled.
+library;
+
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shelf/shelf.dart';
+
+import '../../core/config/settings_provider.dart';
+import 'automation_api_auth_middleware.dart';
+import 'automation_api_router.dart';
+import 'automation_api_server.dart';
+import 'automation_api_token_store.dart';
+
+/// Fixed port the automation API listens on. Not user-configurable — out of
+/// this ticket's scope (the acceptance criteria only ask that the *current*
+/// port be displayed, not that it be chosen) — high enough to avoid the
+/// most common local dev-server collisions (3000/5173/8080/…).
+const kAutomationApiDefaultPort = 8765;
+
+enum AutomationApiRunState { stopped, running, error }
+
+class AutomationApiState {
+  const AutomationApiState({
+    this.runState = AutomationApiRunState.stopped,
+    this.port,
+    this.token,
+  });
+
+  final AutomationApiRunState runState;
+
+  /// The bound port while [runState] is `running`; `null` otherwise.
+  final int? port;
+
+  /// The current bearer token, once one has ever been generated — kept
+  /// visible across a stop/start cycle so settings can still show/copy it
+  /// while the server is off.
+  final String? token;
+
+  bool get isRunning => runState == AutomationApiRunState.running;
+}
+
+class AutomationApiController extends Notifier<AutomationApiState> {
+  AutomationApiController({
+    AutomationApiServer? server,
+    this.port = kAutomationApiDefaultPort,
+    Future<void> Function(Ref ref)? triggerDictation,
+  }) : _server = server ?? AutomationApiServer(),
+       _triggerDictation = triggerDictation ?? _unconfiguredTriggerDictation;
+
+  final AutomationApiServer _server;
+  final int port;
+  final Future<void> Function(Ref ref) _triggerDictation;
+
+  /// Safe-fails loudly if `main.dart` forgot to override this provider with
+  /// the real use case — tests always pass their own [triggerDictation]
+  /// (see `test/services/automation_api/automation_api_controller_test.dart`),
+  /// so this only ever fires from a genuine production wiring mistake.
+  static Future<void> _unconfiguredTriggerDictation(Ref ref) => Future.error(
+    StateError(
+      'AutomationApiController.triggerDictation was never configured — '
+      'override automationApiControllerProvider at app startup.',
+    ),
+  );
+
+  @override
+  AutomationApiState build() {
+    ref.onDispose(() {
+      unawaited(_server.stop());
+    });
+    return const AutomationApiState();
+  }
+
+  /// Reconciles the running server with `settings.automationApi.enabled`.
+  /// A no-op when the desired state already matches the actual one, so
+  /// callers can invoke this on every settings change without worrying
+  /// about redundant start/stop churn.
+  Future<void> syncWithSettings(AppSettings settings) async {
+    final shouldRun = settings.automationApi.enabled;
+    if (shouldRun == _server.isRunning) return;
+    if (shouldRun) {
+      await _start();
+    } else {
+      await _stop();
+    }
+  }
+
+  Future<void> _start() async {
+    final tokenStore = ref.read(automationApiTokenStoreProvider);
+    var token = await tokenStore.readToken();
+    token ??= await tokenStore.regenerate();
+
+    final router = buildAutomationApiRouter([
+      dictationTriggerRoutes(triggerDictation: () => _triggerDictation(ref)),
+    ]);
+    final handler = const Pipeline()
+        .addMiddleware(bearerTokenAuth(currentToken: tokenStore.readToken))
+        .addHandler(router.handler);
+
+    try {
+      final boundPort = await _server.start(port: port, handler: handler);
+      state = AutomationApiState(
+        runState: AutomationApiRunState.running,
+        port: boundPort,
+        token: token,
+      );
+    } catch (_) {
+      state = AutomationApiState(
+        runState: AutomationApiRunState.error,
+        token: token,
+      );
+    }
+  }
+
+  Future<void> _stop() async {
+    await _server.stop();
+    state = AutomationApiState(
+      runState: AutomationApiRunState.stopped,
+      token: state.token,
+    );
+  }
+
+  /// Unconditionally stops the server, regardless of the current settings
+  /// value — used by `graceful_shutdown.dart` on app quit, where the intent
+  /// is "close every socket now", not "reconcile with settings".
+  Future<void> shutdown() => _stop();
+
+  /// Generates a fresh token, immediately invalidating the previous one —
+  /// the auth middleware reads the token store on every request, so this
+  /// takes effect without a server restart. Returns the new token for the
+  /// settings UI to display/copy.
+  Future<String> regenerateToken() async {
+    final tokenStore = ref.read(automationApiTokenStoreProvider);
+    final token = await tokenStore.regenerate();
+    state = AutomationApiState(
+      runState: state.runState,
+      port: state.port,
+      token: token,
+    );
+    return token;
+  }
+}
+
+final automationApiControllerProvider =
+    NotifierProvider<AutomationApiController, AutomationApiState>(
+      AutomationApiController.new,
+    );

@@ -1663,6 +1663,30 @@
   "smartModeUsageHintCta": "Set up",
   "smartModeUsageHintDismiss": "Not now",
 
+  "settingsAutomationApi": "Local Automation API",
+  "settingsAutomationApiSubtitle": "Trigger dictation from your own scripts over a loopback-only HTTP API",
+  "settingsAutomationApiEnable": "Enable local automation API",
+  "settingsAutomationApiEnableSubtitle": "Binds only to 127.0.0.1/::1 — never reachable from the network",
+  "settingsAutomationApiStatusRunning": "Running on port {port}",
+  "@settingsAutomationApiStatusRunning": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiStatusStopped": "Not running",
+  "settingsAutomationApiStatusError": "Failed to start — port {port} may already be in use",
+  "@settingsAutomationApiStatusError": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiToken": "Bearer token",
+  "settingsAutomationApiTokenSubtitle": "Send it as \"Authorization: Bearer <token>\" — every request without it is rejected",
+  "settingsAutomationApiRegenerate": "Regenerate",
+  "settingsAutomationApiRegenerateConfirmTitle": "Regenerate token?",
+  "settingsAutomationApiRegenerateConfirmMessage": "The current token stops working immediately. Any script using it will need the new one.",
+  "settingsAutomationApiCopyToken": "Copy token",
+  "settingsAutomationApiTokenCopied": "Token copied to clipboard",
   "historyCharacterCount": "{count} characters",
   "@historyCharacterCount": {
     "description": "Character-count metadata chip in the History detail panel (ticket 12), analogous to historyWordCount.",

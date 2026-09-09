@@ -15,6 +15,7 @@ import '../../services/deploy_channel_service.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import 'search/settings_search_provider.dart';
+import 'sections/automation_api_section.dart';
 import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
@@ -64,6 +65,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'history': GlobalKey(),
     'settingsPortability': GlobalKey(),
     'advanced': GlobalKey(),
+    'automationApi': GlobalKey(),
     'updates': GlobalKey(),
     'onboardingReview': GlobalKey(),
     'reviewSupport': GlobalKey(),
@@ -292,6 +294,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         () => sectionCard(
           'advanced',
           AdvancedSection(key: _sectionKeys['advanced']),
+        ),
+      ),
+      (
+        'automationApi',
+        () => sectionCard(
+          'automationApi',
+          AutomationApiSection(key: _sectionKeys['automationApi']),
         ),
       ),
       (

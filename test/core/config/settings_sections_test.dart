@@ -117,4 +117,42 @@ void main() {
       },
     );
   });
+
+  group('AutomationApiSettings.enabled', () {
+    test('defaults to false — the API never starts unless opted in', () {
+      expect(AutomationApiSettings.defaults.enabled, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      const settings = AutomationApiSettings(enabled: true);
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.enabled, isTrue);
+    });
+
+    test('toMap -> fromMap round-trip preserves false', () {
+      const settings = AutomationApiSettings(enabled: false);
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.enabled, isFalse);
+    });
+
+    test('missing key in map falls back to the default (false)', () {
+      final map = Map<String, String>.from(
+        AutomationApiSettings.defaults.toMap(),
+      )..remove('automation_api_enabled');
+      final restored = AutomationApiSettings.fromMap(map);
+      expect(restored.enabled, isFalse);
+    });
+
+    test('copyWith() without arguments keeps the previous value', () {
+      const original = AutomationApiSettings(enabled: true);
+      final updated = original.copyWith();
+      expect(updated.enabled, isTrue);
+    });
+
+    test('two instances differing only in enabled are unequal', () {
+      const a = AutomationApiSettings(enabled: true);
+      const b = AutomationApiSettings(enabled: false);
+      expect(a == b, isFalse);
+    });
+  });
 }

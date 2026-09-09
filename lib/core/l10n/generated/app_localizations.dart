@@ -7220,6 +7220,90 @@ abstract class L10n {
   /// **'Not now'**
   String get smartModeUsageHintDismiss;
 
+  /// No description provided for @settingsAutomationApi.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Automation API'**
+  String get settingsAutomationApi;
+
+  /// No description provided for @settingsAutomationApiSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger dictation from your own scripts over a loopback-only HTTP API'**
+  String get settingsAutomationApiSubtitle;
+
+  /// No description provided for @settingsAutomationApiEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable local automation API'**
+  String get settingsAutomationApiEnable;
+
+  /// No description provided for @settingsAutomationApiEnableSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Binds only to 127.0.0.1/::1 — never reachable from the network'**
+  String get settingsAutomationApiEnableSubtitle;
+
+  /// No description provided for @settingsAutomationApiStatusRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running on port {port}'**
+  String settingsAutomationApiStatusRunning(int port);
+
+  /// No description provided for @settingsAutomationApiStatusStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running'**
+  String get settingsAutomationApiStatusStopped;
+
+  /// No description provided for @settingsAutomationApiStatusError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to start — port {port} may already be in use'**
+  String settingsAutomationApiStatusError(int port);
+
+  /// No description provided for @settingsAutomationApiToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Bearer token'**
+  String get settingsAutomationApiToken;
+
+  /// No description provided for @settingsAutomationApiTokenSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send it as \"Authorization: Bearer <token>\" — every request without it is rejected'**
+  String get settingsAutomationApiTokenSubtitle;
+
+  /// No description provided for @settingsAutomationApiRegenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate'**
+  String get settingsAutomationApiRegenerate;
+
+  /// No description provided for @settingsAutomationApiRegenerateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate token?'**
+  String get settingsAutomationApiRegenerateConfirmTitle;
+
+  /// No description provided for @settingsAutomationApiRegenerateConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The current token stops working immediately. Any script using it will need the new one.'**
+  String get settingsAutomationApiRegenerateConfirmMessage;
+
+  /// No description provided for @settingsAutomationApiCopyToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy token'**
+  String get settingsAutomationApiCopyToken;
+
+  /// No description provided for @settingsAutomationApiTokenCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Token copied to clipboard'**
+  String get settingsAutomationApiTokenCopied;
+
   /// Character-count metadata chip in the History detail panel (ticket 12), analogous to historyWordCount.
   ///
   /// In en, this message translates to:
