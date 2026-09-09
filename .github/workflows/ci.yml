@@ -206,6 +206,14 @@ jobs:
       - name: Hotkey-to-text happy-path integration test
         run: flutter test integration_test/hotkey_to_text_happy_path_test.dart -d windows
 
+      # Recording Orchestrator fault-recovery paths (Ticket 08): retry after
+      # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
+      # are injected one seam below the FFI boundary (a fake WhisperEngine),
+      # so — unlike the happy path above — this runs for real here too, no
+      # staged libwhisper needed.
+      - name: Hotkey-to-text fallback-paths integration test
+        run: flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d windows
+
   flutter-app-macos:
     name: Flutter App (macOS)
     # Self-hosted (dieser Mac) statt macos-latest — GitHub-gehostete macOS-
@@ -301,6 +309,15 @@ jobs:
       - name: Hotkey-to-text happy-path integration test
         timeout-minutes: 5
         run: flutter test integration_test/hotkey_to_text_happy_path_test.dart -d macos
+
+      # Recording Orchestrator fault-recovery paths (Ticket 08): retry after
+      # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
+      # are injected one seam below the FFI boundary (a fake WhisperEngine),
+      # so — unlike the happy path above — no real model/libwhisper decode
+      # is needed here.
+      - name: Hotkey-to-text fallback-paths integration test
+        timeout-minutes: 5
+        run: flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d macos
 
       - name: Remove the CI keychain
         if: always()
@@ -427,6 +444,14 @@ jobs:
       # wired in so the gap is visible/documented rather than silent.
       - name: Hotkey-to-text happy-path integration test
         run: flutter test integration_test/hotkey_to_text_happy_path_test.dart -d linux
+
+      # Recording Orchestrator fault-recovery paths (Ticket 08): retry after
+      # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
+      # are injected one seam below the FFI boundary (a fake WhisperEngine),
+      # so — unlike the happy path above — this runs for real here too, no
+      # staged libwhisper needed.
+      - name: Hotkey-to-text fallback-paths integration test
+        run: flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
 
   # Golden / visual-regression tests — run only the @Tags(['golden']) suite on
   # macOS so font and rendering results match the locally generated baselines.
