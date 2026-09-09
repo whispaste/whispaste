@@ -394,6 +394,24 @@
   "replacementsImportScanning": "Сканирование папки — для крупных проектов это может занять время…",
   "replacementsImportError": "Сбой импорта — не удалось отсканировать папку.",
   "replacementsImportedBadge": "Импортировано",
+  "replacementsLearnedBadge": "Изучено",
+  "correctionLearningToggleLabel": "Учиться на исправлениях",
+  "correctionLearningToggleEnabled": "Повторяющиеся голосовые исправления проверяются на предложения",
+  "correctionLearningToggleDisabled": "Голосовые исправления не проверяются на предложения",
+  "correctionCandidatesCardTitle": "Предложено на основе ваших исправлений",
+  "correctionCandidatesCardHint": "{count} предложение(я) на основе повторяющихся голосовых исправлений — проверьте перед добавлением.",
+  "@correctionCandidatesCardHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesReviewButton": "Проверить",
+  "correctionCandidatesCommitSummary": "Добавлено {added} изученных замен",
+  "@correctionCandidatesCommitSummary": {
+    "placeholders": {
+      "added": { "type": "int" }
+    }
+  },
   "replacementsImportNothingFound": "В этой папке не найдено новых идентификаторов.",
   "replacementsImportReviewTitle": "Выберите, что импортировать",
   "replacementsImportReviewSubtitle": "Найдено кандидатов: {count} — выберите, какие станут заменами. Ничего не добавится до вашего подтверждения.",

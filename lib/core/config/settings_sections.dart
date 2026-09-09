@@ -789,6 +789,7 @@ class BehaviorSettings {
     this.autoPasteBlocklist = '',
     this.textReplacementsEnabled = false,
     this.snippetPickerTrigger = '',
+    this.correctionLearningEnabled = true,
   });
 
   final int maxRecordDuration;
@@ -808,6 +809,16 @@ class BehaviorSettings {
   /// string means the feature is off — the picker has exactly one trigger,
   /// no payload, and its own UI on the Snippets page.
   final String snippetPickerTrigger;
+
+  /// Global on/off switch for vocabulary-learning-from-corrections (ticket
+  /// 01 `.scratch/vocab-learning-corrections/`): whether repeated voice
+  /// corrections are watched for candidate replacement entries at all.
+  /// Default on -- but every candidate still requires explicit confirmation
+  /// in the review UI before it becomes an active replacement, so "on" here
+  /// only means "detect", never "auto-apply". Turning this off stops new
+  /// candidates from being observed; it never touches already-learned
+  /// entries or pending candidates.
+  final bool correctionLearningEnabled;
 
   static const BehaviorSettings defaults = BehaviorSettings();
 
@@ -830,6 +841,11 @@ class BehaviorSettings {
     ),
     snippetPickerTrigger:
         v['snippet_picker_trigger'] ?? defaults.snippetPickerTrigger,
+    correctionLearningEnabled: _readBool(
+      v,
+      'correction_learning_enabled',
+      defaults.correctionLearningEnabled,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -841,6 +857,7 @@ class BehaviorSettings {
     'auto_paste_blocklist': autoPasteBlocklist,
     'text_replacements_enabled': '$textReplacementsEnabled',
     'snippet_picker_trigger': snippetPickerTrigger,
+    'correction_learning_enabled': '$correctionLearningEnabled',
   };
 
   BehaviorSettings copyWith({
@@ -852,6 +869,7 @@ class BehaviorSettings {
     String? autoPasteBlocklist,
     bool? textReplacementsEnabled,
     String? snippetPickerTrigger,
+    bool? correctionLearningEnabled,
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
     closeToTray: closeToTray ?? this.closeToTray,
@@ -862,6 +880,8 @@ class BehaviorSettings {
     textReplacementsEnabled:
         textReplacementsEnabled ?? this.textReplacementsEnabled,
     snippetPickerTrigger: snippetPickerTrigger ?? this.snippetPickerTrigger,
+    correctionLearningEnabled:
+        correctionLearningEnabled ?? this.correctionLearningEnabled,
   );
 
   @override
@@ -875,7 +895,8 @@ class BehaviorSettings {
         autoPasteDelay == other.autoPasteDelay &&
         autoPasteBlocklist == other.autoPasteBlocklist &&
         textReplacementsEnabled == other.textReplacementsEnabled &&
-        snippetPickerTrigger == other.snippetPickerTrigger;
+        snippetPickerTrigger == other.snippetPickerTrigger &&
+        correctionLearningEnabled == other.correctionLearningEnabled;
   }
 
   @override
@@ -888,6 +909,7 @@ class BehaviorSettings {
     autoPasteBlocklist,
     textReplacementsEnabled,
     snippetPickerTrigger,
+    correctionLearningEnabled,
   );
 }
 

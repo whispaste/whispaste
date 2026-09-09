@@ -65,6 +65,7 @@ class SnippetWithFields {
     SnippetFields,
     Notes,
     NoteTags,
+    CorrectionObservations,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
@@ -109,7 +110,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -185,6 +186,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 24) {
         await _addOriginalTranscriptAndTargetAppColumns();
+      }
+      if (from < 25) {
+        await m.createTable(correctionObservations);
       }
     },
     beforeOpen: (details) async {
@@ -2076,6 +2080,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
         await delete(snippets).go();
+        await delete(correctionObservations).go();
         await customStatement('DELETE FROM app_settings');
       });
     });
@@ -2213,6 +2218,88 @@ class HistoryDatabase extends _$HistoryDatabase {
       await delete(textReplacementTriggers).go();
       await delete(textReplacements).go();
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Correction observations (vocab-learning-from-corrections, ticket 01)
+  // ---------------------------------------------------------------------------
+
+  /// Reads the persisted observation for [normalizedKey], or `null` if this
+  /// correction has never been observed before.
+  Future<CorrectionObservationRow?> readCorrectionObservation(
+    String normalizedKey,
+  ) {
+    return (select(
+      correctionObservations,
+    )..where((t) => t.normalizedKey.equals(normalizedKey))).getSingleOrNull();
+  }
+
+  /// Inserts or updates the observation row for [normalizedKey] — one row
+  /// per normalized correction, [id] stable across repeats of the same
+  /// correction (`upsert` keyed on the table's primary key).
+  Future<void> upsertCorrectionObservation({
+    required String id,
+    required String normalizedKey,
+    required String sourceText,
+    required String targetText,
+    required int occurrenceCount,
+    required String status,
+    required String source,
+    required DateTime firstSeenAt,
+    required DateTime lastSeenAt,
+  }) {
+    return into(correctionObservations).insertOnConflictUpdate(
+      CorrectionObservationsCompanion(
+        id: Value(id),
+        normalizedKey: Value(normalizedKey),
+        sourceText: Value(sourceText),
+        targetText: Value(targetText),
+        occurrenceCount: Value(occurrenceCount),
+        status: Value(status),
+        source: Value(source),
+        firstSeenAt: Value(firstSeenAt),
+        lastSeenAt: Value(lastSeenAt),
+      ),
+    );
+  }
+
+  /// Every observation still `pending` with at least
+  /// [correctionCandidateThreshold] occurrences — i.e. exactly the rows the
+  /// review UI should offer. Ordered by [CorrectionObservations.rowid] for
+  /// the same stable-insertion-order reason as [_replacementsJoinQuery].
+  Future<List<CorrectionObservationRow>> readPendingCorrectionCandidates(
+    int threshold,
+  ) {
+    return (select(correctionObservations)
+          ..where(
+            (t) =>
+                t.status.equals('pending') &
+                t.occurrenceCount.isBiggerOrEqualValue(threshold),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: const CustomExpression<int>(
+                'correction_observations.rowid',
+              ),
+            ),
+          ]))
+        .get();
+  }
+
+  /// Reads every learned (auto-accepted) correction observation row, keyed
+  /// by [id] — used by the review commit step to look up an accepted
+  /// candidate's source/target text by the id the UI selected.
+  Future<CorrectionObservationRow?> readCorrectionObservationById(String id) {
+    return (select(
+      correctionObservations,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Flips [id]'s status to [status] (`accepted`/`rejected`) — never back to
+  /// `pending`.
+  Future<void> setCorrectionObservationStatus(String id, String status) {
+    return (update(correctionObservations)..where((t) => t.id.equals(id)))
+        .write(CorrectionObservationsCompanion(status: Value(status)));
   }
 
   // ---------------------------------------------------------------------------

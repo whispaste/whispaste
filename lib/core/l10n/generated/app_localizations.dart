@@ -2561,6 +2561,54 @@ abstract class L10n {
   /// **'Imported'**
   String get replacementsImportedBadge;
 
+  /// No description provided for @replacementsLearnedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Learned'**
+  String get replacementsLearnedBadge;
+
+  /// No description provided for @correctionLearningToggleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn from corrections'**
+  String get correctionLearningToggleLabel;
+
+  /// No description provided for @correctionLearningToggleEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Watching repeated voice corrections for suggestions'**
+  String get correctionLearningToggleEnabled;
+
+  /// No description provided for @correctionLearningToggleDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Not watching voice corrections for suggestions'**
+  String get correctionLearningToggleDisabled;
+
+  /// No description provided for @correctionCandidatesCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested from your corrections'**
+  String get correctionCandidatesCardTitle;
+
+  /// No description provided for @correctionCandidatesCardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} suggestion(s) from repeated voice corrections — review before they become replacements.'**
+  String correctionCandidatesCardHint(int count);
+
+  /// No description provided for @correctionCandidatesReviewButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get correctionCandidatesReviewButton;
+
+  /// No description provided for @correctionCandidatesCommitSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Added {added} learned replacement(s)'**
+  String correctionCandidatesCommitSummary(int added);
+
   /// No description provided for @replacementsImportNothingFound.
   ///
   /// In en, this message translates to:

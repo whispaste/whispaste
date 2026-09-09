@@ -8,6 +8,7 @@ library;
 import 'dart:io' show Platform;
 import 'dart:ui';
 
+import 'package:drift/native.dart';
 import 'package:file/memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,8 +16,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/services/replacements/correction_learning_service.dart';
+import 'package:whispaste/services/replacements/correction_signal.dart';
 import 'package:whispaste/services/replacements/vocabulary_import_service.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show SettingRow;
@@ -171,10 +175,15 @@ void main() {
       await tester.tap(find.text(l10n.replacementsAdd).last);
       await tester.pumpAndSettle();
 
-      // One new tile carrying both trigger chips (3 samples + 1 new).
-      expect(find.text('omw'), findsOneWidget);
+      // The new entry is appended after the three sample rows and may be
+      // scrolled out of the test viewport now that the header grew a
+      // correction-learning toggle card — filter down to it.
+      await tester.enterText(find.byType(TextField).first, 'omw');
+      await tester.pumpAndSettle();
+
+      expect(find.text('omw'), findsNWidgets(2));
       expect(find.text('otw'), findsOneWidget);
-      expect(find.byIcon(LucideIcons.arrowRightLeft), findsNWidgets(4));
+      expect(find.byIcon(LucideIcons.arrowRightLeft), findsOneWidget);
     });
 
     testWidgets('the last remaining trigger cannot be removed', (tester) async {
@@ -274,6 +283,9 @@ void main() {
       // Notizen, worded through the generic l10n key.
       expect(find.text(l10n.actionClearSearch), findsOneWidget);
 
+      // The header now carries an extra correction-learning toggle card, so
+      // the empty-state action can sit below the viewport's fold.
+      await tester.ensureVisible(find.text(l10n.actionClearSearch));
       await tester.tap(find.text(l10n.actionClearSearch));
       await tester.pumpAndSettle();
 
@@ -305,13 +317,20 @@ void main() {
       await tester.pumpAndSettle();
 
       // Starts enabled — switch is ON and the header card says so in words.
-      final switchOn = tester.widget<Switch>(find.byType(Switch));
+      // Scoped to this card's own SettingRow: the header now also carries the
+      // correction-learning toggle's switch, so a bare `find.byType(Switch)`
+      // would match two widgets.
+      final masterSwitchFinder = find.descendant(
+        of: find.widgetWithText(SettingRow, l10n.replacementsToggleLabel),
+        matching: find.byType(Switch),
+      );
+      final switchOn = tester.widget<Switch>(masterSwitchFinder);
       expect(switchOn.value, isTrue);
       expect(find.text(l10n.replacementsToggleLabel), findsOneWidget);
       expect(find.text(l10n.replacementsToggleEnabled), findsOneWidget);
 
       // Tap toggle to disable
-      await tester.tap(find.byType(Switch));
+      await tester.tap(masterSwitchFinder);
       await tester.pumpAndSettle();
 
       expect(
@@ -621,5 +640,177 @@ void main() {
 
       expect(find.text(l10n.replacementsImportedBadge), findsOneWidget);
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Correction-learning (ticket 01 `.scratch/vocab-learning-corrections/`)
+  // ---------------------------------------------------------------------------
+
+  group('ReplacementsPage correction learning', () {
+    /// Records the same normalized correction [source]→[target] twice —
+    /// enough to cross `correctionCandidateThreshold` and become a pending
+    /// candidate — directly against [db], mirroring how
+    /// `correction_learning_service_test.dart` seeds observations without a
+    /// widget tree.
+    Future<void> seedCandidate(
+      HistoryDatabase db,
+      String source,
+      String target,
+    ) async {
+      const service = CorrectionLearningService();
+      final signal = CorrectionSignal(
+        sourceText: source,
+        targetText: target,
+        timestamp: DateTime(2026, 1, 1),
+        source: CorrectionSignalSource.voiceCommand,
+      );
+      await service.recordSignal(signal, db);
+      await service.recordSignal(signal, db);
+    }
+
+    testWidgets('toggle switch updates correctionLearningEnabled in provider', (
+      tester,
+    ) async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          behavior: AppSettings.defaults.behavior.copyWith(
+            correctionLearningEnabled: true,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const ReplacementsPage(),
+          db: db,
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggleSwitchFinder = find.descendant(
+        of: find.widgetWithText(SettingRow, l10n.correctionLearningToggleLabel),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(toggleSwitchFinder).value, isTrue);
+      expect(find.text(l10n.correctionLearningToggleEnabled), findsOneWidget);
+
+      await tester.ensureVisible(toggleSwitchFinder);
+      await tester.tap(toggleSwitchFinder);
+      await tester.pumpAndSettle();
+
+      expect(
+        notifier.state.value?.behavior.correctionLearningEnabled,
+        isFalse,
+        reason: 'Provider should reflect the new disabled state',
+      );
+    });
+
+    testWidgets(
+      'the candidates card is hidden when there are no pending candidates',
+      (tester) async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            db: db,
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.correctionCandidatesCardTitle), findsNothing);
+      },
+    );
+
+    testWidgets('a pending candidate surfaces in the candidates card', (
+      tester,
+    ) async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await seedCandidate(db, 'teh meeting', 'the meeting');
+
+      await tester.pumpWidget(
+        makeTestable(
+          const ReplacementsPage(),
+          db: db,
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.correctionCandidatesCardTitle), findsOneWidget);
+      expect(find.text(l10n.correctionCandidatesCardHint(1)), findsOneWidget);
+    });
+
+    testWidgets(
+      'accepting a candidate in the review flow adds a learned replacement '
+      'and clears the card; the rejected one never resurfaces',
+      (tester) async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await seedCandidate(db, 'teh meeting', 'the meeting');
+        await seedCandidate(db, 'recieve', 'receive');
+
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            db: db,
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.correctionCandidatesCardHint(2)), findsOneWidget);
+
+        // Open the shared vocabulary-import review page, fed the two
+        // candidates' "source → target" display strings.
+        await tester.tap(
+          find.widgetWithText(WpButton, l10n.correctionCandidatesReviewButton),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('teh meeting → the meeting'), findsOneWidget);
+        expect(find.text('recieve → receive'), findsOneWidget);
+
+        // Select only the first candidate — the second is shown but never
+        // picked, which is this feature's reject signal.
+        await tester.tap(find.text('teh meeting → the meeting'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(
+            WpButton,
+            l10n.replacementsImportReviewImportButton(1),
+          ),
+        );
+        // WpToast.show() schedules a 3-second dismissal timer;
+        // pumpAndSettle() would block waiting for it.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 4));
+
+        // The candidates card is gone — nothing left pending.
+        expect(find.text(l10n.correctionCandidatesCardTitle), findsNothing);
+
+        // The accepted candidate is now a live replacement, tagged "Learned".
+        await tester.enterText(find.byType(TextField).first, 'teh meeting');
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.replacementsLearnedBadge), findsOneWidget);
+        await tester.enterText(find.byType(TextField).first, '');
+        await tester.pumpAndSettle();
+
+        // The rejected candidate never became a replacement — only the
+        // accepted one is added on top of the three auto-seeded samples.
+        final replacements = await db.readAllReplacements();
+        expect(replacements, hasLength(4));
+        expect(
+          replacements.where((r) => r.row.origin == 'learned'),
+          hasLength(1),
+        );
+
+        // Observing the rejected correction again must not resurrect it.
+        await seedCandidate(db, 'recieve', 'receive');
+        const service = CorrectionLearningService();
+        expect(await service.pendingCandidates(db), isEmpty);
+      },
+    );
   });
 }

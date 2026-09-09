@@ -438,6 +438,24 @@
   "replacementsImportScanning": "Ordner wird durchsucht — bei großen Projekten kann das einen Moment dauern…",
   "replacementsImportError": "Import fehlgeschlagen — der Ordner konnte nicht durchsucht werden.",
   "replacementsImportedBadge": "Importiert",
+  "replacementsLearnedBadge": "Gelernt",
+  "correctionLearningToggleLabel": "Aus Korrekturen lernen",
+  "correctionLearningToggleEnabled": "Wiederholte Sprachkorrekturen werden auf Vorschläge geprüft",
+  "correctionLearningToggleDisabled": "Sprachkorrekturen werden nicht auf Vorschläge geprüft",
+  "correctionCandidatesCardTitle": "Aus deinen Korrekturen vorgeschlagen",
+  "correctionCandidatesCardHint": "{count} Vorschlag/Vorschläge aus wiederholten Sprachkorrekturen — vor der Übernahme prüfen.",
+  "@correctionCandidatesCardHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesReviewButton": "Prüfen",
+  "correctionCandidatesCommitSummary": "{added} gelernte Ersetzung(en) hinzugefügt",
+  "@correctionCandidatesCommitSummary": {
+    "placeholders": {
+      "added": { "type": "int" }
+    }
+  },
   "replacementsImportNothingFound": "In diesem Ordner wurden keine neuen Bezeichner gefunden.",
   "replacementsImportReviewTitle": "Auswählen, was importiert wird",
   "replacementsImportReviewSubtitle": "{count} Kandidaten gefunden — wähle aus, welche zu Ersetzungen werden. Es wird nichts hinzugefügt, bevor du bestätigst.",

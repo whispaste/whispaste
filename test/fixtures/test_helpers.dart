@@ -15,15 +15,23 @@ Widget makeTestable(
   Size size = const Size(1280, 800),
   List overrides = const [],
   Locale? locale,
+  // Pre-built/pre-seeded database to serve `historyDatabaseProvider` with,
+  // instead of a fresh empty one — lets a test seed rows (e.g. via a
+  // service's own write methods) before the widget tree ever reads them.
+  // `overrides` cannot carry a second `historyDatabaseProvider` override of
+  // its own: Riverpod rejects overriding the same provider twice in one
+  // `ProviderScope`.
+  HistoryDatabase? db,
 }) {
   final theme = wpDarkTheme();
 
   return ProviderScope(
     overrides: [
       historyDatabaseProvider.overrideWith((ref) {
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        ref.onDispose(db.close);
-        return db;
+        final resolved =
+            db ?? HistoryDatabase.forTesting(NativeDatabase.memory());
+        ref.onDispose(resolved.close);
+        return resolved;
       }),
       // Prevent real GPU detection (spawns subprocess → pending timers).
       gpuInfoProvider.overrideWith(

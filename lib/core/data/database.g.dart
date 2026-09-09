@@ -5628,6 +5628,597 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   }
 }
 
+class $CorrectionObservationsTable extends CorrectionObservations
+    with TableInfo<$CorrectionObservationsTable, CorrectionObservationRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CorrectionObservationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _normalizedKeyMeta = const VerificationMeta(
+    'normalizedKey',
+  );
+  @override
+  late final GeneratedColumn<String> normalizedKey = GeneratedColumn<String>(
+    'normalized_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _sourceTextMeta = const VerificationMeta(
+    'sourceText',
+  );
+  @override
+  late final GeneratedColumn<String> sourceText = GeneratedColumn<String>(
+    'source_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetTextMeta = const VerificationMeta(
+    'targetText',
+  );
+  @override
+  late final GeneratedColumn<String> targetText = GeneratedColumn<String>(
+    'target_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _occurrenceCountMeta = const VerificationMeta(
+    'occurrenceCount',
+  );
+  @override
+  late final GeneratedColumn<int> occurrenceCount = GeneratedColumn<int>(
+    'occurrence_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _firstSeenAtMeta = const VerificationMeta(
+    'firstSeenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> firstSeenAt = GeneratedColumn<DateTime>(
+    'first_seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
+    'lastSeenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSeenAt = GeneratedColumn<DateTime>(
+    'last_seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    normalizedKey,
+    sourceText,
+    targetText,
+    occurrenceCount,
+    status,
+    source,
+    firstSeenAt,
+    lastSeenAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'correction_observations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CorrectionObservationRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('normalized_key')) {
+      context.handle(
+        _normalizedKeyMeta,
+        normalizedKey.isAcceptableOrUnknown(
+          data['normalized_key']!,
+          _normalizedKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_normalizedKeyMeta);
+    }
+    if (data.containsKey('source_text')) {
+      context.handle(
+        _sourceTextMeta,
+        sourceText.isAcceptableOrUnknown(data['source_text']!, _sourceTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceTextMeta);
+    }
+    if (data.containsKey('target_text')) {
+      context.handle(
+        _targetTextMeta,
+        targetText.isAcceptableOrUnknown(data['target_text']!, _targetTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetTextMeta);
+    }
+    if (data.containsKey('occurrence_count')) {
+      context.handle(
+        _occurrenceCountMeta,
+        occurrenceCount.isAcceptableOrUnknown(
+          data['occurrence_count']!,
+          _occurrenceCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
+    if (data.containsKey('first_seen_at')) {
+      context.handle(
+        _firstSeenAtMeta,
+        firstSeenAt.isAcceptableOrUnknown(
+          data['first_seen_at']!,
+          _firstSeenAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_firstSeenAtMeta);
+    }
+    if (data.containsKey('last_seen_at')) {
+      context.handle(
+        _lastSeenAtMeta,
+        lastSeenAt.isAcceptableOrUnknown(
+          data['last_seen_at']!,
+          _lastSeenAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastSeenAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CorrectionObservationRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CorrectionObservationRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      normalizedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}normalized_key'],
+      )!,
+      sourceText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_text'],
+      )!,
+      targetText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_text'],
+      )!,
+      occurrenceCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}occurrence_count'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      firstSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}first_seen_at'],
+      )!,
+      lastSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_seen_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CorrectionObservationsTable createAlias(String alias) {
+    return $CorrectionObservationsTable(attachedDatabase, alias);
+  }
+}
+
+class CorrectionObservationRow extends DataClass
+    implements Insertable<CorrectionObservationRow> {
+  final String id;
+  final String normalizedKey;
+  final String sourceText;
+  final String targetText;
+  final int occurrenceCount;
+
+  /// `pending` / `accepted` / `rejected` — see [CorrectionObservationStatus]
+  /// in `correction_candidate_detector.dart`. Text-backed like other
+  /// enum-ish columns in this file (e.g. `TextReplacements.origin`).
+  final String status;
+
+  /// `voiceCommand` / `manualEdit` — see `CorrectionSignalSource` in
+  /// `correction_signal.dart`.
+  final String source;
+  final DateTime firstSeenAt;
+  final DateTime lastSeenAt;
+  const CorrectionObservationRow({
+    required this.id,
+    required this.normalizedKey,
+    required this.sourceText,
+    required this.targetText,
+    required this.occurrenceCount,
+    required this.status,
+    required this.source,
+    required this.firstSeenAt,
+    required this.lastSeenAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['normalized_key'] = Variable<String>(normalizedKey);
+    map['source_text'] = Variable<String>(sourceText);
+    map['target_text'] = Variable<String>(targetText);
+    map['occurrence_count'] = Variable<int>(occurrenceCount);
+    map['status'] = Variable<String>(status);
+    map['source'] = Variable<String>(source);
+    map['first_seen_at'] = Variable<DateTime>(firstSeenAt);
+    map['last_seen_at'] = Variable<DateTime>(lastSeenAt);
+    return map;
+  }
+
+  CorrectionObservationsCompanion toCompanion(bool nullToAbsent) {
+    return CorrectionObservationsCompanion(
+      id: Value(id),
+      normalizedKey: Value(normalizedKey),
+      sourceText: Value(sourceText),
+      targetText: Value(targetText),
+      occurrenceCount: Value(occurrenceCount),
+      status: Value(status),
+      source: Value(source),
+      firstSeenAt: Value(firstSeenAt),
+      lastSeenAt: Value(lastSeenAt),
+    );
+  }
+
+  factory CorrectionObservationRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CorrectionObservationRow(
+      id: serializer.fromJson<String>(json['id']),
+      normalizedKey: serializer.fromJson<String>(json['normalizedKey']),
+      sourceText: serializer.fromJson<String>(json['sourceText']),
+      targetText: serializer.fromJson<String>(json['targetText']),
+      occurrenceCount: serializer.fromJson<int>(json['occurrenceCount']),
+      status: serializer.fromJson<String>(json['status']),
+      source: serializer.fromJson<String>(json['source']),
+      firstSeenAt: serializer.fromJson<DateTime>(json['firstSeenAt']),
+      lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'normalizedKey': serializer.toJson<String>(normalizedKey),
+      'sourceText': serializer.toJson<String>(sourceText),
+      'targetText': serializer.toJson<String>(targetText),
+      'occurrenceCount': serializer.toJson<int>(occurrenceCount),
+      'status': serializer.toJson<String>(status),
+      'source': serializer.toJson<String>(source),
+      'firstSeenAt': serializer.toJson<DateTime>(firstSeenAt),
+      'lastSeenAt': serializer.toJson<DateTime>(lastSeenAt),
+    };
+  }
+
+  CorrectionObservationRow copyWith({
+    String? id,
+    String? normalizedKey,
+    String? sourceText,
+    String? targetText,
+    int? occurrenceCount,
+    String? status,
+    String? source,
+    DateTime? firstSeenAt,
+    DateTime? lastSeenAt,
+  }) => CorrectionObservationRow(
+    id: id ?? this.id,
+    normalizedKey: normalizedKey ?? this.normalizedKey,
+    sourceText: sourceText ?? this.sourceText,
+    targetText: targetText ?? this.targetText,
+    occurrenceCount: occurrenceCount ?? this.occurrenceCount,
+    status: status ?? this.status,
+    source: source ?? this.source,
+    firstSeenAt: firstSeenAt ?? this.firstSeenAt,
+    lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+  );
+  CorrectionObservationRow copyWithCompanion(
+    CorrectionObservationsCompanion data,
+  ) {
+    return CorrectionObservationRow(
+      id: data.id.present ? data.id.value : this.id,
+      normalizedKey: data.normalizedKey.present
+          ? data.normalizedKey.value
+          : this.normalizedKey,
+      sourceText: data.sourceText.present
+          ? data.sourceText.value
+          : this.sourceText,
+      targetText: data.targetText.present
+          ? data.targetText.value
+          : this.targetText,
+      occurrenceCount: data.occurrenceCount.present
+          ? data.occurrenceCount.value
+          : this.occurrenceCount,
+      status: data.status.present ? data.status.value : this.status,
+      source: data.source.present ? data.source.value : this.source,
+      firstSeenAt: data.firstSeenAt.present
+          ? data.firstSeenAt.value
+          : this.firstSeenAt,
+      lastSeenAt: data.lastSeenAt.present
+          ? data.lastSeenAt.value
+          : this.lastSeenAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CorrectionObservationRow(')
+          ..write('id: $id, ')
+          ..write('normalizedKey: $normalizedKey, ')
+          ..write('sourceText: $sourceText, ')
+          ..write('targetText: $targetText, ')
+          ..write('occurrenceCount: $occurrenceCount, ')
+          ..write('status: $status, ')
+          ..write('source: $source, ')
+          ..write('firstSeenAt: $firstSeenAt, ')
+          ..write('lastSeenAt: $lastSeenAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    normalizedKey,
+    sourceText,
+    targetText,
+    occurrenceCount,
+    status,
+    source,
+    firstSeenAt,
+    lastSeenAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CorrectionObservationRow &&
+          other.id == this.id &&
+          other.normalizedKey == this.normalizedKey &&
+          other.sourceText == this.sourceText &&
+          other.targetText == this.targetText &&
+          other.occurrenceCount == this.occurrenceCount &&
+          other.status == this.status &&
+          other.source == this.source &&
+          other.firstSeenAt == this.firstSeenAt &&
+          other.lastSeenAt == this.lastSeenAt);
+}
+
+class CorrectionObservationsCompanion
+    extends UpdateCompanion<CorrectionObservationRow> {
+  final Value<String> id;
+  final Value<String> normalizedKey;
+  final Value<String> sourceText;
+  final Value<String> targetText;
+  final Value<int> occurrenceCount;
+  final Value<String> status;
+  final Value<String> source;
+  final Value<DateTime> firstSeenAt;
+  final Value<DateTime> lastSeenAt;
+  final Value<int> rowid;
+  const CorrectionObservationsCompanion({
+    this.id = const Value.absent(),
+    this.normalizedKey = const Value.absent(),
+    this.sourceText = const Value.absent(),
+    this.targetText = const Value.absent(),
+    this.occurrenceCount = const Value.absent(),
+    this.status = const Value.absent(),
+    this.source = const Value.absent(),
+    this.firstSeenAt = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CorrectionObservationsCompanion.insert({
+    required String id,
+    required String normalizedKey,
+    required String sourceText,
+    required String targetText,
+    this.occurrenceCount = const Value.absent(),
+    this.status = const Value.absent(),
+    required String source,
+    required DateTime firstSeenAt,
+    required DateTime lastSeenAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       normalizedKey = Value(normalizedKey),
+       sourceText = Value(sourceText),
+       targetText = Value(targetText),
+       source = Value(source),
+       firstSeenAt = Value(firstSeenAt),
+       lastSeenAt = Value(lastSeenAt);
+  static Insertable<CorrectionObservationRow> custom({
+    Expression<String>? id,
+    Expression<String>? normalizedKey,
+    Expression<String>? sourceText,
+    Expression<String>? targetText,
+    Expression<int>? occurrenceCount,
+    Expression<String>? status,
+    Expression<String>? source,
+    Expression<DateTime>? firstSeenAt,
+    Expression<DateTime>? lastSeenAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (normalizedKey != null) 'normalized_key': normalizedKey,
+      if (sourceText != null) 'source_text': sourceText,
+      if (targetText != null) 'target_text': targetText,
+      if (occurrenceCount != null) 'occurrence_count': occurrenceCount,
+      if (status != null) 'status': status,
+      if (source != null) 'source': source,
+      if (firstSeenAt != null) 'first_seen_at': firstSeenAt,
+      if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CorrectionObservationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? normalizedKey,
+    Value<String>? sourceText,
+    Value<String>? targetText,
+    Value<int>? occurrenceCount,
+    Value<String>? status,
+    Value<String>? source,
+    Value<DateTime>? firstSeenAt,
+    Value<DateTime>? lastSeenAt,
+    Value<int>? rowid,
+  }) {
+    return CorrectionObservationsCompanion(
+      id: id ?? this.id,
+      normalizedKey: normalizedKey ?? this.normalizedKey,
+      sourceText: sourceText ?? this.sourceText,
+      targetText: targetText ?? this.targetText,
+      occurrenceCount: occurrenceCount ?? this.occurrenceCount,
+      status: status ?? this.status,
+      source: source ?? this.source,
+      firstSeenAt: firstSeenAt ?? this.firstSeenAt,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (normalizedKey.present) {
+      map['normalized_key'] = Variable<String>(normalizedKey.value);
+    }
+    if (sourceText.present) {
+      map['source_text'] = Variable<String>(sourceText.value);
+    }
+    if (targetText.present) {
+      map['target_text'] = Variable<String>(targetText.value);
+    }
+    if (occurrenceCount.present) {
+      map['occurrence_count'] = Variable<int>(occurrenceCount.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (firstSeenAt.present) {
+      map['first_seen_at'] = Variable<DateTime>(firstSeenAt.value);
+    }
+    if (lastSeenAt.present) {
+      map['last_seen_at'] = Variable<DateTime>(lastSeenAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CorrectionObservationsCompanion(')
+          ..write('id: $id, ')
+          ..write('normalizedKey: $normalizedKey, ')
+          ..write('sourceText: $sourceText, ')
+          ..write('targetText: $targetText, ')
+          ..write('occurrenceCount: $occurrenceCount, ')
+          ..write('status: $status, ')
+          ..write('source: $source, ')
+          ..write('firstSeenAt: $firstSeenAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$HistoryDatabase extends GeneratedDatabase {
   _$HistoryDatabase(QueryExecutor e) : super(e);
   $HistoryDatabaseManager get managers => $HistoryDatabaseManager(this);
@@ -5650,6 +6241,8 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   late final $SnippetFieldsTable snippetFields = $SnippetFieldsTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
+  late final $CorrectionObservationsTable correctionObservations =
+      $CorrectionObservationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5668,6 +6261,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     snippetFields,
     notes,
     noteTags,
+    correctionObservations,
   ];
 }
 
@@ -10374,6 +10968,313 @@ typedef $$NoteTagsTableProcessedTableManager =
       NoteTag,
       PrefetchHooks Function({bool noteId, bool tagId})
     >;
+typedef $$CorrectionObservationsTableCreateCompanionBuilder =
+    CorrectionObservationsCompanion Function({
+      required String id,
+      required String normalizedKey,
+      required String sourceText,
+      required String targetText,
+      Value<int> occurrenceCount,
+      Value<String> status,
+      required String source,
+      required DateTime firstSeenAt,
+      required DateTime lastSeenAt,
+      Value<int> rowid,
+    });
+typedef $$CorrectionObservationsTableUpdateCompanionBuilder =
+    CorrectionObservationsCompanion Function({
+      Value<String> id,
+      Value<String> normalizedKey,
+      Value<String> sourceText,
+      Value<String> targetText,
+      Value<int> occurrenceCount,
+      Value<String> status,
+      Value<String> source,
+      Value<DateTime> firstSeenAt,
+      Value<DateTime> lastSeenAt,
+      Value<int> rowid,
+    });
+
+class $$CorrectionObservationsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $CorrectionObservationsTable> {
+  $$CorrectionObservationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get normalizedKey => $composableBuilder(
+    column: $table.normalizedKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceText => $composableBuilder(
+    column: $table.sourceText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetText => $composableBuilder(
+    column: $table.targetText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get occurrenceCount => $composableBuilder(
+    column: $table.occurrenceCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get firstSeenAt => $composableBuilder(
+    column: $table.firstSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CorrectionObservationsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $CorrectionObservationsTable> {
+  $$CorrectionObservationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get normalizedKey => $composableBuilder(
+    column: $table.normalizedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceText => $composableBuilder(
+    column: $table.sourceText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetText => $composableBuilder(
+    column: $table.targetText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get occurrenceCount => $composableBuilder(
+    column: $table.occurrenceCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get firstSeenAt => $composableBuilder(
+    column: $table.firstSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CorrectionObservationsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $CorrectionObservationsTable> {
+  $$CorrectionObservationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get normalizedKey => $composableBuilder(
+    column: $table.normalizedKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceText => $composableBuilder(
+    column: $table.sourceText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetText => $composableBuilder(
+    column: $table.targetText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get occurrenceCount => $composableBuilder(
+    column: $table.occurrenceCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get firstSeenAt => $composableBuilder(
+    column: $table.firstSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
+}
+
+class $$CorrectionObservationsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $CorrectionObservationsTable,
+          CorrectionObservationRow,
+          $$CorrectionObservationsTableFilterComposer,
+          $$CorrectionObservationsTableOrderingComposer,
+          $$CorrectionObservationsTableAnnotationComposer,
+          $$CorrectionObservationsTableCreateCompanionBuilder,
+          $$CorrectionObservationsTableUpdateCompanionBuilder,
+          (
+            CorrectionObservationRow,
+            BaseReferences<
+              _$HistoryDatabase,
+              $CorrectionObservationsTable,
+              CorrectionObservationRow
+            >,
+          ),
+          CorrectionObservationRow,
+          PrefetchHooks Function()
+        > {
+  $$CorrectionObservationsTableTableManager(
+    _$HistoryDatabase db,
+    $CorrectionObservationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CorrectionObservationsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CorrectionObservationsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CorrectionObservationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> normalizedKey = const Value.absent(),
+                Value<String> sourceText = const Value.absent(),
+                Value<String> targetText = const Value.absent(),
+                Value<int> occurrenceCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<DateTime> firstSeenAt = const Value.absent(),
+                Value<DateTime> lastSeenAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CorrectionObservationsCompanion(
+                id: id,
+                normalizedKey: normalizedKey,
+                sourceText: sourceText,
+                targetText: targetText,
+                occurrenceCount: occurrenceCount,
+                status: status,
+                source: source,
+                firstSeenAt: firstSeenAt,
+                lastSeenAt: lastSeenAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String normalizedKey,
+                required String sourceText,
+                required String targetText,
+                Value<int> occurrenceCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required String source,
+                required DateTime firstSeenAt,
+                required DateTime lastSeenAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CorrectionObservationsCompanion.insert(
+                id: id,
+                normalizedKey: normalizedKey,
+                sourceText: sourceText,
+                targetText: targetText,
+                occurrenceCount: occurrenceCount,
+                status: status,
+                source: source,
+                firstSeenAt: firstSeenAt,
+                lastSeenAt: lastSeenAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CorrectionObservationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $CorrectionObservationsTable,
+      CorrectionObservationRow,
+      $$CorrectionObservationsTableFilterComposer,
+      $$CorrectionObservationsTableOrderingComposer,
+      $$CorrectionObservationsTableAnnotationComposer,
+      $$CorrectionObservationsTableCreateCompanionBuilder,
+      $$CorrectionObservationsTableUpdateCompanionBuilder,
+      (
+        CorrectionObservationRow,
+        BaseReferences<
+          _$HistoryDatabase,
+          $CorrectionObservationsTable,
+          CorrectionObservationRow
+        >,
+      ),
+      CorrectionObservationRow,
+      PrefetchHooks Function()
+    >;
 
 class $HistoryDatabaseManager {
   final _$HistoryDatabase _db;
@@ -10406,4 +11307,9 @@ class $HistoryDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$NoteTagsTableTableManager get noteTags =>
       $$NoteTagsTableTableManager(_db, _db.noteTags);
+  $$CorrectionObservationsTableTableManager get correctionObservations =>
+      $$CorrectionObservationsTableTableManager(
+        _db,
+        _db.correctionObservations,
+      );
 }

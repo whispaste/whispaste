@@ -560,6 +560,24 @@
   "replacementsImportScanning": "Scanning the folder — this can take a moment for large projects…",
   "replacementsImportError": "Import failed — the folder could not be scanned.",
   "replacementsImportedBadge": "Imported",
+  "replacementsLearnedBadge": "Learned",
+  "correctionLearningToggleLabel": "Learn from corrections",
+  "correctionLearningToggleEnabled": "Watching repeated voice corrections for suggestions",
+  "correctionLearningToggleDisabled": "Not watching voice corrections for suggestions",
+  "correctionCandidatesCardTitle": "Suggested from your corrections",
+  "correctionCandidatesCardHint": "{count} suggestion(s) from repeated voice corrections — review before they become replacements.",
+  "@correctionCandidatesCardHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesReviewButton": "Review",
+  "correctionCandidatesCommitSummary": "Added {added} learned replacement(s)",
+  "@correctionCandidatesCommitSummary": {
+    "placeholders": {
+      "added": { "type": "int" }
+    }
+  },
   "replacementsImportNothingFound": "No new identifiers found in this folder.",
   "replacementsImportReviewTitle": "Choose what to import",
   "replacementsImportReviewSubtitle": "{count} candidates found — pick which ones become replacements. Nothing is added until you confirm.",

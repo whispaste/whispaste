@@ -25,6 +25,8 @@ import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
+import 'package:whispaste/services/replacements/correction_learning_service.dart';
+import 'package:whispaste/services/replacements/correction_signal.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/voice_action_service.dart';
 
@@ -1015,6 +1017,139 @@ void main() {
 
       final entry = await db.getEntry(entryId);
       expect(entry!.content, 'Fixed transcript');
+    });
+  });
+
+  // =========================================================================
+  // 4. Correction-signal recording (ticket 01
+  //    `.scratch/vocab-learning-corrections/`) — replicates the
+  //    `VoiceNoteButton._dispatch` `VoiceActionType.correction` branch's
+  //    signal-recording glue (settings guard + no-op guard + service call),
+  //    the same "mirror the private dispatch logic" pattern the dispatch
+  //    flow group above already uses since that method is private.
+  // =========================================================================
+
+  group('Correction-signal recording (voice command source)', () {
+    late HistoryDatabase db;
+    late ProviderContainer container;
+    const entryId = 'voice-correction-signal-1';
+
+    setUp(() async {
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: entryId,
+          timestamp: DateTime(2025, 7, 1, 12, 0),
+          content: const Value('teh meeting'),
+          title: const Value('Flow Test Entry'),
+          model: const Value('whisper-small'),
+          isLocal: const Value(true),
+          durationSec: const Value(5.0),
+        ),
+      );
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+        ],
+      );
+    });
+
+    tearDown(() => container.dispose());
+
+    /// Mirrors the correction branch of `VoiceNoteButton._dispatch`: applies
+    /// [correctedContent] to [entryId]'s content via `updateContent`, and —
+    /// when [learningEnabled] and the content actually changed — records a
+    /// [CorrectionSignal] for it.
+    Future<void> dispatchCorrection(
+      String correctedContent, {
+      bool learningEnabled = true,
+    }) async {
+      container.listen(historyDetailProvider(entryId), (_, _) {});
+      final before = (await container.read(
+        historyDetailProvider(entryId).future,
+      )).entry.content;
+      final notifier = container.read(historyDetailProvider(entryId).notifier);
+      await notifier.updateContent(correctedContent);
+
+      if (learningEnabled && before != correctedContent) {
+        await const CorrectionLearningService().recordSignal(
+          CorrectionSignal(
+            sourceText: before,
+            targetText: correctedContent,
+            timestamp: DateTime(2026, 1, 1),
+            source: CorrectionSignalSource.voiceCommand,
+          ),
+          db,
+        );
+      }
+    }
+
+    test(
+      'a single voice correction does not yet produce a candidate',
+      () async {
+        await dispatchCorrection('the meeting');
+
+        final candidates = await const CorrectionLearningService()
+            .pendingCandidates(db);
+        expect(candidates, isEmpty);
+      },
+    );
+
+    test(
+      'the same voice correction dispatched twice produces one candidate',
+      () async {
+        await dispatchCorrection('the meeting');
+        // Reset content back to the original so the second correction is
+        // observed as "the same fix" again (as it would be on a different
+        // history entry with the same mis-transcription).
+        await container
+            .read(historyDetailProvider(entryId).notifier)
+            .updateContent('teh meeting');
+
+        await dispatchCorrection('the meeting');
+
+        final candidates = await const CorrectionLearningService()
+            .pendingCandidates(db);
+        expect(candidates, hasLength(1));
+        expect(candidates.single.sourceText, 'teh meeting');
+        expect(candidates.single.targetText, 'the meeting');
+      },
+    );
+
+    test(
+      'no signal is recorded when the correction leaves content unchanged',
+      () async {
+        // "correct: teh meeting" dictated on an entry whose content is
+        // already "teh meeting" -- not a fix of anything, so it must not
+        // count toward candidacy.
+        await dispatchCorrection('teh meeting');
+        await dispatchCorrection('teh meeting');
+
+        final candidates = await const CorrectionLearningService()
+            .pendingCandidates(db);
+        expect(candidates, isEmpty);
+      },
+    );
+
+    test('no signal is recorded while correction learning is disabled in '
+        'settings', () async {
+      await dispatchCorrection('the meeting', learningEnabled: false);
+      await container
+          .read(historyDetailProvider(entryId).notifier)
+          .updateContent('teh meeting');
+      await dispatchCorrection('the meeting', learningEnabled: false);
+
+      final candidates = await const CorrectionLearningService()
+          .pendingCandidates(db);
+      expect(candidates, isEmpty);
+
+      // The correction itself must still be applied even with learning
+      // off -- only the *learning* is gated, never the correction.
+      final entry = await db.getEntry(entryId);
+      expect(entry!.content, 'the meeting');
     });
   });
 }

@@ -514,6 +514,24 @@
     }
   },
   "replacementsImportedBadge": "יובא",
+  "replacementsLearnedBadge": "נלמד",
+  "correctionLearningToggleLabel": "למידה מתיקונים",
+  "correctionLearningToggleEnabled": "תיקוני קול חזרים נבדקים להצעות",
+  "correctionLearningToggleDisabled": "תיקוני קול אינם נבדקים להצעות",
+  "correctionCandidatesCardTitle": "הצעות מהתיקונים שלך",
+  "correctionCandidatesCardHint": "{count} הצעות מתיקוני קול חזרים — יש לבדוק לפני שהן הופכות להחלפות.",
+  "@correctionCandidatesCardHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesReviewButton": "בדיקה",
+  "correctionCandidatesCommitSummary": "נוספו {added} החלפות נלמדות",
+  "@correctionCandidatesCommitSummary": {
+    "placeholders": {
+      "added": { "type": "int" }
+    }
+  },
   "replacementsMatchModeLabel": "התאמה",
   "replacementsMatchModeExact": "מדויק",
   "replacementsMatchModeFuzzy": "דומה",

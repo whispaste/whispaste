@@ -1458,6 +1458,37 @@ class L10nRu extends L10n {
   String get replacementsImportedBadge => 'Импортировано';
 
   @override
+  String get replacementsLearnedBadge => 'Изучено';
+
+  @override
+  String get correctionLearningToggleLabel => 'Учиться на исправлениях';
+
+  @override
+  String get correctionLearningToggleEnabled =>
+      'Повторяющиеся голосовые исправления проверяются на предложения';
+
+  @override
+  String get correctionLearningToggleDisabled =>
+      'Голосовые исправления не проверяются на предложения';
+
+  @override
+  String get correctionCandidatesCardTitle =>
+      'Предложено на основе ваших исправлений';
+
+  @override
+  String correctionCandidatesCardHint(int count) {
+    return '$count предложение(я) на основе повторяющихся голосовых исправлений — проверьте перед добавлением.';
+  }
+
+  @override
+  String get correctionCandidatesReviewButton => 'Проверить';
+
+  @override
+  String correctionCandidatesCommitSummary(int added) {
+    return 'Добавлено $added изученных замен';
+  }
+
+  @override
   String get replacementsImportNothingFound =>
       'В этой папке не найдено новых идентификаторов.';
 

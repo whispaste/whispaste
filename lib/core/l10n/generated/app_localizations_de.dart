@@ -1432,6 +1432,37 @@ class L10nDe extends L10n {
   String get replacementsImportedBadge => 'Importiert';
 
   @override
+  String get replacementsLearnedBadge => 'Gelernt';
+
+  @override
+  String get correctionLearningToggleLabel => 'Aus Korrekturen lernen';
+
+  @override
+  String get correctionLearningToggleEnabled =>
+      'Wiederholte Sprachkorrekturen werden auf Vorschläge geprüft';
+
+  @override
+  String get correctionLearningToggleDisabled =>
+      'Sprachkorrekturen werden nicht auf Vorschläge geprüft';
+
+  @override
+  String get correctionCandidatesCardTitle =>
+      'Aus deinen Korrekturen vorgeschlagen';
+
+  @override
+  String correctionCandidatesCardHint(int count) {
+    return '$count Vorschlag/Vorschläge aus wiederholten Sprachkorrekturen — vor der Übernahme prüfen.';
+  }
+
+  @override
+  String get correctionCandidatesReviewButton => 'Prüfen';
+
+  @override
+  String correctionCandidatesCommitSummary(int added) {
+    return '$added gelernte Ersetzung(en) hinzugefügt';
+  }
+
+  @override
   String get replacementsImportNothingFound =>
       'In diesem Ordner wurden keine neuen Bezeichner gefunden.';
 

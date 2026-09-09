@@ -288,3 +288,38 @@ class HotkeyLatencyEntries extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// One persisted correction observation for vocabulary-learning-from-
+/// corrections (ticket 01 `.scratch/vocab-learning-corrections/`) — the
+/// Drift-shape counterpart of the pure `CorrectionObservation` in
+/// `services/replacements/correction_candidate_detector.dart`.
+///
+/// `normalizedKey` is the case-insensitive, whitespace-collapsed grouping key
+/// (`normalizeCorrectionKey`) that decides whether two [CorrectionSignal]s
+/// are "the same correction"; `sourceText`/`targetText` keep the most
+/// recently observed original casing for display and for the eventual
+/// replacement entry. A row only ever leaves `pending` for `accepted` or
+/// `rejected` (never back), so a rejected correction can never resurface
+/// with identical content.
+@DataClassName('CorrectionObservationRow')
+class CorrectionObservations extends Table {
+  TextColumn get id => text()();
+  TextColumn get normalizedKey => text().unique()();
+  TextColumn get sourceText => text()();
+  TextColumn get targetText => text()();
+  IntColumn get occurrenceCount => integer().withDefault(const Constant(1))();
+
+  /// `pending` / `accepted` / `rejected` — see [CorrectionObservationStatus]
+  /// in `correction_candidate_detector.dart`. Text-backed like other
+  /// enum-ish columns in this file (e.g. `TextReplacements.origin`).
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+
+  /// `voiceCommand` / `manualEdit` — see `CorrectionSignalSource` in
+  /// `correction_signal.dart`.
+  TextColumn get source => text()();
+  DateTimeColumn get firstSeenAt => dateTime()();
+  DateTimeColumn get lastSeenAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

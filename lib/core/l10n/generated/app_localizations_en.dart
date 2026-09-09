@@ -1418,6 +1418,36 @@ class L10nEn extends L10n {
   String get replacementsImportedBadge => 'Imported';
 
   @override
+  String get replacementsLearnedBadge => 'Learned';
+
+  @override
+  String get correctionLearningToggleLabel => 'Learn from corrections';
+
+  @override
+  String get correctionLearningToggleEnabled =>
+      'Watching repeated voice corrections for suggestions';
+
+  @override
+  String get correctionLearningToggleDisabled =>
+      'Not watching voice corrections for suggestions';
+
+  @override
+  String get correctionCandidatesCardTitle => 'Suggested from your corrections';
+
+  @override
+  String correctionCandidatesCardHint(int count) {
+    return '$count suggestion(s) from repeated voice corrections — review before they become replacements.';
+  }
+
+  @override
+  String get correctionCandidatesReviewButton => 'Review';
+
+  @override
+  String correctionCandidatesCommitSummary(int added) {
+    return 'Added $added learned replacement(s)';
+  }
+
+  @override
   String get replacementsImportNothingFound =>
       'No new identifiers found in this folder.';
 

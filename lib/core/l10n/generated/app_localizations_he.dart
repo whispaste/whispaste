@@ -1405,6 +1405,36 @@ class L10nHe extends L10n {
   String get replacementsImportedBadge => 'יובא';
 
   @override
+  String get replacementsLearnedBadge => 'נלמד';
+
+  @override
+  String get correctionLearningToggleLabel => 'למידה מתיקונים';
+
+  @override
+  String get correctionLearningToggleEnabled =>
+      'תיקוני קול חזרים נבדקים להצעות';
+
+  @override
+  String get correctionLearningToggleDisabled =>
+      'תיקוני קול אינם נבדקים להצעות';
+
+  @override
+  String get correctionCandidatesCardTitle => 'הצעות מהתיקונים שלך';
+
+  @override
+  String correctionCandidatesCardHint(int count) {
+    return '$count הצעות מתיקוני קול חזרים — יש לבדוק לפני שהן הופכות להחלפות.';
+  }
+
+  @override
+  String get correctionCandidatesReviewButton => 'בדיקה';
+
+  @override
+  String correctionCandidatesCommitSummary(int added) {
+    return 'נוספו $added החלפות נלמדות';
+  }
+
+  @override
   String get replacementsImportNothingFound =>
       'לא נמצאו מזהים חדשים בתיקייה זו.';
 

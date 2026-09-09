@@ -9,8 +9,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/settings_provider.dart';
+import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../services/replacements/correction_learning_service.dart';
+import '../../../services/replacements/correction_signal.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../services/voice_action_service.dart';
 import '../../../widgets/toast.dart';
@@ -47,11 +51,31 @@ class VoiceNoteButton extends ConsumerWidget {
       return;
     }
 
-    // Both reads happen before the first await: the writes below outlive the
+    // All reads happen before the first await: the writes below outlive the
     // button when the panel closes mid-dispatch, and `ref` is only valid while
     // this element is mounted.
     final notifier = ref.read(historyDetailProvider(entryId).notifier);
     final telemetry = ref.read(telemetrySessionAggregatorProvider);
+    // The content *before* this correction is applied -- this is the
+    // "Ausgangstext" half of the correction signal (ticket 01
+    // `.scratch/vocab-learning-corrections/`); `updateContent` below
+    // overwrites it, so it must be captured now.
+    final contentBeforeCorrection = ref
+        .read(historyDetailProvider(entryId))
+        .value
+        ?.entry
+        .content;
+    final correctionLearningEnabled =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.value?.behavior.correctionLearningEnabled,
+          ),
+        ) ??
+        true;
+    final correctionLearningService = ref.read(
+      correctionLearningServiceProvider,
+    );
+    final db = ref.read(historyDatabaseProvider);
 
     switch (action.type) {
       case VoiceActionType.note:
@@ -65,6 +89,24 @@ class VoiceNoteButton extends ConsumerWidget {
       case VoiceActionType.correction:
         await notifier.updateContent(action.payload);
         if (context.mounted) _showToast(context, l10n.voiceCorrectionApplied);
+        // Only a real change is a "correction" worth learning from -- a
+        // `correct:`/`korrektur:` command dictated at all (even with the
+        // same content, e.g. re-recorded to fix a different word further up
+        // that a fresh full-content overwrite happens to match again) tells
+        // us nothing about a repeated *mistake* if source == target.
+        if (correctionLearningEnabled &&
+            contentBeforeCorrection != null &&
+            contentBeforeCorrection != action.payload) {
+          await correctionLearningService.recordSignal(
+            CorrectionSignal(
+              sourceText: contentBeforeCorrection,
+              targetText: action.payload,
+              timestamp: DateTime.now(),
+              source: CorrectionSignalSource.voiceCommand,
+            ),
+            db,
+          );
+        }
     }
 
     _log.info(

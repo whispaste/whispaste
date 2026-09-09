@@ -12,6 +12,7 @@ import '../../services/replacements/text_replacement_matcher.dart'
         fuzzyThresholdStrict,
         fuzzyThresholdStandard,
         fuzzyThresholdTolerant;
+import '../../services/replacements/correction_learning_service.dart';
 import '../../services/replacements/vocabulary_import_service.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
@@ -232,6 +233,17 @@ final vocabularyImportServiceProvider = Provider<VocabularyImportService>(
   (ref) => VocabularyImportService(),
 );
 
+/// Every correction candidate currently eligible for review (ticket 01
+/// `.scratch/vocab-learning-corrections/`). `autoDispose` so a stale list
+/// isn't kept alive once the Replacements page (its only consumer) is
+/// popped -- re-fetched fresh next time it's opened.
+final pendingCorrectionCandidatesProvider =
+    FutureProvider.autoDispose<List<CorrectionCandidate>>((ref) {
+      final service = ref.read(correctionLearningServiceProvider);
+      final db = ref.read(historyDatabaseProvider);
+      return service.pendingCandidates(db);
+    });
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -246,6 +258,7 @@ class ReplacementsPage extends ConsumerStatefulWidget {
 
 class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   bool _importing = false;
+  bool _reviewingCorrections = false;
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +272,16 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           settingsProvider.select((s) => s.value?.textReplacementsEnabled),
         ) ??
         true;
+    final correctionLearningEnabled =
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.value?.behavior.correctionLearningEnabled,
+          ),
+        ) ??
+        true;
+    final pendingCorrectionCandidates = ref
+        .watch(pendingCorrectionCandidatesProvider)
+        .maybeWhen(data: (c) => c, orElse: () => const <CorrectionCandidate>[]);
 
     return WpSearchableListPage<Replacement>(
       // The master switch lives in a header card, not in the toolbar.
@@ -292,6 +315,23 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
             onImport: _importFromFolder,
             importing: _importing,
           ),
+          _CorrectionLearningToggleCard(
+            enabled: correctionLearningEnabled,
+            onChanged: (v) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWithSections(
+                    behavior: s.behavior.copyWith(correctionLearningEnabled: v),
+                  ),
+                ),
+          ),
+          if (pendingCorrectionCandidates.isNotEmpty)
+            _CorrectionCandidatesCard(
+              count: pendingCorrectionCandidates.length,
+              reviewing: _reviewingCorrections,
+              onReview: () =>
+                  _reviewCorrectionCandidates(pendingCorrectionCandidates),
+            ),
         ],
       ),
       asyncAll: ref.watch(replacementsProvider),
@@ -417,6 +457,59 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       );
     } finally {
       if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  // ── Correction-learning review ────────────────────────────────────────
+
+  /// Pushes the exact same review page the vocabulary-import flow uses
+  /// (PRD.md decision: "reuses the existing vocabulary-import review flow"),
+  /// just fed each candidate's `"source → target"` display text instead of
+  /// a bare identifier. That page only knows how to hand back the strings
+  /// the user selected, so [_candidates] doubles as the lookup from a
+  /// selected display string back to its candidate id.
+  ///
+  /// The review page has no separate per-candidate "reject" action — only
+  /// "select some and commit" or "cancel entirely" (see
+  /// `VocabularyImportReviewPage`). So committing treats every candidate
+  /// that was shown but not selected as rejected; cancelling leaves every
+  /// candidate untouched (still pending, offered again next time).
+  Future<void> _reviewCorrectionCandidates(
+    List<CorrectionCandidate> candidates,
+  ) async {
+    if (_reviewingCorrections || candidates.isEmpty) return;
+    final l10n = L10n.of(context);
+    setState(() => _reviewingCorrections = true);
+    try {
+      final byDisplayText = {for (final c in candidates) c.displayText: c};
+
+      final selected = await Navigator.of(context).push<List<String>>(
+        MaterialPageRoute(
+          builder: (_) => VocabularyImportReviewPage(
+            candidates: [for (final c in candidates) c.displayText],
+          ),
+        ),
+      );
+      if (selected == null || !mounted) return;
+
+      final service = ref.read(correctionLearningServiceProvider);
+      final db = ref.read(historyDatabaseProvider);
+      final added = await service.commit(
+        shownIds: [for (final c in candidates) c.id],
+        acceptedIds: [for (final s in selected) byDisplayText[s]!.id],
+        db: db,
+      );
+
+      ref.invalidate(pendingCorrectionCandidatesProvider);
+      await ref.read(replacementsProvider.notifier).reload();
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: l10n.correctionCandidatesCommitSummary(added),
+        type: WpToastType.success,
+      );
+    } finally {
+      if (mounted) setState(() => _reviewingCorrections = false);
     }
   }
 
@@ -561,6 +654,104 @@ class _VocabularyImportCard extends StatelessWidget {
             size: WpButtonSize.dense,
             isLoading: importing,
             onPressed: importing ? null : onImport,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Correction-learning (ticket 01 `.scratch/vocab-learning-corrections/`)
+// ---------------------------------------------------------------------------
+
+/// Global on/off switch for automatic correction-candidate detection — same
+/// card geometry as [_ReplacementsToggleCard]/[_VocabularyImportCard] above
+/// it. Turning this off only stops new candidates from being *observed*; it
+/// never touches already-learned entries or candidates already pending
+/// review (see `BehaviorSettings.correctionLearningEnabled` doc comment).
+class _CorrectionLearningToggleCard extends StatelessWidget {
+  const _CorrectionLearningToggleCard({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.xxs,
+        WpSpacing.xl,
+        0,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(WpSpacing.xxs),
+        decoration: BoxDecoration(
+          color: WpColors.cardFill,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: WpColors.borderSubtle),
+        ),
+        child: SettingRow(
+          icon: LucideIcons.sparkles,
+          label: l10n.correctionLearningToggleLabel,
+          subtitle: enabled
+              ? l10n.correctionLearningToggleEnabled
+              : l10n.correctionLearningToggleDisabled,
+          semanticToggledValue: enabled,
+          trailing: settingsToggle(value: enabled, onChanged: onChanged),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown only while there is at least one correction candidate awaiting
+/// review — opens the shared vocabulary-import review page (PRD.md
+/// decision: reuse it rather than build a second review UI).
+class _CorrectionCandidatesCard extends StatelessWidget {
+  const _CorrectionCandidatesCard({
+    required this.count,
+    required this.reviewing,
+    required this.onReview,
+  });
+
+  final int count;
+  final bool reviewing;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.xxs,
+        WpSpacing.xl,
+        0,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(WpSpacing.xxs),
+        decoration: BoxDecoration(
+          color: WpColors.cardFill,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: WpColors.borderSubtle),
+        ),
+        child: SettingRow(
+          icon: LucideIcons.lightbulb,
+          label: l10n.correctionCandidatesCardTitle,
+          subtitle: l10n.correctionCandidatesCardHint(count),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          trailing: WpButton(
+            label: l10n.correctionCandidatesReviewButton,
+            variant: WpButtonVariant.secondary,
+            size: WpButtonSize.dense,
+            isLoading: reviewing,
+            onPressed: reviewing ? null : onReview,
           ),
         ),
       ),
@@ -1009,6 +1200,12 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                     const SizedBox(width: WpSpacing.xxs),
                     WpAccentBadge(
                       label: L10n.of(context).replacementsImportedBadge,
+                    ),
+                  ],
+                  if (widget.replacement.origin == 'learned') ...[
+                    const SizedBox(width: WpSpacing.xxs),
+                    WpAccentBadge(
+                      label: L10n.of(context).replacementsLearnedBadge,
                     ),
                   ],
                   const SizedBox(width: WpSpacing.sm),
