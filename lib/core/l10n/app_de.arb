@@ -657,6 +657,27 @@
   "statusBarAutoPasteOffHint": "Auto-Paste deaktiviert, in Settings aktivierbar",
   "statusBarAutoPasteOffHintTooltip": "Auto-Paste ist aktuell aus. Klicken, um die Einstellungen zu öffnen.",
   "statusBarAutoPasteOffHintDismiss": "Hinweis ausblenden",
+  "statusBarAutomationApiChipLabel": "API: {port}",
+  "@statusBarAutomationApiChipLabel": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiChipLabelError": "API: Fehler",
+  "statusBarAutomationApiTooltip": "Automatisierungs-API aktiv auf Port {port}",
+  "@statusBarAutomationApiTooltip": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiTooltipFallback": "Automatisierungs-API aktiv auf Port {port} (Port {requestedPort} war belegt)",
+  "@statusBarAutomationApiTooltipFallback": {
+    "placeholders": {
+      "port": { "type": "int" },
+      "requestedPort": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiTooltipError": "Automatisierungs-API: kein freier Port gefunden",
 
   "modifierCtrl": "Strg",
   "modifierShift": "Umschalt",
@@ -1487,6 +1508,9 @@
   "settingsAutomationApiRegenerateConfirmMessage": "Der aktuelle Token funktioniert danach sofort nicht mehr. Skripte, die ihn nutzen, brauchen den neuen.",
   "settingsAutomationApiCopyToken": "Token kopieren",
   "settingsAutomationApiTokenCopied": "Token in die Zwischenablage kopiert",
+  "settingsAutomationApiDocumentation": "Dokumentation",
+  "settingsAutomationApiDocumentationSubtitle": "Endpunkt-Referenz und curl-Beispiele",
+  "settingsAutomationApiDocumentationAction": "Öffnen",
   "historyCharacterCount": "{count} Zeichen",
   "historyPastedInto": "Eingefügt in {app}",
   "historyShowOriginalTranscript": "Original-Transkript anzeigen",

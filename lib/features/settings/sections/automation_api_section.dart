@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/app_urls.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
@@ -17,6 +19,11 @@ import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
+
+/// GitHub blob URL of `AUTOMATION_API.md` — the full endpoint reference
+/// this section's "Documentation" link opens.
+const String kAutomationApiDocsUrl =
+    '$kGitHubRepoUrl/blob/main/AUTOMATION_API.md';
 
 class AutomationApiSection extends ConsumerWidget {
   const AutomationApiSection({super.key});
@@ -96,9 +103,27 @@ class AutomationApiSection extends ConsumerWidget {
               ),
             ],
           ],
+          settingsInlineBreak,
+          SettingRow(
+            icon: LucideIcons.bookOpen,
+            label: l10n.settingsAutomationApiDocumentation,
+            subtitle: l10n.settingsAutomationApiDocumentationSubtitle,
+            trailing: WpButton(
+              label: l10n.settingsAutomationApiDocumentationAction,
+              variant: WpButtonVariant.secondary,
+              onPressed: _openDocumentation,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _openDocumentation() async {
+    final uri = Uri.parse(kAutomationApiDocsUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   String _statusLabel(L10n l10n, AutomationApiState state) =>

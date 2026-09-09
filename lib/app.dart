@@ -1311,6 +1311,9 @@ class _AppShellState extends ConsumerState<_AppShell>
                                       (s) => s.cpuPercent,
                                     ),
                                   );
+                                  final automationApiState = ref.watch(
+                                    automationApiControllerProvider,
+                                  );
                                   return WpStatusBar(
                                     sttModeLabel: statusBarModel.sttModeLabel,
                                     sttState: statusBarSttState,
@@ -1427,6 +1430,22 @@ class _AppShellState extends ConsumerState<_AppShell>
                                       updateState: updateState,
                                       channel: deployChannel,
                                     ),
+                                    automationApiRunState:
+                                        automationApiState.runState,
+                                    automationApiPort: automationApiState.port,
+                                    automationApiRequestedPort:
+                                        automationApiState.requestedPort,
+                                    onAutomationApiTap: () {
+                                      ref
+                                          .read(
+                                            settingsScrollTargetProvider
+                                                .notifier,
+                                          )
+                                          .set('automationApi');
+                                      ref
+                                          .read(activePageProvider.notifier)
+                                          .setPage('settings');
+                                    },
                                   );
                                 },
                               ),

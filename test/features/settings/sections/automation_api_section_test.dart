@@ -12,6 +12,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show AsyncData, ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +23,8 @@ import 'package:whispaste/features/settings/sections/automation_api_section.dart
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
 
 import '../../../fixtures/test_helpers.dart';
+
+const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier([AppSettings? settings])
@@ -241,6 +244,41 @@ void main() {
           find.text(l10n.settingsAutomationApiStatusError(8765, 8784)),
           findsOneWidget,
         );
+      },
+    );
+  });
+
+  group('AutomationApiSection documentation link', () {
+    String? capturedUrl;
+
+    setUp(() {
+      capturedUrl = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_launcherChannel, (call) async {
+            if (call.method == 'canLaunch' || call.method == 'launch') {
+              capturedUrl = (call.arguments as Map)['url'] as String?;
+            }
+            return true;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_launcherChannel, null);
+    });
+
+    testWidgets(
+      'tapping "Open" launches the AUTOMATION_API.md GitHub blob URL',
+      (tester) async {
+        await tester.pumpWidget(_pump(tester));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.text(l10n.settingsAutomationApiDocumentationAction),
+        );
+        await tester.pumpAndSettle();
+
+        expect(capturedUrl, kAutomationApiDocsUrl);
       },
     );
   });

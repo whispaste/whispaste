@@ -3587,6 +3587,36 @@ abstract class L10n {
   /// **'Dismiss'**
   String get statusBarAutoPasteOffHintDismiss;
 
+  /// No description provided for @statusBarAutomationApiChipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'API: {port}'**
+  String statusBarAutomationApiChipLabel(int port);
+
+  /// No description provided for @statusBarAutomationApiChipLabelError.
+  ///
+  /// In en, this message translates to:
+  /// **'API: error'**
+  String get statusBarAutomationApiChipLabelError;
+
+  /// No description provided for @statusBarAutomationApiTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Automation API active on port {port}'**
+  String statusBarAutomationApiTooltip(int port);
+
+  /// No description provided for @statusBarAutomationApiTooltipFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Automation API active on port {port} (port {requestedPort} was in use)'**
+  String statusBarAutomationApiTooltipFallback(int port, int requestedPort);
+
+  /// No description provided for @statusBarAutomationApiTooltipError.
+  ///
+  /// In en, this message translates to:
+  /// **'Automation API: no free port found'**
+  String get statusBarAutomationApiTooltipError;
+
   /// No description provided for @modifierCtrl.
   ///
   /// In en, this message translates to:
@@ -7348,6 +7378,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Token copied to clipboard'**
   String get settingsAutomationApiTokenCopied;
+
+  /// No description provided for @settingsAutomationApiDocumentation.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentation'**
+  String get settingsAutomationApiDocumentation;
+
+  /// No description provided for @settingsAutomationApiDocumentationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Endpoint reference and curl examples'**
+  String get settingsAutomationApiDocumentationSubtitle;
+
+  /// No description provided for @settingsAutomationApiDocumentationAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get settingsAutomationApiDocumentationAction;
 
   /// Character-count metadata chip in the History detail panel (ticket 12), analogous to historyWordCount.
   ///

@@ -2030,6 +2030,28 @@ class L10nDe extends L10n {
   String get statusBarAutoPasteOffHintDismiss => 'Hinweis ausblenden';
 
   @override
+  String statusBarAutomationApiChipLabel(int port) {
+    return 'API: $port';
+  }
+
+  @override
+  String get statusBarAutomationApiChipLabelError => 'API: Fehler';
+
+  @override
+  String statusBarAutomationApiTooltip(int port) {
+    return 'Automatisierungs-API aktiv auf Port $port';
+  }
+
+  @override
+  String statusBarAutomationApiTooltipFallback(int port, int requestedPort) {
+    return 'Automatisierungs-API aktiv auf Port $port (Port $requestedPort war belegt)';
+  }
+
+  @override
+  String get statusBarAutomationApiTooltipError =>
+      'Automatisierungs-API: kein freier Port gefunden';
+
+  @override
   String get modifierCtrl => 'Strg';
 
   @override
@@ -4234,6 +4256,16 @@ class L10nDe extends L10n {
   @override
   String get settingsAutomationApiTokenCopied =>
       'Token in die Zwischenablage kopiert';
+
+  @override
+  String get settingsAutomationApiDocumentation => 'Dokumentation';
+
+  @override
+  String get settingsAutomationApiDocumentationSubtitle =>
+      'Endpunkt-Referenz und curl-Beispiele';
+
+  @override
+  String get settingsAutomationApiDocumentationAction => 'Öffnen';
 
   @override
   String historyCharacterCount(int count) {

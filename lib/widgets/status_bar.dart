@@ -12,6 +12,8 @@ import '../core/recording/recording_state.dart'
     show RecordingPhase, SttServerState;
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/automation_api/automation_api_controller.dart'
+    show AutomationApiRunState;
 import '../services/microphone_selection_service.dart' show micDefaultLabel;
 import 'wp_focus_ring.dart';
 
@@ -113,6 +115,9 @@ class WpStatusBar extends StatelessWidget {
     this.updateVersion,
     this.updateReadyToInstall = false,
     this.showAutoPasteOffHint = false,
+    this.automationApiRunState,
+    this.automationApiPort,
+    this.automationApiRequestedPort,
     this.onSttTap,
     this.onAfterActionChanged,
     this.onMicrophoneChanged,
@@ -121,6 +126,7 @@ class WpStatusBar extends StatelessWidget {
     this.onUpdateTap,
     this.onAutoPasteOffHintTap,
     this.onAutoPasteOffHintDismiss,
+    this.onAutomationApiTap,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
@@ -191,6 +197,23 @@ class WpStatusBar extends StatelessWidget {
   /// has completed **and** the user has not dismissed the hint.
   final bool showAutoPasteOffHint;
 
+  /// Current lifecycle state of the local Automation API, or `null` to hide
+  /// the chip entirely — the API is off by default (see
+  /// `AutomationApiController`), so most users never see this chip. Shown
+  /// only for `running`/`error`; `stopped` also hides the chip, same as
+  /// `null` (an explicit "off" state is not worth a persistent chip for a
+  /// feature that defaults to off).
+  final AutomationApiRunState? automationApiRunState;
+
+  /// The bound port while [automationApiRunState] is `running`, or `null`
+  /// otherwise.
+  final int? automationApiPort;
+
+  /// The port the current start attempt was configured for — differs from
+  /// [automationApiPort] only when the target port was taken and a fallback
+  /// port bound instead. See `AutomationApiState.requestedPort`.
+  final int? automationApiRequestedPort;
+
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
 
@@ -218,6 +241,10 @@ class WpStatusBar extends StatelessWidget {
   /// Callback when user taps the dismiss button on the "Auto-Paste off"
   /// hint chip — should persist `autoPasteOffHintDismissed = true`.
   final VoidCallback? onAutoPasteOffHintDismiss;
+
+  /// Callback when user taps the Automation API chip (navigate to
+  /// settings).
+  final VoidCallback? onAutomationApiTap;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +400,43 @@ class WpStatusBar extends StatelessWidget {
                                 textStyle: textStyle,
                                 tooltip: l10n.updateAvailable(updateVersion!),
                                 onTap: onUpdateTap,
+                              ),
+                            ],
+                            if (automationApiRunState != null &&
+                                automationApiRunState !=
+                                    AutomationApiRunState.stopped) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                              _StatusChip(
+                                icon:
+                                    automationApiRunState ==
+                                        AutomationApiRunState.error
+                                    ? LucideIcons.circleAlert
+                                    : LucideIcons.terminal,
+                                label:
+                                    automationApiRunState ==
+                                        AutomationApiRunState.error
+                                    ? l10n.statusBarAutomationApiChipLabelError
+                                    : l10n.statusBarAutomationApiChipLabel(
+                                        automationApiPort ?? 0,
+                                      ),
+                                textStyle: textStyle,
+                                tooltip:
+                                    automationApiRunState ==
+                                        AutomationApiRunState.error
+                                    ? l10n.statusBarAutomationApiTooltipError
+                                    : (automationApiPort != null &&
+                                          automationApiPort !=
+                                              automationApiRequestedPort)
+                                    ? l10n.statusBarAutomationApiTooltipFallback(
+                                        automationApiPort!,
+                                        automationApiRequestedPort ??
+                                            automationApiPort!,
+                                      )
+                                    : l10n.statusBarAutomationApiTooltip(
+                                        automationApiPort ?? 0,
+                                      ),
+                                onTap: onAutomationApiTap,
                               ),
                             ],
                           ],

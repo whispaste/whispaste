@@ -810,6 +810,27 @@
   "statusBarAutoPasteOffHint": "Auto-Paste off, enable in Settings",
   "statusBarAutoPasteOffHintTooltip": "Auto-Paste is currently disabled. Click to open Settings.",
   "statusBarAutoPasteOffHintDismiss": "Dismiss",
+  "statusBarAutomationApiChipLabel": "API: {port}",
+  "@statusBarAutomationApiChipLabel": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiChipLabelError": "API: error",
+  "statusBarAutomationApiTooltip": "Automation API active on port {port}",
+  "@statusBarAutomationApiTooltip": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiTooltipFallback": "Automation API active on port {port} (port {requestedPort} was in use)",
+  "@statusBarAutomationApiTooltipFallback": {
+    "placeholders": {
+      "port": { "type": "int" },
+      "requestedPort": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiTooltipError": "Automation API: no free port found",
 
   "modifierCtrl": "Ctrl",
   "modifierShift": "Shift",
@@ -1701,6 +1722,9 @@
   "settingsAutomationApiRegenerateConfirmMessage": "The current token stops working immediately. Any script using it will need the new one.",
   "settingsAutomationApiCopyToken": "Copy token",
   "settingsAutomationApiTokenCopied": "Token copied to clipboard",
+  "settingsAutomationApiDocumentation": "Documentation",
+  "settingsAutomationApiDocumentationSubtitle": "Endpoint reference and curl examples",
+  "settingsAutomationApiDocumentationAction": "Open",
   "historyCharacterCount": "{count} characters",
   "@historyCharacterCount": {
     "description": "Character-count metadata chip in the History detail panel (ticket 12), analogous to historyWordCount.",
