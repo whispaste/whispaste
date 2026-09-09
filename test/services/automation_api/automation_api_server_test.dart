@@ -100,5 +100,28 @@ void main() {
         throwsA(isA<StateError>()),
       );
     });
+
+    test('stop() then immediately start() again on the SAME fixed port '
+        'succeeds repeatedly — the port-reuse ticket. Without `shared: true` '
+        'on the underlying bind, a port this process just released can stay '
+        'unrebindable (TIME_WAIT) for a while, which is exactly what pushed '
+        'a fast restart loop (e.g. WhisPaste relaunching itself after a '
+        'permission grant) through the whole port-fallback range for no '
+        'real reason.', () async {
+      Response handler(Request request) => Response.ok('hello');
+
+      // Reserve a real free port first (0 = ephemeral), then reuse that
+      // exact port number for every restart below.
+      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final fixedPort = probe.port;
+      await probe.close();
+
+      for (var i = 0; i < 5; i++) {
+        server = AutomationApiServer();
+        final port = await server.start(port: fixedPort, handler: handler);
+        expect(port, fixedPort);
+        await server.stop();
+      }
+    });
   });
 }
