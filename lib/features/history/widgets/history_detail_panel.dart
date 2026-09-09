@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,7 +14,10 @@ import '../../../core/recording/recording_helpers.dart'
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../../core/config/settings_provider.dart';
 import '../../../services/history/history_exporter.dart' as history_exporter;
+import '../../../services/replacements/correction_learning_service.dart';
+import '../../../services/replacements/correction_signal.dart';
 import '../data/history_detail_provider.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
@@ -191,11 +195,49 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   void _saveTranscript() {
     final newContent = _transcriptController.text.trim();
     if (newContent != entry.content) {
+      // Capture the pre-edit content before `updateContent` overwrites it --
+      // same "Ausgangstext" capture voice corrections do in
+      // `voice_note_button.dart` (ticket 01), so a manual edit here feeds
+      // the identical correction-signal shape (ticket 02
+      // `.scratch/vocab-learning-corrections/`).
+      final contentBeforeEdit = entry.content;
       ref
           .read(historyDetailProvider(entry.id).notifier)
           .updateContent(newContent);
+      _recordManualEditCorrectionSignal(contentBeforeEdit, newContent);
     }
     setState(() => _isEditingTranscript = false);
+  }
+
+  /// Feeds a manual transcript edit into the same correction-learning
+  /// pipeline voice `correct:`/`korrektur:` commands use (ticket 01) --
+  /// gated by the same settings toggle, and fire-and-forget like the other
+  /// telemetry/persistence side effects in this panel: the edit itself is
+  /// already saved by the time this runs, so nothing here should block or
+  /// fail the save.
+  void _recordManualEditCorrectionSignal(String before, String after) {
+    final correctionLearningEnabled =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.value?.behavior.correctionLearningEnabled,
+          ),
+        ) ??
+        true;
+    if (!correctionLearningEnabled) return;
+
+    final service = ref.read(correctionLearningServiceProvider);
+    final db = ref.read(historyDatabaseProvider);
+    unawaited(
+      service.recordSignal(
+        CorrectionSignal(
+          sourceText: before,
+          targetText: after,
+          timestamp: DateTime.now(),
+          source: CorrectionSignalSource.manualEdit,
+        ),
+        db,
+      ),
+    );
   }
 
   void _toggleEdit() {

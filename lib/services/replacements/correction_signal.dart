@@ -1,12 +1,13 @@
 /// Shared correction-signal type for vocabulary-learning-from-corrections
 /// (ticket 01 `.scratch/vocab-learning-corrections/`).
 ///
-/// A [CorrectionSignal] is source-agnostic on purpose: today only voice
-/// corrections (`VoiceActionType.correction`, see `voice_action_service.dart`)
-/// feed it, but ticket 02 (manual transcript edits on history entries) is
-/// designed to add a second [CorrectionSignalSource] later without touching
-/// [CorrectionSignal] or the candidate-detection logic in
-/// `correction_candidate_detector.dart` at all.
+/// A [CorrectionSignal] is source-agnostic on purpose: voice corrections
+/// (`VoiceActionType.correction`, see `voice_action_service.dart`) and manual
+/// transcript edits on history entries (ticket 02, `history_detail_panel.dart`
+/// `_saveTranscript`) both feed it through the same
+/// [CorrectionSignal]/candidate-detection logic in
+/// `correction_candidate_detector.dart`, distinguished only by
+/// [CorrectionSignalSource].
 library;
 
 /// Where a [CorrectionSignal] came from.
@@ -15,8 +16,8 @@ enum CorrectionSignalSource {
   /// dispatched via `VoiceNoteButton`).
   voiceCommand,
 
-  /// Reserved for ticket 02 (manual transcript edits on history entries) —
-  /// not wired up by anything yet.
+  /// A manual text edit saved on a history entry in the History Detail view
+  /// (`history_detail_panel.dart` `_saveTranscript`, ticket 02).
   manualEdit,
 }
 

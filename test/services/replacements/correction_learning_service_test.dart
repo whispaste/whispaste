@@ -125,6 +125,26 @@ void main() {
     },
   );
 
+  test('a manual history edit and a voice command with identical correction '
+      'content merge into the same candidate (ticket 02)', () async {
+    await service.recordSignal(signal('teh meeting', 'the meeting'), db);
+    await service.recordSignal(
+      CorrectionSignal(
+        sourceText: 'teh meeting',
+        targetText: 'the meeting',
+        timestamp: DateTime(2026, 1, 2),
+        source: CorrectionSignalSource.manualEdit,
+      ),
+      db,
+    );
+
+    final candidates = await service.pendingCandidates(db);
+    expect(candidates, hasLength(1));
+    expect(candidates.single.sourceText, 'teh meeting');
+    expect(candidates.single.targetText, 'the meeting');
+    expect(candidates.single.occurrenceCount, 2);
+  });
+
   test(
     'an accepted candidate is not re-offered even if observed again',
     () async {
