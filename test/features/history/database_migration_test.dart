@@ -773,6 +773,60 @@ void main() {
     });
   });
 
+  group('Original transcript / target app migration (v23 → v24)', () {
+    test(
+      'adds original_transcript and target_app columns to history_entries',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+        final cols = await db
+            .customSelect("PRAGMA table_info('history_entries')")
+            .get();
+        final colNames = cols.map((r) => r.data['name'] as String).toSet();
+        expect(colNames.contains('original_transcript'), true);
+        expect(colNames.contains('target_app'), true);
+
+        await db.close();
+      },
+    );
+
+    test('a pre-v24 entry has neither column set until written', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(id: 'e1', timestamp: DateTime(2025, 1)),
+      );
+
+      final entry = await db.getEntry('e1');
+      expect(entry!.originalTranscript, null);
+      expect(entry.targetApp, null);
+
+      await db.close();
+    });
+
+    test('migration is idempotent — a second run does not error or overwrite '
+        'existing values', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(id: 'e1', timestamp: DateTime(2025, 1)),
+      );
+      await db.updateEntry(
+        'e1',
+        const HistoryEntriesCompanion(
+          originalTranscript: Value('raw dictated text'),
+          targetApp: Value('com.microsoft.VSCode'),
+        ),
+      );
+
+      await db.addOriginalTranscriptAndTargetAppColumnsForTesting();
+
+      final entry = await db.getEntry('e1');
+      expect(entry!.originalTranscript, 'raw dictated text');
+      expect(entry.targetApp, 'com.microsoft.VSCode');
+
+      await db.close();
+    });
+  });
+
   group('Interactive snippet template migration (v22 → v23)', () {
     test('backfills a pre-v23 interactive snippet\'s empty body with the '
         'legacy field-heading template', () async {

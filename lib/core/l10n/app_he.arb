@@ -1715,5 +1715,11 @@
       }
     }
   },
-  "settingsSmartModeHotkeyInactive": "לא ניתן היה לרשום צירוף זה — מקש הקיצור של Smart Mode אינו פעיל כרגע. בחרו צירוף אחר."
+  "settingsSmartModeHotkeyInactive": "לא ניתן היה לרשום צירוף זה — מקש הקיצור של Smart Mode אינו פעיל כרגע. בחרו צירוף אחר.",
+
+  "historyCharacterCount": "{count} תווים",
+  "historyPastedInto": "הודבק ל-{app}",
+  "historyShowOriginalTranscript": "הצג תמלול מקורי",
+  "historyHideOriginalTranscript": "הסתר תמלול מקורי",
+  "historyOriginalTranscriptLabel": "תמלול מקורי"
 }

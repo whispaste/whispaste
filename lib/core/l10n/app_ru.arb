@@ -1157,5 +1157,11 @@
   "smartModeUsageHintTitle": "Попробуйте Умный режим",
   "smartModeUsageHintBody": "Умный режим может автоматически очищать, сокращать или переводить текст. Вот что вы только что надиктовали:",
   "smartModeUsageHintCta": "Настроить",
-  "smartModeUsageHintDismiss": "Не сейчас"
+  "smartModeUsageHintDismiss": "Не сейчас",
+
+  "historyCharacterCount": "{count} символов",
+  "historyPastedInto": "Вставлено в {app}",
+  "historyShowOriginalTranscript": "Показать оригинальный текст",
+  "historyHideOriginalTranscript": "Скрыть оригинальный текст",
+  "historyOriginalTranscriptLabel": "Оригинальный текст"
 }

@@ -917,6 +917,14 @@ class RecordingOrchestrator extends Notifier<void> {
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
+    // Snapshot before Smart Mode / text replacements touch `finalText`
+    // (ticket 12) — persisted alongside the final text so the History
+    // detail panel can show what was originally dictated. Whitespace
+    // cleanup above is not a "transform" in the product sense (it is
+    // engine noise removal, always applied, never toggled), so it happens
+    // before this snapshot rather than counting as part of the diff.
+    final preTransformText = finalText;
+
     // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
     // Runs before history-save/snippet-picker/paste so every downstream
     // consumer of `finalText` sees the same (possibly refined) value — this
@@ -975,6 +983,7 @@ class RecordingOrchestrator extends Notifier<void> {
             settings,
             (timing.transcribeMs ?? 0) ~/ 1000,
             wavPath,
+            originalTranscript: preTransformText,
           ),
           timeout: const Duration(seconds: 5),
         );
@@ -1697,8 +1706,9 @@ class RecordingOrchestrator extends Notifier<void> {
     Duration audioDuration,
     AppSettings settings,
     int processingDurationSec,
-    String wavPath,
-  ) async {
+    String wavPath, {
+    String? originalTranscript,
+  }) async {
     try {
       final store = ref.read(recordingStoreProvider);
       final wordCount = computeWordCountFast(transcript);
@@ -1713,6 +1723,15 @@ class RecordingOrchestrator extends Notifier<void> {
       final isQuickNote = target == RecordingTarget.quickNote;
       final isTemplateField = target == RecordingTarget.templateField;
 
+      // Target app (ticket 12) — only meaningful for the `clipboard` target,
+      // the only one that ever pastes into an external app. Reuses the same
+      // captured-target lookup `DesktopPaster` already uses for the
+      // blocklist check (Paster.prime() captured it when recording started);
+      // `null` on Linux/test env (unsupported) or when nothing was captured.
+      final targetApp = target == RecordingTarget.clipboard
+          ? await ref.read(pasterProvider)?.getTargetBundleId()
+          : null;
+
       final saved = await store.save(
         RecordingInput(
           transcript: transcript,
@@ -1725,6 +1744,8 @@ class RecordingOrchestrator extends Notifier<void> {
           wordCount: wordCount,
           processingDurationSec: processingDurationSec,
           insertHistoryEntry: !isQuickNote && !isTemplateField,
+          originalTranscript: originalTranscript,
+          targetApp: targetApp,
         ),
       );
 

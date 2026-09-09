@@ -1429,5 +1429,11 @@
   "smartModeUsageHintTitle": "Smart Mode bei deinem nächsten Diktat ausprobieren",
   "smartModeUsageHintBody": "Smart Mode kann Text wie diesen automatisch bereinigen, kürzen oder übersetzen — direkt auf deinem Gerät. Das hast du gerade diktiert:",
   "smartModeUsageHintCta": "Einrichten",
-  "smartModeUsageHintDismiss": "Nicht jetzt"
+  "smartModeUsageHintDismiss": "Nicht jetzt",
+
+  "historyCharacterCount": "{count} Zeichen",
+  "historyPastedInto": "Eingefügt in {app}",
+  "historyShowOriginalTranscript": "Original-Transkript anzeigen",
+  "historyHideOriginalTranscript": "Original-Transkript ausblenden",
+  "historyOriginalTranscriptLabel": "Original-Transkript"
 }

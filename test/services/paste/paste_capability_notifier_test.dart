@@ -72,6 +72,9 @@ class _FakePaster implements Paster {
   @override
   Future<PasteOutcome> typeText(String text, PasteOptions options) async =>
       PasteOutcome.platformUnavailable;
+
+  @override
+  Future<String?> getTargetBundleId() async => null;
 }
 
 class _FakeRepairController implements DesktopPasteController {

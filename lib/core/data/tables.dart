@@ -53,6 +53,20 @@ class HistoryEntries extends Table {
   /// Mode and stays the source of truth for the "raw" view.
   TextColumn get smartModeEditedContent => text().nullable()();
 
+  /// Original transcript before live Smart-Mode refinement / text
+  /// replacements were applied (v24, ticket 12). `null` for entries where
+  /// no transform changed the transcript, or for pre-v24 entries — never
+  /// backfilled. [content] stays the final, post-transform text; this
+  /// column only exists so the detail panel can show what was originally
+  /// dictated when it actually differs from [content].
+  TextColumn get originalTranscript => text().nullable()();
+
+  /// Bundle ID (macOS) / process identifier (Windows) of the app the
+  /// dictation was pasted into, captured via the same auto-paste target
+  /// lookup the blocklist uses (v24, ticket 12). `null` when unavailable
+  /// (Linux, no target captured, permission missing, or pre-v24 entries).
+  TextColumn get targetApp => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

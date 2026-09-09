@@ -233,6 +233,28 @@ class $HistoryEntriesTable extends HistoryEntries
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _originalTranscriptMeta =
+      const VerificationMeta('originalTranscript');
+  @override
+  late final GeneratedColumn<String> originalTranscript =
+      GeneratedColumn<String>(
+        'original_transcript',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _targetAppMeta = const VerificationMeta(
+    'targetApp',
+  );
+  @override
+  late final GeneratedColumn<String> targetApp = GeneratedColumn<String>(
+    'target_app',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -254,6 +276,8 @@ class $HistoryEntriesTable extends HistoryEntries
     deletedAt,
     colorSlot,
     smartModeEditedContent,
+    originalTranscript,
+    targetApp,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -397,6 +421,21 @@ class $HistoryEntriesTable extends HistoryEntries
         ),
       );
     }
+    if (data.containsKey('original_transcript')) {
+      context.handle(
+        _originalTranscriptMeta,
+        originalTranscript.isAcceptableOrUnknown(
+          data['original_transcript']!,
+          _originalTranscriptMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_app')) {
+      context.handle(
+        _targetAppMeta,
+        targetApp.isAcceptableOrUnknown(data['target_app']!, _targetAppMeta),
+      );
+    }
     return context;
   }
 
@@ -482,6 +521,14 @@ class $HistoryEntriesTable extends HistoryEntries
         DriftSqlType.string,
         data['${effectivePrefix}smart_mode_edited_content'],
       ),
+      originalTranscript: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_transcript'],
+      ),
+      targetApp: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_app'],
+      ),
     );
   }
 
@@ -524,6 +571,20 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   /// this entry; [content] (the raw transcript) is never touched by Smart
   /// Mode and stays the source of truth for the "raw" view.
   final String? smartModeEditedContent;
+
+  /// Original transcript before live Smart-Mode refinement / text
+  /// replacements were applied (v24, ticket 12). `null` for entries where
+  /// no transform changed the transcript, or for pre-v24 entries — never
+  /// backfilled. [content] stays the final, post-transform text; this
+  /// column only exists so the detail panel can show what was originally
+  /// dictated when it actually differs from [content].
+  final String? originalTranscript;
+
+  /// Bundle ID (macOS) / process identifier (Windows) of the app the
+  /// dictation was pasted into, captured via the same auto-paste target
+  /// lookup the blocklist uses (v24, ticket 12). `null` when unavailable
+  /// (Linux, no target captured, permission missing, or pre-v24 entries).
+  final String? targetApp;
   const HistoryEntry({
     required this.id,
     required this.content,
@@ -544,6 +605,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     this.deletedAt,
     required this.colorSlot,
     this.smartModeEditedContent,
+    this.originalTranscript,
+    this.targetApp,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -573,6 +636,12 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
         smartModeEditedContent,
       );
     }
+    if (!nullToAbsent || originalTranscript != null) {
+      map['original_transcript'] = Variable<String>(originalTranscript);
+    }
+    if (!nullToAbsent || targetApp != null) {
+      map['target_app'] = Variable<String>(targetApp);
+    }
     return map;
   }
 
@@ -601,6 +670,12 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       smartModeEditedContent: smartModeEditedContent == null && nullToAbsent
           ? const Value.absent()
           : Value(smartModeEditedContent),
+      originalTranscript: originalTranscript == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalTranscript),
+      targetApp: targetApp == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetApp),
     );
   }
 
@@ -633,6 +708,10 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       smartModeEditedContent: serializer.fromJson<String?>(
         json['smartModeEditedContent'],
       ),
+      originalTranscript: serializer.fromJson<String?>(
+        json['originalTranscript'],
+      ),
+      targetApp: serializer.fromJson<String?>(json['targetApp']),
     );
   }
   @override
@@ -660,6 +739,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       'smartModeEditedContent': serializer.toJson<String?>(
         smartModeEditedContent,
       ),
+      'originalTranscript': serializer.toJson<String?>(originalTranscript),
+      'targetApp': serializer.toJson<String?>(targetApp),
     };
   }
 
@@ -683,6 +764,8 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     Value<DateTime?> deletedAt = const Value.absent(),
     int? colorSlot,
     Value<String?> smartModeEditedContent = const Value.absent(),
+    Value<String?> originalTranscript = const Value.absent(),
+    Value<String?> targetApp = const Value.absent(),
   }) => HistoryEntry(
     id: id ?? this.id,
     content: content ?? this.content,
@@ -705,6 +788,10 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     smartModeEditedContent: smartModeEditedContent.present
         ? smartModeEditedContent.value
         : this.smartModeEditedContent,
+    originalTranscript: originalTranscript.present
+        ? originalTranscript.value
+        : this.originalTranscript,
+    targetApp: targetApp.present ? targetApp.value : this.targetApp,
   );
   HistoryEntry copyWithCompanion(HistoryEntriesCompanion data) {
     return HistoryEntry(
@@ -737,6 +824,10 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       smartModeEditedContent: data.smartModeEditedContent.present
           ? data.smartModeEditedContent.value
           : this.smartModeEditedContent,
+      originalTranscript: data.originalTranscript.present
+          ? data.originalTranscript.value
+          : this.originalTranscript,
+      targetApp: data.targetApp.present ? data.targetApp.value : this.targetApp,
     );
   }
 
@@ -761,13 +852,15 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('colorSlot: $colorSlot, ')
-          ..write('smartModeEditedContent: $smartModeEditedContent')
+          ..write('smartModeEditedContent: $smartModeEditedContent, ')
+          ..write('originalTranscript: $originalTranscript, ')
+          ..write('targetApp: $targetApp')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     content,
     title,
@@ -787,7 +880,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     deletedAt,
     colorSlot,
     smartModeEditedContent,
-  );
+    originalTranscript,
+    targetApp,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -810,7 +905,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           other.titleEdited == this.titleEdited &&
           other.deletedAt == this.deletedAt &&
           other.colorSlot == this.colorSlot &&
-          other.smartModeEditedContent == this.smartModeEditedContent);
+          other.smartModeEditedContent == this.smartModeEditedContent &&
+          other.originalTranscript == this.originalTranscript &&
+          other.targetApp == this.targetApp);
 }
 
 class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
@@ -833,6 +930,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
   final Value<DateTime?> deletedAt;
   final Value<int> colorSlot;
   final Value<String?> smartModeEditedContent;
+  final Value<String?> originalTranscript;
+  final Value<String?> targetApp;
   final Value<int> rowid;
   const HistoryEntriesCompanion({
     this.id = const Value.absent(),
@@ -854,6 +953,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.deletedAt = const Value.absent(),
     this.colorSlot = const Value.absent(),
     this.smartModeEditedContent = const Value.absent(),
+    this.originalTranscript = const Value.absent(),
+    this.targetApp = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HistoryEntriesCompanion.insert({
@@ -876,6 +977,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.deletedAt = const Value.absent(),
     this.colorSlot = const Value.absent(),
     this.smartModeEditedContent = const Value.absent(),
+    this.originalTranscript = const Value.absent(),
+    this.targetApp = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        timestamp = Value(timestamp);
@@ -899,6 +1002,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Expression<DateTime>? deletedAt,
     Expression<int>? colorSlot,
     Expression<String>? smartModeEditedContent,
+    Expression<String>? originalTranscript,
+    Expression<String>? targetApp,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -923,6 +1028,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       if (colorSlot != null) 'color_slot': colorSlot,
       if (smartModeEditedContent != null)
         'smart_mode_edited_content': smartModeEditedContent,
+      if (originalTranscript != null) 'original_transcript': originalTranscript,
+      if (targetApp != null) 'target_app': targetApp,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -947,6 +1054,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Value<DateTime?>? deletedAt,
     Value<int>? colorSlot,
     Value<String?>? smartModeEditedContent,
+    Value<String?>? originalTranscript,
+    Value<String?>? targetApp,
     Value<int>? rowid,
   }) {
     return HistoryEntriesCompanion(
@@ -971,6 +1080,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       colorSlot: colorSlot ?? this.colorSlot,
       smartModeEditedContent:
           smartModeEditedContent ?? this.smartModeEditedContent,
+      originalTranscript: originalTranscript ?? this.originalTranscript,
+      targetApp: targetApp ?? this.targetApp,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1039,6 +1150,12 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
         smartModeEditedContent.value,
       );
     }
+    if (originalTranscript.present) {
+      map['original_transcript'] = Variable<String>(originalTranscript.value);
+    }
+    if (targetApp.present) {
+      map['target_app'] = Variable<String>(targetApp.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1067,6 +1184,8 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           ..write('deletedAt: $deletedAt, ')
           ..write('colorSlot: $colorSlot, ')
           ..write('smartModeEditedContent: $smartModeEditedContent, ')
+          ..write('originalTranscript: $originalTranscript, ')
+          ..write('targetApp: $targetApp, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4310,9 +4429,12 @@ class Snippet extends DataClass implements Insertable<Snippet> {
   final DateTime createdAt;
 
   /// `static` (default, today's only behavior — [body] is inserted verbatim)
-  /// or `interactive` (schema v21, `interactive-snippets` PRD): [body] is
-  /// unused, the field contents instead come from a guided multi-field
-  /// recording sequence at trigger time — see [SnippetFields].
+  /// or `interactive` (schema v21, `interactive-snippets` PRD; template
+  /// authoring added in schema v23): for `interactive`, [body] holds the
+  /// user-authored template ([interactiveSnippetPlaceholder] tokens mark
+  /// where each [SnippetFields] entry's dictated text is substituted at
+  /// trigger time, see `interactive_snippet_composer.dart`) rather than
+  /// text inserted verbatim.
   final String kind;
   const Snippet({
     required this.id,
@@ -5570,6 +5692,8 @@ typedef $$HistoryEntriesTableCreateCompanionBuilder =
       Value<DateTime?> deletedAt,
       Value<int> colorSlot,
       Value<String?> smartModeEditedContent,
+      Value<String?> originalTranscript,
+      Value<String?> targetApp,
       Value<int> rowid,
     });
 typedef $$HistoryEntriesTableUpdateCompanionBuilder =
@@ -5593,6 +5717,8 @@ typedef $$HistoryEntriesTableUpdateCompanionBuilder =
       Value<DateTime?> deletedAt,
       Value<int> colorSlot,
       Value<String?> smartModeEditedContent,
+      Value<String?> originalTranscript,
+      Value<String?> targetApp,
       Value<int> rowid,
     });
 
@@ -5764,6 +5890,16 @@ class $$HistoryEntriesTableFilterComposer
 
   ColumnFilters<String> get smartModeEditedContent => $composableBuilder(
     column: $table.smartModeEditedContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalTranscript => $composableBuilder(
+    column: $table.originalTranscript,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetApp => $composableBuilder(
+    column: $table.targetApp,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5946,6 +6082,16 @@ class $$HistoryEntriesTableOrderingComposer
     column: $table.smartModeEditedContent,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get originalTranscript => $composableBuilder(
+    column: $table.originalTranscript,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetApp => $composableBuilder(
+    column: $table.targetApp,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HistoryEntriesTableAnnotationComposer
@@ -6023,6 +6169,14 @@ class $$HistoryEntriesTableAnnotationComposer
     column: $table.smartModeEditedContent,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get originalTranscript => $composableBuilder(
+    column: $table.originalTranscript,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetApp =>
+      $composableBuilder(column: $table.targetApp, builder: (column) => column);
 
   Expression<T> entryNotesRefs<T extends Object>(
     Expression<T> Function($$EntryNotesTableAnnotationComposer a) f,
@@ -6153,6 +6307,8 @@ class $$HistoryEntriesTableTableManager
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> colorSlot = const Value.absent(),
                 Value<String?> smartModeEditedContent = const Value.absent(),
+                Value<String?> originalTranscript = const Value.absent(),
+                Value<String?> targetApp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion(
                 id: id,
@@ -6174,6 +6330,8 @@ class $$HistoryEntriesTableTableManager
                 deletedAt: deletedAt,
                 colorSlot: colorSlot,
                 smartModeEditedContent: smartModeEditedContent,
+                originalTranscript: originalTranscript,
+                targetApp: targetApp,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6197,6 +6355,8 @@ class $$HistoryEntriesTableTableManager
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> colorSlot = const Value.absent(),
                 Value<String?> smartModeEditedContent = const Value.absent(),
+                Value<String?> originalTranscript = const Value.absent(),
+                Value<String?> targetApp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion.insert(
                 id: id,
@@ -6218,6 +6378,8 @@ class $$HistoryEntriesTableTableManager
                 deletedAt: deletedAt,
                 colorSlot: colorSlot,
                 smartModeEditedContent: smartModeEditedContent,
+                originalTranscript: originalTranscript,
+                targetApp: targetApp,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

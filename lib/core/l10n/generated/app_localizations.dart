@@ -7171,6 +7171,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Not now'**
   String get smartModeUsageHintDismiss;
+
+  /// Character-count metadata chip in the History detail panel (ticket 12), analogous to historyWordCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} characters'**
+  String historyCharacterCount(int count);
+
+  /// Tooltip for the target-app metadata chip in the History detail panel (ticket 12) — {app} is the captured bundle ID / process identifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Pasted into {app}'**
+  String historyPastedInto(String app);
+
+  /// Disclosure toggle that reveals the pre-Smart-Mode/pre-Replacements transcript in the History detail panel (ticket 12) — only shown when it differs from the final text.
+  ///
+  /// In en, this message translates to:
+  /// **'Show original transcript'**
+  String get historyShowOriginalTranscript;
+
+  /// No description provided for @historyHideOriginalTranscript.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide original transcript'**
+  String get historyHideOriginalTranscript;
+
+  /// No description provided for @historyOriginalTranscriptLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Original transcript'**
+  String get historyOriginalTranscriptLabel;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

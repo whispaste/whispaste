@@ -4026,4 +4026,23 @@ class L10nHe extends L10n {
 
   @override
   String get smartModeUsageHintDismiss => 'לא עכשיו';
+
+  @override
+  String historyCharacterCount(int count) {
+    return '$count תווים';
+  }
+
+  @override
+  String historyPastedInto(String app) {
+    return 'הודבק ל-$app';
+  }
+
+  @override
+  String get historyShowOriginalTranscript => 'הצג תמלול מקורי';
+
+  @override
+  String get historyHideOriginalTranscript => 'הסתר תמלול מקורי';
+
+  @override
+  String get historyOriginalTranscriptLabel => 'תמלול מקורי';
 }

@@ -110,6 +110,7 @@ class HistoryDetailPanel extends ConsumerStatefulWidget {
 class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   String _tagSearchQuery = '';
   bool _isEditingTranscript = false;
+  bool _showOriginal = false;
   late TextEditingController _transcriptController;
   bool _isEditingTitle = false;
   late TextEditingController _titleController;
@@ -145,6 +146,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       _isEditingTranscript = false;
       _titleController.text = widget.entry.title;
       _isEditingTitle = false;
+      // Collapsed by default for every entry (ticket 12) — a reader who
+      // expanded it for one entry should not have it silently stay open
+      // when the selection moves to the next one.
+      _showOriginal = false;
     } else {
       // Sync fields that changed externally (Finding #3 — dual mutation path)
       if (!_isEditingTitle) {
@@ -221,6 +226,18 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     setState(() => _isEditingTitle = false);
     _panelFocusNode.requestFocus();
   }
+
+  /// Whether the original (pre-Smart-Mode/pre-Replacements) transcript
+  /// (ticket 12) should be offered as a disclosure at all — only when one
+  /// was captured *and* it actually differs from the final [content]. An
+  /// entry where Smart Mode/Replacements made no change, or a pre-ticket-12
+  /// entry with no captured original, shows nothing extra.
+  bool get _hasOriginalDiff {
+    final original = entry.originalTranscript;
+    return original != null && original != entry.content;
+  }
+
+  void _toggleShowOriginal() => setState(() => _showOriginal = !_showOriginal);
 
   /// Bold/italic/bullet come from [WpMarkdownFormatting] — the same object the
   /// toolbar's buttons call, so the key and the button it advertises can no
@@ -531,6 +548,19 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           onCopyDisplayed: () =>
                               _copyDisplayedVersion(displayedContent),
                         ),
+                        // ── Original transcript disclosure (ticket 12) ──
+                        // Final text stays the primary view; the original
+                        // is secondary/collapsed by default — unlike
+                        // FluidVoice's side-by-side raw/final panes, this
+                        // is WhisPaste's own "final text first" stance.
+                        if (_hasOriginalDiff) ...[
+                          const SizedBox(height: WpSpacing.sm),
+                          _OriginalTranscriptDisclosure(
+                            originalText: entry.originalTranscript!,
+                            expanded: _showOriginal,
+                            onToggle: _toggleShowOriginal,
+                          ),
+                        ],
                         // ── Notes section ──
                         const SizedBox(height: WpSpacing.lg),
                         HistoryNotesSection(
@@ -1042,6 +1072,26 @@ class _DetailMetaChips extends StatelessWidget {
             );
           }(),
         ],
+        // Character count (ticket 12) — "at a glance" length, so a reader
+        // does not have to open/scroll the transcript just to gauge it.
+        // Counts the final [HistoryEntry.content], the same source of
+        // truth the raw/edited toggle above treats as "raw".
+        _MetaChip(
+          icon: LucideIcons.textCursorInput,
+          label: l10n.historyCharacterCount(entry.content.length),
+        ),
+        // Target app (ticket 12) — which app/window this dictation was
+        // pasted into. `null` for quick notes, template fields, Linux, or
+        // any entry where no target was captured (including every
+        // pre-ticket-12 entry) — the chip simply does not render then.
+        if (entry.targetApp != null && entry.targetApp!.isNotEmpty)
+          Tooltip(
+            message: l10n.historyPastedInto(entry.targetApp!),
+            child: _MetaChip(
+              icon: LucideIcons.appWindow,
+              label: friendlyAppNameFromIdentifier(entry.targetApp!),
+            ),
+          ),
       ],
     );
   }
@@ -1203,6 +1253,106 @@ class _DetailTranscriptZone extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Original transcript disclosure (ticket 12) — collapsed by default, shown
+// only when the entry has a captured original that differs from the final
+// text. Deliberately a secondary, collapsible affordance rather than a
+// side-by-side pane: the final text is always the primary view here.
+// ---------------------------------------------------------------------------
+
+class _OriginalTranscriptDisclosure extends StatelessWidget {
+  const _OriginalTranscriptDisclosure({
+    required this.originalText,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final String originalText;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    const textMuted = WpColors.textMuted;
+    const textPrimary = WpColors.textPrimary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided by Semantics wrapper below
+        Semantics(
+          button: true,
+          label: expanded
+              ? l10n.historyHideOriginalTranscript
+              : l10n.historyShowOriginalTranscript,
+          child: InkWell(
+            onTap: onToggle,
+            borderRadius: WpRadius.borderSm,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    expanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: 14,
+                    color: textMuted,
+                  ),
+                  const SizedBox(width: WpSpacing.xxs),
+                  Text(
+                    expanded
+                        ? l10n.historyHideOriginalTranscript
+                        : l10n.historyShowOriginalTranscript,
+                    style: const TextStyle(
+                      fontSize: WpTypography.small,
+                      fontWeight: FontWeight.w500,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (expanded)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: WpSpacing.xxs),
+            padding: const EdgeInsets.all(WpSpacing.sm),
+            decoration: BoxDecoration(
+              color: WpColors.surfaceMutedFill,
+              borderRadius: WpRadius.borderMd,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.historyOriginalTranscriptLabel,
+                  style: const TextStyle(
+                    fontSize: WpTypography.caption,
+                    fontWeight: FontWeight.w600,
+                    color: textMuted,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xxs),
+                SelectableText(
+                  originalText,
+                  style: const TextStyle(
+                    fontSize: WpTypography.body,
+                    color: textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

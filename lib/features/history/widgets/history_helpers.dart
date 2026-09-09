@@ -37,6 +37,31 @@ String formatHistoryDuration(double durationSec) {
   return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
 }
 
+/// Derives a short, human-readable label from a captured target-app
+/// identifier (ticket 12) — the raw bundle ID (macOS, e.g.
+/// `com.microsoft.VSCode`) or process identifier (Windows, e.g.
+/// `notepad.exe`) [HistoryEntry.targetApp] stores.
+///
+/// No OS lookup involved — this is a pure string heuristic so it works
+/// equally for a live entry and one loaded from the database:
+/// - macOS bundle ID: last dot-separated segment, e.g. `VSCode`.
+/// - Windows process name: strips a trailing `.exe`, e.g. `notepad`.
+///
+/// Falls back to [identifier] unchanged when it has no recognizable
+/// structure (already a plain name, or an unexpected format).
+String friendlyAppNameFromIdentifier(String identifier) {
+  final trimmed = identifier.trim();
+  if (trimmed.isEmpty) return trimmed;
+
+  final withoutExe = trimmed.toLowerCase().endsWith('.exe')
+      ? trimmed.substring(0, trimmed.length - 4)
+      : trimmed;
+
+  final segments = withoutExe.split('.');
+  final last = segments.isNotEmpty ? segments.last : withoutExe;
+  return last.isEmpty ? withoutExe : last;
+}
+
 /// The one glyph every entry avatar wears.
 ///
 /// It is a constant rather than a per-entry lookup because the app classifies

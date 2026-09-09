@@ -4121,4 +4121,23 @@ class L10nDe extends L10n {
 
   @override
   String get smartModeUsageHintDismiss => 'Nicht jetzt';
+
+  @override
+  String historyCharacterCount(int count) {
+    return '$count Zeichen';
+  }
+
+  @override
+  String historyPastedInto(String app) {
+    return 'Eingefügt in $app';
+  }
+
+  @override
+  String get historyShowOriginalTranscript => 'Original-Transkript anzeigen';
+
+  @override
+  String get historyHideOriginalTranscript => 'Original-Transkript ausblenden';
+
+  @override
+  String get historyOriginalTranscriptLabel => 'Original-Transkript';
 }

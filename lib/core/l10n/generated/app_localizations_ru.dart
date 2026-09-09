@@ -4159,4 +4159,23 @@ class L10nRu extends L10n {
 
   @override
   String get smartModeUsageHintDismiss => 'Не сейчас';
+
+  @override
+  String historyCharacterCount(int count) {
+    return '$count символов';
+  }
+
+  @override
+  String historyPastedInto(String app) {
+    return 'Вставлено в $app';
+  }
+
+  @override
+  String get historyShowOriginalTranscript => 'Показать оригинальный текст';
+
+  @override
+  String get historyHideOriginalTranscript => 'Скрыть оригинальный текст';
+
+  @override
+  String get historyOriginalTranscriptLabel => 'Оригинальный текст';
 }

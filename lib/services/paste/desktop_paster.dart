@@ -68,6 +68,17 @@ class DesktopPaster implements Paster {
     }
   }
 
+  @override
+  Future<String?> getTargetBundleId() async {
+    try {
+      final id = await _controller.getTargetBundleId();
+      return (id == null || id.isEmpty) ? null : id;
+    } on MissingPluginException catch (e) {
+      _log.debug('getTargetBundleId unavailable (MissingPlugin)', e);
+      return null;
+    }
+  }
+
   /// Returns [PasteOutcome.blocked] when the captured target's bundle ID is
   /// on [blocklist]; `null` otherwise (including when the lookup is
   /// unsupported or the target ID is unavailable). Shared by [paste] and

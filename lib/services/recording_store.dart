@@ -21,6 +21,8 @@ class RecordingInput {
     required this.processingDurationSec,
     this.insertHistoryEntry = true,
     this.recordDailyStat = true,
+    this.originalTranscript,
+    this.targetApp,
   });
 
   final String transcript;
@@ -29,6 +31,18 @@ class RecordingInput {
   final bool isLocal;
   final String languageCode;
   final bool applyTextReplacements;
+
+  /// Transcript before live Smart-Mode refinement was applied (ticket 12) —
+  /// `null` when Smart Mode was off/unavailable for this recording, or for
+  /// callers (quick note, interactive snippet) that never captured it.
+  /// Persisted as-is; the detail panel decides whether it differs from the
+  /// final [transcript]/[processedTranscript] before showing it.
+  final String? originalTranscript;
+
+  /// Bundle ID / process identifier of the app this dictation is about to
+  /// be pasted into (ticket 12) — `null` when no target was captured or the
+  /// lookup is unsupported (Linux, quick note, interactive snippet).
+  final String? targetApp;
 
   /// False for a quick-note dictation: text replacements still apply (below)
   /// but no row is written to `history_entries` — a quick note lives only in

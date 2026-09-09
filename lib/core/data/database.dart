@@ -109,7 +109,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -182,6 +182,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 23) {
         await _backfillInteractiveSnippetTemplates();
+      }
+      if (from < 24) {
+        await _addOriginalTranscriptAndTargetAppColumns();
       }
     },
     beforeOpen: (details) async {
@@ -558,6 +561,44 @@ class HistoryDatabase extends _$HistoryDatabase {
       // Table may not exist yet during initial creation — skip.
       _log.warning(
         'Could not add history_entries smart_mode_edited_content column: $e',
+        e,
+      );
+    }
+  }
+
+  /// Adds `original_transcript` and `target_app` to `history_entries` if
+  /// missing (v24 migration, ticket 12). Both additive and nullable: every
+  /// pre-existing row simply has neither (`null`) — never backfilled, since
+  /// the pre-transform text/paste target of a past dictation is not
+  /// recoverable after the fact.
+  @visibleForTesting
+  Future<void> addOriginalTranscriptAndTargetAppColumnsForTesting() =>
+      _addOriginalTranscriptAndTargetAppColumns();
+
+  Future<void> _addOriginalTranscriptAndTargetAppColumns() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('original_transcript')) {
+        _log.info('Adding column "original_transcript" to history_entries');
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN original_transcript TEXT',
+        );
+      }
+      if (!colNames.contains('target_app')) {
+        _log.info('Adding column "target_app" to history_entries');
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN target_app TEXT',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning(
+        'Could not add history_entries original_transcript/target_app '
+        'columns: $e',
         e,
       );
     }

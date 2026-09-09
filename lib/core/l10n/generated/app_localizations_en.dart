@@ -4086,4 +4086,23 @@ class L10nEn extends L10n {
 
   @override
   String get smartModeUsageHintDismiss => 'Not now';
+
+  @override
+  String historyCharacterCount(int count) {
+    return '$count characters';
+  }
+
+  @override
+  String historyPastedInto(String app) {
+    return 'Pasted into $app';
+  }
+
+  @override
+  String get historyShowOriginalTranscript => 'Show original transcript';
+
+  @override
+  String get historyHideOriginalTranscript => 'Hide original transcript';
+
+  @override
+  String get historyOriginalTranscriptLabel => 'Original transcript';
 }

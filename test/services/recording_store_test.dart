@@ -20,6 +20,8 @@ void main() {
     bool applyReplacements = false,
     int maxEntries = 0,
     bool insertHistoryEntry = true,
+    String? originalTranscript,
+    String? targetApp,
   }) => RecordingInput(
     transcript: transcript,
     audioDuration: const Duration(seconds: 5),
@@ -31,6 +33,8 @@ void main() {
     wordCount: transcript.trim().split(RegExp(r'\s+')).length,
     processingDurationSec: 2,
     insertHistoryEntry: insertHistoryEntry,
+    originalTranscript: originalTranscript,
+    targetApp: targetApp,
   );
 
   group('DriftRecordingStore', () {
@@ -63,6 +67,38 @@ void main() {
 
       expect(result.processedTranscript, 'Hi there world');
     });
+
+    test('persists originalTranscript and targetApp on the saved entry '
+        '(ticket 12)', () async {
+      final result = await store.save(
+        makeInput(
+          transcript: 'Cleaned up final text.',
+          originalTranscript: 'uh original text with um filler',
+          targetApp: 'com.microsoft.VSCode',
+        ),
+      );
+
+      final entries = await db.allEntries(limit: 100, offset: 0);
+      expect(entries, hasLength(1));
+      expect(
+        entries.first.originalTranscript,
+        'uh original text with um filler',
+      );
+      expect(entries.first.targetApp, 'com.microsoft.VSCode');
+      expect(result.processedTranscript, 'Cleaned up final text.');
+    });
+
+    test(
+      'leaves originalTranscript/targetApp null when not provided',
+      () async {
+        await store.save(makeInput(transcript: 'plain text'));
+
+        final entries = await db.allEntries(limit: 100, offset: 0);
+        expect(entries, hasLength(1));
+        expect(entries.first.originalTranscript, null);
+        expect(entries.first.targetApp, null);
+      },
+    );
 
     test('matches a trigger regardless of transcript casing', () async {
       final now = DateTime.now();

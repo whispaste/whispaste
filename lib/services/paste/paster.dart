@@ -126,4 +126,12 @@ abstract class Paster {
   /// When [promptIfMissing] is `true`, surfaces the OS's native permission
   /// prompt if the required permission is not yet granted (macOS only).
   Future<PasteCapability> checkCapability({bool promptIfMissing = false});
+
+  /// Returns the bundle ID (macOS) / process identifier (Windows) of the
+  /// previously captured paste target, or `null` when no target was
+  /// captured or the lookup is unsupported on this platform (Linux, test
+  /// env). Same lookup [paste]/[typeText] already use for the blocklist
+  /// check (ticket 12) — surfaced here so callers can persist it without
+  /// duplicating the platform channel call.
+  Future<String?> getTargetBundleId();
 }

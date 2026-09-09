@@ -70,6 +70,8 @@ class DriftRecordingStore implements RecordingStore {
           model: Value(input.modelId),
           isLocal: Value(input.isLocal),
           source: const Value('dictation'),
+          originalTranscript: Value(input.originalTranscript),
+          targetApp: Value(input.targetApp),
         ),
       );
     }

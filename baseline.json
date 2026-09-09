@@ -346,32 +346,32 @@
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
-      "fingerprint": "0d3e270c2771cb35",
+      "fingerprint": "ddc04395e28ca4ca",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1310,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1310, lib/core/data/database.dart:2532"
+      "line": 1351,
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1351, lib/core/data/database.dart:2573"
     },
     {
-      "fingerprint": "86c5e058f8e6d3c6",
+      "fingerprint": "679bec48c8f96fa0",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1319,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1319, lib/core/data/database.dart:2541"
+      "line": 1360,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1360, lib/core/data/database.dart:2582"
     },
     {
-      "fingerprint": "ccc6a2c017b0f7d9",
+      "fingerprint": "3a06d1257acf5640",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1817,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1817, lib/core/data/database.dart:2624"
+      "line": 1858,
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1858, lib/core/data/database.dart:2665"
     },
     {
-      "fingerprint": "60d5047cdf9e06f2",
+      "fingerprint": "834bfaa5f2aedea9",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1829,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1829, lib/core/data/database.dart:2636"
+      "line": 1870,
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1870, lib/core/data/database.dart:2677"
     },
     {
       "fingerprint": "00cc17aa92381dc5",
