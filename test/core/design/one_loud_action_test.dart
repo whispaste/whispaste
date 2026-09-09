@@ -715,8 +715,16 @@ void main() {
       await pump(tester);
 
       // Non-vacuity: an empty loud list also describes a page that failed to
-      // build at all.
-      expect(find.text(l10n.settingsInterface), findsOneWidget);
+      // build at all. Scoped to the scroll content — the section heading and
+      // its anchor chip (Ticket 16's SettingsAnchorChipBar, in the sticky
+      // header) now render the identical label.
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.text(l10n.settingsInterface),
+        ),
+        findsOneWidget,
+      );
 
       expect(
         loudActionLabels(tester),

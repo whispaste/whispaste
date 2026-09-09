@@ -49,6 +49,17 @@ Future<void> _setQuery(
   await tester.pumpAndSettle();
 }
 
+/// Finds [text] inside the scroll content only, excluding the sticky header
+/// (search field + `SettingsAnchorChipBar`, Ticket 16). A visible section's
+/// heading and its anchor chip render the identical localized label, so a
+/// bare `find.text(...)` for a *visible* section now matches both — a
+/// `findsNothing` assertion for a filtered-out section is unaffected (the
+/// chip bar mirrors the same filtered section list, so neither exists).
+Finder _sectionText(String text) => find.descendant(
+  of: find.byType(SingleChildScrollView),
+  matching: find.text(text),
+);
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -70,7 +81,7 @@ void main() {
       final container = await _pumpSettings(tester);
 
       // Baseline: Interface section is visible before filtering
-      expect(find.text(l10n.settingsInterface), findsOneWidget);
+      expect(_sectionText(l10n.settingsInterface), findsOneWidget);
 
       // Filter to 'hotkey' only — Interface should disappear
       await _setQuery(tester, container, 'keyboard shortcut');
@@ -85,7 +96,7 @@ void main() {
 
         await _setQuery(tester, container, 'keyboard shortcut');
 
-        expect(find.text(l10n.settingsKeyboardShortcut), findsOneWidget);
+        expect(_sectionText(l10n.settingsKeyboardShortcut), findsOneWidget);
       },
     );
 
@@ -96,7 +107,7 @@ void main() {
 
         await _setQuery(tester, container, 'microphone');
 
-        expect(find.text(l10n.settingsAudio), findsOneWidget);
+        expect(_sectionText(l10n.settingsAudio), findsOneWidget);
         expect(find.text(l10n.settingsKeyboardShortcut), findsNothing);
       },
     );
@@ -156,7 +167,7 @@ void main() {
       await _setQuery(tester, container, '');
 
       // Interface must be back
-      expect(find.text(l10n.settingsInterface), findsOneWidget);
+      expect(_sectionText(l10n.settingsInterface), findsOneWidget);
     });
 
     testWidgets(
@@ -185,8 +196,8 @@ void main() {
         await _setQuery(tester, container, 'keyboard shortcut');
         await _setQuery(tester, container, '');
 
-        expect(find.text(l10n.settingsAudio), findsOneWidget);
-        expect(find.text(l10n.settingsKeyboardShortcut), findsOneWidget);
+        expect(_sectionText(l10n.settingsAudio), findsOneWidget);
+        expect(_sectionText(l10n.settingsKeyboardShortcut), findsOneWidget);
       },
     );
   });
@@ -218,7 +229,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.settingsSearchNoResults), findsNothing);
-      expect(find.text(l10n.settingsInterface), findsOneWidget);
+      expect(_sectionText(l10n.settingsInterface), findsOneWidget);
       expect(
         tester.widget<EditableText>(editableText()).controller.text,
         isEmpty,

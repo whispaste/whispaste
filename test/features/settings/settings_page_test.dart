@@ -13,6 +13,15 @@ import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
 
+/// Finds [text] inside the scroll content only, excluding the sticky header
+/// (search field + `SettingsAnchorChipBar`, Ticket 16). A section's own
+/// heading and its anchor chip render the identical localized label, so a
+/// bare `find.text(...)` anywhere on the page now matches both.
+Finder _sectionText(String text) => find.descendant(
+  of: find.byType(SingleChildScrollView),
+  matching: find.text(text),
+);
+
 void main() {
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
@@ -32,7 +41,7 @@ void main() {
         makeTestable(const SettingsPage(), locale: const Locale('en')),
       );
       await tester.pumpAndSettle();
-      expect(find.text(l10n.settingsAudio), findsOneWidget);
+      expect(_sectionText(l10n.settingsAudio), findsOneWidget);
     });
 
     testWidgets('shows Keyboard Shortcut section', (tester) async {
@@ -40,7 +49,7 @@ void main() {
         makeTestable(const SettingsPage(), locale: const Locale('en')),
       );
       await tester.pumpAndSettle();
-      expect(find.text(l10n.settingsKeyboardShortcut), findsOneWidget);
+      expect(_sectionText(l10n.settingsKeyboardShortcut), findsOneWidget);
     });
 
     testWidgets('shows Interface section', (tester) async {
@@ -48,7 +57,7 @@ void main() {
         makeTestable(const SettingsPage(), locale: const Locale('en')),
       );
       await tester.pumpAndSettle();
-      expect(find.text(l10n.settingsInterface), findsOneWidget);
+      expect(_sectionText(l10n.settingsInterface), findsOneWidget);
     });
 
     testWidgets('shows key setting labels', (tester) async {
@@ -107,7 +116,7 @@ void main() {
         const Offset(0, -600),
       );
       await tester.pumpAndSettle();
-      expect(find.text(l10n.settingsSoundFeedback), findsOneWidget);
+      expect(_sectionText(l10n.settingsSoundFeedback), findsOneWidget);
     });
 
     testWidgets('shows Recording Overlay section', (tester) async {
@@ -120,7 +129,7 @@ void main() {
         const Offset(0, -800),
       );
       await tester.pumpAndSettle();
-      expect(find.text(l10n.settingsOverlayFloatingButton), findsOneWidget);
+      expect(_sectionText(l10n.settingsOverlayFloatingButton), findsOneWidget);
     });
 
     testWidgets('shows reset action', (tester) async {
@@ -145,7 +154,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       // Always-on entry is visible and not gated by the review-prompt cooldown.
-      expect(find.text(l10n.reviewSupportEntry), findsOneWidget);
+      expect(_sectionText(l10n.reviewSupportEntry), findsOneWidget);
     });
 
     group('Floating Button section — platform gating', () {

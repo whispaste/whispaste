@@ -301,8 +301,14 @@ Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
 
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
   final sectionTitle = locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
+  // Scoped to the scroll content: SettingsAnchorChipBar (Ticket 16) sits in
+  // the sticky header above the scrollable and renders a chip with this
+  // exact section label, so a bare `find.text` now matches both.
   await tester.dragUntilVisible(
-    find.text(sectionTitle),
+    find.descendant(
+      of: find.byType(SingleChildScrollView),
+      matching: find.text(sectionTitle),
+    ),
     find.byType(Scrollable).first,
     const Offset(0, -320),
   );

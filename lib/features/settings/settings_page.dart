@@ -30,6 +30,7 @@ import 'sections/smart_mode_section.dart';
 import 'sections/stt_section.dart';
 import 'sections/updates_section.dart';
 import 'settings_widgets.dart';
+import 'widgets/settings_anchor_chip_bar.dart';
 import 'widgets/settings_search_field.dart';
 
 /// Settings page — thin coordinator that composes extracted section widgets.
@@ -41,6 +42,13 @@ import 'widgets/settings_search_field.dart';
 /// The sticky search field at the top stays visible while scrolling.
 /// Selecting a suggestion scrolls to and briefly highlights the target section
 /// via [settingsHighlightTargetProvider].
+///
+/// Below the search field, a [SettingsAnchorChipBar] (Ticket 16, the variant
+/// Ticket 15 chose) offers one chip per visible section for orientation
+/// without typing a query — tapping a chip drives the exact same scroll +
+/// highlight path as picking a search suggestion. It renders whichever
+/// sections [visibleSections] already resolved to, so it narrows and
+/// disappears along with the search filter rather than duplicating it.
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -410,8 +418,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // Default Rule) — no cap-width, so Settings stays consistent
             // with History/Analytics/etc. even on very wide windows.
             //
-            // The search field rides the shell's sticky header slot, so it
-            // stays visible while the sections below scroll.
+            // The search field — and the anchor-chip bar under it — ride the
+            // shell's sticky header slot, so both stay visible while the
+            // sections below scroll.
             //
             // No ground of its own. Settings used to wrap the shell in a flat
             // decorative wash (*The Decorative Color Rule*, retracted
@@ -422,7 +431,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // plane is the same seam Ticket 06 removed from the nav rail, one
             // layer in.
             return WpPageShell(
-              header: SettingsSearchField(focusNode: _searchFocusNode),
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SettingsSearchField(focusNode: _searchFocusNode),
+                  // Hidden along with the chip bar itself when a search
+                  // narrows visibleSections to zero (the "No Results" empty
+                  // state takes over below) — an empty Wrap has no height,
+                  // but skipping it here also drops the otherwise-orphaned
+                  // gap above it.
+                  if (visibleSections.isNotEmpty) ...[
+                    const SizedBox(height: WpSpacing.sm),
+                    SettingsAnchorChipBar(
+                      sectionKeys: visibleSections
+                          .map((s) => s.$1)
+                          .toList(growable: false),
+                      locale: Localizations.localeOf(context).languageCode,
+                    ),
+                  ],
+                ],
+              ),
               child: scrollContent,
             );
           },
