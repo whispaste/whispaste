@@ -33,9 +33,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shelf/shelf.dart';
 
 import '../../core/config/settings_provider.dart';
+import '../../core/data/history_providers.dart';
+import '../../features/history/data/history_detail_provider.dart';
+import '../snippet_picker/snippet_picker_service.dart';
 import 'automation_api_auth_middleware.dart';
+import 'automation_api_history_routes.dart';
 import 'automation_api_router.dart';
 import 'automation_api_server.dart';
+import 'automation_api_snippet_routes.dart';
 import 'automation_api_token_store.dart';
 
 /// Fixed port the automation API listens on. Not user-configurable — out of
@@ -118,6 +123,8 @@ class AutomationApiController extends Notifier<AutomationApiState> {
 
     final router = buildAutomationApiRouter([
       dictationTriggerRoutes(triggerDictation: () => _triggerDictation(ref)),
+      historyLatestRoutes(fetchLatestEntry: _fetchLatestHistoryEntry),
+      snippetInsertRoutes(insertSnippetByName: _insertSnippetByName),
     ]);
     final handler = const Pipeline()
         .addMiddleware(bearerTokenAuth(currentToken: tokenStore.readToken))
@@ -144,6 +151,81 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       runState: AutomationApiRunState.stopped,
       token: state.token,
     );
+  }
+
+  /// Backs `GET /v1/history/latest` (ticket 04). "Most recent" is exactly
+  /// the order the History feature itself already shows
+  /// ([historyEntriesProvider]: pinned first, then newest-timestamp) — its
+  /// first entry, if any — and the entry payload is read through
+  /// [historyDetailProvider], the same detail-panel data source the History
+  /// UI uses, so no history query logic is duplicated here.
+  ///
+  /// [historyEntriesProvider] is read via a one-shot [Ref.listen] (rather
+  /// than `.future`) because a `StreamProvider`'s underlying subscription is
+  /// paused while it has no active listener — `ref.read(provider.future)`
+  /// alone never becomes one, so it would await forever on a provider
+  /// nothing else in this process is currently watching (as this endpoint
+  /// is, whenever the History page itself is closed).
+  Future<Map<String, Object?>?> _fetchLatestHistoryEntry() async {
+    final entries = await _readOnce(historyEntriesProvider);
+    if (entries.isEmpty) return null;
+
+    final detail = await ref.read(
+      historyDetailProvider(entries.first.id).future,
+    );
+    final entry = detail.entry;
+    return {
+      'id': entry.id,
+      'title': entry.title,
+      'content': entry.content,
+      'timestamp': entry.timestamp.toIso8601String(),
+      'tags': [for (final tag in detail.tags) tag.name],
+    };
+  }
+
+  /// Resolves to [provider]'s next emitted value, holding an active
+  /// listener for exactly long enough to receive it — see
+  /// [_fetchLatestHistoryEntry]'s doc comment on why `.future` alone is not
+  /// enough for a `StreamProvider`.
+  Future<T> _readOnce<T>(StreamProvider<T> provider) {
+    final completer = Completer<T>();
+    final subscription = ref.listen<AsyncValue<T>>(provider, (previous, next) {
+      next.when(
+        data: (value) {
+          if (!completer.isCompleted) completer.complete(value);
+        },
+        error: (error, stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        },
+        loading: () {},
+      );
+    }, fireImmediately: true);
+    return completer.future.whenComplete(subscription.close);
+  }
+
+  /// Backs `POST /v1/snippets/insert` (ticket 04) — delegates entirely to
+  /// [SnippetPickerService.insertByName], the same lookup-and-paste path a
+  /// Snippet-Picker selection uses, and maps its result onto the
+  /// HTTP-agnostic [AutomationApiSnippetInsertOutcome] the route file
+  /// expects.
+  Future<AutomationApiSnippetInsertOutcome> _insertSnippetByName(
+    String name,
+  ) async {
+    final result = await ref
+        .read(snippetPickerServiceProvider.notifier)
+        .insertByName(name);
+    switch (result) {
+      case SnippetInsertByNameResult.success:
+        return AutomationApiSnippetInsertOutcome.success;
+      case SnippetInsertByNameResult.notFound:
+        return AutomationApiSnippetInsertOutcome.notFound;
+      case SnippetInsertByNameResult.interactiveNotSupported:
+        return AutomationApiSnippetInsertOutcome.interactiveNotSupported;
+      case SnippetInsertByNameResult.pasteFailed:
+        return AutomationApiSnippetInsertOutcome.pasteFailed;
+    }
   }
 
   /// Unconditionally stops the server, regardless of the current settings

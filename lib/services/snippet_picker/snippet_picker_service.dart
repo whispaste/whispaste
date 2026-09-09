@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/settings_provider.dart';
+import '../../core/data/database.dart';
 import '../../core/logging/app_logger.dart';
 import '../../features/snippets/snippets_page.dart' show SnippetItem;
 import '../floating_platform_service_base.dart';
@@ -29,6 +30,27 @@ enum SnippetPickerShowResult {
   /// No native picker on this platform — silent fallback to the normal
   /// pipeline.
   unavailable,
+}
+
+/// Outcome of [SnippetPickerService.insertByName] — the automation-API
+/// insertion path (ticket 04, `.scratch/local-automation-api/`).
+enum SnippetInsertByNameResult {
+  /// The snippet was found, is `static`, and its body was pasted.
+  success,
+
+  /// No snippet with that exact title exists.
+  notFound,
+
+  /// The matched snippet is `interactive` — inserting one requires the
+  /// guided multi-field recording sequence (see
+  /// `InteractiveSnippetController`), which has no headless equivalent, so
+  /// the automation API deliberately does not support it.
+  interactiveNotSupported,
+
+  /// The snippet was found and is `static`, but the paste itself failed —
+  /// see the logged [PasteOutcome] for why (no captured target window,
+  /// missing OS permission, blocklisted app, …).
+  pasteFailed,
 }
 
 /// Manages the native Snippet-Picker panel lifecycle (dictation-automations
@@ -166,19 +188,27 @@ class SnippetPickerService
       return;
     }
 
+    await _paste(snippet.body);
+  }
+
+  /// The actual "write this body to the target window" mechanics, shared by
+  /// [_insert] (picker selection, resolved by id) and [insertByName]
+  /// (automation API, resolved by title) so neither duplicates paste
+  /// delay/blocklist/telemetry handling.
+  Future<PasteOutcome> _paste(String body) async {
     final paster = ref.read(pasterProvider);
-    if (paster == null) return;
+    if (paster == null) return PasteOutcome.platformUnavailable;
 
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final options = PasteOptions(
       autoPasteDelayMs: settings.behavior.autoPasteDelay,
       blocklist: settings.behavior.autoPasteBlocklist,
     );
-    final outcome = await paster.paste(snippet.body, options);
+    final outcome = await paster.paste(body, options);
     // paste() may still be mid clipboard-restore delay (≥500ms) when the
     // panel/provider is disposed in the meantime — guard the post-await
     // ref use per Riverpod's own advice.
-    if (!ref.mounted) return;
+    if (!ref.mounted) return outcome;
     if (outcome == PasteOutcome.success) {
       ref
           .read(telemetrySessionAggregatorProvider)
@@ -186,6 +216,37 @@ class SnippetPickerService
     } else {
       _log.warning('Snippet insert failed: $outcome');
     }
+    return outcome;
+  }
+
+  /// Looks up a **static** snippet by exact [title] match and pastes its
+  /// body — the automation-API insertion path (ticket 04). Reuses
+  /// [_paste] for the actual insertion, so the automation API shares every
+  /// bit of paste behavior (delay, blocklist, telemetry) with the
+  /// Snippet-Picker's own selection path; only the *lookup* differs (by
+  /// title here, by id there).
+  ///
+  /// `interactive` snippets are deliberately out of scope — see
+  /// [SnippetInsertByNameResult.interactiveNotSupported].
+  Future<SnippetInsertByNameResult> insertByName(String title) async {
+    final db = ref.read(historyDatabaseProvider);
+    final rows = await db.readAllSnippetsWithFields();
+    SnippetWithFields? match;
+    for (final row in rows) {
+      if (row.row.title == title) {
+        match = row;
+        break;
+      }
+    }
+    if (match == null) return SnippetInsertByNameResult.notFound;
+    if (match.row.kind == 'interactive') {
+      return SnippetInsertByNameResult.interactiveNotSupported;
+    }
+
+    final outcome = await _paste(match.row.body);
+    return outcome == PasteOutcome.success
+        ? SnippetInsertByNameResult.success
+        : SnippetInsertByNameResult.pasteFailed;
   }
 }
 

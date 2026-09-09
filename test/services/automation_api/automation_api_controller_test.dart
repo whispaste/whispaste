@@ -9,12 +9,16 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
+import 'package:whispaste/services/paste/paster.dart';
 
 class _FakeSecureKeyStore implements SecureKeyStore {
   final Map<String, String> store = {};
@@ -30,6 +34,41 @@ class _FakeSecureKeyStore implements SecureKeyStore {
 
   @override
   Future<Map<String, String>> readAllApiKeys() async => Map.of(store);
+}
+
+/// Hand-rolled fake — same style as `paste_capability_notifier_test.dart`'s
+/// `_FakePaster`. [paste] always reports [nextOutcome] and records the
+/// pasted [texts], regardless of `prime()` ever being called (the
+/// automation API's snippet-insert path never primes — see
+/// `SnippetPickerService`'s doc comment on why).
+class _FakePaster implements Paster {
+  PasteOutcome nextOutcome = PasteOutcome.success;
+  final List<String> texts = [];
+
+  @override
+  Future<void> prime() async {}
+
+  @override
+  Future<PasteOutcome> paste(String text, PasteOptions options) async {
+    texts.add(text);
+    return nextOutcome;
+  }
+
+  @override
+  Future<PasteOutcome> typeText(String text, PasteOptions options) async {
+    texts.add(text);
+    return nextOutcome;
+  }
+
+  @override
+  Future<PasteCapability> checkCapability({
+    bool promptIfMissing = false,
+  }) async {
+    return const PasteCapability(status: PasteCapabilityStatus.ready);
+  }
+
+  @override
+  Future<String?> getTargetBundleId() async => null;
 }
 
 Future<HttpClientResponse> _get(
@@ -60,15 +99,38 @@ Future<HttpClientResponse> _post(
   return request.close();
 }
 
+Future<HttpClientResponse> _postJson(
+  int port,
+  String path,
+  Object? body, {
+  String? bearer,
+}) async {
+  final client = HttpClient();
+  client.connectionTimeout = const Duration(seconds: 2);
+  final request = await client.post('127.0.0.1', port, path);
+  request.headers.contentType = ContentType.json;
+  if (bearer != null) {
+    request.headers.set('authorization', 'Bearer $bearer');
+  }
+  request.write(jsonEncode(body));
+  return request.close();
+}
+
 void main() {
   late ProviderContainer container;
   var triggerCallCount = 0;
 
-  ProviderContainer buildContainer() {
+  ProviderContainer buildContainer({HistoryDatabase? db, _FakePaster? paster}) {
     triggerCallCount = 0;
     return ProviderContainer(
       overrides: [
         secureKeyStoreProvider.overrideWithValue(_FakeSecureKeyStore()),
+        if (db != null)
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+        if (paster != null) pasterProvider.overrideWithValue(paster),
         automationApiControllerProvider.overrideWith(
           () => AutomationApiController(
             port: 0,
@@ -222,5 +284,194 @@ void main() {
     final secondPort = container.read(automationApiControllerProvider).port;
 
     expect(firstPort, secondPort);
+  });
+
+  group('GET /v1/history/latest', () {
+    Future<int> startEnabled(ProviderContainer c) async {
+      final controller = c.read(automationApiControllerProvider.notifier);
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        ),
+      );
+      return c.read(automationApiControllerProvider).port!;
+    }
+
+    test('returns the most-recently-transcribed entry, authenticated the same '
+        'way as the dictation-trigger endpoint', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'older',
+          content: const Value('older transcript'),
+          title: const Value('Older'),
+          timestamp: DateTime.utc(2026, 9, 1),
+        ),
+      );
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'newer',
+          content: const Value('newer transcript'),
+          title: const Value('Newer'),
+          timestamp: DateTime.utc(2026, 9, 9),
+        ),
+      );
+
+      container = buildContainer(db: db);
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _get(
+        port,
+        path: '/v1/history/latest',
+        bearer: token,
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['id'], 'newer');
+      expect(body['content'], 'newer transcript');
+    });
+
+    test('no history entry exists yet → 404 no_history_entry (a clear, '
+        'specific response, not a generic error)', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      container = buildContainer(db: db);
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _get(
+        port,
+        path: '/v1/history/latest',
+        bearer: token,
+      );
+
+      expect(response.statusCode, 404);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['error'], 'no_history_entry');
+    });
+
+    test('a request with no token → 401', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      container = buildContainer(db: db);
+      final port = await startEnabled(container);
+
+      final response = await _get(port, path: '/v1/history/latest');
+
+      expect(response.statusCode, 401);
+    });
+  });
+
+  group('POST /v1/snippets/insert', () {
+    Future<int> startEnabled(ProviderContainer c) async {
+      final controller = c.read(automationApiControllerProvider.notifier);
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        ),
+      );
+      return c.read(automationApiControllerProvider).port!;
+    }
+
+    test(
+      'inserts an existing static snippet via the Snippet-Picker service, '
+      'authenticated the same way as the dictation-trigger endpoint',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.upsertSnippet(
+          id: 'sig-1',
+          title: 'Signature',
+          body: 'Best regards,\nSilvio',
+          createdAt: DateTime.utc(2026, 9, 1),
+        );
+        final paster = _FakePaster();
+
+        container = buildContainer(db: db, paster: paster);
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final response = await _postJson(port, '/v1/snippets/insert', {
+          'name': 'Signature',
+        }, bearer: token);
+
+        expect(response.statusCode, 200);
+        final body =
+            jsonDecode(await response.transform(utf8.decoder).join())
+                as Map<String, dynamic>;
+        expect(body['status'], 'inserted');
+        expect(paster.texts, ['Best regards,\nSilvio']);
+      },
+    );
+
+    test('an unknown snippet name returns a clear 404 error, not a generic '
+        'failure', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final paster = _FakePaster();
+      container = buildContainer(db: db, paster: paster);
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/snippets/insert', {
+        'name': 'does-not-exist',
+      }, bearer: token);
+
+      expect(response.statusCode, 404);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['error'], 'snippet_not_found');
+      expect(paster.texts, isEmpty);
+    });
+
+    test('an interactive snippet name returns a clear 409 error', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertSnippetWithFields(
+        id: 'interview-1',
+        title: 'Interview',
+        body: '{{answer}}',
+        createdAt: DateTime.utc(2026, 9, 1),
+        kind: 'interactive',
+        fieldNames: const ['answer'],
+      );
+      final paster = _FakePaster();
+      container = buildContainer(db: db, paster: paster);
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/snippets/insert', {
+        'name': 'Interview',
+      }, bearer: token);
+
+      expect(response.statusCode, 409);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['error'], 'snippet_not_static');
+      expect(paster.texts, isEmpty);
+    });
+
+    test('a request with no token → 401, nothing is pasted', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertSnippet(
+        id: 'sig-1',
+        title: 'Signature',
+        body: 'Best regards,\nSilvio',
+        createdAt: DateTime.utc(2026, 9, 1),
+      );
+      final paster = _FakePaster();
+      container = buildContainer(db: db, paster: paster);
+      final port = await startEnabled(container);
+
+      final response = await _postJson(port, '/v1/snippets/insert', {
+        'name': 'Signature',
+      });
+
+      expect(response.statusCode, 401);
+      expect(paster.texts, isEmpty);
+    });
   });
 }
