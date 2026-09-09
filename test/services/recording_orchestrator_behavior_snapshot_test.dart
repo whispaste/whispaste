@@ -51,7 +51,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   Stream<double>? get amplitudeStream => _ampCtrl?.stream;
 
   @override
-  Future<void> startRecording() async {
+  Future<void> startRecording({bool streamRawPcm = false}) async {
     if (state.isRecording) return;
     if (errorOnStart) {
       state = const AudioStatus(

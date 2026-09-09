@@ -146,23 +146,25 @@ class FloatingOverlayService
   /// frame the user is meant to read.
   bool _interactiveGuidanceActive = false;
 
-  // ── Live/partial transcript (ticket 11) ──────────────────────────────────
+  // ── Live/partial transcript (ticket 11 + live-transcript-streaming) ─────
 
-  /// Subscription to the active STT engine's live-transcript stream (see
-  /// [PartialTranscriptSource]), active only while [_lastPhase] is
-  /// [RecordingPhase.transcribing] and the user opted into
+  /// Subscription to the active STT engine's live-transcript stream — either
+  /// [SttServerStateNotifier.livePreviewStream] (during
+  /// [RecordingPhase.recording]) or [PartialTranscriptSource]'s
+  /// `partialTranscript` (during [RecordingPhase.transcribing]), whichever
+  /// matches [_lastPhase] — active only while the user opted into
   /// `AppSettings.overlayShowLiveTranscript`. Started/stopped in
   /// [_updateLiveTranscriptLifecycle] rather than once for the service's
-  /// whole lifetime: re-reading `partialTranscriptStream` fresh on every
-  /// transcribing episode picks up an engine swap (e.g. the GPU→CPU
-  /// fallback) instead of listening to a stream a since-replaced engine no
-  /// longer feeds.
+  /// whole lifetime: re-reading the stream fresh on every episode picks up
+  /// an engine swap (e.g. the GPU→CPU fallback) instead of listening to a
+  /// stream a since-replaced engine no longer feeds.
   StreamSubscription<String>? _partialSub;
 
-  /// Text emitted so far by [_partialSub] for the current transcribing
-  /// episode. Empty when no live text has arrived yet, the setting is off,
-  /// or the active engine has no partial support — [_sendSnapshot] then
-  /// falls back to the classic "Transcribing…" label.
+  /// Text emitted so far by [_partialSub] for the current recording/
+  /// transcribing episode. Empty when no live text has arrived yet, the
+  /// setting is off, or the active engine has no live-preview/partial
+  /// support — [_sendSnapshot] then falls back to the classic timer/
+  /// "Transcribing…" text.
   String _liveTranscript = '';
 
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
@@ -434,30 +436,52 @@ class FloatingOverlayService
 
   // ── Live/partial transcript lifecycle ─────────────────────────────────────
 
-  /// Starts/stops [_partialSub] around exactly the [RecordingPhase.
-  /// transcribing] window — the only phase in which whisper.cpp's
-  /// per-segment callback (`WhisperFfiEngine.partialTranscript`, wired via
-  /// [PartialTranscriptSource]) actually fires: this app transcribes each
-  /// recording in one batch after capture stops, so there is no partial
-  /// text to show *during* [RecordingPhase.recording] itself — only while
-  /// the just-captured audio is being decoded.
+  /// Starts/stops [_partialSub] around the two windows in which the STT
+  /// side can actually produce live text:
+  ///
+  /// - [RecordingPhase.recording] — the DURING-recording preview
+  ///   ([SttServerStateNotifier.livePreviewStream], live-transcript-
+  ///   streaming ticket): a sliding-window decode of the audio captured so
+  ///   far, updated on a timer while the user is still speaking.
+  /// - [RecordingPhase.transcribing] — the existing POST-recording partial
+  ///   transcript (`WhisperFfiEngine.partialTranscript`, wired via
+  ///   [PartialTranscriptSource]): whisper.cpp's per-segment callback
+  ///   firing during the one batch decode after capture stops.
+  ///
+  /// The transition between the two (recording → transcribing) tears down
+  /// the first subscription and starts the second fresh — [_liveTranscript]
+  /// resets so the transcribing phase never briefly shows a stale
+  /// during-recording preview.
   void _updateLiveTranscriptLifecycle(
     RecordingPhase prev,
     RecordingPhase next,
     AppSettings settings,
   ) {
-    if (next == RecordingPhase.transcribing &&
-        prev != RecordingPhase.transcribing) {
+    final enteringRecording =
+        next == RecordingPhase.recording && prev != RecordingPhase.recording;
+    final enteringTranscribing =
+        next == RecordingPhase.transcribing &&
+        prev != RecordingPhase.transcribing;
+
+    if (enteringRecording || enteringTranscribing) {
       _partialSub?.cancel();
       _liveTranscript = '';
       if (!settings.overlayShowLiveTranscript) return;
-      final stream = ref
-          .read(localSttBundleProvider.notifier)
-          .partialTranscriptStream;
+      final notifier = ref.read(localSttBundleProvider.notifier);
+      final stream = enteringRecording
+          ? notifier.livePreviewStream
+          : notifier.partialTranscriptStream;
       if (stream == null) return;
       _partialSub = stream.listen(_onLiveTranscriptUpdate);
-    } else if (prev == RecordingPhase.transcribing &&
-        next != RecordingPhase.transcribing) {
+      return;
+    }
+
+    final leavingLiveWindow =
+        (prev == RecordingPhase.recording ||
+            prev == RecordingPhase.transcribing) &&
+        next != RecordingPhase.recording &&
+        next != RecordingPhase.transcribing;
+    if (leavingLiveWindow) {
       _partialSub?.cancel();
       _partialSub = null;
       _liveTranscript = '';
@@ -467,10 +491,13 @@ class FloatingOverlayService
   void _onLiveTranscriptUpdate(String text) {
     _liveTranscript = text;
     if (controller == null) return;
-    if (_lastPhase != RecordingPhase.transcribing) return;
+    if (_lastPhase != RecordingPhase.recording &&
+        _lastPhase != RecordingPhase.transcribing) {
+      return;
+    }
     final settings = ref.read(settingsProvider).value;
     if (settings == null) return;
-    _sendSnapshot(settings, RecordingPhase.transcribing);
+    _sendSnapshot(settings, _lastPhase);
   }
 
   // ── Elapsed timer updates ─────────────────────────────────────────────────
@@ -674,7 +701,7 @@ class FloatingOverlayService
       style: styleVariant,
       label: _labelFor(phase, l10n, target),
       elapsed: phase == RecordingPhase.recording
-          ? _recordingTextFor(elapsed, sizeVariant, target, l10n)
+          ? _recordingElapsedTextFor(elapsed, sizeVariant, target, l10n, s)
           : '',
       hint: _hintFor(phase, s, l10n, target),
       transcript: recording.transcript,
@@ -1014,6 +1041,26 @@ class FloatingOverlayService
   /// Label erreichte den Bildschirm nie, nur den Screenreader. Der Nutzer sah
   /// beim Aufnehmen eines Feldes also nur eine Wellenform plus Zeitzähler,
   /// ohne zu wissen, welches Feld gerade läuft.
+  /// Wraps [_recordingTextFor] with the during-recording live-preview
+  /// override (live-transcript-streaming ticket): while a non-empty
+  /// [_liveTranscript] is available and the setting is on, it replaces the
+  /// normal timer/target text in the same slot [_isRecording ? timerText :
+  /// statusText] paints for the recording composition — reusing the
+  /// existing rendering path (arbitrary text, ellipsis on overflow) rather
+  /// than adding a second one.
+  String _recordingElapsedTextFor(
+    Duration elapsed,
+    OverlaySizeVariant size,
+    RecordingTarget target,
+    L10n? l10n,
+    AppSettings s,
+  ) {
+    if (s.overlayShowLiveTranscript && _liveTranscript.trim().isNotEmpty) {
+      return _liveTranscript;
+    }
+    return _recordingTextFor(elapsed, size, target, l10n);
+  }
+
   String _recordingTextFor(
     Duration elapsed,
     OverlaySizeVariant size,

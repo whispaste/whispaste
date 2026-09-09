@@ -96,6 +96,51 @@ class _PartialTranscriptUpdate {
   final String text;
 }
 
+/// Live-transcript-streaming ticket — proxies [LivePreviewEngine] across the
+/// isolate boundary the same way [_TranscribeRequest]/[_TranscribeResult] do
+/// for [WhisperEngine.transcribe].
+class _StartLivePreviewRequest {
+  const _StartLivePreviewRequest();
+}
+
+class _StartLivePreviewResult {
+  const _StartLivePreviewResult({required this.ok, this.error});
+  final bool ok;
+  final String? error;
+}
+
+class _LivePreviewDecodeRequest {
+  const _LivePreviewDecodeRequest({
+    required this.requestId,
+    required this.samples,
+    this.language,
+    this.prompt,
+  });
+  final int requestId;
+  final Float32List samples;
+  final String? language;
+  final String? prompt;
+}
+
+class _LivePreviewDecodeResult {
+  const _LivePreviewDecodeResult({
+    required this.requestId,
+    this.text,
+    this.error,
+  });
+  final int requestId;
+  final String? text;
+  final String? error;
+}
+
+class _StopLivePreviewRequest {
+  const _StopLivePreviewRequest();
+}
+
+class _StopLivePreviewAck {
+  const _StopLivePreviewAck();
+}
+
 class _UnloadRequest {
   const _UnloadRequest();
 }
@@ -185,6 +230,54 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
         }
 
+      case _StartLivePreviewRequest():
+        final e = engine;
+        if (e == null) {
+          mainSendPort.send(
+            const _StartLivePreviewResult(
+              ok: false,
+              error: 'whisper_engine_not_loaded',
+            ),
+          );
+          return;
+        }
+        try {
+          await e.startLivePreview();
+          mainSendPort.send(const _StartLivePreviewResult(ok: true));
+        } catch (e) {
+          mainSendPort.send(_StartLivePreviewResult(ok: false, error: '$e'));
+        }
+
+      case final _LivePreviewDecodeRequest req:
+        final e = engine;
+        if (e == null) {
+          mainSendPort.send(
+            _LivePreviewDecodeResult(
+              requestId: req.requestId,
+              error: 'whisper_engine_not_loaded',
+            ),
+          );
+          return;
+        }
+        try {
+          final text = await e.decodeLivePreview(
+            req.samples,
+            language: req.language,
+            prompt: req.prompt,
+          );
+          mainSendPort.send(
+            _LivePreviewDecodeResult(requestId: req.requestId, text: text),
+          );
+        } catch (e) {
+          mainSendPort.send(
+            _LivePreviewDecodeResult(requestId: req.requestId, error: '$e'),
+          );
+        }
+
+      case _StopLivePreviewRequest():
+        await engine?.stopLivePreview();
+        mainSendPort.send(const _StopLivePreviewAck());
+
       case _UnloadRequest():
         await engine?.unload();
         mainSendPort.send(const _UnloadAck());
@@ -223,7 +316,8 @@ void _whisperIsolateMain(SendPort mainSendPort) {
 
 /// [WhisperEngine] that delegates to a [WhisperFfiEngine] running inside a
 /// dedicated worker isolate. See file doc comment for why.
-class WhisperIsolateEngine implements WhisperEngine, PartialTranscriptSource {
+class WhisperIsolateEngine
+    implements WhisperEngine, PartialTranscriptSource, LivePreviewEngine {
   WhisperIsolateEngine({String? libraryPath, WhisperBackend? backend})
     : _config = _EngineConfig(
         libraryPath: libraryPath,
@@ -354,6 +448,71 @@ class WhisperIsolateEngine implements WhisperEngine, PartialTranscriptSource {
     return result.text ?? '';
   }
 
+  // ── Live-transcript-during-recording preview (live-transcript-streaming
+  // ticket) — proxies [LivePreviewEngine] to the worker isolate the same way
+  // [transcribe] proxies [WhisperEngine.transcribe] above. ──────────────────
+
+  Completer<_StartLivePreviewResult>? _startPreviewCompleter;
+  Completer<_StopLivePreviewAck>? _stopPreviewCompleter;
+  final Map<int, Completer<_LivePreviewDecodeResult>> _pendingPreview = {};
+  int _nextPreviewRequestId = 0;
+
+  @override
+  Future<void> startLivePreview() async {
+    if (!_isLoaded || _workerPort == null) {
+      throw StateError('whisper_engine_not_loaded');
+    }
+    final completer = Completer<_StartLivePreviewResult>();
+    _startPreviewCompleter = completer;
+    _workerPort!.send(const _StartLivePreviewRequest());
+    final result = await completer.future;
+    if (!result.ok) {
+      throw StateError(result.error ?? 'whisper_init_state_failed');
+    }
+  }
+
+  @override
+  Future<String> decodeLivePreview(
+    Float32List samples, {
+    String? language,
+    String? prompt,
+  }) async {
+    if (!_isLoaded || _workerPort == null) {
+      throw StateError('whisper_engine_not_loaded');
+    }
+    final requestId = _nextPreviewRequestId++;
+    final completer = Completer<_LivePreviewDecodeResult>();
+    _pendingPreview[requestId] = completer;
+    _workerPort!.send(
+      _LivePreviewDecodeRequest(
+        requestId: requestId,
+        samples: samples,
+        language: language,
+        prompt: prompt,
+      ),
+    );
+    final result = await completer.future;
+    if (result.error != null) throw StateError(result.error!);
+    return result.text ?? '';
+  }
+
+  @override
+  Future<void> stopLivePreview() async {
+    if (_isolate == null || _workerPort == null) return;
+    final completer = Completer<_StopLivePreviewAck>();
+    _stopPreviewCompleter = completer;
+    try {
+      _workerPort!.send(const _StopLivePreviewRequest());
+    } catch (e) {
+      _log.warning('Failed to signal worker stopLivePreview: $e');
+      return;
+    }
+    await completer.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => const _StopLivePreviewAck(),
+    );
+  }
+
   @override
   Future<void> unload() async {
     if (_isolate == null || _workerPort == null) {
@@ -480,6 +639,12 @@ class WhisperIsolateEngine implements WhisperEngine, PartialTranscriptSource {
         _pending.remove(r.requestId)?.complete(r);
       case final _PartialTranscriptUpdate u:
         _partialController.add(u.text);
+      case final _StartLivePreviewResult r:
+        _startPreviewCompleter?.complete(r);
+      case final _LivePreviewDecodeResult r:
+        _pendingPreview.remove(r.requestId)?.complete(r);
+      case _StopLivePreviewAck():
+        _stopPreviewCompleter?.complete(const _StopLivePreviewAck());
       case _UnloadAck():
         _unloadCompleter?.complete();
     }

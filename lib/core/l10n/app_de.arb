@@ -1148,7 +1148,7 @@
   "settingsOverlayStyleGlass": "Glas",
   "settingsOverlayStyleSolid": "Volldeckend",
   "settingsOverlayLiveTranscript": "Live-Transkript",
-  "settingsOverlayLiveTranscriptSubtitle": "Zeigt den erkannten Text schon während der Transkription statt nur der Wellenform",
+  "settingsOverlayLiveTranscriptSubtitle": "Zeigt den erkannten Text live während des Sprechens statt nur der Wellenform. Benötigt zusätzliche Rechenleistung während der Aufnahme",
   "overlayRetry": "Erneut versuchen",
   "overlayDismiss": "Schließen",
   "overlayContextCancel": "Aufnahme abbrechen",

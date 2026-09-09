@@ -11,6 +11,8 @@
 /// internally (`pcm_wav_codec.dart`), so callers never touch PCM.
 library;
 
+import 'dart:typed_data' show Float32List;
+
 /// Distinguishable failure class an in-process [WhisperEngine] can signal to
 /// the notifier at transcription time.
 ///
@@ -165,4 +167,44 @@ abstract class PartialTranscriptSource {
   /// joins segments into the final result. Never emits outside an in-flight
   /// [WhisperEngine.transcribe] call.
   Stream<String> get partialTranscript;
+}
+
+/// Optional capability: an engine that can decode short PCM windows taken
+/// from an ACTIVE recording — i.e. before it has even stopped — via a
+/// separate, state-based decode path (live-transcript-streaming ticket).
+///
+/// Distinct from [PartialTranscriptSource], which only surfaces segments of
+/// the POST-recording batch [WhisperEngine.transcribe] call and therefore
+/// never emits anything while a recording is still in progress. This
+/// interface is what actually powers "real" streaming: the caller feeds it
+/// a sliding window of raw PCM while the user is still speaking, and gets
+/// back a preview transcript for that window.
+///
+/// A separate `implements`-only interface for the same reason as
+/// [PartialTranscriptSource]: several test doubles implement [WhisperEngine]
+/// directly and this capability is genuinely optional per the feature's
+/// architecture — a caller probes with `engine is LivePreviewEngine` instead
+/// of every [WhisperEngine] needing a no-op implementation.
+abstract class LivePreviewEngine {
+  /// Allocates a decode state dedicated to live-preview decodes, separate
+  /// from the context's own default state (used by
+  /// [WhisperEngine.transcribe]) — so a preview decode never interferes
+  /// with, or is interfered with by, the final batch decode. Safe to call
+  /// repeatedly; a second call while a preview state is already open is a
+  /// no-op. Throws [StateError] if no model is loaded yet.
+  Future<void> startLivePreview();
+
+  /// Decodes [samples] (16 kHz mono float32) against the dedicated preview
+  /// state and returns the resulting text — never touches [WhisperEngine.
+  /// transcribe]'s own state/results. Throws [StateError] if
+  /// [startLivePreview] was not called first (or has since been stopped).
+  Future<String> decodeLivePreview(
+    Float32List samples, {
+    String? language,
+    String? prompt,
+  });
+
+  /// Frees the dedicated preview decode state. Safe to call when none is
+  /// open (including after [startLivePreview] was never called).
+  Future<void> stopLivePreview();
 }

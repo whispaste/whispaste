@@ -151,6 +151,21 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// Public amplitude stream. Listen after calling [startRecording].
   Stream<double>? get amplitudeStream => _amplitudeController?.stream;
 
+  /// Broadcast controller for raw PCM chunks (16-bit mono LE, no WAV
+  /// header) — only created when [startRecording] is called with
+  /// `streamRawPcm: true` (live-transcript-streaming ticket). `null`
+  /// otherwise, so a caller that never opts in never pays for forwarding
+  /// every captured chunk to a second listener.
+  StreamController<Uint8List>? _pcmChunkController;
+
+  /// Public raw-PCM stream, or `null` when [startRecording] was not called
+  /// with `streamRawPcm: true` for the current/last recording. Feeds the
+  /// live-transcript-during-recording preview
+  /// (`SttServerStateNotifier.feedLivePreviewPcm`) — distinct from
+  /// [amplitudeStream], which only carries the derived 0.0-1.0 level, not
+  /// the samples themselves.
+  Stream<Uint8List>? get pcmChunkStream => _pcmChunkController?.stream;
+
   @override
   AudioStatus build() {
     ref.onDispose(_cleanup);
@@ -170,7 +185,13 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// Returns immediately — audio data streams to disk.
   /// Subscribe to [amplitudeStream] for level metering.
   ///
-  Future<void> startRecording() async {
+  ///
+  /// [streamRawPcm] additionally opens [pcmChunkStream] for this recording
+  /// (live-transcript-streaming ticket) — `false` by default so a caller
+  /// that never opts in (the setting is off) pays nothing for it: no
+  /// controller is created and no chunk is ever forwarded beyond the
+  /// existing amplitude/WAV-writer fan-out.
+  Future<void> startRecording({bool streamRawPcm = false}) async {
     if (state.isRecording) {
       _log.warning('startRecording ignored — already recording');
       return;
@@ -252,6 +273,13 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       _lastRecordingClippedSamples = 0;
       _gainProcessor = useUserGain ? PcmGainProcessor(gain: inputGain) : null;
 
+      // Live-transcript-streaming ticket: only created when opted in — see
+      // [pcmChunkStream]'s doc comment for the performance guarantee.
+      unawaited(_pcmChunkController?.close());
+      _pcmChunkController = streamRawPcm
+          ? StreamController<Uint8List>.broadcast()
+          : null;
+
       // Prepare amplitude stream and PCM-side helpers.
       final amplitudeFromPcm = _initAmplitudeStream();
 
@@ -290,6 +318,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         await cleanupFile(wavPath);
         _amplitudeController?.close();
         _amplitudeController = null;
+        await _pcmChunkController?.close();
+        _pcmChunkController = null;
         state = const AudioStatus(
           captureState: AudioCaptureState.error,
           errorMessage: 'recording_start_failed',
@@ -309,6 +339,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
               ? chunk
               : gainProcessor.process(chunk);
           amplitudeFromPcm.addChunk(scaled);
+          _pcmChunkController?.add(scaled);
           // Errors from the WAV writer are recoverable from the stream's
           // POV (we just stop writing more samples) but should not crash
           // the recording — they are surfaced in logs.
@@ -383,6 +414,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _gainProcessor = null;
     await _amplitudeController?.close();
     _amplitudeController = null;
+    await _pcmChunkController?.close();
+    _pcmChunkController = null;
 
     final recorder = _recorder;
     if (recorder != null) {
@@ -512,6 +545,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _gainProcessor = null;
     await _amplitudeController?.close();
     _amplitudeController = null;
+    await _pcmChunkController?.close();
+    _pcmChunkController = null;
 
     final recorder = _recorder;
     if (recorder != null) {
@@ -600,6 +635,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _amplitudeFromPcm = null;
     await _amplitudeController?.close();
     _amplitudeController = null;
+    await _pcmChunkController?.close();
+    _pcmChunkController = null;
 
     await _restoreDefaultInputRouting();
 
@@ -716,6 +753,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _ampSub?.cancel();
     _amplitudeFromPcm?.dispose();
     _amplitudeController?.close();
+    _pcmChunkController?.close();
     // Best-effort: close the writer; ignore errors during dispose.
     _wavWriter?.close().catchError((Object _) {});
     _gainProcessor = null;

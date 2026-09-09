@@ -5855,7 +5855,7 @@ abstract class L10n {
   /// No description provided for @settingsOverlayLiveTranscriptSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Show recognized text as it\'s transcribed, instead of the waveform only'**
+  /// **'Show recognized text live while you\'re still speaking, instead of the waveform only. Uses extra CPU during recording'**
   String get settingsOverlayLiveTranscriptSubtitle;
 
   /// No description provided for @overlayRetry.

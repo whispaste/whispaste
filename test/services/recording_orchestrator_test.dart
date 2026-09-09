@@ -117,7 +117,7 @@ class FakeAudioService extends AudioServiceNotifier {
   Stream<double>? get amplitudeStream => _ampCtrl?.stream;
 
   @override
-  Future<void> startRecording() async {
+  Future<void> startRecording({bool streamRawPcm = false}) async {
     if (state.isRecording) {
       // Mirror the audio service's logged no-op — do NOT throw.
       return;

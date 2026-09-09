@@ -3370,7 +3370,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsOverlayLiveTranscriptSubtitle =>
-      'Zeigt den erkannten Text schon während der Transkription statt nur der Wellenform';
+      'Zeigt den erkannten Text live während des Sprechens statt nur der Wellenform. Benötigt zusätzliche Rechenleistung während der Aufnahme';
 
   @override
   String get overlayRetry => 'Erneut versuchen';

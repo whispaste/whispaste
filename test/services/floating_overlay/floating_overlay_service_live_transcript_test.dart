@@ -85,16 +85,25 @@ class _ConstantSettingsNotifier extends SettingsNotifier {
 /// [partialTranscriptStream] instead of a real engine — the whole point is
 /// to test [FloatingOverlayService]'s consumption of that stream in
 /// isolation from whisper.cpp/FFI/isolate wiring.
+///
+/// Also exposes a controllable [livePreviewStream] (live-transcript-
+/// streaming ticket) for the DURING-recording preview — distinct from
+/// [partialTranscriptStream], which only ever fires once transcribing.
 class _FakeSttNotifier extends SttServerStateNotifier {
   final _controller = StreamController<String>.broadcast();
+  final _liveController = StreamController<String>.broadcast();
 
   void emitPartial(String text) => _controller.add(text);
+  void emitLivePreview(String text) => _liveController.add(text);
 
   @override
   SttStatus build() => const SttStatus();
 
   @override
   Stream<String>? get partialTranscriptStream => _controller.stream;
+
+  @override
+  Stream<String>? get livePreviewStream => _liveController.stream;
 }
 
 // ── Harness ──────────────────────────────────────────────────────────────────
@@ -190,6 +199,84 @@ void main() {
           );
           final last = h.fake.snapshots.last;
           expect(last.state, OverlayVisualState.transcribing);
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+  });
+
+  group('FloatingOverlayService — DURING-recording live preview '
+      '(live-transcript-streaming ticket)', () {
+    test(
+      'setting ON: live-preview text reaches the snapshot while still recording',
+      () {
+        FakeAsync().run((async) {
+          final h = _buildHarness(async, liveTranscript: true);
+          try {
+            h.container.read(recordingProvider.notifier).startRecording();
+            async.elapse(const Duration(milliseconds: 5));
+
+            h.stt.emitLivePreview('Hallo Wel');
+            async.elapse(const Duration(milliseconds: 5));
+            h.stt.emitLivePreview('Hallo Welt');
+            async.elapse(const Duration(milliseconds: 5));
+
+            final last = h.fake.snapshots.last;
+            expect(last.state, OverlayVisualState.recording);
+            expect(last.elapsed, 'Hallo Welt');
+          } finally {
+            h.dispose();
+          }
+        });
+      },
+    );
+
+    test('setting OFF: live-preview text never reaches the snapshot while '
+        'recording (classic elapsed-timer text stays unaffected)', () {
+      FakeAsync().run((async) {
+        final h = _buildHarness(async, liveTranscript: false);
+        try {
+          h.container.read(recordingProvider.notifier).startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+
+          h.stt.emitLivePreview('Hallo Welt');
+          async.elapse(const Duration(milliseconds: 5));
+
+          final last = h.fake.snapshots.last;
+          expect(last.state, OverlayVisualState.recording);
+          expect(last.elapsed, isNot('Hallo Welt'));
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('live-preview subscription is torn down once recording stops (no '
+        'stale preview text leaking into the transcribing snapshot)', () {
+      FakeAsync().run((async) {
+        final h = _buildHarness(async, liveTranscript: true);
+        try {
+          h.container.read(recordingProvider.notifier).startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          h.stt.emitLivePreview('during recording');
+          async.elapse(const Duration(milliseconds: 5));
+
+          h.container.read(recordingProvider.notifier).stopRecording();
+          async.elapse(const Duration(milliseconds: 5));
+
+          // A late emission on the (recording-phase) live-preview stream
+          // must not resurrect into the transcribing-phase snapshot —
+          // that phase listens to partialTranscriptStream instead.
+          h.stt.emitLivePreview('late, must be ignored');
+          async.elapse(const Duration(milliseconds: 5));
+
+          h.stt.emitPartial('real partial');
+          async.elapse(const Duration(milliseconds: 5));
+
+          final last = h.fake.snapshots.last;
+          expect(last.state, OverlayVisualState.transcribing);
+          expect(last.liveTranscript, 'real partial');
         } finally {
           h.dispose();
         }

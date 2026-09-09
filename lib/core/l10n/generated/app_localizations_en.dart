@@ -3340,7 +3340,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsOverlayLiveTranscriptSubtitle =>
-      'Show recognized text as it\'s transcribed, instead of the waveform only';
+      'Show recognized text live while you\'re still speaking, instead of the waveform only. Uses extra CPU during recording';
 
   @override
   String get overlayRetry => 'Retry';

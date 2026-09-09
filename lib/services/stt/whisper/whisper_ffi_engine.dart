@@ -149,7 +149,8 @@ class WhisperSegment {
 /// [transcribe] runs synchronously on the calling isolate — acceptable here
 /// because this slice does not wire the engine into any UI path. Isolate
 /// offload is deferred to Issue 03.
-class WhisperFfiEngine implements WhisperEngine, PartialTranscriptSource {
+class WhisperFfiEngine
+    implements WhisperEngine, PartialTranscriptSource, LivePreviewEngine {
   WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
     : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
       _backend = backend ?? WhisperBackend.cpu,
@@ -1152,12 +1153,132 @@ class WhisperFfiEngine implements WhisperEngine, PartialTranscriptSource {
 
   @override
   Future<void> unload() async {
+    // Never leave a live-preview state dangling on a context that is about
+    // to be freed — [whisper_free] does not implicitly free states opened
+    // via [whisper_init_state] (they are independent allocations).
+    await stopLivePreview();
     final ctx = _ctx;
     if (ctx != null) {
       _bindings?.whisper_free(ctx);
     }
     _ctx = null;
     _bindings = null;
+  }
+
+  // ── Live-transcript-during-recording preview (live-transcript-streaming
+  // ticket) ──────────────────────────────────────────────────────────────
+  //
+  // Decodes against a SEPARATE `whisper_state` from the context's own
+  // default state used by [transcribe]/[_decodeOnce] above — so a preview
+  // decode triggered mid-recording can never corrupt or be corrupted by the
+  // final, unchanged batch `whisper_full` call once recording stops. Kept
+  // deliberately minimal compared to [_decodeOnce]: no VAD, no pause-based
+  // chunking, no live/partial-transcript callback, no segment-timestamp
+  // logging — this is a lightweight preview, not the code path whose output
+  // is ever inserted/pasted.
+
+  /// The dedicated live-preview decode state, or `null` when
+  /// [startLivePreview] has not (yet) been called, or was stopped.
+  ffi.Pointer<whisper_state>? _previewState;
+
+  @override
+  Future<void> startLivePreview() async {
+    if (_previewState != null) return;
+    final bindings = _bindings;
+    final ctx = _ctx;
+    if (bindings == null || ctx == null) {
+      throw StateError('whisper_engine_not_loaded');
+    }
+    final state = bindings.whisper_init_state(ctx);
+    if (state == ffi.nullptr) {
+      throw StateError('whisper_init_state_failed');
+    }
+    _previewState = state;
+  }
+
+  @override
+  Future<String> decodeLivePreview(
+    Float32List samples, {
+    String? language,
+    String? prompt,
+  }) async {
+    final bindings = _bindings;
+    final ctx = _ctx;
+    final state = _previewState;
+    if (bindings == null || ctx == null || state == null) {
+      throw StateError('whisper_live_preview_not_started');
+    }
+    if (samples.isEmpty) return '';
+
+    final samplesPtr = malloc<ffi.Float>(samples.length);
+    samplesPtr.asTypedList(samples.length).setAll(0, samples);
+    final languageC = (language ?? 'auto').toNativeUtf8();
+    final hasPrompt = prompt != null && prompt.isNotEmpty;
+    final promptC = hasPrompt ? prompt.toNativeUtf8() : null;
+    try {
+      final params = bindings.whisper_full_default_params(
+        WhisperSamplingStrategy.WHISPER_SAMPLING_GREEDY,
+      );
+      params.print_progress = false;
+      params.print_realtime = false;
+      params.print_timestamps = false;
+      params.print_special = false;
+      params.no_timestamps = true;
+      params.translate = false;
+      params.language = languageC.cast<ffi.Char>();
+      params.suppress_nst = true;
+      params.temperature_inc = 0.0;
+      // Always throttled: a preview decode always runs while this same
+      // process's audio-capture thread is actively recording — the one
+      // case [_decodeOnce]'s `reducedThreads` flag exists for — so this
+      // never has to be asked for, it's the only correct value here.
+      params.n_threads = _threadCount(reducedThreads: true);
+      if (promptC != null) {
+        params.initial_prompt = promptC.cast<ffi.Char>();
+      }
+
+      final rc = bindings.whisper_full_with_state(
+        ctx,
+        state,
+        params,
+        samplesPtr,
+        samples.length,
+      );
+      if (rc != 0) {
+        throw WhisperEngineException(
+          WhisperFailureKind.transient,
+          'whisper_full_with_state failed with code $rc',
+        );
+      }
+
+      final buffer = StringBuffer();
+      // Read back from `state`, NOT `ctx` — whisper_full_n_segments/
+      // whisper_full_get_segment_text (used by [_decodeOnce] above) read
+      // ctx's own default state, which whisper_full_with_state never
+      // touches. Using the ctx-based getters here would silently read
+      // stale/unrelated results.
+      final segments = bindings.whisper_full_n_segments_from_state(state);
+      for (var i = 0; i < segments; i++) {
+        final textPtr = bindings.whisper_full_get_segment_text_from_state(
+          state,
+          i,
+        );
+        buffer.write(textPtr.cast<Utf8>().toDartString());
+      }
+      return buffer.toString();
+    } finally {
+      malloc.free(samplesPtr);
+      malloc.free(languageC);
+      if (promptC != null) malloc.free(promptC);
+    }
+  }
+
+  @override
+  Future<void> stopLivePreview() async {
+    final state = _previewState;
+    if (state == null) return;
+    _bindings?.whisper_free_state(state);
+    _previewState = null;
   }
 
   /// Silero-VAD speech-probability threshold used while under system load —

@@ -56,6 +56,7 @@ import 'tray_service.dart';
 import 'recording_store.dart';
 import 'stt/inference_client_rejected.dart';
 import 'stt/on_device_engine_lifecycle.dart';
+import 'stt/stt_bundle.dart' show localSttBundleProvider;
 import 'stt_engine_lifecycle_provider.dart';
 import 'stt_parakeet/parakeet_model_registry.dart' as parakeet;
 import 'transcription/transcriber.dart';
@@ -85,6 +86,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Subscription to [SafetyGuard] events for the active recording session.
   StreamSubscription<SafetyEvent>? _guardSub;
+
+  /// Subscription forwarding raw PCM chunks to the live-transcript-during-
+  /// recording preview (live-transcript-streaming ticket) — only opened
+  /// while the feature is actually wanted for this recording (see
+  /// [startRecording]'s `livePreviewWanted`). `null` otherwise.
+  StreamSubscription<Uint8List>? _livePreviewPcmSub;
 
   /// State machine that enforces the recording phase transition table.
   /// Initialized lazily in [build] after the notifier is available.
@@ -382,9 +389,18 @@ class RecordingOrchestrator extends Notifier<void> {
         await ref.read(pasterProvider)?.prime();
       }
 
-      // Start audio capture.
+      // Start audio capture. `streamRawPcm` opens the live-transcript-
+      // during-recording preview's raw-PCM feed (live-transcript-streaming
+      // ticket) — only when whisper is the actual active on-device engine
+      // AND the user opted in, mirroring `SttServerStateNotifier.
+      // notifyRecordingStarted`'s own gate so both sides agree on when the
+      // feature is active.
       final audioNotifier = ref.read(audioServiceProvider.notifier);
-      await audioNotifier.startRecording();
+      final livePreviewWanted =
+          settings.overlayShowLiveTranscript &&
+          settings.sttProviderType.isLocal &&
+          settings.onDeviceEngine == OnDeviceEngine.whisper;
+      await audioNotifier.startRecording(streamRawPcm: livePreviewWanted);
 
       // Verify recording actually started.
       final audioStatus = ref.read(audioServiceProvider);
@@ -397,8 +413,24 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Subscribe to amplitude for level metering + safety guard.
+      // Subscribe to amplitude for level metering + safety guard (also
+      // cancels any stale live-preview PCM subscription from a previous
+      // session before the fresh one below is created).
       _cancelAmplitude();
+
+      if (livePreviewWanted) {
+        final pcmStream = audioNotifier.pcmChunkStream;
+        if (pcmStream != null) {
+          final sttNotifier = ref.read(localSttBundleProvider.notifier);
+          _livePreviewPcmSub = pcmStream.listen(
+            sttNotifier.feedLivePreviewPcm,
+            onError: (Object e) {
+              _log.warning('[$sid] Live-preview PCM stream error: $e');
+            },
+          );
+        }
+      }
+
       final rawStream = audioNotifier.amplitudeStream;
       if (rawStream != null) {
         // Level-metering subscription (always active).
@@ -1879,6 +1911,8 @@ class RecordingOrchestrator extends Notifier<void> {
     _guardSub = null;
     _amplitudeSub?.cancel();
     _amplitudeSub = null;
+    _livePreviewPcmSub?.cancel();
+    _livePreviewPcmSub = null;
   }
 
   /// Persists the hotkey→text end-to-end latency for this session, if a

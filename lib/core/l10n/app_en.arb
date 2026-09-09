@@ -1355,7 +1355,7 @@
   "settingsOverlayStyleGlass": "Glass",
   "settingsOverlayStyleSolid": "Solid",
   "settingsOverlayLiveTranscript": "Live transcript",
-  "settingsOverlayLiveTranscriptSubtitle": "Show recognized text as it's transcribed, instead of the waveform only",
+  "settingsOverlayLiveTranscriptSubtitle": "Show recognized text live while you're still speaking, instead of the waveform only. Uses extra CPU during recording",
   "overlayRetry": "Retry",
   "overlayDismiss": "Dismiss",
   "overlayContextCancel": "Cancel recording",

@@ -201,6 +201,125 @@ class WhisperBindings {
           ffi.Pointer<ffi.Void>,
         )
       >();
+
+  // ── Hand-added block (live-transcript-streaming ticket) ──────────────────
+  //
+  // Not produced by the original ffigen pass — this repo has no ffigen
+  // config file to re-run (see the file doc comment above), so these three
+  // bindings were added by hand, following the exact same codegen shape
+  // (`late final ..Ptr = _lookup<...>(...)`, `.asFunction<...>()`) as every
+  // generated binding above. Signatures copied 1:1 from the vendored header
+  // (`.build/deps/whisper.cpp/v1.8.4/include/whisper.h`, around lines
+  // 241/268/609). If this file is ever regenerated for real, this block
+  // must be re-added afterwards — it will NOT survive a fresh ffigen run.
+  //
+  // Together they let a caller run `whisper_full`-equivalent decodes against
+  // a SEPARATE decode state from the context's own default state (used by
+  // [whisper_full]/[whisper_full] above) — the live-transcript-during-
+  // recording preview decodes on this separate state so it never interferes
+  // with the final, unchanged batch [whisper_full] call over the same ctx.
+
+  /// Allocates a new decode state for [ctx], independent of the context's
+  /// own default state. Returns `nullptr` on failure.
+  ffi.Pointer<whisper_state> whisper_init_state(
+    ffi.Pointer<whisper_context> ctx,
+  ) {
+    return _whisper_init_state(ctx);
+  }
+
+  late final _whisper_init_statePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<whisper_state> Function(ffi.Pointer<whisper_context>)
+        >
+      >('whisper_init_state');
+  late final _whisper_init_state = _whisper_init_statePtr
+      .asFunction<
+        ffi.Pointer<whisper_state> Function(ffi.Pointer<whisper_context>)
+      >();
+
+  /// Frees a decode state allocated by [whisper_init_state].
+  void whisper_free_state(ffi.Pointer<whisper_state> state) {
+    _whisper_free_state(state);
+  }
+
+  late final _whisper_free_statePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<whisper_state>)>
+      >('whisper_free_state');
+  late final _whisper_free_state = _whisper_free_statePtr
+      .asFunction<void Function(ffi.Pointer<whisper_state>)>();
+
+  /// Same as [whisper_full] but decodes against the caller-supplied [state]
+  /// instead of [ctx]'s own default state.
+  int whisper_full_with_state(
+    ffi.Pointer<whisper_context> ctx,
+    ffi.Pointer<whisper_state> state,
+    whisper_full_params params,
+    ffi.Pointer<ffi.Float> samples,
+    int n_samples,
+  ) {
+    return _whisper_full_with_state(ctx, state, params, samples, n_samples);
+  }
+
+  late final _whisper_full_with_statePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<whisper_context>,
+            ffi.Pointer<whisper_state>,
+            whisper_full_params,
+            ffi.Pointer<ffi.Float>,
+            ffi.Int,
+          )
+        >
+      >('whisper_full_with_state');
+  late final _whisper_full_with_state = _whisper_full_with_statePtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<whisper_context>,
+          ffi.Pointer<whisper_state>,
+          whisper_full_params,
+          ffi.Pointer<ffi.Float>,
+          int,
+        )
+      >();
+
+  /// Same as [whisper_full_n_segments] but reads [state] directly instead
+  /// of `ctx`'s own default state — required to read back a
+  /// [whisper_full_with_state] result (whisper.h line ~631).
+  int whisper_full_n_segments_from_state(ffi.Pointer<whisper_state> state) {
+    return _whisper_full_n_segments_from_state(state);
+  }
+
+  late final _whisper_full_n_segments_from_statePtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<whisper_state>)>>(
+        'whisper_full_n_segments_from_state',
+      );
+  late final _whisper_full_n_segments_from_state =
+      _whisper_full_n_segments_from_statePtr
+          .asFunction<int Function(ffi.Pointer<whisper_state>)>();
+
+  /// Same as [whisper_full_get_segment_text] but reads [state] directly —
+  /// see [whisper_full_n_segments_from_state] (whisper.h line ~652).
+  ffi.Pointer<ffi.Char> whisper_full_get_segment_text_from_state(
+    ffi.Pointer<whisper_state> state,
+    int i_segment,
+  ) {
+    return _whisper_full_get_segment_text_from_state(state, i_segment);
+  }
+
+  late final _whisper_full_get_segment_text_from_statePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<whisper_state>, ffi.Int)
+        >
+      >('whisper_full_get_segment_text_from_state');
+  late final _whisper_full_get_segment_text_from_state =
+      _whisper_full_get_segment_text_from_statePtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<whisper_state>, int)
+          >();
 }
 
 /// `typedef void (*ggml_log_callback)(enum ggml_log_level level, const char

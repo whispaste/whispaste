@@ -52,7 +52,7 @@ class _FakeAudioServiceNotifier extends AudioServiceNotifier {
   AudioStatus build() => const AudioStatus();
 
   @override
-  Future<void> startRecording() async {
+  Future<void> startRecording({bool streamRawPcm = false}) async {
     if (errorOnStart) {
       state = const AudioStatus(
         captureState: AudioCaptureState.error,

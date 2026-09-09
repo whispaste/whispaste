@@ -226,7 +226,7 @@ class FixtureAudioService extends AudioServiceNotifier {
   Stream<double>? get amplitudeStream => null;
 
   @override
-  Future<void> startRecording() async {
+  Future<void> startRecording({bool streamRawPcm = false}) async {
     final dir = await Directory.systemTemp.createTemp('wp_itest_audio_');
     final copy = File(p.join(dir.path, 'recording.wav'));
     await File(_fixtureWavPath).copy(copy.path);

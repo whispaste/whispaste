@@ -15,6 +15,7 @@ import 'package:sentry_flutter/sentry_flutter.dart'
     show Breadcrumb, Sentry, SentryLevel;
 
 import '../../core/config/punctuation_priming_prompts.dart';
+import '../../core/config/settings_enums.dart' show OnDeviceEngine;
 import '../../core/config/settings_provider.dart';
 import '../../core/config/whisper_languages.dart';
 import '../../core/logging/app_logger.dart';
@@ -26,6 +27,7 @@ import '../model_download_service.dart';
 import '../path_service.dart';
 import 'inference_client_rejected.dart';
 import 'inference_request_validator.dart';
+import 'live_preview/live_transcript_previewer.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
 import 'whisper/gpu_load_crash_guard.dart';
@@ -264,6 +266,87 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return null;
   }
 
+  // ── Live-transcript-DURING-recording preview (live-transcript-streaming
+  // ticket) ──────────────────────────────────────────────────────────────
+
+  /// Owns the sliding-window buffering + trigger/debounce logic (see
+  /// `live_transcript_previewer.dart`). `null` whenever the feature is
+  /// inactive — either the setting is off, or [_engine] doesn't support
+  /// [LivePreviewEngine] — so [notifyRecordingStarted]/[feedLivePreviewPcm]
+  /// never allocate/compute anything in that case (the performance
+  /// guarantee the toggle promises).
+  LiveTranscriptPreviewer? _livePreview;
+
+  /// Broadcast stream of live-preview text emitted WHILE a recording is
+  /// still in progress, or `null` when the feature is currently inactive.
+  /// [FloatingOverlayService] listens to this only during
+  /// [RecordingPhase.recording] — distinct from [partialTranscriptStream],
+  /// which only ever fires once a recording has stopped and its batch
+  /// decode is under way.
+  Stream<String>? get livePreviewStream => _livePreview?.preview;
+
+  /// Starts the during-recording live-preview pipeline if — and only if —
+  /// [enabled] is true and the active engine supports it. Called from
+  /// [notifyRecordingStarted] with the current
+  /// `AppSettings.overlayShowLiveTranscript` value; a caller that never
+  /// passes `true` here (setting off) never touches [LivePreviewEngine] at
+  /// all — no native state is allocated, no timer starts.
+  void _maybeStartLivePreview(bool enabled) {
+    if (!enabled || !state.isReady) return;
+    final engine = _engine;
+    if (engine is! LivePreviewEngine) return;
+    final e = engine as LivePreviewEngine;
+
+    _livePreview?.dispose();
+    final previewer = LiveTranscriptPreviewer(
+      decode: (samples) => e.decodeLivePreview(samples),
+    );
+    _livePreview = previewer;
+    previewer.start();
+    unawaited(
+      e.startLivePreview().catchError((Object err) {
+        _log.warning('Live-preview state init failed: $err');
+        previewer.stop();
+      }),
+    );
+  }
+
+  /// Feeds one raw PCM chunk (16-bit mono LE, no WAV header) from the
+  /// active recording into the live-preview sliding window. No-op unless
+  /// [_maybeStartLivePreview] actually started a previewer for this
+  /// recording.
+  void feedLivePreviewPcm(Uint8List chunk) {
+    _livePreview?.addPcmChunk(chunk);
+  }
+
+  /// Tears down the live-preview pipeline (timer + native decode state).
+  /// Safe to call unconditionally — including when the feature was never
+  /// started — so every recording-ending path (stop, cancel, error) can
+  /// call this without first checking whether it applies.
+  ///
+  /// Only reaches into [LivePreviewEngine.stopLivePreview] (the native
+  /// `whisper_free_state` call) when [_livePreview] was actually non-null —
+  /// i.e. [_maybeStartLivePreview] actually started it for this recording.
+  /// Without that guard this would call into the engine on EVERY
+  /// recording-ending path even with `overlayShowLiveTranscript` off,
+  /// breaking the performance guarantee the toggle promises (issue's
+  /// architecture decision #1 — zero extra native calls while off).
+  void _stopLivePreview() {
+    final previewer = _livePreview;
+    _livePreview = null;
+    if (previewer == null) return;
+    previewer.dispose();
+    final engine = _engine;
+    if (engine is LivePreviewEngine) {
+      final e = engine as LivePreviewEngine;
+      unawaited(
+        e.stopLivePreview().catchError((Object err) {
+          _log.warning('Live-preview state teardown failed: $err');
+        }),
+      );
+    }
+  }
+
   @override
   SttStatus build() {
     _engine = ref.read(whisperEngineProvider);
@@ -276,6 +359,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _benchmarkDeferTimer?.cancel();
       _benchmarkDeferTimer = null;
       _pendingBenchmarkModelId = null;
+      _stopLivePreview();
       unawaited(_engine?.unload() ?? Future<void>.value());
       _activeModel = null;
       _lastPrompt = null;
@@ -388,6 +472,16 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _isRecordingActive = true;
     _idleTimer?.cancel();
     _idleTimer = null;
+    // Only when the on-device engine is actually whisper AND the user
+    // opted in — see [_maybeStartLivePreview]'s doc comment for the
+    // performance guarantee this gate provides.
+    final settings = ref.read(settingsProvider).value;
+    final wantsLivePreview =
+        settings != null &&
+        settings.overlayShowLiveTranscript &&
+        settings.sttProviderType.isLocal &&
+        settings.onDeviceEngine == OnDeviceEngine.whisper;
+    _maybeStartLivePreview(wantsLivePreview);
   }
 
   void notifyTranscriptionCompleted() {
@@ -399,6 +493,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   void notifyRecordingStopped() {
     _isRecordingActive = false;
+    _stopLivePreview();
     _resetIdleTimer();
     _rearmPendingBenchmark();
   }
@@ -582,6 +677,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _lastPromptTime = null;
     _idleExtended = false;
     _isRecordingActive = false;
+    _stopLivePreview();
     // Transition to stopped immediately (synchronously, before the first
     // await below) — UI responsiveness for the common case (model switch)
     // must not wait on native cleanup. The returned Future still resolves
