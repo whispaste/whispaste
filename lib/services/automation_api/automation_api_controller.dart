@@ -127,6 +127,10 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   /// about redundant start/stop churn.
   Future<void> syncWithSettings(AppSettings settings) async {
     final shouldRun = settings.automationApi.enabled;
+    _log.info(
+      'syncWithSettings: shouldRun=$shouldRun currentRunState=${state.runState} '
+      'serverIsRunning=${_server.isRunning}',
+    );
     if (!shouldRun) {
       // `_server.isRunning` only ever reflects a *successful* bind, so it
       // stays false throughout a failed start (state.runState == error).
@@ -135,10 +139,12 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       // though the setting is now off. Compare against our own state
       // instead — it's the only thing that actually tracks "error".
       if (state.runState == AutomationApiRunState.stopped) return;
+      _log.info('syncWithSettings: stopping (settings.enabled=false)');
       await _stop();
       return;
     }
     if (_server.isRunning) return;
+    _log.info('syncWithSettings: starting (settings.enabled=true)');
     await _start(settings);
   }
 
@@ -177,6 +183,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
           requestedPort: targetPort,
           token: token,
         );
+        _log.info('_start: bound port $boundPort (requested $targetPort)');
         return;
       } catch (e) {
         // Bind failed (most likely the port is already in use) — log at
@@ -191,9 +198,18 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       requestedPort: targetPort,
       token: token,
     );
+    _log.warning(
+      '_start: exhausted all $kAutomationApiPortFallbackAttempts fallback '
+      'ports starting at $targetPort',
+    );
   }
 
   Future<void> _stop() async {
+    _log.info(
+      '_stop: stopping server (was ${state.runState})',
+      null,
+      StackTrace.current,
+    );
     await _server.stop();
     state = AutomationApiState(
       runState: AutomationApiRunState.stopped,

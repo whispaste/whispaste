@@ -433,6 +433,10 @@ class _AppShellState extends ConsumerState<_AppShell>
     ref.listenManual(settingsProvider, (_, next) {
       final settings = next.value;
       if (settings == null) return;
+      _log.info(
+        'settingsProvider changed: automationApi.enabled='
+        '${settings.automationApi.enabled}',
+      );
       unawaited(
         ref
             .read(automationApiControllerProvider.notifier)

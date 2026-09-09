@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_urls.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../services/automation_api/automation_api_controller.dart';
@@ -19,6 +20,8 @@ import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
+
+final _log = AppLogger('AutomationApiSection');
 
 /// GitHub blob URL of `AUTOMATION_API.md` — the full endpoint reference
 /// this section's "Documentation" link opens.
@@ -48,13 +51,16 @@ class AutomationApiSection extends ConsumerWidget {
             semanticToggledValue: enabled,
             trailing: settingsToggle(
               value: enabled,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      automationApi: s.automationApi.copyWith(enabled: v),
-                    ),
-                  ),
+              onChanged: (v) {
+                _log.info('user toggled automationApi.enabled=$v');
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        automationApi: s.automationApi.copyWith(enabled: v),
+                      ),
+                    );
+              },
             ),
           ),
           settingsInlineBreak,
