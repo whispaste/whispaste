@@ -132,7 +132,8 @@ class RecordingStateMachine {
   /// [transcript] is forwarded to the notifier only when [intent] is
   /// [RecordingIntent.complete] or [RecordingIntent.startRefining].
   /// [errorMessage] is forwarded only when [intent] is
-  /// [RecordingIntent.fail].
+  /// [RecordingIntent.fail]. [pasteFailed] is forwarded only when [intent]
+  /// is [RecordingIntent.complete].
   ///
   /// Rejected transitions (phase/intent pair not in the table) emit a Sentry
   /// breadcrumb at `level: warning` and return without mutating state.
@@ -146,6 +147,7 @@ class RecordingStateMachine {
     RecordingIntent intent, {
     String? errorMessage,
     String? transcript,
+    bool pasteFailed = false,
   }) {
     final current = _phaseReader();
     final action = _allowed[current]?[intent];
@@ -161,7 +163,10 @@ class RecordingStateMachine {
       case _TransitionAction.stopRecording:
         _notifier.stopRecording();
       case _TransitionAction.completeTranscription:
-        _notifier.completeTranscription(transcript ?? '');
+        _notifier.completeTranscription(
+          transcript ?? '',
+          pasteFailed: pasteFailed,
+        );
       case _TransitionAction.startRefining:
         _notifier.startRefining(transcript ?? '');
       case _TransitionAction.fail:

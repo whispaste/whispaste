@@ -108,11 +108,11 @@
       "message": "2 occurrences of duplicated block (61 tokens): lib/core/config/settings_sections.dart:718, lib/core/config/settings_sections.dart:1571"
     },
     {
-      "fingerprint": "05905046977ab938",
+      "fingerprint": "3f456c146df33109",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 730,
-      "message": "3 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:730, lib/core/config/settings_sections.dart:1586, lib/core/recording/recording_state.dart:99"
+      "message": "2 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:730, lib/core/config/settings_sections.dart:1586"
     },
     {
       "fingerprint": "348ca0dfe4a9a790",
@@ -407,6 +407,13 @@
       "filePath": "lib/core/logging/crash_reporter.dart",
       "line": 115,
       "message": "Comment only names a generic structural category — it adds no information beyond what the code already shows."
+    },
+    {
+      "fingerprint": "f5265775ad08735a",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/recording/recording_state.dart",
+      "line": 96,
+      "message": "2 occurrences of duplicated block (63 tokens): lib/core/recording/recording_state.dart:96, lib/services/update_service.dart:111"
     },
     {
       "fingerprint": "0cf57d299a06d8ec",

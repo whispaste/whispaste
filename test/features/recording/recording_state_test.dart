@@ -588,6 +588,47 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // pasteFailed — the flag `_handleDoneState` reads to skip the success
+  // chime when the after-transcription paste attempt already played the
+  // failure chime (see RecordingOrchestrator._reportPasteFailure).
+  // -------------------------------------------------------------------------
+  group('pasteFailed', () {
+    test('defaults to false on a normal completion', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      n.stopRecording();
+      n.completeTranscription('result');
+      expect(c.read(recordingProvider).pasteFailed, isFalse);
+    });
+
+    test('is set when completeTranscription reports a paste failure', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      n.stopRecording();
+      n.completeTranscription('result', pasteFailed: true);
+      expect(c.read(recordingProvider).pasteFailed, isTrue);
+      expect(c.read(recordingProvider).transcript, 'result');
+    });
+
+    test('resets to false on the next recording after a failed one', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      n.stopRecording();
+      n.completeTranscription('first', pasteFailed: true);
+      expect(c.read(recordingProvider).pasteFailed, isTrue);
+
+      n.reset();
+      n.startRecording();
+      n.stopRecording();
+      n.completeTranscription('second');
+      expect(c.read(recordingProvider).pasteFailed, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // RecordingTargetNotifier
   // -------------------------------------------------------------------------
   group('recordingTargetProvider', () {

@@ -330,10 +330,16 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
 
   void _handleDoneState(BuildContext context, L10n l10n, RecordingState next) {
     _log.debug('State → done, scheduling sound + toast + 2s reset');
-    try {
-      ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
-    } catch (e) {
-      _log.error('Success sound playback failed (non-fatal)', e);
+    // Skip the success chime when the paste/insert attempt for this
+    // recording already failed — the error tone (played where the failure
+    // was reported) has already told the user something went wrong; a
+    // success chime right after it would contradict that signal.
+    if (!next.pasteFailed) {
+      try {
+        ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
+      } catch (e) {
+        _log.error('Success sound playback failed (non-fatal)', e);
+      }
     }
     WpToast.show(
       context,

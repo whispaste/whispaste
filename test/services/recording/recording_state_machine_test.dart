@@ -31,6 +31,9 @@ String? errorMessage(ProviderContainer c) =>
 /// Current sessionId.
 String? sessionId(ProviderContainer c) => c.read(recordingProvider).sessionId;
 
+/// Current pasteFailed flag.
+bool pasteFailed(ProviderContainer c) => c.read(recordingProvider).pasteFailed;
+
 /// Drives the recording to [RecordingPhase.recording].
 void goToRecording(ProviderContainer c) {
   c.read(recordingProvider.notifier).startRecording();
@@ -149,6 +152,22 @@ void main() {
       machine.transition(RecordingIntent.complete, transcript: 'Hello world');
       expect(phase(c), RecordingPhase.done);
       expect(transcript(c), 'Hello world');
+      expect(pasteFailed(c), isFalse);
+    });
+
+    // pasteFailed forwarding — the state machine passes it through to
+    // completeTranscription unchanged, so the UI can skip the success
+    // chime for a recording whose paste attempt already played the error
+    // chime (see RecordingOrchestrator._reportPasteFailure).
+    test('transcribing ─complete→ done forwards pasteFailed', () {
+      goToTranscribing(c);
+      machine.transition(
+        RecordingIntent.complete,
+        transcript: 'Hello world',
+        pasteFailed: true,
+      );
+      expect(phase(c), RecordingPhase.done);
+      expect(pasteFailed(c), isTrue);
     });
 
     // 6. transcribing ─fail→ error

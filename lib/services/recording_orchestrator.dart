@@ -105,6 +105,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
   bool _stopInFlight = false;
 
+  /// Set by [_reportPasteFailure] when it plays the paste-failure error
+  /// tone for the current pipeline run, then read (and reset) right before
+  /// the `RecordingIntent.complete` transition — so the resulting
+  /// `RecordingState.pasteFailed` lets the UI skip the separate
+  /// "transcription complete" success tone instead of playing it right
+  /// after the failure tone.
+  bool _pasteFailureSoundPlayedThisPipeline = false;
+
   /// Throttle for the "pipeline busy" hint — a held or mashed hotkey hits the
   /// abort branches several times per second, and a toast per press would be
   /// worse than the silence it replaces.
@@ -678,6 +686,8 @@ class RecordingOrchestrator extends Notifier<void> {
     required List<int> wavBytes,
     required _PipelineTiming timing,
   }) async {
+    _pasteFailureSoundPlayedThisPipeline = false;
+
     // Read settings for language hint and model info.
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final effectiveLang = _resolveEffectiveLang(settings);
@@ -1080,7 +1090,11 @@ class RecordingOrchestrator extends Notifier<void> {
     // Transition state: transcribing/processing → done.
     // Uses RecordingIntent.complete (transcribing→done) which the
     // state machine maps to completeTranscription on the notifier.
-    _stateMachine.transition(RecordingIntent.complete, transcript: finalText);
+    _stateMachine.transition(
+      RecordingIntent.complete,
+      transcript: finalText,
+      pasteFailed: _pasteFailureSoundPlayedThisPipeline,
+    );
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
     // Two independent fire-and-forget checks, mirroring the existing
     // single-call pattern — the support prompt's coordination check reads
@@ -2354,6 +2368,7 @@ class RecordingOrchestrator extends Notifier<void> {
     String trayMenuItemKey = kTrayPasteActionNeededKey,
   }) {
     ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
+    _pasteFailureSoundPlayedThisPipeline = true;
 
     // Dezenter Fehlerton — hörbar auch, wenn der Nutzer beim Diktieren nicht
     // auf den Bildschirm schaut. Respektiert Sound-Volume + errorSound-Setting

@@ -51,6 +51,7 @@ class RecordingState {
     this.transcript,
     this.errorMessage,
     this.sessionId,
+    this.pasteFailed = false,
   });
 
   final RecordingPhase phase;
@@ -65,6 +66,13 @@ class RecordingState {
   /// pipeline (recording → transcribing → done/error), and is included in
   /// all log entries and Sentry breadcrumbs for traceability.
   final String? sessionId;
+
+  /// Set alongside [phase] `done` when this recording's after-transcription
+  /// paste/insert attempt failed (an error tone + toast were already
+  /// reported for it) — lets the UI skip the separate "transcription
+  /// complete" success tone instead of playing a contradictory success
+  /// chime right after the failure chime.
+  final bool pasteFailed;
 
   // -- convenience getters --------------------------------------------------
 
@@ -84,6 +92,7 @@ class RecordingState {
     String? transcript,
     String? errorMessage,
     String? sessionId,
+    bool? pasteFailed,
   }) {
     return RecordingState(
       phase: phase ?? this.phase,
@@ -92,6 +101,7 @@ class RecordingState {
       transcript: transcript ?? this.transcript,
       errorMessage: errorMessage ?? this.errorMessage,
       sessionId: sessionId ?? this.sessionId,
+      pasteFailed: pasteFailed ?? this.pasteFailed,
     );
   }
 
@@ -105,7 +115,8 @@ class RecordingState {
           audioLevel == other.audioLevel &&
           transcript == other.transcript &&
           errorMessage == other.errorMessage &&
-          sessionId == other.sessionId;
+          sessionId == other.sessionId &&
+          pasteFailed == other.pasteFailed;
 
   @override
   int get hashCode => Object.hash(
@@ -115,6 +126,7 @@ class RecordingState {
     transcript,
     errorMessage,
     sessionId,
+    pasteFailed,
   );
 
   @override
@@ -122,7 +134,7 @@ class RecordingState {
       'RecordingState(phase: $phase, elapsed: $elapsed, '
       'audioLevel: ${audioLevel.toStringAsFixed(2)}, '
       'transcript: $transcript, error: $errorMessage, '
-      'session: $sessionId)';
+      'session: $sessionId, pasteFailed: $pasteFailed)';
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +214,12 @@ class RecordingNotifier extends Notifier<RecordingState> {
   }
 
   /// Transition transcribing/refining → done.
-  void completeTranscription(String text) {
+  ///
+  /// [pasteFailed] carries whether this recording's after-transcription
+  /// paste/insert attempt failed — set on the resulting state so the UI can
+  /// skip the "transcription complete" success tone for it (an error tone
+  /// was already played for the paste failure itself).
+  void completeTranscription(String text, {bool pasteFailed = false}) {
     if (state.phase != RecordingPhase.transcribing &&
         state.phase != RecordingPhase.refining) {
       _log.debug(
@@ -213,7 +230,11 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _stuckGuard?.cancel();
     _refiningGuard?.cancel();
     _log.debug('Phase ${state.phase} → done (text: ${text.length} chars)');
-    state = state.copyWith(phase: RecordingPhase.done, transcript: text);
+    state = state.copyWith(
+      phase: RecordingPhase.done,
+      transcript: text,
+      pasteFailed: pasteFailed,
+    );
   }
 
   /// Transition any phase → error.
