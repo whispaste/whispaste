@@ -19,7 +19,11 @@ import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/recording/recording_state.dart'
+    show recordingProvider;
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
+import 'package:whispaste/services/automation_api/automation_api_router.dart'
+    show DictationTriggerResult;
 import 'package:whispaste/services/automation_api/automation_api_server.dart';
 import 'package:whispaste/services/paste/paster.dart';
 
@@ -141,6 +145,9 @@ Future<HttpClientResponse> _postJson(
 void main() {
   late ProviderContainer container;
   var triggerCallCount = 0;
+  bool? lastTriggerWait;
+  String? lastTriggerLanguage;
+  var triggerResult = const DictationTriggerResult(recording: true);
 
   ProviderContainer buildContainer({
     HistoryDatabase? db,
@@ -152,6 +159,9 @@ void main() {
     AutomationApiServer? server,
   }) {
     triggerCallCount = 0;
+    lastTriggerWait = null;
+    lastTriggerLanguage = null;
+    triggerResult = const DictationTriggerResult(recording: true);
     return ProviderContainer(
       overrides: [
         secureKeyStoreProvider.overrideWithValue(_FakeSecureKeyStore()),
@@ -165,8 +175,11 @@ void main() {
           () => AutomationApiController(
             port: port,
             server: server,
-            triggerDictation: (ref) async {
+            triggerDictation: (ref, {wait = false, language}) async {
               triggerCallCount++;
+              lastTriggerWait = wait;
+              lastTriggerLanguage = language;
+              return triggerResult;
             },
           ),
         ),
@@ -216,6 +229,7 @@ void main() {
         jsonDecode(await response.transform(utf8.decoder).join())
             as Map<String, dynamic>;
     expect(body['status'], 'triggered');
+    expect(body['recording'], isTrue);
     expect(triggerCallCount, 1);
   });
 
@@ -483,6 +497,222 @@ void main() {
       expect(state.runState, AutomationApiRunState.running);
       expect(state.port, targetPort);
       expect(state.requestedPort, targetPort);
+    });
+  });
+
+  group('POST /v1/dictation/trigger — wait & language', () {
+    Future<int> startEnabled(ProviderContainer c) async {
+      final controller = c.read(automationApiControllerProvider.notifier);
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        ),
+      );
+      return c.read(automationApiControllerProvider).port!;
+    }
+
+    test('an empty body behaves exactly like no body — wait defaults to '
+        'false, language defaults to null', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(
+        port,
+        '/v1/dictation/trigger',
+        {},
+        bearer: token,
+      );
+
+      expect(response.statusCode, 200);
+      expect(lastTriggerWait, isFalse);
+      expect(lastTriggerLanguage, isNull);
+    });
+
+    test('a valid language code is forwarded to the trigger callback and '
+        'echoed back as `recording: true` for a starting call', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+      triggerResult = const DictationTriggerResult(recording: true);
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'language': 'en',
+      }, bearer: token);
+
+      expect(response.statusCode, 200);
+      expect(lastTriggerLanguage, 'en');
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['recording'], isTrue);
+      expect(body.containsKey('transcript'), isFalse);
+    });
+
+    test('"auto" is accepted as a language code even though it is not in '
+        'whisperLanguageCodes', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'language': 'auto',
+      }, bearer: token);
+
+      expect(response.statusCode, 200);
+      expect(lastTriggerLanguage, 'auto');
+    });
+
+    test('an unrecognised language code → 400 invalid_request, the use case '
+        'is never called', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'language': 'not-a-real-code',
+      }, bearer: token);
+
+      expect(response.statusCode, 400);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['error'], 'invalid_request');
+      expect(triggerCallCount, 0);
+    });
+
+    test('a non-boolean `wait` field → 400 invalid_request', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'wait': 'yes',
+      }, bearer: token);
+
+      expect(response.statusCode, 400);
+      expect(triggerCallCount, 0);
+    });
+
+    test('a JSON body that is not an object → 400 invalid_request', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', [
+        1,
+        2,
+      ], bearer: token);
+
+      expect(response.statusCode, 400);
+      expect(triggerCallCount, 0);
+    });
+
+    test('`wait: true` on a call that stops a recording includes the '
+        'finished transcript in the response', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+      triggerResult = const DictationTriggerResult(
+        recording: false,
+        transcript: 'the finished transcript',
+      );
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'wait': true,
+      }, bearer: token);
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['recording'], isFalse);
+      expect(body['transcript'], 'the finished transcript');
+    });
+
+    test('`wait: false` (the default) on a call that stops a recording '
+        'omits the transcript from the response', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+      triggerResult = const DictationTriggerResult(
+        recording: false,
+        transcript: 'the finished transcript',
+      );
+
+      final response = await _postJson(
+        port,
+        '/v1/dictation/trigger',
+        {},
+        bearer: token,
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['recording'], isFalse);
+      expect(body.containsKey('transcript'), isFalse);
+    });
+  });
+
+  group('GET /v1/dictation/status', () {
+    Future<int> startEnabled(ProviderContainer c) async {
+      final controller = c.read(automationApiControllerProvider.notifier);
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        ),
+      );
+      return c.read(automationApiControllerProvider).port!;
+    }
+
+    test('idle (no recording in progress) → phase idle, busy false', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _get(
+        port,
+        path: '/v1/dictation/status',
+        bearer: token,
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['phase'], 'idle');
+      expect(body['busy'], isFalse);
+    });
+
+    test('a recording in progress → phase recording, busy true', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+      container.read(recordingProvider.notifier).startRecording();
+
+      final response = await _get(
+        port,
+        path: '/v1/dictation/status',
+        bearer: token,
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['phase'], 'recording');
+      expect(body['busy'], isTrue);
+    });
+
+    test('a request with no token → 401', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+
+      final response = await _get(port, path: '/v1/dictation/status');
+
+      expect(response.statusCode, 401);
     });
   });
 

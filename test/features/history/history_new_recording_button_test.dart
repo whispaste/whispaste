@@ -56,6 +56,7 @@ class _FakeOrchestrator extends RecordingOrchestrator {
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
   }) async => toggles++;
 }
 

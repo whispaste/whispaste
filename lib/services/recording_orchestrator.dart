@@ -261,6 +261,7 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
   }) async {
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {
@@ -283,6 +284,7 @@ class RecordingOrchestrator extends Notifier<void> {
     await startRecording(
       target: target,
       forcedSmartModePreset: forcedSmartModePreset,
+      languageOverride: languageOverride,
     );
   }
 
@@ -293,9 +295,15 @@ class RecordingOrchestrator extends Notifier<void> {
   /// used by the Smart-Mode hotkey, which applies its own bound preset
   /// independently of the main hotkey's standard-preset setting. `null` (the
   /// default) means "use the standard preset as usual".
+  ///
+  /// [languageOverride] overrides `settings.sttLanguageCode` for this
+  /// recording only — used by the Automation API's `dictation/trigger`
+  /// `language` field. `null` (the default) means "use the configured
+  /// language as usual".
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
   }) async {
     // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
     // latency KPI. Peeked (not consumed) synchronously, before any `await`
@@ -312,6 +320,7 @@ class RecordingOrchestrator extends Notifier<void> {
     ref
         .read(smartModeHotkeyOverridePresetProvider.notifier)
         .set(forcedSmartModePreset);
+    ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
 
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
@@ -1284,7 +1293,8 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Russian speaker on an English UI got English output (store review,
   /// June 2026).
   String _resolveEffectiveLang(AppSettings settings) {
-    final language = settings.sttLanguageCode;
+    final override = ref.read(sttLanguageOverrideProvider);
+    final language = override ?? settings.sttLanguageCode;
     return language.isEmpty ? 'auto' : language;
   }
 
@@ -1784,7 +1794,7 @@ class RecordingOrchestrator extends Notifier<void> {
           audioDuration: audioDuration,
           modelId: settings.transcriptionModelId,
           isLocal: settings.sttProviderType.isLocal,
-          languageCode: settings.sttLanguageCode,
+          languageCode: _resolveEffectiveLang(settings),
           applyTextReplacements: settings.textReplacementsEnabled,
           historyMaxEntries: settings.historyMaxEntries,
           wordCount: wordCount,

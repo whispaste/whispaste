@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
+import 'package:whispaste/services/automation_api/automation_api_dictation_status_routes.dart';
 import 'package:whispaste/services/automation_api/automation_api_history_routes.dart';
 import 'package:whispaste/services/automation_api/automation_api_router.dart';
 import 'package:whispaste/services/automation_api/automation_api_snippet_routes.dart';
@@ -47,34 +48,188 @@ void main() {
   });
 
   group('dictationTriggerRoutes', () {
-    test(
-      'POST /v1/dictation/trigger calls triggerDictation and returns 200',
-      () async {
-        var called = false;
-        final router = buildAutomationApiRouter([
-          dictationTriggerRoutes(
-            triggerDictation: () async {
-              called = true;
-            },
-          ),
-        ]);
-
-        final response = await router.handler(
-          _request('POST', '/v1/dictation/trigger'),
-        );
-
-        expect(called, isTrue);
-        expect(response.statusCode, 200);
-        final body =
-            jsonDecode(await response.readAsString()) as Map<String, dynamic>;
-        expect(body['status'], 'triggered');
-      },
+    Request postJson(String path, Object? body) => Request(
+      'POST',
+      Uri.parse('http://localhost$path'),
+      body: jsonEncode(body),
+      headers: {'content-type': 'application/json'},
     );
+
+    test('POST /v1/dictation/trigger with no body calls triggerDictation with '
+        'wait=false, language=null, and returns 200', () async {
+      var called = false;
+      bool? receivedWait;
+      String? receivedLanguage;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async {
+            called = true;
+            receivedWait = wait;
+            receivedLanguage = language;
+            return const DictationTriggerResult(recording: true);
+          },
+        ),
+      ]);
+
+      final response = await router.handler(
+        _request('POST', '/v1/dictation/trigger'),
+      );
+
+      expect(called, isTrue);
+      expect(receivedWait, isFalse);
+      expect(receivedLanguage, isNull);
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(body['status'], 'triggered');
+      expect(body['recording'], isTrue);
+    });
+
+    test('a valid `language` field is forwarded to triggerDictation', () async {
+      String? receivedLanguage;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async {
+            receivedLanguage = language;
+            return const DictationTriggerResult(recording: true);
+          },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'language': 'en'}),
+      );
+
+      expect(receivedLanguage, 'en');
+      expect(response.statusCode, 200);
+    });
+
+    test('"auto" is accepted as a `language` value', () async {
+      String? receivedLanguage;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async {
+            receivedLanguage = language;
+            return const DictationTriggerResult(recording: true);
+          },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'language': 'auto'}),
+      );
+
+      expect(receivedLanguage, 'auto');
+      expect(response.statusCode, 200);
+    });
+
+    test('an unrecognised `language` value → 400 invalid_request, '
+        'triggerDictation is never called', () async {
+      var called = false;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async {
+            called = true;
+            return const DictationTriggerResult(recording: true);
+          },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'language': 'not-a-real-code'}),
+      );
+
+      expect(called, isFalse);
+      expect(response.statusCode, 400);
+      final body =
+          jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(body['error'], 'invalid_request');
+    });
+
+    test('a non-boolean `wait` field → 400 invalid_request', () async {
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async =>
+              const DictationTriggerResult(recording: true),
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'wait': 'yes'}),
+      );
+
+      expect(response.statusCode, 400);
+    });
+
+    test('a malformed (non-JSON) body → 400 invalid_request', () async {
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async =>
+              const DictationTriggerResult(recording: true),
+        ),
+      ]);
+
+      final response = await router.handler(
+        Request(
+          'POST',
+          Uri.parse('http://localhost/v1/dictation/trigger'),
+          body: 'not json',
+        ),
+      );
+
+      expect(response.statusCode, 400);
+    });
+
+    test('`wait: true` on a call that stops a recording includes the '
+        'transcript in the response', () async {
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async =>
+              const DictationTriggerResult(
+                recording: false,
+                transcript: 'hello world',
+              ),
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'wait': true}),
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(body['recording'], isFalse);
+      expect(body['transcript'], 'hello world');
+    });
+
+    test('`wait: false` (the default) on a call that stops a recording '
+        'omits the transcript from the response', () async {
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation: ({wait = false, language}) async =>
+              const DictationTriggerResult(
+                recording: false,
+                transcript: 'hello world',
+              ),
+        ),
+      ]);
+
+      final response = await router.handler(
+        _request('POST', '/v1/dictation/trigger'),
+      );
+
+      expect(response.statusCode, 200);
+      final body =
+          jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(body['recording'], isFalse);
+      expect(body.containsKey('transcript'), isFalse);
+    });
 
     test('surfaces a thrown exception from the use case as 500', () async {
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: () async {
+          triggerDictation: ({wait = false, language}) async {
             throw StateError('boom');
           },
         ),
@@ -99,6 +254,29 @@ void main() {
 
       expect(response.statusCode, 404);
     });
+  });
+
+  group('dictationStatusRoutes', () {
+    test(
+      'GET /v1/dictation/status returns 200 with the given status',
+      () async {
+        final router = buildAutomationApiRouter([
+          dictationStatusRoutes(
+            readStatus: () => {'phase': 'recording', 'busy': true},
+          ),
+        ]);
+
+        final response = await router.handler(
+          _request('GET', '/v1/dictation/status'),
+        );
+
+        expect(response.statusCode, 200);
+        final body =
+            jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+        expect(body['phase'], 'recording');
+        expect(body['busy'], isTrue);
+      },
+    );
   });
 
   group('historyLatestRoutes', () {

@@ -762,6 +762,53 @@ void main() {
       );
       expect(lang, 'de');
     });
+
+    test(
+      'a per-call languageOverride (Automation API `dictation/trigger` '
+      '`language` field) wins over the configured settings language',
+      () async {
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'German'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await orch.startRecording(languageOverride: 'fr');
+        await orch.stopRecording();
+
+        expect(fakeStt.lastLanguage, 'fr');
+      },
+    );
+
+    test('no languageOverride falls back to the configured settings '
+        'language, exactly as before this field existed', () async {
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'German'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      await orch.startRecording();
+      await orch.stopRecording();
+
+      expect(fakeStt.lastLanguage, 'de');
+    });
   });
 
   // =========================================================================

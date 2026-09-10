@@ -493,3 +493,25 @@ final smartModeHotkeyOverridePresetProvider =
     NotifierProvider<SmartModeHotkeyOverridePresetNotifier, SmartModePreset?>(
       SmartModeHotkeyOverridePresetNotifier.new,
     );
+
+/// An STT language code forced onto the active recording, overriding
+/// `settings.sttLanguageCode` for that recording only — used by the
+/// Automation API's `POST /v1/dictation/trigger` `language` field so a
+/// single triggered dictation can target a different language without
+/// touching the persisted Settings value. `null` means "no override — use
+/// the configured language as usual", which is what every non-API caller
+/// (main hotkey, floating button) passes.
+///
+/// Same "next start always overwrites, never reset at exit" convention as
+/// [RecordingTargetNotifier] — see its doc comment for the rationale.
+class SttLanguageOverrideNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? languageCode) => state = languageCode;
+}
+
+final sttLanguageOverrideProvider =
+    NotifierProvider<SttLanguageOverrideNotifier, String?>(
+      SttLanguageOverrideNotifier.new,
+    );

@@ -25,6 +25,7 @@ import 'core/platform/desktop_window_geometry.dart';
 import 'core/platform/display_bounds.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/platform/window_position_clamp.dart';
+import 'core/recording/recording_state.dart' show recordingProvider;
 import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
 import 'floating_button_render_entrypoint.dart';
@@ -34,6 +35,8 @@ import 'snippet_picker_render_entrypoint.dart';
 import 'services/audio_service.dart';
 import 'services/auto_updater_service.dart';
 import 'services/automation_api/automation_api_controller.dart';
+import 'services/automation_api/automation_api_router.dart'
+    show DictationTriggerResult;
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -106,9 +109,25 @@ Future<ProviderContainer> bootstrapAppContainer({
       // function) can still take precedence by appearing later.
       automationApiControllerProvider.overrideWith(
         () => AutomationApiController(
-          triggerDictation: (ref) => ref
-              .read(recordingOrchestratorProvider.notifier)
-              .toggleRecording(),
+          triggerDictation: (ref, {wait = false, language}) async {
+            // toggleRecording() is a start/stop toggle — read the phase
+            // *before* calling it to know which branch it took, since the
+            // call itself doesn't report that back.
+            final wasRecording = ref.read(recordingProvider).isRecording;
+            await ref
+                .read(recordingOrchestratorProvider.notifier)
+                .toggleRecording(languageOverride: language);
+            if (wasRecording) {
+              // Stopped a recording — toggleRecording() already awaited the
+              // full transcription pipeline, so the finished transcript (if
+              // any) is sitting in recordingProvider now.
+              return DictationTriggerResult(
+                recording: false,
+                transcript: ref.read(recordingProvider).transcript,
+              );
+            }
+            return const DictationTriggerResult(recording: true);
+          },
         ),
       ),
       ...overrides,

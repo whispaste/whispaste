@@ -67,6 +67,7 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
   }) async {
     startCalls++;
   }
@@ -80,6 +81,7 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
   }) async {
     toggleCalls++;
   }

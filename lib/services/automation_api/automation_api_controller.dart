@@ -36,9 +36,12 @@ import 'package:shelf/shelf.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/recording/recording_state.dart'
+    show RecordingPhase, recordingPhaseProvider;
 import '../../features/history/data/history_detail_provider.dart';
 import '../snippet_picker/snippet_picker_service.dart';
 import 'automation_api_auth_middleware.dart';
+import 'automation_api_dictation_status_routes.dart';
 import 'automation_api_history_routes.dart';
 import 'automation_api_router.dart';
 import 'automation_api_server.dart';
@@ -95,19 +98,33 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   AutomationApiController({
     AutomationApiServer? server,
     this.port = kAutomationApiDefaultPort,
-    Future<void> Function(Ref ref)? triggerDictation,
+    Future<DictationTriggerResult> Function(
+      Ref ref, {
+      bool wait,
+      String? language,
+    })?
+    triggerDictation,
   }) : _server = server ?? AutomationApiServer(),
        _triggerDictation = triggerDictation ?? _unconfiguredTriggerDictation;
 
   final AutomationApiServer _server;
   final int port;
-  final Future<void> Function(Ref ref) _triggerDictation;
+  final Future<DictationTriggerResult> Function(
+    Ref ref, {
+    bool wait,
+    String? language,
+  })
+  _triggerDictation;
 
   /// Safe-fails loudly if `main.dart` forgot to override this provider with
   /// the real use case — tests always pass their own [triggerDictation]
   /// (see `test/services/automation_api/automation_api_controller_test.dart`),
   /// so this only ever fires from a genuine production wiring mistake.
-  static Future<void> _unconfiguredTriggerDictation(Ref ref) => Future.error(
+  static Future<DictationTriggerResult> _unconfiguredTriggerDictation(
+    Ref ref, {
+    bool wait = false,
+    String? language,
+  }) => Future.error(
     StateError(
       'AutomationApiController.triggerDictation was never configured — '
       'override automationApiControllerProvider at app startup.',
@@ -176,7 +193,11 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     token ??= await tokenStore.regenerate();
 
     final router = buildAutomationApiRouter([
-      dictationTriggerRoutes(triggerDictation: () => _triggerDictation(ref)),
+      dictationTriggerRoutes(
+        triggerDictation: ({wait = false, language}) =>
+            _triggerDictation(ref, wait: wait, language: language),
+      ),
+      dictationStatusRoutes(readStatus: _readDictationStatus),
       historyLatestRoutes(fetchLatestEntry: _fetchLatestHistoryEntry),
       snippetInsertRoutes(insertSnippetByName: _insertSnippetByName),
     ]);
@@ -293,6 +314,24 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       );
     }, fireImmediately: true);
     return completer.future.whenComplete(subscription.close);
+  }
+
+  /// Backs `GET /v1/dictation/status` — reports the current recording phase
+  /// so automation callers can check before triggering (e.g. avoid firing a
+  /// `POST /v1/dictation/trigger` that would unexpectedly *stop* an
+  /// already-running recording instead of starting a new one). Reads the
+  /// existing [recordingPhaseProvider] directly rather than through
+  /// [_triggerDictation]'s injection seam — safe here because
+  /// `core/recording/recording_state.dart` has no import path back to this
+  /// file (see the doc comment at the top of this file for why
+  /// `recording_orchestrator.dart` itself can't be imported directly).
+  Map<String, Object?> _readDictationStatus() {
+    final phase = ref.read(recordingPhaseProvider);
+    final busy =
+        phase == RecordingPhase.recording ||
+        phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.refining;
+    return {'phase': phase.name, 'busy': busy};
   }
 
   /// Backs `POST /v1/snippets/insert` (ticket 04) — delegates entirely to

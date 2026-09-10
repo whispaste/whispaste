@@ -37,7 +37,64 @@ regardless of endpoint.
 
 ### `POST /v1/dictation/trigger`
 
-Triggers dictation — the same action as pressing the global hotkey.
+Triggers dictation — the same action as pressing the global hotkey. Dictation
+is a **toggle**: with no recording in progress, this call *starts* one and
+returns immediately; with a recording already in progress, this call *stops*
+it and — because stopping means running the full transcription pipeline — the
+HTTP response doesn't come back until transcription (and, if Smart Mode is
+active, cleanup) has actually finished. There's no separate "stop" endpoint;
+call this same endpoint again to stop whatever you just started.
+
+**Request body** (optional — omit entirely, or send `{}`, for the original
+fire-and-forget behaviour):
+
+```json
+{ "wait": true, "language": "en" }
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `wait` | boolean | `false` | Only affects a call that *stops* a recording (see above): when `true`, the response includes the finished `transcript`. The call already blocks until the pipeline finishes either way — `wait` only controls whether the result is reported back, not how long the request takes. Ignored (has no effect) on a call that *starts* a recording, since there's nothing to report yet. |
+| `language` | string | none (use the configured language) | Overrides the configured STT language for **the recording this call starts** — e.g. `"en"`, `"de"`, `"fr"`, or `"auto"` for language auto-detection. Only meaningful on a call that starts a recording; ignored on a call that stops one. Use this to dictate in a different language than your usual setting for a single call, without touching Settings. Any two-letter code WhisPaste's language picker supports is accepted; an unrecognised code is rejected with `400`, not silently ignored. |
+
+**Responses:**
+
+| Status | Body | Meaning |
+| --- | --- | --- |
+| 200 | `{"status": "triggered", "recording": true}` | This call **started** a new recording. `wait`/`language` from the request, if any, were applied. |
+| 200 | `{"status": "triggered", "recording": false}` | This call **stopped** an in-progress recording; the pipeline has finished. Sent when `wait` was `false`/omitted. |
+| 200 | `{"status": "triggered", "recording": false, "transcript": "..."}` | Same as above, but with `wait: true` — `transcript` holds the finished text (an empty string is possible, e.g. silence). |
+| 400 | `{"error": "invalid_request"}` | The body isn't valid JSON, `wait` isn't a boolean, or `language` isn't a recognised code |
+| 401 | `{"error": "unauthorized"}` | Missing/invalid bearer token |
+| 500 | `{"error": "trigger_failed"}` | Triggering dictation threw an exception |
+
+```bash
+# Fire-and-forget, exactly like pressing the hotkey twice (start, then stop):
+curl -X POST http://127.0.0.1:8765/v1/dictation/trigger \
+  -H "Authorization: Bearer <TOKEN>"
+
+# Start a recording, forcing French recognition for this one dictation:
+curl -X POST http://127.0.0.1:8765/v1/dictation/trigger \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"language": "fr"}'
+
+# Stop the recording just started above and get the transcript back directly,
+# instead of reading it via GET /v1/history/latest afterwards:
+curl -X POST http://127.0.0.1:8765/v1/dictation/trigger \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"wait": true}'
+```
+
+### `GET /v1/dictation/status`
+
+Reports whether a recording/transcription is currently in progress — useful
+to check *before* calling `POST /v1/dictation/trigger`, since that endpoint
+is a toggle: firing it while a recording is already running stops that
+recording instead of starting a new one, which is rarely what a script
+actually wants. Poll this endpoint (or check it once before triggering) to
+decide which behaviour you'll get.
 
 **Request body:** none.
 
@@ -45,12 +102,16 @@ Triggers dictation — the same action as pressing the global hotkey.
 
 | Status | Body | Meaning |
 | --- | --- | --- |
-| 200 | `{"status": "triggered"}` | Dictation was triggered |
+| 200 | `{"phase": "idle", "busy": false}` | No recording/transcription in progress; the next trigger call starts one |
+| 200 | `{"phase": "recording", "busy": true}` | Actively recording audio; the next trigger call stops it |
+| 200 | `{"phase": "transcribing", "busy": true}` | Recording stopped, transcription is running; the next trigger call is ignored until this settles (mirrors the hotkey's own behaviour) |
+| 200 | `{"phase": "refining", "busy": true}` | Smart Mode's cleanup pass is running on the transcript; same "next trigger is ignored for now" note as `transcribing` |
+| 200 | `{"phase": "done", "busy": false}` | The last recording just finished; the next trigger call starts a fresh one |
+| 200 | `{"phase": "error", "busy": false}` | The last recording failed; the next trigger call starts a fresh one |
 | 401 | `{"error": "unauthorized"}` | Missing/invalid bearer token |
-| 500 | `{"error": "trigger_failed"}` | Triggering dictation threw an exception |
 
 ```bash
-curl -X POST http://127.0.0.1:8765/v1/dictation/trigger \
+curl http://127.0.0.1:8765/v1/dictation/status \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
