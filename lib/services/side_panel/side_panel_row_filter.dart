@@ -24,11 +24,18 @@ List<SidePanelRow> filterSidePanelRows(List<SidePanelRow> rows, String query) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return rows;
 
-  final needle = trimmed.toLowerCase();
+  // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
+  // new lowercased strings for title and subtitle on every item in the loop.
+  // In a panel that can hold hundreds of clipboard items (PRD issue 08/09),
+  // `.toLowerCase()` causes massive GC pressure during live filtering.
+  final searchRegex = RegExp(
+    RegExp.escape(trimmed),
+    caseSensitive: false,
+    unicode: true,
+  );
   return [
     for (final row in rows)
-      if (row.title.toLowerCase().contains(needle) ||
-          row.subtitle.toLowerCase().contains(needle))
+      if (searchRegex.hasMatch(row.title) || searchRegex.hasMatch(row.subtitle))
         row,
   ];
 }

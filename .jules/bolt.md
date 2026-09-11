@@ -24,3 +24,7 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2026-10-24 - Contextual optimization of tight loops
 **Learning:** While `toLowerCase()` inside a tight loop causes massive GC pressure, replacing it with a precompiled `RegExp(..., caseSensitive: false)` is only worth the complexity if the collection is sufficiently large (e.g., the ~10k candidates in `vocabulary_import_review_page.dart` rather than a few dozen items like in `WpSearchableListPage._filtered`). Prematurely applying this pattern to small loops lacks measurable impact and adds unnecessary complexity.
 **Action:** When finding a tight loop with string case manipulation, explicitly check the expected data set size (e.g., via PRD comments or variable bounds) before applying the RegExp optimization. Only optimize where the list scale justifies the GC pressure relief.
+
+## 2024-11-20 - RegExp case-insensitive i18n
+**Learning:** In Dart, `RegExp` with `caseSensitive: false` only applies case-insensitivity to ASCII characters (`A-Z`) by default. To properly support case-insensitive matching for non-ASCII characters (e.g., `é` or `Ü`), the `unicode: true` flag must be explicitly passed. The old `.toLowerCase()` approach inherently handled Unicode case conversions, so replacing it with a RegExp without `unicode: true` accidentally breaks search functionality for non-English languages.
+**Action:** When replacing `.toLowerCase()` string matching with a case-insensitive `RegExp`, always ensure `unicode: true` is set if internationalized strings could be present.
