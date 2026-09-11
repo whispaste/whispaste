@@ -74,8 +74,17 @@ const String _failedToOpenMarker = 'failed to open';
 /// when the server explicitly reports it could not open the model file. Pure;
 /// no side-effects.
 ModelLoadFailureCause classifyModelLoadFailure(Iterable<String> stderrLines) {
+  // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
+  // new lowercased strings for every stderr line in the loop.
+  // The server can print thousands of lines of stderr during startup before
+  // crashing (e.g. Vulkan enumerate warnings), and `.toLowerCase()` causes GC pressure.
+  final markerRegex = RegExp(
+    RegExp.escape(_failedToOpenMarker),
+    caseSensitive: false,
+    unicode: true,
+  );
   for (final line in stderrLines) {
-    if (line.toLowerCase().contains(_failedToOpenMarker)) {
+    if (markerRegex.hasMatch(line)) {
       return ModelLoadFailureCause.fileUnreadable;
     }
   }
