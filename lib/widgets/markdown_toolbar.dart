@@ -9,6 +9,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'find_replace.dart';
 import 'find_replace_bar.dart';
+import 'wp_focus_ring.dart';
 
 /// The markdown formatting actions themselves — the one place that knows how
 /// bold, italic, a heading, a list, a quote or code are applied to a
@@ -433,10 +434,27 @@ class _ToolbarButton extends StatefulWidget {
 
 class _ToolbarButtonState extends State<_ToolbarButton> {
   bool _hovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: '_ToolbarButton');
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    final highlighted = _hovered || widget.isActive;
+    final highlighted = _hovered || _focusNode.hasFocus || widget.isActive;
     return Semantics(
       label: widget.tooltip,
       button: true,
@@ -448,21 +466,31 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _hovered = true),
           onExit: (_) => setState(() => _hovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-              padding: const EdgeInsets.all(WpSpacing.xs),
-              decoration: BoxDecoration(
-                color: highlighted
-                    ? widget.accent.withValues(alpha: 0.12)
-                    : Colors.transparent,
-                borderRadius: WpRadius.borderSm,
-              ),
-              child: Icon(
-                widget.icon,
-                size: 14,
-                color: highlighted ? widget.accent : widget.muted,
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: InkWell(
+              focusNode: _focusNode,
+              onTap: widget.onTap,
+              borderRadius: WpRadius.borderSm,
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(context, WpMotion.hoverOut),
+                padding: const EdgeInsets.all(WpSpacing.xs),
+                decoration: BoxDecoration(
+                  color: highlighted
+                      ? widget.accent.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: Icon(
+                  widget.icon,
+                  size: 14,
+                  color: highlighted ? widget.accent : widget.muted,
+                ),
               ),
             ),
           ),
