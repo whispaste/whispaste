@@ -19,3 +19,6 @@
 ## 2025-03-05 - Notes List Tile Trash View Action Consistency
 **Learning:** In WhisPaste, some actions like "Copy" or "Duplicate" on list tiles can be mistakenly hidden in specific modes (like trash view) simply because their layout was isolated inside a conditionally rendered block. This creates a consistency gap with the Detail/Editor panel which successfully shows those actions on trashed items.
 **Action:** When working as Sprout to unify UI actions, verify that standard actions are structurally placed *outside* mutually-exclusive layout blocks (e.g., `isTrashView` conditionals) when they apply to all states.
+## 2025-03-09 - Hide Note Duplication action for trashed items
+**Learning:** In WhisPaste, certain actions shouldn't be available on trashed items to prevent accidental side effects and inconsistencies (e.g. duplicating a trashed note). A simple `if (!isTrashed)` check before rendering an action in a `Row` or `WpRowActions` is a quick, safe product improvement.
+**Action:** When working as Sprout to add actions or modify existing ones on list items or editor panels, always check if the action makes sense in a "trash view" or "deleted" state and conditionally render it appropriately.
