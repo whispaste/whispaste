@@ -10,6 +10,7 @@ import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
+import 'wp_focus_ring.dart';
 
 final _log = AppLogger('WpInsufficientRamScreen');
 
@@ -278,25 +279,54 @@ class _QuitButton extends StatefulWidget {
 
 class _QuitButtonState extends State<_QuitButton> {
   bool _hovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'InsufficientRamQuitButton');
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: () => exit(1),
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            decoration: BoxDecoration(
-              color: _hovered ? WpColors.errorRedHover : WpColors.errorRed,
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.md,
+            child: InkWell(
+              focusNode: _focusNode,
+              onTap: () => exit(1),
               borderRadius: WpRadius.borderMd,
-              boxShadow: WpShadows.elevated,
-            ),
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(context, WpMotion.fast),
+                decoration: BoxDecoration(
+                  color: _hovered || _focusNode.hasFocus
+                      ? WpColors.errorRedHover
+                      : WpColors.errorRed,
+                  borderRadius: WpRadius.borderMd,
+                  boxShadow: WpShadows.elevated,
+                ),
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -331,6 +361,24 @@ class _LearnMoreLink extends StatefulWidget {
 
 class _LearnMoreLinkState extends State<_LearnMoreLink> {
   bool _hovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'InsufficientRamLearnMoreLink');
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _open() async {
     try {
@@ -345,26 +393,39 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      link: true,
-      label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: () => unawaited(_open()),
-          child: AnimatedDefaultTextStyle(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            style: TextStyle(
-              fontSize: WpTypography.body,
-              color: _hovered ? WpColors.textPrimary : WpColors.textSecondary,
-              decoration: TextDecoration.underline,
-              decorationColor: _hovered
-                  ? WpColors.textPrimary
-                  : WpColors.textSecondary,
+    return MergeSemantics(
+      child: Semantics(
+        link: true,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: InkWell(
+              focusNode: _focusNode,
+              onTap: () => unawaited(_open()),
+              borderRadius: WpRadius.borderSm,
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: AnimatedDefaultTextStyle(
+                duration: WpMotion.durationFor(context, WpMotion.fast),
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  color: _hovered || _focusNode.hasFocus
+                      ? WpColors.textPrimary
+                      : WpColors.textSecondary,
+                  decoration: TextDecoration.underline,
+                  decorationColor: _hovered || _focusNode.hasFocus
+                      ? WpColors.textPrimary
+                      : WpColors.textSecondary,
+                ),
+                child: Text(widget.label),
+              ),
             ),
-            child: Text(widget.label),
           ),
         ),
       ),
