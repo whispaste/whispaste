@@ -153,45 +153,10 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
             Row(
               children: [
                 Expanded(
-                  child: Semantics(
-                    button: !_isAdding,
-                    label: l10n.historyAddNote,
-                    child: GestureDetector(
-                      onTap: _isAdding
-                          ? null
-                          : () => setState(() => _isAdding = true),
-                      behavior: HitTestBehavior.opaque,
-                      child: Row(
-                        children: [
-                          // `textSecondary`, not the accent — same correction as the
-                          // tag section's glyph directly above it (Ticket 32, B3):
-                          // the section label is inert, and the two controls that
-                          // *are* operable (microphone, "+") sit on the same line and
-                          // keep the accent to themselves.
-                          const Icon(
-                            LucideIcons.stickyNote,
-                            size: WpIconSize.sm,
-                            color: textSecondary,
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                          Flexible(
-                            child: Text(
-                              noteList.isEmpty
-                                  ? l10n.historyAddNote
-                                  : '${l10n.historyNotes} (${noteList.length})',
-                              style: const TextStyle(
-                                fontSize: WpTypography.body,
-                                fontWeight: FontWeight.w600,
-                                color: textSecondary,
-                                letterSpacing: 0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: _AddNoteHeaderTapTarget(
+                    isAdding: _isAdding,
+                    noteListLength: noteList.length,
+                    onTap: () => setState(() => _isAdding = true),
                   ),
                 ),
                 const SizedBox(width: WpSpacing.sm),
@@ -571,6 +536,90 @@ class _NoteItemState extends State<_NoteItem> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _AddNoteHeaderTapTarget extends StatefulWidget {
+  const _AddNoteHeaderTapTarget({
+    required this.isAdding,
+    required this.noteListLength,
+    required this.onTap,
+  });
+
+  final bool isAdding;
+  final int noteListLength;
+  final VoidCallback onTap;
+
+  @override
+  State<_AddNoteHeaderTapTarget> createState() =>
+      _AddNoteHeaderTapTargetState();
+}
+
+class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'AddNoteHeader');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    const textSecondary = WpColors.textSecondary;
+
+    return MergeSemantics(
+      child: Semantics(
+        button: !widget.isAdding,
+        label: l10n.historyAddNote,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.sm,
+          child: InkWell(
+            onTap: widget.isAdding ? null : widget.onTap,
+            focusNode: _focusNode,
+            borderRadius: WpRadius.borderSm,
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: Row(
+              children: [
+                // `textSecondary`, not the accent — same correction as the
+                // tag section's glyph directly above it (Ticket 32, B3):
+                // the section label is inert, and the two controls that
+                // *are* operable (microphone, "+") sit on the same line and
+                // keep the accent to themselves.
+                const Icon(
+                  LucideIcons.stickyNote,
+                  size: WpIconSize.sm,
+                  color: textSecondary,
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Flexible(
+                  child: ExcludeSemantics(
+                    child: Text(
+                      widget.noteListLength == 0
+                          ? l10n.historyAddNote
+                          : '${l10n.historyNotes} (${widget.noteListLength})',
+                      style: const TextStyle(
+                        fontSize: WpTypography.body,
+                        fontWeight: FontWeight.w600,
+                        color: textSecondary,
+                        letterSpacing: 0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
