@@ -100,6 +100,7 @@ Widget _tile({
   onFavoriteToggle: () {},
   onQuickNoteSet: onSet ?? () {},
   onQuickNoteClear: onClear ?? () {},
+  onMoveToTrash: () {},
   onRestore: () {},
   onDeleteForever: () {},
 );

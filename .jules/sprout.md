@@ -19,3 +19,7 @@
 ## 2025-03-05 - Notes List Tile Trash View Action Consistency
 **Learning:** In WhisPaste, some actions like "Copy" or "Duplicate" on list tiles can be mistakenly hidden in specific modes (like trash view) simply because their layout was isolated inside a conditionally rendered block. This creates a consistency gap with the Detail/Editor panel which successfully shows those actions on trashed items.
 **Action:** When working as Sprout to unify UI actions, verify that standard actions are structurally placed *outside* mutually-exclusive layout blocks (e.g., `isTrashView` conditionals) when they apply to all states.
+
+## 2025-03-05 - Added Move to Trash action to Notes list
+**Learning:** Adding a "Move to Trash" action to the Notes list tile unifies UI actions, preventing users from having to open a note in the Detail panel just to trash it. Reusing existing callbacks (`_moveToTrash` in `notes_page.dart`) and components (`WpRowAction`, `LucideIcons.trash2`) makes this a safe, high-value improvement.
+**Action:** When working as Sprout to unify UI actions, identify capabilities available in detail/editor views (e.g., Export, Move to Trash) and safely surface them directly on list items to reduce repetitive navigation workflows.
