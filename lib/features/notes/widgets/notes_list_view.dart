@@ -24,6 +24,7 @@ class NotesListView extends StatelessWidget {
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
+    required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
   });
@@ -50,6 +51,7 @@ class NotesListView extends StatelessWidget {
   /// Drop the quick-note mark altogether. Takes no note: there is at most one
   /// marked note, so "which one" is never a question.
   final VoidCallback onQuickNoteClear;
+  final ValueChanged<Note> onMoveToTrash;
   final ValueChanged<Note> onRestore;
   final ValueChanged<Note> onDeleteForever;
 
@@ -84,6 +86,7 @@ class NotesListView extends StatelessWidget {
             onFavoriteToggle: () => onFavoriteToggle(note),
             onQuickNoteSet: () => onQuickNoteSet(note),
             onQuickNoteClear: onQuickNoteClear,
+            onMoveToTrash: () => onMoveToTrash(note),
             onRestore: () => onRestore(note),
             onDeleteForever: () => onDeleteForever(note),
           );

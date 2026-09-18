@@ -32,6 +32,7 @@ class NotesListTile extends StatefulWidget {
     required this.onFavoriteToggle,
     required this.onQuickNoteSet,
     required this.onQuickNoteClear,
+    required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
   });
@@ -63,6 +64,7 @@ class NotesListTile extends StatefulWidget {
   /// Drops the quick-note mark entirely, leaving no note marked. A separate,
   /// separately named control in a separate place from [onQuickNoteSet].
   final VoidCallback onQuickNoteClear;
+  final VoidCallback onMoveToTrash;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
 
@@ -308,7 +310,7 @@ class _NotesListTileState extends State<NotesListTile> {
                             onTap: onDuplicate,
                             dense: true,
                           ),
-                        if (!widget.isTrashView)
+                        if (!widget.isTrashView) ...[
                           if (!widget.note.isQuickNote)
                             // Setting the mark is an ordinary trailing row action —
                             // revealed on hover/focus like every other one, and
@@ -322,7 +324,15 @@ class _NotesListTileState extends State<NotesListTile> {
                               onTap: widget.onQuickNoteSet,
                               dense: true,
                             ),
-                        if (widget.isTrashView) ...[
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            icon: LucideIcons.trash2,
+                            tooltip: l10n.notesMoveToTrash,
+                            onTap: widget.onMoveToTrash,
+                            isDestructive: true,
+                            dense: true,
+                          ),
+                        ] else if (widget.isTrashView) ...[
                           // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                           WpRowAction(
                             // Same restore glyph as the editor toolbar and
