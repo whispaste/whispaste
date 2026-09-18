@@ -145,6 +145,13 @@ void main() {
           id: 'evil',
           title: '=HYPERLINK("http://evil.com")',
           text: '+cmd|/C calc',
+          projectName: '   =cmd|/C calc',
+          timestamp: '2026-01-01 00:00:00',
+        ),
+        const ExportEntry(
+          id: 'evil2',
+          title: '\t=HYPERLINK("http://evil.com")',
+          text: '\r-cmd|/C calc',
           timestamp: '2026-01-01 00:00:00',
         ),
       ];
@@ -152,9 +159,18 @@ void main() {
       await ExportService.export(entries, ExportFormat.csv, path);
 
       final content = File(path).readAsStringSync();
-      // Formula chars should be prefixed with tab
+      // Formula chars should be prefixed with single quote
       expect(content, isNot(contains(',=HYPERLINK')));
       expect(content, isNot(contains(',+cmd')));
+      expect(content, isNot(contains(',   =')));
+      expect(content, isNot(contains(',\t=')));
+      expect(content, isNot(contains(',\r-')));
+
+      expect(content, contains(",'=HYPERLINK"));
+      expect(content, contains(",'+cmd"));
+      expect(content, contains(",'   ="));
+      expect(content, contains(",'\t="));
+      expect(content, contains(",'\r-"));
     });
   });
 }
