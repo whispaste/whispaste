@@ -195,7 +195,7 @@ class ExportService {
 
   /// Prevents CSV formula injection.
   static String _csvSafe(String s) {
-    if (s.isNotEmpty && '=+-@'.contains(s[0])) return '\t$s';
+    if (s.isNotEmpty && '=+-@\t\r '.contains(s[0])) return "'$s";
     return s;
   }
 

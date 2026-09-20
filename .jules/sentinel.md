@@ -15,3 +15,7 @@
 **Vulnerability:** Flaky CI tests due to upstream failures in `npm audit` should not be bypassed by setting `continue-on-error: true`.
 **Learning:** Even if `npm audit` is throwing 503 errors due to upstream infrastructure unreliability, bypassing it introduces a severe security regression because actual high severity vulnerabilities will no longer fail the build. A security PR must not silence security gates.
 **Prevention:** If an upstream service like `npm audit` is failing intermittently, do not modify the CI script to ignore errors. Retry the CI job or wait for the upstream service to recover.
+## 2025-02-28 - CSV Formula Injection Escape Bypass
+**Vulnerability:** In `_csvSafe`, fields starting with dangerous characters (`=`, `+`, `-`, `@`) were prefixed with a tab character (`\t`) to prevent CSV formula injection. However, spreadsheet software like Excel trims leading tabs before evaluation, rendering the mitigation ineffective if a malicious payload starts with `=+-@\t\r `.
+**Learning:** Prepending whitespace characters (like tab or space) does not reliably prevent spreadsheet software from executing formulas. Excel will strip the tab and execute the `=`.
+**Prevention:** Always use a single quote prefix (`'`) for fields starting with `=+-@\t\r ` to force spreadsheet software to treat the contents as plain text rather than an executable formula, and ensure whitespace characters like tabs, carriage returns, and spaces are also caught in the prefix-check.

@@ -152,9 +152,11 @@ void main() {
       await ExportService.export(entries, ExportFormat.csv, path);
 
       final content = File(path).readAsStringSync();
-      // Formula chars should be prefixed with tab
+      // Formula chars should be prefixed with single quote
       expect(content, isNot(contains(',=HYPERLINK')));
       expect(content, isNot(contains(',+cmd')));
+      expect(content, contains(",'=HYPERLINK"));
+      expect(content, contains(",'+cmd"));
     });
   });
 }
