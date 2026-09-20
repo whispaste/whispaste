@@ -55,6 +55,7 @@ Widget _buildTile({
     onFavoriteToggle: () {},
     onQuickNoteSet: () {},
     onQuickNoteClear: () {},
+    onMoveToTrash: () {},
     onRestore: () {},
     onDeleteForever: () {},
   );
@@ -131,6 +132,7 @@ void main() {
             onFavoriteToggle: () {},
             onQuickNoteSet: () {},
             onQuickNoteClear: () {},
+            onMoveToTrash: () {},
             onRestore: () {},
             onDeleteForever: () {},
           ),

@@ -87,6 +87,7 @@ Widget _notesRow({bool isQuickNote = false, bool isTrashView = false}) =>
       onFavoriteToggle: () {},
       onQuickNoteSet: () {},
       onQuickNoteClear: () {},
+      onMoveToTrash: () {},
       onRestore: () {},
       onDeleteForever: () {},
     );

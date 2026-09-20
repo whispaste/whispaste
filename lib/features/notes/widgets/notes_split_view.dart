@@ -109,6 +109,7 @@ class NotesSplitView extends StatelessWidget {
       onFavoriteToggle: onFavoriteToggle,
       onQuickNoteSet: onQuickNoteSet,
       onQuickNoteClear: onQuickNoteClear,
+      onMoveToTrash: onMoveToTrash,
       onRestore: onRestore,
       onDeleteForever: onDeleteForever,
     );

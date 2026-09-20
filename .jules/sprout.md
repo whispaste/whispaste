@@ -19,3 +19,7 @@
 ## 2025-03-05 - Notes List Tile Trash View Action Consistency
 **Learning:** In WhisPaste, some actions like "Copy" or "Duplicate" on list tiles can be mistakenly hidden in specific modes (like trash view) simply because their layout was isolated inside a conditionally rendered block. This creates a consistency gap with the Detail/Editor panel which successfully shows those actions on trashed items.
 **Action:** When working as Sprout to unify UI actions, verify that standard actions are structurally placed *outside* mutually-exclusive layout blocks (e.g., `isTrashView` conditionals) when they apply to all states.
+
+## 2025-03-05 - Notes List Tile Trash View Action Consistency
+**Learning:** In WhisPaste, adding missing common actions (like `MoveToTrash`) to list tiles significantly reduces repetitive multi-click workflows. When extending `WpRowActions` on list tiles, it's crucial to correctly scope destructive actions using the existing view states (e.g., placing `MoveToTrash` inside `!widget.isTrashView`), and completely thread the callbacks through intermediate lists down from the main view controller. Also, introducing `required` callbacks means all test constructor calls must be updated across the suite.
+**Action:** When implementing new standard actions on list tiles, carefully manage their visibility based on the current view mode (e.g., Trash vs. Normal). Ensure the newly added required callback parameters are threaded through the entire widget subtree and explicitly updated in all related test files to avoid CI failures.

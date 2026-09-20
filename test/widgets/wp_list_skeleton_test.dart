@@ -151,6 +151,7 @@ void main() {
           onFavoriteToggle: () {},
           onQuickNoteSet: () {},
           onQuickNoteClear: () {},
+          onMoveToTrash: () {},
           onRestore: () {},
           onDeleteForever: () {},
         ),

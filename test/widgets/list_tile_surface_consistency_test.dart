@@ -226,6 +226,7 @@ Widget _notesList() => NotesListView(
   onFavoriteToggle: (_) {},
   onQuickNoteSet: (_) {},
   onQuickNoteClear: () {},
+  onMoveToTrash: (_) {},
   onRestore: (_) {},
   onDeleteForever: (_) {},
 );
