@@ -1135,49 +1135,58 @@ class _DetailTranscriptZone extends StatelessWidget {
                         // nothing.
                         child: _tooltipIf(
                           isTrashView ? null : l10n.historyEditTranscript,
-                          child: GestureDetector(
-                            onTap: isTrashView ? null : onToggleEdit,
-                            behavior: HitTestBehavior.translucent,
-                            child: MouseRegion(
-                              cursor: isTrashView
-                                  ? SystemMouseCursors.basic
-                                  : SystemMouseCursors.click,
-                              // Same *material* as the edit view above, not
-                              // just the same metrics (Ticket 16). Matching
-                              // the metrics alone was enough while `passage`
-                              // was a hairline box the read view simply did
-                              // without; once the variant took the card fill
-                              // (Ticket 09) the two views became two
-                              // materials, and the paragraph a reader is
-                              // reading changed substance on a toggle that
-                              // changes nothing about the text. The surface
-                              // is the field's own resting box, taken from
-                              // the same spec, so it also carries the field's
-                              // 12 dp inset — which is what stops the
-                              // paragraph from shifting sideways when edit
-                              // mode opens. The 720 dp measure above is
-                              // unchanged and still caps both views.
-                              //
-                              // No lift in the trash view: the lift is the
-                              // "you can write here" affordance, and there
-                              // the tap that would open edit mode is gone.
-                              child: WpTextFieldSurface(
-                                variant: WpTextFieldVariant.passage,
-                                liftsOnHover: !isTrashView,
-                                child: HighlightedText(
-                                  // An empty transcript renders a
-                                  // zero-width space, so this now shows an
-                                  // empty card rather than nothing at all.
-                                  // Deliberate: the edit view of the same
-                                  // empty entry draws exactly that card, and
-                                  // the point of this ticket is that the two
-                                  // are one surface.
-                                  text: displayedContent.isEmpty
-                                      ? '\u200B'
-                                      : displayedContent,
-                                  style: WpTextField.styleFor(
-                                    WpTextFieldVariant.passage,
-                                    color: textPrimary,
+                          child: WpFocusRing(
+                            focusNode: editorFocusNode,
+                            radius: WpRadius.sm,
+                            child: InkWell(
+                              onTap: isTrashView ? null : onToggleEdit,
+                              focusNode: editorFocusNode,
+                              borderRadius: WpRadius.borderSm,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              child: MouseRegion(
+                                cursor: isTrashView
+                                    ? SystemMouseCursors.basic
+                                    : SystemMouseCursors.click,
+                                // Same *material* as the edit view above, not
+                                // just the same metrics (Ticket 16). Matching
+                                // the metrics alone was enough while `passage`
+                                // was a hairline box the read view simply did
+                                // without; once the variant took the card fill
+                                // (Ticket 09) the two views became two
+                                // materials, and the paragraph a reader is
+                                // reading changed substance on a toggle that
+                                // changes nothing about the text. The surface
+                                // is the field's own resting box, taken from
+                                // the same spec, so it also carries the field's
+                                // 12 dp inset — which is what stops the
+                                // paragraph from shifting sideways when edit
+                                // mode opens. The 720 dp measure above is
+                                // unchanged and still caps both views.
+                                //
+                                // No lift in the trash view: the lift is the
+                                // "you can write here" affordance, and there
+                                // the tap that would open edit mode is gone.
+                                child: WpTextFieldSurface(
+                                  variant: WpTextFieldVariant.passage,
+                                  liftsOnHover: !isTrashView,
+                                  child: HighlightedText(
+                                    // An empty transcript renders a
+                                    // zero-width space, so this now shows an
+                                    // empty card rather than nothing at all.
+                                    // Deliberate: the edit view of the same
+                                    // empty entry draws exactly that card, and
+                                    // the point of this ticket is that the two
+                                    // are one surface.
+                                    text: displayedContent.isEmpty
+                                        ? '\u200B'
+                                        : displayedContent,
+                                    style: WpTextField.styleFor(
+                                      WpTextFieldVariant.passage,
+                                      color: textPrimary,
+                                    ),
                                   ),
                                 ),
                               ),
