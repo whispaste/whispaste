@@ -290,15 +290,19 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     if (_query.isEmpty) return widget.items;
     // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
     // new lowercased strings for title and body on every item in the tight loop.
-    final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
-    final lowerQuery = _query.toLowerCase();
+    final escapedQuery = RegExp.escape(_query);
+    final searchRegex = RegExp(escapedQuery, caseSensitive: false);
+    // ⚡ Bolt: Use a precompiled RegExp for prefix matching as well to completely eliminate
+    // String.toLowerCase allocations on every iteration.
+    final startsWithRegex = RegExp('^$escapedQuery', caseSensitive: false);
+
     final matches = <(SnippetPickerRenderItem item, int rank)>[];
     for (final item in widget.items) {
       final titleMatch = searchRegex.hasMatch(item.title);
       final bodyMatch = searchRegex.hasMatch(item.body);
       if (!titleMatch && !bodyMatch) continue;
       final rank = titleMatch
-          ? (item.title.toLowerCase().startsWith(lowerQuery) ? 0 : 1)
+          ? (startsWithRegex.hasMatch(item.title) ? 0 : 1)
           : 2;
       matches.add((item, rank));
     }

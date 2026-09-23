@@ -24,3 +24,6 @@ was already rejected, because rejected PRs never touch `dev`.
 ## 2026-10-24 - Contextual optimization of tight loops
 **Learning:** While `toLowerCase()` inside a tight loop causes massive GC pressure, replacing it with a precompiled `RegExp(..., caseSensitive: false)` is only worth the complexity if the collection is sufficiently large (e.g., the ~10k candidates in `vocabulary_import_review_page.dart` rather than a few dozen items like in `WpSearchableListPage._filtered`). Prematurely applying this pattern to small loops lacks measurable impact and adds unnecessary complexity.
 **Action:** When finding a tight loop with string case manipulation, explicitly check the expected data set size (e.g., via PRD comments or variable bounds) before applying the RegExp optimization. Only optimize where the list scale justifies the GC pressure relief.
+## 2024-09-23 - Avoid String.toLowerCase() string allocations in tight loops
+**Learning:** In Dart tight loops, using `string.toLowerCase().startsWith(query)` causes a new lowercased string to be allocated on every iteration, creating massive GC pressure.
+**Action:** Replace `toLowerCase().startsWith(query)` with a precompiled `RegExp('^' + RegExp.escape(query), caseSensitive: false)` outside the loop to completely eliminate String allocations.
