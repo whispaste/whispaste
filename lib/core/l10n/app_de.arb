@@ -263,6 +263,19 @@
   "settingsCustomVocabulary": "Benutzerdefiniertes Vokabular",
   "settingsCustomVocabularyHint": "Namen, Fachbegriffe: verbessert die Erkennungsgenauigkeit",
   "settingsCustomVocabularyPlaceholder": "z.B. WhisPaste, Kubernetes, Dr. Müller",
+  "settingsCustomVocabularyBudgetCounter": "~{count} / {budget} Tokens",
+  "@settingsCustomVocabularyBudgetCounter": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsCustomVocabularyBudgetWarning": "Lange Einträge werden ggf. automatisch gekürzt — es werden nur die ersten rund {budget} Tokens verwendet.",
+  "@settingsCustomVocabularyBudgetWarning": {
+    "placeholders": {
+      "budget": {"type": "int"}
+    }
+  },
   "settingsPunctuationPriming": "Satzzeichen anregen",
   "settingsPunctuationPrimingSubtitle": "Bringt Whisper dazu, eher Satzzeichen zu setzen, wenn kein benutzerdefiniertes Vokabular hinterlegt ist. Hat keinen Einfluss auf die Geschwindigkeit.",
   "settingsVadEnabled": "Stille am Ende entfernen",

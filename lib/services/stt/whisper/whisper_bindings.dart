@@ -320,6 +320,55 @@ class WhisperBindings {
           .asFunction<
             ffi.Pointer<ffi.Char> Function(ffi.Pointer<whisper_state>, int)
           >();
+
+  /// Hand-added (not from the original ffigen pass, same reasoning as the
+  /// block above — no ffigen config to regenerate this file). Signature
+  /// copied 1:1 from the vendored header
+  /// (`.build/deps/whisper.cpp/v1.8.4/include/whisper.h` line ~347).
+  ///
+  /// Deliberately bound over the more convenient `whisper_token_count`
+  /// wrapper (whisper.h line ~360): that wrapper is NOT `WHISPER_API`-marked,
+  /// so it risks not being exported from the Windows DLL build (see the
+  /// `WHISPER_API` macro at the top of whisper.h — gated on `WHISPER_BUILD`,
+  /// `dllexport`/`dllimport` on Windows). `whisper_tokenize` itself carries
+  /// the macro and is safe cross-platform.
+  ///
+  /// Called in "count-only" mode (`tokens: nullptr, n_max_tokens: 0`) to get
+  /// the exact token count for arbitrary text without a pre-allocated
+  /// buffer — the native function returns the negated count in that mode
+  /// (`-actualTokenCount`). Used by [PromptTokenCounter] to keep the
+  /// `initial_prompt` truncation budget-accurate against whisper.cpp's real
+  /// tokenized ceiling instead of a char-length guess (FLUTTER_WHISPASTE
+  /// prompt-token-budget fix).
+  int whisper_tokenize(
+    ffi.Pointer<whisper_context> ctx,
+    ffi.Pointer<ffi.Char> text,
+    ffi.Pointer<whisper_token> tokens,
+    int n_max_tokens,
+  ) {
+    return _whisper_tokenize(ctx, text, tokens, n_max_tokens);
+  }
+
+  late final _whisper_tokenizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<whisper_context>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<whisper_token>,
+            ffi.Int,
+          )
+        >
+      >('whisper_tokenize');
+  late final _whisper_tokenize = _whisper_tokenizePtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<whisper_context>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<whisper_token>,
+          int,
+        )
+      >();
 }
 
 /// `typedef void (*ggml_log_callback)(enum ggml_log_level level, const char

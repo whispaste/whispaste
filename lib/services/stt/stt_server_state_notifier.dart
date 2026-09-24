@@ -5,6 +5,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -28,6 +29,7 @@ import '../path_service.dart';
 import 'inference_client_rejected.dart';
 import 'inference_request_validator.dart';
 import 'live_preview/live_transcript_previewer.dart';
+import 'prompt_token_budget.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
 import 'whisper/gpu_load_crash_guard.dart';
@@ -174,12 +176,28 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// language the models support (store review: Russian).
   static final Set<String> _whisperSupportedLanguages = whisperLanguageCodes;
 
-  /// Upper bound on the combined `vocab + lastPrompt` string used for
-  /// pre-flight validation. The engine seam ([WhisperEngine.transcribe])
-  /// has no prompt/vocab parameter yet, so [_resolveEffectivePrompt]'s
-  /// result is validated but not forwarded — see the `decisions:` note in
-  /// this issue's Evidence block.
+  /// Defensive pre-flight char-length backstop against obvious-garbage
+  /// requests (e.g. a corrupted settings value) — NOT the real prompt
+  /// budget. The real, binding ceiling is whisper.cpp's own *tokenized*
+  /// `initial_prompt` limit, far below this: ~[_promptTokenBudget] tokens,
+  /// enforced by [_resolveEffectivePrompt] via [PromptTokenCounter]/
+  /// [truncatePromptToTokenBudget] before the prompt ever reaches the
+  /// validator below. A prompt that passes this char check can still have
+  /// been silently truncated to fit the real token budget — that is
+  /// intentional (partial biasing beats a hard reject) and is why this
+  /// constant stays generous rather than tight.
   static const int _promptCharLimit = 1024;
+
+  /// Effective token ceiling whisper.cpp applies to the tokenized
+  /// `initial_prompt`, derived from the native formula (`whisper.cpp`
+  /// `whisper_full_with_state`): `max(1, min(n_max_text_ctx,
+  /// whisper_n_text_ctx(ctx) / 2) - 1)`. WhisPaste hard-codes
+  /// `n_max_text_ctx = 64` ([WhisperFfiEngine._decodeOnce]) and every
+  /// bundled ggml model uses the standard `whisper_n_text_ctx(ctx) = 448`
+  /// text context, so `min(64, 224) - 1 = 63` is a fixed, not a measured,
+  /// value — it moves in lockstep with `n_max_text_ctx` and must be updated
+  /// if that ever changes.
+  static const int _promptTokenBudget = 63;
 
   /// Stuck-Guard budget: a single in-flight [WhisperEngine.transcribe] that
   /// never returns is abandoned after this timeout with a clean error instead
@@ -553,7 +571,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     final settings = ref.read(settingsProvider).value;
     final vocab = settings?.customVocabulary.trim() ?? '';
-    final effectivePrompt = _resolveEffectivePrompt(
+    final effectivePrompt = await _resolveEffectivePrompt(
       vocab,
       lang: lang,
       punctuationPriming: settings?.stt.punctuationPriming ?? true,
@@ -712,11 +730,16 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// example prompt for [lang] (see `punctuation_priming_prompts.dart`) so
   /// greedy decoding is biased towards punctuated output. Never overrides a
   /// real vocab/context prompt — style-mimicry priming only fills the gap.
-  String? _resolveEffectivePrompt(
+  ///
+  /// The combined string is then budgeted against whisper.cpp's real
+  /// tokenized `initial_prompt` ceiling ([_promptTokenBudget]) via
+  /// [_truncateToRealTokenBudget] — see [_promptTokenBudget]'s doc comment
+  /// for why this step exists at all (silent native truncation bug).
+  Future<String?> _resolveEffectivePrompt(
     String vocab, {
     required String lang,
     required bool punctuationPriming,
-  }) {
+  }) async {
     String? promptValue;
     if (_lastPrompt != null &&
         _lastPrompt!.isNotEmpty &&
@@ -727,13 +750,72 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _lastPrompt = null;
       _lastPromptTime = null;
     }
+    final trimmedVocab = vocab.isNotEmpty ? vocab : null;
     final combined = <String>[
-      if (vocab.isNotEmpty) vocab,
+      ?trimmedVocab,
       if (promptValue != null && promptValue.isNotEmpty) promptValue,
     ].join(' ');
-    if (combined.isNotEmpty) return combined;
-    if (!punctuationPriming) return null;
-    return resolvePunctuationPrimingPrompt(lang);
+    if (combined.isEmpty) {
+      if (!punctuationPriming) return null;
+      return resolvePunctuationPrimingPrompt(lang);
+    }
+    return _truncateToRealTokenBudget(combined, vocab: trimmedVocab);
+  }
+
+  /// Truncates [combined] (vocab + rolling context, already joined) to fit
+  /// [_promptTokenBudget] real whisper.cpp tokens.
+  ///
+  /// Fast path: skips the async, isolate-proxied exact token count entirely
+  /// whenever [combined]'s UTF-8 byte length already guarantees it fits —
+  /// whisper's byte-level BPE tokenizer only ever MERGES base bytes, so a
+  /// string's token count can never exceed its byte count. This covers the
+  /// overwhelming majority of real prompts (short vocab/context) with zero
+  /// isolate round-trips; the exact FFI count only runs for the rare
+  /// longer prompt that might actually overflow the budget.
+  ///
+  /// When it does overflow, [vocab] is preserved preferentially over the
+  /// rolling context: the combined string's tail (the rolling context) is
+  /// dropped first, and only [vocab] itself is truncated (front-anchored,
+  /// see [truncatePromptToTokenBudget]) if even that alone is too long.
+  /// This is a deliberate choice, not the only valid one — the user
+  /// explicitly configured [vocab] in settings, while the rolling context
+  /// is an automatic, best-effort addition.
+  ///
+  /// Falls back to returning [combined] unchanged if [_engine] doesn't
+  /// implement [PromptTokenCounter] (no engine loaded yet, or a future
+  /// non-whisper local engine) or the count call itself fails — the
+  /// char-length backstop in [InferenceRequestValidator] still applies, so
+  /// this degrades to the pre-fix behaviour rather than crashing.
+  Future<String> _truncateToRealTokenBudget(
+    String combined, {
+    required String? vocab,
+  }) async {
+    if (utf8.encode(combined).length <= _promptTokenBudget) return combined;
+    final rawEngine = _engine;
+    if (rawEngine is! PromptTokenCounter) return combined;
+    final engine = rawEngine as PromptTokenCounter;
+    try {
+      if (await engine.countPromptTokens(combined) <= _promptTokenBudget) {
+        return combined;
+      }
+      if (vocab == null || vocab.isEmpty) {
+        return truncatePromptToTokenBudget(
+          combined,
+          _promptTokenBudget,
+          engine.countPromptTokens,
+        );
+      }
+      return truncatePromptToTokenBudget(
+        vocab,
+        _promptTokenBudget,
+        engine.countPromptTokens,
+      );
+    } catch (e) {
+      _log.warning(
+        'Prompt token-budget check failed, using untruncated prompt: $e',
+      );
+      return combined;
+    }
   }
 
   /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain

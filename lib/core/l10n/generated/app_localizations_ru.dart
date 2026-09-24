@@ -882,6 +882,16 @@ class L10nRu extends L10n {
       'напр., WhisPaste, Kubernetes, Иванов';
 
   @override
+  String settingsCustomVocabularyBudgetCounter(int count, int budget) {
+    return '~$count / $budget токенов';
+  }
+
+  @override
+  String settingsCustomVocabularyBudgetWarning(int budget) {
+    return 'Длинные записи могут быть автоматически сокращены — используются только первые примерно $budget токенов.';
+  }
+
+  @override
   String get settingsPunctuationPriming => 'Стимуляция пунктуации';
 
   @override

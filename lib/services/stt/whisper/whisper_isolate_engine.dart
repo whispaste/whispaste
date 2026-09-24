@@ -141,6 +141,22 @@ class _StopLivePreviewAck {
   const _StopLivePreviewAck();
 }
 
+/// Proxies [PromptTokenCounter.countPromptTokens] across the isolate
+/// boundary (prompt-token-budget fix) — same request/response shape as
+/// [_LivePreviewDecodeRequest]/[_LivePreviewDecodeResult].
+class _TokenCountRequest {
+  const _TokenCountRequest({required this.requestId, required this.text});
+  final int requestId;
+  final String text;
+}
+
+class _TokenCountResult {
+  const _TokenCountResult({required this.requestId, this.count, this.error});
+  final int requestId;
+  final int? count;
+  final String? error;
+}
+
 class _UnloadRequest {
   const _UnloadRequest();
 }
@@ -278,6 +294,28 @@ void _whisperIsolateMain(SendPort mainSendPort) {
         await engine?.stopLivePreview();
         mainSendPort.send(const _StopLivePreviewAck());
 
+      case final _TokenCountRequest req:
+        final e = engine;
+        if (e == null) {
+          mainSendPort.send(
+            _TokenCountResult(
+              requestId: req.requestId,
+              error: 'whisper_engine_not_loaded',
+            ),
+          );
+          return;
+        }
+        try {
+          final count = await e.countPromptTokens(req.text);
+          mainSendPort.send(
+            _TokenCountResult(requestId: req.requestId, count: count),
+          );
+        } catch (e) {
+          mainSendPort.send(
+            _TokenCountResult(requestId: req.requestId, error: '$e'),
+          );
+        }
+
       case _UnloadRequest():
         await engine?.unload();
         mainSendPort.send(const _UnloadAck());
@@ -317,7 +355,11 @@ void _whisperIsolateMain(SendPort mainSendPort) {
 /// [WhisperEngine] that delegates to a [WhisperFfiEngine] running inside a
 /// dedicated worker isolate. See file doc comment for why.
 class WhisperIsolateEngine
-    implements WhisperEngine, PartialTranscriptSource, LivePreviewEngine {
+    implements
+        WhisperEngine,
+        PartialTranscriptSource,
+        LivePreviewEngine,
+        PromptTokenCounter {
   WhisperIsolateEngine({String? libraryPath, WhisperBackend? backend})
     : _config = _EngineConfig(
         libraryPath: libraryPath,
@@ -456,6 +498,28 @@ class WhisperIsolateEngine
   Completer<_StopLivePreviewAck>? _stopPreviewCompleter;
   final Map<int, Completer<_LivePreviewDecodeResult>> _pendingPreview = {};
   int _nextPreviewRequestId = 0;
+
+  // ── PromptTokenCounter (prompt-token-budget fix) — proxies
+  // [PromptTokenCounter.countPromptTokens] to the worker isolate the same
+  // way [decodeLivePreview] proxies [LivePreviewEngine]. ─────────────────
+
+  final Map<int, Completer<_TokenCountResult>> _pendingTokenCount = {};
+  int _nextTokenCountRequestId = 0;
+
+  @override
+  Future<int> countPromptTokens(String text) async {
+    if (!_isLoaded || _workerPort == null) {
+      throw StateError('whisper_engine_not_loaded');
+    }
+    if (text.isEmpty) return 0;
+    final requestId = _nextTokenCountRequestId++;
+    final completer = Completer<_TokenCountResult>();
+    _pendingTokenCount[requestId] = completer;
+    _workerPort!.send(_TokenCountRequest(requestId: requestId, text: text));
+    final result = await completer.future;
+    if (result.error != null) throw StateError(result.error!);
+    return result.count ?? 0;
+  }
 
   @override
   Future<void> startLivePreview() async {
@@ -645,6 +709,8 @@ class WhisperIsolateEngine
         _pendingPreview.remove(r.requestId)?.complete(r);
       case _StopLivePreviewAck():
         _stopPreviewCompleter?.complete(const _StopLivePreviewAck());
+      case final _TokenCountResult r:
+        _pendingTokenCount.remove(r.requestId)?.complete(r);
       case _UnloadAck():
         _unloadCompleter?.complete();
     }

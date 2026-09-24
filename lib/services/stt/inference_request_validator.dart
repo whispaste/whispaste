@@ -107,7 +107,13 @@ abstract final class InferenceRequestValidator {
   /// 3. `language != 'auto' && !supportedLanguages.contains(language)`
   ///    → [InferenceRejectReason.unsupportedLanguage].
   /// 4. `prompt != null && prompt.length > promptCharLimit`
-  ///    → [InferenceRejectReason.promptTooLong].
+  ///    → [InferenceRejectReason.promptTooLong]. A defensive backstop
+  ///    against obvious-garbage input, not the real prompt budget — by the
+  ///    time `prompt` reaches this validator, `SttServerStateNotifier`
+  ///    (`_truncateToRealTokenBudget`) has already truncated it to fit
+  ///    whisper.cpp's real, far smaller tokenized `initial_prompt` ceiling
+  ///    (~63 tokens), so this char-length rule only ever fires on a
+  ///    pathological value this cap deliberately stays generous against.
   ///
   /// Otherwise returns [ValidationOk.instance].
   ///
@@ -140,7 +146,9 @@ abstract final class InferenceRequestValidator {
       );
     }
 
-    // Rule 4: prompt length cap. null and '' are always fine.
+    // Rule 4: prompt length cap (defensive backstop, see doc comment above
+    // — the real token budget is enforced earlier, in the notifier).
+    // null and '' are always fine.
     if (prompt != null && prompt.length > promptCharLimit) {
       return const ValidationReject(
         InferenceRejectReason.promptTooLong,

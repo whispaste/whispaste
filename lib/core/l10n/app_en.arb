@@ -288,6 +288,19 @@
   "settingsCustomVocabulary": "Custom Vocabulary",
   "settingsCustomVocabularyHint": "Names, technical terms: improves recognition accuracy",
   "settingsCustomVocabularyPlaceholder": "e.g. WhisPaste, Kubernetes, Dr. Mueller",
+  "settingsCustomVocabularyBudgetCounter": "~{count} / {budget} tokens",
+  "@settingsCustomVocabularyBudgetCounter": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsCustomVocabularyBudgetWarning": "Long entries may be shortened automatically — only roughly the first {budget} tokens are used.",
+  "@settingsCustomVocabularyBudgetWarning": {
+    "placeholders": {
+      "budget": {"type": "int"}
+    }
+  },
   "settingsPunctuationPriming": "Punctuation priming",
   "settingsPunctuationPrimingSubtitle": "Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.",
   "settingsVadEnabled": "Trim trailing silence",

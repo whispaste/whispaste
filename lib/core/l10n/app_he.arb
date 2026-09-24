@@ -281,6 +281,19 @@
   "settingsCustomVocabulary": "אוצר מילים מותאם",
   "settingsCustomVocabularyHint": "שמות, מונחים טכניים: משפר דיוק",
   "settingsCustomVocabularyPlaceholder": "לדוגמה: WhisPaste, Kubernetes, ד\"ר כהן",
+  "settingsCustomVocabularyBudgetCounter": "~{count} / {budget} טוקנים",
+  "@settingsCustomVocabularyBudgetCounter": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsCustomVocabularyBudgetWarning": "ערכים ארוכים עשויים להתקצר אוטומטית — רק כ-{budget} הטוקנים הראשונים בשימוש.",
+  "@settingsCustomVocabularyBudgetWarning": {
+    "placeholders": {
+      "budget": {"type": "int"}
+    }
+  },
   "settingsPunctuationPriming": "פריימינג פיסוק",
   "settingsPunctuationPrimingSubtitle": "מטה את Whisper לכיוון פלט מפוסק כאשר לא הוגדר אוצר מילים מותאם אישית. אין השפעה על המהירות.",
   "settingsVadEnabled": "חיתוך שתיקה בסוף ההקלטה",

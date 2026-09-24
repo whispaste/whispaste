@@ -229,6 +229,19 @@
   "settingsCustomVocabulary": "Свой словарь",
   "settingsCustomVocabularyHint": "Имена, термины (улучшает точность)",
   "settingsCustomVocabularyPlaceholder": "напр., WhisPaste, Kubernetes, Иванов",
+  "settingsCustomVocabularyBudgetCounter": "~{count} / {budget} токенов",
+  "@settingsCustomVocabularyBudgetCounter": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsCustomVocabularyBudgetWarning": "Длинные записи могут быть автоматически сокращены — используются только первые примерно {budget} токенов.",
+  "@settingsCustomVocabularyBudgetWarning": {
+    "placeholders": {
+      "budget": {"type": "int"}
+    }
+  },
   "settingsPunctuationPriming": "Стимуляция пунктуации",
   "settingsPunctuationPrimingSubtitle": "Подталкивает Whisper к выводу с пунктуацией, если не задан свой словарь. На скорость не влияет.",
   "settingsVadEnabled": "Обрезать тишину",

@@ -6,6 +6,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert' show utf8;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
@@ -590,11 +591,34 @@ class _CustomVocabularyFieldState
   late final TextEditingController _ctrl;
   Timer? _debounce;
 
+  /// Same real ceiling [SttServerStateNotifier] budgets the combined
+  /// `initial_prompt` against — see that constant's doc comment for the
+  /// full whisper.cpp derivation (`n_max_text_ctx = 64` → 63 real tokens).
+  /// Duplicated here (rather than imported) because the notifier's constant
+  /// is `static const int` on a private class member — this field-level
+  /// counter only needs the plain number.
+  static const int _tokenBudget = 63;
+
   @override
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.initialValue);
+    _ctrl.addListener(_onTextChanged);
   }
+
+  void _onTextChanged() => setState(() {});
+
+  /// Conservative estimate of [text]'s whisper.cpp token count: its UTF-8
+  /// byte length. Whisper's byte-level BPE tokenizer only ever MERGES base
+  /// bytes, so the real token count can never exceed this — the estimate
+  /// only ever OVER-counts, so a field shown as "under budget" here is
+  /// guaranteed to actually stay untruncated by
+  /// [SttServerStateNotifier._truncateToRealTokenBudget]. No live model
+  /// call needed (this field renders long before any engine may be
+  /// loaded), matching the char-based pre-flight backstop's own
+  /// conservatism rather than promising per-keystroke exactness a real
+  /// tokenizer call could only give async and after a model load.
+  static int _estimateTokens(String text) => utf8.encode(text).length;
 
   @override
   void didUpdateWidget(covariant _CustomVocabularyField old) {
@@ -608,6 +632,7 @@ class _CustomVocabularyFieldState
   @override
   void dispose() {
     _debounce?.cancel();
+    _ctrl.removeListener(_onTextChanged);
     _ctrl.dispose();
     super.dispose();
   }
@@ -677,6 +702,42 @@ class _CustomVocabularyFieldState
             minLines: 2,
             maxLines: 5,
             onChanged: _save,
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          Builder(
+            builder: (context) {
+              final estimate = _estimateTokens(_ctrl.text);
+              final overBudget = estimate > _tokenBudget;
+              final color = overBudget ? cs.error : WpColors.textMuted;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.settingsCustomVocabularyBudgetCounter(
+                      estimate,
+                      _tokenBudget,
+                    ),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: color,
+                    ),
+                  ),
+                  if (overBudget)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        l10n.settingsCustomVocabularyBudgetWarning(
+                          _tokenBudget,
+                        ),
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
