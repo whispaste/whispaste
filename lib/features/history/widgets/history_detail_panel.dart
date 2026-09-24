@@ -824,12 +824,20 @@ class _DetailPanelHeader extends StatelessWidget {
                             onTap: isTrashView ? null : onStartTitleEdit,
                             child: _tooltipIf(
                               isTrashView ? null : l10n.historyEditTitle,
-                              child: GestureDetector(
-                                onDoubleTap: isTrashView
-                                    ? null
-                                    : onStartTitleEdit,
-                                child: MouseRegion(
-                                  cursor: isTrashView
+                              child: WpFocusRing(
+                                focusNode: titleFocusNode,
+                                radius: WpRadius.sm,
+                                child: InkWell(
+                                  onDoubleTap: isTrashView
+                                      ? null
+                                      : onStartTitleEdit,
+                                  focusNode: titleFocusNode,
+                                  borderRadius: WpRadius.borderSm,
+                                  focusColor: Colors.transparent,
+                                  hoverColor: Colors.transparent,
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                  mouseCursor: isTrashView
                                       ? SystemMouseCursors.basic
                                       : SystemMouseCursors.click,
                                   child: HighlightedText(
@@ -1234,11 +1242,18 @@ class _DetailTranscriptZone extends StatelessWidget {
                         // nothing.
                         child: _tooltipIf(
                           isTrashView ? null : l10n.historyEditTranscript,
-                          child: GestureDetector(
-                            onTap: isTrashView ? null : onToggleEdit,
-                            behavior: HitTestBehavior.translucent,
-                            child: MouseRegion(
-                              cursor: isTrashView
+                          child: WpFocusRing(
+                            focusNode: editorFocusNode,
+                            radius: WpRadius.sm,
+                            child: InkWell(
+                              onTap: isTrashView ? null : onToggleEdit,
+                              focusNode: editorFocusNode,
+                              borderRadius: WpRadius.borderSm,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              mouseCursor: isTrashView
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
                               // Same *material* as the edit view above, not
