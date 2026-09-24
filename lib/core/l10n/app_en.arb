@@ -562,16 +562,24 @@
   "replacementsImportedBadge": "Imported",
   "replacementsLearnedBadge": "Learned",
   "correctionLearningToggleLabel": "Learn from corrections",
-  "correctionLearningToggleEnabled": "Watching repeated voice corrections for suggestions",
-  "correctionLearningToggleDisabled": "Not watching voice corrections for suggestions",
+  "correctionLearningToggleEnabled": "Watching repeated corrections for suggestions",
+  "correctionLearningToggleDisabled": "Not watching corrections for suggestions",
+  "correctionLearningHowTo": "While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.",
   "correctionCandidatesCardTitle": "Suggested from your corrections",
-  "correctionCandidatesCardHint": "{count} suggestion(s) from repeated voice corrections — review before they become replacements.",
+  "correctionCandidatesCardHint": "{count} suggestion(s) from corrections you repeated — review before they become replacements.",
   "@correctionCandidatesCardHint": {
     "placeholders": {
       "count": { "type": "int" }
     }
   },
   "correctionCandidatesReviewButton": "Review",
+  "correctionCandidatesReviewTitle": "Review learned corrections",
+  "correctionCandidatesReviewSubtitle": "{count} correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.",
+  "@correctionCandidatesReviewSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "correctionCandidatesCommitSummary": "Added {added} learned replacement(s)",
   "@correctionCandidatesCommitSummary": {
     "placeholders": {
@@ -1315,8 +1323,10 @@
     }
   },
   "voiceCorrectionApplied": "Transcript corrected by voice",
+  "voiceCorrectionUndone": "Correction undone",
   "voiceNoteEmpty": "No speech detected",
   "voiceNoteError": "Voice note failed",
+  "historyVoiceNoteButtonTooltip": "Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript",
 
   "updateAvailable": "Update available: v{version}",
   "@updateAvailable": {

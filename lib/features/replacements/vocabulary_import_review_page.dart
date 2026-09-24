@@ -24,11 +24,26 @@ import '../../widgets/wp_text_field.dart';
 /// Pushed via `Navigator.push`; pops with the list of terms the user selected
 /// to import, or `null` if they cancelled without importing anything.
 class VocabularyImportReviewPage extends StatefulWidget {
-  const VocabularyImportReviewPage({super.key, required this.candidates});
+  const VocabularyImportReviewPage({
+    super.key,
+    required this.candidates,
+    this.title,
+    this.subtitleBuilder,
+  });
 
   /// Sorted, already deduplicated against existing triggers (the scan's
   /// output) -- every entry here is a legitimate new-identifier candidate.
   final List<String> candidates;
+
+  /// Overrides the default "Choose what to import" heading -- the
+  /// correction-learning review (`replacements_page.dart`) reuses this page
+  /// but is not an import, so it supplies its own framing instead of talking
+  /// about "importing" corrections the user never exported anywhere.
+  final String? title;
+
+  /// Overrides the default import-flavored subtitle, given the candidate
+  /// count. Same reasoning as [title].
+  final String Function(int count)? subtitleBuilder;
 
   @override
   State<VocabularyImportReviewPage> createState() =>
@@ -121,13 +136,16 @@ class _VocabularyImportReviewPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          l10n.replacementsImportReviewTitle,
+                          widget.title ?? l10n.replacementsImportReviewTitle,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         Text(
-                          l10n.replacementsImportReviewSubtitle(
-                            widget.candidates.length,
-                          ),
+                          widget.subtitleBuilder?.call(
+                                widget.candidates.length,
+                              ) ??
+                              l10n.replacementsImportReviewSubtitle(
+                                widget.candidates.length,
+                              ),
                           style: const TextStyle(
                             color: WpColors.textMuted,
                             fontSize: WpTypography.caption,

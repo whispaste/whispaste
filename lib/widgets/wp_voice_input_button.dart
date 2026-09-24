@@ -44,12 +44,23 @@ enum _VoicePhase { idle, recording, transcribing }
 /// On completion the raw, non-empty transcript is delivered via
 /// [onTranscript]; the button returns to idle once that callback settles.
 class WpVoiceInputButton extends ConsumerStatefulWidget {
-  const WpVoiceInputButton({super.key, required this.onTranscript});
+  const WpVoiceInputButton({
+    super.key,
+    required this.onTranscript,
+    this.idleTooltip,
+  });
 
   /// Called with the raw, non-empty transcript once transcription succeeds.
   /// May be async — the button stays in its transcribing state until the
   /// returned future completes, so a slow sink cannot be re-triggered.
   final FutureOr<void> Function(String transcript) onTranscript;
+
+  /// Overrides the tooltip/semantics label shown while idle — falls back to
+  /// [L10n.voiceNoteButton] when omitted. A caller whose sink
+  /// interprets prefix commands (history's `tag:`/`correct:` dispatch, see
+  /// `VoiceNoteButton`) uses this to explain that syntax right on the
+  /// button, instead of only in a hint the user can permanently dismiss.
+  final String? idleTooltip;
 
   /// Stuck-guard budgets on the two STT calls in [_stopAndTranscribe]. Mutable
   /// + [visibleForTesting] so tests can shrink them (mirrors
@@ -282,7 +293,7 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
     switch (_phase) {
       case _VoicePhase.idle:
         icon = LucideIcons.mic;
-        tooltip = l10n.voiceNoteButton;
+        tooltip = widget.idleTooltip ?? l10n.voiceNoteButton;
         color = _accent;
       case _VoicePhase.recording:
         icon = LucideIcons.square;

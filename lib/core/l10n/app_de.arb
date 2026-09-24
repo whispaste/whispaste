@@ -440,16 +440,24 @@
   "replacementsImportedBadge": "Importiert",
   "replacementsLearnedBadge": "Gelernt",
   "correctionLearningToggleLabel": "Aus Korrekturen lernen",
-  "correctionLearningToggleEnabled": "Wiederholte Sprachkorrekturen werden auf Vorschläge geprüft",
-  "correctionLearningToggleDisabled": "Sprachkorrekturen werden nicht auf Vorschläge geprüft",
+  "correctionLearningToggleEnabled": "Wiederholte Korrekturen werden auf Vorschläge geprüft",
+  "correctionLearningToggleDisabled": "Korrekturen werden nicht auf Vorschläge geprüft",
+  "correctionLearningHowTo": "Sag beim Aufnehmen einer Notiz im Verlauf „korrektur: …“ (oder „correct: …“), gefolgt vom richtigen Text, um sie zu überschreiben. Korrigierst du zweimal dasselbe, schlägt WhisPaste hier eine automatische Ersetzung dafür vor.",
   "correctionCandidatesCardTitle": "Aus deinen Korrekturen vorgeschlagen",
-  "correctionCandidatesCardHint": "{count} Vorschlag/Vorschläge aus wiederholten Sprachkorrekturen — vor der Übernahme prüfen.",
+  "correctionCandidatesCardHint": "{count} Vorschlag/Vorschläge aus wiederholten Korrekturen — vor der Übernahme prüfen.",
   "@correctionCandidatesCardHint": {
     "placeholders": {
       "count": { "type": "int" }
     }
   },
   "correctionCandidatesReviewButton": "Prüfen",
+  "correctionCandidatesReviewTitle": "Gelernte Korrekturen prüfen",
+  "correctionCandidatesReviewSubtitle": "{count} wiederholte Korrektur(en) — übernimm, was WhisPaste künftig automatisch anwenden soll. Nichts ändert sich, bevor du bestätigst.",
+  "@correctionCandidatesReviewSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "correctionCandidatesCommitSummary": "{added} gelernte Ersetzung(en) hinzugefügt",
   "@correctionCandidatesCommitSummary": {
     "placeholders": {
@@ -1123,8 +1131,10 @@
   "voiceNoteAdded": "Sprachnotiz hinzugefügt",
   "voiceTagAdded": "Tag \u201E{tag}\u201C per Sprache hinzugefügt",
   "voiceCorrectionApplied": "Transkript per Sprache korrigiert",
+  "voiceCorrectionUndone": "Korrektur rückgängig gemacht",
   "voiceNoteEmpty": "Keine Sprache erkannt",
   "voiceNoteError": "Sprachnotiz fehlgeschlagen",
+  "historyVoiceNoteButtonTooltip": "Sprachnotiz — sag „tag: …“, um ein Tag hinzuzufügen, oder „korrektur: …“, um dieses Transkript neu zu diktieren",
 
   "updateAvailable": "Update verfügbar: v{version}",
   "updateDownloading": "Update wird heruntergeladen… {percent} %",

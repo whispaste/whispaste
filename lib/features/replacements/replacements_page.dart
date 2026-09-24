@@ -487,6 +487,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
         MaterialPageRoute(
           builder: (_) => VocabularyImportReviewPage(
             candidates: [for (final c in candidates) c.displayText],
+            title: l10n.correctionCandidatesReviewTitle,
+            subtitleBuilder: l10n.correctionCandidatesReviewSubtitle,
           ),
         ),
       );
@@ -703,7 +705,29 @@ class _CorrectionLearningToggleCard extends StatelessWidget {
               ? l10n.correctionLearningToggleEnabled
               : l10n.correctionLearningToggleDisabled,
           semanticToggledValue: enabled,
-          trailing: settingsToggle(value: enabled, onChanged: onChanged),
+          // The subtitle only says *that* corrections are watched, never
+          // *how* to trigger one -- a user landing on this page cold has no
+          // other way to discover the `correct:`/`korrektur:` voice-command
+          // syntax (the only other explanation lives behind a one-shot,
+          // permanently-dismissible hint in the History panel, see
+          // `history_notes_section.dart`). An info tooltip next to the
+          // toggle -- same pattern as `stt_model_selector.dart` -- adds that
+          // without growing the row for everyone who already knows it.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Tooltip(
+                message: l10n.correctionLearningHowTo,
+                child: const Icon(
+                  LucideIcons.info,
+                  size: WpIconSize.xs,
+                  color: WpColors.textMuted,
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              settingsToggle(value: enabled, onChanged: onChanged),
+            ],
+          ),
         ),
       ),
     );

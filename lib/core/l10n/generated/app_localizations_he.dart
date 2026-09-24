@@ -1419,6 +1419,10 @@ class L10nHe extends L10n {
       'תיקוני קול אינם נבדקים להצעות';
 
   @override
+  String get correctionLearningHowTo =>
+      'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.';
+
+  @override
   String get correctionCandidatesCardTitle => 'הצעות מהתיקונים שלך';
 
   @override
@@ -1428,6 +1432,14 @@ class L10nHe extends L10n {
 
   @override
   String get correctionCandidatesReviewButton => 'בדיקה';
+
+  @override
+  String get correctionCandidatesReviewTitle => 'Review learned corrections';
+
+  @override
+  String correctionCandidatesReviewSubtitle(int count) {
+    return '$count correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.';
+  }
 
   @override
   String correctionCandidatesCommitSummary(int added) {
@@ -3210,10 +3222,17 @@ class L10nHe extends L10n {
   String get voiceCorrectionApplied => 'תמלול תוקן בקול';
 
   @override
+  String get voiceCorrectionUndone => 'Correction undone';
+
+  @override
   String get voiceNoteEmpty => 'לא זוהה דיבור';
 
   @override
   String get voiceNoteError => 'הערת קול נכשלה';
+
+  @override
+  String get historyVoiceNoteButtonTooltip =>
+      'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript';
 
   @override
   String updateAvailable(String version) {

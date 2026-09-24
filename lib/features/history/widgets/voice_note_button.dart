@@ -88,7 +88,22 @@ class VoiceNoteButton extends ConsumerWidget {
         }
       case VoiceActionType.correction:
         await notifier.updateContent(action.payload);
-        if (context.mounted) _showToast(context, l10n.voiceCorrectionApplied);
+        // The command replaces the *entire* entry content in one shot with
+        // no confirmation step -- a misheard "korrektur:" prefix (or a
+        // correction aimed at fixing one word further up that accidentally
+        // clobbers an edit made elsewhere) silently destroys the rest of the
+        // transcript. An inline undo is the cheapest guardrail that doesn't
+        // require turning this into a two-step confirm dialog and slowing
+        // down the common case.
+        if (context.mounted) {
+          _showToast(
+            context,
+            l10n.voiceCorrectionApplied,
+            undo: contentBeforeCorrection == null
+                ? null
+                : () => notifier.updateContent(contentBeforeCorrection),
+          );
+        }
         // Only a real change is a "correction" worth learning from -- a
         // `correct:`/`korrektur:` command dictated at all (even with the
         // same content, e.g. re-recorded to fix a different word further up
@@ -119,18 +134,32 @@ class VoiceNoteButton extends ConsumerWidget {
     BuildContext context,
     String message, {
     bool isError = false,
+    VoidCallback? undo,
   }) {
+    final l10n = L10n.of(context);
     WpToast.show(
       context,
       message: message,
       type: isError ? WpToastType.error : WpToastType.success,
       duration: const Duration(seconds: 2),
+      action: undo == null
+          ? null
+          : WpToastAction(
+              label: l10n.undo,
+              onPressed: () {
+                undo();
+                if (context.mounted) {
+                  _showToast(context, l10n.voiceCorrectionUndone);
+                }
+              },
+            ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return WpVoiceInputButton(
+      idleTooltip: L10n.of(context).historyVoiceNoteButtonTooltip,
       onTranscript: (transcript) => _dispatch(context, ref, transcript),
     );
   }

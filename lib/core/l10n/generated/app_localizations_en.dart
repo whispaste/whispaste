@@ -1425,22 +1425,34 @@ class L10nEn extends L10n {
 
   @override
   String get correctionLearningToggleEnabled =>
-      'Watching repeated voice corrections for suggestions';
+      'Watching repeated corrections for suggestions';
 
   @override
   String get correctionLearningToggleDisabled =>
-      'Not watching voice corrections for suggestions';
+      'Not watching corrections for suggestions';
+
+  @override
+  String get correctionLearningHowTo =>
+      'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.';
 
   @override
   String get correctionCandidatesCardTitle => 'Suggested from your corrections';
 
   @override
   String correctionCandidatesCardHint(int count) {
-    return '$count suggestion(s) from repeated voice corrections — review before they become replacements.';
+    return '$count suggestion(s) from corrections you repeated — review before they become replacements.';
   }
 
   @override
   String get correctionCandidatesReviewButton => 'Review';
+
+  @override
+  String get correctionCandidatesReviewTitle => 'Review learned corrections';
+
+  @override
+  String correctionCandidatesReviewSubtitle(int count) {
+    return '$count correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.';
+  }
 
   @override
   String correctionCandidatesCommitSummary(int added) {
@@ -3262,10 +3274,17 @@ class L10nEn extends L10n {
   String get voiceCorrectionApplied => 'Transcript corrected by voice';
 
   @override
+  String get voiceCorrectionUndone => 'Correction undone';
+
+  @override
   String get voiceNoteEmpty => 'No speech detected';
 
   @override
   String get voiceNoteError => 'Voice note failed';
+
+  @override
+  String get historyVoiceNoteButtonTooltip =>
+      'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript';
 
   @override
   String updateAvailable(String version) {

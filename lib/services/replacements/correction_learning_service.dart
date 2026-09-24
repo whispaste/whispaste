@@ -37,7 +37,11 @@ class CorrectionCandidate {
   /// `VocabularyImportReviewPage`, which only knows how to render a flat
   /// `List<String>` -- see its doc comment on why a dedicated widget was not
   /// built for this ticket).
-  String get displayText => '$sourceText → $targetText';
+  ///
+  /// Carries the occurrence count so the review list itself explains *why*
+  /// a candidate showed up (how many times it was repeated), rather than
+  /// leaving the user to trust a bare source/target pair with no evidence.
+  String get displayText => '$sourceText → $targetText  (×$occurrenceCount)';
 }
 
 class CorrectionLearningService {

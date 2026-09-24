@@ -2576,14 +2576,20 @@ abstract class L10n {
   /// No description provided for @correctionLearningToggleEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Watching repeated voice corrections for suggestions'**
+  /// **'Watching repeated corrections for suggestions'**
   String get correctionLearningToggleEnabled;
 
   /// No description provided for @correctionLearningToggleDisabled.
   ///
   /// In en, this message translates to:
-  /// **'Not watching voice corrections for suggestions'**
+  /// **'Not watching corrections for suggestions'**
   String get correctionLearningToggleDisabled;
+
+  /// No description provided for @correctionLearningHowTo.
+  ///
+  /// In en, this message translates to:
+  /// **'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.'**
+  String get correctionLearningHowTo;
 
   /// No description provided for @correctionCandidatesCardTitle.
   ///
@@ -2594,7 +2600,7 @@ abstract class L10n {
   /// No description provided for @correctionCandidatesCardHint.
   ///
   /// In en, this message translates to:
-  /// **'{count} suggestion(s) from repeated voice corrections — review before they become replacements.'**
+  /// **'{count} suggestion(s) from corrections you repeated — review before they become replacements.'**
   String correctionCandidatesCardHint(int count);
 
   /// No description provided for @correctionCandidatesReviewButton.
@@ -2602,6 +2608,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Review'**
   String get correctionCandidatesReviewButton;
+
+  /// No description provided for @correctionCandidatesReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review learned corrections'**
+  String get correctionCandidatesReviewTitle;
+
+  /// No description provided for @correctionCandidatesReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.'**
+  String correctionCandidatesReviewSubtitle(int count);
 
   /// No description provided for @correctionCandidatesCommitSummary.
   ///
@@ -5714,6 +5732,12 @@ abstract class L10n {
   /// **'Transcript corrected by voice'**
   String get voiceCorrectionApplied;
 
+  /// No description provided for @voiceCorrectionUndone.
+  ///
+  /// In en, this message translates to:
+  /// **'Correction undone'**
+  String get voiceCorrectionUndone;
+
   /// No description provided for @voiceNoteEmpty.
   ///
   /// In en, this message translates to:
@@ -5725,6 +5749,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Voice note failed'**
   String get voiceNoteError;
+
+  /// No description provided for @historyVoiceNoteButtonTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript'**
+  String get historyVoiceNoteButtonTooltip;
 
   /// No description provided for @updateAvailable.
   ///

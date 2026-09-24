@@ -763,18 +763,20 @@ void main() {
         expect(find.text(l10n.correctionCandidatesCardHint(2)), findsOneWidget);
 
         // Open the shared vocabulary-import review page, fed the two
-        // candidates' "source → target" display strings.
+        // candidates' "source → target  (×count)" display strings — the
+        // occurrence count makes the review list itself explain why each
+        // candidate showed up.
         await tester.tap(
           find.widgetWithText(WpButton, l10n.correctionCandidatesReviewButton),
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('teh meeting → the meeting'), findsOneWidget);
-        expect(find.text('recieve → receive'), findsOneWidget);
+        expect(find.text('teh meeting → the meeting  (×2)'), findsOneWidget);
+        expect(find.text('recieve → receive  (×2)'), findsOneWidget);
 
         // Select only the first candidate — the second is shown but never
         // picked, which is this feature's reject signal.
-        await tester.tap(find.text('teh meeting → the meeting'));
+        await tester.tap(find.text('teh meeting → the meeting  (×2)'));
         await tester.pumpAndSettle();
         await tester.tap(
           find.widgetWithText(

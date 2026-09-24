@@ -1439,11 +1439,15 @@ class L10nDe extends L10n {
 
   @override
   String get correctionLearningToggleEnabled =>
-      'Wiederholte Sprachkorrekturen werden auf Vorschläge geprüft';
+      'Wiederholte Korrekturen werden auf Vorschläge geprüft';
 
   @override
   String get correctionLearningToggleDisabled =>
-      'Sprachkorrekturen werden nicht auf Vorschläge geprüft';
+      'Korrekturen werden nicht auf Vorschläge geprüft';
+
+  @override
+  String get correctionLearningHowTo =>
+      'Sag beim Aufnehmen einer Notiz im Verlauf „korrektur: …“ (oder „correct: …“), gefolgt vom richtigen Text, um sie zu überschreiben. Korrigierst du zweimal dasselbe, schlägt WhisPaste hier eine automatische Ersetzung dafür vor.';
 
   @override
   String get correctionCandidatesCardTitle =>
@@ -1451,11 +1455,19 @@ class L10nDe extends L10n {
 
   @override
   String correctionCandidatesCardHint(int count) {
-    return '$count Vorschlag/Vorschläge aus wiederholten Sprachkorrekturen — vor der Übernahme prüfen.';
+    return '$count Vorschlag/Vorschläge aus wiederholten Korrekturen — vor der Übernahme prüfen.';
   }
 
   @override
   String get correctionCandidatesReviewButton => 'Prüfen';
+
+  @override
+  String get correctionCandidatesReviewTitle => 'Gelernte Korrekturen prüfen';
+
+  @override
+  String correctionCandidatesReviewSubtitle(int count) {
+    return '$count wiederholte Korrektur(en) — übernimm, was WhisPaste künftig automatisch anwenden soll. Nichts ändert sich, bevor du bestätigst.';
+  }
 
   @override
   String correctionCandidatesCommitSummary(int added) {
@@ -3291,10 +3303,17 @@ class L10nDe extends L10n {
   String get voiceCorrectionApplied => 'Transkript per Sprache korrigiert';
 
   @override
+  String get voiceCorrectionUndone => 'Korrektur rückgängig gemacht';
+
+  @override
   String get voiceNoteEmpty => 'Keine Sprache erkannt';
 
   @override
   String get voiceNoteError => 'Sprachnotiz fehlgeschlagen';
+
+  @override
+  String get historyVoiceNoteButtonTooltip =>
+      'Sprachnotiz — sag „tag: …“, um ein Tag hinzuzufügen, oder „korrektur: …“, um dieses Transkript neu zu diktieren';
 
   @override
   String updateAvailable(String version) {
