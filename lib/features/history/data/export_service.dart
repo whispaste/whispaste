@@ -181,7 +181,7 @@ class ExportService {
         e.timestamp,
         e.duration.toStringAsFixed(1),
         e.language,
-        e.tags.join('|'),
+        _csvSafe(e.tags.join('|')),
         '${e.pinned}',
         e.model,
         '${e.isLocal}',
@@ -195,7 +195,7 @@ class ExportService {
 
   /// Prevents CSV formula injection.
   static String _csvSafe(String s) {
-    if (s.isNotEmpty && '=+-@'.contains(s[0])) return '\t$s';
+    if (s.isNotEmpty && '=+-@\t\r '.contains(s[0])) return "'$s";
     return s;
   }
 

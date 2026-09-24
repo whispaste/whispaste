@@ -145,6 +145,7 @@ void main() {
           id: 'evil',
           title: '=HYPERLINK("http://evil.com")',
           text: '+cmd|/C calc',
+          tags: ['=cmd|/C calc'],
           timestamp: '2026-01-01 00:00:00',
         ),
       ];
@@ -152,9 +153,15 @@ void main() {
       await ExportService.export(entries, ExportFormat.csv, path);
 
       final content = File(path).readAsStringSync();
-      // Formula chars should be prefixed with tab
+      // Formula chars must never reach a cell unescaped, in title, text or tags.
       expect(content, isNot(contains(',=HYPERLINK')));
       expect(content, isNot(contains(',+cmd')));
+      expect(content, isNot(contains(',=cmd')));
+      // Title contains a quote, so it's additionally CSV-quoted around the
+      // leading-apostrophe formula guard.
+      expect(content, contains(",\"'=HYPERLINK"));
+      expect(content, contains(",'+cmd|/C calc"));
+      expect(content, contains(",'=cmd|/C calc"));
     });
   });
 }
