@@ -865,6 +865,12 @@ class _DetailPanelHeader extends StatelessWidget {
               ),
             ),
             // Action buttons
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+            HistoryDetailAction(
+              icon: LucideIcons.copy,
+              tooltip: '${l10n.historyCopyText} (Ctrl+C)',
+              onTap: onCopy,
+            ),
             if (isTrashView) ...[
               // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
@@ -882,12 +888,6 @@ class _DetailPanelHeader extends StatelessWidget {
             ] else ...[
               // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
-                icon: LucideIcons.copy,
-                tooltip: '${l10n.historyCopyText} (Ctrl+C)',
-                onTap: onCopy,
-              ),
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
-              HistoryDetailAction(
                 faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
                 icon: entry.pinned ? null : LucideIcons.star,
                 activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
@@ -895,19 +895,20 @@ class _DetailPanelHeader extends StatelessWidget {
                     '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
                 onTap: onPin,
               ),
-              // Overflow menu for secondary actions
-              _DetailOverflowMenu(
-                entry: entry,
-                textSecondary: textSecondary,
-                onCopyMarkdown: onCopyMarkdown,
-                onDuplicate: onDuplicate,
-                onExport: onExport,
-                onArchive: onArchive,
-                onDelete: onDelete,
-                applyingPreset: applyingPreset,
-                onApplyPreset: onApplyPreset,
-              ),
             ],
+            // Overflow menu for secondary actions
+            _DetailOverflowMenu(
+              entry: entry,
+              textSecondary: textSecondary,
+              onCopyMarkdown: onCopyMarkdown,
+              onDuplicate: onDuplicate,
+              onExport: onExport,
+              onArchive: onArchive,
+              onDelete: onDelete,
+              applyingPreset: applyingPreset,
+              onApplyPreset: onApplyPreset,
+              isTrashView: isTrashView,
+            ),
             const SizedBox(width: WpSpacing.xxs),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
             HistoryDetailAction(
@@ -937,6 +938,7 @@ class _DetailOverflowMenu extends StatelessWidget {
     required this.onDelete,
     required this.applyingPreset,
     required this.onApplyPreset,
+    required this.isTrashView,
   });
 
   final HistoryEntry entry;
@@ -948,6 +950,7 @@ class _DetailOverflowMenu extends StatelessWidget {
   final VoidCallback onDelete;
   final bool applyingPreset;
   final void Function(SmartModePreset preset)? onApplyPreset;
+  final bool isTrashView;
 
   @override
   Widget build(BuildContext context) {
@@ -1050,23 +1053,27 @@ class _DetailOverflowMenu extends StatelessWidget {
             label: l10n.historyExportAction,
           ),
         ),
-        PopupMenuItem(
-          value: 'archive',
-          child: HistoryPopupMenuRow(
-            icon: entry.archived
-                ? LucideIcons.archiveRestore
-                : LucideIcons.archive,
-            label: entry.archived ? l10n.historyUnarchive : l10n.historyArchive,
+        if (!isTrashView)
+          PopupMenuItem(
+            value: 'archive',
+            child: HistoryPopupMenuRow(
+              icon: entry.archived
+                  ? LucideIcons.archiveRestore
+                  : LucideIcons.archive,
+              label: entry.archived
+                  ? l10n.historyUnarchive
+                  : l10n.historyArchive,
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: HistoryPopupMenuRow(
-            icon: LucideIcons.trash2,
-            label: l10n.actionDelete,
-            isDestructive: true,
+        if (!isTrashView)
+          PopupMenuItem(
+            value: 'delete',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.trash2,
+              label: l10n.actionDelete,
+              isDestructive: true,
+            ),
           ),
-        ),
       ],
     );
   }
