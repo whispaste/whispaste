@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# ai-attribution-guard (mirror ~/.git-hooks/pre-commit) — KI-Autor/Committer blocken
+ident="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
+if printf '%s' "$ident" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|\[bot\]@'; then
+  echo "╳ Commit blockiert — KI-Agent als Autor/Committer: $ident" >&2
+  exit 1
+fi
 #
 # WhisPaste — pre-commit Hook (OSS-Allowlist-Guard + Quality Gates)
 #
