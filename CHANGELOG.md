@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.77
+
+### New Features
+
+- **Neue lokale Automation-API** (nur Loopback, HTTP): Diktat per externem Trigger starten/stoppen, letzten Verlaufseintrag abrufen, Textbausteine einfügen — inkl. Port-Fallback, konfigurierbarem Port, Status-Endpoint, Statusleisten-Anzeige und verlinkter Doku in den Einstellungen.
+- **Live-Transkript-Vorschau:** Das Overlay kann den Text jetzt schon während der Aufnahme live anzeigen, statt erst nach dem Stoppen.
+- **Textersetzungen lernen jetzt automatisch aus wiederholten Korrekturen** — per Sprachbefehl („korrektur: …"/„correct: …") oder durch manuelles Bearbeiten eines Verlaufseintrags. Zweimal dieselbe Korrektur, und WhisPaste schlägt sie in einer eigenen Review-Ansicht als automatische Ersetzung vor (inkl. Undo direkt auf dem Bestätigungs-Toast).
+- **Einstellungen:** neue Anchor-Chip-Leiste zur schnellen Abschnitts-Navigation sowie ein visueller Karten-Selector für die Overlay-Größe (statt Dropdown).
+- **Verlauf:** Einträge zeigen jetzt den Original-Transkript-Diff sowie Ziel-App und Zeichenanzahl als Metadaten.
+- **Smart Mode:** der Einführungs-Hinweis zeigt jetzt ein Vorher/Nachher-Beispiel.
+
+### Bug Fixes
+
+- **Tastatur-/Screenreader-Zugänglichkeit nachgerüstet** für Verlaufstitel/-transkript, Notizen-Header, den RAM-Warnbildschirm und die Markdown-Symbolleiste.
+- **CSV-Export:** eine Formel-Injection-Lücke bei führenden Leerzeichen geschlossen (betraf auch die Tags-Spalte).
+- **Verlauf/Notizen im Papierkorb:** Kopieren und Duplizieren sind jetzt konsistent erreichbar bzw. korrekt aus-/eingeblendet.
+- **Diverse Stabilitätsfixes der Automation-API** (Race Conditions bei Sync/Shutdown, hängender Fehlerzustand nach Deaktivieren, Server-Neustart-Rebind, MAS-Sandbox-Entitlement).
+- Der Erfolgston beim Diktieren bleibt jetzt stumm, wenn das automatische Einfügen bereits fehlgeschlagen ist.
+
 ## 1.2.76
 
 ### Bug Fixes
