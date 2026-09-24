@@ -23,6 +23,12 @@ if echo "$STATUS" | grep -qi "running at"; then
   exit 0
 fi
 
-trap 'kill 0' EXIT INT TERM
-astro dev &
-wait
+# Cold start: astro's own CLI self-daemonizes `astro dev` unconditionally as
+# of astro 7.2+ (it always returns immediately, background or not -- this
+# changed under us during the 7.1.3 -> 7.3.5 OSV/Dependabot security bump).
+# `astro dev &` would therefore return right away too, making any caller that
+# expects a blocking foreground process (Playwright's webServer, most
+# notably) see an "exited early" false failure. Start it, then always attach
+# via the same logs-follow path as the "already running" branch above.
+npx astro dev
+exec npx astro dev logs --follow

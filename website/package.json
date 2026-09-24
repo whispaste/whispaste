@@ -10,7 +10,7 @@
     "build:deploy": "npm run build:check && node scripts/push-indexnow.mjs",
     "check:brand": "node scripts/check-brand-vocabulary.mjs",
     "gen:llms": "node scripts/generate-llms-txt.mjs",
-    "preview": "astro preview",
+    "preview": "bash scripts/preview.sh",
     "test": "playwright test",
     "test:ci": "playwright test --reporter=github",
     "test:ui": "playwright test --ui",
