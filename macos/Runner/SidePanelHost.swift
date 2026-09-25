@@ -183,6 +183,15 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     super.init()
     channel.setMethodCallHandler(handle)
     rebuildSensors()
+    observeScreenChanges()
+  }
+
+  /// (Re-)subscribes to screen-parameter changes so `rebuildSensors()` keeps
+  /// tracking monitor layout. Called from `init` and again by `handle` when
+  /// re-arming after a toggle-off -- `teardown()` removes this observer
+  /// along with everything else, and nothing else re-adds it.
+  private func observeScreenChanges() {
+    guard screenObserver == nil else { return }
     screenObserver = NotificationCenter.default.addObserver(
       forName: NSApplication.didChangeScreenParametersNotification,
       object: nil,
@@ -223,6 +232,30 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   // MARK: - Public channel (main engine <-> this host)
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    if call.method == "destroy" {
+      // Toggle-off: teardown() must stay reversible -- it no longer clears
+      // channel's own handler (see its doc comment), so a later re-enable's
+      // fresh Dart-side controller keeps talking to this same `handle`.
+      // Before this fix, teardown() also cleared channel.setMethodCallHandler,
+      // permanently killing the panel for the rest of the process on any
+      // toggle-off + re-enable (same root cause as the Windows SidePanelHost
+      // fix -- see side_panel_host.cpp's TeardownActive).
+      teardown()
+      result(nil)
+      return
+    }
+
+    // A toggle-off (above) clears `sensors` along with everything else. A
+    // re-enable's Dart-side controller sends no explicit "create"/"init"
+    // call -- its first real call is what signals the feature is wanted
+    // again, so re-arm the edge sensors here instead of leaving them
+    // permanently gone. A no-op on the common path (sensors is already
+    // populated from init or a previous rebuild).
+    if sensors.isEmpty {
+      rebuildSensors()
+      observeScreenChanges()
+    }
+
     switch call.method {
     case "updateSnapshot":
       guard let args = call.arguments as? [String: Any] else {
@@ -230,10 +263,6 @@ class SidePanelHost: NSObject, NSWindowDelegate {
         return
       }
       handleUpdateSnapshot(args)
-      result(nil)
-
-    case "destroy":
-      teardown()
       result(nil)
 
     default:
@@ -795,6 +824,10 @@ class SidePanelHost: NSObject, NSWindowDelegate {
 
   // MARK: - Teardown
 
+  /// Tears down everything except `channel`'s own handler -- this must stay
+  /// reversible (see `handle`'s doc comment): the public channel keeps
+  /// listening so a later toggle-on's first real call can re-arm the
+  /// sensors and screen observer.
   private func teardown() {
     // Defensive: normally already nil by the time teardown runs (slideOut
     // already restored it), but this covers the panel being torn down
@@ -824,6 +857,5 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     latestSnapshotArgs = nil
     isShown = false
     currentScreenFrame = nil
-    channel.setMethodCallHandler(nil)
   }
 }

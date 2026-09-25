@@ -86,15 +86,22 @@ void SidePanelHost::Destroy() {
   if (destroyed_) return;
   destroyed_ = true;
 
-  CancelNativeClose();
-  if (g_active_host_for_close_timer == this) {
-    g_active_host_for_close_timer = nullptr;
-  }
+  TeardownActive();
 
   if (channel_) {
     channel_->SetMethodCallHandler(nullptr);
     channel_.reset();
   }
+
+  OutputDebugStringW(L"[SidePanel] Host destroyed\n");
+}
+
+void SidePanelHost::TeardownActive() {
+  CancelNativeClose();
+  if (g_active_host_for_close_timer == this) {
+    g_active_host_for_close_timer = nullptr;
+  }
+
   if (render_channel_) {
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
@@ -115,8 +122,6 @@ void SidePanelHost::Destroy() {
   is_shown_ = false;
   current_work_area_.reset();
   pending_rect_.reset();
-
-  OutputDebugStringW(L"[SidePanel] Host destroyed\n");
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -124,11 +129,14 @@ void SidePanelHost::Destroy() {
 // ══════════════════════════════════════════════════════════════════════
 
 void SidePanelHost::RebuildSensors() {
-  // Guards against a WM_DISPLAYCHANGE landing between a Dart-driven
-  // "destroy" (HandleMethodCall) and FlutterWindow::OnDestroy() resetting
-  // the owning unique_ptr -- without this, a destroyed host would silently
-  // resurrect a fresh set of native sensor windows whose events all no-op
-  // in SendEvent (destroyed_ check), leaking window handles for nothing.
+  // Guards against a WM_DISPLAYCHANGE landing during real process teardown,
+  // between Destroy() latching destroyed_ and FlutterWindow::OnDestroy()
+  // resetting the owning unique_ptr -- without this, a destroyed host would
+  // silently resurrect a fresh set of native sensor windows whose events all
+  // no-op in SendEvent (destroyed_ check), leaking window handles for
+  // nothing. A Dart-driven "destroy" toggle-off no longer latches
+  // destroyed_ (see TeardownActive/HandleMethodCall), so this guard does not
+  // apply to that path.
   if (destroyed_) return;
 
   // Destroying and recreating on every call (rather than diffing) mirrors
@@ -434,23 +442,36 @@ void SidePanelHost::HandleMethodCall(
 
   const auto& method = call.method_name();
 
+  if (method == "destroy") {
+    // Toggle-off: a *soft*, reversible teardown -- keeps channel_ alive and
+    // does NOT latch destroyed_, unlike the permanent Destroy() used for
+    // real process teardown (FlutterWindow::OnDestroy()/~SidePanelHost()).
+    // Mirrors SnippetPickerHost's "destroy" case, which keeps its
+    // host/public channel alive the same way for a later re-boot. Before
+    // this fix, this case called the permanent Destroy(), which also tore
+    // down channel_ -- a subsequent re-enable's fresh Dart-side controller
+    // then had no native handler left to talk to, permanently killing the
+    // panel for the rest of the process.
+    TeardownActive();
+    result->Success();
+    return;
+  }
+
+  // A toggle-off (above) clears sensors_ along with everything else. A
+  // re-enable's Dart-side controller sends no explicit "create"/"init" call
+  // -- its first real call is what signals the feature is wanted again, so
+  // re-arm the edge sensors here instead of leaving them permanently gone.
+  // A no-op on the common path (sensors_ is already populated from the
+  // constructor or a previous rebuild).
+  if (sensors_.empty()) {
+    RebuildSensors();
+  }
+
   if (method == "updateSnapshot") {
     const auto* args_map = std::get_if<EncodableMap>(call.arguments());
     if (args_map) {
       HandleUpdateSnapshot(*args_map);
     }
-    result->Success();
-    return;
-  }
-
-  if (method == "destroy") {
-    // Full teardown -- mirrors SidePanelHost.swift's `case "destroy":
-    // teardown()`. Unlike SnippetPickerHost's "destroy" (which keeps the
-    // host/public channel alive for a future re-boot), side_panel_host.h
-    // exposes only the one Destroy(), so this method call and the
-    // FlutterWindow::OnDestroy() teardown path both end up here -- safe,
-    // Destroy() is idempotent.
-    Destroy();
     result->Success();
     return;
   }

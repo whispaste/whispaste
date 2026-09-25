@@ -231,6 +231,78 @@ void main() {
             'nothing watches it anymore',
       );
     });
+
+    // Regression test for the "panel stays dead after toggling the setting
+    // back on" bug: `MethodChannelPlatformHost.dispose()` latches its
+    // `isDisposed` flag permanently and closes its event stream for good, so
+    // re-reading the *same* controller instance after a toggle-off would
+    // silently no-op every future `updateSnapshot()` call and never emit
+    // another event. `sidePanelControllerProvider` must therefore be
+    // `.autoDispose` (and `createController()` must `ref.watch`, not
+    // `ref.read`, it) so a toggle-on after a toggle-off gets a *fresh*,
+    // un-disposed controller instead of the dead one from before.
+    test('toggling the setting off then back on gets a fresh, un-disposed '
+        'controller instead of reusing the disposed one', () async {
+      final created = <_FakeSidePanelController>[];
+      final freshContainer = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) {
+            final c = _FakeSidePanelController();
+            created.add(c);
+            return c;
+          }),
+        ],
+      );
+      addTearDown(freshContainer.dispose);
+
+      // Toggle on.
+      final sub1 = freshContainer.listen(sidePanelServiceProvider, (_, _) {});
+      freshContainer.read(sidePanelServiceProvider.notifier);
+      expect(created, hasLength(1));
+      final first = created.single;
+
+      // Toggle off.
+      sub1.close();
+      await Future<void>.delayed(Duration.zero);
+      expect(first.disposed, isTrue);
+
+      // Toggle back on.
+      final sub2 = freshContainer.listen(sidePanelServiceProvider, (_, _) {});
+      final service = freshContainer.read(sidePanelServiceProvider.notifier);
+      addTearDown(sub2.close);
+
+      expect(
+        created,
+        hasLength(2),
+        reason:
+            'a fresh MethodChannelSidePanelController must be created on '
+            're-enable -- reusing the disposed instance from before the '
+            'toggle-off would mean every call silently no-ops',
+      );
+      final second = created.last;
+      expect(second.disposed, isFalse);
+
+      await service.open();
+      expect(
+        second.snapshots.any((s) => s.visible),
+        isTrue,
+        reason:
+            'open() must reach the new controller, proving the panel '
+            'actually works again after the toggle-on',
+      );
+      expect(
+        first.snapshots.any((s) => s.visible),
+        isFalse,
+        reason:
+            'the disposed pre-toggle controller must never be shown -- '
+            'onControllerReady sends it one invisible re-arm ping on '
+            'creation, but open() must never reach it',
+      );
+    });
   });
 
   group('SidePanelService row activation', () {

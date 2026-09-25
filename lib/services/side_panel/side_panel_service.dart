@@ -42,9 +42,15 @@ class SidePanelService
 
   bool _isOpen = false;
 
+  // `ref.watch`, not `ref.read`: `sidePanelControllerProvider` is
+  // `.autoDispose` specifically so a toggle-off + toggle-on gets a fresh,
+  // un-disposed controller instead of the permanently-latched one from
+  // before the toggle-off (see that provider's doc comment). `ref.read`
+  // would not register this Notifier as a listener, so the controller
+  // provider would have zero listeners and dispose again immediately.
   @override
   SidePanelController? createController() =>
-      ref.read(sidePanelControllerProvider);
+      ref.watch(sidePanelControllerProvider);
 
   @override
   Stream<SidePanelEvent> eventsFrom(SidePanelController controller) =>
@@ -52,12 +58,24 @@ class SidePanelService
 
   @override
   Future<void> disposeController(SidePanelController controller) {
+    _log.debug('disposeController called (native host receives "destroy")');
     _isOpen = false;
     return controller.dispose();
   }
 
   @override
   void onControllerReady(SidePanelController controller) {
+    // Kicks the native host into re-arming its edge-hover sensors right
+    // away. `SidePanelHost`/`TeardownActive()` (native, both platforms)
+    // clears its sensors on a toggle-off and only rebuilds them lazily on
+    // its *next* incoming channel call -- but nothing else calls in after a
+    // toggle-on until the user hovers, which itself needs the (still
+    // unarmed) sensors. `MethodChannel` has no "a new listener attached"
+    // signal, so this invisible, otherwise-harmless snapshot is the
+    // deliberate first call that breaks that deadlock.
+    unawaited(
+      controller.updateSnapshot(const SidePanelSnapshot(visible: false)),
+    );
     ref.listen(historyEntriesProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(snippetsProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(clipboardHistoryProvider, (_, _) => unawaited(_pushIfOpen()));
