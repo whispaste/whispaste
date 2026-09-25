@@ -131,10 +131,20 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'after_transcription',
   'auto_paste_blocklist',
   'auto_paste_delay',
+  // Local Automation API (`.scratch/local-automation-api/`) — the user's own
+  // choice to run/expose the loopback server and which port to request; the
+  // bearer token itself lives in secure storage and is never part of this
+  // map, so importing these two carries no secret.
+  'automation_api_custom_port',
+  'automation_api_enabled',
   'auto_stop_silence',
   'check_updates',
   'close_to_tray',
   'cloud_stt_provider',
+  // Vocab-learning-from-corrections global switch (`.scratch/
+  // vocab-learning-corrections/`) — a behavior preference like the other
+  // 'text_replacements_enabled'/'snippet_picker_trigger' toggles nearby.
+  'correction_learning_enabled',
   'custom_vocabulary',
   'dead_mic_timeout',
   'duration_warning_sound',
@@ -154,6 +164,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'locale',
   'max_record_duration',
   'overlay_mode',
+  // Ticket 11: opt-in live/partial-transcript overlay text — a display
+  // preference like the other 'overlay_*'/'show_*' keys around it.
+  'overlay_show_live_transcript',
   'overlay_size',
   'overlay_start_position',
   'overlay_style',
