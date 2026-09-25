@@ -50,6 +50,9 @@ class _FakeDesktopPasteController implements DesktopPasteController {
   }) async => const NativePasteResult(status: NativePasteStatus.postFailed);
 
   @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async => false;
+
+  @override
   Future<NativeCapabilityResult> checkCapability({
     bool promptIfMissing = false,
   }) async =>

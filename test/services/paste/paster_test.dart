@@ -31,6 +31,13 @@ class _FakeController implements DesktopPasteController {
   );
   String? bundleIdToReturn;
 
+  /// Defaults to `false` (unsupported), matching macOS/Linux and Windows
+  /// builds without the native exclusion — existing tests exercise the
+  /// `Clipboard.setData` fallback via the mocked platform channel below.
+  /// Tests for issue #146's native path opt in explicitly.
+  bool writeExcludingHistoryResult = false;
+  final List<String> writeExcludingHistoryCalls = <String>[];
+
   @override
   Future<bool> capturePasteTarget() async {
     captureCalls++;
@@ -56,6 +63,12 @@ class _FakeController implements DesktopPasteController {
     lastTypeDelay = delay;
     lastTypedText = text;
     return typeResult;
+  }
+
+  @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async {
+    writeExcludingHistoryCalls.add(text);
+    return writeExcludingHistoryResult;
   }
 
   @override
@@ -276,6 +289,72 @@ void main() {
       expect(cap.status, PasteCapabilityStatus.permissionMissing);
       expect(cap.canPrompt, isTrue);
     });
+  });
+
+  group('DesktopPaster.paste — clipboard-history exclusion (issue #146)', () {
+    test('falls back to Clipboard.setData for both the write and the restore '
+        'when the native exclusion is unsupported (returns false)', () async {
+      clipboardContent = 'previous clipboard value';
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.success);
+      // Both the transient write and the restore went through the
+      // (unsupported-on-this-platform) native path first...
+      expect(controller.writeExcludingHistoryCalls, [
+        'hello',
+        'previous clipboard value',
+      ]);
+      // ...then fell back to the plain channel, ending with the restored
+      // value back on the clipboard.
+      expect(clipboardContent, 'previous clipboard value');
+    });
+
+    test(
+      'never touches Clipboard.setData when the native exclusion succeeds, '
+      'and still restores the previous value through the native call',
+      () async {
+        clipboardContent = 'previous clipboard value';
+        final controller = _FakeController()
+          ..writeExcludingHistoryResult = true;
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.success);
+        expect(controller.writeExcludingHistoryCalls, [
+          'hello',
+          'previous clipboard value',
+        ]);
+        // The mocked Clipboard.setData handler was never hit, so the value
+        // it captured is still the pre-paste snapshot, not the transcript.
+        expect(clipboardContent, 'previous clipboard value');
+      },
+    );
+
+    test(
+      'restores an empty string when there was no prior clipboard text',
+      () async {
+        clipboardContent = null;
+        final controller = _FakeController();
+        final paster = DesktopPaster(controller);
+
+        await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(controller.writeExcludingHistoryCalls, ['hello', '']);
+      },
+    );
   });
 
   group('DesktopPaster.typeText', () {

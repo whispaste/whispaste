@@ -50,13 +50,23 @@ class AppClipboard {
   static SelfWriteSignal signal = const MethodChannelSelfWriteSignal();
   static SelfWriteSuppressionRegistry registry = SelfWriteSuppressionRegistry();
 
-  static Future<void> setText(String text) async {
+  /// Marks [text] as WhisPaste's own write so the app's internal clipboard-
+  /// history panel doesn't record it as a new entry, without performing the
+  /// actual OS clipboard write. Split out of [setText] for callers that
+  /// write the OS clipboard through a different path (e.g. a native,
+  /// history-excluded write — see `DesktopPaster`) but still need this same
+  /// self-write suppression applied.
+  static void markSelfWrite(String text) {
     final fingerprint = ClipboardFingerprint.ofText(text);
     registry.markSelfWrite(fingerprint);
     if (clipboardHistoryCapabilityFor(defaultTargetPlatform) ==
         ClipboardHistoryCapability.rollingHistory) {
       unawaited(signal.markSelfWrite(fingerprint));
     }
+  }
+
+  static Future<void> setText(String text) async {
+    markSelfWrite(text);
     await Clipboard.setData(ClipboardData(text: text));
   }
 }
