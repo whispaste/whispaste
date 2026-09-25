@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.78
+
+### New Features
+
+- **Automation-API:** `dictation/trigger` kann jetzt pro Aufruf ein eigenes Smart-Mode-Preset (`smart_mode_preset`) sowie eine eigene Stille-Timeout-Schwelle (`silence_timeout`, `0` deaktiviert Auto-Stop) angeben, statt immer die global konfigurierten Standardwerte zu verwenden.
+- **Einstellungen:** die Anchor-Chip-Leiste hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während man durch die Seite scrollt, statt nur beim Antippen kurz aufzuleuchten.
+- **Aufnahme:** eine echte „Abbrechen/Verwerfen"-Aktion für eine laufende Diktion — verwirft die Aufnahme, statt sie zu transkribieren.
+
+### Bug Fixes
+
+- **Windows:** Auto-Paste schreibt Transkripte jetzt über denselben Verlaufs-Ausschluss-Pfad in die Zwischenablage wie der übrige Verlauf — Diktate landeten zuvor trotzdem im Win+V-Zwischenablageverlauf, obwohl das dort deaktiviert war (#146).
+- **STT:** der `initial_prompt` wird jetzt korrekt auf whisper.cpp's tatsächliches Token-Budget gekürzt, statt es zu überschreiten.
+
 ## 1.2.77
 
 ### New Features
