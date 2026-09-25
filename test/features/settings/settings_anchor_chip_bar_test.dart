@@ -139,6 +139,70 @@ void main() {
     );
   });
 
+  group('Scroll-spy (Discussion #147)', () {
+    WpFilterChip chipFor(WidgetTester tester, String label) =>
+        tester.widget<WpFilterChip>(
+          find.descendant(
+            of: find.byType(SettingsAnchorChipBar),
+            matching: find.widgetWithText(WpFilterChip, label),
+          ),
+        );
+
+    testWidgets('the first section is active before any scrolling happens', (
+      tester,
+    ) async {
+      await _pumpSettings(tester);
+
+      expect(chipFor(tester, l10n.settingsInterface).isActive, isTrue);
+      expect(chipFor(tester, l10n.settingsPrivacy).isActive, isFalse);
+    });
+
+    testWidgets(
+      'freely dragging the scroll view — not just tapping a chip — moves '
+      'the active highlight, since this is a scroll-spy rather than a '
+      '"last tapped" flag',
+      (tester) async {
+        await _pumpSettings(tester);
+
+        expect(chipFor(tester, l10n.settingsInterface).isActive, isTrue);
+
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -3000),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          chipFor(tester, l10n.settingsInterface).isActive,
+          isFalse,
+          reason:
+              'a 3000px drag scrolls Interface well past the top — the bar '
+              'must stop crediting it as current without any chip tap',
+        );
+      },
+    );
+
+    testWidgets(
+      'tapping a chip lights that chip up once the scroll settles there — '
+      'the scroll-spy converges to the same section Scrollable.ensureVisible '
+      'lands on',
+      (tester) async {
+        await _pumpSettings(tester);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SettingsAnchorChipBar),
+            matching: find.widgetWithText(WpFilterChip, l10n.settingsPrivacy),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(chipFor(tester, l10n.settingsPrivacy).isActive, isTrue);
+        expect(chipFor(tester, l10n.settingsInterface).isActive, isFalse);
+      },
+    );
+  });
+
   group('Existing full-text search — regression with the chip bar present', () {
     /// Sets the search query via the provider (bypassing the field's debounce)
     /// and settles, exactly like the pre-existing live-filter suite.

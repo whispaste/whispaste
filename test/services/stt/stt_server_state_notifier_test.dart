@@ -66,6 +66,12 @@ class _FakeWhisperEngine implements WhisperEngine {
   Completer<void>? unloadGate;
   bool unloadCalled = false;
 
+  /// The `prompt` argument of the most recent [transcribe] call — lets
+  /// tests assert on what [SttServerStateNotifier] actually resolved/
+  /// truncated the effective prompt to, without needing to intercept the
+  /// engine seam any deeper.
+  String? lastPrompt;
+
   @override
   WhisperEngineStatus get status =>
       WhisperEngineStatus(isLoaded: _loaded, backend: backend);
@@ -85,6 +91,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     bool vadEnabled = false,
     bool reducedThreads = false,
   }) async {
+    lastPrompt = prompt;
     final delay = transcribeDelay;
     if (delay != null) {
       await Future<void>.delayed(delay);
@@ -98,6 +105,21 @@ class _FakeWhisperEngine implements WhisperEngine {
     final gate = unloadGate;
     if (gate != null) await gate.future;
     _loaded = false;
+  }
+}
+
+/// A [_FakeWhisperEngine] that also implements [PromptTokenCounter] with a
+/// deterministic one-token-per-word tokenizer (see
+/// `prompt_token_budget_test.dart`'s identical fake) — proves
+/// [SttServerStateNotifier] actually probes for and uses the capability to
+/// truncate an over-budget prompt (prompt-token-budget fix), rather than
+/// only exercising the plain-[WhisperEngine] fallback path.
+class _FakeWhisperEngineWithTokenCounter extends _FakeWhisperEngine
+    implements PromptTokenCounter {
+  @override
+  Future<int> countPromptTokens(String text) async {
+    if (text.isEmpty) return 0;
+    return text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
 }
 
@@ -612,4 +634,89 @@ void main() {
       );
     });
   });
+
+  group(
+    'SttServerStateNotifier — prompt token budget (silent-truncation fix)',
+    () {
+      late Directory tempDir;
+
+      setUp(() async {
+        tempDir = await _createFakeSttDir();
+      });
+
+      tearDown(() async {
+        paths.sttDirOverride = null;
+        await tempDir.delete(recursive: true);
+      });
+
+      test(
+        'a short customVocabulary is forwarded to the engine unchanged',
+        () async {
+          final engine = _FakeWhisperEngineWithTokenCounter();
+          final container = _makeContainer(
+            engine: engine,
+            settings: AppSettings.defaults.copyWith(
+              sttModel: 'whisper-small',
+              customVocabulary: 'WhisPaste Kubernetes',
+            ),
+          );
+          addTearDown(container.dispose);
+
+          await container.read(settingsProvider.future);
+          final notifier = container.read(localSttBundleProvider.notifier);
+          await notifier.ensureRunning();
+          await notifier.transcribeBytes(_validWavHeader());
+
+          expect(engine.lastPrompt, 'WhisPaste Kubernetes');
+        },
+      );
+
+      test('a customVocabulary over the real token budget is truncated to the '
+          'budget instead of being silently dropped inside whisper.cpp with '
+          'no signal anywhere in the app', () async {
+        final engine = _FakeWhisperEngineWithTokenCounter();
+        final words = List.generate(100, (i) => 'term$i');
+        final container = _makeContainer(
+          engine: engine,
+          settings: AppSettings.defaults.copyWith(
+            sttModel: 'whisper-small',
+            customVocabulary: words.join(' '),
+          ),
+        );
+        addTearDown(container.dispose);
+
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+        await notifier.transcribeBytes(_validWavHeader());
+
+        expect(engine.lastPrompt, words.take(63).join(' '));
+      });
+
+      test(
+        'without a PromptTokenCounter-capable engine, an over-budget '
+        'customVocabulary is still forwarded unmodified (conservative '
+        'fallback — no crash, no regression from pre-fix behaviour)',
+        () async {
+          final engine = _FakeWhisperEngine();
+          final vocab = List.generate(100, (i) => 'term$i').join(' ');
+          final container = _makeContainer(
+            engine: engine,
+            settings: AppSettings.defaults.copyWith(
+              sttModel: 'whisper-small',
+              customVocabulary: vocab,
+            ),
+          );
+          addTearDown(container.dispose);
+
+          await container.read(settingsProvider.future);
+          final notifier = container.read(localSttBundleProvider.notifier);
+          await notifier.ensureRunning();
+          await notifier.transcribeBytes(_validWavHeader());
+
+          expect(engine.lastPrompt, vocab);
+        },
+      );
+    },
+  );
 }

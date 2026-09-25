@@ -849,6 +849,16 @@ class L10nEn extends L10n {
       'e.g. WhisPaste, Kubernetes, Dr. Mueller';
 
   @override
+  String settingsCustomVocabularyBudgetCounter(int count, int budget) {
+    return '~$count / $budget tokens';
+  }
+
+  @override
+  String settingsCustomVocabularyBudgetWarning(int budget) {
+    return 'Long entries may be shortened automatically — only roughly the first $budget tokens are used.';
+  }
+
+  @override
   String get settingsPunctuationPriming => 'Punctuation priming';
 
   @override

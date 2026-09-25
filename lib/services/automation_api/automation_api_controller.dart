@@ -102,6 +102,8 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       Ref ref, {
       bool wait,
       String? language,
+      String? smartModePreset,
+      double? silenceTimeout,
     })?
     triggerDictation,
   }) : _server = server ?? AutomationApiServer(),
@@ -113,6 +115,8 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     Ref ref, {
     bool wait,
     String? language,
+    String? smartModePreset,
+    double? silenceTimeout,
   })
   _triggerDictation;
 
@@ -124,6 +128,8 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     Ref ref, {
     bool wait = false,
     String? language,
+    String? smartModePreset,
+    double? silenceTimeout,
   }) => Future.error(
     StateError(
       'AutomationApiController.triggerDictation was never configured — '
@@ -194,8 +200,15 @@ class AutomationApiController extends Notifier<AutomationApiState> {
 
     final router = buildAutomationApiRouter([
       dictationTriggerRoutes(
-        triggerDictation: ({wait = false, language}) =>
-            _triggerDictation(ref, wait: wait, language: language),
+        triggerDictation:
+            ({wait = false, language, smartModePreset, silenceTimeout}) =>
+                _triggerDictation(
+                  ref,
+                  wait: wait,
+                  language: language,
+                  smartModePreset: smartModePreset,
+                  silenceTimeout: silenceTimeout,
+                ),
       ),
       dictationStatusRoutes(readStatus: _readDictationStatus),
       historyLatestRoutes(fetchLatestEntry: _fetchLatestHistoryEntry),

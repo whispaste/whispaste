@@ -15,7 +15,8 @@ import '../core/navigation/page_state.dart'
     show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
-import '../core/recording/recording_state.dart' show RecordingTarget;
+import '../core/recording/recording_state.dart'
+    show RecordingPhase, RecordingTarget, recordingPhaseProvider;
 import '../services/autostart_service.dart';
 import '../services/clipboard_history/clipboard_history_monitor_service.dart';
 import '../services/floating_button/floating_button_service.dart';
@@ -79,6 +80,44 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           .advanceField();
     }
     return ref.read(recordingOrchestratorProvider.notifier).stopRecording();
+  }
+
+  /// Registers/unregisters the system-wide cancel-dictation Escape key (issue
+  /// #145) as the recording phase crosses in/out of
+  /// recording/transcribing/refining. Lives here — not in
+  /// `FloatingOverlayService` — because Escape must cancel a dictation
+  /// regardless of whether the floating overlay is even enabled
+  /// (`OverlayMode.off`): the key is the source of truth, the overlay is
+  /// just one of its visual surfaces.
+  ///
+  /// Skipped entirely while an interactive-snippet sequence is active — that
+  /// sequence's own Escape registration (`registerInteractiveSnippetKeys`)
+  /// already owns the key for its "cancel sequence" meaning, which must not
+  /// be overridden or raced by this one.
+  static bool _isCancelableDictationPhase(RecordingPhase phase) =>
+      phase == RecordingPhase.recording ||
+      phase == RecordingPhase.transcribing ||
+      phase == RecordingPhase.refining;
+
+  void _syncCancelDictationEscapeKey(RecordingPhase prev, RecordingPhase next) {
+    if (_isInteractiveSnippetActive) return;
+    final wasActive = _isCancelableDictationPhase(prev);
+    final isActive = _isCancelableDictationPhase(next);
+    if (isActive && !wasActive) {
+      unawaited(
+        ref
+            .read(hotkeyServiceProvider.notifier)
+            .registerCancelDictationKey(
+              onCancel: () => ref
+                  .read(recordingOrchestratorProvider.notifier)
+                  .cancelRecording(),
+            ),
+      );
+    } else if (!isActive && wasActive) {
+      unawaited(
+        ref.read(hotkeyServiceProvider.notifier).unregisterCancelDictationKey(),
+      );
+    }
   }
 
   @override
@@ -228,6 +267,10 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     } else {
       ref.watch(recordingOrchestratorProvider);
     }
+
+    ref.listen<RecordingPhase>(recordingPhaseProvider, (prev, next) {
+      _syncCancelDictationEscapeKey(prev ?? RecordingPhase.idle, next);
+    });
 
     // ── Keep the keepAlive service providers alive for the app lifetime ──
     ref.watch(trayServiceProvider);

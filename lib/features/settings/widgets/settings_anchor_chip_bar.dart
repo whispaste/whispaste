@@ -15,6 +15,13 @@
 /// exact filtered [sectionKeys] list [SettingsPage] already computes for the
 /// search/platform/onboarding gating: it renders no chip of its own accord
 /// and disappears along with a section the moment search hides it.
+///
+/// [activeSectionKey] is a scroll-spy highlight (Discussion #147): it names
+/// whichever section is currently at the top of the scroll view, computed by
+/// [SettingsPage] from its own scroll position. Tapping a chip needs no
+/// separate "just tapped" state of its own — [Scrollable.ensureVisible]'s
+/// animation fires scroll notifications as it runs, so the chip bar
+/// naturally lights up the target chip once the scroll settles there.
 library;
 
 import 'package:flutter/material.dart';
@@ -25,11 +32,12 @@ import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../search/settings_search_provider.dart';
 
-class SettingsAnchorChipBar extends ConsumerStatefulWidget {
+class SettingsAnchorChipBar extends ConsumerWidget {
   const SettingsAnchorChipBar({
     super.key,
     required this.sectionKeys,
     required this.locale,
+    this.activeSectionKey,
   });
 
   /// Section keys currently visible on the page, in display order —
@@ -41,32 +49,22 @@ class SettingsAnchorChipBar extends ConsumerStatefulWidget {
   /// [kSettingsSearchTable] — the same table backing the search dropdown.
   final String locale;
 
-  @override
-  ConsumerState<SettingsAnchorChipBar> createState() =>
-      _SettingsAnchorChipBarState();
-}
+  /// The section currently at the top of the scroll view, or `null` before
+  /// [SettingsPage] has measured it. Drives which chip is lit.
+  final String? activeSectionKey;
 
-class _SettingsAnchorChipBarState extends ConsumerState<SettingsAnchorChipBar> {
-  // Purely cosmetic "last tapped" feedback, not a scroll-spy: keeping this in
-  // sync with free scrolling would need a listener on the shell's own scroll
-  // controller for a behaviour the ticket never asks for. A chip that lights
-  // up on tap and stays lit until another chip is tapped is the smaller,
-  // honest surface — it never claims to track a position it does not watch.
-  String? _lastTapped;
-
-  void _jumpTo(String sectionKey) {
-    setState(() => _lastTapped = sectionKey);
+  void _jumpTo(WidgetRef ref, String sectionKey) {
     // Same two-provider handshake as SettingsSearchField._selectEntry.
     ref.read(settingsScrollTargetProvider.notifier).set(sectionKey);
     ref.read(settingsHighlightTargetProvider.notifier).set(sectionKey);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final visible = widget.sectionKeys.toSet();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = sectionKeys.toSet();
     // Iterate the search table's own order (matches SettingsPage's section
-    // order) rather than widget.sectionKeys' order, so chip order stays
-    // stable even if a caller ever passes it unsorted.
+    // order) rather than sectionKeys' order, so chip order stays stable
+    // even if a caller ever passes it unsorted.
     final entries = kSettingsSearchTable.where(
       (e) => visible.contains(e.sectionKey),
     );
@@ -81,9 +79,9 @@ class _SettingsAnchorChipBarState extends ConsumerState<SettingsAnchorChipBar> {
       children: [
         for (final entry in entries)
           WpFilterChip(
-            label: entry.title(widget.locale),
-            isActive: _lastTapped == entry.sectionKey,
-            onTap: () => _jumpTo(entry.sectionKey),
+            label: entry.title(locale),
+            isActive: activeSectionKey == entry.sectionKey,
+            onTap: () => _jumpTo(ref, entry.sectionKey),
           ),
       ],
     );

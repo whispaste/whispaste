@@ -515,3 +515,26 @@ final sttLanguageOverrideProvider =
     NotifierProvider<SttLanguageOverrideNotifier, String?>(
       SttLanguageOverrideNotifier.new,
     );
+
+/// An auto-stop-on-silence timeout (in seconds) forced onto the active
+/// recording, overriding `settings.recordingSafety.autoStopSilence` for that
+/// recording only — used by the Automation API's `POST /v1/dictation/trigger`
+/// `silence_timeout` field so a single triggered dictation can lengthen,
+/// shorten, or (`0`) disable silence auto-stop without touching the
+/// persisted Settings value. `null` means "no override — use the configured
+/// timeout as usual", which is what every non-API caller (main hotkey,
+/// floating button) passes.
+///
+/// Same "next start always overwrites, never reset at exit" convention as
+/// [RecordingTargetNotifier] — see its doc comment for the rationale.
+class AutoStopSilenceOverrideNotifier extends Notifier<double?> {
+  @override
+  double? build() => null;
+
+  void set(double? seconds) => state = seconds;
+}
+
+final autoStopSilenceOverrideProvider =
+    NotifierProvider<AutoStopSilenceOverrideNotifier, double?>(
+      AutoStopSilenceOverrideNotifier.new,
+    );

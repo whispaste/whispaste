@@ -139,9 +139,13 @@ class DesktopPaster implements Paster {
       );
     }
 
-    // 3. Write transcript to clipboard.
+    // 3. Write transcript to clipboard — history-excluded on platforms that
+    // support it (Windows), so this transient write never becomes a new
+    // Win+V/cloud-clipboard entry (issue #146).
     try {
-      await AppClipboard.setText(text).timeout(const Duration(seconds: 5));
+      await _writeTransientClipboardText(
+        text,
+      ).timeout(const Duration(seconds: 5));
     } on Exception {
       return PasteOutcome.failed;
     }
@@ -198,9 +202,12 @@ class DesktopPaster implements Paster {
     final restoreMs = math.max(500, delayMs + 350);
     await Future<void>.delayed(Duration(milliseconds: restoreMs));
 
-    // 6. Restore previous clipboard contents.
+    // 6. Restore previous clipboard contents — same history-exclusion as the
+    // transcript write above: restoring is WhisPaste's own housekeeping, not
+    // a fresh copy the user made, so it shouldn't surface as a new history
+    // entry either (issue #146).
     try {
-      await AppClipboard.setText(
+      await _writeTransientClipboardText(
         previousClipboard ?? '',
       ).timeout(const Duration(seconds: 5));
     } on Exception catch (e) {
@@ -209,6 +216,21 @@ class DesktopPaster implements Paster {
     }
 
     return PasteOutcome.success;
+  }
+
+  /// Writes [text] to the clipboard for a transient purpose (the paste
+  /// source, or restoring the user's prior clipboard right after) rather
+  /// than a real user-facing copy action. Always marks WhisPaste's own
+  /// self-write-suppression fingerprint first (so the app's internal
+  /// clipboard-history panel doesn't record it), then prefers the native,
+  /// OS-history-excluded write where the platform supports one — falling
+  /// back to the plain clipboard write everywhere else.
+  Future<void> _writeTransientClipboardText(String text) async {
+    AppClipboard.markSelfWrite(text);
+    final excluded = await _controller.writeClipboardTextExcludingHistory(text);
+    if (!excluded) {
+      await Clipboard.setData(ClipboardData(text: text));
+    }
   }
 
   @override

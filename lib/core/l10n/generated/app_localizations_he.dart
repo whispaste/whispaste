@@ -837,6 +837,16 @@ class L10nHe extends L10n {
       'לדוגמה: WhisPaste, Kubernetes, ד\"ר כהן';
 
   @override
+  String settingsCustomVocabularyBudgetCounter(int count, int budget) {
+    return '~$count / $budget טוקנים';
+  }
+
+  @override
+  String settingsCustomVocabularyBudgetWarning(int budget) {
+    return 'ערכים ארוכים עשויים להתקצר אוטומטית — רק כ-$budget הטוקנים הראשונים בשימוש.';
+  }
+
+  @override
   String get settingsPunctuationPriming => 'פריימינג פיסוק';
 
   @override

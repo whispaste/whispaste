@@ -174,6 +174,16 @@ abstract class DesktopPasteController {
   /// callers can distinguish the same silent failure modes.
   Future<NativePasteResult> typeText(String text, {required Duration delay});
 
+  /// Writes [text] to the OS clipboard using the platform's clipboard-
+  /// history / cloud-clipboard opt-out formats where available (Windows'
+  /// `ExcludeClipboardContentFromMonitorProcessing` etc.), so a transient
+  /// write never surfaces as a new entry in e.g. Windows' Win+V history.
+  ///
+  /// Returns `false` on platforms with no such mechanism (macOS, Linux) or
+  /// on any channel failure — callers then fall back to an ordinary
+  /// clipboard write that the OS may record in its own history.
+  Future<bool> writeClipboardTextExcludingHistory(String text);
+
   /// Probes whether the OS would allow Auto-Paste right now — without
   /// actually pasting. When [promptIfMissing] is `true`, triggers the
   /// OS-native permission dialog if applicable (macOS Accessibility).

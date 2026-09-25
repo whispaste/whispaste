@@ -123,6 +123,8 @@ class _FakeRepairController implements DesktopPasteController {
     required Duration delay,
   }) async => const NativePasteResult(status: NativePasteStatus.unknown);
   @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async => false;
+  @override
   Future<void> dispose() async {}
 }
 

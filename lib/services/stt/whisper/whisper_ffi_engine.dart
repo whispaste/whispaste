@@ -150,7 +150,11 @@ class WhisperSegment {
 /// because this slice does not wire the engine into any UI path. Isolate
 /// offload is deferred to Issue 03.
 class WhisperFfiEngine
-    implements WhisperEngine, PartialTranscriptSource, LivePreviewEngine {
+    implements
+        WhisperEngine,
+        PartialTranscriptSource,
+        LivePreviewEngine,
+        PromptTokenCounter {
   WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
     : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
       _backend = backend ?? WhisperBackend.cpu,
@@ -1318,6 +1322,40 @@ class WhisperFfiEngine
       Platform.numberOfProcessors,
       reducedThreads: reducedThreads,
     );
+  }
+
+  // ── PromptTokenCounter (prompt-token-budget fix) ────────────────────────
+
+  /// Exact whisper.cpp token count of [text] via `whisper_tokenize` in
+  /// count-only mode (`tokens: nullptr, n_max_tokens: 0`), which returns the
+  /// negated count instead of writing into a buffer — see
+  /// [WhisperBindings.whisper_tokenize]'s doc comment. Synchronous native
+  /// call wrapped in `Future` only to satisfy [PromptTokenCounter]'s async
+  /// contract (kept async so a future non-FFI engine, or an isolate-proxied
+  /// one, can implement it without a signature change).
+  @override
+  Future<int> countPromptTokens(String text) async {
+    final ctx = _ctx;
+    final bindings = _bindings;
+    if (ctx == null || bindings == null) {
+      throw StateError('countPromptTokens called before load()');
+    }
+    if (text.isEmpty) return 0;
+    final textC = text.toNativeUtf8();
+    try {
+      final result = bindings.whisper_tokenize(
+        ctx,
+        textC.cast<ffi.Char>(),
+        ffi.nullptr,
+        0,
+      );
+      // Negative in count-only mode (`-actualTokenCount`); a non-negative
+      // result here would mean the native call somehow wrote into a
+      // zero-capacity buffer, which whisper.cpp's own contract rules out.
+      return result < 0 ? -result : result;
+    } finally {
+      malloc.free(textC);
+    }
   }
 }
 

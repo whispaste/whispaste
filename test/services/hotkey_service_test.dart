@@ -1601,4 +1601,75 @@ void main() {
       expect(advanceCalls, 2);
     });
   });
+
+  group('HotkeyService — cancel-dictation Escape key (issue #145)', () {
+    test('registers bare Escape, keyDown dispatches onCancel', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      var cancelCalls = 0;
+
+      await service.registerCancelDictationKey(onCancel: () => cancelCalls++);
+
+      final escape = registrar.registered.where(
+        (k) => k.logicalKey == LogicalKeyboardKey.escape,
+      );
+      expect(escape, hasLength(1));
+      expect(escape.single.modifiers ?? const <HotKeyModifier>[], isEmpty);
+
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.escape.keyId]!(
+        escape.single,
+      );
+      expect(cancelCalls, 1);
+    });
+
+    test('unregister removes the key and a stale handler dispatches '
+        'nothing', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      var cancelCalls = 0;
+
+      await service.registerCancelDictationKey(onCancel: () => cancelCalls++);
+      await service.unregisterCancelDictationKey();
+
+      expect(
+        registrar.registered.where(
+          (k) => k.logicalKey == LogicalKeyboardKey.escape,
+        ),
+        isEmpty,
+      );
+
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.escape.keyId]!(
+        HotKey(key: LogicalKeyboardKey.escape),
+      );
+      expect(cancelCalls, 0);
+    });
+
+    test('its own epoch is independent from the interactive-snippet '
+        'Escape — unregistering one leaves the other alone', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      var snippetCancelCalls = 0;
+      var dictationCancelCalls = 0;
+
+      await service.registerInteractiveSnippetKeys(
+        onAdvance: () {},
+        onCancel: () => snippetCancelCalls++,
+      );
+      await service.unregisterInteractiveSnippetKeys();
+
+      await service.registerCancelDictationKey(
+        onCancel: () => dictationCancelCalls++,
+      );
+
+      final escape = registrar.registered.where(
+        (k) => k.logicalKey == LogicalKeyboardKey.escape,
+      );
+      expect(escape, hasLength(1));
+      registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.escape.keyId]!(
+        escape.single,
+      );
+      expect(dictationCancelCalls, 1);
+      expect(snippetCancelCalls, 0);
+    });
+  });
 }

@@ -105,6 +105,16 @@ class RecordingOrchestrator extends Notifier<void> {
   /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
   bool _stopInFlight = false;
 
+  /// Set by [cancelRecording] when it is called during
+  /// `transcribing`/`refining` — the in-flight pipeline launched by
+  /// [stopRecording] keeps running (there is no cancellation token for the
+  /// underlying transcriber call), but [_runTranscriptionPipeline] and
+  /// [_finalizeTranscription] check this flag at their next checkpoint and
+  /// bail out before the result can be saved to history, copied, or pasted.
+  /// Reset at the start of every [startRecording] call so a stale flag from
+  /// an earlier session can never suppress a fresh one.
+  bool _cancelRequested = false;
+
   /// Set by [_reportPasteFailure] when it plays the paste-failure error
   /// tone for the current pipeline run, then read (and reset) right before
   /// the `RecordingIntent.complete` transition — so the resulting
@@ -258,10 +268,71 @@ class RecordingOrchestrator extends Notifier<void> {
   /// finished text — see [RecordingTarget]. Defaults to today's clipboard/
   /// paste behaviour, so every existing caller (tray, shelf button, floating
   /// button, main hotkey) is unaffected.
+  /// Cancels the active dictation and discards it — the "stop and throw
+  /// away" counterpart to [toggleRecording]'s "stop and transcribe".
+  ///
+  /// From [RecordingPhase.recording]: stops audio capture immediately and
+  /// deletes the captured WAV without ever entering the transcription
+  /// pipeline, so a cloud provider never receives audio that was cancelled
+  /// before transcription began. Returns straight to idle.
+  ///
+  /// From [RecordingPhase.transcribing]/[RecordingPhase.refining]: the
+  /// pipeline [stopRecording] already launched keeps running in the
+  /// background (there is no cancellation token for the underlying
+  /// transcriber call), but [_cancelRequested] makes
+  /// [_runTranscriptionPipeline]/[_finalizeTranscription] discard the
+  /// result at their next checkpoint instead of saving it to history,
+  /// copying it, or pasting it. The UI itself returns to idle immediately.
+  ///
+  /// Ignored (no-op) from `idle`, `done`, or `error` — there is nothing
+  /// in flight to discard.
+  Future<void> cancelRecording() async {
+    final phase = ref.read(recordingProvider).phase;
+    switch (phase) {
+      case RecordingPhase.recording:
+        await _cancelDuringRecording();
+      case RecordingPhase.transcribing:
+      case RecordingPhase.refining:
+        _cancelRequested = true;
+        _log.info('Cancel requested during $phase — result will be discarded');
+        _stateMachine.transition(RecordingIntent.reset);
+      case RecordingPhase.idle:
+      case RecordingPhase.done:
+      case RecordingPhase.error:
+        _log.debug('cancelRecording ignored — phase=$phase');
+    }
+  }
+
+  /// Stops audio capture and discards the WAV without transcribing it.
+  /// Reuses `_stopInFlight` so it cannot race a concurrent
+  /// [toggleRecording]/[stopRecording] call.
+  Future<void> _cancelDuringRecording() async {
+    if (_stopInFlight) {
+      _log.debug('cancelRecording ignored — stop already in flight');
+      return;
+    }
+    _stopInFlight = true;
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
+    try {
+      _cancelAmplitude();
+      final audioNotifier = ref.read(audioServiceProvider.notifier);
+      final path = await audioNotifier.stopRecording();
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      _stateMachine.transition(RecordingIntent.reset);
+      _log.info('[$sid] Recording cancelled by user — audio discarded');
+      if (path != null) {
+        await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+      }
+    } finally {
+      _stopInFlight = false;
+    }
+  }
+
   Future<void> toggleRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {
@@ -285,6 +356,7 @@ class RecordingOrchestrator extends Notifier<void> {
       target: target,
       forcedSmartModePreset: forcedSmartModePreset,
       languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
     );
   }
 
@@ -300,10 +372,17 @@ class RecordingOrchestrator extends Notifier<void> {
   /// recording only — used by the Automation API's `dictation/trigger`
   /// `language` field. `null` (the default) means "use the configured
   /// language as usual".
+  ///
+  /// [silenceTimeoutOverride] overrides
+  /// `settings.recordingSafety.autoStopSilence` for this recording only —
+  /// used by the Automation API's `dictation/trigger` `silence_timeout`
+  /// field. `null` (the default) means "use the configured timeout as
+  /// usual".
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
     // latency KPI. Peeked (not consumed) synchronously, before any `await`
@@ -311,6 +390,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
     // reset separately) is unaffected.
     _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
+    _cancelRequested = false;
 
     // Same "next start always overwrites, never reset at exit" pattern as
     // the latency t₀ above: unconditional, before any await, so a target
@@ -321,6 +401,9 @@ class RecordingOrchestrator extends Notifier<void> {
         .read(smartModeHotkeyOverridePresetProvider.notifier)
         .set(forcedSmartModePreset);
     ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
+    ref
+        .read(autoStopSilenceOverrideProvider.notifier)
+        .set(silenceTimeoutOverride);
 
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
@@ -434,55 +517,75 @@ class RecordingOrchestrator extends Notifier<void> {
       // cancels any stale live-preview PCM subscription from a previous
       // session before the fresh one below is created).
       _cancelAmplitude();
-
-      if (livePreviewWanted) {
-        final pcmStream = audioNotifier.pcmChunkStream;
-        if (pcmStream != null) {
-          final sttNotifier = ref.read(localSttBundleProvider.notifier);
-          _livePreviewPcmSub = pcmStream.listen(
-            sttNotifier.feedLivePreviewPcm,
-            onError: (Object e) {
-              _log.warning('[$sid] Live-preview PCM stream error: $e');
-            },
-          );
-        }
-      }
-
-      final rawStream = audioNotifier.amplitudeStream;
-      if (rawStream != null) {
-        // Level-metering subscription (always active).
-        // updateAudioLevel is NOT a phase transition, so it calls the
-        // notifier directly (it only mutates audioLevel, not RecordingPhase).
-        final notifier = ref.read(recordingProvider.notifier);
-        _amplitudeSub = rawStream.listen(
-          (level) => notifier.updateAudioLevel(level),
-          onError: (Object e) {
-            _log.warning('[$sid] Amplitude stream error: $e');
-          },
-        );
-
-        // Safety guard subscription — routes SafetyEvents to handlers.
-        final guardConfig = SafetyGuardConfig(
-          deadMicTimeout: settings.recordingSafety.deadMicTimeout,
-          autoStopSilence: settings.recordingSafety.autoStopSilence,
-          maxDurationSeconds: settings.behavior.maxRecordDuration,
-          samplesPerSecond: amplitudeSamplesPerSecond,
-        );
-        _guardSub = rawStream
-            .transform(SafetyGuard(config: guardConfig))
-            .listen(
-              _routeGuardEvent,
-              onError: (Object e) {
-                _log.warning('[$sid] Safety guard stream error: $e');
-              },
-            );
-      }
+      _subscribeToAmplitudeAndGuards(
+        audioNotifier: audioNotifier,
+        settings: settings,
+        livePreviewWanted: livePreviewWanted,
+        sid: sid,
+      );
     } on Exception catch (e) {
       ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
     } finally {
       _startInFlight = false;
     }
+  }
+
+  /// Wires up the level-metering and safety-guard amplitude subscriptions
+  /// for a just-started recording, plus the live-preview PCM subscription
+  /// when [livePreviewWanted]. Split out of [startRecording] purely to keep
+  /// that method's branching within the complexity ratchet — no behaviour
+  /// change from when this was inline there.
+  void _subscribeToAmplitudeAndGuards({
+    required AudioServiceNotifier audioNotifier,
+    required AppSettings settings,
+    required bool livePreviewWanted,
+    required String sid,
+  }) {
+    if (livePreviewWanted) {
+      final pcmStream = audioNotifier.pcmChunkStream;
+      if (pcmStream != null) {
+        final sttNotifier = ref.read(localSttBundleProvider.notifier);
+        _livePreviewPcmSub = pcmStream.listen(
+          sttNotifier.feedLivePreviewPcm,
+          onError: (Object e) {
+            _log.warning('[$sid] Live-preview PCM stream error: $e');
+          },
+        );
+      }
+    }
+
+    final rawStream = audioNotifier.amplitudeStream;
+    if (rawStream == null) return;
+
+    // Level-metering subscription (always active).
+    // updateAudioLevel is NOT a phase transition, so it calls the notifier
+    // directly (it only mutates audioLevel, not RecordingPhase).
+    final notifier = ref.read(recordingProvider.notifier);
+    _amplitudeSub = rawStream.listen(
+      (level) => notifier.updateAudioLevel(level),
+      onError: (Object e) {
+        _log.warning('[$sid] Amplitude stream error: $e');
+      },
+    );
+
+    // Safety guard subscription — routes SafetyEvents to handlers.
+    final guardConfig = SafetyGuardConfig(
+      deadMicTimeout: settings.recordingSafety.deadMicTimeout,
+      autoStopSilence:
+          ref.read(autoStopSilenceOverrideProvider) ??
+          settings.recordingSafety.autoStopSilence,
+      maxDurationSeconds: settings.behavior.maxRecordDuration,
+      samplesPerSecond: amplitudeSamplesPerSecond,
+    );
+    _guardSub = rawStream
+        .transform(SafetyGuard(config: guardConfig))
+        .listen(
+          _routeGuardEvent,
+          onError: (Object e) {
+            _log.warning('[$sid] Safety guard stream error: $e');
+          },
+        );
   }
 
   /// Stops recording and runs the transcription pipeline.
@@ -713,6 +816,13 @@ class RecordingOrchestrator extends Notifier<void> {
     );
     if (sttBundle == null) return false;
 
+    if (_cancelRequested) {
+      _log.info('[$sid] Cancelled during STT prepare — skipping transcribe');
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      timing.outcome = 'cancelled';
+      return false;
+    }
+
     // ── Step 3: Transcription (60 s base + 0.8× audio duration) ────────
     // Calculate audio duration for RTF logging
     // (16 kHz, mono, 16-bit + 44-byte header).
@@ -917,6 +1027,7 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.warning('[$sid] Transcription failed: $error');
         return false;
       case Ok(:final value):
+        if (_bailIfTranscriptionCancelled(sid, timing)) return false;
         return _finalizeTranscription(
           sid: sid,
           transcript: value,
@@ -927,6 +1038,21 @@ class RecordingOrchestrator extends Notifier<void> {
           timing: timing,
         );
     }
+  }
+
+  /// Cancelled while the transcribe call was in flight — the state machine
+  /// already returned to idle in [cancelRecording]. Discard the result:
+  /// never even enter [_finalizeTranscription], so it never saves to
+  /// history or copies/pastes it. Checked in [_handleTranscribeResult]'s
+  /// `Ok` branch rather than inside `_finalizeTranscription` itself, purely
+  /// to keep that already-long function's cyclomatic complexity from
+  /// creeping past the ratchet's threshold.
+  bool _bailIfTranscriptionCancelled(String sid, _PipelineTiming timing) {
+    if (!_cancelRequested) return false;
+    _log.info('[$sid] Cancelled after transcribe — discarding result');
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
+    timing.outcome = 'cancelled';
+    return true;
   }
 
   /// Runs Steps 4–5 after a successful transcription: whitespace cleanup,

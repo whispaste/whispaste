@@ -156,6 +156,11 @@ class FakeSttService extends SttServerStateNotifier {
   bool throwTimeoutException = false;
   bool transcribeThrows = false;
 
+  /// When set, [transcribeBytes] awaits this instead of returning
+  /// immediately — lets a test hold the pipeline in [RecordingPhase
+  /// .transcribing] long enough to call `cancelRecording()` mid-flight.
+  Completer<String>? transcribeGate;
+
   /// Language the orchestrator handed to the last [transcribeBytes] call.
   String? lastLanguage;
 
@@ -186,6 +191,10 @@ class FakeSttService extends SttServerStateNotifier {
     lastLanguage = language;
     if (transcribeThrows) {
       throw Exception('Transcription failed');
+    }
+    final gate = transcribeGate;
+    if (gate != null) {
+      return gate.future;
     }
     return transcriptToReturn;
   }
@@ -305,6 +314,9 @@ class FakeDesktopPasteController extends DesktopPasteController {
         ? const NativePasteResult(status: NativePasteStatus.success)
         : const NativePasteResult(status: NativePasteStatus.postFailed);
   }
+
+  @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async => false;
 
   @override
   Future<NativeCapabilityResult> checkCapability({
@@ -808,6 +820,63 @@ void main() {
       await orch.stopRecording();
 
       expect(fakeStt.lastLanguage, 'de');
+    });
+
+    test(
+      'a per-call silenceTimeoutOverride (Automation API `dictation/trigger` '
+      '`silence_timeout` field) reaches the safety-guard config',
+      () async {
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            recordingSafety: RecordingSafetySettings(autoStopSilence: 5),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await orch.startRecording(silenceTimeoutOverride: 1.5);
+
+        expect(
+          container.read(autoStopSilenceOverrideProvider),
+          1.5,
+          reason:
+              'startRecording must publish the override unconditionally '
+              'before any await, the same way languageOverride does, since '
+              'guardConfig reads this provider once recording starts',
+        );
+
+        await orch.stopRecording();
+      },
+    );
+
+    test('no silenceTimeoutOverride leaves the override provider unset, so '
+        'guardConfig falls back to the configured settings value exactly as '
+        'before this field existed', () async {
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          recordingSafety: RecordingSafetySettings(autoStopSilence: 5),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      await orch.startRecording();
+
+      expect(container.read(autoStopSilenceOverrideProvider), isNull);
+
+      await orch.stopRecording();
     });
   });
 
@@ -1782,6 +1851,65 @@ void main() {
 
       final entries = await db.allEntries();
       expect(entries, isEmpty);
+    });
+  });
+
+  // =========================================================================
+  // True cancel/discard (issue #145) — cancelRecording() must never
+  // transcribe, save, or paste the discarded session.
+  // =========================================================================
+
+  group('cancelRecording (issue #145)', () {
+    test('from recording phase: returns to idle without ever calling the '
+        'transcriber — a cloud provider never sees audio cancelled before '
+        'transcription began', () async {
+      final orch = await startRecordingPhase();
+
+      await orch.cancelRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(fakeStt.transcribeCallCount, 0);
+      expect(await db.allEntries(), isEmpty);
+      expect(clipboardText, isNull);
+    });
+
+    test('from transcribing phase: the UI returns to idle immediately, and the '
+        'in-flight result is discarded once it arrives — never saved, never '
+        'pasted', () async {
+      final gate = Completer<String>();
+      fakeStt.transcribeGate = gate;
+      final orch = await startRecordingPhase();
+
+      // Drive the pipeline into `transcribing` without awaiting it —
+      // transcribeBytes() is now blocked on `gate`.
+      final stopFuture = orch.stopRecording();
+      await pumpEventQueue();
+      expect(
+        container.read(recordingProvider).phase,
+        RecordingPhase.transcribing,
+      );
+
+      await orch.cancelRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+
+      // Let the already-in-flight transcribe() call resolve — its result
+      // must be discarded, not saved/pasted.
+      gate.complete('should never be persisted');
+      await stopFuture;
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(await db.allEntries(), isEmpty);
+      expect(clipboardText, isNull);
+    });
+
+    test('from idle: no-op, phase stays idle', () async {
+      // build()'s pre-warm microtask.
+      await Future<void>.delayed(Duration.zero);
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+
+      await orch.cancelRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
     });
   });
 

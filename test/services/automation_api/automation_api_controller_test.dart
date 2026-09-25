@@ -147,6 +147,8 @@ void main() {
   var triggerCallCount = 0;
   bool? lastTriggerWait;
   String? lastTriggerLanguage;
+  String? lastTriggerSmartModePreset;
+  double? lastTriggerSilenceTimeout;
   var triggerResult = const DictationTriggerResult(recording: true);
 
   ProviderContainer buildContainer({
@@ -161,6 +163,8 @@ void main() {
     triggerCallCount = 0;
     lastTriggerWait = null;
     lastTriggerLanguage = null;
+    lastTriggerSmartModePreset = null;
+    lastTriggerSilenceTimeout = null;
     triggerResult = const DictationTriggerResult(recording: true);
     return ProviderContainer(
       overrides: [
@@ -175,12 +179,21 @@ void main() {
           () => AutomationApiController(
             port: port,
             server: server,
-            triggerDictation: (ref, {wait = false, language}) async {
-              triggerCallCount++;
-              lastTriggerWait = wait;
-              lastTriggerLanguage = language;
-              return triggerResult;
-            },
+            triggerDictation:
+                (
+                  ref, {
+                  wait = false,
+                  language,
+                  smartModePreset,
+                  silenceTimeout,
+                }) async {
+                  triggerCallCount++;
+                  lastTriggerWait = wait;
+                  lastTriggerLanguage = language;
+                  lastTriggerSmartModePreset = smartModePreset;
+                  lastTriggerSilenceTimeout = silenceTimeout;
+                  return triggerResult;
+                },
           ),
         ),
       ],
@@ -561,6 +574,76 @@ void main() {
 
       expect(response.statusCode, 200);
       expect(lastTriggerLanguage, 'auto');
+    });
+
+    test('a valid smart_mode_preset is forwarded to the trigger callback '
+        '(discussion #147)', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'smart_mode_preset': 'cleanup',
+      }, bearer: token);
+
+      expect(response.statusCode, 200);
+      expect(lastTriggerSmartModePreset, 'cleanup');
+    });
+
+    test('an unrecognised smart_mode_preset → 400 invalid_request, the use '
+        'case is never called', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'smart_mode_preset': 'not-a-real-preset',
+      }, bearer: token);
+
+      expect(response.statusCode, 400);
+      expect(triggerCallCount, 0);
+    });
+
+    test('a valid silence_timeout is forwarded to the trigger callback '
+        '(discussion #147)', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'silence_timeout': 12.5,
+      }, bearer: token);
+
+      expect(response.statusCode, 200);
+      expect(lastTriggerSilenceTimeout, 12.5);
+    });
+
+    test('silence_timeout: 0 disables auto-stop and is still forwarded '
+        '(not treated as absent)', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'silence_timeout': 0,
+      }, bearer: token);
+
+      expect(response.statusCode, 200);
+      expect(lastTriggerSilenceTimeout, 0.0);
+    });
+
+    test('a negative silence_timeout → 400 invalid_request, the use case is '
+        'never called', () async {
+      container = buildContainer();
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postJson(port, '/v1/dictation/trigger', {
+        'silence_timeout': -1,
+      }, bearer: token);
+
+      expect(response.statusCode, 400);
+      expect(triggerCallCount, 0);
     });
 
     test('an unrecognised language code → 400 invalid_request, the use case '

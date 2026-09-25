@@ -858,6 +858,16 @@ class L10nDe extends L10n {
       'z.B. WhisPaste, Kubernetes, Dr. Müller';
 
   @override
+  String settingsCustomVocabularyBudgetCounter(int count, int budget) {
+    return '~$count / $budget Tokens';
+  }
+
+  @override
+  String settingsCustomVocabularyBudgetWarning(int budget) {
+    return 'Lange Einträge werden ggf. automatisch gekürzt — es werden nur die ersten rund $budget Tokens verwendet.';
+  }
+
+  @override
   String get settingsPunctuationPriming => 'Satzzeichen anregen';
 
   @override

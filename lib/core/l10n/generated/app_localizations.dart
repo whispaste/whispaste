@@ -1571,6 +1571,18 @@ abstract class L10n {
   /// **'e.g. WhisPaste, Kubernetes, Dr. Mueller'**
   String get settingsCustomVocabularyPlaceholder;
 
+  /// No description provided for @settingsCustomVocabularyBudgetCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'~{count} / {budget} tokens'**
+  String settingsCustomVocabularyBudgetCounter(int count, int budget);
+
+  /// No description provided for @settingsCustomVocabularyBudgetWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Long entries may be shortened automatically — only roughly the first {budget} tokens are used.'**
+  String settingsCustomVocabularyBudgetWarning(int budget);
+
   /// No description provided for @settingsPunctuationPriming.
   ///
   /// In en, this message translates to:

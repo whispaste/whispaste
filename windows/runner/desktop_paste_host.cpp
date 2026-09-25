@@ -113,10 +113,13 @@ void ExcludeFromClipboardHistory() {
 }
 
 // `exclude_from_history` marks the write as exempt from clipboard-history /
-// cloud-clipboard capture. Used for the transient text we place on the
-// clipboard purely to drive a Ctrl+V into the target app -- never for
-// restoring the user's own prior clipboard contents (see RestoreClipboard),
-// since that content is the user's real clipboard, not our scratch value.
+// cloud-clipboard capture. Defaults to true: every call site here is
+// WhisPaste's own transient plumbing (the temporary transcript write that
+// drives Ctrl+V, or restoring the user's prior clipboard contents right
+// after), never a fresh copy action the user actually performed -- see
+// RestoreClipboard, which also excludes for the same reason (issue #146:
+// restoring the user's own value still created a new, redundant Win+V
+// entry, since it's WhisPaste re-writing it, not the user re-copying it).
 bool WriteClipboardText(HWND owner, const std::wstring& text,
                         bool exclude_from_history = true) {
   if (!::OpenClipboard(owner)) return false;
@@ -149,7 +152,7 @@ bool WriteClipboardText(HWND owner, const std::wstring& text,
 
 void RestoreClipboard(HWND owner, const ClipboardBackup& backup) {
   if (backup.had_text) {
-    WriteClipboardText(owner, backup.text, /*exclude_from_history=*/false);
+    WriteClipboardText(owner, backup.text, /*exclude_from_history=*/true);
   } else if (::OpenClipboard(owner)) {
     ::EmptyClipboard();
     ::CloseClipboard();
@@ -211,6 +214,12 @@ void DesktopPasteHost::HandleMethodCall(
     const std::string text = map ? GetString(*map, "text") : "";
     const int delay_ms = map ? GetInt(*map, "delayMs", 0) : 0;
     result->Success(TypeText(text, delay_ms));
+    return;
+  }
+
+  if (method == "writeClipboardText") {
+    const std::string text = map ? GetString(*map, "text") : "";
+    result->Success(EncodableValue(WriteClipboardTextExcludingHistory(text)));
     return;
   }
 
@@ -362,6 +371,19 @@ bool DesktopPasteHost::BringTargetToForeground() const {
   }
 
   return activated || ::GetForegroundWindow() == target_window_;
+}
+
+// Issue #146: the default Auto-Paste flow writes the transcript (and later
+// restores the user's prior clipboard) from the Dart side via Flutter's
+// generic `Clipboard.setData`, which has no history-exclusion formats and
+// so bypassed the opt-out added for #98 entirely -- that fix only ever
+// covered the TypeText/DiagnosticPaste fallback paths below. This channel
+// method gives the Dart paste flow (`DesktopPaster.paste`) a way to route
+// both of its writes through the same excluded write those paths already
+// use, instead of the plain clipboard write.
+bool DesktopPasteHost::WriteClipboardTextExcludingHistory(
+    const std::string& text) {
+  return WriteClipboardText(owner_, Utf8ToWide(text));
 }
 
 // Onboarding "prove Auto-Paste works" probe. Backs up the user clipboard,

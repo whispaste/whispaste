@@ -208,3 +208,31 @@ abstract class LivePreviewEngine {
   /// open (including after [startLivePreview] was never called).
   Future<void> stopLivePreview();
 }
+
+/// Optional capability: an engine that can report the exact whisper.cpp
+/// token count of an arbitrary string, using the loaded model's real
+/// tokenizer (`whisper_tokenize`) rather than a char-length approximation.
+///
+/// Exists to fix a silent-data-loss bug: whisper.cpp truncates the
+/// *tokenized* `initial_prompt` to a small internal budget (`n_max_text_ctx`
+/// capped by half the context window — ~63 tokens for WhisPaste's
+/// configuration) independently of, and far below, any char-length limit the
+/// app validates against. [SttServerStateNotifier._resolveEffectivePrompt]
+/// uses this to truncate the combined custom-vocabulary + rolling-context
+/// prompt to the real token budget itself — front-anchored, preferring to
+/// keep the user's custom vocabulary over older rolling context — instead of
+/// letting whisper.cpp silently drop the front of the prompt with no signal
+/// anywhere in the app.
+///
+/// A separate `implements`-only interface for the same reason as
+/// [PartialTranscriptSource]: not every [WhisperEngine] test double needs a
+/// real tokenizer, and this is genuinely optional — an engine without it
+/// simply keeps relying on the (coarser, safety-margined) char-based
+/// pre-flight limit in `InferenceRequestValidator`. Consumers probe with
+/// `engine is PromptTokenCounter`.
+abstract class PromptTokenCounter {
+  /// Returns the exact number of whisper.cpp tokens [text] would tokenize
+  /// to, using the currently loaded model. Throws [StateError] if no model
+  /// is loaded yet.
+  Future<int> countPromptTokens(String text);
+}

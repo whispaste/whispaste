@@ -67,6 +67,21 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
   }
 
   @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async {
+    if (disposed) return false;
+    try {
+      final raw = await channel.invokeMethod<bool>('writeClipboardText', {
+        'text': text,
+      });
+      return raw ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  @override
   Future<NativeCapabilityResult> checkCapability({
     bool promptIfMissing = false,
   }) async {

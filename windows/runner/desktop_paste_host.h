@@ -30,6 +30,7 @@ class DesktopPasteHost {
   flutter::EncodableValue PasteClipboard(int delay_ms);
   flutter::EncodableValue TypeText(const std::string& text, int delay_ms);
   flutter::EncodableValue DiagnosticPaste(const std::string& demo_text);
+  bool WriteClipboardTextExcludingHistory(const std::string& text);
   bool BringTargetToForeground() const;
   bool SendPasteShortcut() const;
 
