@@ -62,12 +62,18 @@ void main() {
       String? receivedLanguage;
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async {
-            called = true;
-            receivedWait = wait;
-            receivedLanguage = language;
-            return const DictationTriggerResult(recording: true);
-          },
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                called = true;
+                receivedWait = wait;
+                receivedLanguage = language;
+                return const DictationTriggerResult(recording: true);
+              },
         ),
       ]);
 
@@ -89,10 +95,16 @@ void main() {
       String? receivedLanguage;
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async {
-            receivedLanguage = language;
-            return const DictationTriggerResult(recording: true);
-          },
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                receivedLanguage = language;
+                return const DictationTriggerResult(recording: true);
+              },
         ),
       ]);
 
@@ -108,10 +120,16 @@ void main() {
       String? receivedLanguage;
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async {
-            receivedLanguage = language;
-            return const DictationTriggerResult(recording: true);
-          },
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                receivedLanguage = language;
+                return const DictationTriggerResult(recording: true);
+              },
         ),
       ]);
 
@@ -128,10 +146,16 @@ void main() {
       var called = false;
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async {
-            called = true;
-            return const DictationTriggerResult(recording: true);
-          },
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                called = true;
+                return const DictationTriggerResult(recording: true);
+              },
         ),
       ]);
 
@@ -146,11 +170,176 @@ void main() {
       expect(body['error'], 'invalid_request');
     });
 
+    test('each of the four `smart_mode_preset` values is forwarded to '
+        'triggerDictation (discussion #147)', () async {
+      for (final preset in ['off', 'cleanup', 'concise', 'translate']) {
+        String? received;
+        final router = buildAutomationApiRouter([
+          dictationTriggerRoutes(
+            triggerDictation:
+                ({
+                  wait = false,
+                  language,
+                  smartModePreset,
+                  silenceTimeout,
+                }) async {
+                  received = smartModePreset;
+                  return const DictationTriggerResult(recording: true);
+                },
+          ),
+        ]);
+
+        final response = await router.handler(
+          postJson('/v1/dictation/trigger', {'smart_mode_preset': preset}),
+        );
+
+        expect(received, preset);
+        expect(response.statusCode, 200);
+      }
+    });
+
+    test('an unrecognised `smart_mode_preset` value → 400 invalid_request, '
+        'triggerDictation is never called', () async {
+      var called = false;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                called = true;
+                return const DictationTriggerResult(recording: true);
+              },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {
+          'smart_mode_preset': 'not-a-real-preset',
+        }),
+      );
+
+      expect(called, isFalse);
+      expect(response.statusCode, 400);
+      final body =
+          jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(body['error'], 'invalid_request');
+    });
+
+    test('a valid `silence_timeout` value is forwarded to triggerDictation '
+        '(discussion #147)', () async {
+      double? received;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                received = silenceTimeout;
+                return const DictationTriggerResult(recording: true);
+              },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'silence_timeout': 7}),
+      );
+
+      expect(received, 7.0);
+      expect(response.statusCode, 200);
+    });
+
+    test('`silence_timeout: 0` is forwarded (disables auto-stop, not '
+        'treated as absent)', () async {
+      double? received;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                received = silenceTimeout;
+                return const DictationTriggerResult(recording: true);
+              },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'silence_timeout': 0}),
+      );
+
+      expect(received, 0.0);
+      expect(response.statusCode, 200);
+    });
+
+    test('a negative `silence_timeout` value → 400 invalid_request, '
+        'triggerDictation is never called', () async {
+      var called = false;
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                called = true;
+                return const DictationTriggerResult(recording: true);
+              },
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'silence_timeout': -1}),
+      );
+
+      expect(called, isFalse);
+      expect(response.statusCode, 400);
+    });
+
+    test(
+      'a non-numeric `silence_timeout` value → 400 invalid_request',
+      () async {
+        final router = buildAutomationApiRouter([
+          dictationTriggerRoutes(
+            triggerDictation:
+                ({
+                  wait = false,
+                  language,
+                  smartModePreset,
+                  silenceTimeout,
+                }) async => const DictationTriggerResult(recording: true),
+          ),
+        ]);
+
+        final response = await router.handler(
+          postJson('/v1/dictation/trigger', {'silence_timeout': 'soon'}),
+        );
+
+        expect(response.statusCode, 400);
+      },
+    );
+
     test('a non-boolean `wait` field → 400 invalid_request', () async {
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async =>
-              const DictationTriggerResult(recording: true),
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async => const DictationTriggerResult(recording: true),
         ),
       ]);
 
@@ -164,8 +353,13 @@ void main() {
     test('a malformed (non-JSON) body → 400 invalid_request', () async {
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async =>
-              const DictationTriggerResult(recording: true),
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async => const DictationTriggerResult(recording: true),
         ),
       ]);
 
@@ -184,8 +378,13 @@ void main() {
         'transcript in the response', () async {
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async =>
-              const DictationTriggerResult(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async => const DictationTriggerResult(
                 recording: false,
                 transcript: 'hello world',
               ),
@@ -207,8 +406,13 @@ void main() {
         'omits the transcript from the response', () async {
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async =>
-              const DictationTriggerResult(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async => const DictationTriggerResult(
                 recording: false,
                 transcript: 'hello world',
               ),
@@ -229,9 +433,15 @@ void main() {
     test('surfaces a thrown exception from the use case as 500', () async {
       final router = buildAutomationApiRouter([
         dictationTriggerRoutes(
-          triggerDictation: ({wait = false, language}) async {
-            throw StateError('boom');
-          },
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                throw StateError('boom');
+              },
         ),
       ]);
 

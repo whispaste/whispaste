@@ -81,10 +81,75 @@ class DictationTriggerResult {
 /// recording-orchestrator use case (the same one the main hotkey calls); no
 /// dictation logic lives in this file.
 ///
+/// The four values [AutomationApiRouteGroup]'s `smart_mode_preset` field
+/// accepts — mirrors `SmartModeSettings.standardPreset`'s stored strings
+/// (`smart_mode_presets.dart`), kept as raw strings here rather than
+/// importing the enum so this HTTP-layer file doesn't pull in the Smart
+/// Mode engine.
+const _validSmartModePresets = {'off', 'cleanup', 'concise', 'translate'};
+
+/// Validated fields of a `POST /v1/dictation/trigger` request body.
+class _TriggerRequestParams {
+  const _TriggerRequestParams({
+    this.wait = false,
+    this.language,
+    this.smartModePreset,
+    this.silenceTimeout,
+  });
+
+  final bool wait;
+  final String? language;
+  final String? smartModePreset;
+  final double? silenceTimeout;
+}
+
+/// Validates and extracts the optional trigger-request fields from
+/// [decoded]. Returns `null` when any present field fails validation —
+/// the caller turns that into the 400 `invalid_request` response.
+_TriggerRequestParams? _parseTriggerRequest(Map<String, dynamic> decoded) {
+  var wait = false;
+  String? language;
+  String? smartModePreset;
+  double? silenceTimeout;
+
+  if (decoded.containsKey('wait')) {
+    final candidate = decoded['wait'];
+    if (candidate is! bool) return null;
+    wait = candidate;
+  }
+  if (decoded.containsKey('language')) {
+    final candidate = decoded['language'];
+    if (candidate is! String ||
+        (candidate != 'auto' && !whisperLanguageCodes.contains(candidate))) {
+      return null;
+    }
+    language = candidate;
+  }
+  if (decoded.containsKey('smart_mode_preset')) {
+    final candidate = decoded['smart_mode_preset'];
+    if (candidate is! String || !_validSmartModePresets.contains(candidate)) {
+      return null;
+    }
+    smartModePreset = candidate;
+  }
+  if (decoded.containsKey('silence_timeout')) {
+    final candidate = decoded['silence_timeout'];
+    if (candidate is! num || candidate < 0) return null;
+    silenceTimeout = candidate.toDouble();
+  }
+
+  return _TriggerRequestParams(
+    wait: wait,
+    language: language,
+    smartModePreset: smartModePreset,
+    silenceTimeout: silenceTimeout,
+  );
+}
+
 /// **Request body** (optional; omit entirely for the original
 /// fire-and-forget behaviour):
 /// ```json
-/// { "wait": true, "language": "en" }
+/// { "wait": true, "language": "en", "smart_mode_preset": "cleanup", "silence_timeout": 5.0 }
 /// ```
 /// - `wait` (bool, default `false`): when this call stops an in-progress
 ///   recording, include the finished `transcript` in the response instead
@@ -99,6 +164,17 @@ class DictationTriggerResult {
 ///   meaningful when this call starts a new recording; ignored when it
 ///   stops one (nothing starts in that case). An unrecognised code is a 400
 ///   `invalid_request`, not silently dropped.
+/// - `smart_mode_preset` (one of `"off"`, `"cleanup"`, `"concise"`,
+///   `"translate"`): overrides `settings.smartMode.standardPreset` for the
+///   recording this call starts — same override seam the Smart-Mode hotkey
+///   uses (`RecordingOrchestrator.startRecording`'s `forcedSmartModePreset`).
+///   Only meaningful when this call starts a new recording. An unrecognised
+///   value is a 400 `invalid_request`.
+/// - `silence_timeout` (number, seconds, `>= 0`): overrides
+///   `settings.recordingSafety.autoStopSilence` for the recording this call
+///   starts — `0` disables auto-stop-on-silence entirely for that one
+///   recording. Only meaningful when this call starts a new recording. A
+///   negative or non-numeric value is a 400 `invalid_request`.
 ///
 /// A thrown exception surfaces as a 500 with `error: trigger_failed`;
 /// success is a 200 with `status: triggered`, `recording` (whether this
@@ -108,13 +184,14 @@ AutomationApiRouteGroup dictationTriggerRoutes({
   required Future<DictationTriggerResult> Function({
     bool wait,
     String? language,
+    String? smartModePreset,
+    double? silenceTimeout,
   })
   triggerDictation,
 }) {
   return (router) {
     router.add('POST', '/v1/dictation/trigger', (Request request) async {
-      var wait = false;
-      String? language;
+      var params = const _TriggerRequestParams();
       try {
         final rawBody = await request.readAsString();
         if (rawBody.trim().isNotEmpty) {
@@ -122,34 +199,28 @@ AutomationApiRouteGroup dictationTriggerRoutes({
           if (decoded is! Map<String, dynamic>) {
             return _jsonResponse(400, {'error': 'invalid_request'});
           }
-          if (decoded.containsKey('wait')) {
-            final candidate = decoded['wait'];
-            if (candidate is! bool) {
-              return _jsonResponse(400, {'error': 'invalid_request'});
-            }
-            wait = candidate;
+          final parsed = _parseTriggerRequest(decoded);
+          if (parsed == null) {
+            return _jsonResponse(400, {'error': 'invalid_request'});
           }
-          if (decoded.containsKey('language')) {
-            final candidate = decoded['language'];
-            if (candidate is! String ||
-                (candidate != 'auto' &&
-                    !whisperLanguageCodes.contains(candidate))) {
-              return _jsonResponse(400, {'error': 'invalid_request'});
-            }
-            language = candidate;
-          }
+          params = parsed;
         }
       } catch (_) {
         return _jsonResponse(400, {'error': 'invalid_request'});
       }
 
       try {
-        final result = await triggerDictation(wait: wait, language: language);
+        final result = await triggerDictation(
+          wait: params.wait,
+          language: params.language,
+          smartModePreset: params.smartModePreset,
+          silenceTimeout: params.silenceTimeout,
+        );
         final body = <String, Object?>{
           'status': 'triggered',
           'recording': result.recording,
         };
-        if (wait && !result.recording) {
+        if (params.wait && !result.recording) {
           body['transcript'] = result.transcript;
         }
         return _jsonResponse(200, body);

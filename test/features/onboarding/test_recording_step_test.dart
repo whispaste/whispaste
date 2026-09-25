@@ -59,6 +59,7 @@ class _FakeRecordingOrchestrator extends RecordingOrchestrator {
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     toggleRecordingCalls++;
     final recording = ref.read(recordingProvider);

@@ -332,6 +332,7 @@ class RecordingOrchestrator extends Notifier<void> {
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     final recording = ref.read(recordingProvider);
     if (recording.isRecording) {
@@ -355,6 +356,7 @@ class RecordingOrchestrator extends Notifier<void> {
       target: target,
       forcedSmartModePreset: forcedSmartModePreset,
       languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
     );
   }
 
@@ -370,10 +372,17 @@ class RecordingOrchestrator extends Notifier<void> {
   /// recording only — used by the Automation API's `dictation/trigger`
   /// `language` field. `null` (the default) means "use the configured
   /// language as usual".
+  ///
+  /// [silenceTimeoutOverride] overrides
+  /// `settings.recordingSafety.autoStopSilence` for this recording only —
+  /// used by the Automation API's `dictation/trigger` `silence_timeout`
+  /// field. `null` (the default) means "use the configured timeout as
+  /// usual".
   Future<void> startRecording({
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
     // latency KPI. Peeked (not consumed) synchronously, before any `await`
@@ -392,6 +401,9 @@ class RecordingOrchestrator extends Notifier<void> {
         .read(smartModeHotkeyOverridePresetProvider.notifier)
         .set(forcedSmartModePreset);
     ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
+    ref
+        .read(autoStopSilenceOverrideProvider.notifier)
+        .set(silenceTimeoutOverride);
 
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
@@ -505,55 +517,75 @@ class RecordingOrchestrator extends Notifier<void> {
       // cancels any stale live-preview PCM subscription from a previous
       // session before the fresh one below is created).
       _cancelAmplitude();
-
-      if (livePreviewWanted) {
-        final pcmStream = audioNotifier.pcmChunkStream;
-        if (pcmStream != null) {
-          final sttNotifier = ref.read(localSttBundleProvider.notifier);
-          _livePreviewPcmSub = pcmStream.listen(
-            sttNotifier.feedLivePreviewPcm,
-            onError: (Object e) {
-              _log.warning('[$sid] Live-preview PCM stream error: $e');
-            },
-          );
-        }
-      }
-
-      final rawStream = audioNotifier.amplitudeStream;
-      if (rawStream != null) {
-        // Level-metering subscription (always active).
-        // updateAudioLevel is NOT a phase transition, so it calls the
-        // notifier directly (it only mutates audioLevel, not RecordingPhase).
-        final notifier = ref.read(recordingProvider.notifier);
-        _amplitudeSub = rawStream.listen(
-          (level) => notifier.updateAudioLevel(level),
-          onError: (Object e) {
-            _log.warning('[$sid] Amplitude stream error: $e');
-          },
-        );
-
-        // Safety guard subscription — routes SafetyEvents to handlers.
-        final guardConfig = SafetyGuardConfig(
-          deadMicTimeout: settings.recordingSafety.deadMicTimeout,
-          autoStopSilence: settings.recordingSafety.autoStopSilence,
-          maxDurationSeconds: settings.behavior.maxRecordDuration,
-          samplesPerSecond: amplitudeSamplesPerSecond,
-        );
-        _guardSub = rawStream
-            .transform(SafetyGuard(config: guardConfig))
-            .listen(
-              _routeGuardEvent,
-              onError: (Object e) {
-                _log.warning('[$sid] Safety guard stream error: $e');
-              },
-            );
-      }
+      _subscribeToAmplitudeAndGuards(
+        audioNotifier: audioNotifier,
+        settings: settings,
+        livePreviewWanted: livePreviewWanted,
+        sid: sid,
+      );
     } on Exception catch (e) {
       ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
     } finally {
       _startInFlight = false;
     }
+  }
+
+  /// Wires up the level-metering and safety-guard amplitude subscriptions
+  /// for a just-started recording, plus the live-preview PCM subscription
+  /// when [livePreviewWanted]. Split out of [startRecording] purely to keep
+  /// that method's branching within the complexity ratchet — no behaviour
+  /// change from when this was inline there.
+  void _subscribeToAmplitudeAndGuards({
+    required AudioServiceNotifier audioNotifier,
+    required AppSettings settings,
+    required bool livePreviewWanted,
+    required String sid,
+  }) {
+    if (livePreviewWanted) {
+      final pcmStream = audioNotifier.pcmChunkStream;
+      if (pcmStream != null) {
+        final sttNotifier = ref.read(localSttBundleProvider.notifier);
+        _livePreviewPcmSub = pcmStream.listen(
+          sttNotifier.feedLivePreviewPcm,
+          onError: (Object e) {
+            _log.warning('[$sid] Live-preview PCM stream error: $e');
+          },
+        );
+      }
+    }
+
+    final rawStream = audioNotifier.amplitudeStream;
+    if (rawStream == null) return;
+
+    // Level-metering subscription (always active).
+    // updateAudioLevel is NOT a phase transition, so it calls the notifier
+    // directly (it only mutates audioLevel, not RecordingPhase).
+    final notifier = ref.read(recordingProvider.notifier);
+    _amplitudeSub = rawStream.listen(
+      (level) => notifier.updateAudioLevel(level),
+      onError: (Object e) {
+        _log.warning('[$sid] Amplitude stream error: $e');
+      },
+    );
+
+    // Safety guard subscription — routes SafetyEvents to handlers.
+    final guardConfig = SafetyGuardConfig(
+      deadMicTimeout: settings.recordingSafety.deadMicTimeout,
+      autoStopSilence:
+          ref.read(autoStopSilenceOverrideProvider) ??
+          settings.recordingSafety.autoStopSilence,
+      maxDurationSeconds: settings.behavior.maxRecordDuration,
+      samplesPerSecond: amplitudeSamplesPerSecond,
+    );
+    _guardSub = rawStream
+        .transform(SafetyGuard(config: guardConfig))
+        .listen(
+          _routeGuardEvent,
+          onError: (Object e) {
+            _log.warning('[$sid] Safety guard stream error: $e');
+          },
+        );
   }
 
   /// Stops recording and runs the transcription pipeline.

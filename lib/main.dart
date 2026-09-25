@@ -46,6 +46,8 @@ import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/single_instance_service.dart';
+import 'services/smart_mode/smart_mode_presets.dart'
+    show smartModePresetFromSettingsValue;
 import 'services/sound_feedback_service.dart';
 import 'services/stt/whisper/gpu_load_crash_guard.dart';
 import 'services/stt_parakeet/parakeet_model_registry.dart';
@@ -109,25 +111,38 @@ Future<ProviderContainer> bootstrapAppContainer({
       // function) can still take precedence by appearing later.
       automationApiControllerProvider.overrideWith(
         () => AutomationApiController(
-          triggerDictation: (ref, {wait = false, language}) async {
-            // toggleRecording() is a start/stop toggle — read the phase
-            // *before* calling it to know which branch it took, since the
-            // call itself doesn't report that back.
-            final wasRecording = ref.read(recordingProvider).isRecording;
-            await ref
-                .read(recordingOrchestratorProvider.notifier)
-                .toggleRecording(languageOverride: language);
-            if (wasRecording) {
-              // Stopped a recording — toggleRecording() already awaited the
-              // full transcription pipeline, so the finished transcript (if
-              // any) is sitting in recordingProvider now.
-              return DictationTriggerResult(
-                recording: false,
-                transcript: ref.read(recordingProvider).transcript,
-              );
-            }
-            return const DictationTriggerResult(recording: true);
-          },
+          triggerDictation:
+              (
+                ref, {
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async {
+                // toggleRecording() is a start/stop toggle — read the phase
+                // *before* calling it to know which branch it took, since the
+                // call itself doesn't report that back.
+                final wasRecording = ref.read(recordingProvider).isRecording;
+                await ref
+                    .read(recordingOrchestratorProvider.notifier)
+                    .toggleRecording(
+                      languageOverride: language,
+                      forcedSmartModePreset: smartModePreset == null
+                          ? null
+                          : smartModePresetFromSettingsValue(smartModePreset),
+                      silenceTimeoutOverride: silenceTimeout,
+                    );
+                if (wasRecording) {
+                  // Stopped a recording — toggleRecording() already awaited the
+                  // full transcription pipeline, so the finished transcript (if
+                  // any) is sitting in recordingProvider now.
+                  return DictationTriggerResult(
+                    recording: false,
+                    transcript: ref.read(recordingProvider).transcript,
+                  );
+                }
+                return const DictationTriggerResult(recording: true);
+              },
         ),
       ),
       ...overrides,

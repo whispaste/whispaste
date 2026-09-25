@@ -821,6 +821,63 @@ void main() {
 
       expect(fakeStt.lastLanguage, 'de');
     });
+
+    test(
+      'a per-call silenceTimeoutOverride (Automation API `dictation/trigger` '
+      '`silence_timeout` field) reaches the safety-guard config',
+      () async {
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            recordingSafety: RecordingSafetySettings(autoStopSilence: 5),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await orch.startRecording(silenceTimeoutOverride: 1.5);
+
+        expect(
+          container.read(autoStopSilenceOverrideProvider),
+          1.5,
+          reason:
+              'startRecording must publish the override unconditionally '
+              'before any await, the same way languageOverride does, since '
+              'guardConfig reads this provider once recording starts',
+        );
+
+        await orch.stopRecording();
+      },
+    );
+
+    test('no silenceTimeoutOverride leaves the override provider unset, so '
+        'guardConfig falls back to the configured settings value exactly as '
+        'before this field existed', () async {
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          recordingSafety: RecordingSafetySettings(autoStopSilence: 5),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      await orch.startRecording();
+
+      expect(container.read(autoStopSilenceOverrideProvider), isNull);
+
+      await orch.stopRecording();
+    });
   });
 
   // =========================================================================

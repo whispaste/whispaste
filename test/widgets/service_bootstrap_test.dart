@@ -95,6 +95,7 @@ class _CounterOrchestrator extends RecordingOrchestrator {
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     startCalls++;
   }
@@ -109,6 +110,7 @@ class _CounterOrchestrator extends RecordingOrchestrator {
     RecordingTarget target = RecordingTarget.clipboard,
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
+    double? silenceTimeoutOverride,
   }) async {
     toggleCalls++;
   }
