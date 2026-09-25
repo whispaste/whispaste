@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +59,19 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _searchFocusNode = FocusNode();
+
+  // Wraps the scroll view's content so the scroll-spy math below has a
+  // stable ancestor to measure each section's static layout offset against
+  // (see _updateActiveSection).
+  final _contentKey = GlobalKey();
+
+  // The chip bar's "current section" highlight (Discussion #147). Kept
+  // separate from _sectionKeys/settingsHighlightTargetProvider's transient
+  // locator ring, which marks *where a search hit landed*, not *what's on
+  // screen right now*.
+  List<String> _sectionOrder = const [];
+  String? _activeSectionKey;
+  double _lastScrollPixels = 0;
 
   final _sectionKeys = <String, GlobalKey>{
     'interface': GlobalKey(),
@@ -125,6 +139,49 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ref.read(settingsHighlightTargetProvider.notifier).set(null);
       }
     });
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    _lastScrollPixels = notification.metrics.pixels;
+    _updateActiveSection();
+    return false;
+  }
+
+  /// How far (in scroll-content pixels) a section's top may still be below
+  /// the viewport's top edge and still count as "current" — small enough
+  /// that the chip lights up as soon as a section is actually the one on
+  /// screen, not only once it is perfectly flush with the top.
+  static const _activationThresholdPx = 24.0;
+
+  /// Finds the last section (in on-screen order) whose top has scrolled up
+  /// to/past the viewport's top edge, and makes it the chip bar's active
+  /// section. [_contentKey]'s render box gives each section's fixed offset
+  /// from the top of the scrolled content — subtracting the current scroll
+  /// position turns that into "distance from the viewport's top edge"
+  /// without needing to track the shell's own scroll-view internals.
+  void _updateActiveSection() {
+    final contentBox =
+        _contentKey.currentContext?.findRenderObject() as RenderBox?;
+    if (contentBox == null || !contentBox.attached) return;
+
+    String? active;
+    for (final key in _sectionOrder) {
+      final box =
+          _sectionKeys[key]?.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached) continue;
+      final offsetFromViewportTop =
+          box.localToGlobal(Offset.zero, ancestor: contentBox).dy -
+          _lastScrollPixels;
+      if (offsetFromViewportTop <= _activationThresholdPx) {
+        active = key;
+      } else {
+        break;
+      }
+    }
+    active ??= _sectionOrder.isNotEmpty ? _sectionOrder.first : null;
+    if (active != _activeSectionKey && mounted) {
+      setState(() => _activeSectionKey = active);
+    }
   }
 
   @override
@@ -365,6 +422,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return matchSet == null || matchSet.contains(s.$1);
     }).toList();
 
+    // Re-derive the chip bar's active section whenever the visible-section
+    // order changes (search narrows/widens it, onboarding review appears)
+    // — the previously active key may no longer be on screen at all.
+    final sectionOrder = visibleSections
+        .map((s) => s.$1)
+        .toList(growable: false);
+    if (!listEquals(sectionOrder, _sectionOrder)) {
+      _sectionOrder = sectionOrder;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _updateActiveSection();
+      });
+    }
+
     // Build scrollable content — either the filtered list or a "no results" state.
     Widget scrollContent;
     if (visibleSections.isEmpty && matchSet != null) {
@@ -395,66 +465,68 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
 
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        // Ctrl+F / Cmd+F: focus the settings search field
-        SingleActivator(
-          LogicalKeyboardKey.keyF,
-          control: !Platform.isMacOS,
-          meta: Platform.isMacOS,
-        ): () {
-          _searchFocusNode.requestFocus();
-        },
-      },
-      // Focus wrapper: autofocus ensures a descendant of CallbackShortcuts
-      // has focus when the page loads so that the Ctrl+F / Cmd+F shortcut is
-      // reachable via key-event bubbling without stealing interactive focus.
-      child: Focus(
-        autofocus: true,
-        skipTraversal: true,
-        child: Builder(
-          builder: (context) {
-            // Fills the window width like every other page (The Fill-By-
-            // Default Rule) — no cap-width, so Settings stays consistent
-            // with History/Analytics/etc. even on very wide windows.
-            //
-            // The search field — and the anchor-chip bar under it — ride the
-            // shell's sticky header slot, so both stay visible while the
-            // sections below scroll.
-            //
-            // No ground of its own. Settings used to wrap the shell in a flat
-            // decorative wash (*The Decorative Color Rule*, retracted
-            // 2026-08-11) to read as its own plate; the plate is now the one
-            // the whole app stands on, so the page returns the bare shell and
-            // lands on `warmSurfaceGradient` like History, Analytics and every
-            // other page. A page that paints its own fill over the content
-            // plane is the same seam Ticket 06 removed from the nav rail, one
-            // layer in.
-            return WpPageShell(
-              header: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SettingsSearchField(focusNode: _searchFocusNode),
-                  // Hidden along with the chip bar itself when a search
-                  // narrows visibleSections to zero (the "No Results" empty
-                  // state takes over below) — an empty Wrap has no height,
-                  // but skipping it here also drops the otherwise-orphaned
-                  // gap above it.
-                  if (visibleSections.isNotEmpty) ...[
-                    const SizedBox(height: WpSpacing.sm),
-                    SettingsAnchorChipBar(
-                      sectionKeys: visibleSections
-                          .map((s) => s.$1)
-                          .toList(growable: false),
-                      locale: Localizations.localeOf(context).languageCode,
-                    ),
-                  ],
-                ],
-              ),
-              child: scrollContent,
-            );
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          // Ctrl+F / Cmd+F: focus the settings search field
+          SingleActivator(
+            LogicalKeyboardKey.keyF,
+            control: !Platform.isMacOS,
+            meta: Platform.isMacOS,
+          ): () {
+            _searchFocusNode.requestFocus();
           },
+        },
+        // Focus wrapper: autofocus ensures a descendant of CallbackShortcuts
+        // has focus when the page loads so that the Ctrl+F / Cmd+F shortcut is
+        // reachable via key-event bubbling without stealing interactive focus.
+        child: Focus(
+          autofocus: true,
+          skipTraversal: true,
+          child: Builder(
+            builder: (context) {
+              // Fills the window width like every other page (The Fill-By-
+              // Default Rule) — no cap-width, so Settings stays consistent
+              // with History/Analytics/etc. even on very wide windows.
+              //
+              // The search field — and the anchor-chip bar under it — ride the
+              // shell's sticky header slot, so both stay visible while the
+              // sections below scroll.
+              //
+              // No ground of its own. Settings used to wrap the shell in a flat
+              // decorative wash (*The Decorative Color Rule*, retracted
+              // 2026-08-11) to read as its own plate; the plate is now the one
+              // the whole app stands on, so the page returns the bare shell and
+              // lands on `warmSurfaceGradient` like History, Analytics and every
+              // other page. A page that paints its own fill over the content
+              // plane is the same seam Ticket 06 removed from the nav rail, one
+              // layer in.
+              return WpPageShell(
+                header: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SettingsSearchField(focusNode: _searchFocusNode),
+                    // Hidden along with the chip bar itself when a search
+                    // narrows visibleSections to zero (the "No Results" empty
+                    // state takes over below) — an empty Wrap has no height,
+                    // but skipping it here also drops the otherwise-orphaned
+                    // gap above it.
+                    if (visibleSections.isNotEmpty) ...[
+                      const SizedBox(height: WpSpacing.sm),
+                      SettingsAnchorChipBar(
+                        sectionKeys: sectionOrder,
+                        locale: Localizations.localeOf(context).languageCode,
+                        activeSectionKey: _activeSectionKey,
+                      ),
+                    ],
+                  ],
+                ),
+                child: KeyedSubtree(key: _contentKey, child: scrollContent),
+              );
+            },
+          ),
         ),
       ),
     );
