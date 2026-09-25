@@ -253,6 +253,14 @@ class HotkeyService extends Notifier<void> {
   static const _snippetAdvanceActionId = 'snippetAdvance';
   static const _snippetCancelActionId = 'snippetCancel';
 
+  /// Session-scoped bare **Escape**, active only while a normal (non-
+  /// snippet) dictation is recording/transcribing/refining — registered by
+  /// [registerCancelDictationKey], unregistered by
+  /// [unregisterCancelDictationKey]. Same "system-wide grab only while
+  /// truly needed" contract as the snippet keys above; `FloatingOverlayService`
+  /// owns the pairing.
+  static const _cancelDictationActionId = 'cancelDictation';
+
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
 
@@ -311,6 +319,7 @@ class HotkeyService extends Notifier<void> {
   /// exist for the lifetime of one guided sequence.
   VoidCallback? _onInteractiveSnippetAdvance;
   VoidCallback? _onInteractiveSnippetCancel;
+  VoidCallback? _onCancelDictation;
 
   /// Monotonic epoch guarding the register/unregister race on the
   /// session-scoped keys: [unregisterInteractiveSnippetKeys] bumps it, and a
@@ -318,6 +327,11 @@ class HotkeyService extends Notifier<void> {
   /// unregisters itself again instead of leaking a system-wide Enter/Escape
   /// grab past the end of the sequence.
   int _snippetKeysEpoch = 0;
+
+  /// Same epoch pattern as [_snippetKeysEpoch], for the independent
+  /// cancel-dictation key — kept separate so a snippet sequence starting or
+  /// ending never races the normal-dictation registration (and vice versa).
+  int _cancelDictationEpoch = 0;
 
   /// Per-action registration + held-key state, keyed by action id (see
   /// [_globalActionId], [_quickNoteActionId]). A held key on one action must
@@ -715,6 +729,42 @@ class HotkeyService extends Notifier<void> {
     await _unregisterInteractiveSnippetActions();
   }
 
+  /// Registers the session-scoped bare **Escape** that cancels/discards a
+  /// normal (non-snippet) dictation — issue #145's "Escape only cancels
+  /// interactive snippet sequences, not a normal dictation" gap.
+  ///
+  /// MUST only be called while a normal dictation is recording/transcribing/
+  /// refining, and MUST be paired with [unregisterCancelDictationKey] once it
+  /// leaves that range (done/error/idle) — same system-wide-grab contract as
+  /// [registerInteractiveSnippetKeys]. `FloatingOverlayService` owns the
+  /// pairing, driven off `recordingPhaseProvider`, and skips it entirely
+  /// while an interactive-snippet sequence is active (that sequence owns
+  /// Escape itself via [registerInteractiveSnippetKeys]).
+  Future<void> registerCancelDictationKey({
+    required VoidCallback onCancel,
+  }) async {
+    if (!_isDesktop) return;
+    final epoch = ++_cancelDictationEpoch;
+    await _unregisterAction(_cancelDictationActionId, stopMonitor: false);
+    if (epoch != _cancelDictationEpoch) return;
+    _onCancelDictation = onCancel;
+    await _registerSessionKeyGeneric(
+      _cancelDictationActionId,
+      LogicalKeyboardKey.escape,
+      'Cancel dictation (Escape)',
+      epoch,
+      () => epoch == _cancelDictationEpoch,
+    );
+  }
+
+  /// Removes the cancel-dictation Escape registration (see
+  /// [registerCancelDictationKey]). Safe to call when nothing is registered.
+  Future<void> unregisterCancelDictationKey() async {
+    _cancelDictationEpoch++;
+    _onCancelDictation = null;
+    await _unregisterAction(_cancelDictationActionId, stopMonitor: false);
+  }
+
   /// Drops both session-scoped key registrations WITHOUT bumping the epoch —
   /// the shared cleanup between [unregisterInteractiveSnippetKeys] (which
   /// bumps) and [registerInteractiveSnippetKeys] (which has already claimed
@@ -734,9 +784,27 @@ class HotkeyService extends Notifier<void> {
     LogicalKeyboardKey key,
     String label,
     int epoch,
+  ) => _registerSessionKeyGeneric(
+    actionId,
+    key,
+    label,
+    epoch,
+    () => epoch == _snippetKeysEpoch,
+  );
+
+  /// Shared implementation behind [_registerSessionKey] (interactive-snippet
+  /// keys) and [registerCancelDictationKey] (normal-dictation Escape) — each
+  /// caller supplies its own epoch/[stillCurrent] check so the two
+  /// independent session-key lifecycles never interfere with each other.
+  Future<void> _registerSessionKeyGeneric(
+    String actionId,
+    LogicalKeyboardKey key,
+    String label,
+    int epoch,
+    bool Function() stillCurrent,
   ) async {
-    if (epoch != _snippetKeysEpoch) {
-      // The sequence already ended before this key's turn came — skip.
+    if (!stillCurrent()) {
+      // The session already ended before this key's turn came — skip.
       return;
     }
     final hotKey = HotKey(key: key, modifiers: const []);
@@ -751,10 +819,10 @@ class HotkeyService extends Notifier<void> {
             ? (_) => _handleKeyUp(actionId, label)
             : null,
       );
-      if (epoch != _snippetKeysEpoch) {
-        // The sequence ended while the registration was in flight — undo it
+      if (!stillCurrent()) {
+        // The session ended while the registration was in flight — undo it
         // immediately instead of leaking a system-wide key grab.
-        _log.info('$label registration outlived its sequence — undoing');
+        _log.info('$label registration outlived its session — undoing');
         try {
           await _registrar.unregister(hotKey);
         } on Object catch (e) {
@@ -763,11 +831,11 @@ class HotkeyService extends Notifier<void> {
         return;
       }
       _stateFor(actionId).registeredHotKey = hotKey;
-      _log.info('$label registered for interactive-snippet sequence');
+      _log.info('$label registered');
     } on Object catch (e) {
       _stateFor(actionId).registeredHotKey = null;
       _log.warning(
-        'Failed to register $label: $e — the sequence continues without it',
+        'Failed to register $label: $e — the session continues without it',
       );
     }
   }
@@ -1053,6 +1121,8 @@ class HotkeyService extends Notifier<void> {
       _onInteractiveSnippetAdvance?.call();
     } else if (actionId == _snippetCancelActionId) {
       _onInteractiveSnippetCancel?.call();
+    } else if (actionId == _cancelDictationActionId) {
+      _onCancelDictation?.call();
     }
   }
 
@@ -1127,6 +1197,10 @@ class HotkeyService extends Notifier<void> {
     // sequence exit path, but a teardown mid-sequence must not leak a
     // system-wide Enter/Escape grab. No-op when nothing is registered.
     await unregisterInteractiveSnippetKeys();
+    // Same last-line-of-defence for the cancel-dictation Escape key:
+    // FloatingOverlayService normally unregisters it on every phase exit,
+    // but a teardown mid-recording must not leak the system-wide grab.
+    await unregisterCancelDictationKey();
   }
 
   static bool get _isDesktop =>

@@ -500,11 +500,11 @@
       "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
     },
     {
-      "fingerprint": "4083db2252791af8",
+      "fingerprint": "6eda81fc3aff4630",
       "ruleId": "code-duplicates",
       "filePath": "lib/services/hotkey_service.dart",
-      "line": 537,
-      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:537, lib/services/hotkey_service.dart:578"
+      "line": 551,
+      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:551, lib/services/hotkey_service.dart:592"
     }
   ]
 }

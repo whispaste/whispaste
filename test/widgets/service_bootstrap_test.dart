@@ -40,6 +40,14 @@ class _FakeHotkeyService extends HotkeyService {
 
   final bool fakeSupportsKeyUp;
 
+  /// Counts calls and captures the latest callback — issue #145's
+  /// cancel-dictation Escape key. Overridden (rather than left to the real
+  /// implementation) so the test doesn't hit the real `hotkey_manager`
+  /// platform channel.
+  int registerCancelDictationCalls = 0;
+  int unregisterCancelDictationCalls = 0;
+  VoidCallback? capturedOnCancel;
+
   @override
   bool get supportsKeyUp => fakeSupportsKeyUp;
 
@@ -49,6 +57,19 @@ class _FakeHotkeyService extends HotkeyService {
     // for this test; we only care about the [onHotkeyPressed] /
     // [onHotkeyReleased] field assignments coming from the bootstrap.
   }
+
+  @override
+  Future<void> registerCancelDictationKey({
+    required VoidCallback onCancel,
+  }) async {
+    registerCancelDictationCalls++;
+    capturedOnCancel = onCancel;
+  }
+
+  @override
+  Future<void> unregisterCancelDictationKey() async {
+    unregisterCancelDictationCalls++;
+  }
 }
 
 /// Counter-mock orchestrator — records how many times each entry point
@@ -57,6 +78,12 @@ class _CounterOrchestrator extends RecordingOrchestrator {
   int startCalls = 0;
   int stopCalls = 0;
   int toggleCalls = 0;
+  int cancelCalls = 0;
+
+  @override
+  Future<void> cancelRecording() async {
+    cancelCalls++;
+  }
 
   @override
   void build() {
@@ -509,5 +536,87 @@ void main() {
             'nothing.',
       );
     });
+  });
+
+  group('WpServiceBootstrap — cancel-dictation Escape key (issue #145)', () {
+    testWidgets(
+      'recording phase registers the key; the captured callback calls '
+      'cancelRecording(); leaving the phase unregisters it again',
+      (tester) async {
+        final hotkeySvc = _FakeHotkeyService();
+        final orchestrator = _CounterOrchestrator();
+        final settings = _FakeSettingsNotifier(pushToTalk: false);
+
+        await tester.pumpWidget(
+          _makeApp(
+            hotkeySvc: hotkeySvc,
+            orchestrator: orchestrator,
+            settings: settings,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(MaterialApp)),
+        );
+        await container.read(settingsProvider.future);
+
+        expect(hotkeySvc.registerCancelDictationCalls, 0);
+
+        container.read(recordingProvider.notifier).startRecording();
+        await tester.pump();
+
+        expect(hotkeySvc.registerCancelDictationCalls, 1);
+        expect(hotkeySvc.unregisterCancelDictationCalls, 0);
+        expect(hotkeySvc.capturedOnCancel, isNotNull);
+
+        hotkeySvc.capturedOnCancel!.call();
+        expect(orchestrator.cancelCalls, 1);
+
+        container.read(recordingProvider.notifier).reset();
+        await tester.pump();
+
+        expect(hotkeySvc.unregisterCancelDictationCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'transcribing keeps the key registered (no extra register/unregister '
+      'churn on the recording → transcribing transition)',
+      (tester) async {
+        final hotkeySvc = _FakeHotkeyService();
+        final orchestrator = _CounterOrchestrator();
+        final settings = _FakeSettingsNotifier(pushToTalk: false);
+
+        await tester.pumpWidget(
+          _makeApp(
+            hotkeySvc: hotkeySvc,
+            orchestrator: orchestrator,
+            settings: settings,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(MaterialApp)),
+        );
+        await container.read(settingsProvider.future);
+
+        final rec = container.read(recordingProvider.notifier);
+        rec.startRecording();
+        await tester.pump();
+        expect(hotkeySvc.registerCancelDictationCalls, 1);
+
+        rec.stopRecording(); // recording → transcribing
+        await tester.pump();
+
+        expect(
+          hotkeySvc.registerCancelDictationCalls,
+          1,
+          reason: 'transcribing is still cancelable — no re-register needed',
+        );
+        expect(hotkeySvc.unregisterCancelDictationCalls, 0);
+      },
+    );
   });
 }

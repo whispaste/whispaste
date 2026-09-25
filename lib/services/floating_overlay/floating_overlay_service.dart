@@ -909,9 +909,15 @@ class FloatingOverlayService
       return;
     }
     final phase = ref.read(recordingPhaseProvider);
-    if (phase == RecordingPhase.recording) {
-      _log.debug('Overlay close during recording → stopRecording');
-      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+    if (phase == RecordingPhase.recording ||
+        phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.refining) {
+      // Issue #145: the overlay X discards the active dictation — it must
+      // not transcribe, save, copy, or paste anything, unlike the recording
+      // hotkey / overlay-body click (toggleRecording → "stop and
+      // transcribe").
+      _log.debug('Overlay close during $phase → cancelRecording');
+      ref.read(recordingOrchestratorProvider.notifier).cancelRecording();
     } else {
       _log.debug('Overlay close → dismiss');
       _hideOverlay();
@@ -927,10 +933,11 @@ class FloatingOverlayService
           _hideOverlay();
           return;
         }
-        final phase = ref.read(recordingPhaseProvider);
-        if (phase == RecordingPhase.recording) {
-          ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-        }
+        // Issue #145: "Cancel recording" must actually discard the
+        // dictation (no transcribe/save/copy/paste), not stop-and-
+        // transcribe. cancelRecording() no-ops outside
+        // recording/transcribing/refining, so no phase check is needed here.
+        ref.read(recordingOrchestratorProvider.notifier).cancelRecording();
         _hideOverlay();
 
       case 'switch_normal':
