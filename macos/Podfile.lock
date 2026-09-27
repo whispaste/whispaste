@@ -32,7 +32,7 @@ PODS:
     - FlutterMacOS
   - sherpa_onnx_macos (1.13.4):
     - FlutterMacOS
-  - Sparkle (2.9.3)
+  - Sparkle (2.9.4)
   - tray_manager (0.0.1):
     - FlutterMacOS
   - url_launcher_macos (0.0.1):
@@ -114,11 +114,11 @@ SPEC CHECKSUMS:
   sentry_flutter: d6279f3b5156b6535e2159e03437b571a24cc648
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sherpa_onnx_macos: e648c8a9f1a02ec1d7e2788a2963bc86e67e2dd7
-  Sparkle: 39dbdf28637f6056fbf5ee6494bdbfae54f49f41
+  Sparkle: 855a03e2323e88e399729d9f8fc80b080a4946b3
   tray_manager: 19c369010e59c073f13b82354d78a35f7972d609
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
   window_manager: b729e31d38fb04905235df9ea896128991cad99e
 
-PODFILE CHECKSUM: fa256ec65e0aa66d1da23929e0fbb75f4ad3e9fe
+PODFILE CHECKSUM: 65dce9ebcf4e7f00db6b529767428b21abe81d0d
 
 COCOAPODS: 1.17.0
