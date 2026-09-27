@@ -444,8 +444,14 @@ jobs:
       # wired in so the gap is visible/documented rather than silent.
       # xvfb-run: the GTK app needs a display to even launch (and thus reach
       # its own skip logic) — ubuntu-latest has no X server otherwise.
+      # dbus-run-session: the app links libnotify/keybinder/appindicator,
+      # which all talk to a D-Bus session bus — without one running, those
+      # calls hang indefinitely instead of failing fast. `timeout` is a
+      # last-resort net: if a real per-test hang still slips through, fail in
+      # 3min with a clear signal instead of burning the whole 35min job
+      # budget waiting for the outer job timeout to notice.
       - name: Hotkey-to-text happy-path integration test
-        run: xvfb-run -a flutter test integration_test/hotkey_to_text_happy_path_test.dart -d linux
+        run: timeout 180 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_happy_path_test.dart -d linux
 
       # Recording Orchestrator fault-recovery paths (Ticket 08): retry after
       # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
@@ -453,7 +459,7 @@ jobs:
       # so — unlike the happy path above — this runs for real here too, no
       # staged libwhisper needed.
       - name: Hotkey-to-text fallback-paths integration test
-        run: xvfb-run -a flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
+        run: timeout 180 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
 
   # Golden / visual-regression tests — run only the @Tags(['golden']) suite on
   # macOS so font and rendering results match the locally generated baselines.
