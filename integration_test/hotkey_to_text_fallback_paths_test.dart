@@ -219,6 +219,7 @@ void main() {
 
   late Directory sttScratchDir;
   late Duration savedBenchmarkIdleDelay;
+  late Duration savedStuckGuardTimeout;
 
   setUp(() {
     // Freeze the deferred post-load benchmark far outside every test's
@@ -228,10 +229,19 @@ void main() {
     // same fake engine these tests arm, racing the assertions below.
     savedBenchmarkIdleDelay = SttServerStateNotifier.benchmarkIdleDelay;
     SttServerStateNotifier.benchmarkIdleDelay = const Duration(hours: 1);
+    // Shrink the 5 min production stuck-guard so that if a scenario here
+    // ever fails to reach `done`/`error` through its intended path, the
+    // test surfaces that as a fast, clear failure instead of the suite
+    // silently sitting for 5 real minutes before anyone notices (observed
+    // on Linux CI: the GPU->CPU fallback test's own log went quiet for
+    // exactly this long before being killed by the job's outer timeout).
+    savedStuckGuardTimeout = SttServerStateNotifier.stuckGuardTimeout;
+    SttServerStateNotifier.stuckGuardTimeout = const Duration(seconds: 5);
   });
 
   tearDown(() {
     SttServerStateNotifier.benchmarkIdleDelay = savedBenchmarkIdleDelay;
+    SttServerStateNotifier.stuckGuardTimeout = savedStuckGuardTimeout;
   });
 
   /// Builds a fresh container + orchestrator wired exactly like ticket 07's
