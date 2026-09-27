@@ -323,8 +323,19 @@ void main() {
   /// Runs one full hotkey-press → release cycle through the real
   /// orchestrator, exactly as the production hotkey handler does.
   Future<void> runRecordingCycle(RecordingOrchestrator orchestrator) async {
+    // TEMPORARY diagnostic instrumentation (Linux CI hang bisection) —
+    // remove once the root cause is found.
+    stderr.writeln(
+      '[diag ${DateTime.now().toIso8601String()}] before toggleRecording',
+    );
     await orchestrator.toggleRecording();
+    stderr.writeln(
+      '[diag ${DateTime.now().toIso8601String()}] after toggleRecording, before stopRecording',
+    );
     await orchestrator.stopRecording();
+    stderr.writeln(
+      '[diag ${DateTime.now().toIso8601String()}] after stopRecording',
+    );
   }
 
   testWidgets(
