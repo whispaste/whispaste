@@ -127,8 +127,14 @@ void SidePanelHost::RebuildSensors() {
     GdkRectangle work_area;
     gdk_monitor_get_workarea(monitor, &work_area);
 
+    // Sensor strip hugs whichever edge current_edge_ selects (issue #150) --
+    // mirrors the same left/right branch in ComputeTargetRect below.
+    const int sensor_x = (current_edge_ == "right")
+                              ? work_area.x + work_area.width - kSensorWidth
+                              : work_area.x;
+
     auto sensor = std::make_unique<SidePanelSensorWindow>();
-    bool created = sensor->Create(work_area.x, work_area.y, kSensorWidth,
+    bool created = sensor->Create(sensor_x, work_area.y, kSensorWidth,
                                    work_area.height, kDwellMs);
     if (!created) {
       g_warning("[side-panel] sensor creation failed for a monitor");
@@ -236,8 +242,14 @@ void SidePanelHost::ComputeTargetRect(const GdkRectangle& work_area,
                                        bool shown, int* px, int* py,
                                        int* pwidth, int* pheight) const {
   const int height = std::min(kContentHeight, work_area.height);
+  // Resting x is flush with the docked edge (left or right per
+  // current_edge_, issue #150); the just-off-edge staging x is exactly one
+  // panel-width further off-screen on that same side.
   const int x =
-      shown ? work_area.x : work_area.x - kContentWidth;
+      current_edge_ == "right"
+          ? (shown ? work_area.x + work_area.width - kContentWidth
+                   : work_area.x + work_area.width)
+          : (shown ? work_area.x : work_area.x - kContentWidth);
   const int y = work_area.y + (work_area.height - height) / 2;
 
   *px = x;
@@ -377,6 +389,21 @@ void SidePanelHost::HandleUpdateSnapshot(FlValue* args) {
     FlValue* visible_val = fl_value_lookup_string(args, "visible");
     if (visible_val && fl_value_get_type(visible_val) == FL_VALUE_TYPE_BOOL) {
       visible = fl_value_get_bool(visible_val);
+    }
+
+    // Issue #150: relocate the sensor strip immediately if the user's chosen
+    // edge changed since the last snapshot. Every updateSnapshot carries
+    // this field (SidePanelService always fills it in, see
+    // side_panel_snapshot.dart), so a missing/malformed value keeps the
+    // previous edge rather than silently resetting to "left".
+    FlValue* edge_val = fl_value_lookup_string(args, "edge");
+    if (edge_val && fl_value_get_type(edge_val) == FL_VALUE_TYPE_STRING) {
+      const char* edge = fl_value_get_string(edge_val);
+      if (edge && (strcmp(edge, "left") == 0 || strcmp(edge, "right") == 0) &&
+          current_edge_ != edge) {
+        current_edge_ = edge;
+        RebuildSensors();
+      }
     }
   }
 

@@ -69,12 +69,16 @@ class SidePanelSensorPanel: NSPanel {
 
   init(
     screenFrame: NSRect,
+    dockRight: Bool,
     onHoverEntered: @escaping () -> Void,
     onRawEnter: @escaping () -> Void,
     onRawExit: @escaping () -> Void
   ) {
+    // Issue #150: hugs the right edge instead of the left when the user
+    // picked "right edge" in settings -- mirrors the same left/right branch
+    // in SidePanelHost.targetRect(for:shown:).
     let rect = NSRect(
-      x: screenFrame.minX,
+      x: dockRight ? screenFrame.maxX - Self.width : screenFrame.minX,
       y: screenFrame.minY,
       width: Self.width,
       height: screenFrame.height

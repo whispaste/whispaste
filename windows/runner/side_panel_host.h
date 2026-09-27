@@ -57,8 +57,10 @@ class SidePanelHost {
   SidePanelHost(const SidePanelHost&) = delete;
   SidePanelHost& operator=(const SidePanelHost&) = delete;
 
-  // Tear down native resources (sensors + shell + render engine). Safe to
-  // call multiple times. Must be called before main engine teardown.
+  // Tear down native resources (sensors + shell + render engine) permanently
+  // -- the public channel_ goes with it, so no later call can revive this
+  // host. Safe to call multiple times. Must be called before main engine
+  // teardown.
   void Destroy();
 
   // Rebuilds the per-monitor sensor strips -- call on WM_DISPLAYCHANGE
@@ -67,6 +69,14 @@ class SidePanelHost {
   void RebuildSensors();
 
  private:
+  // Everything Destroy() does except tearing down channel_ and latching
+  // destroyed_ -- shared by Destroy() and the Dart-driven "destroy" method
+  // call (HandleMethodCall), which must stay reversible: a later re-enable
+  // reconnects on the same channel_ and HandleMethodCall re-arms the
+  // sensors. Mirrors SnippetPickerHost's "destroy" case, which keeps its
+  // host/public channel alive the same way.
+  void TeardownActive();
+
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
@@ -146,6 +156,13 @@ class SidePanelHost {
   // The monitor work area the panel is currently anchored to -- set on
   // hover-enter, read by SlideIn/SlideOut. Mirrors currentScreenFrame.
   std::optional<RECT> current_work_area_;
+
+  // Which screen edge the sensor strip/panel docks to: "left" or "right"
+  // (issue #150). Set from the "edge" field of every updateSnapshot call
+  // (Dart owns the setting, mirrors how `visible` arrives); RebuildSensors()
+  // and ComputeTargetRect() read this. Defaults to "left" so a cold start
+  // before the first updateSnapshot matches the pre-#150 behavior.
+  std::string current_edge_ = "left";
 
   // Pending target rect for a content window not yet created -- mirrors
   // pendingFrame.

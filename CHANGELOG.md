@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.79
+
+### New Features
+
+- **Einstellungen:** das Zwischenablage-Schnelleinfügen-Panel kann jetzt wahlweise an der linken oder rechten Bildschirmkante andocken (neue Einstellung „Panel Position"), statt immer links zu erscheinen (#150).
+
+### Bug Fixes
+
+- **Einstellungssuche:** mehrere real vorhandene Zeilen (u. a. „Panel Position", „Deepgram API Key", „Live-Transkript") lieferten trotz exakt passendem Suchwort keine Treffer — fehlende Stichwörter in der Such-Registry ergänzt.
+- **Seitenpanel:** ein einmaliges Aus- und wieder Einschalten der Einstellung konnte das Panel dauerhaft funktionsunfähig machen — es öffnete sich danach nicht mehr beim Bewegen der Maus zum Bildschirmrand. Der Ein-/Aus-Zyklus ist jetzt zuverlässig umkehrbar.
+- **Sound-Feedback:** aktiviertes Sound-Feedback hielt das Audiogerät — auch einen per Bluetooth-Multipoint verbundenen Kopfhörer — bis zum Beenden von WhisPaste dauerhaft geöffnet und blockierte damit andere Apps' Audio. Das Gerät wird jetzt nach 30 Sekunden Inaktivität wieder freigegeben (#148).
+
 ## 1.2.78
 
 ### New Features

@@ -44,20 +44,28 @@ void main() {
         transcriptions: [SidePanelRow(id: 't1', title: 'Transcript')],
         snippets: [SidePanelRow(id: 's1', title: 'Snippet')],
         clipboardHistory: [SidePanelRow(id: 'c1', title: 'Clipboard')],
+        edge: 'right',
       );
       final restored = SidePanelSnapshot.fromMap(snapshot.toMap());
       expect(restored.visible, isTrue);
       expect(restored.transcriptions.single.id, 't1');
       expect(restored.snippets.single.id, 's1');
       expect(restored.clipboardHistory.single.id, 'c1');
+      expect(restored.edge, 'right');
     });
 
-    test('fromMap defaults to invisible with empty lists', () {
+    test('fromMap defaults to invisible with empty lists and left edge', () {
       final snapshot = SidePanelSnapshot.fromMap(const {});
       expect(snapshot.visible, isFalse);
       expect(snapshot.transcriptions, isEmpty);
       expect(snapshot.snippets, isEmpty);
       expect(snapshot.clipboardHistory, isEmpty);
+      expect(snapshot.edge, 'left');
+    });
+
+    test('default constructor defaults to left edge', () {
+      const snapshot = SidePanelSnapshot();
+      expect(snapshot.edge, 'left');
     });
   });
 }

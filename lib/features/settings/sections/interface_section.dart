@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
@@ -143,6 +144,30 @@ class InterfaceSection extends ConsumerWidget {
                   ),
             ),
           ),
+          if (settings.interface_.sidePanelEnabled)
+            SettingRow(
+              icon: LucideIcons.panelRight,
+              label: l10n.settingsSidePanelEdge,
+              subtitle: l10n.settingsSidePanelEdgeSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.interface_.sidePanelEdge.value,
+                items: const ['left', 'right'],
+                labels: [
+                  l10n.settingsSidePanelEdgeLeft,
+                  l10n.settingsSidePanelEdgeRight,
+                ],
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        interface_: s.interface_.copyWith(
+                          sidePanelEdge: SidePanelEdge.fromValue(v),
+                        ),
+                      ),
+                    ),
+              ),
+            ),
           SettingRow(
             icon: LucideIcons.panelBottomClose,
             label: l10n.settingsCloseToTray,

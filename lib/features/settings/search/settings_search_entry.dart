@@ -68,9 +68,15 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       // DE
       'Thema', 'Hell', 'Dunkel', 'Design', 'Erscheinungsbild', 'Sprache',
       'Autostart', 'minimiert', 'Benachrichtigungen', 'Systemsprache',
+      'Panel', 'Seitenpanel', 'Zwischenablage-Panel', 'Schnelleinfügen',
+      'Panel-Position', 'Bildschirmkante', 'Kante', 'links', 'rechts',
+      'Papierkorb', 'Ablage',
       // EN
       'theme', 'dark mode', 'light mode', 'appearance', 'language',
       'startup', 'launch', 'minimized', 'notifications', 'system language',
+      'panel', 'side panel', 'quick paste', 'quick-paste', 'clipboard panel',
+      'panel position', 'screen edge', 'edge', 'dock', 'tray',
+      'CPU', 'indicator', 'status bar', 'utilization',
     ],
   ),
   SettingsSearchEntry(
@@ -84,11 +90,14 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       // DE
       'Modell', 'Whisper', 'Qualität', 'Transkription', 'Dienst', 'lokal',
       'Cloud', 'Sprache', 'Wartezeit', 'Vokabular', 'Wörterbuch',
-      'STT', 'Sprachdienst', 'Wörter',
+      'STT', 'Sprachdienst', 'Wörter', 'Deepgram', 'OpenAI', 'API-Schlüssel',
+      'Nur Zahlen', 'Interpunktion', 'Zeichensetzung', 'Engine', 'Stille',
+      'Trimmen',
       // EN
       'model', 'whisper', 'quality', 'transcription', 'service', 'local',
       'on-device', 'cloud', 'language', 'timeout', 'vocabulary',
-      'dictionary', 'words', 'STT', 'voice',
+      'dictionary', 'words', 'STT', 'voice', 'deepgram', 'openai', 'api key',
+      'numbers only', 'punctuation', 'priming', 'engine', 'silence', 'trim',
       // GPU (now embedded in STT section, local mode only)
       'GPU', 'Grafik', 'Beschleunigung', 'Prozessor', 'Hardware',
       'graphics', 'acceleration', 'processor', 'hardware',
@@ -152,10 +161,11 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     keywords: [
       // DE
       'Overlay', 'schwebend', 'Anzeige', 'Status', 'Position', 'Fenster',
-      'oben mittig', 'unten mittig', 'Startposition',
+      'oben mittig', 'unten mittig', 'Startposition', 'Live-Transkript',
       // EN
       'overlay', 'floating window', 'display', 'status', 'position',
       'window', 'top center', 'bottom center', 'start position',
+      'live transcript',
     ],
   ),
   SettingsSearchEntry(
@@ -360,11 +370,11 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       // DE
       'Datenschutz', 'Analyse', 'Statistik', 'Tracking', 'anonym',
       'Fehlerberichte', 'Absturzberichte', 'Nutzungsstatistiken',
-      'Daten', 'Teilen', 'Privatsphäre',
+      'Daten', 'Teilen', 'Privatsphäre', 'Aufnahmen behalten', 'kürzlich',
       // EN
       'privacy', 'analytics', 'statistics', 'tracking', 'anonymous',
       'error reports', 'crash reports', 'usage stats',
-      'data', 'share', 'consent',
+      'data', 'share', 'consent', 'keep recordings', 'recent recordings',
     ],
   ),
 ];

@@ -192,6 +192,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Clipboard quick-paste side panel toggle — a display preference like the
   // other 'show_*' keys below it.
   'side_panel_enabled',
+  // Issue #150: which screen edge the side panel docks to — same display-
+  // preference rationale as 'side_panel_enabled' right above it.
+  'side_panel_edge',
   // Ticket: status-bar CPU/GPU backend-utilization chip — a display
   // preference like the other 'show_*' keys around it.
   'show_backend_utilization',

@@ -4937,6 +4937,30 @@ abstract class L10n {
   /// **'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history'**
   String get settingsSidePanelEnabledSubtitle;
 
+  /// No description provided for @settingsSidePanelEdge.
+  ///
+  /// In en, this message translates to:
+  /// **'Panel Position'**
+  String get settingsSidePanelEdge;
+
+  /// No description provided for @settingsSidePanelEdgeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which screen edge the panel docks to and slides out from'**
+  String get settingsSidePanelEdgeSubtitle;
+
+  /// No description provided for @settingsSidePanelEdgeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Left edge'**
+  String get settingsSidePanelEdgeLeft;
+
+  /// No description provided for @settingsSidePanelEdgeRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Right edge'**
+  String get settingsSidePanelEdgeRight;
+
   /// No description provided for @settingsErrorReporting.
   ///
   /// In en, this message translates to:

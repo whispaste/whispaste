@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
@@ -42,9 +43,15 @@ class SidePanelService
 
   bool _isOpen = false;
 
+  // `ref.watch`, not `ref.read`: `sidePanelControllerProvider` is
+  // `.autoDispose` specifically so a toggle-off + toggle-on gets a fresh,
+  // un-disposed controller instead of the permanently-latched one from
+  // before the toggle-off (see that provider's doc comment). `ref.read`
+  // would not register this Notifier as a listener, so the controller
+  // provider would have zero listeners and dispose again immediately.
   @override
   SidePanelController? createController() =>
-      ref.read(sidePanelControllerProvider);
+      ref.watch(sidePanelControllerProvider);
 
   @override
   Stream<SidePanelEvent> eventsFrom(SidePanelController controller) =>
@@ -52,15 +59,49 @@ class SidePanelService
 
   @override
   Future<void> disposeController(SidePanelController controller) {
+    _log.debug('disposeController called (native host receives "destroy")');
     _isOpen = false;
     return controller.dispose();
   }
 
   @override
   void onControllerReady(SidePanelController controller) {
+    // Kicks the native host into re-arming its edge-hover sensors right
+    // away. `SidePanelHost`/`TeardownActive()` (native, both platforms)
+    // clears its sensors on a toggle-off and only rebuilds them lazily on
+    // its *next* incoming channel call -- but nothing else calls in after a
+    // toggle-on until the user hovers, which itself needs the (still
+    // unarmed) sensors. `MethodChannel` has no "a new listener attached"
+    // signal, so this invisible, otherwise-harmless snapshot is the
+    // deliberate first call that breaks that deadlock.
+    unawaited(controller.updateSnapshot(SidePanelSnapshot(edge: _edgeValue())));
     ref.listen(historyEntriesProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(snippetsProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(clipboardHistoryProvider, (_, _) => unawaited(_pushIfOpen()));
+    // Relocates the native edge sensor/panel immediately when the user picks
+    // the other side in settings, instead of waiting for the next open/close
+    // to happen to carry the new edge along (issue #150).
+    ref.listen(
+      settingsProvider.select(
+        (s) => s.value?.interface_.sidePanelEdge ?? SidePanelEdge.left,
+      ),
+      (_, _) => unawaited(_pushEdgeUpdate()),
+    );
+  }
+
+  String _edgeValue() {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    return settings.interface_.sidePanelEdge.value;
+  }
+
+  Future<void> _pushEdgeUpdate() async {
+    final c = controller;
+    if (c == null) return;
+    await c.updateSnapshot(
+      _isOpen
+          ? _buildSnapshot(visible: true)
+          : SidePanelSnapshot(edge: _edgeValue()),
+    );
   }
 
   @override
@@ -138,7 +179,7 @@ class SidePanelService
     if (c == null || !_isOpen) return;
     _log.info('close() called');
     _isOpen = false;
-    await c.updateSnapshot(const SidePanelSnapshot(visible: false));
+    await c.updateSnapshot(SidePanelSnapshot(edge: _edgeValue()));
   }
 
   Future<void> _pushIfOpen() async {
@@ -160,6 +201,7 @@ class SidePanelService
 
     return SidePanelSnapshot(
       visible: visible,
+      edge: _edgeValue(),
       transcriptions: [
         for (final e in history)
           SidePanelRow(

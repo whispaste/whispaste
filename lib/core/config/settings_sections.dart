@@ -103,6 +103,7 @@ class InterfaceSettings {
     this.showNotifications = true,
     this.showBackendUtilization = true,
     this.sidePanelEnabled = true,
+    this.sidePanelEdge = SidePanelEdge.left,
   });
 
   final String locale;
@@ -122,6 +123,12 @@ class InterfaceSettings {
   /// always-on-top hover-activated edge zone is exactly the kind of thing
   /// some users want to turn off entirely rather than just tolerate.
   final bool sidePanelEnabled;
+
+  /// Which screen edge the side panel docks to and slides out from. Default
+  /// left matches the panel's original, still-most-common placement; users
+  /// who keep desktop icons/taskbar shortcuts along the left edge (issue
+  /// #150) can move it to the right instead.
+  final SidePanelEdge sidePanelEdge;
 
   static const InterfaceSettings defaults = InterfaceSettings();
 
@@ -148,6 +155,7 @@ class InterfaceSettings {
       'side_panel_enabled',
       defaults.sidePanelEnabled,
     ),
+    sidePanelEdge: SidePanelEdge.fromValue(v['side_panel_edge']),
   );
 
   // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
@@ -161,6 +169,7 @@ class InterfaceSettings {
     'show_notifications': '$showNotifications',
     'show_backend_utilization': '$showBackendUtilization',
     'side_panel_enabled': '$sidePanelEnabled',
+    'side_panel_edge': sidePanelEdge.value,
   };
 
   InterfaceSettings copyWith({
@@ -170,6 +179,7 @@ class InterfaceSettings {
     bool? showNotifications,
     bool? showBackendUtilization,
     bool? sidePanelEnabled,
+    SidePanelEdge? sidePanelEdge,
     // loam-ignore: code-duplicates – every settings-section class in this file shares this exact copyWith(field: field ?? this.field, ...) return shape by deliberate convention, established repo-wide boilerplate.
   }) => InterfaceSettings(
     locale: locale ?? this.locale,
@@ -179,8 +189,12 @@ class InterfaceSettings {
     showBackendUtilization:
         showBackendUtilization ?? this.showBackendUtilization,
     sidePanelEnabled: sidePanelEnabled ?? this.sidePanelEnabled,
+    sidePanelEdge: sidePanelEdge ?? this.sidePanelEdge,
   );
 
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file
+  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -190,7 +204,8 @@ class InterfaceSettings {
           startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications &&
           showBackendUtilization == other.showBackendUtilization &&
-          sidePanelEnabled == other.sidePanelEnabled;
+          sidePanelEnabled == other.sidePanelEnabled &&
+          sidePanelEdge == other.sidePanelEdge;
 
   @override
   int get hashCode => Object.hash(
@@ -200,6 +215,7 @@ class InterfaceSettings {
     showNotifications,
     showBackendUtilization,
     sidePanelEnabled,
+    sidePanelEdge,
   );
 }
 

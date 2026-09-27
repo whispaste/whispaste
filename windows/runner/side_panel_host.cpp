@@ -86,15 +86,22 @@ void SidePanelHost::Destroy() {
   if (destroyed_) return;
   destroyed_ = true;
 
-  CancelNativeClose();
-  if (g_active_host_for_close_timer == this) {
-    g_active_host_for_close_timer = nullptr;
-  }
+  TeardownActive();
 
   if (channel_) {
     channel_->SetMethodCallHandler(nullptr);
     channel_.reset();
   }
+
+  OutputDebugStringW(L"[SidePanel] Host destroyed\n");
+}
+
+void SidePanelHost::TeardownActive() {
+  CancelNativeClose();
+  if (g_active_host_for_close_timer == this) {
+    g_active_host_for_close_timer = nullptr;
+  }
+
   if (render_channel_) {
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
@@ -115,8 +122,6 @@ void SidePanelHost::Destroy() {
   is_shown_ = false;
   current_work_area_.reset();
   pending_rect_.reset();
-
-  OutputDebugStringW(L"[SidePanel] Host destroyed\n");
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -124,11 +129,14 @@ void SidePanelHost::Destroy() {
 // ══════════════════════════════════════════════════════════════════════
 
 void SidePanelHost::RebuildSensors() {
-  // Guards against a WM_DISPLAYCHANGE landing between a Dart-driven
-  // "destroy" (HandleMethodCall) and FlutterWindow::OnDestroy() resetting
-  // the owning unique_ptr -- without this, a destroyed host would silently
-  // resurrect a fresh set of native sensor windows whose events all no-op
-  // in SendEvent (destroyed_ check), leaking window handles for nothing.
+  // Guards against a WM_DISPLAYCHANGE landing during real process teardown,
+  // between Destroy() latching destroyed_ and FlutterWindow::OnDestroy()
+  // resetting the owning unique_ptr -- without this, a destroyed host would
+  // silently resurrect a fresh set of native sensor windows whose events all
+  // no-op in SendEvent (destroyed_ check), leaking window handles for
+  // nothing. A Dart-driven "destroy" toggle-off no longer latches
+  // destroyed_ (see TeardownActive/HandleMethodCall), so this guard does not
+  // apply to that path.
   if (destroyed_) return;
 
   // Destroying and recreating on every call (rather than diffing) mirrors
@@ -150,8 +158,14 @@ void SidePanelHost::RebuildSensors() {
     double scale = (dpi > 0) ? dpi / 96.0 : 1.0;
     int width = static_cast<int>(std::round(kSensorWidth * scale));
 
+    // Sensor strip hugs whichever edge current_edge_ selects (issue #150) --
+    // mirrors the same left/right branch in ComputeTargetRect below.
+    const int sensor_x = (current_edge_ == "right")
+                             ? static_cast<int>(wa.right) - width
+                             : static_cast<int>(wa.left);
+
     auto sensor = std::make_unique<SidePanelSensorWindow>();
-    bool created = sensor->Create(wa.left, wa.top, width, wa.bottom - wa.top,
+    bool created = sensor->Create(sensor_x, wa.top, width, wa.bottom - wa.top,
                                   kDwellMs);
     if (!created) {
       OutputDebugStringW(L"[SidePanel] Sensor creation failed for a monitor\n");
@@ -263,13 +277,17 @@ void SidePanelHost::ComputeTargetRect(const RECT& work_area, bool shown,
       std::min(static_cast<int>(std::round(kContentHeight * scale)),
                wa_height);
 
-  // Resting x is flush with the work area's left edge; the just-off-edge
-  // staging x is exactly one panel-width to the left -- see targetRect's
-  // doc comment on SidePanelHost.swift for why no sensor-strip offset is
-  // needed here.
+  // Resting x is flush with the docked edge (left or right per
+  // current_edge_, issue #150); the just-off-edge staging x is exactly one
+  // panel-width further off-screen on that same side -- see targetRect's doc
+  // comment on SidePanelHost.swift for why no sensor-strip offset is needed
+  // here.
   const int x =
-      shown ? static_cast<int>(work_area.left)
-            : static_cast<int>(work_area.left) - width;
+      current_edge_ == "right"
+          ? (shown ? static_cast<int>(work_area.right) - width
+                   : static_cast<int>(work_area.right))
+          : (shown ? static_cast<int>(work_area.left)
+                   : static_cast<int>(work_area.left) - width);
   const int y = static_cast<int>(work_area.top) + (wa_height - height) / 2;
 
   *px = x;
@@ -434,23 +452,36 @@ void SidePanelHost::HandleMethodCall(
 
   const auto& method = call.method_name();
 
+  if (method == "destroy") {
+    // Toggle-off: a *soft*, reversible teardown -- keeps channel_ alive and
+    // does NOT latch destroyed_, unlike the permanent Destroy() used for
+    // real process teardown (FlutterWindow::OnDestroy()/~SidePanelHost()).
+    // Mirrors SnippetPickerHost's "destroy" case, which keeps its
+    // host/public channel alive the same way for a later re-boot. Before
+    // this fix, this case called the permanent Destroy(), which also tore
+    // down channel_ -- a subsequent re-enable's fresh Dart-side controller
+    // then had no native handler left to talk to, permanently killing the
+    // panel for the rest of the process.
+    TeardownActive();
+    result->Success();
+    return;
+  }
+
+  // A toggle-off (above) clears sensors_ along with everything else. A
+  // re-enable's Dart-side controller sends no explicit "create"/"init" call
+  // -- its first real call is what signals the feature is wanted again, so
+  // re-arm the edge sensors here instead of leaving them permanently gone.
+  // A no-op on the common path (sensors_ is already populated from the
+  // constructor or a previous rebuild).
+  if (sensors_.empty()) {
+    RebuildSensors();
+  }
+
   if (method == "updateSnapshot") {
     const auto* args_map = std::get_if<EncodableMap>(call.arguments());
     if (args_map) {
       HandleUpdateSnapshot(*args_map);
     }
-    result->Success();
-    return;
-  }
-
-  if (method == "destroy") {
-    // Full teardown -- mirrors SidePanelHost.swift's `case "destroy":
-    // teardown()`. Unlike SnippetPickerHost's "destroy" (which keeps the
-    // host/public channel alive for a future re-boot), side_panel_host.h
-    // exposes only the one Destroy(), so this method call and the
-    // FlutterWindow::OnDestroy() teardown path both end up here -- safe,
-    // Destroy() is idempotent.
-    Destroy();
     result->Success();
     return;
   }
@@ -464,6 +495,22 @@ void SidePanelHost::HandleUpdateSnapshot(const EncodableMap& args) {
   if (it != args.end()) {
     if (const auto* b = std::get_if<bool>(&it->second)) visible = *b;
   }
+
+  // Issue #150: relocate the sensor strip immediately if the user's chosen
+  // edge changed since the last snapshot. Every updateSnapshot carries this
+  // field (SidePanelService always fills it in, see side_panel_snapshot
+  // .dart), so a missing/malformed value keeps the previous edge rather than
+  // silently resetting to "left".
+  auto edge_it = args.find(EncodableValue("edge"));
+  if (edge_it != args.end()) {
+    if (const auto* s = std::get_if<std::string>(&edge_it->second)) {
+      if (*s != current_edge_ && (*s == "left" || *s == "right")) {
+        current_edge_ = *s;
+        RebuildSensors();
+      }
+    }
+  }
+
   if (visible && !content_window_) {
     // Mirrors SidePanelHost.swift's `if visible && contentPanel == nil {
     // ensurePanel() }`.

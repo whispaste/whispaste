@@ -25,6 +25,22 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 
 // ---------------------------------------------------------------------------
+// Recording sound feedback service — overrides the engine-touching idle
+// release hook so the idle-timer *scheduling* logic can be verified without
+// the native SoLoud engine, which is unavailable under `flutter test` (see
+// the file doc comment above).
+// ---------------------------------------------------------------------------
+
+class _RecordingSoundFeedbackService extends SoundFeedbackService {
+  int releaseCalls = 0;
+
+  @override
+  void releaseEngineForIdle() {
+    releaseCalls++;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Fake settings notifier — returns configurable AppSettings without DB.
 // ---------------------------------------------------------------------------
 
@@ -528,7 +544,87 @@ void main() {
         closeTo(0.0, 0.001),
       );
     });
+  });
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 7. Idle-release timer (issue #148: SoLoud's native device stream stays
+  //    open -- and keeps claiming any Bluetooth route -- forever after the
+  //    first cue unless something eventually releases it).
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('idle-release timer', () {
+    test(
+      'releaseEngineForIdle fires once idleReleaseTimeout elapses',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+            soundFeedbackProvider.overrideWith(
+              () => _RecordingSoundFeedbackService(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+
+        final notifier =
+            container.read(soundFeedbackProvider.notifier)
+                as _RecordingSoundFeedbackService;
+        notifier.idleReleaseTimeout = const Duration(milliseconds: 20);
+
+        notifier.armIdleTimerForTesting();
+        expect(notifier.releaseCalls, 0);
+
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        expect(
+          notifier.releaseCalls,
+          1,
+          reason:
+              'the engine (and any Bluetooth route it holds) must be '
+              'released once the idle timeout elapses -- before this fix, '
+              'nothing ever released it short of the app exiting',
+        );
+      },
+    );
+
+    test('further activity before the timeout postpones the release', () async {
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+          soundFeedbackProvider.overrideWith(
+            () => _RecordingSoundFeedbackService(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      final notifier =
+          container.read(soundFeedbackProvider.notifier)
+              as _RecordingSoundFeedbackService;
+      notifier.idleReleaseTimeout = const Duration(milliseconds: 60);
+
+      notifier.armIdleTimerForTesting();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      // Re-arm before the first timeout would have fired (mirrors a
+      // second cue playing mid-session).
+      notifier.armIdleTimerForTesting();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(
+        notifier.releaseCalls,
+        0,
+        reason:
+            'an active session (repeated cues) must not have its audio '
+            'route torn down mid-use',
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(notifier.releaseCalls, 1);
+    });
+  });
+
+  group('service reads settings', () {
     test('service reads settings from provider on each play call', () async {
       // This verifies the service accesses settings via ref.read(),
       // so it always gets the current value (not a stale cached one).

@@ -87,6 +87,7 @@ class SidePanelSnapshot {
     this.transcriptions = const [],
     this.snippets = const [],
     this.clipboardHistory = const [],
+    this.edge = 'left',
   });
 
   final bool visible;
@@ -94,11 +95,20 @@ class SidePanelSnapshot {
   final List<SidePanelRow> snippets;
   final List<SidePanelRow> clipboardHistory;
 
+  /// Which screen edge the panel docks to: `'left'` or `'right'` (issue
+  /// #150). Kept as a plain string rather than importing
+  /// `core/config/settings_enums.dart`'s `SidePanelEdge` here -- this file is
+  /// shared with the render isolate/native hosts and stays decoupled from
+  /// the settings-model layer, mirroring how [SidePanelRowKind] etc. are
+  /// re-derived rather than imported.
+  final String edge;
+
   Map<String, dynamic> toMap() => {
     'visible': visible,
     'transcriptions': transcriptions.map((r) => r.toMap()).toList(),
     'snippets': snippets.map((r) => r.toMap()).toList(),
     'clipboardHistory': clipboardHistory.map((r) => r.toMap()).toList(),
+    'edge': edge,
   };
 
   factory SidePanelSnapshot.fromMap(Map<dynamic, dynamic> map) {
@@ -110,6 +120,7 @@ class SidePanelSnapshot {
       transcriptions: rowsOf('transcriptions'),
       snippets: rowsOf('snippets'),
       clipboardHistory: rowsOf('clipboardHistory'),
+      edge: map['edge'] as String? ?? 'left',
     );
   }
 }

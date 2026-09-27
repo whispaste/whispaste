@@ -4,6 +4,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/history_providers.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
@@ -230,6 +232,137 @@ void main() {
             'so it (and its native controller) actually tears down once '
             'nothing watches it anymore',
       );
+    });
+
+    // Regression test for the "panel stays dead after toggling the setting
+    // back on" bug: `MethodChannelPlatformHost.dispose()` latches its
+    // `isDisposed` flag permanently and closes its event stream for good, so
+    // re-reading the *same* controller instance after a toggle-off would
+    // silently no-op every future `updateSnapshot()` call and never emit
+    // another event. `sidePanelControllerProvider` must therefore be
+    // `.autoDispose` (and `createController()` must `ref.watch`, not
+    // `ref.read`, it) so a toggle-on after a toggle-off gets a *fresh*,
+    // un-disposed controller instead of the dead one from before.
+    test('toggling the setting off then back on gets a fresh, un-disposed '
+        'controller instead of reusing the disposed one', () async {
+      final created = <_FakeSidePanelController>[];
+      final freshContainer = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) {
+            final c = _FakeSidePanelController();
+            created.add(c);
+            return c;
+          }),
+        ],
+      );
+      addTearDown(freshContainer.dispose);
+
+      // Toggle on.
+      final sub1 = freshContainer.listen(sidePanelServiceProvider, (_, _) {});
+      freshContainer.read(sidePanelServiceProvider.notifier);
+      expect(created, hasLength(1));
+      final first = created.single;
+
+      // Toggle off.
+      sub1.close();
+      await Future<void>.delayed(Duration.zero);
+      expect(first.disposed, isTrue);
+
+      // Toggle back on.
+      final sub2 = freshContainer.listen(sidePanelServiceProvider, (_, _) {});
+      final service = freshContainer.read(sidePanelServiceProvider.notifier);
+      addTearDown(sub2.close);
+
+      expect(
+        created,
+        hasLength(2),
+        reason:
+            'a fresh MethodChannelSidePanelController must be created on '
+            're-enable -- reusing the disposed instance from before the '
+            'toggle-off would mean every call silently no-ops',
+      );
+      final second = created.last;
+      expect(second.disposed, isFalse);
+
+      await service.open();
+      expect(
+        second.snapshots.any((s) => s.visible),
+        isTrue,
+        reason:
+            'open() must reach the new controller, proving the panel '
+            'actually works again after the toggle-on',
+      );
+      expect(
+        first.snapshots.any((s) => s.visible),
+        isFalse,
+        reason:
+            'the disposed pre-toggle controller must never be shown -- '
+            'onControllerReady sends it one invisible re-arm ping on '
+            'creation, but open() must never reach it',
+      );
+    });
+  });
+
+  group('SidePanelService side panel edge (issue #150)', () {
+    test('defaults to the left edge on the initial re-arm snapshot', () async {
+      container = buildContainer();
+      _readService(container);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.single.edge, 'left');
+    });
+
+    test('open()/close() carry the configured right edge', () async {
+      container = buildContainer();
+      // Must await the notifier's initial build (reads the empty test DB)
+      // before mutating it -- otherwise that build's own `state = AsyncData
+      // (...)` assignment can land after updateSettings()'s and silently
+      // overwrite the edge change back to the default.
+      await container.read(settingsProvider.future);
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.copyWith(
+                sidePanelEdge: SidePanelEdge.right,
+              ),
+            ),
+          );
+
+      final service = _readService(container);
+      await service.open();
+      expect(fakePanel.snapshots.last.edge, 'right');
+
+      await service.close();
+      expect(fakePanel.snapshots.last.edge, 'right');
+    });
+
+    test('changing the setting while the panel is closed relocates the sensor '
+        'immediately, without opening the panel', () async {
+      container = buildContainer();
+      _readService(container);
+      await container.read(settingsProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      final before = fakePanel.snapshots.length;
+
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.copyWith(
+                sidePanelEdge: SidePanelEdge.right,
+              ),
+            ),
+          );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.length, greaterThan(before));
+      expect(fakePanel.snapshots.last.edge, 'right');
+      expect(fakePanel.snapshots.last.visible, isFalse);
     });
   });
 

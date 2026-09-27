@@ -889,7 +889,24 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync(
         'wp_automation_api_history_test',
       );
-      addTearDown(() => tempDir.deleteSync(recursive: true));
+      // Retried: even after the explicit shutdown()/close() below genuinely
+      // await their own async work, Windows can lag a moment longer before
+      // the OS actually releases the native sqlite3 file handle that the
+      // background isolate held — a handle-release timing gap below the
+      // Dart-level close, not something any amount of extra awaiting inside
+      // this process can close. POSIX silently allows deleting a still-open
+      // file, so this only ever surfaced on Windows CI.
+      addTearDown(() async {
+        for (var attempt = 1; attempt <= 5; attempt++) {
+          try {
+            tempDir.deleteSync(recursive: true);
+            return;
+          } on PathAccessException {
+            if (attempt == 5) rethrow;
+            await Future<void>.delayed(Duration(milliseconds: 200 * attempt));
+          }
+        }
+      });
       final db = HistoryDatabase.forTesting(
         NativeDatabase.createInBackground(
           File(p.join(tempDir.path, 'history.db')),
@@ -905,6 +922,23 @@ void main() {
       );
 
       container = buildContainer(db: db);
+      // Registered after the tempDir cleanup above, so it runs first (LIFO)
+      // — and, unlike a bare `container.dispose` (whose own onDispose hooks
+      // stop the server / close db with `unawaited(...)`, see
+      // AutomationApiController.build() and buildContainer's
+      // historyDatabaseProvider override), this genuinely awaits both steps
+      // before returning. On Windows (unlike POSIX), deleting a file that's
+      // still open fails, so the tempDir delete must not run until the
+      // background isolate has actually released its handle on it. The
+      // group-level `tearDown(() => container.dispose())` below then becomes
+      // a safe no-op (ProviderContainer.dispose() is idempotent).
+      addTearDown(() async {
+        await container
+            .read(automationApiControllerProvider.notifier)
+            .shutdown();
+        container.dispose();
+        await db.close();
+      });
       final port = await startEnabled(container);
       final token = container.read(automationApiControllerProvider).token!;
 

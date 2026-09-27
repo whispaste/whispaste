@@ -168,6 +168,27 @@ enum OverlayStartPosition {
 }
 
 // ---------------------------------------------------------------------------
+// Side Panel Edge
+// ---------------------------------------------------------------------------
+
+/// Which screen edge the clipboard quick-paste side panel docks to and
+/// slides out from.
+enum SidePanelEdge {
+  left('left'),
+  right('right');
+
+  const SidePanelEdge(this.value);
+  final String value;
+
+  static SidePanelEdge fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return left;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Floating Overlay Size
 // ---------------------------------------------------------------------------
 

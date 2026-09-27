@@ -2773,6 +2773,19 @@ class L10nHe extends L10n {
       'סרגל שנפתח בהצבעה על קצה המסך השמאלי, לתמלולים, קטעים והיסטוריית לוח הגזירים';
 
   @override
+  String get settingsSidePanelEdge => 'מיקום הסרגל';
+
+  @override
+  String get settingsSidePanelEdgeSubtitle =>
+      'לאיזה קצה מסך הסרגל מעוגן ומתוכו הוא נגלל';
+
+  @override
+  String get settingsSidePanelEdgeLeft => 'קצה שמאלי';
+
+  @override
+  String get settingsSidePanelEdgeRight => 'קצה ימני';
+
+  @override
   String get settingsErrorReporting => 'דיווח שגיאות';
 
   @override
