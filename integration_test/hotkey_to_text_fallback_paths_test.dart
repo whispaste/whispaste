@@ -260,21 +260,11 @@ void main() {
     )
   >
   buildHarness({required AppSettings settings}) async {
-    // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-    print('[diag ${DateTime.now().toIso8601String()}] buildHarness: start');
     sttScratchDir = await Directory.systemTemp.createTemp('wp_itest_fault_');
     addTearDown(() async {
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] teardown: before sttScratchDir.delete',
-      );
       if (await sttScratchDir.exists()) {
         await sttScratchDir.delete(recursive: true);
       }
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] teardown: after sttScratchDir.delete',
-      );
     });
     sttDirOverride = sttScratchDir.path;
     retainedAudioDirOverride = p.join(sttScratchDir.path, 'retained-audio');
@@ -294,17 +284,7 @@ void main() {
 
     final engine = _FaultInjectingWhisperEngine();
     final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(() {
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] teardown: before db.close',
-      );
-      db.close();
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] teardown: after db.close',
-      );
-    });
+    addTearDown(db.close);
 
     final container = ProviderContainer(
       overrides: [
@@ -321,17 +301,7 @@ void main() {
         ),
       ],
     );
-    addTearDown(() {
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] teardown: before container.dispose',
-      );
-      container.dispose();
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] teardown: after container.dispose',
-      );
-    });
+    addTearDown(container.dispose);
 
     // See the ticket-07 happy-path test for why this await is required:
     // settingsProvider is a FutureProvider, and driving the orchestrator
@@ -347,26 +317,14 @@ void main() {
     }, fireImmediately: true);
 
     final orchestrator = container.read(recordingOrchestratorProvider.notifier);
-    // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-    print('[diag ${DateTime.now().toIso8601String()}] buildHarness: end');
     return (container, orchestrator, engine, observedPhases);
   }
 
   /// Runs one full hotkey-press → release cycle through the real
   /// orchestrator, exactly as the production hotkey handler does.
   Future<void> runRecordingCycle(RecordingOrchestrator orchestrator) async {
-    // TEMPORARY diagnostic instrumentation (Linux CI hang bisection) —
-    // remove once the root cause is found.
-    // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-    print('[diag ${DateTime.now().toIso8601String()}] before toggleRecording');
     await orchestrator.toggleRecording();
-    // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-    print(
-      '[diag ${DateTime.now().toIso8601String()}] after toggleRecording, before stopRecording',
-    );
     await orchestrator.stopRecording();
-    // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-    print('[diag ${DateTime.now().toIso8601String()}] after stopRecording');
   }
 
   testWidgets(
@@ -417,8 +375,6 @@ void main() {
     'GPU→CPU fallback path: a simulated GPU crash degrades the backend to '
     'CPU and the pipeline completes on the CPU retry',
     (tester) async {
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print('[diag ${DateTime.now().toIso8601String()}] GPU test: body start');
       final (
         container,
         orchestrator,

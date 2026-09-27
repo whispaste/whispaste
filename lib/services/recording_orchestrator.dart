@@ -486,15 +486,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // path — a quick-note target never pastes anywhere, so skip it for a
       // pure latency win, not a behaviour change.
       if (target == RecordingTarget.clipboard) {
-        // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-        print(
-          '[diag ${DateTime.now().toIso8601String()}] before pasterProvider.prime()',
-        );
         await ref.read(pasterProvider)?.prime();
-        // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-        print(
-          '[diag ${DateTime.now().toIso8601String()}] after pasterProvider.prime()',
-        );
       }
 
       // Start audio capture. `streamRawPcm` opens the live-transcript-
@@ -638,13 +630,7 @@ class RecordingOrchestrator extends Notifier<void> {
       _cancelAmplitude();
 
       // ── Step 1: Capture — stop audio and flush WAV (10 s budget) ─────────
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print(
-        '[diag ${DateTime.now().toIso8601String()}] before _runCaptureStep',
-      );
       final captureResult = await _runCaptureStep(runner, sid);
-      // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-      print('[diag ${DateTime.now().toIso8601String()}] after _runCaptureStep');
       switch (captureResult) {
         case _CaptureAbort(:final outcome):
           timing.outcome = outcome;
@@ -655,20 +641,12 @@ class RecordingOrchestrator extends Notifier<void> {
           _log.debug(
             '[$sid] WAV ready: ${bytes.length} bytes (${timing.wavReadyMs}ms)',
           );
-          // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-          print(
-            '[diag ${DateTime.now().toIso8601String()}] before _runTranscriptionPipeline',
-          );
           final shouldContinue = await _runTranscriptionPipeline(
             runner: runner,
             sid: sid,
             wavPath: path,
             wavBytes: bytes,
             timing: timing,
-          );
-          // ignore: avoid_print — temporary CI hang diagnostic, removed once resolved
-          print(
-            '[diag ${DateTime.now().toIso8601String()}] after _runTranscriptionPipeline',
           );
           if (!shouldContinue) return;
       }
