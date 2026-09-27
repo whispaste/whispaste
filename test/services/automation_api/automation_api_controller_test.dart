@@ -905,6 +905,14 @@ void main() {
       );
 
       container = buildContainer(db: db);
+      // Registered after the tempDir cleanup above, so it runs first (LIFO):
+      // disposing the container closes db (see buildContainer's
+      // historyDatabaseProvider override), releasing the background
+      // isolate's file handle before the tempDir delete is attempted — on
+      // Windows (unlike POSIX), deleting a file that's still open fails.
+      // The group-level `tearDown(() => container.dispose())` below then
+      // becomes a safe no-op (ProviderContainer.dispose() is idempotent).
+      addTearDown(container.dispose);
       final port = await startEnabled(container);
       final token = container.read(automationApiControllerProvider).token!;
 
