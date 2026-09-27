@@ -457,9 +457,12 @@ jobs:
       # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
       # are injected one seam below the FFI boundary (a fake WhisperEngine),
       # so — unlike the happy path above — this runs for real here too, no
-      # staged libwhisper needed.
+      # staged libwhisper needed. Needs a longer net than the happy path:
+      # confirmed on CI that the GPU→CPU fallback test alone legitimately
+      # takes ~140s here (no such delay on macOS/Windows), so 180s cut the
+      # suite off before its third (OOM-recovery) test ever ran.
       - name: Hotkey-to-text fallback-paths integration test
-        run: timeout 180 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
+        run: timeout 420 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
 
   # Golden / visual-regression tests — run only the @Tags(['golden']) suite on
   # macOS so font and rendering results match the locally generated baselines.
