@@ -905,14 +905,23 @@ void main() {
       );
 
       container = buildContainer(db: db);
-      // Registered after the tempDir cleanup above, so it runs first (LIFO):
-      // disposing the container closes db (see buildContainer's
-      // historyDatabaseProvider override), releasing the background
-      // isolate's file handle before the tempDir delete is attempted — on
-      // Windows (unlike POSIX), deleting a file that's still open fails.
-      // The group-level `tearDown(() => container.dispose())` below then
-      // becomes a safe no-op (ProviderContainer.dispose() is idempotent).
-      addTearDown(container.dispose);
+      // Registered after the tempDir cleanup above, so it runs first (LIFO)
+      // — and, unlike a bare `container.dispose` (whose own onDispose hooks
+      // stop the server / close db with `unawaited(...)`, see
+      // AutomationApiController.build() and buildContainer's
+      // historyDatabaseProvider override), this genuinely awaits both steps
+      // before returning. On Windows (unlike POSIX), deleting a file that's
+      // still open fails, so the tempDir delete must not run until the
+      // background isolate has actually released its handle on it. The
+      // group-level `tearDown(() => container.dispose())` below then becomes
+      // a safe no-op (ProviderContainer.dispose() is idempotent).
+      addTearDown(() async {
+        await container
+            .read(automationApiControllerProvider.notifier)
+            .shutdown();
+        container.dispose();
+        await db.close();
+      });
       final port = await startEnabled(container);
       final token = container.read(automationApiControllerProvider).token!;
 
