@@ -7,11 +7,13 @@
 - **Automation-API:** `dictation/trigger` kann jetzt pro Aufruf ein eigenes Smart-Mode-Preset (`smart_mode_preset`) sowie eine eigene Stille-Timeout-Schwelle (`silence_timeout`, `0` deaktiviert Auto-Stop) angeben, statt immer die global konfigurierten Standardwerte zu verwenden.
 - **Einstellungen:** die Anchor-Chip-Leiste hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während man durch die Seite scrollt, statt nur beim Antippen kurz aufzuleuchten.
 - **Aufnahme:** eine echte „Abbrechen/Verwerfen"-Aktion für eine laufende Diktion — verwirft die Aufnahme, statt sie zu transkribieren.
+- **Einstellungen:** das Zwischenablage-Schnelleinfügen-Panel kann jetzt wahlweise an der linken oder rechten Bildschirmkante andocken (neue Einstellung „Panel Position"), statt immer links zu erscheinen (#150).
 
 ### Bug Fixes
 
 - **Windows:** Auto-Paste schreibt Transkripte jetzt über denselben Verlaufs-Ausschluss-Pfad in die Zwischenablage wie der übrige Verlauf — Diktate landeten zuvor trotzdem im Win+V-Zwischenablageverlauf, obwohl das dort deaktiviert war (#146).
 - **STT:** der `initial_prompt` wird jetzt korrekt auf whisper.cpp's tatsächliches Token-Budget gekürzt, statt es zu überschreiten.
+- **Einstellungssuche:** mehrere real vorhandene Zeilen (u. a. „Panel Position", „Deepgram API Key", „Live-Transkript") lieferten trotz exakt passendem Suchwort keine Treffer — fehlende Stichwörter in der Such-Registry ergänzt und eine Regressionsprüfung dafür ergänzt.
 
 ## 1.2.77
 
