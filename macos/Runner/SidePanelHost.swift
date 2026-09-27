@@ -112,6 +112,13 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   /// read by the slide animation so it knows which edge to slide from/to.
   private var currentScreenFrame: NSRect?
 
+  /// Which screen edge the sensor strip/panel docks to (issue #150). Set
+  /// from every `updateSnapshot` call's `"edge"` field (Dart owns the
+  /// setting; `"left"`/`"right"`, defaults to `"left"` so a cold start
+  /// before the first snapshot matches the pre-#150 behavior). Read by
+  /// `rebuildSensors()` and `targetRect(for:shown:)`.
+  private var dockRight = false
+
   /// The app that was frontmost right before [slideIn] activated WhisPaste
   /// (issue 09), so [slideOut] can hand activation straight back to it. See
   /// `SidePanelContentPanel`'s doc comment and `activateForKeyboard` below.
@@ -272,6 +279,17 @@ class SidePanelHost: NSObject, NSWindowDelegate {
 
   private func handleUpdateSnapshot(_ args: [String: Any]) {
     let visible = args["visible"] as? Bool ?? false
+
+    // Issue #150: relocate the sensor strips immediately if the user's
+    // chosen edge changed since the last snapshot.
+    if let edge = args["edge"] as? String, edge == "left" || edge == "right" {
+      let newDockRight = edge == "right"
+      if newDockRight != dockRight {
+        dockRight = newDockRight
+        rebuildSensors()
+      }
+    }
+
     if visible && contentPanel == nil {
       ensurePanel()
     }
@@ -536,7 +554,9 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   /// degrade gracefully to the old top-aligned, full-height behavior in
   /// that case (`y == screenFrame.minY` when `height == screenFrame.height`).
   private func targetRect(for screenFrame: NSRect, shown: Bool) -> NSRect {
-    let x = shown ? screenFrame.minX : screenFrame.minX - Self.contentWidth
+    let x = dockRight
+      ? (shown ? screenFrame.maxX - Self.contentWidth : screenFrame.maxX)
+      : (shown ? screenFrame.minX : screenFrame.minX - Self.contentWidth)
     let height = min(Self.contentHeight, screenFrame.height)
     let y = screenFrame.minY + (screenFrame.height - height) / 2
     return NSRect(x: x, y: y, width: Self.contentWidth, height: height)
@@ -549,6 +569,7 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     sensors = NSScreen.screens.map { screen in
       SidePanelSensorPanel(
         screenFrame: screen.visibleFrame,
+        dockRight: dockRight,
         onHoverEntered: { [weak self] in
           guard let self, !self.suppressSensorEvents else { return }
           self.handleHoverEntered(screenFrame: screen.visibleFrame)

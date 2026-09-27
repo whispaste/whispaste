@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
@@ -73,12 +74,34 @@ class SidePanelService
     // unarmed) sensors. `MethodChannel` has no "a new listener attached"
     // signal, so this invisible, otherwise-harmless snapshot is the
     // deliberate first call that breaks that deadlock.
-    unawaited(
-      controller.updateSnapshot(const SidePanelSnapshot(visible: false)),
-    );
+    unawaited(controller.updateSnapshot(SidePanelSnapshot(edge: _edgeValue())));
     ref.listen(historyEntriesProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(snippetsProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(clipboardHistoryProvider, (_, _) => unawaited(_pushIfOpen()));
+    // Relocates the native edge sensor/panel immediately when the user picks
+    // the other side in settings, instead of waiting for the next open/close
+    // to happen to carry the new edge along (issue #150).
+    ref.listen(
+      settingsProvider.select(
+        (s) => s.value?.interface_.sidePanelEdge ?? SidePanelEdge.left,
+      ),
+      (_, _) => unawaited(_pushEdgeUpdate()),
+    );
+  }
+
+  String _edgeValue() {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    return settings.interface_.sidePanelEdge.value;
+  }
+
+  Future<void> _pushEdgeUpdate() async {
+    final c = controller;
+    if (c == null) return;
+    await c.updateSnapshot(
+      _isOpen
+          ? _buildSnapshot(visible: true)
+          : SidePanelSnapshot(edge: _edgeValue()),
+    );
   }
 
   @override
@@ -156,7 +179,7 @@ class SidePanelService
     if (c == null || !_isOpen) return;
     _log.info('close() called');
     _isOpen = false;
-    await c.updateSnapshot(const SidePanelSnapshot(visible: false));
+    await c.updateSnapshot(SidePanelSnapshot(edge: _edgeValue()));
   }
 
   Future<void> _pushIfOpen() async {
@@ -178,6 +201,7 @@ class SidePanelService
 
     return SidePanelSnapshot(
       visible: visible,
+      edge: _edgeValue(),
       transcriptions: [
         for (final e in history)
           SidePanelRow(

@@ -4,6 +4,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/history_providers.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
@@ -302,6 +304,65 @@ void main() {
             'onControllerReady sends it one invisible re-arm ping on '
             'creation, but open() must never reach it',
       );
+    });
+  });
+
+  group('SidePanelService side panel edge (issue #150)', () {
+    test('defaults to the left edge on the initial re-arm snapshot', () async {
+      container = buildContainer();
+      _readService(container);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.single.edge, 'left');
+    });
+
+    test('open()/close() carry the configured right edge', () async {
+      container = buildContainer();
+      // Must await the notifier's initial build (reads the empty test DB)
+      // before mutating it -- otherwise that build's own `state = AsyncData
+      // (...)` assignment can land after updateSettings()'s and silently
+      // overwrite the edge change back to the default.
+      await container.read(settingsProvider.future);
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.copyWith(
+                sidePanelEdge: SidePanelEdge.right,
+              ),
+            ),
+          );
+
+      final service = _readService(container);
+      await service.open();
+      expect(fakePanel.snapshots.last.edge, 'right');
+
+      await service.close();
+      expect(fakePanel.snapshots.last.edge, 'right');
+    });
+
+    test('changing the setting while the panel is closed relocates the sensor '
+        'immediately, without opening the panel', () async {
+      container = buildContainer();
+      _readService(container);
+      await container.read(settingsProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      final before = fakePanel.snapshots.length;
+
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.copyWith(
+                sidePanelEdge: SidePanelEdge.right,
+              ),
+            ),
+          );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.length, greaterThan(before));
+      expect(fakePanel.snapshots.last.edge, 'right');
+      expect(fakePanel.snapshots.last.visible, isFalse);
     });
   });
 

@@ -129,6 +129,13 @@ class SidePanelHost {
   std::optional<GdkRectangle> current_work_area_;
   std::optional<GdkRectangle> pending_rect_;
 
+  // Which screen edge the sensor strip/panel docks to: "left" or "right"
+  // (issue #150). Set from the "edge" field of every updateSnapshot call
+  // (Dart owns the setting, mirrors how `visible` arrives); RebuildSensors()
+  // and ComputeTargetRect() read this. Defaults to "left" so a cold start
+  // before the first updateSnapshot matches the pre-#150 behavior.
+  std::string current_edge_ = "left";
+
   // ── Clipboard snapshot-on-open (see class comment) ────────────────────
   struct Fingerprint {
     size_t length;

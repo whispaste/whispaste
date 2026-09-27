@@ -157,6 +157,13 @@ class SidePanelHost {
   // hover-enter, read by SlideIn/SlideOut. Mirrors currentScreenFrame.
   std::optional<RECT> current_work_area_;
 
+  // Which screen edge the sensor strip/panel docks to: "left" or "right"
+  // (issue #150). Set from the "edge" field of every updateSnapshot call
+  // (Dart owns the setting, mirrors how `visible` arrives); RebuildSensors()
+  // and ComputeTargetRect() read this. Defaults to "left" so a cold start
+  // before the first updateSnapshot matches the pre-#150 behavior.
+  std::string current_edge_ = "left";
+
   // Pending target rect for a content window not yet created -- mirrors
   // pendingFrame.
   std::optional<RECT> pending_rect_;

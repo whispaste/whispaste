@@ -2824,6 +2824,19 @@ class L10nEn extends L10n {
       'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history';
 
   @override
+  String get settingsSidePanelEdge => 'Panel Position';
+
+  @override
+  String get settingsSidePanelEdgeSubtitle =>
+      'Which screen edge the panel docks to and slides out from';
+
+  @override
+  String get settingsSidePanelEdgeLeft => 'Left edge';
+
+  @override
+  String get settingsSidePanelEdgeRight => 'Right edge';
+
+  @override
   String get settingsErrorReporting => 'Error Reporting';
 
   @override

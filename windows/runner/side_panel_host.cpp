@@ -158,8 +158,14 @@ void SidePanelHost::RebuildSensors() {
     double scale = (dpi > 0) ? dpi / 96.0 : 1.0;
     int width = static_cast<int>(std::round(kSensorWidth * scale));
 
+    // Sensor strip hugs whichever edge current_edge_ selects (issue #150) --
+    // mirrors the same left/right branch in ComputeTargetRect below.
+    const int sensor_x = (current_edge_ == "right")
+                             ? static_cast<int>(wa.right) - width
+                             : static_cast<int>(wa.left);
+
     auto sensor = std::make_unique<SidePanelSensorWindow>();
-    bool created = sensor->Create(wa.left, wa.top, width, wa.bottom - wa.top,
+    bool created = sensor->Create(sensor_x, wa.top, width, wa.bottom - wa.top,
                                   kDwellMs);
     if (!created) {
       OutputDebugStringW(L"[SidePanel] Sensor creation failed for a monitor\n");
@@ -271,13 +277,17 @@ void SidePanelHost::ComputeTargetRect(const RECT& work_area, bool shown,
       std::min(static_cast<int>(std::round(kContentHeight * scale)),
                wa_height);
 
-  // Resting x is flush with the work area's left edge; the just-off-edge
-  // staging x is exactly one panel-width to the left -- see targetRect's
-  // doc comment on SidePanelHost.swift for why no sensor-strip offset is
-  // needed here.
+  // Resting x is flush with the docked edge (left or right per
+  // current_edge_, issue #150); the just-off-edge staging x is exactly one
+  // panel-width further off-screen on that same side -- see targetRect's doc
+  // comment on SidePanelHost.swift for why no sensor-strip offset is needed
+  // here.
   const int x =
-      shown ? static_cast<int>(work_area.left)
-            : static_cast<int>(work_area.left) - width;
+      current_edge_ == "right"
+          ? (shown ? static_cast<int>(work_area.right) - width
+                   : static_cast<int>(work_area.right))
+          : (shown ? static_cast<int>(work_area.left)
+                   : static_cast<int>(work_area.left) - width);
   const int y = static_cast<int>(work_area.top) + (wa_height - height) / 2;
 
   *px = x;
@@ -485,6 +495,22 @@ void SidePanelHost::HandleUpdateSnapshot(const EncodableMap& args) {
   if (it != args.end()) {
     if (const auto* b = std::get_if<bool>(&it->second)) visible = *b;
   }
+
+  // Issue #150: relocate the sensor strip immediately if the user's chosen
+  // edge changed since the last snapshot. Every updateSnapshot carries this
+  // field (SidePanelService always fills it in, see side_panel_snapshot
+  // .dart), so a missing/malformed value keeps the previous edge rather than
+  // silently resetting to "left".
+  auto edge_it = args.find(EncodableValue("edge"));
+  if (edge_it != args.end()) {
+    if (const auto* s = std::get_if<std::string>(&edge_it->second)) {
+      if (*s != current_edge_ && (*s == "left" || *s == "right")) {
+        current_edge_ = *s;
+        RebuildSensors();
+      }
+    }
+  }
+
   if (visible && !content_window_) {
     // Mirrors SidePanelHost.swift's `if visible && contentPanel == nil {
     // ensurePanel() }`.
