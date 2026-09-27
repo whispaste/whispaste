@@ -889,7 +889,24 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync(
         'wp_automation_api_history_test',
       );
-      addTearDown(() => tempDir.deleteSync(recursive: true));
+      // Retried: even after the explicit shutdown()/close() below genuinely
+      // await their own async work, Windows can lag a moment longer before
+      // the OS actually releases the native sqlite3 file handle that the
+      // background isolate held — a handle-release timing gap below the
+      // Dart-level close, not something any amount of extra awaiting inside
+      // this process can close. POSIX silently allows deleting a still-open
+      // file, so this only ever surfaced on Windows CI.
+      addTearDown(() async {
+        for (var attempt = 1; attempt <= 5; attempt++) {
+          try {
+            tempDir.deleteSync(recursive: true);
+            return;
+          } on PathAccessException {
+            if (attempt == 5) rethrow;
+            await Future<void>.delayed(Duration(milliseconds: 200 * attempt));
+          }
+        }
+      });
       final db = HistoryDatabase.forTesting(
         NativeDatabase.createInBackground(
           File(p.join(tempDir.path, 'history.db')),
