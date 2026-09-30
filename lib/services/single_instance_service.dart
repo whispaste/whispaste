@@ -31,6 +31,12 @@ class SingleInstanceService {
   static StreamSubscription<FileSystemEvent>? _watch;
   static Timer? _rearmTimer;
   static DateTime? _lastSignalHandled;
+  static String? _lastSignalContent;
+
+  /// Time source for the debounce window; tests pin it instead of racing
+  /// the wall clock.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
 
   /// Overrides the lock directory for tests, isolating them from the real
   /// app data path. `null` (the default) uses [paths.appDataDir].
@@ -114,6 +120,7 @@ class SingleInstanceService {
     final raf = _lock;
     _lock = null;
     _lastSignalHandled = null;
+    _lastSignalContent = null;
     if (raf == null) return;
     try {
       await raf.unlock();
@@ -150,7 +157,7 @@ class SingleInstanceService {
           (event) {
             if (event is FileSystemDeleteEvent) return;
             if (p.basename(event.path) != _signalFileName) return;
-            _fireFocusDebounced();
+            unawaited(_onSignal(dir));
           },
           onError: (Object e) {
             _log.warning('Single-instance watcher error: $e');
@@ -184,7 +191,7 @@ class SingleInstanceService {
       final modified = await file.lastModified();
       // 1s slack for coarse filesystem mtime granularity.
       if (!modified.isBefore(lockedAt.subtract(const Duration(seconds: 1)))) {
-        _fireFocusDebounced();
+        await _onSignal(dir);
       }
     } catch (e) {
       // No signal to catch up on — e.g. a benign race deleting the file
@@ -193,10 +200,34 @@ class SingleInstanceService {
     }
   }
 
+  /// Handles one directory event for the signal file. Every secondary
+  /// instance writes a fresh timestamp, so the content identifies the
+  /// signal: Windows can report a single write as several events, and on a
+  /// loaded machine those can land further apart than [_debounce] — they
+  /// all read the same content and focus the window only once.
+  static Future<void> _onSignal(String dir) async {
+    final String content;
+    try {
+      content = (await File(
+        p.join(dir, _signalFileName),
+      ).readAsString()).trim();
+    } catch (e) {
+      // Deleted or still locked mid-write — a later event re-reads it.
+      _log.debug('Focus signal not readable yet: $e');
+      return;
+    }
+    // Empty: the event fired between truncate and write.
+    if (content.isEmpty || content == _lastSignalContent) return;
+    _lastSignalContent = content;
+    _fireFocusDebounced();
+  }
+
+  /// Collapses distinct signals from secondary instances launched in quick
+  /// succession (e.g. a double-click on the app icon) into one focus.
   static void _fireFocusDebounced() {
     final cb = onSecondInstanceLaunched;
     if (cb == null) return;
-    final now = DateTime.now();
+    final now = clock();
     if (_lastSignalHandled != null &&
         now.difference(_lastSignalHandled!) < _debounce) {
       return;

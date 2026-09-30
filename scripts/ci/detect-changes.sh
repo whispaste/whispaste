@@ -16,7 +16,11 @@ all_true() {
 
 [ "$full" = "true" ] && all_true
 case "$before" in ''|0000000000000000000000000000000000000000) all_true ;; esac
-git fetch --quiet --depth=1 origin "$before" 2>/dev/null || all_true
+# Fetch the base only when it is missing (CI's depth-1 checkout). A local
+# run in a full clone must not fetch with --depth: worktrees share .git, so
+# that would turn the maintainer's whole repo shallow.
+git cat-file -e "$before^{commit}" 2>/dev/null \
+  || git fetch --quiet --depth=1 origin "$before" 2>/dev/null || all_true
 files=$(git diff --name-only "$before" "$after") || all_true
 
 echo "Changed files:"; echo "$files"
@@ -52,7 +56,7 @@ fi
 # Golden baselines render widgets, theme, strings, fonts/assets and the
 # overlay. Deeper dependencies (providers, data layer) are left to the
 # weekly full run and the local pre-commit golden reminder.
-golden=$(has '^lib/(features|widgets|core/theme|core/l10n|l10n|services/floating_overlay)/|^lib/app\.dart$|^assets/|^fonts/|golden|^test/(screenshots|fixtures)/|^pubspec\.(yaml|lock)$|^l10n\.yaml$')
+golden=$(has '^lib/(features|widgets|core/theme|core/l10n|l10n|services/floating_overlay)/|^lib/app\.dart$|^assets/|^fonts/|golden|^test/(screenshots|fixtures)/|^pubspec\.(yaml|lock)$|^l10n\.yaml$|^test/flutter_test_config\.dart$|^dart_test\.yaml$')
 
 { echo "app=$app"; echo "platform_full=$platform_full"; echo "website=$website"; echo "golden=$golden"; } >> "$out"
 echo "app=$app platform_full=$platform_full website=$website golden=$golden"

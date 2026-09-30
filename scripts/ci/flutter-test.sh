@@ -8,11 +8,22 @@
 # 3x retry reran the whole suite on genuine test failures too — tripling
 # the time to a red signal (run 36697607161: 24 min instead of ~8) and
 # pushing a loaded self-hosted job past its timeout.
+#
+# It also runs one test process per CPU core unless the caller passes
+# -j/--concurrency: `flutter test` defaults to half the cores, which on the
+# 3-core hosted macOS runner means every test file runs strictly serially.
+# FLUTTER_TEST_CONCURRENCY overrides the core count for a whole job.
 set -uo pipefail
+
+jobs=()
+case " $* " in
+  *" -j"*|*" --concurrency"*) ;;
+  *) jobs=("--concurrency=${FLUTTER_TEST_CONCURRENCY:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)}") ;;
+esac
 
 log="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/flutter-test-$$.log"
 for attempt in 1 2 3; do
-  flutter test "$@" 2>&1 | tee "$log"
+  flutter test ${jobs[@]+"${jobs[@]}"} "$@" 2>&1 | tee "$log"
   rc=${PIPESTATUS[0]}
   [ "$rc" -eq 0 ] && exit 0
   if ! grep -qE 'Connection closed before full header was received|Failed host lookup: .(github\.com|objects\.githubusercontent\.com)' "$log"; then

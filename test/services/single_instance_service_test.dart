@@ -50,6 +50,7 @@ void main() {
 
   tearDown(() async {
     await SingleInstanceService.release();
+    SingleInstanceService.clock = DateTime.now;
     SingleInstanceService.onSecondInstanceLaunched = null;
     SingleInstanceService.lockDirOverride = null;
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
@@ -129,6 +130,10 @@ void main() {
   test(
     'a focus signal file fires the callback exactly once (debounced)',
     () async {
+      // Frozen clock: every signal lands inside the debounce window no
+      // matter how slowly the host delivers it.
+      final now = DateTime(2026, 9, 30, 15);
+      SingleInstanceService.clock = () => now;
       final primary = await SingleInstanceService.ensureSingleInstance();
       expect(primary, isTrue);
 
@@ -143,13 +148,65 @@ void main() {
       await signal.writeAsString('first', flush: true);
       await completer.future.timeout(const Duration(seconds: 5));
 
-      // A second write inside the debounce window must not double-fire.
+      // A second instance inside the debounce window must not double-fire.
       await signal.writeAsString('second', flush: true);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
 
       expect(callCount, 1);
     },
   );
+
+  test('a new signal after the debounce window fires again', () async {
+    var now = DateTime(2026, 9, 30, 15);
+    SingleInstanceService.clock = () => now;
+    final primary = await SingleInstanceService.ensureSingleInstance();
+    expect(primary, isTrue);
+
+    var callCount = 0;
+    var fired = Completer<void>();
+    SingleInstanceService.onSecondInstanceLaunched = () {
+      callCount++;
+      if (!fired.isCompleted) fired.complete();
+    };
+
+    final signal = File(p.join(tmp.path, 'focus.signal'));
+    await signal.writeAsString('first', flush: true);
+    await fired.future.timeout(const Duration(seconds: 5));
+
+    now = now.add(const Duration(seconds: 1));
+    fired = Completer<void>();
+    await signal.writeAsString('second', flush: true);
+    await fired.future.timeout(const Duration(seconds: 5));
+
+    expect(callCount, 2);
+  });
+
+  test('one signal fires once even when its events arrive far apart', () async {
+    // Windows can surface a single signal write as several directory
+    // events; on a loaded host they arrived further apart than the
+    // debounce window and focused the window twice (runs 36727893561,
+    // 36730929605). Rewriting the same content well past the window
+    // reproduces that deterministically on every platform.
+    final primary = await SingleInstanceService.ensureSingleInstance();
+    expect(primary, isTrue);
+
+    var callCount = 0;
+    final completer = Completer<void>();
+    SingleInstanceService.onSecondInstanceLaunched = () {
+      callCount++;
+      if (!completer.isCompleted) completer.complete();
+    };
+
+    final signal = File(p.join(tmp.path, 'focus.signal'));
+    await signal.writeAsString('2026-09-30T15:00:00.000', flush: true);
+    await completer.future.timeout(const Duration(seconds: 5));
+
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await signal.writeAsString('2026-09-30T15:00:00.000', flush: true);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    expect(callCount, 1);
+  });
 
   group('cross-process', () {
     test(
@@ -166,8 +223,14 @@ void main() {
         final primary = await SingleInstanceService.ensureSingleInstance();
         expect(primary, isTrue);
 
+        // Idempotent: one signal write can surface as several directory
+        // events on Windows, and on a loaded host they may land further
+        // apart than the 400ms debounce. The exactly-once contract is the
+        // debounce test's job, not this one's (run 36727893561).
         final completer = Completer<void>();
-        SingleInstanceService.onSecondInstanceLaunched = completer.complete;
+        SingleInstanceService.onSecondInstanceLaunched = () {
+          if (!completer.isCompleted) completer.complete();
+        };
 
         final result = await Process.run(dart, ['run', _probePath, tmp.path]);
         expect(

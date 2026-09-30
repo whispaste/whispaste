@@ -16,6 +16,10 @@ dependencies:
   # State management
   flutter_riverpod: 3.3.2
 
+  # Injectable wall clock for date grouping, so screenshot goldens can pin
+  # "now" (already pulled in transitively via flutter_test).
+  clock: ^1.1.2
+
   # Database
   drift: ^2.25.0
   sqlite3_flutter_libs: ^0.6.0+eol
