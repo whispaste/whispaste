@@ -2,6 +2,8 @@
 /// `.scratch/feature-spotlight/issues/01-spotlight-mechanism.md`.
 library;
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/feature_spotlight/feature_spotlight.dart';
 import 'package:whispaste/core/onboarding/onboarding_revision.dart';
@@ -71,20 +73,24 @@ void main() {
       expect(entry.platforms, isNull);
     });
 
-    test('the 1.3 entries follow smart_mode in shipping order and apply to '
-        'every platform', () {
+    test('history_pin_lock follows smart_mode and applies to every '
+        'platform', () {
       final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
-      const round13 = [
-        'correction_learning',
-        'live_transcript',
-        'discard_recording',
-        'history_pin_lock',
-      ];
-      expect(ids.sublist(ids.indexOf('smart_mode') + 1), round13);
-      for (final id in round13) {
-        final entry = kFeatureSpotlightRegistry.firstWhere((e) => e.id == id);
-        expect(entry.platforms, isNull, reason: id);
-      }
+      expect(ids.sublist(ids.indexOf('smart_mode') + 1), ['history_pin_lock']);
+      final entry = kFeatureSpotlightRegistry.last;
+      expect(entry.platforms, isNull);
+    });
+
+    test('the spotlight was reviewed for the current pubspec version — on a '
+        'failure, decide whether this release has a spotlight-worthy feature '
+        '(criteria on kFeatureSpotlightReviewedVersion), append an entry or '
+        'none, then bump the constant', () {
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      final version = RegExp(
+        r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)',
+        multiLine: true,
+      ).firstMatch(pubspec)!.group(1);
+      expect(kFeatureSpotlightReviewedVersion, version);
     });
 
     test('smart_mode is scoped to macos+windows — the local engine is not '

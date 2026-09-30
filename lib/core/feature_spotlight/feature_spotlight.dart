@@ -57,6 +57,21 @@ class FeatureSpotlightEntry {
 
 typedef FeatureSpotlightRegistry = List<FeatureSpotlightEntry>;
 
+/// The app version (`pubspec.yaml`, without build number) whose release was
+/// last reviewed for spotlight-worthy features. A test fails as soon as the
+/// pubspec version moves past it, so every release bump forces a conscious
+/// decision: append an entry for a spotlight-worthy feature, or append
+/// nothing — no entry is a valid outcome, the hint then simply stays off.
+/// Either way, set this to the new version.
+///
+/// Spotlight-worthy: a new user-facing capability that changes what the
+/// target audience (`docs/zielgruppe.md`) can do, and that they are unlikely
+/// to discover on their own. Not spotlight-worthy: bug fixes, polish,
+/// behaviour tweaks or extra options on an existing feature, new languages,
+/// developer-facing features (automation API), internal work. Every entry
+/// interrupts every existing user once — when in doubt, leave it out.
+const kFeatureSpotlightReviewedVersion = '1.3.0';
+
 /// Maintainer note: append new entries at the END of this list. There is no
 /// version field (unlike the onboarding revision registry) — declaration
 /// order stands in for chronological order, oldest first, and
@@ -110,31 +125,8 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
     description: (l10n) => l10n.featureSpotlightSmartModeDescription,
     platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
   ),
-  // The 1.3 round: features shipped across 1.2.7x that existing users were
-  // never told about. Chronological like the rest, all text-only.
-  // Correction learning (`feat(replacements): learn vocabulary from
-  // repeated dictation corrections`) — the review flow was otherwise only
-  // discoverable from the Replacements page.
-  FeatureSpotlightEntry(
-    id: 'correction_learning',
-    title: (l10n) => l10n.featureSpotlightCorrectionLearningTitle,
-    description: (l10n) => l10n.featureSpotlightCorrectionLearningDescription,
-  ),
-  // Live transcript in the recording overlay — opt-in, so it stays invisible
-  // unless someone points at the toggle.
-  FeatureSpotlightEntry(
-    id: 'live_transcript',
-    title: (l10n) => l10n.featureSpotlightLiveTranscriptTitle,
-    description: (l10n) => l10n.featureSpotlightLiveTranscriptDescription,
-  ),
-  // `feat(recording): add a true cancel/discard action for active
-  // dictation` — Escape and the overlay X used to stop-and-transcribe.
-  FeatureSpotlightEntry(
-    id: 'discard_recording',
-    title: (l10n) => l10n.featureSpotlightDiscardRecordingTitle,
-    description: (l10n) => l10n.featureSpotlightDiscardRecordingDescription,
-  ),
-  // `.scratch/history-pin-lock/`.
+  // 1.3.0: the history PIN lock (`.scratch/history-pin-lock/`) — a new
+  // privacy capability the target audience would not go looking for.
   FeatureSpotlightEntry(
     id: 'history_pin_lock',
     title: (l10n) => l10n.featureSpotlightHistoryPinTitle,

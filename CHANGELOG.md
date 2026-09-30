@@ -2,7 +2,7 @@
 
 ## 1.3.0
 
-Mit 1.3 bündelt WhisPaste die Funktionen der letzten Wochen zu einem Minor-Release. Beim ersten Start zeigt „Neu in WhisPaste" die wichtigsten Neuerungen — die Details zu jeder Version stehen weiter unten.
+Mit 1.3 bündelt WhisPaste die Funktionen der letzten Wochen zu einem Minor-Release. Die Details zu jeder Version stehen weiter unten.
 
 ### Highlights seit 1.2.60
 
@@ -18,7 +18,7 @@ Mit 1.3 bündelt WhisPaste die Funktionen der letzten Wochen zu einem Minor-Rele
 
 ### New Features
 
-- **Neu in WhisPaste:** der Hinweis stellt jetzt auch das Lernen aus Korrekturen, das Live-Transkript, das Verwerfen von Aufnahmen und den PIN-Schutz vor.
+- **Neu in WhisPaste:** der Hinweis stellt den neuen PIN-Schutz für den Verlauf vor.
 
 - **Verlauf:** optionaler PIN-Schutz (4–8 Ziffern) für den Verlauf. Ist eine PIN gesetzt, zeigt auch das Seitenpanel keine Transkripte mehr, das Kontextmenü des schwebenden Aufnahme-Buttons keine letzten Einträge, und die lokale Automation-API antwortet mit `423 history_locked`, bis der Verlauf entsperrt ist. Der Verlauf sperrt sich beim App-Start, beim Minimieren ins Tray und auf Wunsch nach einstellbarer Inaktivität (1–60 Minuten) automatisch wieder. Mehrere Fehleingaben lösen eine zunehmende Wartezeit aus; „PIN vergessen?" löscht den Verlauf und entfernt die PIN. Die PIN ist eine Sichtsperre, keine Verschlüsselung.
 - **Verlauf:** neue Einstellung „Verlauf beim Öffnen verbergen" — die Verlaufsseite zeigt ihren Inhalt erst nach einem Klick auf „Verlauf anzeigen", z. B. für Bildschirmfreigaben.

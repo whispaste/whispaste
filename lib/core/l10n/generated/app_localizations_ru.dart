@@ -3989,28 +3989,6 @@ class L10nRu extends L10n {
       'Очищайте, сокращайте или переводите диктовку перед вставкой — полностью на устройстве, со своей горячей клавишей и пресетом.';
 
   @override
-  String get featureSpotlightCorrectionLearningTitle =>
-      'Учится на ваших исправлениях';
-
-  @override
-  String get featureSpotlightCorrectionLearningDescription =>
-      'Исправьте одно и то же слово в истории дважды — WhisPaste предложит его в разделе «Замены». Примите один раз, и дальше оно будет распознаваться правильно.';
-
-  @override
-  String get featureSpotlightLiveTranscriptTitle => 'Живая транскрипция';
-
-  @override
-  String get featureSpotlightLiveTranscriptDescription =>
-      'Смотрите, как ваши слова появляются в оверлее записи прямо во время речи. Включается в Настройки → Оверлей записи (локальный движок Whisper).';
-
-  @override
-  String get featureSpotlightDiscardRecordingTitle => 'Отменить запись';
-
-  @override
-  String get featureSpotlightDiscardRecordingDescription =>
-      'Передумали? Нажмите Escape или крестик в оверлее — запись будет удалена, ничего не распознаётся и не вставляется.';
-
-  @override
   String get featureSpotlightHistoryPinTitle => 'PIN-код для истории';
 
   @override

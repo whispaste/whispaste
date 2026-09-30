@@ -6842,42 +6842,6 @@ abstract class L10n {
   /// **'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
   String get featureSpotlightSmartModeDescription;
 
-  /// No description provided for @featureSpotlightCorrectionLearningTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Learns from your corrections'**
-  String get featureSpotlightCorrectionLearningTitle;
-
-  /// No description provided for @featureSpotlightCorrectionLearningDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Correct the same word twice in your history and WhisPaste suggests it under Replacements — accept it once, and it comes out right from then on.'**
-  String get featureSpotlightCorrectionLearningDescription;
-
-  /// No description provided for @featureSpotlightLiveTranscriptTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Live transcript'**
-  String get featureSpotlightLiveTranscriptTitle;
-
-  /// No description provided for @featureSpotlightLiveTranscriptDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Watch your words appear in the recording overlay while you are still speaking. Switch it on under Settings → Recording Overlay (local Whisper engine).'**
-  String get featureSpotlightLiveTranscriptDescription;
-
-  /// No description provided for @featureSpotlightDiscardRecordingTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Discard a recording'**
-  String get featureSpotlightDiscardRecordingTitle;
-
-  /// No description provided for @featureSpotlightDiscardRecordingDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Changed your mind? Press Escape or click the X on the overlay — the recording is thrown away, nothing is transcribed or pasted.'**
-  String get featureSpotlightDiscardRecordingDescription;
-
   /// No description provided for @featureSpotlightHistoryPinTitle.
   ///
   /// In en, this message translates to:
