@@ -12,9 +12,8 @@ on:
   workflow_dispatch:
 
 # Solo-Dev: keine PRs (CLAUDE.md), der pull_request-Trigger lief seit je her
-# ins Leere und kostete nur ungenutzte Runner-Zeit/Sicherheitsrisiko (siehe
-# unten, self-hosted Runner). Ein rascher Folge-Push nach dev storniert den
-# älteren, noch laufenden Lauf statt ihn auslaufen zu lassen.
+# ins Leere. Ein rascher Folge-Push nach dev storniert den älteren, noch
+# laufenden Lauf statt ihn auslaufen zu lassen.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,12 +21,17 @@ concurrency:
 permissions:
   contents: read
 
-# What a dev push runs (2026-09-30, runner-load reduction):
-# - The complete unit/widget suite runs ONCE, on the hosted Linux job. The
-#   self-hosted Windows/macOS jobs (SilviosPC, and the Mac mini that is also
-#   the dev machine) only run the test files with real platform branches
-#   (`Platform.isX`), plus analyze, the native build and the native
-#   integration tests — the parts only that OS can check.
+# Runners: GitHub-hosted only. The repo is public, so hosted minutes are
+# free on every OS; the former self-hosted runners (SilviosPC, the Mac mini
+# dev machine) were retired 2026-09-30 — they tied up the maintainer's own
+# machines, and on a public repo a fork PR can bring its own workflow onto
+# any registered self-hosted runner.
+#
+# What a dev push runs (2026-09-30):
+# - The complete unit/widget suite runs ONCE, on Linux. Windows/macOS only
+#   run the test files with real platform branches (`Platform.isX`), plus
+#   the native build and the native integration tests — the parts only
+#   that OS can check.
 # - Jobs skip when the push cannot affect them (detect-changes.sh): no
 #   Flutter jobs for website/docs-only pushes, no website job for app-only
 #   pushes, goldens only when rendered UI/strings/assets changed.
@@ -104,17 +108,11 @@ jobs:
     name: Flutter App (Windows)
     needs: secret-scan
     if: needs.secret-scan.outputs.app == 'true'
-    # Self-hosted (SilviosPC) statt windows-latest — GitHub-gehostete Windows-
-    # Runner werden mit 2x gegenüber Linux abgerechnet; bei mehreren Pushes/Tag
-    # sprengte das schnell das Actions-Freikontingent (siehe git-log dieses
-    # Commits). Fällt der Runner offline (DHCP-Box, s. windows-silviospc.md),
-    # bleibt der Job im GitHub-UI als "queued" hängen statt zu failen.
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-2025
     # Without an explicit limit a hung step only gets killed by the 360min
     # GitHub default — run 33364827323 saw a Windows job still going at 81min.
-    # A push run (platform test subset) takes ~12min; 30min leaves room for
-    # the weekly full run's complete suite.
-    timeout-minutes: 30
+    # Leaves room for the weekly full run's complete suite.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
 
@@ -162,10 +160,6 @@ jobs:
           $msiUrl = 'https://github.com/cppcheck-opensource/cppcheck/releases/download/2.14.0/cppcheck-2.14.0-x64-Setup.msi'
           $msiPath = "$env:RUNNER_TEMP\cppcheck-setup.msi"
           $cppcheckExe = 'C:\Program Files\Cppcheck\cppcheck.exe'
-          # Self-hosted runner: cppcheck is installed machine-wide, so reuse
-          # it instead of downloading the MSI every run. Note the MSI never
-          # downgraded an existing newer install anyway (SilviosPC has
-          # 2.20.0), so the pinned URL is only the bootstrap for a fresh box.
           $installed = Test-Path $cppcheckExe
           for ($attempt = 1; $attempt -le 3 -and -not $installed; $attempt++) {
             try {
@@ -255,17 +249,13 @@ jobs:
         run: flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d windows
 
   flutter-app-macos:
-    name: Flutter App (macOS + goldens)
+    name: Flutter App (macOS)
     needs: secret-scan
     if: needs.secret-scan.outputs.app == 'true'
-    # Self-hosted (dieser Mac) statt macos-latest — GitHub-gehostete macOS-
-    # Runner werden mit 10x gegenüber Linux abgerechnet, größter Einzelposten
-    # im Actions-Freikontingent (siehe git-log dieses Commits).
-    runs-on: [self-hosted, macOS, ARM64]
-    # A push run (platform test subset) takes ~8-10min, +~6min with goldens,
-    # a full run ~20min; run 31671272849 showed this runner's speed varies a
-    # lot under load.
-    timeout-minutes: 35
+    runs-on: macos-15
+    # A cold cache additionally builds libwhisper + libllama from source
+    # (once per pinned version, see the cache step below).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
@@ -301,16 +291,19 @@ jobs:
             bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
           fi
 
-      # Golden / visual-regression tests (@Tags(['golden'])) — macOS only so
-      # font rendering matches the checked-in baselines. Part of this job
-      # instead of a separate one: both share the single Mac mini runner, so
-      # a second job only repeated checkout/Flutter setup/pub get serially.
-      # Push: only when rendered UI, strings or assets changed.
-      # golden_screenshot applies a 0.1 % fuzzy tolerance automatically;
-      # plain matchesGoldenFile tests use exact pixel comparison.
-      - name: Run golden tests
-        if: needs.secret-scan.outputs.golden == 'true'
-        run: bash scripts/ci/flutter-test.sh --tags=golden
+      # The Xcode build phases self-build libwhisper/libllama (+ Smart Mode
+      # shim) from pinned sources when their staging dirs are missing, and
+      # the happy-path test downloads ggml-tiny.bin once. A fresh hosted
+      # runner has none of it, so cache all three, keyed on the scripts that
+      # pin the versions.
+      - name: Cache native libs and test model
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/libwhisper/macos
+            .build/libllama/macos
+            .build/test-models
+          key: ci-macos-native-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh') }}
 
       - name: Build macOS (debug)
         run: flutter build macos --debug
@@ -511,6 +504,34 @@ jobs:
       # suite off before its third (OOM-recovery) test ever ran.
       - name: Hotkey-to-text fallback-paths integration test
         run: timeout 420 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
+
+  # Golden / visual-regression tests (@Tags(['golden'])) — macOS so font
+  # rendering matches the checked-in baselines (generated on macOS, fonts
+  # pinned via loadAppFonts). Own job so it runs in parallel with the app
+  # jobs. Push: only when rendered UI, strings or assets changed.
+  # golden_screenshot applies a 0.1 % fuzzy tolerance automatically; plain
+  # matchesGoldenFile tests use exact pixel comparison.
+  golden-tests:
+    name: Golden Tests (macOS)
+    needs: secret-scan
+    if: needs.secret-scan.outputs.golden == 'true'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run golden tests
+        run: bash scripts/ci/flutter-test.sh --tags=golden
 
   website:
     name: Website

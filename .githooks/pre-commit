@@ -479,8 +479,8 @@ fi
 # ── 9. Golden-Tests-Reminder (Hinweis, kein Block) ──────────────────────
 # Golden tests run only on macOS with matching font rendering, so they
 # can't be a hard pre-commit gate here — but a UI change that ships
-# without updated baselines fails CI 9-20 minutes later on the self-hosted
-# macOS runner instead of ~2 minutes locally (see the 2026-09-27 WhisPaste
+# without updated baselines fails CI 9-20 minutes later in the
+# macOS CI job instead of ~2 minutes locally (see the 2026-09-27 WhisPaste
 # incident: b38a0602 added a settings row and stale-dated 5 baselines,
 # caught only after two rounds of CI). This is a nudge, not a gate.
 UI_STAGED=$(echo "$STAGED_FILES" | grep -E '^lib/(features|core/theme)/' || true)
