@@ -166,8 +166,14 @@ void main() {
         final primary = await SingleInstanceService.ensureSingleInstance();
         expect(primary, isTrue);
 
+        // Idempotent: one signal write can surface as several directory
+        // events on Windows, and on a loaded host they may land further
+        // apart than the 400ms debounce. The exactly-once contract is the
+        // debounce test's job, not this one's (run 36727893561).
         final completer = Completer<void>();
-        SingleInstanceService.onSecondInstanceLaunched = completer.complete;
+        SingleInstanceService.onSecondInstanceLaunched = () {
+          if (!completer.isCompleted) completer.complete();
+        };
 
         final result = await Process.run(dart, ['run', _probePath, tmp.path]);
         expect(
