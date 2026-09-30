@@ -71,7 +71,7 @@ void main() {
 
     // Same shape as the snippet-picker exemption above: the clipboard
     // quick-paste side panel is its own always-on-top window (see
-    // side_panel_render_entrypoint.dart), hover-triggered from the left
+    // side_panel_render_entrypoint.dart), hover-triggered from its docked
     // screen edge rather than nested inside app.dart's Stack, so it brings
     // its own ground rather than standing on the main window's.
     'lib/widgets/side_panel/side_panel_view.dart':

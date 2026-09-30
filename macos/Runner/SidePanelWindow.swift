@@ -41,9 +41,9 @@ class SidePanelContentPanel: NSPanel {
     backgroundColor = .clear
     // A native window shadow renders past this borderless panel's own frame
     // on every edge, including the top edge against the menu bar and the
-    // left edge against the screen border where the desktop is still visible
-    // behind it -- it reads as a grey halo/frame around the whole panel
-    // rather than the intended flush-left, floating-right card.
+    // docked edge against the screen border where the desktop is still
+    // visible behind it -- it reads as a grey halo/frame around the whole
+    // panel rather than the intended card flush with its docked edge.
     hasShadow = false
     isMovableByWindowBackground = false
   }
@@ -53,8 +53,8 @@ class SidePanelContentPanel: NSPanel {
 }
 
 /// Thin, transparent, always-on-top, non-activating `NSPanel` hugging the
-/// left edge of one monitor -- the "edge sensor zone" from PRD.md
-/// "Trigger-Mechanismus". One instance per connected `NSScreen`.
+/// docked edge (left by default, `dockRight` for right) of one monitor --
+/// the "edge sensor zone" from PRD.md "Trigger-Mechanismus". One instance per connected `NSScreen`.
 ///
 /// Several points wide, not 1px (mouse-motor precision) and deliberately
 /// NOT anchored at the top-left corner (collides with the GNOME Activities

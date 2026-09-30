@@ -22,9 +22,11 @@ import 'side_panel_row_tile.dart';
 /// state: the full snapshot for all three sections arrives on every update
 /// regardless of which tab is showing.
 ///
-/// The panel window is a transparent canvas anchored flush against the left
-/// screen edge, so the surface painted here *is* the panel's silhouette:
-/// only the right-hand corners are rounded and the left edge stays hard.
+/// The panel window is a transparent canvas anchored flush against the
+/// screen edge named by [SidePanelSnapshot.edge], so the surface painted here
+/// *is* the panel's silhouette: only the screen-facing corners are rounded,
+/// the docked edge stays hard, and the close button sits on the
+/// screen-facing side.
 class WpSidePanelView extends StatefulWidget {
   const WpSidePanelView({
     super.key,
@@ -129,19 +131,25 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
     final (emptyTitle, emptyHint) = _emptyOf(_selected, l10n);
     final switchDuration = WpMotion.durationFor(context, WpMotion.normal);
 
+    final dockedRight = widget.snapshot.edge == 'right';
+    const round = Radius.circular(WpRadius.xl);
+    final closeButton = _CloseButton(
+      label: l10n.sidePanelClose,
+      onTap: widget.onClose,
+    );
+
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: WpColors.surfaceGradient,
-        // Flush against the left screen edge: only the right side reads as
-        // a floating rounded slide-out, the left edge stays hard.
-        borderRadius: const BorderRadius.only(
-          topRight: Radius.circular(WpRadius.xl),
-          bottomRight: Radius.circular(WpRadius.xl),
-        ),
+        // Flush against the docked screen edge: only the screen-facing side
+        // reads as a floating rounded slide-out, the docked edge stays hard.
+        borderRadius: dockedRight
+            ? const BorderRadius.only(topLeft: round, bottomLeft: round)
+            : const BorderRadius.only(topRight: round, bottomRight: round),
         // The rim every floating surface wears (see `floatingSurface` in
         // colors.dart). Uniform because Flutter cannot pair a non-uniform
-        // Border with a borderRadius; the left run vanishes off-screen.
+        // Border with a borderRadius; the docked run vanishes off-screen.
         border: Border.all(color: WpColors.cardEdgeHighlight, width: 1),
       ),
       child: Column(
@@ -158,7 +166,14 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
+                  // Physical order: the close button follows the docked
+                  // screen edge, not the reading direction.
+                  textDirection: TextDirection.ltr,
                   children: [
+                    if (dockedRight) ...[
+                      closeButton,
+                      const SizedBox(width: WpSpacing.xs),
+                    ],
                     Expanded(
                       child: AnimatedSwitcher(
                         duration: switchDuration,
@@ -176,11 +191,10 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: WpSpacing.xs),
-                    _CloseButton(
-                      label: l10n.sidePanelClose,
-                      onTap: widget.onClose,
-                    ),
+                    if (!dockedRight) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      closeButton,
+                    ],
                   ],
                 ),
                 const SizedBox(height: WpSpacing.sm),
