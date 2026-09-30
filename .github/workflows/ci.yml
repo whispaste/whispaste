@@ -3,6 +3,13 @@ name: CI
 on:
   push:
     branches: [dev]
+  # Full run (every job, every test on every OS, incl. perf-tagged tests):
+  # weekly and on demand. A dev push runs the slim variant below — see
+  # "What a dev push runs" — so whatever a push skips still runs here
+  # (shift-left/no silent drop, infrastructure/github-actions-minutes.md).
+  schedule:
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
 
 # Solo-Dev: keine PRs (CLAUDE.md), der pull_request-Trigger lief seit je her
 # ins Leere und kostete nur ungenutzte Runner-Zeit/Sicherheitsrisiko (siehe
@@ -15,15 +22,48 @@ concurrency:
 permissions:
   contents: read
 
+# What a dev push runs (2026-09-30, runner-load reduction):
+# - The complete unit/widget suite runs ONCE, on the hosted Linux job. The
+#   self-hosted Windows/macOS jobs (SilviosPC, and the Mac mini that is also
+#   the dev machine) only run the test files with real platform branches
+#   (`Platform.isX`), plus analyze, the native build and the native
+#   integration tests — the parts only that OS can check.
+# - Jobs skip when the push cannot affect them (detect-changes.sh): no
+#   Flutter jobs for website/docs-only pushes, no website job for app-only
+#   pushes, goldens only when rendered UI/strings/assets changed.
+# - Analyze and loam run once (Linux): they do not depend on the host OS.
+# - `perf`-tagged micro-benchmarks run in the full run only: a shared,
+#   loaded runner turns wall-clock budgets into noise (run 36697607161).
+# - Retries only for the known native-asset download flake
+#   (scripts/ci/flutter-test.sh), never for real test failures.
+env:
+  FULL_RUN: ${{ github.event_name != 'push' }}
+
 jobs:
   # Single repo-wide secret scan. Plattformunabhängig, daher genau einmal
   # auf einem schnellen Ubuntu-Runner statt dupliziert auf Win + macOS.
   secret-scan:
-    name: Secret scan
-    runs-on: ubuntu-latest
+    name: Secret scan & change detection
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      app: ${{ steps.changes.outputs.app }}
+      platform_full: ${{ steps.changes.outputs.platform_full }}
+      website: ${{ steps.changes.outputs.website }}
+      golden: ${{ steps.changes.outputs.golden }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Detect changed areas
+        id: changes
+        run: bash scripts/ci/detect-changes.sh "${{ github.event.before }}" "${{ github.sha }}" "$FULL_RUN"
+
+      # Deterministic public-docs QS (0 tokens): keeps README, CHANGELOG,
+      # website (DE+EN) and the platform/store SSoT consistent. Runs on every
+      # push (it also checks app-side version sync), which is why it lives
+      # here and not in the path-filtered website job. bash + perl only.
+      - name: Public-Docs-QS (docs-attest check)
+        run: bash scripts/docs-attest.sh check
       - name: Scan for potential secrets
         run: |
           echo 'Scanning for potential secrets...'
@@ -62,18 +102,19 @@ jobs:
 
   flutter-app:
     name: Flutter App (Windows)
+    needs: secret-scan
+    if: needs.secret-scan.outputs.app == 'true'
     # Self-hosted (SilviosPC) statt windows-latest — GitHub-gehostete Windows-
     # Runner werden mit 2x gegenüber Linux abgerechnet; bei mehreren Pushes/Tag
     # sprengte das schnell das Actions-Freikontingent (siehe git-log dieses
     # Commits). Fällt der Runner offline (DHCP-Box, s. windows-silviospc.md),
     # bleibt der Job im GitHub-UI als "queued" hängen statt zu failen.
     runs-on: [self-hosted, Windows, X64]
-    # Mirrors the macOS job's timeout: without an explicit limit, a hung step
-    # only gets killed by the 360min GitHub default — run 33364827323 saw a
-    # Windows job still going at 81min before an unrelated concurrency
-    # cancellation ended it. 35min matches the macOS budget for the same
-    # analyze+test+build+integration-test sequence.
-    timeout-minutes: 35
+    # Without an explicit limit a hung step only gets killed by the 360min
+    # GitHub default — run 33364827323 saw a Windows job still going at 81min.
+    # A push run (platform test subset) takes ~12min; 30min leaves room for
+    # the weekly full run's complete suite.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -90,30 +131,25 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Analyze (lint + static analysis)
-        # Scope to the app's own sources. A bare `flutter analyze` descends
-        # into the standalone packages/ tools (own pubspec/lints, not pulled
-        # via pub get in CI), which fails on unresolved package: self-imports.
-        # Those packages are covered by the loam gate below.
-        run: flutter analyze --fatal-infos lib test integration_test tool
-
-      # Retried: the sqlite3 package's native-asset build hook downloads a
-      # prebuilt DLL from GitHub Releases on first use, which occasionally
-      # hits "Connection closed before full header was received" — a
-      # transient network blip unrelated to the code under test — and was
-      # observed eating the whole job (run 31663460234).
-      - name: Run tests
+      # Push: only the test files with real platform branches — the full
+      # suite already runs on Linux. Everything when the push touches
+      # platform-branching app code or plugins (detect-changes.sh), and on
+      # the full run.
+      - name: Run tests (platform-specific subset)
+        env:
+          PLATFORM_FULL: ${{ needs.secret-scan.outputs.platform_full }}
         shell: bash
         run: |
-          for attempt in 1 2 3; do
-            flutter test --exclude-tags=golden,canary && break
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::flutter test failed after 3 attempts."
-              exit 1
-            fi
-            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
-            sleep 15
-          done
+          if [ "$FULL_RUN" = "true" ] || [ "$PLATFORM_FULL" = "true" ]; then
+            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf
+          else
+            # No mapfile: macOS runners may resolve `bash` to 3.2. Test paths
+            # contain no whitespace, so plain word splitting is safe here.
+            files=$(grep -rlE 'Platform\.is(Windows|MacOS|Linux)' test | grep '_test\.dart$' | sort)
+            echo "Running $(echo "$files" | wc -l | tr -d ' ') platform-specific test files"
+            # shellcheck disable=SC2086
+            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
+          fi
 
       - name: C++ static analysis (cppcheck)
         shell: pwsh
@@ -126,8 +162,12 @@ jobs:
           $msiUrl = 'https://github.com/cppcheck-opensource/cppcheck/releases/download/2.14.0/cppcheck-2.14.0-x64-Setup.msi'
           $msiPath = "$env:RUNNER_TEMP\cppcheck-setup.msi"
           $cppcheckExe = 'C:\Program Files\Cppcheck\cppcheck.exe'
-          $installed = $false
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
+          # Self-hosted runner: cppcheck is installed machine-wide, so reuse
+          # it instead of downloading the MSI every run. Note the MSI never
+          # downgraded an existing newer install anyway (SilviosPC has
+          # 2.20.0), so the pinned URL is only the bootstrap for a fresh box.
+          $installed = Test-Path $cppcheckExe
+          for ($attempt = 1; $attempt -le 3 -and -not $installed; $attempt++) {
             try {
               Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath -UseBasicParsing
               Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$msiPath`" /qn /norestart" -Wait -NoNewWindow
@@ -143,7 +183,7 @@ jobs:
           if (-not $installed) {
             throw "cppcheck installation failed after 3 attempts (expected at $cppcheckExe)."
           }
-          Write-Host "Using cppcheck: $cppcheckExe"
+          Write-Host "Using $(& $cppcheckExe --version) at $cppcheckExe"
 
           # cppcheck has occasionally exited non-zero with no error/warning/
           # performance/portability line printed (run 31871493722, cause
@@ -215,15 +255,16 @@ jobs:
         run: flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d windows
 
   flutter-app-macos:
-    name: Flutter App (macOS)
+    name: Flutter App (macOS + goldens)
+    needs: secret-scan
+    if: needs.secret-scan.outputs.app == 'true'
     # Self-hosted (dieser Mac) statt macos-latest — GitHub-gehostete macOS-
     # Runner werden mit 10x gegenüber Linux abgerechnet, größter Einzelposten
     # im Actions-Freikontingent (siehe git-log dieses Commits).
     runs-on: [self-hosted, macOS, ARM64]
-    # A normal run finishes in ~14-15min; run 31671272849 got killed by this
-    # timeout at 20m20s with every step already green (build done, secure-
-    # storage test just starting) — plain runner-speed variance, not a hang.
-    # 35min gives real headroom without masking an actual stuck job.
+    # A push run (platform test subset) takes ~8-10min, +~6min with goldens,
+    # a full run ~20min; run 31671272849 showed this runner's speed varies a
+    # lot under load.
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
@@ -241,26 +282,35 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Analyze (lint + static analysis)
-        # Scope to the app's own sources. A bare `flutter analyze` descends
-        # into the standalone packages/ tools (own pubspec/lints, not pulled
-        # via pub get in CI), which fails on unresolved package: self-imports.
-        # Those packages are covered by the loam gate below.
-        run: flutter analyze --fatal-infos lib test integration_test tool
-
-      # Retried: see the Windows job's "Run tests" step comment — the
-      # sqlite3 native-asset download flake is platform-agnostic.
-      - name: Run tests
+      # Push: only the test files with real platform branches — the full
+      # suite already runs on Linux. Everything when the push touches
+      # platform-branching app code or plugins (detect-changes.sh), and on
+      # the full run.
+      - name: Run tests (platform-specific subset)
+        env:
+          PLATFORM_FULL: ${{ needs.secret-scan.outputs.platform_full }}
         run: |
-          for attempt in 1 2 3; do
-            flutter test --exclude-tags=golden,canary && break
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::flutter test failed after 3 attempts."
-              exit 1
-            fi
-            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
-            sleep 15
-          done
+          if [ "$FULL_RUN" = "true" ] || [ "$PLATFORM_FULL" = "true" ]; then
+            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf
+          else
+            # No mapfile: macOS runners may resolve `bash` to 3.2. Test paths
+            # contain no whitespace, so plain word splitting is safe here.
+            files=$(grep -rlE 'Platform\.is(Windows|MacOS|Linux)' test | grep '_test\.dart$' | sort)
+            echo "Running $(echo "$files" | wc -l | tr -d ' ') platform-specific test files"
+            # shellcheck disable=SC2086
+            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
+          fi
+
+      # Golden / visual-regression tests (@Tags(['golden'])) — macOS only so
+      # font rendering matches the checked-in baselines. Part of this job
+      # instead of a separate one: both share the single Mac mini runner, so
+      # a second job only repeated checkout/Flutter setup/pub get serially.
+      # Push: only when rendered UI, strings or assets changed.
+      # golden_screenshot applies a 0.1 % fuzzy tolerance automatically;
+      # plain matchesGoldenFile tests use exact pixel comparison.
+      - name: Run golden tests
+        if: needs.secret-scan.outputs.golden == 'true'
+        run: bash scripts/ci/flutter-test.sh --tags=golden
 
       - name: Build macOS (debug)
         run: flutter build macos --debug
@@ -325,13 +375,16 @@ jobs:
 
   flutter-app-linux:
     name: Flutter App (Linux)
+    needs: secret-scan
+    if: needs.secret-scan.outputs.app == 'true'
     # Bleibt ubuntu-latest (1x, günstigster Multiplikator) — Verlagerung auf
     # die NAS (silvio222) scheiterte am fehlenden passwortlosen sudo für die
     # nötigen apt-Pakete (unzip/clang/cmake/ninja/pkg-config/libgtk-3-dev für
     # den Flutter-Linux-Desktop-Build). Einmaliger manueller apt-get-Lauf mit
     # sudo-Passwort würde die Migration freischalten, siehe Chat.
-    runs-on: ubuntu-latest
-    # See the Windows job's timeout-minutes comment — same rationale applies.
+    runs-on: ubuntu-24.04
+    # See the Windows job's timeout-minutes comment. The complete suite runs
+    # here (~8min) plus build and integration tests (~10min).
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
@@ -371,6 +424,7 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # Host-independent, so it runs here only (not on Windows/macOS).
       - name: Analyze (lint + static analysis)
         # Scope to the app's own sources. A bare `flutter analyze` descends
         # into the standalone packages/ tools (own pubspec/lints, not pulled
@@ -408,21 +462,15 @@ jobs:
           export DART_SDK="$dart_sdk"
           loam gate --no-update-check
 
-      # Reproduzierbare, plattformidentische Unit-/Widget-/App-Flow-Tests
-      # (inkl. test/app/app_flows_test.dart) — laufen headless ohne Display.
-      # Retried: see the Windows job's "Run tests" step comment — the
-      # sqlite3 native-asset download flake is platform-agnostic.
-      - name: Run tests
+      # The one place the COMPLETE unit/widget/app-flow suite runs on a push
+      # (headless, no display). perf-tagged benchmarks join on the full run.
+      - name: Run tests (complete suite)
         run: |
-          for attempt in 1 2 3; do
-            flutter test --exclude-tags=golden,canary && break
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::flutter test failed after 3 attempts."
-              exit 1
-            fi
-            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
-            sleep 15
-          done
+          if [ "$FULL_RUN" = "true" ]; then
+            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary
+          else
+            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf
+          fi
 
       - name: Build Linux (debug)
         run: flutter build linux --debug
@@ -464,56 +512,14 @@ jobs:
       - name: Hotkey-to-text fallback-paths integration test
         run: timeout 420 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
 
-  # Golden / visual-regression tests — run only the @Tags(['golden']) suite on
-  # macOS so font and rendering results match the locally generated baselines.
-  # The main flutter-app-* jobs keep --exclude-tags=golden unchanged.
-  golden-tests:
-    name: Golden Tests (macOS)
-    # Self-hosted, see flutter-app-macos above (10x-Multiplikator).
-    runs-on: [self-hosted, macOS, ARM64]
-    # See the Windows job's timeout-minutes comment. A normal run finishes in
-    # ~9min; 20min gives headroom without masking an actual stuck job.
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.44.1
-          cache: true
-
-      - name: Verify Flutter installation
-        run: flutter --version
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      # Runs only the golden-tagged tests. Uses the macOS runner so font
-      # rendering matches the checked-in baseline PNGs (generated on macOS).
-      # golden_screenshot applies a 0.1 % fuzzy tolerance automatically;
-      # plain matchesGoldenFile tests use exact pixel comparison.
-      # Retried: see the Windows job's "Run tests" step comment — the
-      # sqlite3 native-asset download flake is platform-agnostic.
-      - name: Run golden tests
-        run: |
-          for attempt in 1 2 3; do
-            flutter test --tags=golden && break
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::flutter test failed after 3 attempts."
-              exit 1
-            fi
-            echo "flutter test failed (attempt $attempt/3) — retrying in 15s."
-            sleep 15
-          done
-
   website:
     name: Website
+    needs: secret-scan
+    if: needs.secret-scan.outputs.website == 'true'
     # Bleibt ubuntu-latest — Playwrights System-Abhängigkeiten
     # (`playwright install --with-deps`) brauchen ebenfalls apt/sudo, siehe
     # flutter-app-linux oben.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # See the Windows job's timeout-minutes comment. This job additionally
     # bounds its own slowest step (npm audit) per-attempt below, so this is
     # a backstop for a genuine hang elsewhere, not the audit retry itself.
@@ -523,13 +529,6 @@ jobs:
         working-directory: website
     steps:
       - uses: actions/checkout@v6
-
-      # Deterministischer Public-Docs-QS-Gate (0 Token): hält README, CHANGELOG,
-      # Website (DE+EN) und die Plattform/Store-SSoT (platforms.ts) konsistent.
-      # Läuft aus dem Repo-Root, braucht nur bash + perl (auf ubuntu vorhanden).
-      - name: Public-Docs-QS (docs-attest check)
-        working-directory: ${{ github.workspace }}
-        run: bash scripts/docs-attest.sh check
 
       - name: Set up Node.js
         uses: actions/setup-node@v6

@@ -5,12 +5,13 @@ name: WhisPaste-Diagnose Dart Smoke
 # runs it against a temp output directory (no WhisPaste installed on the
 # runner), asserts exit 0, and asserts a report file was written.
 #
-# Triggered on every push to dev/main that touches the diagnostics package
-# or this workflow. Also supports manual dispatch.
+# Triggered on every push to dev that touches the diagnostics package or this
+# workflow (main only ever receives SHAs that already passed on dev), plus
+# manual dispatch.
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev]
     paths:
       - 'packages/whispaste_diagnostics/**'
       - '.github/workflows/diagnose-dart-smoke.yml'
@@ -18,6 +19,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: diagnose-dart-smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   format:

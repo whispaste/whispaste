@@ -1,0 +1,11 @@
+# Registered test tags (unregistered tags only warn). CI selects on them in
+# .github/workflows/ci.yml.
+tags:
+  golden:
+    # Pixel baselines, generated on macOS; run in the macOS golden job only.
+  canary:
+    # Live provider-drift checks; run by provider-drift-canary.yml only.
+  l10n:
+  perf:
+    # Wall-clock micro-benchmarks; skipped on dev pushes, run in the weekly
+    # and manual full CI run.
