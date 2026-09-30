@@ -61,6 +61,16 @@ class L10nHe extends L10n {
       'לחץ על כפתור ההקלטה או השתמש בקיצור המקלדת כדי להתחיל.';
 
   @override
+  String get historyPrivacyGateTitle => 'ההיסטוריה מוסתרת';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'התמלולים הקודמים שלך יישארו מוסתרים עד שתבחרו להציג אותם.';
+
+  @override
+  String get historyPrivacyGateShow => 'הצגת היסטוריה';
+
+  @override
   String get historySearch => 'חיפוש…';
 
   @override
@@ -3410,6 +3420,13 @@ class L10nHe extends L10n {
 
   @override
   String get settingsHistoryPresetCustom => 'מותאם אישית';
+
+  @override
+  String get settingsHistoryHideOnOpen => 'הסתרת ההיסטוריה בפתיחה';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'מציג כפתור „הצגת היסטוריה” במקום התמלולים שלך בכל פעם ש־WhisPaste מופעל או שהחלון נפתח מחדש';
 
   @override
   String get settingsFloatingButtonSection => 'כפתור צף';

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/app_info.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
@@ -40,6 +41,12 @@ typedef HistoryPageExportFn =
 /// 128 tracks the populated case — the one a skeleton has to reserve for —
 /// on the repo's 8 dp rhythm. The former 52 reserved less than half a row.
 const _historySkeletonRowHeight = 128.0;
+
+/// Key of the privacy gate the page shows instead of entries while
+/// `HistorySettings.historyHideOnOpen` is on and the user has not revealed
+/// the history yet.
+@visibleForTesting
+const kHistoryPrivacyGateKey = Key('historyPrivacyGate');
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
@@ -405,8 +412,33 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
+  /// The "Show history" screen shown in place of the entries while
+  /// `historyHideOnOpen` is on and the history has not been revealed yet;
+  /// `null` when the entries may be shown.
+  Widget? _buildPrivacyGate(BuildContext context) {
+    final hideOnOpen =
+        ref.watch(settingsProvider).value?.history.historyHideOnOpen ?? false;
+    if (!hideOnOpen || ref.watch(historyRevealedProvider)) return null;
+    final l10n = L10n.of(context);
+    return WpPageShell(
+      scrollable: false,
+      padding: EdgeInsets.zero,
+      child: WpEmptyState(
+        key: kHistoryPrivacyGateKey,
+        icon: LucideIcons.eyeOff,
+        title: l10n.historyPrivacyGateTitle,
+        hint: l10n.historyPrivacyGateHint,
+        actionLabel: l10n.historyPrivacyGateShow,
+        onAction: () => ref.read(historyRevealedProvider.notifier).reveal(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final privacyGate = _buildPrivacyGate(context);
+    if (privacyGate != null) return privacyGate;
+
     final activeFilter = ref.watch(historyFilterProvider);
     final groupedAsync = ref.watch(groupedHistoryProvider);
     final filteredAsync = ref.watch(filteredHistoryProvider);

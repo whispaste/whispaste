@@ -203,6 +203,24 @@ abstract class L10n {
   /// **'Press the record button or use the hotkey to start recording.'**
   String get historyEmptyHint;
 
+  /// No description provided for @historyPrivacyGateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'History hidden'**
+  String get historyPrivacyGateTitle;
+
+  /// No description provided for @historyPrivacyGateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your past transcriptions stay hidden until you choose to show them.'**
+  String get historyPrivacyGateHint;
+
+  /// No description provided for @historyPrivacyGateShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show history'**
+  String get historyPrivacyGateShow;
+
   /// No description provided for @historySearch.
   ///
   /// In en, this message translates to:
@@ -6067,6 +6085,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Custom'**
   String get settingsHistoryPresetCustom;
+
+  /// No description provided for @settingsHistoryHideOnOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide history on open'**
+  String get settingsHistoryHideOnOpen;
+
+  /// No description provided for @settingsHistoryHideOnOpenSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens'**
+  String get settingsHistoryHideOnOpenSubtitle;
 
   /// No description provided for @settingsFloatingButtonSection.
   ///

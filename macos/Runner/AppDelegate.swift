@@ -16,6 +16,12 @@ class AppDelegate: FlutterAppDelegate {
   private var secureBookmarkHost: SecureBookmarkHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
+  /// Whether macOS launched this process as a login item. Captured once at
+  /// launch: the launch Apple event is only readable while it is being
+  /// handled, and an `SMAppService` login item cannot pass `--autostart`
+  /// the way the Windows/Linux autostart entries do.
+  private var launchedAsLoginItem = false
+
   /// How long after launch the snippet-picker's second Flutter engine is
   /// booted (see `SnippetPickerHost.prewarm`).
   ///
@@ -80,6 +86,10 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
+    launchedAsLoginItem = Self.isLoginItemLaunch(
+      NSAppleEventManager.shared().currentAppleEvent
+    )
+
     guard let window = mainFlutterWindow,
           let controller = window.contentViewController as? FlutterViewController else {
       return
@@ -121,6 +131,18 @@ class AppDelegate: FlutterAppDelegate {
     }
   }
 
+  /// `kAEOpenApplication` carries `keyAELaunchedAsLogInItem` as its
+  /// `keyAEPropData` when the launch came from the user's login items.
+  private static func isLoginItemLaunch(_ event: NSAppleEventDescriptor?) -> Bool {
+    guard let event,
+          event.eventClass == AEEventClass(kCoreEventClass),
+          event.eventID == AEEventID(kAEOpenApplication) else {
+      return false
+    }
+    return event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue
+      == AEKeyword(keyAELaunchedAsLogInItem)
+  }
+
   private func handleLifecycleCall(
     _ call: FlutterMethodCall,
     result: @escaping FlutterResult
@@ -142,6 +164,9 @@ class AppDelegate: FlutterAppDelegate {
         return
       }
       result(nil)
+
+    case "wasLaunchedAsLoginItem":
+      result(launchedAsLoginItem)
 
     case "requestUserAttention":
       // Critical request → dock icon bounces until user activates the app.

@@ -28,7 +28,8 @@ import 'core/platform/window_position_clamp.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
-import 'features/history/data/providers.dart' show groupedHistoryProvider;
+import 'features/history/data/providers.dart'
+    show groupedHistoryProvider, historyRevealedProvider;
 import 'features/notes/notes_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
@@ -1032,6 +1033,8 @@ class _AppShellState extends ConsumerState<_AppShell>
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
       await windowManager.hide();
+      // Whoever reopens the window next must not land in revealed history.
+      ref.read(historyRevealedProvider.notifier).conceal();
 
       // On macOS, hide from Dock only when the tray icon is available.
       // Without a working tray icon the user would be stranded.

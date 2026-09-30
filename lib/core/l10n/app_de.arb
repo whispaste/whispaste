@@ -18,6 +18,9 @@
 
   "historyEmpty": "Noch keine Aufnahmen",
   "historyEmptyHint": "Drücke den Aufnahmeknopf oder nutze den Hotkey, um die Aufnahme zu starten.",
+  "historyPrivacyGateTitle": "Verlauf verborgen",
+  "historyPrivacyGateHint": "Deine bisherigen Transkriptionen bleiben verborgen, bis du sie einblendest.",
+  "historyPrivacyGateShow": "Verlauf anzeigen",
   "historySearch": "Suchen…",
   "historyPinned": "Favoriten",
   "historyToday": "Heute",
@@ -1202,6 +1205,8 @@
   "settingsHistoryPresetStandard": "Standard",
   "settingsHistoryPresetUnlimited": "Unbegrenzt",
   "settingsHistoryPresetCustom": "Benutzerdefiniert",
+  "settingsHistoryHideOnOpen": "Verlauf beim Öffnen verbergen",
+  "settingsHistoryHideOnOpenSubtitle": "Zeigt statt deiner Transkriptionen einen „Verlauf anzeigen“-Button, sobald WhisPaste startet oder das Fenster wieder geöffnet wird",
 
   "settingsFloatingButtonSection": "Schwebender Button",
   "settingsFloatingButtonSectionSubtitle": "Immer sichtbarer Aufnahme-Button für schnellen Zugriff",

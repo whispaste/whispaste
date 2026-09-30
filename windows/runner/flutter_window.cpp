@@ -1,5 +1,6 @@
 #include "flutter_window.h"
 
+#include <cwchar>
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -71,8 +72,15 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+  // An autostart launch leaves showing to Dart (`_initDesktopWindow` in
+  // lib/main.dart), which keeps the window hidden when "start minimized" is
+  // on. Showing it here on the first frame would override that decision.
+  const bool is_autostart =
+      std::wcsstr(::GetCommandLineW(), L"--autostart") != nullptr;
+  flutter_controller_->engine()->SetNextFrameCallback([this, is_autostart]() {
+    if (!is_autostart) {
+      this->Show();
+    }
   });
 
   // Flutter can complete the first frame before the "show window" callback is

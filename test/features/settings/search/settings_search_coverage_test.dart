@@ -81,6 +81,7 @@ const Map<String, String> _rowLabelKeysBySection = {
   // History
   'settingsHistory': 'history',
   'settingsHistoryRetentionPreset': 'history',
+  'settingsHistoryHideOnOpen': 'history',
   // Backup & Transfer
   'settingsAutosaveLabel': 'settingsPortability',
   'settingsPortabilityExportAction': 'settingsPortability',

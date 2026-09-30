@@ -61,6 +61,16 @@ class L10nDe extends L10n {
       'Drücke den Aufnahmeknopf oder nutze den Hotkey, um die Aufnahme zu starten.';
 
   @override
+  String get historyPrivacyGateTitle => 'Verlauf verborgen';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'Deine bisherigen Transkriptionen bleiben verborgen, bis du sie einblendest.';
+
+  @override
+  String get historyPrivacyGateShow => 'Verlauf anzeigen';
+
+  @override
   String get historySearch => 'Suchen…';
 
   @override
@@ -3494,6 +3504,13 @@ class L10nDe extends L10n {
 
   @override
   String get settingsHistoryPresetCustom => 'Benutzerdefiniert';
+
+  @override
+  String get settingsHistoryHideOnOpen => 'Verlauf beim Öffnen verbergen';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'Zeigt statt deiner Transkriptionen einen „Verlauf anzeigen“-Button, sobald WhisPaste startet oder das Fenster wieder geöffnet wird';
 
   @override
   String get settingsFloatingButtonSection => 'Schwebender Button';

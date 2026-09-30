@@ -18,6 +18,9 @@
 
   "historyEmpty": "No recordings yet",
   "historyEmptyHint": "Press the record button or use the hotkey to start recording.",
+  "historyPrivacyGateTitle": "History hidden",
+  "historyPrivacyGateHint": "Your past transcriptions stay hidden until you choose to show them.",
+  "historyPrivacyGateShow": "Show history",
   "historySearch": "Search…",
   "historyPinned": "Favorites",
   "historyToday": "Today",
@@ -1409,6 +1412,8 @@
   "settingsHistoryPresetStandard": "Standard",
   "settingsHistoryPresetUnlimited": "Unlimited",
   "settingsHistoryPresetCustom": "Custom",
+  "settingsHistoryHideOnOpen": "Hide history on open",
+  "settingsHistoryHideOnOpenSubtitle": "Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens",
 
   "settingsFloatingButtonSection": "Floating Button",
   "settingsFloatingButtonSectionSubtitle": "Always-on-top recording button for quick access",

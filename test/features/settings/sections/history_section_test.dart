@@ -6,6 +6,8 @@
 /// (c) A stored combo matching no preset shows "Custom" / "Benutzerdefiniert"
 ///     without overwriting the stored values.
 /// (d) Exactly one retention-preset dropdown is present (no two separate ones).
+/// (e) The "hide history on open" toggle persists `historyHideOnOpen`
+///     without touching the retention fields.
 library;
 
 import 'package:flutter/material.dart';
@@ -310,5 +312,30 @@ void main() {
         );
       },
     );
+  });
+
+  // ── AC (e): hide-on-open toggle ───────────────────────────────────────────
+
+  group('HistorySection hide-on-open toggle (AC e)', () {
+    testWidgets('is off by default and persists historyHideOnOpen = true', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsHistoryHideOnOpen), findsOneWidget);
+      final toggle = find.byType(Switch);
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<Switch>(toggle).value, isFalse);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      final history = notifier.state.value!.history;
+      expect(history.historyHideOnOpen, isTrue);
+      expect(history.historyMaxEntries, 1000);
+      expect(history.historyAutoTrashDays, 90);
+    });
   });
 }

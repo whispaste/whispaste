@@ -81,34 +81,56 @@ class HistorySection extends ConsumerWidget {
       title: l10n.settingsHistory,
       subtitle: l10n.settingsHistorySubtitle,
       padding: EdgeInsets.zero,
-      child: SettingRow(
-        icon: LucideIcons.clock,
-        label: l10n.settingsHistoryRetentionPreset,
-        trailing: settingsDropdown(
-          context: context,
-          value: currentPreset.name,
-          items: presetItems.map((p) => p.name).toList(),
-          labels: presetItems.map(labelFor).toList(),
-          onChanged: (v) {
-            if (v == null || v == HistoryRetentionPreset.custom.name) return;
-            final preset = HistoryRetentionPreset.values.firstWhere(
-              (p) => p.name == v,
-            );
-            final vals = presetValues(preset);
-            if (vals == null) return;
-            final (maxE, trashD) = vals;
-            ref
-                .read(settingsProvider.notifier)
-                .updateSettings(
-                  (s) => s.copyWithSections(
-                    history: s.history.copyWith(
-                      historyMaxEntries: maxE,
-                      historyAutoTrashDays: trashD,
+      child: Column(
+        children: [
+          SettingRow(
+            icon: LucideIcons.clock,
+            label: l10n.settingsHistoryRetentionPreset,
+            trailing: settingsDropdown(
+              context: context,
+              value: currentPreset.name,
+              items: presetItems.map((p) => p.name).toList(),
+              labels: presetItems.map(labelFor).toList(),
+              onChanged: (v) {
+                if (v == null || v == HistoryRetentionPreset.custom.name) {
+                  return;
+                }
+                final preset = HistoryRetentionPreset.values.firstWhere(
+                  (p) => p.name == v,
+                );
+                final vals = presetValues(preset);
+                if (vals == null) return;
+                final (maxE, trashD) = vals;
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        history: s.history.copyWith(
+                          historyMaxEntries: maxE,
+                          historyAutoTrashDays: trashD,
+                        ),
+                      ),
+                    );
+              },
+            ),
+          ),
+          SettingRow(
+            icon: LucideIcons.eyeOff,
+            label: l10n.settingsHistoryHideOnOpen,
+            subtitle: l10n.settingsHistoryHideOnOpenSubtitle,
+            semanticToggledValue: settings.history.historyHideOnOpen,
+            trailing: settingsToggle(
+              value: settings.history.historyHideOnOpen,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      history: s.history.copyWith(historyHideOnOpen: v),
                     ),
                   ),
-                );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

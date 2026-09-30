@@ -1018,6 +1018,7 @@ class HistorySettings {
   const HistorySettings({
     this.historyMaxEntries = 1000,
     this.historyAutoTrashDays = 90,
+    this.historyHideOnOpen = false,
   });
 
   /// Max active (non-trashed) history entries to keep. 0 = unlimited.
@@ -1025,6 +1026,11 @@ class HistorySettings {
 
   /// Days to keep soft-deleted entries before permanent purge. 0 = never purge.
   final int historyAutoTrashDays;
+
+  /// Hide the History page behind a "Show history" button each time the app
+  /// starts or its window is hidden, so a shared computer never opens
+  /// straight into past transcripts.
+  final bool historyHideOnOpen;
 
   static const HistorySettings defaults = HistorySettings();
 
@@ -1039,19 +1045,27 @@ class HistorySettings {
       'history_auto_trash_days',
       defaults.historyAutoTrashDays,
     ),
+    historyHideOnOpen: _readBool(
+      v,
+      'history_hide_on_open',
+      defaults.historyHideOnOpen,
+    ),
   );
 
   Map<String, String> toMap() => {
     'history_max_entries': '$historyMaxEntries',
     'history_auto_trash_days': '$historyAutoTrashDays',
+    'history_hide_on_open': '$historyHideOnOpen',
   };
 
   HistorySettings copyWith({
     int? historyMaxEntries,
     int? historyAutoTrashDays,
+    bool? historyHideOnOpen,
   }) => HistorySettings(
     historyMaxEntries: historyMaxEntries ?? this.historyMaxEntries,
     historyAutoTrashDays: historyAutoTrashDays ?? this.historyAutoTrashDays,
+    historyHideOnOpen: historyHideOnOpen ?? this.historyHideOnOpen,
   );
 
   @override
@@ -1059,10 +1073,12 @@ class HistorySettings {
       identical(this, other) ||
       other is HistorySettings &&
           historyMaxEntries == other.historyMaxEntries &&
-          historyAutoTrashDays == other.historyAutoTrashDays;
+          historyAutoTrashDays == other.historyAutoTrashDays &&
+          historyHideOnOpen == other.historyHideOnOpen;
 
   @override
-  int get hashCode => Object.hash(historyMaxEntries, historyAutoTrashDays);
+  int get hashCode =>
+      Object.hash(historyMaxEntries, historyAutoTrashDays, historyHideOnOpen);
 }
 
 // ===========================================================================

@@ -40,7 +40,15 @@ struct _MyApplication {
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
+//
+// An autostart launch leaves showing to Dart (`_initDesktopWindow` in
+// lib/main.dart), which keeps the window hidden when "start minimized" is on.
+// Showing it here would override that decision.
 static void first_frame_cb(MyApplication* self, FlView* view) {
+  if (self->dart_entrypoint_arguments != nullptr &&
+      g_strv_contains(self->dart_entrypoint_arguments, "--autostart")) {
+    return;
+  }
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 

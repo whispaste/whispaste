@@ -61,6 +61,16 @@ class L10nRu extends L10n {
       'Нажмите кнопку записи или используйте горячую клавишу для начала.';
 
   @override
+  String get historyPrivacyGateTitle => 'История скрыта';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'Ваши прошлые расшифровки остаются скрытыми, пока вы не решите их показать.';
+
+  @override
+  String get historyPrivacyGateShow => 'Показать историю';
+
+  @override
   String get historySearch => 'Поиск…';
 
   @override
@@ -3526,6 +3536,13 @@ class L10nRu extends L10n {
 
   @override
   String get settingsHistoryPresetCustom => 'Своё';
+
+  @override
+  String get settingsHistoryHideOnOpen => 'Скрывать историю при открытии';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'Показывает кнопку «Показать историю» вместо ваших расшифровок при каждом запуске WhisPaste или повторном открытии окна';
 
   @override
   String get settingsFloatingButtonSection => 'Плавающая кнопка';

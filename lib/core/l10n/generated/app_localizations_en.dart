@@ -61,6 +61,16 @@ class L10nEn extends L10n {
       'Press the record button or use the hotkey to start recording.';
 
   @override
+  String get historyPrivacyGateTitle => 'History hidden';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'Your past transcriptions stay hidden until you choose to show them.';
+
+  @override
+  String get historyPrivacyGateShow => 'Show history';
+
+  @override
   String get historySearch => 'Search…';
 
   @override
@@ -3463,6 +3473,13 @@ class L10nEn extends L10n {
 
   @override
   String get settingsHistoryPresetCustom => 'Custom';
+
+  @override
+  String get settingsHistoryHideOnOpen => 'Hide history on open';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens';
 
   @override
   String get settingsFloatingButtonSection => 'Floating Button';

@@ -1,9 +1,10 @@
 /// Widget tests for [OnboardingAutostartToggle] — the autostart card on the
 /// Autostart & Auto-Paste onboarding page.
 ///
-/// Moved here from the former `ReadyStep` together with the widget; the
-/// behavioural guarantee is unchanged: the toggle persists
-/// `launchAtStartup` in both directions.
+/// The toggle persists `launchAtStartup` in both directions. Turning it on
+/// also enables `startMinimized`: a login launch from onboarding goes
+/// straight to the tray instead of opening the window — and with it the
+/// history — on every boot (user feedback 571d5361).
 library;
 
 import 'package:flutter/material.dart';
@@ -74,12 +75,22 @@ void main() {
           isTrue,
           reason: 'Tapping the toggle must persist launchAtStartup = true',
         );
+        expect(
+          settings.state.value!.startMinimized,
+          isTrue,
+          reason: 'Autostart from onboarding must start in the background',
+        );
       },
     );
 
     testWidgets('tapping again toggles it back off', (tester) async {
       final settings = _FakeSettingsNotifier(
-        const AppSettings(interface_: InterfaceSettings(launchAtStartup: true)),
+        const AppSettings(
+          interface_: InterfaceSettings(
+            launchAtStartup: true,
+            startMinimized: true,
+          ),
+        ),
       );
       await _pump(tester, settings: settings);
 
@@ -93,6 +104,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(settings.state.value!.launchAtStartup, isFalse);
+      expect(settings.state.value!.startMinimized, isFalse);
     });
   });
 }

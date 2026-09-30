@@ -27,6 +27,23 @@ final historyFilterProvider =
       HistoryFilterNotifier.new,
     );
 
+/// Whether the History page has been revealed past its privacy gate.
+///
+/// Only consulted while `HistorySettings.historyHideOnOpen` is on. Starts
+/// concealed on every app start; hiding the main window conceals it again.
+class HistoryRevealedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void reveal() => state = true;
+
+  void conceal() => state = false;
+}
+
+final historyRevealedProvider = NotifierProvider<HistoryRevealedNotifier, bool>(
+  HistoryRevealedNotifier.new,
+);
+
 /// Search query for the history page.
 class HistorySearchNotifier extends Notifier<String> {
   @override

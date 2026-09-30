@@ -154,6 +154,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'error_sound',
   'gpu_acceleration',
   'history_auto_trash_days',
+  'history_hide_on_open',
   'history_max_entries',
   'hotkey_enabled',
   'hotkey_key',
