@@ -19,18 +19,20 @@ import '../logging/app_logger.dart';
 
 final _log = AppLogger('KeyringLockProbe');
 
-/// A D-Bus round trip to the Secret Service takes milliseconds; anything
-/// slower means the service itself is stuck, and the plugin would be too.
-const _probeTimeout = Duration(seconds: 5);
-
 /// Returns `true` when the default libsecret collection is locked (or the
-/// probe got stuck), `false` otherwise — including on non-Linux platforms
-/// and when libsecret or a default collection is missing, which the plugin
+/// probe failed), `false` otherwise — including on non-Linux platforms and
+/// when libsecret or a default collection is missing, which the plugin
 /// already reports quickly on its own.
+///
+/// No Dart-side timeout: the probe runs in its own isolate, so it can never
+/// block the UI thread, and every libsecret call is a GDBus call bounded by
+/// GDBus's own default call timeout. A Dart `Timer` here also leaked into
+/// every widget test that realizes the real store on Linux (fake-async
+/// "Timer is still pending").
 Future<bool> isLinuxKeyringLocked() async {
   if (!Platform.isLinux) return false;
   try {
-    return await Isolate.run(_defaultCollectionLocked).timeout(_probeTimeout);
+    return await Isolate.run(_defaultCollectionLocked);
   } catch (e) {
     _log.warning('Keyring lock probe failed, treating keyring as locked: $e');
     return true;
