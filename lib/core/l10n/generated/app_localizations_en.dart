@@ -3917,6 +3917,35 @@ class L10nEn extends L10n {
       'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.';
 
   @override
+  String get featureSpotlightCorrectionLearningTitle =>
+      'Learns from your corrections';
+
+  @override
+  String get featureSpotlightCorrectionLearningDescription =>
+      'Correct the same word twice in your history and WhisPaste suggests it under Replacements — accept it once, and it comes out right from then on.';
+
+  @override
+  String get featureSpotlightLiveTranscriptTitle => 'Live transcript';
+
+  @override
+  String get featureSpotlightLiveTranscriptDescription =>
+      'Watch your words appear in the recording overlay while you are still speaking. Switch it on under Settings → Recording Overlay (local Whisper engine).';
+
+  @override
+  String get featureSpotlightDiscardRecordingTitle => 'Discard a recording';
+
+  @override
+  String get featureSpotlightDiscardRecordingDescription =>
+      'Changed your mind? Press Escape or click the X on the overlay — the recording is thrown away, nothing is transcribed or pasted.';
+
+  @override
+  String get featureSpotlightHistoryPinTitle => 'Lock your history with a PIN';
+
+  @override
+  String get featureSpotlightHistoryPinDescription =>
+      'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.';
+
+  @override
   String get featureSpotlightChangelogLink => 'View full changelog';
 
   @override

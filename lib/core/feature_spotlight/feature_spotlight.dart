@@ -110,6 +110,36 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
     description: (l10n) => l10n.featureSpotlightSmartModeDescription,
     platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
   ),
+  // The 1.3 round: features shipped across 1.2.7x that existing users were
+  // never told about. Chronological like the rest, all text-only.
+  // Correction learning (`feat(replacements): learn vocabulary from
+  // repeated dictation corrections`) — the review flow was otherwise only
+  // discoverable from the Replacements page.
+  FeatureSpotlightEntry(
+    id: 'correction_learning',
+    title: (l10n) => l10n.featureSpotlightCorrectionLearningTitle,
+    description: (l10n) => l10n.featureSpotlightCorrectionLearningDescription,
+  ),
+  // Live transcript in the recording overlay — opt-in, so it stays invisible
+  // unless someone points at the toggle.
+  FeatureSpotlightEntry(
+    id: 'live_transcript',
+    title: (l10n) => l10n.featureSpotlightLiveTranscriptTitle,
+    description: (l10n) => l10n.featureSpotlightLiveTranscriptDescription,
+  ),
+  // `feat(recording): add a true cancel/discard action for active
+  // dictation` — Escape and the overlay X used to stop-and-transcribe.
+  FeatureSpotlightEntry(
+    id: 'discard_recording',
+    title: (l10n) => l10n.featureSpotlightDiscardRecordingTitle,
+    description: (l10n) => l10n.featureSpotlightDiscardRecordingDescription,
+  ),
+  // `.scratch/history-pin-lock/`.
+  FeatureSpotlightEntry(
+    id: 'history_pin_lock',
+    title: (l10n) => l10n.featureSpotlightHistoryPinTitle,
+    description: (l10n) => l10n.featureSpotlightHistoryPinDescription,
+  ),
 ];
 
 /// Overridable seam for the registry. Every call site reads the registry

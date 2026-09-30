@@ -3860,6 +3860,34 @@ class L10nHe extends L10n {
       'נקה, קצר או תרגם את ההכתבה שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.';
 
   @override
+  String get featureSpotlightCorrectionLearningTitle => 'לומד מהתיקונים שלך';
+
+  @override
+  String get featureSpotlightCorrectionLearningDescription =>
+      'תקן את אותה מילה פעמיים בהיסטוריה, ו-WhisPaste יציע אותה תחת „החלפות“ – אשר פעם אחת, ומאז היא תזוהה נכון.';
+
+  @override
+  String get featureSpotlightLiveTranscriptTitle => 'תמלול חי';
+
+  @override
+  String get featureSpotlightLiveTranscriptDescription =>
+      'ראה את המילים שלך מופיעות בשכבת ההקלטה עוד בזמן הדיבור. הפעל בהגדרות ← שכבת הקלטה צפה (מנוע Whisper מקומי).';
+
+  @override
+  String get featureSpotlightDiscardRecordingTitle => 'ביטול הקלטה';
+
+  @override
+  String get featureSpotlightDiscardRecordingDescription =>
+      'התחרטת? הקש Escape או לחץ על ה-X בשכבת ההקלטה – ההקלטה נמחקת, ושום דבר לא מתומלל או מודבק.';
+
+  @override
+  String get featureSpotlightHistoryPinTitle => 'נעילת ההיסטוריה בקוד PIN';
+
+  @override
+  String get featureSpotlightHistoryPinDescription =>
+      'הגן על התמלולים שלך בקוד PIN – גם בסרגל הצד ובתפריט הכפתור הצף – עם נעילה אוטומטית אופציונלית אחרי חוסר פעילות. הגדרות ← היסטוריה.';
+
+  @override
   String get featureSpotlightChangelogLink => 'צפייה ביומן השינויים המלא';
 
   @override

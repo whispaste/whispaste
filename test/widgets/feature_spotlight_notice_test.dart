@@ -80,15 +80,16 @@ AppSettings _completedUser() => AppSettings.defaults.copyWithSections(
 /// settle.
 Future<_FakeFeatureSpotlightNotifier> _showDialog(
   WidgetTester tester,
-  List<FeatureSpotlightEntry> entries,
-) async {
+  List<FeatureSpotlightEntry> entries, {
+  Locale locale = const Locale('en'),
+}) async {
   final notifier = _FakeFeatureSpotlightNotifier();
   final settingsNotifier = _FakeSettingsNotifier(_completedUser());
 
   await tester.pumpWidget(
     makeTestable(
       const WpFeatureSpotlightWatcher(child: SizedBox()),
-      locale: const Locale('en'),
+      locale: locale,
       overrides: [
         featureSpotlightProvider.overrideWith(() => notifier),
         settingsProvider.overrideWith(() => settingsNotifier),
@@ -110,6 +111,22 @@ void main() {
   });
 
   group('WpFeatureSpotlightWatcher', () {
+    // A user who skipped several releases gets every pending entry bundled
+    // into one dialog — the real registry must lay out in every UI language.
+    for (final locale in L10n.supportedLocales) {
+      testWidgets('renders the full real registry in ${locale.languageCode} '
+          'without overflow', (tester) async {
+        await _showDialog(tester, kFeatureSpotlightRegistry, locale: locale);
+
+        final l10n = await L10n.delegate.load(locale);
+        expect(
+          find.text(kFeatureSpotlightRegistry.last.title(l10n)),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('shows the heading and every pending entry, dismiss button '
         'included', (tester) async {
       await _showDialog(tester, [_entry('a'), _entry('b')]);

@@ -71,6 +71,22 @@ void main() {
       expect(entry.platforms, isNull);
     });
 
+    test('the 1.3 entries follow smart_mode in shipping order and apply to '
+        'every platform', () {
+      final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
+      const round13 = [
+        'correction_learning',
+        'live_transcript',
+        'discard_recording',
+        'history_pin_lock',
+      ];
+      expect(ids.sublist(ids.indexOf('smart_mode') + 1), round13);
+      for (final id in round13) {
+        final entry = kFeatureSpotlightRegistry.firstWhere((e) => e.id == id);
+        expect(entry.platforms, isNull, reason: id);
+      }
+    });
+
     test('smart_mode is scoped to macos+windows — the local engine is not '
         'bundled for Linux (smartModeLibraryPathFor throws there)', () {
       final entry = kFeatureSpotlightRegistry.firstWhere(

@@ -3953,6 +3953,35 @@ class L10nDe extends L10n {
       'Bereinige, kürze oder übersetze dein Diktat vor dem Einfügen – komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.';
 
   @override
+  String get featureSpotlightCorrectionLearningTitle =>
+      'Lernt aus deinen Korrekturen';
+
+  @override
+  String get featureSpotlightCorrectionLearningDescription =>
+      'Korrigierst du im Verlauf zweimal dasselbe Wort, schlägt WhisPaste es unter „Ersetzungen“ vor – einmal übernehmen, und es wird ab dann richtig erkannt.';
+
+  @override
+  String get featureSpotlightLiveTranscriptTitle => 'Live-Transkript';
+
+  @override
+  String get featureSpotlightLiveTranscriptDescription =>
+      'Sieh deine Worte schon während des Sprechens im Aufnahme-Overlay. Einschalten unter Einstellungen → Aufnahme-Overlay (lokale Whisper-Engine).';
+
+  @override
+  String get featureSpotlightDiscardRecordingTitle => 'Aufnahme verwerfen';
+
+  @override
+  String get featureSpotlightDiscardRecordingDescription =>
+      'Doch anders überlegt? Drück Escape oder klick auf das X im Overlay – die Aufnahme wird verworfen, nichts wird transkribiert oder eingefügt.';
+
+  @override
+  String get featureSpotlightHistoryPinTitle => 'Verlauf mit PIN schützen';
+
+  @override
+  String get featureSpotlightHistoryPinDescription =>
+      'Schütze deine Transkriptionen mit einer PIN – auch in der Seitenleiste und im Menü des schwebenden Buttons –, auf Wunsch mit automatischer Sperre nach Inaktivität. Einstellungen → Verlauf.';
+
+  @override
   String get featureSpotlightChangelogLink => 'Vollständiges Changelog ansehen';
 
   @override
