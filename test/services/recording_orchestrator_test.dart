@@ -1883,7 +1883,18 @@ void main() {
       // Drive the pipeline into `transcribing` without awaiting it —
       // transcribeBytes() is now blocked on `gate`.
       final stopFuture = orch.stopRecording();
-      await pumpEventQueue();
+      // stopRecording() does real file I/O before it flips the phase, so a
+      // fixed event-queue drain is too short on slow CI hosts — wait for the
+      // transition itself (bounded).
+      for (
+        var i = 0;
+        i < 200 &&
+            container.read(recordingProvider).phase !=
+                RecordingPhase.transcribing;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
       expect(
         container.read(recordingProvider).phase,
         RecordingPhase.transcribing,
