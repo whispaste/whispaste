@@ -13,6 +13,7 @@ library;
 
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -194,59 +195,68 @@ void main() {
 void _screenshotTest(_ScreenDef screen, String locale) {
   group(screen.fileName(locale), () {
     for (final goldenDevice in _devices) {
-      testGoldens(goldenDevice.name, (tester) async {
-        final device = goldenDevice.device;
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        final settings = AppSettings.defaults.copyWith(
-          locale: locale,
-          textReplacementsEnabled: screen.textReplacementsEnabled,
-          hotkeyEnabled: true,
-          hotkeyKey: 'D',
-          hotkeyModifiers: 'ctrl+shift',
-        );
+      testGoldens(
+        goldenDevice.name,
+        // Pinned clock: the seeded timestamps and the Today/Yesterday
+        // grouping render as text, so wall-clock time would move pixels.
+        (tester) => withClock(Clock.fixed(_screenshotNow), () async {
+          final device = goldenDevice.device;
+          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+          final settings = AppSettings.defaults.copyWith(
+            locale: locale,
+            textReplacementsEnabled: screen.textReplacementsEnabled,
+            hotkeyEnabled: true,
+            hotkeyKey: 'D',
+            hotkeyModifiers: 'ctrl+shift',
+          );
 
-        if (screen.needsDemoData) {
-          await _seedDemoData(db, locale: locale);
-        }
+          if (screen.needsDemoData) {
+            await _seedDemoData(db, locale: locale);
+          }
 
-        final app = _buildScreenshotApp(
-          device: device,
-          db: db,
-          settings: settings,
-          activePageId: screen.activePageId,
-          child: screen.builder(),
-        );
+          final app = _buildScreenshotApp(
+            device: device,
+            db: db,
+            settings: settings,
+            activePageId: screen.activePageId,
+            child: screen.builder(),
+          );
 
-        await tester.pumpWidget(app);
-        // Let providers resolve and build real content before scanning fonts.
-        await tester.pumpFrames(app, const Duration(seconds: 1));
-        // Load fonts after the widget tree is settled so icon fonts used by
-        // the actual content (Lucide, FontAwesome) are found in the scan.
-        // Explicitly include icon font families as safety net for cases where
-        // icons are not yet in the visible tree portion.
-        await tester.loadAssets(
-          alsoLoadTheseFonts: const [
-            'packages/lucide_icons_flutter/Lucide',
-            'packages/font_awesome_flutter/FontAwesomeSolid',
-            'packages/font_awesome_flutter/FontAwesomeRegular',
-            'packages/font_awesome_flutter/FontAwesomeBrands',
-            'MaterialIcons',
-            'Inter',
-          ],
-        );
-        // One additional frame so widgets re-render with the loaded fonts.
-        await tester.pump();
-
-        if (screen.arrange != null) {
-          await screen.arrange!(tester, locale);
+          await tester.pumpWidget(app);
+          // Let providers resolve and build real content before scanning fonts.
+          await tester.pumpFrames(app, const Duration(seconds: 1));
+          // Load fonts after the widget tree is settled so icon fonts used by
+          // the actual content (Lucide, FontAwesome) are found in the scan.
+          // Explicitly include icon font families as safety net for cases where
+          // icons are not yet in the visible tree portion.
+          await tester.loadAssets(
+            alsoLoadTheseFonts: const [
+              'packages/lucide_icons_flutter/Lucide',
+              'packages/font_awesome_flutter/FontAwesomeSolid',
+              'packages/font_awesome_flutter/FontAwesomeRegular',
+              'packages/font_awesome_flutter/FontAwesomeBrands',
+              'MaterialIcons',
+              'Inter',
+            ],
+          );
+          // One additional frame so widgets re-render with the loaded fonts.
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 450));
-        }
 
-        await tester.expectScreenshot(device, screen.fileName(locale));
-        await tester.pumpAndSettle(const Duration(seconds: 1));
-        await db.close();
-      });
+          if (screen.arrange != null) {
+            await screen.arrange!(tester, locale);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 450));
+          }
+
+          await tester.expectScreenshot(device, screen.fileName(locale));
+          await tester.pumpAndSettle(const Duration(seconds: 1));
+          await db.close();
+        }),
+        // golden_screenshot's default (0.1) is compared against a pixel
+        // *fraction*, i.e. 10 % — 0 skips its comparator, so the repo-wide
+        // 0.1 % one from flutter_test_config.dart applies here too.
+        allowedDiffPercent: 0,
+      );
     }
   });
 }
@@ -338,8 +348,11 @@ class _ScreenDef {
 // Demo data — localized, realistic entries that make screenshots look populated
 // ---------------------------------------------------------------------------
 
+/// The moment the committed baselines were rendered at.
+final _screenshotNow = DateTime(2026, 9, 30, 14, 54);
+
 Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
-  final now = DateTime.now();
+  final now = clock.now();
   final isGerman = locale == 'de';
 
   final tagLabels = isGerman

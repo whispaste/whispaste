@@ -60,25 +60,32 @@ void main() {
 
     for (final screen in _screenshots) {
       for (final device in _devices) {
-        testGoldens('windowsStore', (tester) async {
-          final app = _buildScreenshotApp(
-            device: device,
-            settings: screen.settings,
-          );
-
-          await tester.pumpWidget(app);
-          await tester.loadAssets();
-          if (screen.beatIndex != 0) {
-            await tester.tap(
-              find.byKey(onboardingBeatTileKey(screen.beatIndex)),
+        testGoldens(
+          'windowsStore',
+          (tester) async {
+            final app = _buildScreenshotApp(
+              device: device,
+              settings: screen.settings,
             );
-            await tester.pump();
+
+            await tester.pumpWidget(app);
             await tester.loadAssets();
-          }
-          await tester.pumpFrames(app, const Duration(seconds: 1));
-          await tester.expectScreenshot(device, screen.name);
-          await tester.pumpAndSettle(const Duration(seconds: 2));
-        });
+            if (screen.beatIndex != 0) {
+              await tester.tap(
+                find.byKey(onboardingBeatTileKey(screen.beatIndex)),
+              );
+              await tester.pump();
+              await tester.loadAssets();
+            }
+            await tester.pumpFrames(app, const Duration(seconds: 1));
+            await tester.expectScreenshot(device, screen.name);
+            await tester.pumpAndSettle(const Duration(seconds: 2));
+          },
+          // golden_screenshot's default (0.1) is compared against a pixel
+          // *fraction*, i.e. 10 % — 0 skips its comparator, so the repo-wide
+          // 0.1 % one from flutter_test_config.dart applies here too.
+          allowedDiffPercent: 0,
+        );
       }
     }
   });

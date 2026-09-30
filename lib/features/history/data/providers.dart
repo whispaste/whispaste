@@ -1,6 +1,7 @@
 /// Riverpod providers for history data — bridges Drift streams to UI.
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/data/database.dart';
@@ -194,7 +195,7 @@ final searchCountsProvider = FutureProvider<Map<HistoryFilter, int>?>((
     activeMatched = [];
   }
 
-  final now = DateTime.now();
+  final now = clock.now();
   final today = DateTime(now.year, now.month, now.day);
   final weekAgo = today.subtract(const Duration(days: 7));
 
@@ -270,7 +271,7 @@ List<HistoryEntry> _applyFilter(
   List<HistoryEntry> entries,
   HistoryFilter filter,
 ) {
-  final now = DateTime.now();
+  final now = clock.now();
   switch (filter) {
     case HistoryFilter.today:
       return entries
@@ -313,7 +314,7 @@ final groupedHistoryProvider = Provider<AsyncValue<List<DateGroup>>>((ref) {
   return filteredAsync.whenData((entries) {
     if (entries.isEmpty) return [];
 
-    final now = DateTime.now();
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final sixDaysAgo = today.subtract(const Duration(days: 6));
