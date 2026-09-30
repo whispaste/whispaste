@@ -116,12 +116,6 @@ jobs:
     timeout-minutes: 40
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      # Tests stay at flutter's default of 2 processes here: with 4, the
-      # wall-clock-debounced single_instance_service tests failed on the
-      # 4-vCPU runner in two consecutive runs (36727893561, 36730929605) —
-      # the signal-file write alone outlasted the 400ms window. Normal pushes
-      # only run the ~2min platform subset here, so 4 would gain little.
-      FLUTTER_TEST_CONCURRENCY: 2
     steps:
       - uses: actions/checkout@v6
 
