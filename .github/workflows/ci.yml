@@ -507,7 +507,7 @@ jobs:
   # two shards on parallel runners: compiling each test file dominates, so a
   # file split halves the wall clock where `--total-shards` (which splits
   # the tests *inside* every file) would still compile all of them twice.
-  # perf-tagged benchmarks join on the full run.
+  # perf-tagged benchmarks run on the full run only, alone afterwards.
   flutter-tests-linux:
     name: Flutter Tests (Linux, shard ${{ matrix.shard }}/2)
     needs: secret-scan
@@ -540,10 +540,19 @@ jobs:
           # feature folder spread across both.
           files=$(find test -name '*_test.dart' | sort | awk -v s="$SHARD" 'NR % 2 == s % 2')
           echo "Running $(echo "$files" | wc -l | tr -d ' ') test files"
-          tags=golden,canary,perf
-          [ "$FULL_RUN" = "true" ] && tags=golden,canary
           # shellcheck disable=SC2086
-          bash scripts/ci/flutter-test.sh --exclude-tags=$tags $files
+          bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
+
+      # Wall-clock benchmarks measure nothing useful next to three other
+      # test processes on 4 vCPUs (run 36741988731: samples 1.99 ms, then
+      # 5.1-5.4 ms against a 5 ms budget), so they get the runner to
+      # themselves, one process, after the parallel run.
+      - name: Run perf benchmarks (full run, isolated)
+        if: env.FULL_RUN == 'true' && matrix.shard == 1
+        run: |
+          # shellcheck disable=SC2046
+          bash scripts/ci/flutter-test.sh --concurrency=1 --tags=perf \
+            $(grep -rlE "@Tags\\(.*'perf'" test | sort)
 
   # Golden / visual-regression tests (@Tags(['golden'])) — macOS so font
   # rendering matches the checked-in baselines (generated on macOS, fonts
