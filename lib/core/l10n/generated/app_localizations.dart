@@ -4952,7 +4952,7 @@ abstract class L10n {
   /// No description provided for @settingsSidePanelEnabledSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history'**
+  /// **'Slide-out panel on hover at the chosen screen edge for transcriptions, snippets and clipboard history'**
   String get settingsSidePanelEnabledSubtitle;
 
   /// No description provided for @settingsSidePanelEdge.

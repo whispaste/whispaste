@@ -1142,7 +1142,7 @@
   "settingsCloseToTray": "Close to Tray",
   "settingsCloseToTraySubtitle": "Keep running in the system tray when closing the window",
   "settingsSidePanelEnabled": "Clipboard Quick-Paste Panel",
-  "settingsSidePanelEnabledSubtitle": "Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history",
+  "settingsSidePanelEnabledSubtitle": "Slide-out panel on hover at the chosen screen edge for transcriptions, snippets and clipboard history",
   "settingsSidePanelEdge": "Panel Position",
   "settingsSidePanelEdgeSubtitle": "Which screen edge the panel docks to and slides out from",
   "settingsSidePanelEdgeLeft": "Left edge",

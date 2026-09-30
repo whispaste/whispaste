@@ -2780,7 +2780,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
-      'סרגל שנפתח בהצבעה על קצה המסך השמאלי, לתמלולים, קטעים והיסטוריית לוח הגזירים';
+      'סרגל שנפתח בהצבעה על קצה המסך שנבחר, לתמלולים, קטעים והיסטוריית לוח הגזירים';
 
   @override
   String get settingsSidePanelEdge => 'מיקום הסרגל';

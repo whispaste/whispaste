@@ -1712,7 +1712,7 @@
   "statusBarRefining": "מעודן…",
   "historyVoiceNoteHint": "טיפ: אמרו \"tag: שם\" או \"correct: טקסט\" בזמן ההקלטה.",
   "settingsSidePanelEnabled": "סרגל הדבקה מהירה",
-  "settingsSidePanelEnabledSubtitle": "סרגל שנפתח בהצבעה על קצה המסך השמאלי, לתמלולים, קטעים והיסטוריית לוח הגזירים",
+  "settingsSidePanelEnabledSubtitle": "סרגל שנפתח בהצבעה על קצה המסך שנבחר, לתמלולים, קטעים והיסטוריית לוח הגזירים",
   "settingsSidePanelEdge": "מיקום הסרגל",
   "settingsSidePanelEdgeSubtitle": "לאיזה קצה מסך הסרגל מעוגן ומתוכו הוא נגלל",
   "settingsSidePanelEdgeLeft": "קצה שמאלי",

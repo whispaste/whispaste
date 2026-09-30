@@ -805,7 +805,7 @@
   "settingsCloseToTray": "Сворачивать в трей",
   "settingsCloseToTraySubtitle": "Оставлять приложение работать в фоновом режиме при закрытии окна",
   "settingsSidePanelEnabled": "Боковая панель буфера обмена",
-  "settingsSidePanelEnabledSubtitle": "Выезжающая панель при наведении на левый край экрана для транскрипций, сниппетов и истории буфера обмена",
+  "settingsSidePanelEnabledSubtitle": "Выезжающая панель при наведении на выбранный край экрана для транскрипций, сниппетов и истории буфера обмена",
   "settingsSidePanelEdge": "Положение панели",
   "settingsSidePanelEdgeSubtitle": "К какому краю экрана крепится панель и откуда она выезжает",
   "settingsSidePanelEdgeLeft": "Левый край",

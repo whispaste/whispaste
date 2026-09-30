@@ -2856,7 +2856,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
-      'Ausklappbares Panel bei Hover am linken Bildschirmrand für Transkriptionen, Snippets und Zwischenablage-Verlauf';
+      'Ausklappbares Panel bei Hover am gewählten Bildschirmrand für Transkriptionen, Snippets und Zwischenablage-Verlauf';
 
   @override
   String get settingsSidePanelEdge => 'Panel-Position';

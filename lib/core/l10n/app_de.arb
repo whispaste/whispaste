@@ -974,7 +974,7 @@
   "settingsCloseToTray": "In den Infobereich minimieren",
   "settingsCloseToTraySubtitle": "Beim Schließen des Fensters im Infobereich weiterlaufen",
   "settingsSidePanelEnabled": "Zwischenablage-Schnelleinfüge-Panel",
-  "settingsSidePanelEnabledSubtitle": "Ausklappbares Panel bei Hover am linken Bildschirmrand für Transkriptionen, Snippets und Zwischenablage-Verlauf",
+  "settingsSidePanelEnabledSubtitle": "Ausklappbares Panel bei Hover am gewählten Bildschirmrand für Transkriptionen, Snippets und Zwischenablage-Verlauf",
   "settingsSidePanelEdge": "Panel-Position",
   "settingsSidePanelEdgeSubtitle": "An welchem Bildschirmrand das Panel andockt und herausgleitet",
   "settingsSidePanelEdgeLeft": "Linker Rand",

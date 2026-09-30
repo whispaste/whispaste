@@ -2889,7 +2889,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
-      'Выезжающая панель при наведении на левый край экрана для транскрипций, сниппетов и истории буфера обмена';
+      'Выезжающая панель при наведении на выбранный край экрана для транскрипций, сниппетов и истории буфера обмена';
 
   @override
   String get settingsSidePanelEdge => 'Положение панели';
