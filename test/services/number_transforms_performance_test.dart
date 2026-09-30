@@ -1,6 +1,11 @@
 /// Performance and structural tests for [toNumericOnly] — itn-cad-zahlen
 /// Slice 6 (PRD §7.1/§8.5, P1-P3). Proof against the finished implementation
 /// from Slices 1-4, not an intermediate stage.
+///
+/// Tagged `perf`: wall-clock budgets are noise on a shared, loaded CI runner
+/// (run 36697607161 missed 5ms by 0.3ms at load 46), so dev pushes skip
+/// this file and the weekly/manual full CI run keeps it.
+@Tags(<String>['perf'])
 library;
 
 import 'dart:io';

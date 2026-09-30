@@ -5,7 +5,8 @@
 // SidePanelWindow.swift + SidePanelHost.swift.
 //
 // Two window classes, mirroring the macOS pair:
-//   * SidePanelSensorWindow  -- one per monitor, hugs the LEFT edge (see
+//   * SidePanelSensorWindow  -- one per monitor, hugs the configured edge
+//     (left by default, right via the `edge` snapshot field -- see
 //     SidePanelWindow.swift's file comment for why left, and why a few
 //     points wide rather than 1px). Non-activating (WS_EX_NOACTIVATE), never
 //     takes focus. Reports a raw enter/exit immediately and a dwelled

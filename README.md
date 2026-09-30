@@ -61,9 +61,9 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
-**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
+**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left or right screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
 
-**History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
+**History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Optional privacy gate and PIN lock (also withholds transcriptions from the side panel, floating-button menu and automation API; auto-lock after inactivity)
 
 **System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU interface · Autostart · System tray
 

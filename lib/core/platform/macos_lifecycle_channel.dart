@@ -49,6 +49,26 @@ class MacOSLifecycleChannel {
     }
   }
 
+  /// Whether this process was launched by macOS as a login item.
+  ///
+  /// An `SMAppService` login item cannot pass launch arguments, so the
+  /// `--autostart` flag Windows/Linux rely on never reaches a macOS launch;
+  /// the native side reads the launch Apple event instead. Returns `null`
+  /// off macOS or when the native answer is unavailable — callers treat that
+  /// as "not an autostart launch".
+  static Future<bool?> wasLaunchedAsLoginItem() async {
+    if (!Platform.isMacOS) return null;
+    try {
+      return await _channel.invokeMethod<bool>('wasLaunchedAsLoginItem');
+    } on PlatformException catch (e) {
+      _log.debug('wasLaunchedAsLoginItem failed', e);
+      return null;
+    } on MissingPluginException catch (e) {
+      _log.debug('wasLaunchedAsLoginItem unavailable', e);
+      return null;
+    }
+  }
+
   /// Bounces the Dock icon until the user activates WhisPaste — used when
   /// the app has a pending action item (e.g. paste blocked by missing
   /// Accessibility permission) and the main window may be hidden.

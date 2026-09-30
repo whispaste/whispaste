@@ -2060,6 +2060,26 @@ class HistoryDatabase extends _$HistoryDatabase {
     return _writeCoordinator.write<void>(() => delete(dailyStats).go());
   }
 
+  /// Deletes every history entry — active, archived and trashed — with its
+  /// tag links, entry notes and attachment rows; the "Forgot PIN?" wipe.
+  /// Standalone notes, tags, snippets and settings are kept. Returns the
+  /// attachment filepaths so the caller can remove the files (this layer
+  /// never touches the filesystem).
+  Future<List<String>> deleteAllHistory() {
+    return _writeCoordinator.write<List<String>>(() async {
+      return transaction(() async {
+        final files = [
+          for (final row in await select(entryAttachments).get()) row.filepath,
+        ];
+        await delete(entryTags).go();
+        await delete(entryNotes).go();
+        await delete(entryAttachments).go();
+        await delete(historyEntries).go();
+        return files;
+      });
+    });
+  }
+
   /// Deletes ALL user data from ALL tables — used by Factory Reset.
   ///
   /// Wrapped in a transaction so partial failure never leaves the DB in

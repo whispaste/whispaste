@@ -86,6 +86,58 @@ void main() {
       expect(find.text('No snippets yet'), findsNothing);
     });
 
+    // The panel is a transparent canvas docked flush against a screen edge,
+    // so the painted surface is its silhouette: the hard edge must face the
+    // docked side and the close button the screen-facing side — in both
+    // reading directions, since the dock side is physical.
+    for (final edge in ['left', 'right']) {
+      for (final direction in TextDirection.values) {
+        testWidgets('docked $edge (${direction.name}): rounded corners and '
+            'the close button face the screen, not the $edge edge', (
+          tester,
+        ) async {
+          await tester.pumpWidget(
+            makeTestable(
+              Directionality(
+                textDirection: direction,
+                child: WpSidePanelView(
+                  snapshot: SidePanelSnapshot(edge: edge),
+                  onRowTap: _noopTap,
+                  onClose: _noopClose,
+                ),
+              ),
+            ),
+          );
+
+          final surface = tester.widget<Container>(
+            find
+                .descendant(
+                  of: find.byType(WpSidePanelView),
+                  matching: find.byType(Container),
+                )
+                .first,
+          );
+          final radius =
+              (surface.decoration! as BoxDecoration).borderRadius!
+                  as BorderRadius;
+          const round = Radius.circular(WpRadius.xl);
+          final dockedRight = edge == 'right';
+          expect(radius.topLeft, dockedRight ? round : Radius.zero);
+          expect(radius.bottomLeft, dockedRight ? round : Radius.zero);
+          expect(radius.topRight, dockedRight ? Radius.zero : round);
+          expect(radius.bottomRight, dockedRight ? Radius.zero : round);
+
+          final closeX = tester.getCenter(find.byIcon(LucideIcons.x)).dx;
+          final titleX = tester.getCenter(find.text('Transcriptions')).dx;
+          expect(
+            closeX < titleX,
+            dockedRight,
+            reason: 'the close button sits on the screen-facing side',
+          );
+        });
+      }
+    }
+
     testWidgets('close button reports onClose', (tester) async {
       var closed = false;
 

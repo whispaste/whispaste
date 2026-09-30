@@ -203,6 +203,24 @@ abstract class L10n {
   /// **'Press the record button or use the hotkey to start recording.'**
   String get historyEmptyHint;
 
+  /// No description provided for @historyPrivacyGateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'History hidden'**
+  String get historyPrivacyGateTitle;
+
+  /// No description provided for @historyPrivacyGateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your past transcriptions stay hidden until you choose to show them.'**
+  String get historyPrivacyGateHint;
+
+  /// No description provided for @historyPrivacyGateShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show history'**
+  String get historyPrivacyGateShow;
+
   /// No description provided for @historySearch.
   ///
   /// In en, this message translates to:
@@ -4934,7 +4952,7 @@ abstract class L10n {
   /// No description provided for @settingsSidePanelEnabledSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history'**
+  /// **'Slide-out panel on hover at the chosen screen edge for transcriptions, snippets and clipboard history'**
   String get settingsSidePanelEnabledSubtitle;
 
   /// No description provided for @settingsSidePanelEdge.
@@ -6068,6 +6086,168 @@ abstract class L10n {
   /// **'Custom'**
   String get settingsHistoryPresetCustom;
 
+  /// No description provided for @settingsHistoryHideOnOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide history on open'**
+  String get settingsHistoryHideOnOpen;
+
+  /// No description provided for @settingsHistoryHideOnOpenSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens'**
+  String get settingsHistoryHideOnOpenSubtitle;
+
+  /// No description provided for @historyPinGateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'History is locked'**
+  String get historyPinGateTitle;
+
+  /// No description provided for @historyPinGateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN to show your transcriptions.'**
+  String get historyPinGateHint;
+
+  /// No description provided for @historyPinUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get historyPinUnlock;
+
+  /// No description provided for @historyPinDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter PIN'**
+  String get historyPinDialogTitle;
+
+  /// No description provided for @historyPinDialogSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your history is protected with a PIN.'**
+  String get historyPinDialogSubtitle;
+
+  /// No description provided for @historyPinFieldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN'**
+  String get historyPinFieldHint;
+
+  /// No description provided for @historyPinRepeatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat PIN'**
+  String get historyPinRepeatHint;
+
+  /// No description provided for @historyPinWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong PIN.'**
+  String get historyPinWrong;
+
+  /// No description provided for @historyPinLockedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {seconds} s.'**
+  String historyPinLockedOut(int seconds);
+
+  /// No description provided for @historyPinForgot.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot PIN?'**
+  String get historyPinForgot;
+
+  /// No description provided for @historyPinForgotConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete history and remove PIN?'**
+  String get historyPinForgotConfirmTitle;
+
+  /// No description provided for @historyPinForgotConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A forgotten PIN cannot be recovered. To reset it, your entire history — including archive, trash and kept recordings — is permanently deleted. Settings, notes, snippets and replacements are kept.'**
+  String get historyPinForgotConfirmMessage;
+
+  /// No description provided for @historyPinForgotConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete history'**
+  String get historyPinForgotConfirmAction;
+
+  /// No description provided for @historyPinSetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set PIN'**
+  String get historyPinSetTitle;
+
+  /// No description provided for @historyPinSetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'4–8 digits. Keeps others from casually viewing your history on this computer — it does not encrypt it.'**
+  String get historyPinSetSubtitle;
+
+  /// No description provided for @historyPinInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 4 to 8 digits.'**
+  String get historyPinInvalid;
+
+  /// No description provided for @historyPinMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'The PINs do not match.'**
+  String get historyPinMismatch;
+
+  /// No description provided for @settingsHistoryPin.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN protection'**
+  String get settingsHistoryPin;
+
+  /// No description provided for @settingsHistoryPinSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Require a PIN to show the history, including side panel, floating button menu and automation API.'**
+  String get settingsHistoryPinSubtitle;
+
+  /// No description provided for @settingsHistoryPinChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get settingsHistoryPinChange;
+
+  /// No description provided for @settingsHistoryPinRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get settingsHistoryPinRemove;
+
+  /// No description provided for @settingsHistoryAutoLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock automatically'**
+  String get settingsHistoryAutoLock;
+
+  /// No description provided for @settingsHistoryAutoLockSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide the history again after this much inactivity.'**
+  String get settingsHistoryAutoLockSubtitle;
+
+  /// No description provided for @settingsHistoryAutoLockNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get settingsHistoryAutoLockNever;
+
+  /// No description provided for @settingsHistoryAutoLockMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'After {minutes} min'**
+  String settingsHistoryAutoLockMinutes(int minutes);
+
   /// No description provided for @settingsFloatingButtonSection.
   ///
   /// In en, this message translates to:
@@ -6661,6 +6841,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
   String get featureSpotlightSmartModeDescription;
+
+  /// No description provided for @featureSpotlightHistoryPinTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock your history with a PIN'**
+  String get featureSpotlightHistoryPinTitle;
+
+  /// No description provided for @featureSpotlightHistoryPinDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.'**
+  String get featureSpotlightHistoryPinDescription;
 
   /// No description provided for @featureSpotlightChangelogLink.
   ///

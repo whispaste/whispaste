@@ -129,6 +129,7 @@ History page: pinned first, then newest timestamp).
 | 200 | `{"id", "title", "content", "timestamp", "tags"}` | The latest entry |
 | 401 | `{"error": "unauthorized"}` | Missing/invalid bearer token |
 | 404 | `{"error": "no_history_entry"}` | No history entry exists yet |
+| 423 | `{"error": "history_locked"}` | The history is protected by a PIN and currently locked — unlock it in the app first |
 | 500 | `{"error": "fetch_failed"}` | Reading history threw an exception |
 
 ```bash

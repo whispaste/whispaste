@@ -57,6 +57,21 @@ class FeatureSpotlightEntry {
 
 typedef FeatureSpotlightRegistry = List<FeatureSpotlightEntry>;
 
+/// The app version (`pubspec.yaml`, without build number) whose release was
+/// last reviewed for spotlight-worthy features. A test fails as soon as the
+/// pubspec version moves past it, so every release bump forces a conscious
+/// decision: append an entry for a spotlight-worthy feature, or append
+/// nothing — no entry is a valid outcome, the hint then simply stays off.
+/// Either way, set this to the new version.
+///
+/// Spotlight-worthy: a new user-facing capability that changes what the
+/// target audience (`docs/zielgruppe.md`) can do, and that they are unlikely
+/// to discover on their own. Not spotlight-worthy: bug fixes, polish,
+/// behaviour tweaks or extra options on an existing feature, new languages,
+/// developer-facing features (automation API), internal work. Every entry
+/// interrupts every existing user once — when in doubt, leave it out.
+const kFeatureSpotlightReviewedVersion = '1.3.0';
+
 /// Maintainer note: append new entries at the END of this list. There is no
 /// version field (unlike the onboarding revision registry) — declaration
 /// order stands in for chronological order, oldest first, and
@@ -109,6 +124,13 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
     title: (l10n) => l10n.featureSpotlightSmartModeTitle,
     description: (l10n) => l10n.featureSpotlightSmartModeDescription,
     platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
+  ),
+  // 1.3.0: the history PIN lock (`.scratch/history-pin-lock/`) — a new
+  // privacy capability the target audience would not go looking for.
+  FeatureSpotlightEntry(
+    id: 'history_pin_lock',
+    title: (l10n) => l10n.featureSpotlightHistoryPinTitle,
+    description: (l10n) => l10n.featureSpotlightHistoryPinDescription,
   ),
 ];
 

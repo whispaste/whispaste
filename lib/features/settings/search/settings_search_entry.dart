@@ -242,10 +242,17 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     keywords: [
       // DE
       'Einträge', 'Papierkorb', 'Bereinigung', 'Aufbewahrung', 'Maximum',
-      'automatisch löschen', 'Löschung', 'Speicher',
+      'automatisch löschen', 'Löschung', 'Speicher', 'verbergen', 'ausblenden',
+      'Privatsphäre', 'PIN', 'sperren', 'Sperre', 'Schutz',
       // EN
       'entries', 'trash', 'cleanup', 'retention', 'maximum', 'auto-delete',
-      'storage', 'delete',
+      'storage',
+      'delete',
+      'hide',
+      'privacy',
+      'lock',
+      'protect',
+      'PIN protection',
     ],
   ),
   SettingsSearchEntry(

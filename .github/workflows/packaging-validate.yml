@@ -1,20 +1,18 @@
 name: packaging-validate
 
 # Validates all three distribution manifests under packaging/ before they
-# are ever published. Runs on every push to dev and on PRs to main.
+# are ever published. Runs on every push to dev that touches them (no PR
+# trigger: dev -> main merges happen locally, never via PR), and from
+# release.yml after the manifest bump.
 on:
   push:
     branches: [dev]
     paths:
       - 'packaging/**'
       - '.github/workflows/packaging-validate.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packaging/**'
-      - '.github/workflows/packaging-validate.yml'
   # Called from release.yml after manifest-bump commits updated manifests to dev.
   # The `ref` input lets the caller pin validation to the bumped commit/branch.
+  workflow_dispatch:
   workflow_call:
     inputs:
       ref:

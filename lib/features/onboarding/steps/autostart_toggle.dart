@@ -13,11 +13,12 @@ const kOnboardingAutostartToggleKey = Key('onboardingAutostartToggle');
 
 /// Autostart toggle row on the Appearance onboarding page.
 ///
-/// Moved here from the former final `ReadyStep` unchanged in behaviour: a
-/// simpler yes/no than Settings → Interface's never/normal/minimized
-/// dropdown; picking "yes" here always means normal (not minimized) startup.
-/// `startMinimized` keeps its default (`false`); the full dropdown remains
-/// available later in Settings. Rendered frameless, like every other
+/// A simpler yes/no than Settings → Interface's never/normal/minimized
+/// dropdown; picking "yes" here always means *minimized* startup. A
+/// dictation tool needs its hotkey at login, not its window — and a window
+/// opening on every boot put the History in front of whoever turned the
+/// computer on (user feedback 571d5361). The full dropdown remains available
+/// later in Settings for anyone who wants the window at login. Rendered frameless, like every other
 /// onboarding settings row — see `onboarding_headings.dart` for the shared
 /// heading/row vocabulary the settings-shaped pages follow. It carries no
 /// section label of its own: its label and subtitle already say what it is,
@@ -49,7 +50,12 @@ class OnboardingAutostartToggle extends ConsumerWidget {
         value: settings.launchAtStartup,
         onChanged: (v) => ref
             .read(settingsProvider.notifier)
-            .updateSettings((s) => s.copyWith(launchAtStartup: v)),
+            .updateSettings(
+              // Compatibility write until legacy autostart fields are
+              // removed from AppSettings.copyWith.
+              // ignore: deprecated_member_use
+              (s) => s.copyWith(launchAtStartup: v, startMinimized: v),
+            ),
       ),
     );
   }

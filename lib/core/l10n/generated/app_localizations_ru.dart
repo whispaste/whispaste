@@ -61,6 +61,16 @@ class L10nRu extends L10n {
       'Нажмите кнопку записи или используйте горячую клавишу для начала.';
 
   @override
+  String get historyPrivacyGateTitle => 'История скрыта';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'Ваши прошлые расшифровки остаются скрытыми, пока вы не решите их показать.';
+
+  @override
+  String get historyPrivacyGateShow => 'Показать историю';
+
+  @override
   String get historySearch => 'Поиск…';
 
   @override
@@ -2879,7 +2889,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
-      'Выезжающая панель при наведении на левый край экрана для транскрипций, сниппетов и истории буфера обмена';
+      'Выезжающая панель при наведении на выбранный край экрана для транскрипций, сниппетов и истории буфера обмена';
 
   @override
   String get settingsSidePanelEdge => 'Положение панели';
@@ -3528,6 +3538,98 @@ class L10nRu extends L10n {
   String get settingsHistoryPresetCustom => 'Своё';
 
   @override
+  String get settingsHistoryHideOnOpen => 'Скрывать историю при открытии';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'Показывает кнопку «Показать историю» вместо ваших расшифровок при каждом запуске WhisPaste или повторном открытии окна';
+
+  @override
+  String get historyPinGateTitle => 'История заблокирована';
+
+  @override
+  String get historyPinGateHint =>
+      'Введите PIN-код, чтобы показать ваши расшифровки.';
+
+  @override
+  String get historyPinUnlock => 'Разблокировать';
+
+  @override
+  String get historyPinDialogTitle => 'Введите PIN-код';
+
+  @override
+  String get historyPinDialogSubtitle => 'Ваша история защищена PIN-кодом.';
+
+  @override
+  String get historyPinFieldHint => 'PIN-код';
+
+  @override
+  String get historyPinRepeatHint => 'Повторите PIN-код';
+
+  @override
+  String get historyPinWrong => 'Неверный PIN-код.';
+
+  @override
+  String historyPinLockedOut(int seconds) {
+    return 'Слишком много попыток. Повторите через $seconds с.';
+  }
+
+  @override
+  String get historyPinForgot => 'Забыли PIN-код?';
+
+  @override
+  String get historyPinForgotConfirmTitle =>
+      'Удалить историю и убрать PIN-код?';
+
+  @override
+  String get historyPinForgotConfirmMessage =>
+      'Забытый PIN-код нельзя восстановить. Чтобы сбросить его, вся ваша история — включая архив, корзину и сохранённые записи — будет удалена безвозвратно. Настройки, заметки, сниппеты и замены сохранятся.';
+
+  @override
+  String get historyPinForgotConfirmAction => 'Удалить историю';
+
+  @override
+  String get historyPinSetTitle => 'Задать PIN-код';
+
+  @override
+  String get historyPinSetSubtitle =>
+      '4–8 цифр. Не даёт другим просто так просматривать вашу историю на этом компьютере, но не шифрует её.';
+
+  @override
+  String get historyPinInvalid => 'Используйте от 4 до 8 цифр.';
+
+  @override
+  String get historyPinMismatch => 'PIN-коды не совпадают.';
+
+  @override
+  String get settingsHistoryPin => 'Защита PIN-кодом';
+
+  @override
+  String get settingsHistoryPinSubtitle =>
+      'Требовать PIN-код для показа истории, в том числе в боковой панели, меню плавающей кнопки и API автоматизации.';
+
+  @override
+  String get settingsHistoryPinChange => 'Изменить';
+
+  @override
+  String get settingsHistoryPinRemove => 'Удалить';
+
+  @override
+  String get settingsHistoryAutoLock => 'Блокировать автоматически';
+
+  @override
+  String get settingsHistoryAutoLockSubtitle =>
+      'Снова скрывать историю после такого периода бездействия.';
+
+  @override
+  String get settingsHistoryAutoLockNever => 'Никогда';
+
+  @override
+  String settingsHistoryAutoLockMinutes(int minutes) {
+    return 'Через $minutes мин';
+  }
+
+  @override
   String get settingsFloatingButtonSection => 'Плавающая кнопка';
 
   @override
@@ -3885,6 +3987,13 @@ class L10nRu extends L10n {
   @override
   String get featureSpotlightSmartModeDescription =>
       'Очищайте, сокращайте или переводите диктовку перед вставкой — полностью на устройстве, со своей горячей клавишей и пресетом.';
+
+  @override
+  String get featureSpotlightHistoryPinTitle => 'PIN-код для истории';
+
+  @override
+  String get featureSpotlightHistoryPinDescription =>
+      'Защитите свои транскрипции PIN-кодом — в том числе в боковой панели и меню плавающей кнопки, — с автоблокировкой после бездействия. Настройки → История.';
 
   @override
   String get featureSpotlightChangelogLink => 'Полный список изменений';

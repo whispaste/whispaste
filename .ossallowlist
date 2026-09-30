@@ -25,6 +25,7 @@ analysis_options.yaml
 l10n.yaml
 baseline.json
 loam.yaml
+dart_test.yaml
 Gemfile
 Gemfile.lock
 .metadata
@@ -93,6 +94,8 @@ scripts/GITHUB-SECRETS-SETUP.md
 scripts/docs-attest.sh
 scripts/docs-drift.sh
 scripts/check-workflow-hygiene.sh
+scripts/ci/detect-changes.sh
+scripts/ci/flutter-test.sh
 scripts/extract-cumulative-changelog.mjs
 scripts/generate-release-notes.mjs
 scripts/generate-screenshots.py

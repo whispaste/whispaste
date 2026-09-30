@@ -6,6 +6,13 @@
 /// (c) A stored combo matching no preset shows "Custom" / "Benutzerdefiniert"
 ///     without overwriting the stored values.
 /// (d) Exactly one retention-preset dropdown is present (no two separate ones).
+/// (e) The "hide history on open" toggle persists `historyHideOnOpen`
+///     without touching the retention fields.
+/// PIN lock (`.scratch/history-pin-lock/`):
+/// (f) PIN + auto-lock rows only appear while the gate is on or a PIN is set.
+/// (g) "Set PIN" stores a verifiable hash; mismatching entries are refused.
+/// (h) Removing the PIN, and switching the gate off, require the current PIN.
+/// (i) The auto-lock dropdown persists `historyAutoLockMinutes`.
 library;
 
 import 'package:flutter/material.dart';
@@ -14,6 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/history/data/history_pin.dart';
+import 'package:whispaste/features/history/widgets/history_pin_dialogs.dart';
 import 'package:whispaste/features/settings/sections/history_section.dart';
 
 import '../../../fixtures/test_helpers.dart';
@@ -310,5 +319,160 @@ void main() {
         );
       },
     );
+  });
+
+  // ── AC (e): hide-on-open toggle ───────────────────────────────────────────
+
+  group('HistorySection hide-on-open toggle (AC e)', () {
+    testWidgets('is off by default and persists historyHideOnOpen = true', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsHistoryHideOnOpen), findsOneWidget);
+      final toggle = find.byType(Switch);
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<Switch>(toggle).value, isFalse);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      final history = notifier.state.value!.history;
+      expect(history.historyHideOnOpen, isTrue);
+      expect(history.historyMaxEntries, 1000);
+      expect(history.historyAutoTrashDays, 90);
+    });
+  });
+
+  // ── PIN lock (AC f–i) ─────────────────────────────────────────────────────
+
+  group('HistorySection PIN lock', () {
+    final pin4711 = hashHistoryPin('4711', iterations: 10);
+
+    AppSettings withHistory(HistorySettings h) =>
+        AppSettings.defaults.copyWithSections(history: h);
+
+    /// Types into the PIN dialog's field(s) and submits outside the fake
+    /// clock — hashing and verification hop to a background isolate.
+    Future<void> submit(
+      WidgetTester tester,
+      String pin, {
+      String? repeat,
+    }) async {
+      await tester.enterText(find.byKey(kHistoryPinFieldKey), pin);
+      if (repeat != null) {
+        await tester.enterText(find.byKey(kHistoryPinRepeatFieldKey), repeat);
+      }
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(kHistoryPinSubmitKey));
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('AC(f): PIN rows are hidden while the gate is off', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _pump(tester, _FakeSettingsNotifier(AppSettings.defaults)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsHistoryPin), findsNothing);
+      expect(find.text(l10n.settingsHistoryAutoLock), findsNothing);
+    });
+
+    testWidgets('AC(g): "Set PIN" stores a verifiable hash', (tester) async {
+      final notifier = _FakeSettingsNotifier(
+        withHistory(const HistorySettings(historyHideOnOpen: true)),
+      );
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.historyPinSetTitle));
+      await tester.pumpAndSettle();
+      await submit(tester, '1234', repeat: '1235');
+      expect(find.text(l10n.historyPinMismatch), findsOneWidget);
+      expect(notifier.state.value!.history.historyPin, isEmpty);
+
+      await submit(tester, '1234', repeat: '1234');
+      // Hashing at the production work factor runs off-isolate; wait for it.
+      await tester.runAsync(() async {
+        for (var i = 0; i < 100; i++) {
+          if (notifier.state.value!.history.historyPin.isNotEmpty) break;
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
+      await tester.pumpAndSettle();
+      final stored = notifier.state.value!.history.historyPin;
+      expect(verifyHistoryPin('1234', stored), isTrue);
+      expect(find.text(l10n.settingsHistoryPinRemove), findsOneWidget);
+    });
+
+    testWidgets('AC(h): removing the PIN requires the current one', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(
+        withHistory(
+          HistorySettings(historyHideOnOpen: true, historyPin: pin4711),
+        ),
+      );
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.settingsHistoryPinRemove));
+      await tester.pumpAndSettle();
+      await submit(tester, '0000');
+      expect(find.text(l10n.historyPinWrong), findsOneWidget);
+      expect(notifier.state.value!.history.historyPin, pin4711);
+
+      await submit(tester, '4711');
+      expect(notifier.state.value!.history.historyPin, isEmpty);
+      expect(notifier.state.value!.history.historyHideOnOpen, isTrue);
+    });
+
+    testWidgets('AC(h): switching the gate off with a PIN asks for it and '
+        'drops the PIN', (tester) async {
+      final notifier = _FakeSettingsNotifier(
+        withHistory(
+          HistorySettings(historyHideOnOpen: true, historyPin: pin4711),
+        ),
+      );
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      expect(find.byKey(kHistoryPinFieldKey), findsOneWidget);
+      await tester.tap(find.text(l10n.actionCancel));
+      await tester.pumpAndSettle();
+      expect(notifier.state.value!.history.historyHideOnOpen, isTrue);
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      await submit(tester, '4711');
+      final history = notifier.state.value!.history;
+      expect(history.historyHideOnOpen, isFalse);
+      expect(history.historyPin, isEmpty);
+    });
+
+    testWidgets('AC(i): the auto-lock dropdown persists the minutes', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(
+        withHistory(const HistorySettings(historyHideOnOpen: true)),
+      );
+      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.settingsHistoryAutoLockNever));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.settingsHistoryAutoLockMinutes(15)).last);
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.history.historyAutoLockMinutes, 15);
+    });
   });
 }

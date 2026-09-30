@@ -61,6 +61,16 @@ class L10nEn extends L10n {
       'Press the record button or use the hotkey to start recording.';
 
   @override
+  String get historyPrivacyGateTitle => 'History hidden';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'Your past transcriptions stay hidden until you choose to show them.';
+
+  @override
+  String get historyPrivacyGateShow => 'Show history';
+
+  @override
   String get historySearch => 'Search…';
 
   @override
@@ -2821,7 +2831,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
-      'Slide-out panel on hover at the left screen edge for transcriptions, snippets and clipboard history';
+      'Slide-out panel on hover at the chosen screen edge for transcriptions, snippets and clipboard history';
 
   @override
   String get settingsSidePanelEdge => 'Panel Position';
@@ -3465,6 +3475,98 @@ class L10nEn extends L10n {
   String get settingsHistoryPresetCustom => 'Custom';
 
   @override
+  String get settingsHistoryHideOnOpen => 'Hide history on open';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens';
+
+  @override
+  String get historyPinGateTitle => 'History is locked';
+
+  @override
+  String get historyPinGateHint =>
+      'Enter your PIN to show your transcriptions.';
+
+  @override
+  String get historyPinUnlock => 'Unlock';
+
+  @override
+  String get historyPinDialogTitle => 'Enter PIN';
+
+  @override
+  String get historyPinDialogSubtitle =>
+      'Your history is protected with a PIN.';
+
+  @override
+  String get historyPinFieldHint => 'PIN';
+
+  @override
+  String get historyPinRepeatHint => 'Repeat PIN';
+
+  @override
+  String get historyPinWrong => 'Wrong PIN.';
+
+  @override
+  String historyPinLockedOut(int seconds) {
+    return 'Too many attempts. Try again in $seconds s.';
+  }
+
+  @override
+  String get historyPinForgot => 'Forgot PIN?';
+
+  @override
+  String get historyPinForgotConfirmTitle => 'Delete history and remove PIN?';
+
+  @override
+  String get historyPinForgotConfirmMessage =>
+      'A forgotten PIN cannot be recovered. To reset it, your entire history — including archive, trash and kept recordings — is permanently deleted. Settings, notes, snippets and replacements are kept.';
+
+  @override
+  String get historyPinForgotConfirmAction => 'Delete history';
+
+  @override
+  String get historyPinSetTitle => 'Set PIN';
+
+  @override
+  String get historyPinSetSubtitle =>
+      '4–8 digits. Keeps others from casually viewing your history on this computer — it does not encrypt it.';
+
+  @override
+  String get historyPinInvalid => 'Use 4 to 8 digits.';
+
+  @override
+  String get historyPinMismatch => 'The PINs do not match.';
+
+  @override
+  String get settingsHistoryPin => 'PIN protection';
+
+  @override
+  String get settingsHistoryPinSubtitle =>
+      'Require a PIN to show the history, including side panel, floating button menu and automation API.';
+
+  @override
+  String get settingsHistoryPinChange => 'Change';
+
+  @override
+  String get settingsHistoryPinRemove => 'Remove';
+
+  @override
+  String get settingsHistoryAutoLock => 'Lock automatically';
+
+  @override
+  String get settingsHistoryAutoLockSubtitle =>
+      'Hide the history again after this much inactivity.';
+
+  @override
+  String get settingsHistoryAutoLockNever => 'Never';
+
+  @override
+  String settingsHistoryAutoLockMinutes(int minutes) {
+    return 'After $minutes min';
+  }
+
+  @override
   String get settingsFloatingButtonSection => 'Floating Button';
 
   @override
@@ -3813,6 +3915,13 @@ class L10nEn extends L10n {
   @override
   String get featureSpotlightSmartModeDescription =>
       'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.';
+
+  @override
+  String get featureSpotlightHistoryPinTitle => 'Lock your history with a PIN';
+
+  @override
+  String get featureSpotlightHistoryPinDescription =>
+      'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.';
 
   @override
   String get featureSpotlightChangelogLink => 'View full changelog';

@@ -403,12 +403,9 @@ Future<void> _runApp(List<String> args) async {
 /// definite macOS Login-Item start reported via [macosLoginItemSignal] — AND
 /// both the "launch at startup" and "start minimized" settings are enabled.
 ///
-/// [macosLoginItemSignal] is `true`/`false` once the native macOS Login-Item
-/// detection (Block A, Slice 03 — not yet implemented) reports a definite
-/// answer, and `null` when that signal isn't available yet (every call site
-/// today, on every platform). `null` is treated like `false`: it never makes
-/// the window hide on its own, which preserves today's behaviour until
-/// Slice 03 wires up a real value.
+/// [macosLoginItemSignal] is the native macOS Login-Item detection
+/// ([MacOSLifecycleChannel.wasLaunchedAsLoginItem]); `null` off macOS or when
+/// the signal is unavailable, which never makes the window hide on its own.
 bool shouldMinimize({
   required List<String> args,
   required AppSettings settings,
@@ -425,6 +422,9 @@ bool shouldMinimize({
 /// platform guard.
 Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
   await windowManager.ensureInitialized();
+  final macosLoginItemSignal = Platform.isMacOS
+      ? await MacOSLifecycleChannel.wasLaunchedAsLoginItem()
+      : null;
 
   final geometry = resolveDesktopWindowGeometry(settings);
   final windowOptions = WindowOptions(
@@ -460,12 +460,20 @@ Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
 
     // Start minimized only when launched via autostart (system boot),
     // not when the user explicitly opens the app from Dock/Taskbar.
-    final hide = shouldMinimize(args: args, settings: settings);
+    final hide = shouldMinimize(
+      args: args,
+      settings: settings,
+      macosLoginItemSignal: macosLoginItemSignal,
+    );
 
     if (!hide) {
       await windowManager.show();
       await windowManager.focus();
     } else {
+      // The runners hold back their own first-frame show on an autostart
+      // launch (Windows/Linux); macOS opens the nib window regardless, so
+      // hide explicitly on every platform.
+      await windowManager.hide();
       // Hide to tray — only if tray is expected to work.
       if (Platform.isMacOS) {
         await MacOSLifecycleChannel.setAccessory();

@@ -531,6 +531,30 @@ void main() {
       expect(body['error'], 'no_history_entry');
     });
 
+    test('returns 423 history_locked without querying while the history is '
+        'PIN-locked (.scratch/history-pin-lock)', () async {
+      var fetched = false;
+      final router = buildAutomationApiRouter([
+        historyLatestRoutes(
+          fetchLatestEntry: () async {
+            fetched = true;
+            return {'id': 'e1'};
+          },
+          isHistoryLocked: () => true,
+        ),
+      ]);
+
+      final response = await router.handler(
+        _request('GET', '/v1/history/latest'),
+      );
+
+      expect(response.statusCode, 423);
+      final body =
+          jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(body['error'], 'history_locked');
+      expect(fetched, isFalse);
+    });
+
     test('surfaces a thrown exception from the query as 500', () async {
       final router = buildAutomationApiRouter([
         historyLatestRoutes(

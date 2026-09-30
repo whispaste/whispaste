@@ -196,6 +196,29 @@ void main() {
     expect(merged.customVocabulary, sampleSettings['custom_vocabulary']);
   });
 
+  test('an import can neither replace nor clear the History PIN '
+      '(.scratch/history-pin-lock)', () {
+    final local = AppSettings.defaults.copyWithSections(
+      history: const HistorySettings(
+        historyHideOnOpen: true,
+        historyPin: 'local-hash',
+        historyPinFailedAttempts: 3,
+      ),
+    );
+    final imported = {
+      'history_pin': '',
+      'history_pin_failed_attempts': '0',
+      'history_pin_locked_until': '0',
+      'history_auto_lock_minutes': '15',
+    };
+
+    final merged = mergeImportedSettings(local, imported);
+
+    expect(merged.history.historyPin, 'local-hash');
+    expect(merged.history.historyPinFailedAttempts, 3);
+    expect(merged.history.historyAutoLockMinutes, 15, reason: 'portable');
+  });
+
   // ---------------------------------------------------------------------------
   // Deny list: filtered on export (bundle assumed pre-filtered by the
   // caller — see below) and filtered *again* on import, so a hand-edited or

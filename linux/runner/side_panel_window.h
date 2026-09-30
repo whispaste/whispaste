@@ -15,7 +15,8 @@
 // slide animation).
 //
 // Two window classes, mirroring the macOS/Windows pair:
-//   * SidePanelSensorWindow  -- one per monitor, hugs the LEFT edge (see
+//   * SidePanelSensorWindow  -- one per monitor, hugs the configured edge
+//     (left by default, right via the `edge` snapshot field -- see
 //     SidePanelWindow.swift's file comment for why left, and why a few
 //     points wide rather than 1px -- avoids the GNOME Activities hot corner).
 //     Reports a raw enter/exit immediately (GDK crossing events) and a

@@ -888,6 +888,15 @@ void main() {
 
   // ---- Section 12: History ------------------------------------------------
   group('Section: history', () {
+    test('historyHideOnOpen defaults to off and survives roundtrip', () {
+      expect(AppSettings.defaults.history.historyHideOnOpen, isFalse);
+      final s = AppSettings.defaults.copyWithSections(
+        history: AppSettings.defaults.history.copyWith(historyHideOnOpen: true),
+      );
+      expect(s.toStorageMap()['history_hide_on_open'], 'true');
+      expect(_roundtrip(s).history.historyHideOnOpen, isTrue);
+    });
+
     test('all history fields use expected storage keys', () {
       final s = AppSettings.defaults.copyWith(
         historyMaxEntries: 200,

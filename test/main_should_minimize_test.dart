@@ -2,7 +2,7 @@
 /// - [shouldMinimize] is a pure decision function extracted from
 ///   `_initDesktopWindow()` (Block A, Slice 01) covering every combination of
 ///   autostart setting, minimize setting, the `--autostart` CLI argument, and
-///   the (not-yet-wired, Slice 03) macOS Login-Item signal.
+///   the macOS Login-Item signal (Slice 03).
 library;
 
 import 'package:flutter_test/flutter_test.dart';

@@ -65,7 +65,7 @@ class TrayService extends Notifier<void> implements TrayListener {
     // Only run on desktop platforms.
     if (!_isDesktop) return;
 
-    Future.microtask(_init);
+    _initDone = Future.microtask(_init);
     ref.onDispose(_destroy);
   }
 
@@ -168,8 +168,16 @@ class TrayService extends Notifier<void> implements TrayListener {
   /// Whether the tray icon was successfully initialized.
   bool get isInitialized => _initialized;
 
+  /// Completes once the asynchronous tray setup scheduled by [build] has
+  /// finished (successfully or not). Tests await this instead of draining
+  /// the event queue a fixed number of turns: setup does real asset and file
+  /// I/O, and on a loaded machine that outlasted `pumpEventQueue()`.
+  @visibleForTesting
+  Future<void> get initDone => _initDone;
+
   // ── Private ───────────────────────────────────────────────────────────────
 
+  Future<void> _initDone = Future<void>.value();
   bool _initialized = false;
   L10n? _l10n;
   RecordingState _lastRecording = const RecordingState();
@@ -178,7 +186,15 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   Future<void> _init() async {
     try {
-      final iconPath = await _resolveIconPath();
+      // tray_manager's contract differs per platform: on macOS it loads the
+      // icon via `rootBundle.load(iconPath)`, i.e. it wants an asset key;
+      // elsewhere it reads a file path. An absolute bundle path only worked
+      // on macOS while it needed no URI-encoding — a space in the bundle
+      // path ("WhisPaste 2.app") made the load throw and left the tray
+      // uninitialized (Sentry FLUTTER_WHISPASTE-DT).
+      final iconPath = defaultTargetPlatform == TargetPlatform.macOS
+          ? 'assets/icons/logo-dark.png'
+          : await _resolveIconPath();
       if (iconPath == null) {
         _log.warning('Tray icon not found — skipping tray setup');
         return;

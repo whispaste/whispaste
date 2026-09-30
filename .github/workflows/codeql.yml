@@ -8,6 +8,12 @@ on:
   schedule:
     # Run weekly on Sundays at 03:00 UTC
     - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes an in-flight analysis.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   security-events: write
@@ -38,9 +44,8 @@ jobs:
   analyze-cpp:
     name: Analyze C++ (Win32/GDI+)
     runs-on: windows-latest
-    # Billed at 2x, and this job runs a full `flutter build windows` as the
-    # CodeQL autobuild. Without a limit a stuck build burns up to 720 billed
-    # minutes before GitHub's 360min default kills it.
+    # Untraced build ~8min + traced first-party rebuild + analysis ~5min.
+    # Without a limit a stuck build runs until GitHub's 360min default.
     timeout-minutes: 45
 
     steps:
@@ -53,6 +58,20 @@ jobs:
           flutter-version: 3.44.1
           cache: true
 
+      # build-mode: none left CodeQL unable to resolve Win32/GDI+/Flutter
+      # embedder types, producing false positives (e.g. output parameters
+      # misread as globals, `std::vector` misread as a variable named
+      # "vector"). A real build gives it accurate type info instead.
+      #
+      # Built once WITHOUT tracing first: compiling the whole CMake
+      # FetchContent tree (sentry-native, crashpad, zlib, ...) under the
+      # CodeQL tracer took 25-40min and pushed this job past its 45min limit
+      # on most runs since 2026-09-25 (e.g. 36333393863, 36164153866) — so
+      # C++ went unanalyzed. Only compilations after `init` are traced, so
+      # vendored code now stays out of the database entirely.
+      - name: Build Windows (untraced, warms vendored deps)
+        run: flutter build windows --debug
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -60,12 +79,16 @@ jobs:
           build-mode: manual
           config-file: .github/codeql/codeql-config-cpp.yml
 
-      # build-mode: none left CodeQL unable to resolve Win32/GDI+/Flutter
-      # embedder types, producing false positives (e.g. output parameters
-      # misread as globals, `std::vector` misread as a variable named
-      # "vector"). A real build gives it accurate type info instead.
-      - name: Build Windows runner
-        run: flutter build windows --debug
+      # Dropping our own object files forces exactly the first-party C++ —
+      # the runner and the in-repo auto_updater_windows plugin — to recompile
+      # under the tracer. If nothing recompiled, analyze fails with "no
+      # source code seen", so a silent empty scan is not possible.
+      - name: Rebuild first-party C++ (traced)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Filter *.obj -Path build\windows\x64\runner, build\windows\x64\plugins\auto_updater_windows |
+            Remove-Item -Force
+          flutter build windows --debug
 
       # codeql-config-cpp.yml's `paths`/`paths-ignore` only apply to
       # compiled languages under build-mode: none — with a real build above,

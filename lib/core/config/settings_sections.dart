@@ -1018,6 +1018,11 @@ class HistorySettings {
   const HistorySettings({
     this.historyMaxEntries = 1000,
     this.historyAutoTrashDays = 90,
+    this.historyHideOnOpen = false,
+    this.historyPin = '',
+    this.historyPinFailedAttempts = 0,
+    this.historyPinLockedUntil = 0,
+    this.historyAutoLockMinutes = 0,
   });
 
   /// Max active (non-trashed) history entries to keep. 0 = unlimited.
@@ -1025,6 +1030,27 @@ class HistorySettings {
 
   /// Days to keep soft-deleted entries before permanent purge. 0 = never purge.
   final int historyAutoTrashDays;
+
+  /// Hide the History page behind a "Show history" button each time the app
+  /// starts or its window is hidden, so a shared computer never opens
+  /// straight into past transcripts.
+  final bool historyHideOnOpen;
+
+  /// Salted PBKDF2 hash of the History PIN (`history_pin.dart`); empty = no
+  /// PIN. Never portable.
+  final String historyPin;
+
+  /// Consecutive wrong PINs, persisted so a restart does not reset the
+  /// throttle. Never portable.
+  final int historyPinFailedAttempts;
+
+  /// Epoch milliseconds until which unlocking is refused; 0 = not locked out.
+  /// Never portable.
+  final int historyPinLockedUntil;
+
+  /// Conceal the revealed history again after this many minutes without
+  /// activity. 0 = never.
+  final int historyAutoLockMinutes;
 
   static const HistorySettings defaults = HistorySettings();
 
@@ -1039,30 +1065,83 @@ class HistorySettings {
       'history_auto_trash_days',
       defaults.historyAutoTrashDays,
     ),
+    historyHideOnOpen: _readBool(
+      v,
+      'history_hide_on_open',
+      defaults.historyHideOnOpen,
+    ),
+    historyPin: v['history_pin'] ?? defaults.historyPin,
+    historyPinFailedAttempts: _readInt(
+      v,
+      'history_pin_failed_attempts',
+      defaults.historyPinFailedAttempts,
+    ),
+    historyPinLockedUntil: _readInt(
+      v,
+      'history_pin_locked_until',
+      defaults.historyPinLockedUntil,
+    ),
+    historyAutoLockMinutes: _readInt(
+      v,
+      'history_auto_lock_minutes',
+      defaults.historyAutoLockMinutes,
+    ),
   );
 
   Map<String, String> toMap() => {
     'history_max_entries': '$historyMaxEntries',
     'history_auto_trash_days': '$historyAutoTrashDays',
+    'history_hide_on_open': '$historyHideOnOpen',
+    'history_pin': historyPin,
+    'history_pin_failed_attempts': '$historyPinFailedAttempts',
+    'history_pin_locked_until': '$historyPinLockedUntil',
+    'history_auto_lock_minutes': '$historyAutoLockMinutes',
   };
 
   HistorySettings copyWith({
     int? historyMaxEntries,
     int? historyAutoTrashDays,
+    bool? historyHideOnOpen,
+    String? historyPin,
+    int? historyPinFailedAttempts,
+    int? historyPinLockedUntil,
+    int? historyAutoLockMinutes,
   }) => HistorySettings(
     historyMaxEntries: historyMaxEntries ?? this.historyMaxEntries,
     historyAutoTrashDays: historyAutoTrashDays ?? this.historyAutoTrashDays,
+    historyHideOnOpen: historyHideOnOpen ?? this.historyHideOnOpen,
+    historyPin: historyPin ?? this.historyPin,
+    historyPinFailedAttempts:
+        historyPinFailedAttempts ?? this.historyPinFailedAttempts,
+    historyPinLockedUntil: historyPinLockedUntil ?? this.historyPinLockedUntil,
+    historyAutoLockMinutes:
+        historyAutoLockMinutes ?? this.historyAutoLockMinutes,
   );
 
+  // loam-ignore: code-duplicates – same operator==/hashCode boilerplate
+  // shape as every other settings-section class in this file.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is HistorySettings &&
           historyMaxEntries == other.historyMaxEntries &&
-          historyAutoTrashDays == other.historyAutoTrashDays;
+          historyAutoTrashDays == other.historyAutoTrashDays &&
+          historyHideOnOpen == other.historyHideOnOpen &&
+          historyPin == other.historyPin &&
+          historyPinFailedAttempts == other.historyPinFailedAttempts &&
+          historyPinLockedUntil == other.historyPinLockedUntil &&
+          historyAutoLockMinutes == other.historyAutoLockMinutes;
 
   @override
-  int get hashCode => Object.hash(historyMaxEntries, historyAutoTrashDays);
+  int get hashCode => Object.hash(
+    historyMaxEntries,
+    historyAutoTrashDays,
+    historyHideOnOpen,
+    historyPin,
+    historyPinFailedAttempts,
+    historyPinLockedUntil,
+    historyAutoLockMinutes,
+  );
 }
 
 // ===========================================================================

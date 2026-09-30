@@ -36,8 +36,11 @@ ALLOWLIST="$ROOT/.ossallowlist"
 # the working tree reads dirty until the *next* commit or Xcode build. The
 # filter normalizes the file for every `git status`/`git diff` in between,
 # so that in-between state never looks like an uncommitted change.
-if [ "$(git config --local --get filter.mas-guard.clean 2>/dev/null || true)" != "python3 \"$ROOT/macos/patch_plugin_registrant_guard.py\" --stdin" ]; then
-  git config --local filter.mas-guard.clean "python3 \"$ROOT/macos/patch_plugin_registrant_guard.py\" --stdin"
+# The path is relative on purpose: the config is shared by every worktree
+# and git runs filters from the worktree root, so an absolute `$ROOT` path
+# would break `git status` everywhere once that one worktree is removed.
+if [ "$(git config --local --get filter.mas-guard.clean 2>/dev/null || true)" != "python3 macos/patch_plugin_registrant_guard.py --stdin" ]; then
+  git config --local filter.mas-guard.clean "python3 macos/patch_plugin_registrant_guard.py --stdin"
   git config --local filter.mas-guard.smudge cat
   git config --local filter.mas-guard.required false
 fi
@@ -476,8 +479,8 @@ fi
 # ── 9. Golden-Tests-Reminder (Hinweis, kein Block) ──────────────────────
 # Golden tests run only on macOS with matching font rendering, so they
 # can't be a hard pre-commit gate here — but a UI change that ships
-# without updated baselines fails CI 9-20 minutes later on the self-hosted
-# macOS runner instead of ~2 minutes locally (see the 2026-09-27 WhisPaste
+# without updated baselines fails CI 9-20 minutes later in the
+# macOS CI job instead of ~2 minutes locally (see the 2026-09-27 WhisPaste
 # incident: b38a0602 added a settings row and stale-dated 5 baselines,
 # caught only after two rounds of CI). This is a nudge, not a gate.
 UI_STAGED=$(echo "$STAGED_FILES" | grep -E '^lib/(features|core/theme)/' || true)

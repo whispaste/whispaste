@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/app_info.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
@@ -21,7 +22,9 @@ import 'package:whispaste/core/data/database.dart';
 import '../../services/clipboard_history/app_clipboard.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
 import 'data/history_detail_provider.dart';
+import 'data/history_lock.dart';
 import 'data/providers.dart';
+import 'widgets/history_pin_dialogs.dart';
 import 'widgets/widgets.dart';
 
 /// Signature of the export-entries seam used by [HistoryPage].
@@ -40,6 +43,12 @@ typedef HistoryPageExportFn =
 /// 128 tracks the populated case — the one a skeleton has to reserve for —
 /// on the repo's 8 dp rhythm. The former 52 reserved less than half a row.
 const _historySkeletonRowHeight = 128.0;
+
+/// Key of the privacy gate the page shows instead of entries while
+/// `HistorySettings.historyHideOnOpen` is on and the user has not revealed
+/// the history yet.
+@visibleForTesting
+const kHistoryPrivacyGateKey = Key('historyPrivacyGate');
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
@@ -405,8 +414,68 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
+  /// The gate shown in place of the entries while `historyHideOnOpen` is on
+  /// or a History PIN is set, until the history is revealed; `null` when the
+  /// entries may be shown. With a PIN it asks for it instead of offering a
+  /// plain "Show history" button.
+  Widget? _buildPrivacyGate(BuildContext context) {
+    final history = ref.watch(settingsProvider).value?.history;
+    final hasPin = history?.historyPin.isNotEmpty ?? false;
+    final hideOnOpen = history?.historyHideOnOpen ?? false;
+    if (!(hideOnOpen || hasPin) || ref.watch(historyRevealedProvider)) {
+      return null;
+    }
+    final l10n = L10n.of(context);
+    return WpPageShell(
+      scrollable: false,
+      padding: EdgeInsets.zero,
+      child: hasPin
+          ? WpEmptyState(
+              key: kHistoryPrivacyGateKey,
+              icon: LucideIcons.lock,
+              title: l10n.historyPinGateTitle,
+              hint: l10n.historyPinGateHint,
+              actionLabel: l10n.historyPinUnlock,
+              onAction: () =>
+                  showHistoryPinUnlockDialog(context, offerForgot: true),
+            )
+          : WpEmptyState(
+              key: kHistoryPrivacyGateKey,
+              icon: LucideIcons.eyeOff,
+              title: l10n.historyPrivacyGateTitle,
+              hint: l10n.historyPrivacyGateHint,
+              actionLabel: l10n.historyPrivacyGateShow,
+              onAction: () =>
+                  ref.read(historyRevealedProvider.notifier).reveal(),
+            ),
+    );
+  }
+
+  /// Any pointer or key input on the revealed page restarts the auto-lock
+  /// countdown (`HistorySettings.historyAutoLockMinutes`).
+  void _registerActivity() =>
+      ref.read(historyRevealedProvider.notifier).registerActivity();
+
   @override
   Widget build(BuildContext context) {
+    final privacyGate = _buildPrivacyGate(context);
+    if (privacyGate != null) return privacyGate;
+    return Listener(
+      onPointerDown: (_) => _registerActivity(),
+      onPointerSignal: (_) => _registerActivity(),
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onKeyEvent: (_, _) {
+          _registerActivity();
+          return KeyEventResult.ignored;
+        },
+        child: _buildHistory(context),
+      ),
+    );
+  }
+
+  Widget _buildHistory(BuildContext context) {
     final activeFilter = ref.watch(historyFilterProvider);
     final groupedAsync = ref.watch(groupedHistoryProvider);
     final filteredAsync = ref.watch(filteredHistoryProvider);

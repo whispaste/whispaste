@@ -6,6 +6,7 @@ import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
+import '../../features/history/data/history_lock.dart';
 import '../../features/snippets/snippets_page.dart'
     show SnippetItem, snippetsProvider;
 import '../clipboard_history/clipboard_history_entry.dart';
@@ -76,6 +77,10 @@ class SidePanelService
     // deliberate first call that breaks that deadlock.
     unawaited(controller.updateSnapshot(SidePanelSnapshot(edge: _edgeValue())));
     ref.listen(historyEntriesProvider, (_, _) => unawaited(_pushIfOpen()));
+    ref.listen(
+      historyContentHiddenProvider,
+      (_, _) => unawaited(_pushIfOpen()),
+    );
     ref.listen(snippetsProvider, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(clipboardHistoryProvider, (_, _) => unawaited(_pushIfOpen()));
     // Relocates the native edge sensor/panel immediately when the user picks
@@ -189,7 +194,12 @@ class SidePanelService
   }
 
   SidePanelSnapshot _buildSnapshot({required bool visible}) {
-    final history = ref.read(historyEntriesProvider).value ?? const [];
+    // A PIN-locked history (`.scratch/history-pin-lock/`) lists nothing.
+    final history =
+        (ref.read(historyContentHiddenProvider)
+            ? null
+            : ref.read(historyEntriesProvider).value) ??
+        const [];
     final snippets = ref.read(snippetsProvider).value ?? const <SnippetItem>[];
     final clipboard = ref.read(clipboardHistoryProvider);
 

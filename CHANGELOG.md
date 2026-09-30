@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.3.0
+
+Mit 1.3 bündelt WhisPaste die Funktionen der letzten Wochen zu einem Minor-Release. Die Details zu jeder Version stehen weiter unten.
+
+### Highlights seit 1.2.60
+
+- **Smart Mode:** Diktat vor dem Einfügen bereinigen, kürzen oder übersetzen — lokal auf dem Gerät (macOS/Windows) oder per OpenAI, mit eigenem Hotkey und Zielsprache.
+- **Interaktive Snippets:** Textbausteine mit Lücken, die WhisPaste Feld für Feld per Diktat ausfüllen lässt.
+- **Seitenleiste:** Clipboard-Verlauf am Bildschirmrand — jetzt auch unter Linux und wahlweise links oder rechts.
+- **Live-Transkript:** der erkannte Text erscheint schon während des Sprechens im Aufnahme-Overlay.
+- **Lernt aus Korrekturen:** wiederholte Korrekturen im Verlauf werden als Ersetzung vorgeschlagen.
+- **Aufnahme verwerfen:** Escape oder das X im Overlay verwirft eine Aufnahme, ohne zu transkribieren oder einzufügen.
+- **Verlauf mit PIN schützen:** Sichtsperre für Verlauf, Seitenleiste, Button-Menü und Automation-API, mit automatischer Sperre.
+- **Lokale Automation-API:** WhisPaste per HTTP aus Skripten und Tools steuern (siehe `AUTOMATION_API.md`).
+- **Neue Sprachen:** Russisch sowie vollständiges Hebräisch.
+
+### New Features
+
+- **Neu in WhisPaste:** der Hinweis stellt den neuen PIN-Schutz für den Verlauf vor.
+
+- **Verlauf:** optionaler PIN-Schutz (4–8 Ziffern) für den Verlauf. Ist eine PIN gesetzt, zeigt auch das Seitenpanel keine Transkripte mehr, das Kontextmenü des schwebenden Aufnahme-Buttons keine letzten Einträge, und die lokale Automation-API antwortet mit `423 history_locked`, bis der Verlauf entsperrt ist. Der Verlauf sperrt sich beim App-Start, beim Minimieren ins Tray und auf Wunsch nach einstellbarer Inaktivität (1–60 Minuten) automatisch wieder. Mehrere Fehleingaben lösen eine zunehmende Wartezeit aus; „PIN vergessen?" löscht den Verlauf und entfernt die PIN. Die PIN ist eine Sichtsperre, keine Verschlüsselung.
+- **Verlauf:** neue Einstellung „Verlauf beim Öffnen verbergen" — die Verlaufsseite zeigt ihren Inhalt erst nach einem Klick auf „Verlauf anzeigen", z. B. für Bildschirmfreigaben.
+
+### Bug Fixes
+
+- **Autostart:** „Minimiert starten" wird jetzt zuverlässig beachtet — WhisPaste startet beim Anmelden im Tray, statt das Hauptfenster zu öffnen.
+- **Seitenpanel:** an der rechten Bildschirmkante angedockt hatte das Panel weiterhin die Form eines links angedockten Panels — Rundungen und Schließen-Kreuz sind jetzt gespiegelt und zeigen zur Bildschirmmitte, auch bei rechts-nach-links-Sprachen.
+- **Linux:** bei gesperrtem System-Schlüsselbund blieb WhisPaste beim Start ohne Fenster, Tray-Icon und Hotkey hängen — die App startet jetzt normal und behandelt gespeicherte API-Schlüssel als vorübergehend nicht verfügbar (#151).
+- **macOS:** lag die App in einem Pfad mit Leerzeichen (z. B. „WhisPaste 2.app"), fehlte das Tray-Icon und das Dock-Icon blieb nach dem Schließen des Fensters stehen — das Tray-Icon lädt jetzt unabhängig vom Installationspfad.
+
 ## 1.2.79
 
 ### New Features
