@@ -28,7 +28,8 @@ permissions:
 # any registered self-hosted runner.
 #
 # What a dev push runs (2026-09-30):
-# - The complete unit/widget suite runs ONCE, on Linux. Windows/macOS only
+# - The complete unit/widget suite runs ONCE, on Linux, split by test file
+#   across two parallel runners (flutter-tests-linux). Windows/macOS only
 #   run the test files with real platform branches (`Platform.isX`), plus
 #   the native build and the native integration tests — the parts only
 #   that OS can check.
@@ -113,6 +114,8 @@ jobs:
     # GitHub default — run 33364827323 saw a Windows job still going at 81min.
     # Leaves room for the weekly full run's complete suite.
     timeout-minutes: 40
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
     steps:
       - uses: actions/checkout@v6
 
@@ -216,6 +219,10 @@ jobs:
           }
           exit 0
 
+      # `flutter build windows` calls `cmake --build` without --parallel, so
+      # MSBuild builds the plugin projects (soloud, sqlite3, ...) one after
+      # another — ~7min on the 4-core hosted runner. cmake passes this on as
+      # /m:<n>; the integration tests below rebuild incrementally with it too.
       - name: Build Windows (debug)
         run: flutter build windows --debug
 
@@ -376,9 +383,9 @@ jobs:
     # den Flutter-Linux-Desktop-Build). Einmaliger manueller apt-get-Lauf mit
     # sudo-Passwort würde die Migration freischalten, siehe Chat.
     runs-on: ubuntu-24.04
-    # See the Windows job's timeout-minutes comment. The complete suite runs
-    # here (~8min) plus build and integration tests (~10min).
-    timeout-minutes: 35
+    # See the Windows job's timeout-minutes comment. Build and integration
+    # tests (~10min); the complete suite runs in flutter-tests-linux.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -455,16 +462,6 @@ jobs:
           export DART_SDK="$dart_sdk"
           loam gate --no-update-check
 
-      # The one place the COMPLETE unit/widget/app-flow suite runs on a push
-      # (headless, no display). perf-tagged benchmarks join on the full run.
-      - name: Run tests (complete suite)
-        run: |
-          if [ "$FULL_RUN" = "true" ]; then
-            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary
-          else
-            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf
-          fi
-
       - name: Build Linux (debug)
         run: flutter build linux --debug
 
@@ -505,12 +502,56 @@ jobs:
       - name: Hotkey-to-text fallback-paths integration test
         run: timeout 420 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
 
+  # The one place the COMPLETE unit/widget/app-flow suite runs on a push
+  # (headless, no display, no GTK toolchain needed). Split by test file into
+  # two shards on parallel runners: compiling each test file dominates, so a
+  # file split halves the wall clock where `--total-shards` (which splits
+  # the tests *inside* every file) would still compile all of them twice.
+  # perf-tagged benchmarks join on the full run.
+  flutter-tests-linux:
+    name: Flutter Tests (Linux, shard ${{ matrix.shard }}/2)
+    needs: secret-scan
+    if: needs.secret-scan.outputs.app == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests (complete suite, shard ${{ matrix.shard }}/2)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          # Round-robin over the sorted file list: every file lands in
+          # exactly one shard, and neighbouring (similarly heavy) files of a
+          # feature folder spread across both.
+          files=$(find test -name '*_test.dart' | sort | awk -v s="$SHARD" 'NR % 2 == s % 2')
+          echo "Running $(echo "$files" | wc -l | tr -d ' ') test files"
+          tags=golden,canary,perf
+          [ "$FULL_RUN" = "true" ] && tags=golden,canary
+          # shellcheck disable=SC2086
+          bash scripts/ci/flutter-test.sh --exclude-tags=$tags $files
+
   # Golden / visual-regression tests (@Tags(['golden'])) — macOS so font
   # rendering matches the checked-in baselines (generated on macOS, fonts
   # pinned via loadAppFonts). Own job so it runs in parallel with the app
   # jobs. Push: only when rendered UI, strings or assets changed.
-  # golden_screenshot applies a 0.1 % fuzzy tolerance automatically; plain
-  # matchesGoldenFile tests use exact pixel comparison.
+  # Plain matchesGoldenFile tests accept up to 0.1 % differing pixels
+  # (test/flutter_test_config.dart): hosted runners anti-alias slightly
+  # differently from the Mac the baselines were generated on.
   golden-tests:
     name: Golden Tests (macOS)
     needs: secret-scan
@@ -530,8 +571,20 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # Pass only the files tagged golden: a bare `--tags=golden` still
+      # compiles all ~400 test files just to find the 15 that match (10 of
+      # the job's 12 minutes). Tags are file-level by convention (@Tags);
+      # a test-level `tags:` golden would be missed here, so it is rejected.
       - name: Run golden tests
-        run: bash scripts/ci/flutter-test.sh --tags=golden
+        run: |
+          if grep -rnE "tags: *.*'golden'" test; then
+            echo "::error::Tag golden tests file-level (@Tags), not per test/group — ci.yml selects golden files by that annotation."
+            exit 1
+          fi
+          files=$(grep -rlE "@Tags\\(.*'golden'" test | sort)
+          echo "Running $(echo "$files" | wc -l | tr -d ' ') golden test files"
+          # shellcheck disable=SC2086
+          bash scripts/ci/flutter-test.sh --tags=golden $files
 
   website:
     name: Website
