@@ -604,6 +604,18 @@ void main() {
   late File wavFile;
   String? clipboardText;
 
+  /// Waits for DesktopPaster's clipboard restore after a snippet-picker
+  /// paste. The picker pastes fire-and-forget, and the restore lands
+  /// >= 500 ms later — without this, its '' write hits whichever test runs
+  /// next (run 36733764290: the cancel-from-transcribing test saw '' instead
+  /// of an untouched clipboard).
+  Future<void> waitForClipboardRestore() async {
+    for (var i = 0; i < 300 && clipboardText != ''; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(clipboardText, '', reason: 'the paste never restored the clipboard');
+  }
+
   ProviderContainer buildContainer(AppSettings settings) {
     return ProviderContainer(
       overrides: [
@@ -1237,6 +1249,7 @@ void main() {
         expect(clipboardText, 'Hello there!');
         expect(fakeDesktopPaste.typeCalls, 0);
         expect(fakeDesktopPaste.captureCalls, 0);
+        await waitForClipboardRestore();
       },
     );
 
@@ -1636,6 +1649,7 @@ void main() {
           expect(fakeDesktopPaste.captureCalls, 1);
           expect(fakeDesktopPaste.pasteCalls, 1);
           expect(clipboardText, 'Hello there!');
+          await waitForClipboardRestore();
         },
       );
 
