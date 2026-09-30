@@ -12,12 +12,13 @@
 # It also runs one test process per CPU core unless the caller passes
 # -j/--concurrency: `flutter test` defaults to half the cores, which on the
 # 3-core hosted macOS runner means every test file runs strictly serially.
+# FLUTTER_TEST_CONCURRENCY overrides the core count for a whole job.
 set -uo pipefail
 
 jobs=()
 case " $* " in
   *" -j"*|*" --concurrency"*) ;;
-  *) jobs=("--concurrency=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)") ;;
+  *) jobs=("--concurrency=${FLUTTER_TEST_CONCURRENCY:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)}") ;;
 esac
 
 log="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/flutter-test-$$.log"
