@@ -46,10 +46,10 @@ void main() {
     addTearDown(container.dispose);
 
     final tray = container.read(trayServiceProvider.notifier);
-    // build() schedules _init() via Future.microtask; _init() itself
-    // awaits real asset I/O (rootBundle.load) before touching the
-    // channel — drain the whole event queue, not just one microtask turn.
-    await pumpEventQueue();
+    // build() schedules _init() via Future.microtask; _init() awaits real
+    // asset and file I/O before touching the channel. Await its completion:
+    // a fixed pumpEventQueue() lost that race on a loaded machine.
+    await tray.initDone;
 
     expect(
       tray.isInitialized,
@@ -62,6 +62,42 @@ void main() {
     expect(calls, contains('setToolTip'));
     expect(calls, contains('setContextMenu'));
   });
+
+  // Regression test for a flake: this file used to wait for the tray setup
+  // with a fixed pumpEventQueue(), which a loaded machine outran (setup
+  // does real asset/file I/O) — the test then saw "calls so far: []" and
+  // its still-running setIcon leaked into the next test. 50ms of extra
+  // asset latency reproduced that deterministically; initDone must cover it.
+  test(
+    'initDone covers the whole tray setup, even with slow asset I/O',
+    () async {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMessageHandler('flutter/assets', (message) async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final bytes = File('assets/icons/logo-dark.png').readAsBytesSync();
+        return ByteData.sublistView(bytes);
+      });
+      addTearDown(
+        () => messenger.setMockMessageHandler('flutter/assets', null),
+      );
+
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final tray = container.read(trayServiceProvider.notifier);
+      await tray.initDone;
+
+      expect(tray.isInitialized, isTrue, reason: 'calls so far: $calls');
+      expect(calls, contains('setContextMenu'));
+    },
+  );
 
   // Regression test for the macOS "tray icon never appears / close keeps the
   // Dock icon" bug (Sentry FLUTTER_WHISPASTE-DT): on macOS `tray_manager`
@@ -105,7 +141,7 @@ void main() {
       addTearDown(container.dispose);
 
       final tray = container.read(trayServiceProvider.notifier);
-      await pumpEventQueue();
+      await tray.initDone;
 
       expect(tray.isInitialized, isTrue);
       expect(setIconArgs, hasLength(1));
