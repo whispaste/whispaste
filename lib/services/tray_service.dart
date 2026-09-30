@@ -178,7 +178,15 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   Future<void> _init() async {
     try {
-      final iconPath = await _resolveIconPath();
+      // tray_manager's contract differs per platform: on macOS it loads the
+      // icon via `rootBundle.load(iconPath)`, i.e. it wants an asset key;
+      // elsewhere it reads a file path. An absolute bundle path only worked
+      // on macOS while it needed no URI-encoding — a space in the bundle
+      // path ("WhisPaste 2.app") made the load throw and left the tray
+      // uninitialized (Sentry FLUTTER_WHISPASTE-DT).
+      final iconPath = defaultTargetPlatform == TargetPlatform.macOS
+          ? 'assets/icons/logo-dark.png'
+          : await _resolveIconPath();
       if (iconPath == null) {
         _log.warning('Tray icon not found — skipping tray setup');
         return;
