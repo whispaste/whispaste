@@ -3482,6 +3482,91 @@ class L10nEn extends L10n {
       'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens';
 
   @override
+  String get historyPinGateTitle => 'History is locked';
+
+  @override
+  String get historyPinGateHint =>
+      'Enter your PIN to show your transcriptions.';
+
+  @override
+  String get historyPinUnlock => 'Unlock';
+
+  @override
+  String get historyPinDialogTitle => 'Enter PIN';
+
+  @override
+  String get historyPinDialogSubtitle =>
+      'Your history is protected with a PIN.';
+
+  @override
+  String get historyPinFieldHint => 'PIN';
+
+  @override
+  String get historyPinRepeatHint => 'Repeat PIN';
+
+  @override
+  String get historyPinWrong => 'Wrong PIN.';
+
+  @override
+  String historyPinLockedOut(int seconds) {
+    return 'Too many attempts. Try again in $seconds s.';
+  }
+
+  @override
+  String get historyPinForgot => 'Forgot PIN?';
+
+  @override
+  String get historyPinForgotConfirmTitle => 'Delete history and remove PIN?';
+
+  @override
+  String get historyPinForgotConfirmMessage =>
+      'A forgotten PIN cannot be recovered. To reset it, your entire history — including archive, trash and kept recordings — is permanently deleted. Settings, notes, snippets and replacements are kept.';
+
+  @override
+  String get historyPinForgotConfirmAction => 'Delete history';
+
+  @override
+  String get historyPinSetTitle => 'Set PIN';
+
+  @override
+  String get historyPinSetSubtitle =>
+      '4–8 digits. Keeps others from casually viewing your history on this computer — it does not encrypt it.';
+
+  @override
+  String get historyPinInvalid => 'Use 4 to 8 digits.';
+
+  @override
+  String get historyPinMismatch => 'The PINs do not match.';
+
+  @override
+  String get settingsHistoryPin => 'PIN protection';
+
+  @override
+  String get settingsHistoryPinSubtitle =>
+      'Require a PIN to show the history, including side panel, floating button menu and automation API.';
+
+  @override
+  String get settingsHistoryPinChange => 'Change';
+
+  @override
+  String get settingsHistoryPinRemove => 'Remove';
+
+  @override
+  String get settingsHistoryAutoLock => 'Lock automatically';
+
+  @override
+  String get settingsHistoryAutoLockSubtitle =>
+      'Hide the history again after this much inactivity.';
+
+  @override
+  String get settingsHistoryAutoLockNever => 'Never';
+
+  @override
+  String settingsHistoryAutoLockMinutes(int minutes) {
+    return 'After $minutes min';
+  }
+
+  @override
   String get settingsFloatingButtonSection => 'Floating Button';
 
   @override

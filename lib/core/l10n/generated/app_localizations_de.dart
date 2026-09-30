@@ -3513,6 +3513,92 @@ class L10nDe extends L10n {
       'Zeigt statt deiner Transkriptionen einen „Verlauf anzeigen“-Button, sobald WhisPaste startet oder das Fenster wieder geöffnet wird';
 
   @override
+  String get historyPinGateTitle => 'Verlauf ist gesperrt';
+
+  @override
+  String get historyPinGateHint =>
+      'Gib deine PIN ein, um deine Transkriptionen anzuzeigen.';
+
+  @override
+  String get historyPinUnlock => 'Entsperren';
+
+  @override
+  String get historyPinDialogTitle => 'PIN eingeben';
+
+  @override
+  String get historyPinDialogSubtitle =>
+      'Dein Verlauf ist mit einer PIN geschützt.';
+
+  @override
+  String get historyPinFieldHint => 'PIN';
+
+  @override
+  String get historyPinRepeatHint => 'PIN wiederholen';
+
+  @override
+  String get historyPinWrong => 'Falsche PIN.';
+
+  @override
+  String historyPinLockedOut(int seconds) {
+    return 'Zu viele Versuche. Erneut in $seconds s.';
+  }
+
+  @override
+  String get historyPinForgot => 'PIN vergessen?';
+
+  @override
+  String get historyPinForgotConfirmTitle =>
+      'Verlauf löschen und PIN entfernen?';
+
+  @override
+  String get historyPinForgotConfirmMessage =>
+      'Eine vergessene PIN lässt sich nicht wiederherstellen. Zum Zurücksetzen wird dein gesamter Verlauf – inklusive Archiv, Papierkorb und aufbewahrter Aufnahmen – endgültig gelöscht. Einstellungen, Notizen, Snippets und Ersetzungen bleiben erhalten.';
+
+  @override
+  String get historyPinForgotConfirmAction => 'Verlauf löschen';
+
+  @override
+  String get historyPinSetTitle => 'PIN festlegen';
+
+  @override
+  String get historyPinSetSubtitle =>
+      '4–8 Ziffern. Hält andere davon ab, deinen Verlauf an diesem Computer einfach einzusehen – verschlüsselt ihn aber nicht.';
+
+  @override
+  String get historyPinInvalid => 'Verwende 4 bis 8 Ziffern.';
+
+  @override
+  String get historyPinMismatch => 'Die PINs stimmen nicht überein.';
+
+  @override
+  String get settingsHistoryPin => 'PIN-Schutz';
+
+  @override
+  String get settingsHistoryPinSubtitle =>
+      'Verlangt eine PIN, um den Verlauf anzuzeigen – auch in Seitenleiste, Floating-Button-Menü und Automatisierungs-API.';
+
+  @override
+  String get settingsHistoryPinChange => 'Ändern';
+
+  @override
+  String get settingsHistoryPinRemove => 'Entfernen';
+
+  @override
+  String get settingsHistoryAutoLock => 'Automatisch sperren';
+
+  @override
+  String get settingsHistoryAutoLockSubtitle =>
+      'Blendet den Verlauf nach dieser Zeit ohne Aktivität wieder aus.';
+
+  @override
+  String get settingsHistoryAutoLockNever => 'Nie';
+
+  @override
+  String settingsHistoryAutoLockMinutes(int minutes) {
+    return 'Nach $minutes Min.';
+  }
+
+  @override
   String get settingsFloatingButtonSection => 'Schwebender Button';
 
   @override

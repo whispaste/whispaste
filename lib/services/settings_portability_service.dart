@@ -116,6 +116,13 @@ const Set<String> settingsPortabilityDenyList = {
   'settings_autosave_bookmark',
   'settings_autosave_last_success',
   'settings_autosave_last_error',
+  // History PIN lock (`.scratch/history-pin-lock/`) — the hash must never
+  // leave this machine inside an export, and an import must not be able to
+  // replace or clear it (that would be a one-click bypass). The throttle
+  // state belongs to this installation's unlock attempts.
+  'history_pin',
+  'history_pin_failed_attempts',
+  'history_pin_locked_until',
 };
 
 /// Every storage key that is neither deny-listed nor a genuinely new
@@ -153,6 +160,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'error_reporting',
   'error_sound',
   'gpu_acceleration',
+  'history_auto_lock_minutes',
   'history_auto_trash_days',
   'history_hide_on_open',
   'history_max_entries',

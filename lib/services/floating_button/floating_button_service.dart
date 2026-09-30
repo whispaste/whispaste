@@ -15,6 +15,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/platform/display_bounds.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/platform/window_position_clamp.dart';
+import '../../features/history/data/history_lock.dart';
 import '../../core/recording/recording_state.dart';
 import '../clipboard_history/app_clipboard.dart';
 import '../floating_platform_service_base.dart';
@@ -90,9 +91,13 @@ class FloatingButtonService
       _syncPhase(next);
     });
 
-    // Watch history entries for context menu updates.
+    // Watch history entries for context menu updates. A PIN-locked history
+    // (`.scratch/history-pin-lock/`) lists none, so re-sync on lock changes.
     ref.listen(historyEntriesProvider, (_, next) {
       next.whenData((entries) => _updateContextMenu(entries));
+    });
+    ref.listen(historyContentHiddenProvider, (_, _) {
+      ref.read(historyEntriesProvider).whenData(_updateContextMenu);
     });
 
     // Apply initial settings if already loaded.
@@ -333,7 +338,9 @@ class FloatingButtonService
     if (c == null) return;
 
     // Take the 5 most recent entries.
-    final recent = entries.take(5).toList();
+    final recent = ref.read(historyContentHiddenProvider)
+        ? const <HistoryEntry>[]
+        : entries.take(5).toList();
     _menuEntries = recent.map((e) => (id: e.id, content: e.content)).toList();
 
     final l10n = _l10n ??= _resolveL10n();

@@ -19,6 +19,8 @@ import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/features/history/data/history_lock.dart';
+import 'package:whispaste/features/history/data/history_pin.dart';
 import 'package:whispaste/core/recording/recording_state.dart'
     show recordingProvider;
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
@@ -866,6 +868,48 @@ void main() {
           jsonDecode(await response.transform(utf8.decoder).join())
               as Map<String, dynamic>;
       expect(body['error'], 'no_history_entry');
+    });
+
+    test('a PIN-locked history → 423 history_locked, served again once '
+        'unlocked (.scratch/history-pin-lock)', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'secret',
+          content: const Value('secret transcript'),
+          timestamp: DateTime.utc(2026, 9, 9),
+        ),
+      );
+      await db.writeAppSettings({
+        'history_hide_on_open': 'true',
+        'history_pin': hashHistoryPin('4711', iterations: 10),
+      });
+      container = buildContainer(db: db);
+      await container.read(settingsProvider.future);
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final locked = await _get(
+        port,
+        path: '/v1/history/latest',
+        bearer: token,
+      );
+      expect(locked.statusCode, 423);
+      final body =
+          jsonDecode(await locked.transform(utf8.decoder).join())
+              as Map<String, dynamic>;
+      expect(body['error'], 'history_locked');
+
+      await container
+          .read(historyRevealedProvider.notifier)
+          .unlockWithPin('4711');
+      final unlocked = await _get(
+        port,
+        path: '/v1/history/latest',
+        bearer: token,
+      );
+      expect(unlocked.statusCode, 200);
+      await unlocked.drain<void>();
     });
 
     test('a request with no token → 401', () async {

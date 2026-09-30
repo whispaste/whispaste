@@ -3429,6 +3429,91 @@ class L10nHe extends L10n {
       'מציג כפתור „הצגת היסטוריה” במקום התמלולים שלך בכל פעם ש־WhisPaste מופעל או שהחלון נפתח מחדש';
 
   @override
+  String get historyPinGateTitle => 'ההיסטוריה נעולה';
+
+  @override
+  String get historyPinGateHint =>
+      'הזן את קוד ה-PIN כדי להציג את התמלולים שלך.';
+
+  @override
+  String get historyPinUnlock => 'ביטול נעילה';
+
+  @override
+  String get historyPinDialogTitle => 'הזן PIN';
+
+  @override
+  String get historyPinDialogSubtitle => 'ההיסטוריה שלך מוגנת בקוד PIN.';
+
+  @override
+  String get historyPinFieldHint => 'PIN';
+
+  @override
+  String get historyPinRepeatHint => 'הזן PIN שוב';
+
+  @override
+  String get historyPinWrong => 'PIN שגוי.';
+
+  @override
+  String historyPinLockedOut(int seconds) {
+    return 'יותר מדי ניסיונות. נסה שוב בעוד $seconds שניות.';
+  }
+
+  @override
+  String get historyPinForgot => 'שכחת את ה-PIN?';
+
+  @override
+  String get historyPinForgotConfirmTitle =>
+      'למחוק את ההיסטוריה ולהסיר את ה-PIN?';
+
+  @override
+  String get historyPinForgotConfirmMessage =>
+      'לא ניתן לשחזר PIN שנשכח. כדי לאפס אותו, כל ההיסטוריה שלך — כולל ארכיון, אשפה והקלטות שנשמרו — תימחק לצמיתות. הגדרות, הערות, קטעים והחלפות יישמרו.';
+
+  @override
+  String get historyPinForgotConfirmAction => 'מחק היסטוריה';
+
+  @override
+  String get historyPinSetTitle => 'הגדר PIN';
+
+  @override
+  String get historyPinSetSubtitle =>
+      '4–8 ספרות. מונע מאחרים לצפות בקלות בהיסטוריה שלך במחשב זה — אך אינו מצפין אותה.';
+
+  @override
+  String get historyPinInvalid => 'השתמש ב-4 עד 8 ספרות.';
+
+  @override
+  String get historyPinMismatch => 'קודי ה-PIN אינם תואמים.';
+
+  @override
+  String get settingsHistoryPin => 'הגנת PIN';
+
+  @override
+  String get settingsHistoryPinSubtitle =>
+      'דורש PIN להצגת ההיסטוריה, כולל חלונית הצד, תפריט הכפתור הצף ו-API האוטומציה.';
+
+  @override
+  String get settingsHistoryPinChange => 'שנה';
+
+  @override
+  String get settingsHistoryPinRemove => 'הסר';
+
+  @override
+  String get settingsHistoryAutoLock => 'נעילה אוטומטית';
+
+  @override
+  String get settingsHistoryAutoLockSubtitle =>
+      'מסתיר שוב את ההיסטוריה לאחר זמן חוסר פעילות זה.';
+
+  @override
+  String get settingsHistoryAutoLockNever => 'אף פעם';
+
+  @override
+  String settingsHistoryAutoLockMinutes(int minutes) {
+    return 'אחרי $minutes דק׳';
+  }
+
+  @override
   String get settingsFloatingButtonSection => 'כפתור צף';
 
   @override

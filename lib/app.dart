@@ -28,8 +28,8 @@ import 'core/platform/window_position_clamp.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
-import 'features/history/data/providers.dart'
-    show groupedHistoryProvider, historyRevealedProvider;
+import 'features/history/data/history_lock.dart' show historyRevealedProvider;
+import 'features/history/data/providers.dart' show groupedHistoryProvider;
 import 'features/notes/notes_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';

@@ -36,6 +36,7 @@ import 'package:shelf/shelf.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
+import '../../features/history/data/history_lock.dart';
 import '../../core/recording/recording_state.dart'
     show RecordingPhase, recordingPhaseProvider;
 import '../../features/history/data/history_detail_provider.dart';
@@ -211,7 +212,10 @@ class AutomationApiController extends Notifier<AutomationApiState> {
                 ),
       ),
       dictationStatusRoutes(readStatus: _readDictationStatus),
-      historyLatestRoutes(fetchLatestEntry: _fetchLatestHistoryEntry),
+      historyLatestRoutes(
+        fetchLatestEntry: _fetchLatestHistoryEntry,
+        isHistoryLocked: () => ref.read(historyContentHiddenProvider),
+      ),
       snippetInsertRoutes(insertSnippetByName: _insertSnippetByName),
     ]);
     final handler = const Pipeline()

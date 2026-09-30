@@ -128,6 +128,56 @@ void main() {
     expect(resetState.showOverlay, false);
   });
 
+  test('resetToDefaults keeps the History PIN lock — otherwise it would be '
+      'a one-click bypass (.scratch/history-pin-lock)', () async {
+    await container.read(settingsProvider.future);
+    await container
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            history: s.history.copyWith(
+              historyHideOnOpen: true,
+              historyPin: 'pbkdf2-sha256\$1\$c2FsdA==\$aGFzaA==',
+              historyPinFailedAttempts: 6,
+              historyPinLockedUntil: 123,
+              historyAutoLockMinutes: 5,
+            ),
+            interface_: s.interface_.copyWith(locale: 'de'),
+          ),
+        );
+
+    await container.read(settingsProvider.notifier).resetToDefaults();
+
+    final history = container.read(settingsProvider).value!.history;
+    expect(history.historyPin, r'pbkdf2-sha256$1$c2FsdA==$aGFzaA==');
+    expect(history.historyHideOnOpen, isTrue);
+    expect(history.historyPinFailedAttempts, 6);
+    expect(history.historyPinLockedUntil, 123);
+    expect(history.historyAutoLockMinutes, 0, reason: 'a plain preference');
+    expect(container.read(settingsProvider).value!.locale, 'en');
+    final rows = await db.readAppSettings();
+    expect(rows['history_pin'], r'pbkdf2-sha256$1$c2FsdA==$aGFzaA==');
+  });
+
+  test('resetToDefaults without a PIN still clears every row', () async {
+    await container.read(settingsProvider.future);
+    await container
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            history: s.history.copyWith(historyHideOnOpen: true),
+          ),
+        );
+
+    await container.read(settingsProvider.notifier).resetToDefaults();
+
+    expect(await db.readAppSettings(), isEmpty);
+    expect(
+      container.read(settingsProvider).value!.history.historyHideOnOpen,
+      isFalse,
+    );
+  });
+
   group('secure API key storage', () {
     test('API keys written via updateSettings go to secure storage', () async {
       await container

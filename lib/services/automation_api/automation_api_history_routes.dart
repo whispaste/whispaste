@@ -26,12 +26,18 @@ final _log = AppLogger('AutomationApiHistoryRoutes');
 /// surfaced as 404 with `error: no_history_entry` (a clear, specific
 /// response, not a generic failure), matching "no history entry exists yet"
 /// as a legitimate, expected outcome rather than a server error. A thrown
-/// exception surfaces as a 500 with `error: fetch_failed`.
+/// exception surfaces as a 500 with `error: fetch_failed`. While
+/// [isHistoryLocked] reports a PIN-locked history the route answers 423
+/// with `error: history_locked` and never queries.
 AutomationApiRouteGroup historyLatestRoutes({
   required Future<Map<String, Object?>?> Function() fetchLatestEntry,
+  bool Function()? isHistoryLocked,
 }) {
   return (router) {
     router.add('GET', '/v1/history/latest', (Request request) async {
+      if (isHistoryLocked?.call() ?? false) {
+        return _jsonResponse(423, {'error': 'history_locked'});
+      }
       try {
         final entry = await fetchLatestEntry();
         if (entry == null) {

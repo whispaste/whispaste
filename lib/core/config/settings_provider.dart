@@ -1088,9 +1088,26 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       _log.warning('resetToDefaults: secure store cleanup failed: $e', e);
     }
     final db = ref.read(historyDatabaseProvider);
+    final previous = (state.value ?? AppSettings.defaults).history;
     await db.resetAppSettings();
     await db.resetDailyStats();
-    state = AsyncData(AppSettings.defaults);
+    // A History PIN survives the reset, together with its gate and throttle
+    // state — otherwise "Reset to defaults" would be a one-click way around
+    // it (`.scratch/history-pin-lock/`).
+    if (previous.historyPin.isEmpty) {
+      state = AsyncData(AppSettings.defaults);
+      return;
+    }
+    final kept = AppSettings.defaults.copyWithSections(
+      history: AppSettings.defaults.history.copyWith(
+        historyHideOnOpen: true,
+        historyPin: previous.historyPin,
+        historyPinFailedAttempts: previous.historyPinFailedAttempts,
+        historyPinLockedUntil: previous.historyPinLockedUntil,
+      ),
+    );
+    state = AsyncData(kept);
+    await db.writeAppSettings(kept.toStorageMap());
   }
 
   /// Full factory reset — deletes ALL user data, models, and settings.

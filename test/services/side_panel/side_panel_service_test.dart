@@ -8,6 +8,8 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/history_providers.dart';
+import 'package:whispaste/features/history/data/history_lock.dart';
+import 'package:whispaste/features/history/data/history_pin.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/clipboard_history/app_clipboard.dart';
 import 'package:whispaste/services/clipboard_history/clipboard_fingerprint.dart';
@@ -514,6 +516,46 @@ void main() {
             "the row's avatar disc must match the same entry's avatar in "
             'the main window, which reads this persisted slot',
       );
+    });
+
+    test('a PIN-locked history shows no transcriptions until unlocked '
+        '(.scratch/history-pin-lock)', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([_historyEntry()]),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              history: s.history.copyWith(
+                historyHideOnOpen: true,
+                historyPin: hashHistoryPin('4711', iterations: 10),
+              ),
+            ),
+          );
+      final service = _readService(container);
+      await service.open();
+      expect(fakePanel.snapshots.last.transcriptions, isEmpty);
+
+      await container
+          .read(historyRevealedProvider.notifier)
+          .unlockWithPin('4711');
+      await Future<void>.delayed(Duration.zero);
+      expect(fakePanel.snapshots.last.transcriptions, isNotEmpty);
+
+      container.read(historyRevealedProvider.notifier).conceal();
+      await Future<void>.delayed(Duration.zero);
+      expect(fakePanel.snapshots.last.transcriptions, isEmpty);
     });
 
     test('transcription and snippet rows carry the full insertable content, '
