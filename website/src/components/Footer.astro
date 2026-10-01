@@ -95,6 +95,10 @@ const linuxSttHref = lang === 'de' ? '/linux-spracherkennung/' : '/en/linux-spee
             <svg class="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.6.6 1.35 1.5 1.5 2.5"/></svg>
             {t(lang, "footer.ideas")}
           </a>
+          {/* Self-hosted copy of the official AlternativeTo badge: no third-party request on page load. */}
+          <a href="https://alternativeto.net/software/whispaste/about/?utm_source=badge&utm_medium=referral" target="_blank" rel="noopener" aria-label={t(lang, "footer.alternativeto")} data-i18n-aria="footer.alternativeto" class="mt-1 inline-block w-fit opacity-80 hover:opacity-100 transition-opacity">
+            <img src="/badges/alternativeto.svg" alt="" width="140" height="48" loading="lazy" decoding="async" class="h-auto w-[140px]" />
+          </a>
         </nav>
       </div>
 
