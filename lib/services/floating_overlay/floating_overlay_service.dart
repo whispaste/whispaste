@@ -1009,14 +1009,23 @@ class FloatingOverlayService
   /// genau dieses Feld beim Zustandswechsel aus.
   String _labelFor(RecordingPhase phase, L10n? l10n, RecordingTarget target) =>
       switch (phase) {
-        RecordingPhase.recording =>
-          target == RecordingTarget.templateField
-              ? _interactiveSnippetSpeakNowLabel(l10n)
-              : target == RecordingTarget.quickNote
-              ? (l10n?.overlayRecordingQuickNote ?? 'Recording to note')
-              : (l10n?.overlayRecording ?? 'Recording'),
+        RecordingPhase.recording => switch (target) {
+          RecordingTarget.templateField => _interactiveSnippetSpeakNowLabel(
+            l10n,
+          ),
+          RecordingTarget.quickNote =>
+            l10n?.overlayRecordingQuickNote ?? 'Recording to note',
+          RecordingTarget.selectionEdit =>
+            l10n?.overlayRecordingSelectionEdit ?? 'Say what to change',
+          RecordingTarget.clipboard => l10n?.overlayRecording ?? 'Recording',
+        },
+        // Edit selection stays in `transcribing` while the engine runs (a
+        // failure must be able to reach `error`, which `refining` never
+        // does — ADR 0009), so the label names the actual work.
         RecordingPhase.transcribing =>
-          l10n?.overlayTranscribing ?? 'Transcribing…',
+          target == RecordingTarget.selectionEdit
+              ? (l10n?.overlayEditingSelection ?? 'Editing selection…')
+              : (l10n?.overlayTranscribing ?? 'Transcribing…'),
         RecordingPhase.refining => l10n?.overlayRefining ?? 'Refining…',
         RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
         RecordingPhase.error => l10n?.overlayError ?? 'Error',
@@ -1078,6 +1087,8 @@ class FloatingOverlayService
     final targetName = switch (target) {
       RecordingTarget.quickNote => l10n?.overlayTargetQuickNote ?? 'Note',
       RecordingTarget.templateField => _interactiveSnippetSpeakNowLabel(l10n),
+      RecordingTarget.selectionEdit =>
+        l10n?.overlayTargetSelectionEdit ?? 'Edit selection',
       RecordingTarget.clipboard => null,
     };
     if (targetName == null) return timer;
@@ -1103,6 +1114,12 @@ class FloatingOverlayService
       final enabled = quickNote
           ? s.quickNoteHotkey.quickNoteHotkeyEnabled
           : s.hotkeyEnabled;
+      if (target == RecordingTarget.selectionEdit) {
+        // Quick actions are spoken keywords (the overlay has no per-element
+        // hit regions) — the hint is where the user learns them.
+        return l10n?.overlaySelectionEditHint ??
+            'Say what to change — or: shorter · improve · translate';
+      }
       if (target == RecordingTarget.templateField) {
         // Enter/Escape sind sequenz-gebunden immer registriert (siehe
         // InteractiveSnippetController) — der Hinweis nennt sie daher auch

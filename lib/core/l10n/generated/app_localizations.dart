@@ -7696,6 +7696,96 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Original transcript'**
   String get historyOriginalTranscriptLabel;
+
+  /// Action name of the edit-selection hotkey, used in hotkey collision messages
+  ///
+  /// In en, this message translates to:
+  /// **'Edit selection'**
+  String get settingsHotkeyActionSelectionEdit;
+
+  /// Settings row label: toggle for the edit-selection-by-voice hotkey
+  ///
+  /// In en, this message translates to:
+  /// **'Edit-selection hotkey'**
+  String get settingsSelectionEditHotkeyEnabled;
+
+  /// Settings hint below the edit-selection hotkey toggle; the quoted words are the spoken quick-action keywords
+  ///
+  /// In en, this message translates to:
+  /// **'Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the Smart Mode engine configured above.'**
+  String get settingsSelectionEditHotkeyHint;
+
+  /// Shown when the edit-selection hotkey combination could not be registered with the OS
+  ///
+  /// In en, this message translates to:
+  /// **'This combination could not be registered — the edit-selection hotkey is currently not active. Pick a different combination.'**
+  String get settingsSelectionEditHotkeyInactive;
+
+  /// Very short target name shown in the recording overlay while recording an instruction for editing the selected text
+  ///
+  /// In en, this message translates to:
+  /// **'Edit selection'**
+  String get overlayTargetSelectionEdit;
+
+  /// Overlay label while recording an edit-selection instruction (announced by screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Say what to change'**
+  String get overlayRecordingSelectionEdit;
+
+  /// Overlay hint while recording an edit-selection instruction; the listed words are the spoken quick-action keywords and must stay recognizable
+  ///
+  /// In en, this message translates to:
+  /// **'Say what to change — or: shorter · improve · translate'**
+  String get overlaySelectionEditHint;
+
+  /// Overlay label while the selected text is being edited
+  ///
+  /// In en, this message translates to:
+  /// **'Editing selection…'**
+  String get overlayEditingSelection;
+
+  /// Overlay completion message after the selected text was replaced
+  ///
+  /// In en, this message translates to:
+  /// **'Selection replaced'**
+  String get overlayDoneSelectionEdit;
+
+  /// Overlay error: the edit-selection hotkey was used without any selected text
+  ///
+  /// In en, this message translates to:
+  /// **'No text selected — select text first, then press the hotkey'**
+  String get errorSelectionEditNoSelection;
+
+  /// Overlay error: the edit-selection hotkey needs a configured Smart Mode engine
+  ///
+  /// In en, this message translates to:
+  /// **'Set up Smart Mode first (download the local model or add an OpenAI key) to edit selections'**
+  String get errorSelectionEditNoEngine;
+
+  /// Overlay error: this build has no auto-paste, so selections cannot be edited
+  ///
+  /// In en, this message translates to:
+  /// **'Editing a selection needs auto-paste, which is not available in this build'**
+  String get errorSelectionEditUnsupported;
+
+  /// Overlay error: the copy shortcut could not be sent to the target app
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the selection — check the auto-paste permission'**
+  String get errorSelectionEditCopyFailed;
+
+  /// Overlay error: the Smart Mode engine failed or timed out; nothing was replaced
+  ///
+  /// In en, this message translates to:
+  /// **'Editing failed — your text was left unchanged'**
+  String get errorSelectionEditFailed;
+
+  /// Overlay error: the edited text could not be pasted; nothing was replaced
+  ///
+  /// In en, this message translates to:
+  /// **'Could not replace the selection — your text was left unchanged'**
+  String get errorSelectionEditPasteFailed;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

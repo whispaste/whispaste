@@ -27,6 +27,7 @@ import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../hotkey_flow.dart';
+import '../selection_edit_hotkey_flow.dart';
 import '../settings_widgets.dart';
 import '../smart_mode_hotkey_flow.dart';
 
@@ -210,6 +211,7 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
             _ModelDownloadRow(download: download, l10n: l10n),
           ],
           _SmartModeHotkeyBlock(settings: settings),
+          _SelectionEditHotkeyBlock(settings: settings),
         ],
       ),
     );
@@ -388,6 +390,115 @@ class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
                     icon: LucideIcons.triangleAlert,
                     color: WpColors.warning,
                     text: l10n.settingsSmartModeHotkeyInactive,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit-selection hotkey (`.scratch/voice-selection-edit/`) — select text in
+// any app, press, speak an instruction; the Smart Mode engine configured
+// above rewrites the selection. Lives here (not on the keyboard-shortcut
+// page) because it only works with this section's engine set up.
+// ---------------------------------------------------------------------------
+
+class _SelectionEditHotkeyBlock extends ConsumerStatefulWidget {
+  const _SelectionEditHotkeyBlock({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  ConsumerState<_SelectionEditHotkeyBlock> createState() =>
+      _SelectionEditHotkeyBlockState();
+}
+
+class _SelectionEditHotkeyBlockState
+    extends ConsumerState<_SelectionEditHotkeyBlock>
+    with HotkeyCollisionNotice {
+  Future<void> _record() => recordAndReport(
+    () => recordSelectionEditHotkey(
+      context: context,
+      ref: ref,
+      settings: widget.settings,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final hotkey = widget.settings.selectionEditHotkey;
+    final enabled = hotkey.selectionEditHotkeyEnabled;
+
+    // `enabled &&` for the same reason as the Smart-Mode block above.
+    final registrationFailed =
+        enabled &&
+        ref.watch(selectionEditHotkeyRegistrationStatusProvider) ==
+            HotkeyRegistrationStatus.conflict;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          settingsInlineBreak,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SettingRow(
+                  icon: LucideIcons.textSelect,
+                  label: l10n.settingsSelectionEditHotkeyEnabled,
+                  subtitle: l10n.settingsSelectionEditHotkeyHint,
+                  semanticToggledValue: enabled,
+                  trailing: settingsToggle(
+                    key: const Key('selectionEditHotkeyToggle'),
+                    value: enabled,
+                    onChanged: (v) {
+                      clearHotkeyCollision();
+                      unawaited(setSelectionEditHotkeyEnabled(ref, enabled: v));
+                    },
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: enabled ? 1.0 : 0.4,
+                  duration: WpMotion.durationFor(context, WpMotion.normal),
+                  child: ExcludeFocus(
+                    excluding: !enabled,
+                    child: IgnorePointer(
+                      ignoring: !enabled,
+                      child: HotkeyComboLine(
+                        key: const Key('selectionEditHotkeyComboLine'),
+                        label: l10n.settingsSmartModeCurrentHotkey,
+                        hotkeyKey: hotkey.selectionEditHotkeyKey,
+                        hotkeyModifiers: hotkey.selectionEditHotkeyModifiers,
+                        hotkeyKeyDisplay: hotkey.selectionEditHotkeyKeyDisplay,
+                        changeButtonKey: const Key('selectionEditHotkeyChange'),
+                        onChange: () => unawaited(_record()),
+                      ),
+                    ),
+                  ),
+                ),
+                if (collidingAction != null)
+                  _SmartModeHotkeyNotice(
+                    noticeKey: const Key('selectionEditHotkeyCollisionNotice'),
+                    icon: LucideIcons.circleAlert,
+                    color: WpColors.error,
+                    text: l10n.settingsSmartModeHotkeyCollision(
+                      collidingAction!,
+                    ),
+                  ),
+                if (registrationFailed)
+                  _SmartModeHotkeyNotice(
+                    noticeKey: const Key('selectionEditHotkeyInactiveNotice'),
+                    icon: LucideIcons.triangleAlert,
+                    color: WpColors.warning,
+                    text: l10n.settingsSelectionEditHotkeyInactive,
                   ),
               ],
             ),

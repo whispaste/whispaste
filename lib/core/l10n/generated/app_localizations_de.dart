@@ -4444,4 +4444,59 @@ class L10nDe extends L10n {
 
   @override
   String get historyOriginalTranscriptLabel => 'Original-Transkript';
+
+  @override
+  String get settingsHotkeyActionSelectionEdit => 'Auswahl bearbeiten';
+
+  @override
+  String get settingsSelectionEditHotkeyEnabled =>
+      'Hotkey „Auswahl bearbeiten\"';
+
+  @override
+  String get settingsSelectionEditHotkeyHint =>
+      'Text in einer beliebigen App markieren, diesen Hotkey drücken und sagen, was sich ändern soll — oder einfach „kürzer\", „verbessern\" oder „übersetzen\". Das Ergebnis ersetzt die Auswahl; Rückgängig in der App holt das Original zurück. Nutzt die oben eingerichtete Smart-Mode-Engine.';
+
+  @override
+  String get settingsSelectionEditHotkeyInactive =>
+      'Diese Kombination ließ sich nicht registrieren — der Hotkey „Auswahl bearbeiten\" ist derzeit nicht aktiv. Wähl eine andere Kombination.';
+
+  @override
+  String get overlayTargetSelectionEdit => 'Auswahl';
+
+  @override
+  String get overlayRecordingSelectionEdit => 'Sag, was sich ändern soll';
+
+  @override
+  String get overlaySelectionEditHint =>
+      'Sag, was sich ändern soll — oder: kürzer · verbessern · übersetzen';
+
+  @override
+  String get overlayEditingSelection => 'Bearbeite Auswahl…';
+
+  @override
+  String get overlayDoneSelectionEdit => 'Auswahl ersetzt';
+
+  @override
+  String get errorSelectionEditNoSelection =>
+      'Kein Text markiert — erst Text markieren, dann den Hotkey drücken';
+
+  @override
+  String get errorSelectionEditNoEngine =>
+      'Richte zuerst Smart Mode ein (lokales Modell laden oder OpenAI-Schlüssel hinterlegen), um Auswahlen zu bearbeiten';
+
+  @override
+  String get errorSelectionEditUnsupported =>
+      'Auswahl bearbeiten braucht Auto-Einfügen, das in diesem Build nicht verfügbar ist';
+
+  @override
+  String get errorSelectionEditCopyFailed =>
+      'Auswahl konnte nicht gelesen werden — prüf die Berechtigung für Auto-Einfügen';
+
+  @override
+  String get errorSelectionEditFailed =>
+      'Bearbeiten fehlgeschlagen — dein Text bleibt unverändert';
+
+  @override
+  String get errorSelectionEditPasteFailed =>
+      'Auswahl konnte nicht ersetzt werden — dein Text bleibt unverändert';
 }

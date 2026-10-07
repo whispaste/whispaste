@@ -114,9 +114,11 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       // DE
       'Preset', 'Aufräumen', 'Kürzen', 'Übersetzen', 'Gemma', 'Modell',
       'herunterladen', 'Nachbearbeitung', 'Textbereinigung',
+      'Auswahl bearbeiten', 'Auswahl', 'markierten Text',
       // EN
       'preset', 'cleanup', 'concise', 'translate', 'gemma', 'model',
-      'download', 'post-processing', 'polish',
+      'download', 'post-processing', 'polish', 'edit selection', 'selection',
+      'selected text', 'rewrite',
     ],
   ),
   SettingsSearchEntry(

@@ -38,6 +38,10 @@ class DesktopPasteHost {
       }
       pasteClipboard(delayMs: delayMs, result: result)
 
+    case "copySelection":
+      let delayMs = (call.arguments as? [String: Any])?["delayMs"] as? Int ?? 0
+      copySelection(delayMs: delayMs, result: result)
+
     case "typeText":
       guard let args = call.arguments as? [String: Any],
             let text = args["text"] as? String,
@@ -235,6 +239,60 @@ class DesktopPasteHost {
     }
   }
 
+  /// Re-activates the captured target app and sends Cmd+C so the target
+  /// copies its current selection to the pasteboard ("edit selection by
+  /// voice"). Dart snapshots/restores the pasteboard around this call and
+  /// detects "no selection" by the pasteboard staying unchanged.
+  ///
+  /// Mirrors [pasteClipboard] exactly — same target, same activation, same
+  /// two permission channels (CGEvent first, AppleScript only when CGEvent
+  /// could not have landed; never both, which would be harmless for a copy
+  /// but keeps the behavior identical). Like paste, this is available on
+  /// the Mac App Store build: Cmd+C is just another CGEvent under the
+  /// PostEvent grant that Cmd+V already uses there.
+  private func copySelection(delayMs: Int, result: @escaping FlutterResult) {
+    guard let app = targetApp else {
+      os_log("copySelection: no target app — refusing", log: Self.logger, type: .error)
+      result(["status": "no_target", "detail": "no target captured at copy time"])
+      return
+    }
+
+    let trusted = canPostSyntheticEvents()
+    let clampedDelay = max(0, min(delayMs, 5000))
+
+    if #available(macOS 14.0, *) {
+      app.activate(options: [])
+    } else {
+      app.activate(options: [.activateIgnoringOtherApps])
+    }
+
+    let bundle = app.bundleIdentifier ?? "<unknown>"
+    let deadline: DispatchTime = .now() + .milliseconds(clampedDelay)
+    DispatchQueue.main.asyncAfter(deadline: deadline) {
+      let cgOk = self.sendCommandShortcut(keyCode: 0x08) // 'c' key
+      let cgLanded = cgOk && trusted
+
+#if MAS_BUILD
+      let appleScriptResult = "unsupported"
+#else
+      let appleScriptResult = cgLanded
+        ? "skipped"
+        : self.sendCommandKeystrokeViaAppleScript(key: "c")
+#endif
+
+      let detail = "trusted=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle)"
+      os_log("copySelection: %{public}@", log: Self.logger, type: .info, detail)
+
+      if cgLanded || appleScriptResult == "ok" {
+        result(["status": "success", "detail": detail])
+      } else if !trusted {
+        result(["status": "no_accessibility", "detail": detail])
+      } else {
+        result(["status": "post_failed", "detail": detail])
+      }
+    }
+  }
+
   /// Re-activates the captured target app and types [text] via synthetic
   /// Unicode keyboard events — no clipboard involved at all.
   ///
@@ -348,6 +406,12 @@ class DesktopPasteHost {
   ///
   /// Returns one of: `"ok"`, `"permission_missing"`, `"error:<details>"`.
   private func sendCmdVViaAppleScript() -> String {
+    return sendCommandKeystrokeViaAppleScript(key: "v")
+  }
+
+  /// Sends Cmd+[key] via AppleScript — shared by paste (`v`) and
+  /// copySelection (`c`). See [sendCmdVViaAppleScript] for the channel.
+  private func sendCommandKeystrokeViaAppleScript(key: String) -> String {
 #if MAS_BUILD
     // Mac App Store build: AppleEvents/Automation keystroke injection is not
     // permitted; compiled out so the shipped binary contains no NSAppleScript
@@ -357,7 +421,7 @@ class DesktopPasteHost {
     return "unsupported"
 #else
     let source = """
-      tell application "System Events" to keystroke "v" using {command down}
+      tell application "System Events" to keystroke "\(key)" using {command down}
       """
     var error: NSDictionary?
     guard let script = NSAppleScript(source: source) else {
@@ -530,10 +594,14 @@ class DesktopPasteHost {
   /// `build_config.dart`'s `kAutoPasteSupported` doc for the full reasoning
   /// (and the Phase 0 proof this reasoning is based on).
   private func sendCmdV() -> Bool {
-    let vKeyCode: CGKeyCode = 0x09 // 'v' key
+    return sendCommandShortcut(keyCode: 0x09) // 'v' key
+  }
 
-    guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: vKeyCode, keyDown: true),
-          let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: vKeyCode, keyDown: false) else {
+  /// Posts Cmd+[keyCode] as a CGEvent keydown/keyup pair — shared by paste
+  /// (0x09 'v') and copySelection (0x08 'c').
+  private func sendCommandShortcut(keyCode: CGKeyCode) -> Bool {
+    guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true),
+          let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) else {
       return false
     }
 

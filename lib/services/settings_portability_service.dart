@@ -201,6 +201,13 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // 'benchmark_hardware_id' above, would be meaningless (and privacy-adverse,
   // it would let two devices collide into one cohort) on a different machine.
   'cohort_pseudonym_salt',
+  // `.scratch/voice-selection-edit/`: fifth, independently configurable
+  // hotkey ("edit selection by voice") — same portability rationale as
+  // 'hotkey_*'/'quick_note_hotkey_*'/'smart_mode_hotkey_*'.
+  'selection_edit_hotkey_enabled',
+  'selection_edit_hotkey_key',
+  'selection_edit_hotkey_key_display',
+  'selection_edit_hotkey_modifiers',
   // Clipboard quick-paste side panel toggle — a display preference like the
   // other 'show_*' keys below it.
   'side_panel_enabled',

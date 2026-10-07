@@ -166,6 +166,26 @@ final smartModeHotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatus
     >(SmartModeHotkeyRegistrationStatusController.new);
 
+/// Notifier holding the [HotkeyRegistrationStatus] for the edit-selection
+/// hotkey (`.scratch/voice-selection-edit/`) — separate from the other
+/// status providers for the same reason as the Smart-Mode one.
+class SelectionEditHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the edit-selection [HotkeyRegistrationStatus] state.
+final selectionEditHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      SelectionEditHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(SelectionEditHotkeyRegistrationStatusController.new);
+
 // ---------------------------------------------------------------------------
 // Safe-default hotkey
 // ---------------------------------------------------------------------------
@@ -242,6 +262,11 @@ class HotkeyService extends Notifier<void> {
   /// behaving like the main one, not a lesser toggle-only action).
   static const _smartModeActionId = 'smartMode';
 
+  /// Action identifier for the edit-selection hotkey
+  /// (`.scratch/voice-selection-edit/`) — push-to-talk-capable exactly like
+  /// [_smartModeActionId] (macOS registrar key-up; toggle elsewhere).
+  static const _selectionEditActionId = 'selectionEdit';
+
   /// Action identifiers for the two SESSION-SCOPED interactive-snippet keys
   /// (Enter → advance field, Escape → cancel sequence). Unlike every other
   /// action these are never registered from settings: capturing bare Enter
@@ -300,6 +325,13 @@ class HotkeyService extends Notifier<void> {
   /// documented, accepted platform gap (ticket 04), not a bug.
   VoidCallback? onSmartModeHotkeyReleased;
 
+  /// Callback fired when the edit-selection hotkey is pressed (key-down).
+  VoidCallback? onSelectionEditHotkeyPressed;
+
+  /// Callback fired when the edit-selection hotkey is released (key-up) —
+  /// same platform availability as [onSmartModeHotkeyReleased].
+  VoidCallback? onSelectionEditHotkeyReleased;
+
   /// Whether the current platform can deliver key-up events for global hotkeys.
   ///
   /// macOS gets key-up from the registrar; Windows gets it from the RawInput
@@ -311,6 +343,7 @@ class HotkeyService extends Notifier<void> {
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
   bool _smartModeInitialized = false;
+  bool _selectionEditInitialized = false;
 
   /// Callbacks for the session-scoped interactive-snippet keys. Set by
   /// [registerInteractiveSnippetKeys], cleared by
@@ -420,6 +453,19 @@ class HotkeyService extends Notifier<void> {
         label: 'Smart-Mode',
         register: () => _registerSmartModeFromSettings(current),
       );
+
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.selectionEditHotkey.selectionEditHotkeyKey,
+        key: current.selectionEditHotkey.selectionEditHotkeyKey,
+        prevModifiers:
+            previous.selectionEditHotkey.selectionEditHotkeyModifiers,
+        modifiers: current.selectionEditHotkey.selectionEditHotkeyModifiers,
+        prevEnabled: previous.selectionEditHotkey.selectionEditHotkeyEnabled,
+        enabled: current.selectionEditHotkey.selectionEditHotkeyEnabled,
+        actionId: _selectionEditActionId,
+        label: 'Edit-selection',
+        register: () => _registerSelectionEditFromSettings(current),
+      );
     });
 
     Future.microtask(() async {
@@ -435,6 +481,9 @@ class HotkeyService extends Notifier<void> {
       }
       if (settings.smartModeHotkey.smartModeHotkeyEnabled) {
         await _registerSmartModeFromSettings(settings);
+      }
+      if (settings.selectionEditHotkey.selectionEditHotkeyEnabled) {
+        await _registerSelectionEditFromSettings(settings);
       }
     });
     ref.onDispose(_destroy);
@@ -637,29 +686,63 @@ class HotkeyService extends Notifier<void> {
   Future<void> updateSmartModeHotkey({
     required LogicalKeyboardKey key,
     List<HotKeyModifier> modifiers = const [],
+  }) => _registerPushToTalkAction(
+    actionId: _smartModeActionId,
+    handlerLabel: 'SmartMode',
+    logName: 'Smart-Mode',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setSmartModeStatus,
+  );
+
+  /// Re-registers the edit-selection hotkey with a new combination. Same
+  /// push-to-talk wiring and no-safe-default-fallback contract as
+  /// [updateSmartModeHotkey].
+  Future<void> updateSelectionEditHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) => _registerPushToTalkAction(
+    actionId: _selectionEditActionId,
+    handlerLabel: 'SelectionEdit',
+    logName: 'edit-selection',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setSelectionEditStatus,
+  );
+
+  /// Shared registration for the secondary recording hotkeys (Smart Mode,
+  /// edit selection): key-up wired wherever the registrar supports it, no
+  /// safe-default fallback on failure.
+  Future<void> _registerPushToTalkAction({
+    required String actionId,
+    required String handlerLabel,
+    required String logName,
+    required LogicalKeyboardKey key,
+    required List<HotKeyModifier> modifiers,
+    required void Function(HotkeyRegistrationStatus) setStatus,
   }) async {
     if (!_isDesktop) return;
-    await _unregisterAction(_smartModeActionId, stopMonitor: false);
+    await _unregisterAction(actionId, stopMonitor: false);
 
     final hotKey = HotKey(key: key, modifiers: modifiers);
-    _stateFor(_smartModeActionId).registeredHotKey = hotKey;
+    _stateFor(actionId).registeredHotKey = hotKey;
 
     try {
       await _registrar.register(
         hotKey,
-        keyDownHandler: (_) => _handleKeyDown(_smartModeActionId, 'SmartMode'),
+        keyDownHandler: (_) => _handleKeyDown(actionId, handlerLabel),
         keyUpHandler: _registrar.supportsKeyUp
-            ? (_) => _handleKeyUp(_smartModeActionId, 'SmartMode')
+            ? (_) => _handleKeyUp(actionId, handlerLabel)
             : null,
       );
-      _log.info('Smart-Mode hotkey registered successfully');
-      _setSmartModeStatus(HotkeyRegistrationStatus.success);
+      _log.info('$logName hotkey registered successfully');
+      setStatus(HotkeyRegistrationStatus.success);
     } on Object catch (e) {
-      _setSmartModeStatus(HotkeyRegistrationStatus.conflict);
-      _stateFor(_smartModeActionId).registeredHotKey = null;
+      setStatus(HotkeyRegistrationStatus.conflict);
+      _stateFor(actionId).registeredHotKey = null;
       final keyCode = key.keyId.toRadixString(16);
       _log.warning(
-        'Failed to register Smart-Mode hotkey (key=0x$keyCode): $e '
+        'Failed to register $logName hotkey (key=0x$keyCode): $e '
         '— staying unregistered, no safe-default fallback',
       );
     }
@@ -962,6 +1045,19 @@ class HotkeyService extends Notifier<void> {
     );
   }
 
+  /// Sibling of [_registerFromSettings] for the edit-selection action.
+  Future<void> _registerSelectionEditFromSettings(AppSettings settings) {
+    final hotkey = settings.selectionEditHotkey;
+    return _registerSecondaryHotkeyFromSettings(
+      key: hotkey.selectionEditHotkeyKey,
+      modifiers: hotkey.selectionEditHotkeyModifiers,
+      update: updateSelectionEditHotkey,
+      markInitialized: () => _selectionEditInitialized = true,
+      setStatus: _setSelectionEditStatus,
+      label: 'Edit-selection',
+    );
+  }
+
   /// Writes [status] to [hotkeyRegistrationStatusProvider] if a Riverpod ref
   /// is available (i.e. the service was created via the provider, not via a
   /// bare `HotkeyService()` constructor in a unit test).
@@ -1008,6 +1104,20 @@ class HotkeyService extends Notifier<void> {
     } on Object catch (e) {
       _log.debug(
         'Smart-Mode hotkey status update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Edit-selection sibling of [_setStatus] — same standalone-test guard.
+  void _setSelectionEditStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref
+          .read(selectionEditHotkeyRegistrationStatusProvider.notifier)
+          .set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Edit-selection hotkey status update skipped (standalone test '
+        'instance): $e',
       );
     }
   }
@@ -1115,6 +1225,10 @@ class HotkeyService extends Notifier<void> {
       // drives the recording overlay.
       PerfMarkers.instance.markHotkeyPressed();
       onSmartModeHotkeyPressed?.call();
+    } else if (actionId == _selectionEditActionId) {
+      // Drives the recording overlay too — same t₀ stamp rationale.
+      PerfMarkers.instance.markHotkeyPressed();
+      onSelectionEditHotkeyPressed?.call();
     } else if (actionId == _snippetAdvanceActionId) {
       // No perf mark — the field advance ends a recording rather than
       // starting the hotkey→overlay hot path this marker measures.
@@ -1146,6 +1260,8 @@ class HotkeyService extends Notifier<void> {
       onHotkeyReleased?.call();
     } else if (actionId == _smartModeActionId) {
       onSmartModeHotkeyReleased?.call();
+    } else if (actionId == _selectionEditActionId) {
+      onSelectionEditHotkeyReleased?.call();
     }
   }
 
@@ -1191,6 +1307,10 @@ class HotkeyService extends Notifier<void> {
     if (_smartModeInitialized) {
       await _unregisterAction(_smartModeActionId, stopMonitor: false);
       _log.info('Smart-Mode hotkey unregistered');
+    }
+    if (_selectionEditInitialized) {
+      await _unregisterAction(_selectionEditActionId, stopMonitor: false);
+      _log.info('Edit-selection hotkey unregistered');
     }
     // Last line of defence for the session-scoped interactive-snippet keys:
     // normally InteractiveSnippetController unregisters them on every

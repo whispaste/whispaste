@@ -49,6 +49,8 @@ import 'paste/paste_capability_notifier.dart';
 import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
+import 'selection_edit/selection_edit_service.dart'
+    show selectionEditServiceProvider;
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
 import 'text_transforms.dart';
@@ -439,6 +441,22 @@ class RecordingOrchestrator extends Notifier<void> {
     }
 
     try {
+      // ── Edit selection by voice: engine/paste gate ────────────────────
+      // Checked before the regular preflight so a missing Smart Mode
+      // engine surfaces as a setup hint without recording anything — the
+      // instruction would have nowhere to go.
+      if (target == RecordingTarget.selectionEdit) {
+        final selectionEditError = _selectionEditPreflight();
+        if (selectionEditError != null) {
+          _log.info('Edit selection unavailable: $selectionEditError');
+          _stateMachine.transition(
+            RecordingIntent.fail,
+            errorMessage: selectionEditError,
+          );
+          return;
+        }
+      }
+
       // ── Preflight checks ──────────────────────────────────────────────
       final preflightError = await _runPreflight();
 
@@ -485,7 +503,10 @@ class RecordingOrchestrator extends Notifier<void> {
       // Capturing the paste target only makes sense for the clipboard/paste
       // path — a quick-note target never pastes anywhere, so skip it for a
       // pure latency win, not a behaviour change.
-      if (target == RecordingTarget.clipboard) {
+      // Edit selection captures it too: the copy and the replacing paste
+      // both go to the app that was frontmost at hotkey time.
+      if (target == RecordingTarget.clipboard ||
+          target == RecordingTarget.selectionEdit) {
         await ref.read(pasterProvider)?.prime();
       }
 
@@ -1069,13 +1090,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required PipelineStepRunner runner,
     required _PipelineTiming timing,
   }) async {
-    if (audioDurMs > 0 && timing.transcribeMs! > 0) {
-      final rtf = timing.transcribeMs! / audioDurMs;
-      _log.info(
-        '[$sid] STT: inference=${timing.transcribeMs}ms '
-        'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
-      );
-    }
+    _logRealTimeFactor(sid, timing, audioDurMs);
 
     if (transcript.isEmpty) {
       timing.outcome = 'empty_transcript';
@@ -1093,6 +1108,19 @@ class RecordingOrchestrator extends Notifier<void> {
     var finalText = _cleanupTranscriptWhitespace(sid, transcript);
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
+
+    // ── Edit selection by voice ─────────────────────────────────────────
+    // The transcript is an instruction, not text to insert: no Smart Mode
+    // preset, snippet picker, history entry (triage decision 3 in
+    // `.scratch/voice-selection-edit/PRD.md`) or text transforms.
+    if (ref.read(recordingTargetProvider) == RecordingTarget.selectionEdit) {
+      return _finalizeSelectionEdit(
+        sid: sid,
+        instruction: finalText,
+        settings: settings,
+        timing: timing,
+      );
+    }
 
     // Snapshot before Smart Mode / text replacements touch `finalText`
     // (ticket 12) — persisted alongside the final text so the History
@@ -1252,6 +1280,98 @@ class RecordingOrchestrator extends Notifier<void> {
     // No separate 'complete' event — the aggregated pipeline outcome (emitted
     // once per run in _trackPipelineOutcome) already records the success path.
 
+    return true;
+  }
+
+  /// Gate for [RecordingTarget.selectionEdit]: returns an error code when
+  /// the feature cannot run, `null` when it can. Needs the paste path
+  /// (`selectionEditServiceProvider` is null without one) and a usable
+  /// Smart Mode engine — the downloaded local model, or an OpenAI key for
+  /// the cloud provider (strict either-or, ADR 0010).
+  String? _selectionEditPreflight() {
+    if (ref.read(selectionEditServiceProvider) == null) {
+      return 'selection_edit_unsupported';
+    }
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final provider = SmartModeProviderType.fromValue(
+      settings.smartMode.provider,
+    );
+    final engineReady = provider.isLocal
+        ? ref.read(smartModeDownloadProvider).modelDownloaded
+        : settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+    return engineReady ? null : 'selection_edit_no_engine';
+  }
+
+  /// Runs the edit-selection pipeline for [instruction] and finishes the
+  /// recording: `done` after the selection was replaced, `error` (with a
+  /// localized overlay hint) otherwise — in which case the original
+  /// selection is untouched and the clipboard restored. Stays in
+  /// `transcribing` while the engine runs: `refining` can never reach
+  /// `error` (ADR 0009), but a failed edit must say so.
+  void _logRealTimeFactor(String sid, _PipelineTiming timing, int audioDurMs) {
+    final transcribeMs = timing.transcribeMs!;
+    if (audioDurMs <= 0 || transcribeMs <= 0) return;
+    final rtf = transcribeMs / audioDurMs;
+    _log.info(
+      '[$sid] STT: inference=${transcribeMs}ms '
+      'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
+    );
+  }
+
+  Future<bool> _finalizeSelectionEdit({
+    required String sid,
+    required String instruction,
+    required AppSettings settings,
+    required _PipelineTiming timing,
+  }) async {
+    final service = ref.read(selectionEditServiceProvider);
+    if (service == null) {
+      timing.outcome = 'selection_edit_unsupported';
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'selection_edit_unsupported',
+      );
+      return false;
+    }
+
+    final sw = Stopwatch()..start();
+    final outcome = await service.run(
+      instruction: instruction,
+      pasteOptions: PasteOptions(
+        autoPasteDelayMs: settings.autoPasteDelay,
+        blocklist: settings.autoPasteBlocklist,
+      ),
+      translateTarget: smartModeTargetLanguageFromSettingsValue(
+        settings.smartMode.targetLanguage,
+      ),
+    );
+    sw.stop();
+    timing.clipboardMs = sw.elapsedMilliseconds;
+    // Edit-step latency (selection read + engine + paste); the full hotkey
+    // release → replacement time lands in the pipeline timing log.
+    _log.info(
+      '[$sid] Edit selection finished in ${sw.elapsedMilliseconds}ms '
+      '(failure=${outcome.failure?.name ?? "none"})',
+    );
+
+    final failure = outcome.failure;
+    if (failure != null) {
+      timing.outcome = failure.errorCode;
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: failure.errorCode,
+      );
+      return false;
+    }
+
+    await _persistHotkeyLatencyIfPending(sid);
+    _stateMachine.transition(
+      RecordingIntent.complete,
+      transcript: outcome.result,
+    );
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
+    _oomHandler.reset();
+    timing.outcome = 'ok';
     return true;
   }
 

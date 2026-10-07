@@ -49,6 +49,7 @@ const Map<String, String> _rowLabelKeysBySection = {
   // Smart Mode
   'settingsSmartMode': 'smartMode',
   'settingsSmartModeHotkeyEnabled': 'smartMode',
+  'settingsSelectionEditHotkeyEnabled': 'smartMode',
   // Audio
   'settingsAudio': 'audio',
   'settingsGain': 'audio',

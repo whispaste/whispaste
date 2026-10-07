@@ -35,11 +35,20 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
   }
 
   @override
-  Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
+  Future<NativePasteResult> pasteClipboard({required Duration delay}) =>
+      _sendShortcut('pasteClipboard', delay);
+
+  @override
+  Future<NativePasteResult> copySelection({required Duration delay}) =>
+      _sendShortcut('copySelection', delay);
+
+  /// Paste and copy share one native contract: focus the captured target,
+  /// wait [delay], send the shortcut, report a [NativePasteResult].
+  Future<NativePasteResult> _sendShortcut(String method, Duration delay) async {
     if (disposed) {
       return const NativePasteResult(status: NativePasteStatus.unknown);
     }
-    final raw = await channel.invokeMethod<Object?>('pasteClipboard', {
+    final raw = await channel.invokeMethod<Object?>(method, {
       'delayMs': delay.inMilliseconds,
     });
     if (raw is Map) {

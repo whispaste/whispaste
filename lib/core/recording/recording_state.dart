@@ -33,7 +33,12 @@ enum RecordingPhase { idle, recording, transcribing, refining, done, error }
 /// which drives one `templateField` recording per field of an interactive
 /// snippet and composes/pastes/saves the combined result itself once all
 /// fields are done.
-enum RecordingTarget { clipboard, quickNote, templateField }
+/// [selectionEdit] ("edit selection by voice", `.scratch/voice-selection-edit/`)
+/// treats the transcript as an *instruction*: the orchestrator reads the
+/// foreground app's selection, runs the instruction over it with the Smart
+/// Mode engine and pastes the result over the selection — no history entry,
+/// no snippet picker, no text transforms.
+enum RecordingTarget { clipboard, quickNote, templateField, selectionEdit }
 
 /// State of the local STT server subprocess.
 enum SttServerState { stopped, starting, ready, error }

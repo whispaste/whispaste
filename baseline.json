@@ -349,28 +349,28 @@
       "fingerprint": "1cf8e03d2b38f608",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2258,
+      "line": 2351,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "bd638ac2a05102af",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2260,
+      "line": 2353,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "d87f3b15693e536e",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2325,
+      "line": 2418,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "06e2b1d0a12d6fbd",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2327,
+      "line": 2420,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
@@ -409,11 +409,11 @@
       "message": "Comment only names a generic structural category — it adds no information beyond what the code already shows."
     },
     {
-      "fingerprint": "f5265775ad08735a",
+      "fingerprint": "1e91197e8485b89d",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/recording/recording_state.dart",
-      "line": 96,
-      "message": "2 occurrences of duplicated block (63 tokens): lib/core/recording/recording_state.dart:96, lib/services/update_service.dart:111"
+      "line": 101,
+      "message": "2 occurrences of duplicated block (63 tokens): lib/core/recording/recording_state.dart:101, lib/services/update_service.dart:111"
     },
     {
       "fingerprint": "b99138cfca5bfacb",
@@ -500,11 +500,11 @@
       "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
     },
     {
-      "fingerprint": "6eda81fc3aff4630",
+      "fingerprint": "377c6031943b8c23",
       "ruleId": "code-duplicates",
       "filePath": "lib/services/hotkey_service.dart",
-      "line": 551,
-      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:551, lib/services/hotkey_service.dart:592"
+      "line": 600,
+      "message": "2 occurrences of duplicated block (133 tokens): lib/services/hotkey_service.dart:600, lib/services/hotkey_service.dart:641"
     }
   ]
 }

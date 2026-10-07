@@ -71,6 +71,11 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   /// independently of the main hotkey's.
   late final RecordingTriggerHandler _smartModeTriggerHandler;
 
+  /// Trigger handler for the edit-selection hotkey
+  /// (`.scratch/voice-selection-edit/`) — push-to-talk and toggle like the
+  /// Smart-Mode hotkey, recording into [RecordingTarget.selectionEdit].
+  late final RecordingTriggerHandler _selectionEditTriggerHandler;
+
   /// Whether an interactive-snippet guided sequence is currently running —
   /// while it is, the main recording hotkey advances to the next field
   /// (PRD `interactive-snippets` User Story 14) instead of its usual
@@ -212,6 +217,30 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     );
     hotkeySvc.onSmartModeHotkeyPressed = _smartModeTriggerHandler.onKeyDown;
     hotkeySvc.onSmartModeHotkeyReleased = _smartModeTriggerHandler.onKeyUp;
+
+    // ── Edit-selection trigger handler (`.scratch/voice-selection-edit/`) ──
+    _selectionEditTriggerHandler = RecordingTriggerHandler(
+      startRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .startRecording(target: RecordingTarget.selectionEdit),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .toggleRecording(target: RecordingTarget.selectionEdit),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      holdOrTapEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTap,
+      isRecording: () => ref.read(recordingProvider).isRecording,
+    );
+    hotkeySvc.onSelectionEditHotkeyPressed =
+        _selectionEditTriggerHandler.onKeyDown;
+    hotkeySvc.onSelectionEditHotkeyReleased =
+        _selectionEditTriggerHandler.onKeyUp;
 
     // ── Interactive-snippet selection (interactive-snippets PRD) — wired
     // here, not inside SnippetPickerService itself, to avoid a file-level

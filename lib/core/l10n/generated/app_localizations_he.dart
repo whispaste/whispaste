@@ -4344,4 +4344,56 @@ class L10nHe extends L10n {
 
   @override
   String get historyOriginalTranscriptLabel => 'תמלול מקורי';
+
+  @override
+  String get settingsHotkeyActionSelectionEdit => 'עריכת הבחירה';
+
+  @override
+  String get settingsSelectionEditHotkeyEnabled => 'מקש קיצור לעריכת הבחירה';
+
+  @override
+  String get settingsSelectionEditHotkeyHint =>
+      'סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור ואמרו מה לשנות — או פשוט „קצר\", „שפר\" או „תרגם\". התוצאה מחליפה את הבחירה; ביטול באפליקציה מחזיר את המקור. משתמש במנוע Smart Mode שהוגדר למעלה.';
+
+  @override
+  String get settingsSelectionEditHotkeyInactive =>
+      'לא ניתן היה לרשום צירוף זה — מקש הקיצור לעריכת הבחירה אינו פעיל כרגע. בחרו צירוף אחר.';
+
+  @override
+  String get overlayTargetSelectionEdit => 'בחירה';
+
+  @override
+  String get overlayRecordingSelectionEdit => 'אמרו מה לשנות';
+
+  @override
+  String get overlaySelectionEditHint => 'אמרו מה לשנות — או: קצר · שפר · תרגם';
+
+  @override
+  String get overlayEditingSelection => 'עורך את הבחירה…';
+
+  @override
+  String get overlayDoneSelectionEdit => 'הבחירה הוחלפה';
+
+  @override
+  String get errorSelectionEditNoSelection =>
+      'לא סומן טקסט — סמנו טקסט ואז לחצו על מקש הקיצור';
+
+  @override
+  String get errorSelectionEditNoEngine =>
+      'כדי לערוך בחירות, הגדירו קודם את Smart Mode (הורידו את המודל המקומי או הוסיפו מפתח OpenAI)';
+
+  @override
+  String get errorSelectionEditUnsupported =>
+      'עריכת בחירה דורשת הדבקה אוטומטית, שאינה זמינה בגרסה זו';
+
+  @override
+  String get errorSelectionEditCopyFailed =>
+      'לא ניתן היה לקרוא את הבחירה — בדקו את ההרשאה להדבקה אוטומטית';
+
+  @override
+  String get errorSelectionEditFailed => 'העריכה נכשלה — הטקסט שלכם לא שונה';
+
+  @override
+  String get errorSelectionEditPasteFailed =>
+      'לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה';
 }

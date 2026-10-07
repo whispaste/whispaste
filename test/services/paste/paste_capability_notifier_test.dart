@@ -118,6 +118,10 @@ class _FakeRepairController implements DesktopPasteController {
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async =>
       const NativePasteResult(status: NativePasteStatus.unknown);
   @override
+  Future<NativePasteResult> copySelection({required Duration delay}) async =>
+      const NativePasteResult(status: NativePasteStatus.unknown);
+
+  @override
   Future<NativePasteResult> typeText(
     String text, {
     required Duration delay,

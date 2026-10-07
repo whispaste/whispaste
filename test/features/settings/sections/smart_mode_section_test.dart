@@ -49,6 +49,49 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SmartModeSection', () {
+    testWidgets('edit-selection hotkey is off by default; the toggle turns it '
+        'on and enables the combination line (voice-selection-edit)', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(settings: notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(const Key('selectionEditHotkeyToggle'));
+      expect(toggle, findsOneWidget);
+      expect(
+        find.byKey(const Key('selectionEditHotkeyComboLine')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('selectionEditHotkeyChange')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('selectionEditHotkeyInactiveNotice')),
+        findsNothing,
+      );
+
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(
+        notifier.state.value!.selectionEditHotkey.selectionEditHotkeyEnabled,
+        isTrue,
+      );
+      // The Smart-Mode hotkey is a separate setting and stays untouched.
+      expect(
+        notifier.state.value!.smartModeHotkey.smartModeHotkeyEnabled,
+        isFalse,
+      );
+    });
+
     testWidgets('preset dropdown defaults to Off', (tester) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(

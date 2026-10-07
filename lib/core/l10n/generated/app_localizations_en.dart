@@ -4404,4 +4404,58 @@ class L10nEn extends L10n {
 
   @override
   String get historyOriginalTranscriptLabel => 'Original transcript';
+
+  @override
+  String get settingsHotkeyActionSelectionEdit => 'Edit selection';
+
+  @override
+  String get settingsSelectionEditHotkeyEnabled => 'Edit-selection hotkey';
+
+  @override
+  String get settingsSelectionEditHotkeyHint =>
+      'Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the Smart Mode engine configured above.';
+
+  @override
+  String get settingsSelectionEditHotkeyInactive =>
+      'This combination could not be registered — the edit-selection hotkey is currently not active. Pick a different combination.';
+
+  @override
+  String get overlayTargetSelectionEdit => 'Edit selection';
+
+  @override
+  String get overlayRecordingSelectionEdit => 'Say what to change';
+
+  @override
+  String get overlaySelectionEditHint =>
+      'Say what to change — or: shorter · improve · translate';
+
+  @override
+  String get overlayEditingSelection => 'Editing selection…';
+
+  @override
+  String get overlayDoneSelectionEdit => 'Selection replaced';
+
+  @override
+  String get errorSelectionEditNoSelection =>
+      'No text selected — select text first, then press the hotkey';
+
+  @override
+  String get errorSelectionEditNoEngine =>
+      'Set up Smart Mode first (download the local model or add an OpenAI key) to edit selections';
+
+  @override
+  String get errorSelectionEditUnsupported =>
+      'Editing a selection needs auto-paste, which is not available in this build';
+
+  @override
+  String get errorSelectionEditCopyFailed =>
+      'Could not read the selection — check the auto-paste permission';
+
+  @override
+  String get errorSelectionEditFailed =>
+      'Editing failed — your text was left unchanged';
+
+  @override
+  String get errorSelectionEditPasteFailed =>
+      'Could not replace the selection — your text was left unchanged';
 }

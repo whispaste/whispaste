@@ -1234,5 +1234,20 @@
   "historyPastedInto": "Вставлено в {app}",
   "historyShowOriginalTranscript": "Показать оригинальный текст",
   "historyHideOriginalTranscript": "Скрыть оригинальный текст",
-  "historyOriginalTranscriptLabel": "Оригинальный текст"
+  "historyOriginalTranscriptLabel": "Оригинальный текст",
+  "settingsHotkeyActionSelectionEdit": "Редактирование выделения",
+  "settingsSelectionEditHotkeyEnabled": "Горячая клавиша редактирования выделения",
+  "settingsSelectionEditHotkeyHint": "Выделите текст в любом приложении, нажмите эту горячую клавишу и скажите, что изменить, — или просто «короче», «улучши» или «переведи». Результат заменит выделение; отмена в приложении вернёт оригинал. Использует настроенный выше движок Умного режима.",
+  "settingsSelectionEditHotkeyInactive": "Эту комбинацию не удалось зарегистрировать — горячая клавиша редактирования выделения сейчас не активна.",
+  "overlayTargetSelectionEdit": "Выделение",
+  "overlayRecordingSelectionEdit": "Скажите, что изменить",
+  "overlaySelectionEditHint": "Скажите, что изменить, — или: короче · улучши · переведи",
+  "overlayEditingSelection": "Редактирую выделение…",
+  "overlayDoneSelectionEdit": "Выделение заменено",
+  "errorSelectionEditNoSelection": "Текст не выделен — сначала выделите текст, затем нажмите горячую клавишу",
+  "errorSelectionEditNoEngine": "Чтобы редактировать выделение, сначала настройте Умный режим (загрузите локальную модель или добавьте ключ OpenAI)",
+  "errorSelectionEditUnsupported": "Для редактирования выделения нужна автовставка, которая недоступна в этой сборке",
+  "errorSelectionEditCopyFailed": "Не удалось прочитать выделение — проверьте разрешение на автовставку",
+  "errorSelectionEditFailed": "Не удалось отредактировать — ваш текст не изменён",
+  "errorSelectionEditPasteFailed": "Не удалось заменить выделение — ваш текст не изменён"
 }

@@ -1348,6 +1348,37 @@ void main() {
     );
   });
 
+  group('Edit-selection hotkey (voice-selection-edit)', () {
+    test('press and release reach their own callbacks (push-to-talk where '
+        'the registrar supports key-up)', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+      final service = _makeService(registrar);
+      var pressed = 0;
+      var released = 0;
+      var smartModePressed = 0;
+      service.onSelectionEditHotkeyPressed = () => pressed++;
+      service.onSelectionEditHotkeyReleased = () => released++;
+      service.onSmartModeHotkeyPressed = () => smartModePressed++;
+
+      await service.updateSelectionEditHotkey(key: LogicalKeyboardKey.keyY);
+      registrar.capturedKeyDownHandler!(registrar.registered.first);
+      registrar.capturedKeyUpHandler!(registrar.registered.first);
+
+      expect(pressed, 1);
+      expect(released, 1);
+      expect(smartModePressed, 0);
+    });
+
+    test('toggle-only where the registrar has no key-up', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final service = _makeService(registrar);
+
+      await service.updateSelectionEditHotkey(key: LogicalKeyboardKey.keyY);
+
+      expect(registrar.capturedKeyUpHandler, isNull);
+    });
+  });
+
   group('smartModeHotkeyRegistrationStatusProvider', () {
     test('starts unknown and reflects .set() calls independently', () {
       final container = ProviderContainer();

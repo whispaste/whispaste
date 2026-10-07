@@ -210,6 +210,12 @@ void DesktopPasteHost::HandleMethodCall(
     return;
   }
 
+  if (method == "copySelection") {
+    const int delay_ms = map ? GetInt(*map, "delayMs", 0) : 0;
+    result->Success(CopySelection(delay_ms));
+    return;
+  }
+
   if (method == "typeText") {
     const std::string text = map ? GetString(*map, "text") : "";
     const int delay_ms = map ? GetInt(*map, "delayMs", 0) : 0;
@@ -286,6 +292,33 @@ EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   if (!SendPasteShortcut()) {
+    return MakeResultMap("send_input_failed",
+                         "SendInput did not inject all 4 key events");
+  }
+  return MakeResultMap("success", "");
+}
+
+// Mirrors PasteClipboard with Ctrl+C: brings the captured target back to the
+// foreground and asks it to copy its current selection ("edit selection by
+// voice"). Dart snapshots/restores the clipboard around this call and
+// detects "no selection" by the clipboard staying unchanged.
+EncodableValue DesktopPasteHost::CopySelection(int delay_ms) {
+  if (!target_window_ || !::IsWindow(target_window_)) {
+    return MakeResultMap("no_target", "no captured target window at copy time");
+  }
+
+  if (delay_ms > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+  }
+
+  if (!BringTargetToForeground()) {
+    return MakeResultMap(
+        "foreground_blocked",
+        "SetForegroundWindow refused — UIPI or stale window handle");
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  if (!SendCtrlShortcut('C')) {
     return MakeResultMap("send_input_failed",
                          "SendInput did not inject all 4 key events");
   }
@@ -446,16 +479,22 @@ flutter::EncodableValue DesktopPasteHost::DiagnosticPaste(
 }
 
 bool DesktopPasteHost::SendPasteShortcut() const {
+  return SendCtrlShortcut('V');
+}
+
+// Injects Ctrl+<key> as one atomic 4-event SendInput burst — shared by
+// paste ('V') and copySelection ('C').
+bool DesktopPasteHost::SendCtrlShortcut(WORD key) const {
   INPUT inputs[4] = {};
 
   inputs[0].type = INPUT_KEYBOARD;
   inputs[0].ki.wVk = VK_CONTROL;
 
   inputs[1].type = INPUT_KEYBOARD;
-  inputs[1].ki.wVk = 'V';
+  inputs[1].ki.wVk = key;
 
   inputs[2].type = INPUT_KEYBOARD;
-  inputs[2].ki.wVk = 'V';
+  inputs[2].ki.wVk = key;
   inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
 
   inputs[3].type = INPUT_KEYBOARD;

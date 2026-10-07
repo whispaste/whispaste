@@ -24,6 +24,9 @@ String doneMessageFor(
   RecordingTarget target = RecordingTarget.clipboard,
 }) {
   if (target == RecordingTarget.quickNote) return l10n.overlayDoneQuickNote;
+  if (target == RecordingTarget.selectionEdit) {
+    return l10n.overlayDoneSelectionEdit;
+  }
   return switch (afterAction) {
     'paste' => l10n.overlayDonePasted,
     'copy_and_paste' || 'clipboard_and_paste' => l10n.overlayDoneBoth,

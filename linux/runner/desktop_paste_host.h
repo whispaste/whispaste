@@ -61,8 +61,13 @@ class DesktopPasteHost {
   // false if uinput isn't available or a write() failed partway through.
   bool SendPasteShortcut();
 
+  // Emits Ctrl+<keycode> on the virtual keyboard — shared by paste (KEY_V)
+  // and copySelection (KEY_C).
+  bool SendCtrlShortcut(int keycode);
+
   FlValue* CheckCapability();
   FlValue* PasteClipboard(int delay_ms);
+  FlValue* CopySelection(int delay_ms);
   FlValue* TypeText(const std::string& text, int delay_ms);
   FlValue* DiagnosticPaste(const std::string& demo_text);
 

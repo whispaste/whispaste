@@ -291,12 +291,31 @@ class FakeDesktopPasteController extends DesktopPasteController {
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls += 1;
     lastDelay = delay;
+    onPasteClipboard?.call();
     if (pasteStatusOverride != null) {
       return NativePasteResult(status: pasteStatusOverride!);
     }
     return pasteResult
         ? const NativePasteResult(status: NativePasteStatus.success)
         : const NativePasteResult(status: NativePasteStatus.postFailed);
+  }
+
+  /// Edit selection by voice: how the simulated target app reacts to the
+  /// copy shortcut. [onCopySelection] plays the app copying its selection
+  /// into the (mocked) clipboard; leave it null for "nothing selected".
+  int copyCalls = 0;
+
+  /// Fires on every native paste — lets a test read what the (mocked)
+  /// clipboard held at that moment, i.e. what was actually pasted.
+  void Function()? onPasteClipboard;
+  NativePasteStatus copyStatus = NativePasteStatus.success;
+  void Function()? onCopySelection;
+
+  @override
+  Future<NativePasteResult> copySelection({required Duration delay}) async {
+    copyCalls += 1;
+    if (copyStatus == NativePasteStatus.success) onCopySelection?.call();
+    return NativePasteResult(status: copyStatus);
   }
 
   @override
@@ -5109,6 +5128,183 @@ void main() {
   // =========================================================================
   // Smart Mode v2: local Cleanup pipeline (ticket 02)
   // =========================================================================
+
+  group('Edit selection by voice (.scratch/voice-selection-edit)', () {
+    late FakeSmartModeEngine engine;
+
+    Future<RecordingOrchestrator> setUpSelectionEdit({
+      bool modelDownloaded = true,
+      String provider = 'local',
+      bool pasteAvailable = true,
+    }) async {
+      ensureFakeLocalSttFilesExist();
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(
+              AppSettings(
+                stt: const SttSettings(
+                  model: 'whisper-small',
+                  language: 'English',
+                ),
+                afterTranscriptionSection: const AfterTranscriptionSettings(
+                  afterTranscription: 'clipboard',
+                ),
+                onboarding: const OnboardingSettings(onboardingCompleted: true),
+                smartMode: SmartModeSettings(provider: provider),
+              ),
+            ),
+          ),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => pasteAvailable ? fakeDesktopPaste : null,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          smartModeDownloadProvider.overrideWith(
+            () =>
+                FakeSmartModeDownloadNotifier(modelDownloaded: modelDownloaded),
+          ),
+          smartModeEngineProvider.overrideWith((ref) => engine),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      return orch;
+    }
+
+    setUp(() {
+      engine = FakeSmartModeEngine(resultToReturn: 'Short.');
+      clipboardText = 'User clipboard';
+      fakeDesktopPaste.pasteResult = true;
+    });
+
+    test('success: reads the selection, sends instruction + selection to '
+        'the engine, pastes the result, restores the clipboard and writes '
+        'no history entry', () async {
+      final orch = await setUpSelectionEdit();
+      fakeDesktopPaste.onCopySelection = () =>
+          clipboardText = 'A long selected paragraph.';
+      fakeStt.transcriptToReturn = 'make it friendlier';
+      String? pasted;
+      fakeDesktopPaste.onPasteClipboard = () => pasted = clipboardText;
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      // The paste target is captured at hotkey time.
+      expect(fakeDesktopPaste.captureCalls, greaterThanOrEqualTo(1));
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(container.read(recordingProvider).transcript, 'Short.');
+      expect(fakeDesktopPaste.copyCalls, 1);
+      expect(engine.runCalls, 1);
+      expect(engine.lastUserText, contains('make it friendlier'));
+      expect(engine.lastUserText, contains('A long selected paragraph.'));
+      expect(fakeDesktopPaste.pasteCalls, 1);
+      expect(pasted, 'Short.');
+      expect(clipboardText, 'User clipboard');
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('spoken quick-action keyword uses the preset prompt', () async {
+      final orch = await setUpSelectionEdit();
+      fakeDesktopPaste.onCopySelection = () => clipboardText = 'Ein Absatz.';
+      fakeStt.transcriptToReturn = 'Kürzer.';
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      await orch.stopRecording();
+
+      expect(engine.lastUserText, 'Ein Absatz.');
+      expect(engine.lastSystemPrompt, startsWith('Shorten this text'));
+    });
+
+    test('no selection: error hint, engine never called, nothing pasted, '
+        'clipboard restored', () async {
+      final orch = await setUpSelectionEdit();
+      fakeStt.transcriptToReturn = 'shorter';
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+      await orch.stopRecording();
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'selection_edit_no_selection');
+      expect(engine.runCalls, 0);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(clipboardText, 'User clipboard');
+    });
+
+    test('no engine (local model missing): setup hint before recording, '
+        'nothing copied or pasted', () async {
+      final orch = await setUpSelectionEdit(modelDownloaded: false);
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'selection_edit_no_engine');
+      expect(fakeAudio.startCallCount, 0);
+      expect(fakeDesktopPaste.copyCalls, 0);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('no engine (cloud provider without OpenAI key): setup hint', () async {
+      final orch = await setUpSelectionEdit(provider: 'openai');
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+
+      expect(
+        container.read(recordingProvider).errorMessage,
+        'selection_edit_no_engine',
+      );
+    });
+
+    test(
+      'no paste path on this platform: feature disabled with a hint',
+      () async {
+        final orch = await setUpSelectionEdit(pasteAvailable: false);
+
+        await orch.startRecording(target: RecordingTarget.selectionEdit);
+
+        expect(
+          container.read(recordingProvider).errorMessage,
+          'selection_edit_unsupported',
+        );
+        expect(fakeAudio.startCallCount, 0);
+      },
+    );
+
+    test('engine failure: original untouched, clipboard restored', () async {
+      final orch = await setUpSelectionEdit();
+      engine.errorToThrow = StateError('engine crashed');
+      fakeDesktopPaste.onCopySelection = () => clipboardText = 'Original';
+      fakeStt.transcriptToReturn = 'shorter';
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+      await orch.stopRecording();
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'selection_edit_failed');
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(clipboardText, 'User clipboard');
+    });
+  });
 
   group('Smart Mode v2: local Cleanup pipeline (ticket 02)', () {
     late FakeSmartModeEngine fakeSmartModeEngine;

@@ -2255,6 +2255,99 @@ class SmartModeHotkeySettings {
   );
 }
 
+/// Settings for the "edit selection by voice" hotkey
+/// (`.scratch/voice-selection-edit/`): select text in any app, press it,
+/// speak an instruction — the Smart Mode engine's result replaces the
+/// selection. A fifth, independently configurable global hotkey, same shape
+/// as [QuickNoteHotkeySettings].
+class SelectionEditHotkeySettings {
+  const SelectionEditHotkeySettings({
+    this.selectionEditHotkeyEnabled = false,
+    this.selectionEditHotkeyKey = 'Y',
+    this.selectionEditHotkeyKeyDisplay = '',
+    this.selectionEditHotkeyModifiers = 'ctrl+shift',
+  });
+
+  /// Off by default — an existing user must opt in, never gets a system-wide
+  /// shortcut silently claimed by an update.
+  final bool selectionEditHotkeyEnabled;
+
+  /// Canonical storage token for the non-modifier key (see
+  /// [HotkeySettings.hotkeyKey]).
+  final String selectionEditHotkeyKey;
+
+  /// User-visible label for [selectionEditHotkeyKey] (see
+  /// [HotkeySettings.hotkeyKeyDisplay]).
+  final String selectionEditHotkeyKeyDisplay;
+
+  final String selectionEditHotkeyModifiers;
+
+  static const SelectionEditHotkeySettings defaults =
+      SelectionEditHotkeySettings();
+
+  factory SelectionEditHotkeySettings.fromMap(Map<String, String> v) =>
+      SelectionEditHotkeySettings(
+        selectionEditHotkeyEnabled: _readBool(
+          v,
+          'selection_edit_hotkey_enabled',
+          defaults.selectionEditHotkeyEnabled,
+        ),
+        selectionEditHotkeyKey:
+            v['selection_edit_hotkey_key'] ?? defaults.selectionEditHotkeyKey,
+        selectionEditHotkeyKeyDisplay:
+            v['selection_edit_hotkey_key_display'] ??
+            defaults.selectionEditHotkeyKeyDisplay,
+        selectionEditHotkeyModifiers:
+            v['selection_edit_hotkey_modifiers'] ??
+            defaults.selectionEditHotkeyModifiers,
+      );
+
+  Map<String, String> toMap() => {
+    'selection_edit_hotkey_enabled': '$selectionEditHotkeyEnabled',
+    'selection_edit_hotkey_key': selectionEditHotkeyKey,
+    'selection_edit_hotkey_key_display': selectionEditHotkeyKeyDisplay,
+    'selection_edit_hotkey_modifiers': selectionEditHotkeyModifiers,
+  };
+
+  // loam-ignore: code-duplicates – same repo-wide copyWith boilerplate shape
+  // shared by every settings-section class in this file.
+  SelectionEditHotkeySettings copyWith({
+    bool? selectionEditHotkeyEnabled,
+    String? selectionEditHotkeyKey,
+    String? selectionEditHotkeyKeyDisplay,
+    String? selectionEditHotkeyModifiers,
+  }) => SelectionEditHotkeySettings(
+    selectionEditHotkeyEnabled:
+        selectionEditHotkeyEnabled ?? this.selectionEditHotkeyEnabled,
+    selectionEditHotkeyKey:
+        selectionEditHotkeyKey ?? this.selectionEditHotkeyKey,
+    selectionEditHotkeyKeyDisplay:
+        selectionEditHotkeyKeyDisplay ?? this.selectionEditHotkeyKeyDisplay,
+    selectionEditHotkeyModifiers:
+        selectionEditHotkeyModifiers ?? this.selectionEditHotkeyModifiers,
+  );
+
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SelectionEditHotkeySettings &&
+          selectionEditHotkeyEnabled == other.selectionEditHotkeyEnabled &&
+          selectionEditHotkeyKey == other.selectionEditHotkeyKey &&
+          selectionEditHotkeyKeyDisplay ==
+              other.selectionEditHotkeyKeyDisplay &&
+          selectionEditHotkeyModifiers == other.selectionEditHotkeyModifiers;
+
+  @override
+  int get hashCode => Object.hash(
+    selectionEditHotkeyEnabled,
+    selectionEditHotkeyKey,
+    selectionEditHotkeyKeyDisplay,
+    selectionEditHotkeyModifiers,
+  );
+}
+
 // ===========================================================================
 // Section 23 — Local Automation API
 // ===========================================================================
@@ -2354,4 +2447,11 @@ SnippetPickerHotkeySettings buildDefaultSnippetPickerHotkeySettings() =>
 SmartModeHotkeySettings buildDefaultSmartModeHotkeySettings() =>
     SmartModeHotkeySettings(
       smartModeHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+    );
+
+SelectionEditHotkeySettings buildDefaultSelectionEditHotkeySettings() =>
+    SelectionEditHotkeySettings(
+      selectionEditHotkeyModifiers: Platform.isMacOS
+          ? 'meta+shift'
+          : 'ctrl+shift',
     );

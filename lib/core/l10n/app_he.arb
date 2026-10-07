@@ -1792,5 +1792,20 @@
   "historyPastedInto": "הודבק ל-{app}",
   "historyShowOriginalTranscript": "הצג תמלול מקורי",
   "historyHideOriginalTranscript": "הסתר תמלול מקורי",
-  "historyOriginalTranscriptLabel": "תמלול מקורי"
+  "historyOriginalTranscriptLabel": "תמלול מקורי",
+  "settingsHotkeyActionSelectionEdit": "עריכת הבחירה",
+  "settingsSelectionEditHotkeyEnabled": "מקש קיצור לעריכת הבחירה",
+  "settingsSelectionEditHotkeyHint": "סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור ואמרו מה לשנות — או פשוט „קצר\", „שפר\" או „תרגם\". התוצאה מחליפה את הבחירה; ביטול באפליקציה מחזיר את המקור. משתמש במנוע Smart Mode שהוגדר למעלה.",
+  "settingsSelectionEditHotkeyInactive": "לא ניתן היה לרשום צירוף זה — מקש הקיצור לעריכת הבחירה אינו פעיל כרגע. בחרו צירוף אחר.",
+  "overlayTargetSelectionEdit": "בחירה",
+  "overlayRecordingSelectionEdit": "אמרו מה לשנות",
+  "overlaySelectionEditHint": "אמרו מה לשנות — או: קצר · שפר · תרגם",
+  "overlayEditingSelection": "עורך את הבחירה…",
+  "overlayDoneSelectionEdit": "הבחירה הוחלפה",
+  "errorSelectionEditNoSelection": "לא סומן טקסט — סמנו טקסט ואז לחצו על מקש הקיצור",
+  "errorSelectionEditNoEngine": "כדי לערוך בחירות, הגדירו קודם את Smart Mode (הורידו את המודל המקומי או הוסיפו מפתח OpenAI)",
+  "errorSelectionEditUnsupported": "עריכת בחירה דורשת הדבקה אוטומטית, שאינה זמינה בגרסה זו",
+  "errorSelectionEditCopyFailed": "לא ניתן היה לקרוא את הבחירה — בדקו את ההרשאה להדבקה אוטומטית",
+  "errorSelectionEditFailed": "העריכה נכשלה — הטקסט שלכם לא שונה",
+  "errorSelectionEditPasteFailed": "לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה"
 }

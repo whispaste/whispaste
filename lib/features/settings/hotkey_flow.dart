@@ -97,6 +97,15 @@ List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
       key: settings.smartModeHotkey.smartModeHotkeyKey,
       modifiers: settings.smartModeHotkey.smartModeHotkeyModifiers,
     ),
+  if (settings.selectionEditHotkey.selectionEditHotkeyEnabled)
+    HotkeyBinding(
+      // Must match the action id in `HotkeyService`
+      // (`_selectionEditActionId`) exactly (`.scratch/voice-selection-edit/`).
+      actionId: 'selectionEdit',
+      actionLabel: l10n.settingsHotkeyActionSelectionEdit,
+      key: settings.selectionEditHotkey.selectionEditHotkeyKey,
+      modifiers: settings.selectionEditHotkey.selectionEditHotkeyModifiers,
+    ),
 ];
 
 /// Der eine Ablauf hinter jedem Neu-Belegen: Dialog öffnen → Kollision prüfen

@@ -64,6 +64,19 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorRecordingFailed;
     case 'no_audio_recorded':
       return l10n.errorNoAudioRecorded;
+    // Edit selection by voice (`.scratch/voice-selection-edit/`).
+    case 'selection_edit_no_selection':
+      return l10n.errorSelectionEditNoSelection;
+    case 'selection_edit_no_engine':
+      return l10n.errorSelectionEditNoEngine;
+    case 'selection_edit_unsupported':
+      return l10n.errorSelectionEditUnsupported;
+    case 'selection_edit_copy_failed':
+      return l10n.errorSelectionEditCopyFailed;
+    case 'selection_edit_failed':
+      return l10n.errorSelectionEditFailed;
+    case 'selection_edit_paste_failed':
+      return l10n.errorSelectionEditPasteFailed;
     case 'transcription_empty':
       return l10n.errorTranscriptionEmpty;
     case 'stt_server_failed':

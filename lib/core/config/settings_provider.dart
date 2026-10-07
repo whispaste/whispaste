@@ -64,6 +64,7 @@ class AppSettings {
     this.autosave = const SettingsAutosaveSettings(),
     this.smartMode = const SmartModeSettings(),
     this.smartModeHotkey = const SmartModeHotkeySettings(),
+    this.selectionEditHotkey = const SelectionEditHotkeySettings(),
     this.automationApi = const AutomationApiSettings(),
   });
 
@@ -144,6 +145,10 @@ class AppSettings {
   /// Smart-Mode hotkey settings (fourth, independently configurable hotkey —
   /// bound to one of the three presets, ticket 04).
   final SmartModeHotkeySettings smartModeHotkey;
+
+  /// "Edit selection by voice" hotkey settings
+  /// (`.scratch/voice-selection-edit/`) — off by default.
+  final SelectionEditHotkeySettings selectionEditHotkey;
 
   /// Local automation API settings (ticket 03,
   /// `.scratch/local-automation-api/`) — off by default.
@@ -398,6 +403,7 @@ class AppSettings {
     quickNoteHotkey: buildDefaultQuickNoteHotkeySettings(),
     snippetPickerHotkey: buildDefaultSnippetPickerHotkeySettings(),
     smartModeHotkey: buildDefaultSmartModeHotkeySettings(),
+    selectionEditHotkey: buildDefaultSelectionEditHotkeySettings(),
   );
 
   /// Creates settings from persisted key-value storage.
@@ -426,6 +432,7 @@ class AppSettings {
       autosave: SettingsAutosaveSettings.fromMap(values),
       smartMode: SmartModeSettings.fromMap(values),
       smartModeHotkey: SmartModeHotkeySettings.fromMap(values),
+      selectionEditHotkey: SelectionEditHotkeySettings.fromMap(values),
       automationApi: AutomationApiSettings.fromMap(values),
     );
   }
@@ -492,6 +499,7 @@ class AppSettings {
     ...autosave.toMap(),
     ...smartMode.toMap(),
     ...smartModeHotkey.toMap(),
+    ...selectionEditHotkey.toMap(),
     ...automationApi.toMap(),
   };
 
@@ -531,6 +539,7 @@ class AppSettings {
     SettingsAutosaveSettings? autosave,
     SmartModeSettings? smartMode,
     SmartModeHotkeySettings? smartModeHotkey,
+    SelectionEditHotkeySettings? selectionEditHotkey,
     AutomationApiSettings? automationApi,
   }) {
     return _copyWithSectionsGroupA(
@@ -558,6 +567,7 @@ class AppSettings {
       autosave: autosave,
       smartMode: smartMode,
       smartModeHotkey: smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey,
       automationApi: automationApi,
     );
   }
@@ -605,6 +615,7 @@ class AppSettings {
       autosave: autosave,
       smartMode: smartMode,
       smartModeHotkey: smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey,
       automationApi: automationApi,
     );
   }
@@ -622,6 +633,7 @@ class AppSettings {
     SettingsAutosaveSettings? autosave,
     SmartModeSettings? smartMode,
     SmartModeHotkeySettings? smartModeHotkey,
+    SelectionEditHotkeySettings? selectionEditHotkey,
     AutomationApiSettings? automationApi,
   }) {
     return AppSettings(
@@ -648,6 +660,7 @@ class AppSettings {
       autosave: autosave ?? this.autosave,
       smartMode: smartMode ?? this.smartMode,
       smartModeHotkey: smartModeHotkey ?? this.smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey ?? this.selectionEditHotkey,
       automationApi: automationApi ?? this.automationApi,
     );
   }
@@ -840,6 +853,7 @@ class AppSettings {
       snippetPickerHotkey: snippetPickerHotkey,
       smartMode: smartMode,
       smartModeHotkey: smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey,
       // automationApi has no legacy top-level parameter either — same
       // pass-through requirement as above.
       automationApi: automationApi,
@@ -874,6 +888,7 @@ class AppSettings {
           autosave == other.autosave &&
           smartMode == other.smartMode &&
           smartModeHotkey == other.smartModeHotkey &&
+          selectionEditHotkey == other.selectionEditHotkey &&
           automationApi == other.automationApi;
 
   // Object.hash() caps at 20 positional arguments; this aggregate now has
@@ -905,6 +920,7 @@ class AppSettings {
     autosave,
     smartMode,
     smartModeHotkey,
+    selectionEditHotkey,
     automationApi,
   ]);
 }

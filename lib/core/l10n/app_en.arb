@@ -1807,5 +1807,65 @@
     "description": "Disclosure toggle that reveals the pre-Smart-Mode/pre-Replacements transcript in the History detail panel (ticket 12) — only shown when it differs from the final text."
   },
   "historyHideOriginalTranscript": "Hide original transcript",
-  "historyOriginalTranscriptLabel": "Original transcript"
+  "historyOriginalTranscriptLabel": "Original transcript",
+  "settingsHotkeyActionSelectionEdit": "Edit selection",
+  "@settingsHotkeyActionSelectionEdit": {
+    "description": "Action name of the edit-selection hotkey, used in hotkey collision messages"
+  },
+  "settingsSelectionEditHotkeyEnabled": "Edit-selection hotkey",
+  "@settingsSelectionEditHotkeyEnabled": {
+    "description": "Settings row label: toggle for the edit-selection-by-voice hotkey"
+  },
+  "settingsSelectionEditHotkeyHint": "Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the Smart Mode engine configured above.",
+  "@settingsSelectionEditHotkeyHint": {
+    "description": "Settings hint below the edit-selection hotkey toggle; the quoted words are the spoken quick-action keywords"
+  },
+  "settingsSelectionEditHotkeyInactive": "This combination could not be registered — the edit-selection hotkey is currently not active. Pick a different combination.",
+  "@settingsSelectionEditHotkeyInactive": {
+    "description": "Shown when the edit-selection hotkey combination could not be registered with the OS"
+  },
+  "overlayTargetSelectionEdit": "Edit selection",
+  "@overlayTargetSelectionEdit": {
+    "description": "Very short target name shown in the recording overlay while recording an instruction for editing the selected text"
+  },
+  "overlayRecordingSelectionEdit": "Say what to change",
+  "@overlayRecordingSelectionEdit": {
+    "description": "Overlay label while recording an edit-selection instruction (announced by screen readers)"
+  },
+  "overlaySelectionEditHint": "Say what to change — or: shorter · improve · translate",
+  "@overlaySelectionEditHint": {
+    "description": "Overlay hint while recording an edit-selection instruction; the listed words are the spoken quick-action keywords and must stay recognizable"
+  },
+  "overlayEditingSelection": "Editing selection…",
+  "@overlayEditingSelection": {
+    "description": "Overlay label while the selected text is being edited"
+  },
+  "overlayDoneSelectionEdit": "Selection replaced",
+  "@overlayDoneSelectionEdit": {
+    "description": "Overlay completion message after the selected text was replaced"
+  },
+  "errorSelectionEditNoSelection": "No text selected — select text first, then press the hotkey",
+  "@errorSelectionEditNoSelection": {
+    "description": "Overlay error: the edit-selection hotkey was used without any selected text"
+  },
+  "errorSelectionEditNoEngine": "Set up Smart Mode first (download the local model or add an OpenAI key) to edit selections",
+  "@errorSelectionEditNoEngine": {
+    "description": "Overlay error: the edit-selection hotkey needs a configured Smart Mode engine"
+  },
+  "errorSelectionEditUnsupported": "Editing a selection needs auto-paste, which is not available in this build",
+  "@errorSelectionEditUnsupported": {
+    "description": "Overlay error: this build has no auto-paste, so selections cannot be edited"
+  },
+  "errorSelectionEditCopyFailed": "Could not read the selection — check the auto-paste permission",
+  "@errorSelectionEditCopyFailed": {
+    "description": "Overlay error: the copy shortcut could not be sent to the target app"
+  },
+  "errorSelectionEditFailed": "Editing failed — your text was left unchanged",
+  "@errorSelectionEditFailed": {
+    "description": "Overlay error: the Smart Mode engine failed or timed out; nothing was replaced"
+  },
+  "errorSelectionEditPasteFailed": "Could not replace the selection — your text was left unchanged",
+  "@errorSelectionEditPasteFailed": {
+    "description": "Overlay error: the edited text could not be pasted; nothing was replaced"
+  }
 }

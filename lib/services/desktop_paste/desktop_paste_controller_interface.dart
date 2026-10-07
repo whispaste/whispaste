@@ -167,6 +167,16 @@ abstract class DesktopPasteController {
   /// failure modes (no target, permission missing, OS post failed).
   Future<NativePasteResult> pasteClipboard({required Duration delay});
 
+  /// Restores the captured target and sends the copy shortcut
+  /// (Cmd/Ctrl+C), so the target app copies its current selection to the
+  /// clipboard ("edit selection by voice"). The caller owns the clipboard
+  /// snapshot/restore around this call and detects "nothing selected" by
+  /// the clipboard staying unchanged — the shortcut itself reports success
+  /// either way.
+  ///
+  /// Same [NativePasteResult] vocabulary as [pasteClipboard].
+  Future<NativePasteResult> copySelection({required Duration delay});
+
   /// Restores the captured target and types [text] directly via synthetic
   /// Unicode keystrokes — no clipboard involved at all.
   ///

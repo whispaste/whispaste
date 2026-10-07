@@ -1576,5 +1576,20 @@
   "historyPastedInto": "Eingefügt in {app}",
   "historyShowOriginalTranscript": "Original-Transkript anzeigen",
   "historyHideOriginalTranscript": "Original-Transkript ausblenden",
-  "historyOriginalTranscriptLabel": "Original-Transkript"
+  "historyOriginalTranscriptLabel": "Original-Transkript",
+  "settingsHotkeyActionSelectionEdit": "Auswahl bearbeiten",
+  "settingsSelectionEditHotkeyEnabled": "Hotkey „Auswahl bearbeiten\"",
+  "settingsSelectionEditHotkeyHint": "Text in einer beliebigen App markieren, diesen Hotkey drücken und sagen, was sich ändern soll — oder einfach „kürzer\", „verbessern\" oder „übersetzen\". Das Ergebnis ersetzt die Auswahl; Rückgängig in der App holt das Original zurück. Nutzt die oben eingerichtete Smart-Mode-Engine.",
+  "settingsSelectionEditHotkeyInactive": "Diese Kombination ließ sich nicht registrieren — der Hotkey „Auswahl bearbeiten\" ist derzeit nicht aktiv. Wähl eine andere Kombination.",
+  "overlayTargetSelectionEdit": "Auswahl",
+  "overlayRecordingSelectionEdit": "Sag, was sich ändern soll",
+  "overlaySelectionEditHint": "Sag, was sich ändern soll — oder: kürzer · verbessern · übersetzen",
+  "overlayEditingSelection": "Bearbeite Auswahl…",
+  "overlayDoneSelectionEdit": "Auswahl ersetzt",
+  "errorSelectionEditNoSelection": "Kein Text markiert — erst Text markieren, dann den Hotkey drücken",
+  "errorSelectionEditNoEngine": "Richte zuerst Smart Mode ein (lokales Modell laden oder OpenAI-Schlüssel hinterlegen), um Auswahlen zu bearbeiten",
+  "errorSelectionEditUnsupported": "Auswahl bearbeiten braucht Auto-Einfügen, das in diesem Build nicht verfügbar ist",
+  "errorSelectionEditCopyFailed": "Auswahl konnte nicht gelesen werden — prüf die Berechtigung für Auto-Einfügen",
+  "errorSelectionEditFailed": "Bearbeiten fehlgeschlagen — dein Text bleibt unverändert",
+  "errorSelectionEditPasteFailed": "Auswahl konnte nicht ersetzt werden — dein Text bleibt unverändert"
 }

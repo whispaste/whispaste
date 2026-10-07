@@ -4478,4 +4478,59 @@ class L10nRu extends L10n {
 
   @override
   String get historyOriginalTranscriptLabel => 'Оригинальный текст';
+
+  @override
+  String get settingsHotkeyActionSelectionEdit => 'Редактирование выделения';
+
+  @override
+  String get settingsSelectionEditHotkeyEnabled =>
+      'Горячая клавиша редактирования выделения';
+
+  @override
+  String get settingsSelectionEditHotkeyHint =>
+      'Выделите текст в любом приложении, нажмите эту горячую клавишу и скажите, что изменить, — или просто «короче», «улучши» или «переведи». Результат заменит выделение; отмена в приложении вернёт оригинал. Использует настроенный выше движок Умного режима.';
+
+  @override
+  String get settingsSelectionEditHotkeyInactive =>
+      'Эту комбинацию не удалось зарегистрировать — горячая клавиша редактирования выделения сейчас не активна.';
+
+  @override
+  String get overlayTargetSelectionEdit => 'Выделение';
+
+  @override
+  String get overlayRecordingSelectionEdit => 'Скажите, что изменить';
+
+  @override
+  String get overlaySelectionEditHint =>
+      'Скажите, что изменить, — или: короче · улучши · переведи';
+
+  @override
+  String get overlayEditingSelection => 'Редактирую выделение…';
+
+  @override
+  String get overlayDoneSelectionEdit => 'Выделение заменено';
+
+  @override
+  String get errorSelectionEditNoSelection =>
+      'Текст не выделен — сначала выделите текст, затем нажмите горячую клавишу';
+
+  @override
+  String get errorSelectionEditNoEngine =>
+      'Чтобы редактировать выделение, сначала настройте Умный режим (загрузите локальную модель или добавьте ключ OpenAI)';
+
+  @override
+  String get errorSelectionEditUnsupported =>
+      'Для редактирования выделения нужна автовставка, которая недоступна в этой сборке';
+
+  @override
+  String get errorSelectionEditCopyFailed =>
+      'Не удалось прочитать выделение — проверьте разрешение на автовставку';
+
+  @override
+  String get errorSelectionEditFailed =>
+      'Не удалось отредактировать — ваш текст не изменён';
+
+  @override
+  String get errorSelectionEditPasteFailed =>
+      'Не удалось заменить выделение — ваш текст не изменён';
 }

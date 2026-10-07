@@ -119,6 +119,11 @@ void DesktopPasteHost::HandleMethodCall(FlMethodCall* method_call) {
     g_autoptr(FlValue) result = PasteClipboard(delay_ms);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
 
+  } else if (strcmp(method, "copySelection") == 0) {
+    const int delay_ms = GetInt(args, "delayMs", 0);
+    g_autoptr(FlValue) result = CopySelection(delay_ms);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
   } else if (strcmp(method, "typeText") == 0) {
     const std::string text = GetString(args, "text");
     const int delay_ms = GetInt(args, "delayMs", 0);
@@ -153,7 +158,8 @@ bool DesktopPasteHost::EnsureUinputDevice() {
 
   if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 ||
       ioctl(fd, UI_SET_KEYBIT, KEY_LEFTCTRL) < 0 ||
-      ioctl(fd, UI_SET_KEYBIT, KEY_V) < 0) {
+      ioctl(fd, UI_SET_KEYBIT, KEY_V) < 0 ||
+      ioctl(fd, UI_SET_KEYBIT, KEY_C) < 0) {
     close(fd);
     return false;
   }
@@ -179,11 +185,13 @@ bool DesktopPasteHost::EnsureUinputDevice() {
   return true;
 }
 
-bool DesktopPasteHost::SendPasteShortcut() {
+bool DesktopPasteHost::SendPasteShortcut() { return SendCtrlShortcut(KEY_V); }
+
+bool DesktopPasteHost::SendCtrlShortcut(int keycode) {
   if (!EnsureUinputDevice()) return false;
   return EmitKey(uinput_fd_, KEY_LEFTCTRL, 1) &&
-         EmitKey(uinput_fd_, KEY_V, 1) &&
-         EmitKey(uinput_fd_, KEY_V, 0) &&
+         EmitKey(uinput_fd_, keycode, 1) &&
+         EmitKey(uinput_fd_, keycode, 0) &&
          EmitKey(uinput_fd_, KEY_LEFTCTRL, 0);
 }
 
@@ -210,6 +218,21 @@ FlValue* DesktopPasteHost::PasteClipboard(int delay_ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
   }
   if (!SendPasteShortcut()) {
+    return MakeResultMap("permission_missing",
+                         "uinput unavailable — see checkCapability");
+  }
+  return MakeResultMap("success", "");
+}
+
+// Mirrors PasteClipboard with Ctrl+C: the focused app copies its current
+// selection ("edit selection by voice"). Dart snapshots/restores the
+// clipboard around this call and detects "no selection" by the clipboard
+// staying unchanged.
+FlValue* DesktopPasteHost::CopySelection(int delay_ms) {
+  if (delay_ms > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+  }
+  if (!SendCtrlShortcut(KEY_C)) {
     return MakeResultMap("permission_missing",
                          "uinput unavailable — see checkCapability");
   }
