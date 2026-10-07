@@ -45,6 +45,11 @@ class _FakeSmartModeEngine implements SmartModeEngine {
     if (error != null) throw error;
     return resultToReturn ?? userText;
   }
+
+  int cancelCalls = 0;
+
+  @override
+  Future<void> cancel() async => cancelCalls++;
 }
 
 void main() {
@@ -146,6 +151,11 @@ void main() {
       expect(
         (result as SmartModeRetroactiveFailure).reason,
         SmartModeRetroactiveFailureReason.timeout,
+      );
+      expect(
+        fakeEngine.cancelCalls,
+        1,
+        reason: 'a timed-out generation must be aborted, not left running',
       );
     });
 

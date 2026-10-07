@@ -38,6 +38,8 @@
 /// `lsregister -f /Applications/WhisPaste.app`) once done.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -116,9 +118,14 @@ class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
   String? _error;
   bool _running = false;
 
+  /// One engine for the whole screen, so repeated runs exercise the
+  /// resident-model (warm) path instead of a cold load every time.
+  final _engine = SmartModeFfiEngine();
+
   @override
   void dispose() {
     _inputController.dispose();
+    unawaited(_engine.shutdown());
     super.dispose();
   }
 
@@ -135,8 +142,7 @@ class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
 
     final stopwatch = Stopwatch()..start();
     try {
-      final engine = SmartModeFfiEngine();
-      final result = await engine.run(
+      final result = await _engine.run(
         systemPrompt: _systemPrompts[_preset]!,
         userText: userText,
       );
@@ -225,7 +231,12 @@ class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
             const SizedBox(height: 16),
             if (_elapsedMs != null)
               Text(
-                'Dauer: ${_elapsedMs}ms',
+                'Dauer: ${_elapsedMs}ms'
+                '${_engine.lastRunStats == null
+                    ? ''
+                    : _engine.lastRunStats!.loadedModel
+                    ? ' (kalt, Modell geladen in ${_engine.lastRunStats!.loadTime.inMilliseconds}ms)'
+                    : ' (warm, Modell wiederverwendet)'}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             const SizedBox(height: 8),

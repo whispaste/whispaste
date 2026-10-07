@@ -10,7 +10,9 @@
 #include "llama.h"
 #include "chat.h"
 
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -73,19 +75,30 @@ char* dup_cstr(const std::string& s) {
   return out;
 }
 
+bool is_aborted(const volatile int32_t* abort_flag) {
+  return abort_flag != nullptr && *abort_flag != 0;
+}
+
+// llama.cpp's ggml_abort_callback: polled by the CPU backend during graph
+// compute, so even a long prompt-processing llama_decode() stops early.
+bool abort_callback(void* data) {
+  return is_aborted(static_cast<const volatile int32_t*>(data));
+}
+
 }  // namespace
 
-extern "C" char* smart_mode_run(
+struct smart_mode_session {
+  llama_model* model = nullptr;
+  llama_context* ctx = nullptr;
+  common_chat_templates_ptr tmpls;
+};
+
+extern "C" smart_mode_session* smart_mode_load(
     const char* model_path,
-    const char* system_prompt,
-    const char* user_text,
     int n_ctx,
-    int n_gpu_layers,
-    float temperature,
-    float top_p,
-    int top_k
+    int n_gpu_layers
 ) {
-  if (model_path == nullptr || user_text == nullptr) return nullptr;
+  if (model_path == nullptr) return nullptr;
 
   llama_log_set(
       [](enum ggml_log_level level, const char* text, void*) {
@@ -106,8 +119,6 @@ extern "C" char* smart_mode_run(
     return nullptr;
   }
 
-  const llama_vocab* vocab = llama_model_get_vocab(model);
-
   llama_context_params ctx_params = llama_context_default_params();
   ctx_params.n_ctx = n_ctx;
   ctx_params.n_batch = n_ctx;
@@ -119,9 +130,34 @@ extern "C" char* smart_mode_run(
     return nullptr;
   }
 
-  // --- render the prompt via the model's own Jinja chat template ----------
-  common_chat_templates_ptr tmpls = common_chat_templates_init(model, "");
+  auto* session = new smart_mode_session();
+  session->model = model;
+  session->ctx = ctx;
+  session->tmpls = common_chat_templates_init(model, "");
+  return session;
+}
 
+extern "C" char* smart_mode_generate(
+    smart_mode_session* session,
+    const char* system_prompt,
+    const char* user_text,
+    float temperature,
+    float top_p,
+    int top_k,
+    const volatile int32_t* abort_flag
+) {
+  if (session == nullptr || user_text == nullptr) return nullptr;
+  if (is_aborted(abort_flag)) return nullptr;
+
+  llama_context* ctx = session->ctx;
+  const llama_vocab* vocab = llama_model_get_vocab(session->model);
+
+  // Every dictation starts from an empty KV cache — the session keeps the
+  // model and context warm, never the previous conversation.
+  llama_memory_clear(llama_get_memory(ctx), true);
+  llama_set_abort_callback(ctx, abort_callback, const_cast<int32_t*>(abort_flag));
+
+  // --- render the prompt via the model's own Jinja chat template ----------
   common_chat_templates_inputs inputs;
   inputs.add_generation_prompt = true;
   inputs.enable_thinking = false;  // validated in the spike test (see file doc comment).
@@ -137,7 +173,7 @@ extern "C" char* smart_mode_run(
   user_msg.content = user_text;
   inputs.messages.push_back(user_msg);
 
-  common_chat_params chat_params = common_chat_templates_apply(tmpls.get(), inputs);
+  common_chat_params chat_params = common_chat_templates_apply(session->tmpls.get(), inputs);
   const std::string& prompt = chat_params.prompt;
 
   // --- sampler chain (temperature -> top_k -> top_p -> dist) ---------------
@@ -155,8 +191,7 @@ extern "C" char* smart_mode_run(
                       static_cast<int32_t>(prompt_tokens.size()), true, true) < 0) {
     std::fprintf(stderr, "[smart_mode_shim] tokenize failed\n");
     llama_sampler_free(smpl);
-    llama_free(ctx);
-    llama_model_free(model);
+    llama_set_abort_callback(ctx, nullptr, nullptr);
     return nullptr;
   }
 
@@ -166,8 +201,14 @@ extern "C" char* smart_mode_run(
   llama_token new_token_id;
   const int max_new_tokens = 512;
   int n_generated = 0;
+  bool aborted = false;
 
   while (true) {
+    if (is_aborted(abort_flag)) {
+      aborted = true;
+      break;
+    }
+
     const int ctx_size = llama_n_ctx(ctx);
     const int n_ctx_used = llama_memory_seq_pos_max(llama_get_memory(ctx), 0) + 1;
     if (n_ctx_used + batch.n_tokens > ctx_size) {
@@ -176,7 +217,8 @@ extern "C" char* smart_mode_run(
     }
 
     if (llama_decode(ctx, batch) != 0) {
-      std::fprintf(stderr, "[smart_mode_shim] decode failed\n");
+      aborted = is_aborted(abort_flag);
+      if (!aborted) std::fprintf(stderr, "[smart_mode_shim] decode failed\n");
       break;
     }
 
@@ -197,10 +239,37 @@ extern "C" char* smart_mode_run(
   }
 
   llama_sampler_free(smpl);
-  llama_free(ctx);
-  llama_model_free(model);
+  llama_set_abort_callback(ctx, nullptr, nullptr);
 
+  if (aborted) return nullptr;
   return dup_cstr(response);
+}
+
+extern "C" void smart_mode_unload(smart_mode_session* session) {
+  if (session == nullptr) return;
+  session->tmpls.reset();
+  if (session->ctx != nullptr) llama_free(session->ctx);
+  if (session->model != nullptr) llama_model_free(session->model);
+  delete session;
+}
+
+extern "C" char* smart_mode_run(
+    const char* model_path,
+    const char* system_prompt,
+    const char* user_text,
+    int n_ctx,
+    int n_gpu_layers,
+    float temperature,
+    float top_p,
+    int top_k
+) {
+  if (model_path == nullptr || user_text == nullptr) return nullptr;
+  smart_mode_session* session = smart_mode_load(model_path, n_ctx, n_gpu_layers);
+  if (session == nullptr) return nullptr;
+  char* result = smart_mode_generate(
+      session, system_prompt, user_text, temperature, top_p, top_k, nullptr);
+  smart_mode_unload(session);
+  return result;
 }
 
 extern "C" void smart_mode_free_result(char* result) {

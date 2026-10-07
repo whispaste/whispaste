@@ -1329,11 +1329,10 @@ class RecordingOrchestrator extends Notifier<void> {
       transcript: rawText,
     );
 
+    final engine = ref.read(smartModeEngineProvider);
     final result = await runner.run<String>(
       'smart_mode_refine',
-      () => ref
-          .read(smartModeEngineProvider)
-          .run(systemPrompt: systemPrompt, userText: rawText),
+      () => engine.run(systemPrompt: systemPrompt, userText: rawText),
       timeout: smartModeCleanupTimeoutOverride ?? _smartModeCleanupTimeout,
     );
 
@@ -1354,6 +1353,9 @@ class RecordingOrchestrator extends Notifier<void> {
           '[$sid] Smart Mode $preset timed out after '
           '${_smartModeCleanupTimeout.inSeconds}s',
         );
+        // Really stop the generation the pipeline just gave up on, instead
+        // of letting it burn CPU/GPU in the background.
+        unawaited(engine.cancel());
         _notifySmartModeFallback();
         return rawText;
       case FailedWith(:final error):

@@ -10,6 +10,8 @@
 /// nothing. The caller decides what "surfacing" means (toast, dialog, ...).
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -83,11 +85,10 @@ class SmartModeRetroactiveService {
     );
 
     final runner = PipelineStepRunner(timeout: timeoutOverride ?? _timeout);
+    final engine = _ref.read(smartModeEngineProvider);
     final result = await runner.run<String>(
       'smart_mode_retroactive',
-      () => _ref
-          .read(smartModeEngineProvider)
-          .run(systemPrompt: systemPrompt, userText: rawText),
+      () => engine.run(systemPrompt: systemPrompt, userText: rawText),
     );
 
     switch (result) {
@@ -99,6 +100,8 @@ class SmartModeRetroactiveService {
         }
         return SmartModeRetroactiveSuccess(value);
       case StepTimeout():
+        // Abort the generation this call just gave up on.
+        unawaited(engine.cancel());
         return const SmartModeRetroactiveFailure(
           SmartModeRetroactiveFailureReason.timeout,
         );

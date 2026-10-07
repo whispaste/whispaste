@@ -204,7 +204,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libllama/windows
-          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1') }}
+          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1', 'native/smart_mode/**') }}
 
       - name: Clone pinned llama.cpp source
         if: steps.libllama_cache.outputs.cache-hit != 'true'

@@ -4,7 +4,8 @@
 /// bridge for macOS Cmd+Q / Dock "Quit" (`AppDelegate.swift` +
 /// `MacOSLifecycleChannel.registerTerminationHandler`).
 ///
-/// Both must free the on-device STT engine's native GPU/Metal resources
+/// Both must free the on-device STT engine's (and the local Smart Mode
+/// engine's) native GPU/Metal resources
 /// before the process actually exits — otherwise ggml's Metal-residency-set
 /// teardown assert aborts the whole app (same class of bug as
 /// FLUTTER_WHISPASTE-BC, just reached via a quit path that bypasses the
@@ -18,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
 import 'automation_api/automation_api_controller.dart';
+import 'smart_mode/smart_mode_ffi_engine.dart';
 import 'stt_engine_lifecycle_provider.dart';
 import 'telemetry_service.dart';
 
@@ -31,6 +33,21 @@ Future<void> runGracefulEngineShutdown(ProviderContainer container) async {
         .timeout(const Duration(seconds: 10));
   } catch (e) {
     _log.debug('STT engine stop failed during shutdown (non-fatal): $e');
+  }
+
+  try {
+    // The local Smart Mode engine keeps its llama.cpp model resident between
+    // calls — free it for the same Metal-teardown reason as the STT engine.
+    // Only if it was ever built: reading the provider here would otherwise
+    // construct an engine just to shut it down.
+    if (container.exists(smartModeEngineProvider)) {
+      final engine = container.read(smartModeEngineProvider);
+      if (engine is SmartModeFfiEngine) {
+        await engine.shutdown().timeout(const Duration(seconds: 10));
+      }
+    }
+  } catch (e) {
+    _log.debug('Smart Mode engine stop failed during shutdown (non-fatal): $e');
   }
 
   try {

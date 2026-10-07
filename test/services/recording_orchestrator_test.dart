@@ -447,6 +447,13 @@ class FakeSmartModeEngine implements SmartModeEngine {
     }
     return resultToReturn ?? userText;
   }
+
+  /// Counts [cancel] calls — the orchestrator must abort a timed-out
+  /// generation (ticket 04 of `.scratch/handy-catchup/`).
+  int cancelCalls = 0;
+
+  @override
+  Future<void> cancel() async => cancelCalls++;
 }
 
 /// Fake tray service for issue 02 (paste-failure/blocklist regression) —
@@ -5302,6 +5309,11 @@ void main() {
         );
         expect(fakeAttention.requestAttentionCalls, 1);
         expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+        expect(
+          fakeSmartModeEngine.cancelCalls,
+          1,
+          reason: 'the timed-out generation must really be aborted',
+        );
       },
     );
 

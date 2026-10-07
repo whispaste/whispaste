@@ -29,6 +29,11 @@ class SmartModeOpenAiEngine implements SmartModeEngine {
   static const _model = 'gpt-4o-mini';
   static const _timeout = Duration(seconds: 20);
 
+  /// No-op: a cloud request holds no local compute, and it is already
+  /// bounded by [_timeout].
+  @override
+  Future<void> cancel() async {}
+
   @override
   Future<String> run({
     required String systemPrompt,

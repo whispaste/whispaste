@@ -44,6 +44,20 @@ if [[ ! -d "$STAGE_DIR" ]]; then
   exit 0
 fi
 
+# The shim is WhisPaste's own code and changes independently of the pinned
+# libllama build: an already-staged dylib older than its source would ship
+# without newly added exports (e.g. smart_mode_load/generate/unload), and
+# the Dart side would fail its symbol lookup at runtime. Rebuild just the
+# shim (fast, single translation unit) whenever its source is newer.
+SHIM_DYLIB="$STAGE_DIR/libsmartmode_shim.dylib"
+SHIM_SRC_DIR="${REPO_ROOT}/native/smart_mode"
+if [[ ! -f "$SHIM_DYLIB" || "$SHIM_SRC_DIR/smart_mode_shim.cpp" -nt "$SHIM_DYLIB" || "$SHIM_SRC_DIR/smart_mode_shim.h" -nt "$SHIM_DYLIB" ]]; then
+  echo "note: libsmartmode_shim missing or older than its source — rebuilding it."
+  if ! bash "${REPO_ROOT}/scripts/build-smartmode-shim-macos.sh"; then
+    echo "warning: smartmode-shim rebuild failed — see log above. Smart Mode may be unavailable in this build."
+  fi
+fi
+
 shopt -s nullglob
 dylibs=("$STAGE_DIR"/*.dylib)
 if [[ ${#dylibs[@]} -eq 0 ]]; then
