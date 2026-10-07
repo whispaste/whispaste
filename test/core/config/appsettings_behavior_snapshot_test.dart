@@ -13,6 +13,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/services/model_download_service.dart'
     show QualityTier;
@@ -518,6 +519,17 @@ void main() {
       expect(r.microphone, 'External Mic');
       expect(r.pushToTalk, isTrue);
       expect(r.inputGain, 1.75);
+    });
+
+    test('holdOrTap defaults to off and roundtrips under hold_or_tap', () {
+      // Default for new installs stays plain Toggle (ticket handy-catchup/07).
+      expect(AppSettings.defaults.audioInput.holdOrTap, isFalse);
+      final s = AppSettings.defaults.copyWithSections(
+        audioInput: const AudioInputSettings(pushToTalk: true, holdOrTap: true),
+      );
+      expect(s.toStorageMap()['hold_or_tap'], 'true');
+      expect(_roundtrip(s).audioInput.holdOrTap, isTrue);
+      expect(_roundtrip(s).audioInput.pushToTalk, isTrue);
     });
   });
 

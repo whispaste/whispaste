@@ -116,6 +116,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
             ),
           ),
           _PushToTalkRow(settings: settings),
+          _HoldOrTapRow(settings: settings),
           // Bewusst *unter* der Push-to-talk-Zeile: die gehört zum
           // Haupt-Hotkey, und eingeschoben zwischen beide würde sie optisch an
           // den Schnellnotiz-Block andocken, für den sie gar nicht gilt (der
@@ -582,6 +583,76 @@ class _PushToTalkRow extends ConsumerWidget {
               // exercised this).
               child: ExcludeSemantics(child: toggle),
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hold-or-tap sub-option of push-to-talk (ticket handy-catchup/07)
+// ---------------------------------------------------------------------------
+
+/// Hybrid hotkey mode: with push-to-talk on, a short tap toggles and a longer
+/// hold records until release (threshold:
+/// `RecordingTriggerHandler.holdOrTapThreshold`).
+///
+/// Indented under [_PushToTalkRow] because it only refines that mode — the
+/// same dependent-option idiom as the quick-note block. Disabled while
+/// push-to-talk is off, and on platforms without key-up (Linux) disabled with
+/// the same "not available" tooltip as its parent row.
+class _HoldOrTapRow extends ConsumerWidget {
+  const _HoldOrTapRow({required this.settings});
+
+  static final _log = AppLogger('HoldOrTapRow');
+
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final supportsKeyUp = ref
+        .read(hotkeyServiceProvider.notifier)
+        .supportsKeyUp;
+    final audio = settings.audioInput;
+    final enabled = supportsKeyUp && audio.pushToTalk;
+
+    final toggle = settingsToggle(
+      key: const Key('holdOrTapToggle'),
+      value: audio.holdOrTap,
+      onChanged: enabled
+          ? (v) {
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      audioInput: s.audioInput.copyWith(holdOrTap: v),
+                    ),
+                  );
+              try {
+                ref.read(telemetryProvider).trackSettingChange('hotkey_mode');
+              } catch (e) {
+                _log.debug('telemetry failed: $e');
+              }
+            }
+          : null,
+    );
+
+    return Padding(
+      // Directional, so the subordination reads correctly in Hebrew too.
+      padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+      child: SettingRow(
+        icon: LucideIcons.timer,
+        label: l10n.settingsHoldOrTap,
+        subtitle: l10n.settingsHoldOrTapHint,
+        semanticToggledValue: enabled ? audio.holdOrTap : null,
+        trailing: supportsKeyUp
+            ? toggle
+            : Tooltip(
+                message: l10n.pushToTalkUnavailableTooltip,
+                // Same reasoning as in _PushToTalkRow: a disabled Switch would
+                // otherwise merge its own toggled-state flags into the row.
+                child: ExcludeSemantics(child: toggle),
+              ),
+      ),
     );
   }
 }

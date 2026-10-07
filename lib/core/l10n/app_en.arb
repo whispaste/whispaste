@@ -151,6 +151,8 @@
   "settingsClippingDismiss": "Dismiss",
   "settingsHoldToRecord": "Hold to Record",
   "pushToTalkUnavailableTooltip": "Not available on this platform",
+  "settingsHoldOrTap": "Tap or Hold",
+  "settingsHoldOrTapHint": "A short tap starts and stops recording; holding records until you let go.",
   "settingsSpeechRecognition": "Speech Recognition",
   "settingsSpeechRecognitionSubtitle": "Voice recognition quality and service",
   "settingsService": "Service",

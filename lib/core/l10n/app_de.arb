@@ -126,6 +126,8 @@
   "settingsClippingDismiss": "Verstanden",
   "settingsHoldToRecord": "Gedrückt halten für Aufnahme",
   "pushToTalkUnavailableTooltip": "Auf dieser Plattform nicht verfügbar",
+  "settingsHoldOrTap": "Tippen oder Halten",
+  "settingsHoldOrTapHint": "Kurz tippen startet und stoppt die Aufnahme, gedrückt halten nimmt bis zum Loslassen auf.",
   "settingsSpeechRecognition": "Spracherkennung",
   "settingsSpeechRecognitionSubtitle": "Spracherkennungsqualität und Dienst",
   "settingsService": "Dienst",

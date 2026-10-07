@@ -113,6 +113,8 @@
   "settingsClippingDismiss": "Скрыть",
   "settingsHoldToRecord": "Удерживать для записи",
   "pushToTalkUnavailableTooltip": "Недоступно на этой платформе",
+  "settingsHoldOrTap": "Нажатие или удержание",
+  "settingsHoldOrTapHint": "Короткое нажатие запускает и останавливает запись, удержание записывает до отпускания.",
   "settingsSpeechRecognition": "Распознавание речи",
   "settingsSpeechRecognitionSubtitle": "Качество и сервис распознавания речи",
   "settingsService": "Сервис",

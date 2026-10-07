@@ -389,6 +389,13 @@ class L10nDe extends L10n {
       'Auf dieser Plattform nicht verfügbar';
 
   @override
+  String get settingsHoldOrTap => 'Tippen oder Halten';
+
+  @override
+  String get settingsHoldOrTapHint =>
+      'Kurz tippen startet und stoppt die Aufnahme, gedrückt halten nimmt bis zum Loslassen auf.';
+
+  @override
   String get settingsSpeechRecognition => 'Spracherkennung';
 
   @override

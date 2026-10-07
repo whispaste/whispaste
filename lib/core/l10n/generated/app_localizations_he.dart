@@ -385,6 +385,13 @@ class L10nHe extends L10n {
   String get pushToTalkUnavailableTooltip => 'לא זמין בפלטפורמה זו';
 
   @override
+  String get settingsHoldOrTap => 'הקשה או החזקה';
+
+  @override
+  String get settingsHoldOrTapHint =>
+      'הקשה קצרה מתחילה ועוצרת את ההקלטה; החזקה מקליטה עד שמשחררים.';
+
+  @override
   String get settingsSpeechRecognition => 'זיהוי דיבור';
 
   @override

@@ -388,6 +388,13 @@ class L10nEn extends L10n {
   String get pushToTalkUnavailableTooltip => 'Not available on this platform';
 
   @override
+  String get settingsHoldOrTap => 'Tap or Hold';
+
+  @override
+  String get settingsHoldOrTapHint =>
+      'A short tap starts and stops recording; holding records until you let go.';
+
+  @override
   String get settingsSpeechRecognition => 'Speech Recognition';
 
   @override

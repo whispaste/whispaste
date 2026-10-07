@@ -416,6 +416,13 @@ class L10nRu extends L10n {
   String get pushToTalkUnavailableTooltip => 'Недоступно на этой платформе';
 
   @override
+  String get settingsHoldOrTap => 'Нажатие или удержание';
+
+  @override
+  String get settingsHoldOrTapHint =>
+      'Короткое нажатие запускает и останавливает запись, удержание записывает до отпускания.';
+
+  @override
   String get settingsSpeechRecognition => 'Распознавание речи';
 
   @override

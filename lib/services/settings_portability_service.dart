@@ -180,6 +180,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'overlay_start_position',
   'overlay_style',
   'push_to_talk',
+  // Ticket handy-catchup/07: hold-or-tap sub-option of push-to-talk — same
+  // behavior-preference portability as 'push_to_talk' itself.
+  'hold_or_tap',
   // Ticket 20: second, independently configurable hotkey — same portability
   // rationale as the existing 'hotkey_*' keys above.
   'quick_note_hotkey_enabled',

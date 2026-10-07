@@ -16,7 +16,11 @@ import '../core/navigation/page_state.dart'
 import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
 import '../core/recording/recording_state.dart'
-    show RecordingPhase, RecordingTarget, recordingPhaseProvider;
+    show
+        RecordingPhase,
+        RecordingTarget,
+        recordingPhaseProvider,
+        recordingProvider;
 import '../services/autostart_service.dart';
 import '../services/clipboard_history/clipboard_history_monitor_service.dart';
 import '../services/floating_button/floating_button_service.dart';
@@ -146,6 +150,11 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       pushToTalkEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
       registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      holdOrTapEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTap,
+      isRecording: () => ref.read(recordingProvider).isRecording,
     );
     hotkeySvc.onHotkeyPressed = _triggerHandler.onKeyDown;
     hotkeySvc.onHotkeyReleased = _triggerHandler.onKeyUp;
@@ -195,6 +204,11 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       pushToTalkEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
       registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      holdOrTapEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTap,
+      isRecording: () => ref.read(recordingProvider).isRecording,
     );
     hotkeySvc.onSmartModeHotkeyPressed = _smartModeTriggerHandler.onKeyDown;
     hotkeySvc.onSmartModeHotkeyReleased = _smartModeTriggerHandler.onKeyUp;

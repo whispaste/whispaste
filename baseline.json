@@ -17,11 +17,11 @@
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
-      "fingerprint": "e71986ebe5edf589",
+      "fingerprint": "f3da372b9f0bcbfc",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 199,
-      "message": "4 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:199, lib/core/config/settings_sections.dart:746, lib/core/config/settings_sections.dart:1124, lib/core/config/settings_sections.dart:1681"
+      "message": "4 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:199, lib/core/config/settings_sections.dart:758, lib/core/config/settings_sections.dart:1136, lib/core/config/settings_sections.dart:1693"
     },
     {
       "fingerprint": "77bceef2a4191110",
@@ -41,336 +41,336 @@
       "fingerprint": "efe8c824b1341f72",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 280,
+      "line": 292,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "71022d9e034754ad",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 282,
+      "line": 294,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "877249a1680ccee0",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 333,
+      "line": 345,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "72060de60d3ab3f4",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 335,
+      "line": 347,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "e823138c56f7a1ce",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 516,
+      "line": 528,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "52b0faf2bf31e45f",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 518,
+      "line": 530,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
-      "fingerprint": "407a20da2665438f",
+      "fingerprint": "7f1480d4ef428f4e",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 580,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/config/settings_sections.dart:580, lib/core/config/settings_sections.dart:2208"
+      "line": 592,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/config/settings_sections.dart:592, lib/core/config/settings_sections.dart:2220"
     },
     {
       "fingerprint": "e2e3f5df953d9d23",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 612,
+      "line": 624,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "0b244f26332f70ee",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 614,
+      "line": 626,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "ffe0fdac9bba10b5",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 649,
+      "line": 661,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "ec5944da641d6555",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 651,
+      "line": 663,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "348ca0dfe4a9a790",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 769,
+      "line": 781,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "dc620913089e5538",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 771,
+      "line": 783,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "90888021fbfb782d",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 824,
+      "line": 836,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "171cc58c5e30a2bd",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 826,
+      "line": 838,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
-      "fingerprint": "17a503b687047717",
+      "fingerprint": "3cb898b3bffccc9a",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 919,
-      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:919, lib/core/config/settings_sections.dart:1500"
+      "line": 931,
+      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:931, lib/core/config/settings_sections.dart:1512"
     },
     {
       "fingerprint": "514da48bbe208305",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 962,
+      "line": 974,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "6192b64a346617c2",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 964,
+      "line": 976,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "b0c0632ae95e1efc",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 984,
+      "line": 996,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "203151c8d33e3225",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 986,
+      "line": 998,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "56e6e039734e88c3",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1013,
+      "line": 1025,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "d488f3788ff6a982",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1015,
+      "line": 1027,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "7211667b3fe6e4ae",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1147,
+      "line": 1159,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "59cc190749029f5e",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1149,
+      "line": 1161,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "c0f9675a65623167",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1216,
+      "line": 1228,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "c58c022aad526168",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1218,
+      "line": 1230,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "7b525375f5b9039f",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1315,
+      "line": 1327,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "2a29c522f8a58cab",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1317,
+      "line": 1329,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "358ecac7fcae8e41",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1416,
+      "line": 1428,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "549ac30fef513b30",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1418,
+      "line": 1430,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "9e11d50961f211a9",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1540,
+      "line": 1552,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "6ad81912a669b0e5",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1542,
+      "line": 1554,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "3d2748fb29edadbb",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1704,
+      "line": 1716,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "fbc1e10f425f2d12",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1706,
+      "line": 1718,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "1ebc6d11b2058e3c",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1760,
+      "line": 1772,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "f05868e0ac9a71be",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1762,
+      "line": 1774,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "f27b7386e805528b",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1842,
+      "line": 1854,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "5490c8c277f200df",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1844,
+      "line": 1856,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "8d01ef6540599feb",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1921,
+      "line": 1933,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "f87d09fcf987c0ea",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 1923,
+      "line": 1935,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "3ee88a35f67b244f",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2029,
+      "line": 2041,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "7154e3735b257fb8",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2031,
+      "line": 2043,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "45abe3748a16fde9",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2115,
+      "line": 2127,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "983ff1a4496ae0a3",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2117,
+      "line": 2129,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "1cf8e03d2b38f608",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2246,
+      "line": 2258,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "bd638ac2a05102af",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2248,
+      "line": 2260,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "d87f3b15693e536e",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2313,
+      "line": 2325,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "06e2b1d0a12d6fbd",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/core/config/settings_sections.dart",
-      "line": 2315,
+      "line": 2327,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {

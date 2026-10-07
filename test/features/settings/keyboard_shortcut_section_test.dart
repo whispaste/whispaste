@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/hotkey_conflicts.dart';
 import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/features/settings/sections/feedback_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
@@ -142,6 +144,94 @@ void main() {
   // ---------------------------------------------------------------------------
   // Schnellnotiz-Hotkey — der zweite, nachgeordnete Eintrag
   // ---------------------------------------------------------------------------
+
+  group('KeyboardShortcutSection — hold-or-tap (ticket handy-catchup/07)', () {
+    const toggleKey = Key('holdOrTapToggle');
+
+    Widget subject({required bool supportsKeyUp, required bool pushToTalk}) {
+      final svc = HotkeyService()
+        ..injectRegistrar(_KeyUpRegistrar(supportsKeyUp: supportsKeyUp))
+        // Pin the monitor so the capability equals the registrar value on
+        // every host (Windows would otherwise report key-up support).
+        ..injectMonitor(NoopKeyboardUpMonitor());
+      return makeTestable(
+        const SingleChildScrollView(child: KeyboardShortcutSection()),
+        locale: const Locale('en'),
+        overrides: [
+          hotkeyServiceProvider.overrideWith(() => svc),
+          settingsProvider.overrideWith(
+            () => _FakeSettings(
+              AppSettings(
+                audioInput: AudioInputSettings(pushToTalk: pushToTalk),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    Switch toggle(WidgetTester tester) =>
+        tester.widget<Switch>(find.byKey(toggleKey));
+
+    testWidgets('sits between the push-to-talk row and the quick-note block', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject(supportsKeyUp: true, pushToTalk: true));
+      await tester.pumpAndSettle();
+
+      final pttY = tester.getTopLeft(find.text(l10n.settingsHoldToRecord)).dy;
+      final hybridY = tester.getTopLeft(find.text(l10n.settingsHoldOrTap)).dy;
+      final quickNoteY = tester
+          .getTopLeft(find.text(l10n.settingsQuickNoteHotkeyEnabled))
+          .dy;
+      expect(hybridY, greaterThan(pttY));
+      expect(quickNoteY, greaterThan(hybridY));
+      expect(find.text(l10n.settingsHoldOrTapHint), findsOneWidget);
+    });
+
+    testWidgets('with push-to-talk on, the toggle writes holdOrTap only', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject(supportsKeyUp: true, pushToTalk: true));
+      await tester.pumpAndSettle();
+
+      expect(toggle(tester).onChanged, isNotNull);
+      await tester.tap(find.byKey(toggleKey));
+      await tester.pumpAndSettle();
+
+      final updated = ProviderScope.containerOf(
+        tester.element(find.byType(KeyboardShortcutSection)),
+      ).read(settingsProvider).value!;
+      expect(updated.audioInput.holdOrTap, isTrue);
+      expect(updated.audioInput.pushToTalk, isTrue);
+    });
+
+    testWidgets('is disabled while push-to-talk itself is off', (tester) async {
+      await tester.pumpWidget(subject(supportsKeyUp: true, pushToTalk: false));
+      await tester.pumpAndSettle();
+
+      expect(toggle(tester).onChanged, isNull);
+    });
+
+    testWidgets('without key-up support (Linux) it is disabled with a hint', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject(supportsKeyUp: false, pushToTalk: true));
+      await tester.pumpAndSettle();
+
+      expect(toggle(tester).onChanged, isNull);
+      expect(
+        find.ancestor(
+          of: find.byKey(toggleKey),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Tooltip && w.message == l10n.pushToTalkUnavailableTooltip,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
 
   group('KeyboardShortcutSection — Schnellnotiz-Hotkey', () {
     Widget subject({
@@ -662,6 +752,12 @@ void main() {
         reason: 'default is off — an update must never claim a hotkey silently',
       );
 
+      // Scrolled into view first: since the hold-or-tap row (ticket
+      // handy-catchup/07) the toggle sits below the 800x600 test surface.
+      await tester.ensureVisible(
+        find.byKey(const Key('snippetPickerHotkeyToggle')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('snippetPickerHotkeyToggle')));
       await tester.pumpAndSettle();
 
@@ -1136,4 +1232,21 @@ String? _quickNoteOverflow(WidgetTester tester) {
     }
   }
   return null;
+}
+
+class _KeyUpRegistrar implements HotKeyRegistrar {
+  _KeyUpRegistrar({required this.supportsKeyUp});
+
+  @override
+  final bool supportsKeyUp;
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) async {}
+
+  @override
+  Future<void> unregister(HotKey hotKey) async {}
 }

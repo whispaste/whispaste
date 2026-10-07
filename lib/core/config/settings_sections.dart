@@ -227,11 +227,18 @@ class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
     this.pushToTalk = false,
+    this.holdOrTap = false,
     this.inputGain = 1.0,
   });
 
   final String microphone;
   final bool pushToTalk;
+
+  /// Hold-or-Tap hybrid (sub-option of [pushToTalk]): with both on, a short
+  /// tap toggles and a longer hold acts as push-to-talk. Ignored while
+  /// [pushToTalk] is off, so an older build that does not know this key
+  /// degrades gracefully to plain push-to-talk.
+  final bool holdOrTap;
 
   /// User-controlled gain multiplier applied to the raw PCM stream during
   /// recording. `1.0` is identity (no scaling). The settings UI exposes this
@@ -246,22 +253,26 @@ class AudioInputSettings {
       AudioInputSettings(
         microphone: v['microphone'] ?? defaults.microphone,
         pushToTalk: _readBool(v, 'push_to_talk', defaults.pushToTalk),
+        holdOrTap: _readBool(v, 'hold_or_tap', defaults.holdOrTap),
         inputGain: _readDouble(v, 'input_gain', defaults.inputGain),
       );
 
   Map<String, String> toMap() => {
     'microphone': microphone,
     'push_to_talk': '$pushToTalk',
+    'hold_or_tap': '$holdOrTap',
     'input_gain': '$inputGain',
   };
 
   AudioInputSettings copyWith({
     String? microphone,
     bool? pushToTalk,
+    bool? holdOrTap,
     double? inputGain,
   }) => AudioInputSettings(
     microphone: microphone ?? this.microphone,
     pushToTalk: pushToTalk ?? this.pushToTalk,
+    holdOrTap: holdOrTap ?? this.holdOrTap,
     inputGain: inputGain ?? this.inputGain,
   );
 
@@ -271,10 +282,11 @@ class AudioInputSettings {
       other is AudioInputSettings &&
           microphone == other.microphone &&
           pushToTalk == other.pushToTalk &&
+          holdOrTap == other.holdOrTap &&
           inputGain == other.inputGain;
 
   @override
-  int get hashCode => Object.hash(microphone, pushToTalk, inputGain);
+  int get hashCode => Object.hash(microphone, pushToTalk, holdOrTap, inputGain);
 }
 
 // ===========================================================================

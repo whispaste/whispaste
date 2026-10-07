@@ -779,6 +779,18 @@ abstract class L10n {
   /// **'Not available on this platform'**
   String get pushToTalkUnavailableTooltip;
 
+  /// No description provided for @settingsHoldOrTap.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap or Hold'**
+  String get settingsHoldOrTap;
+
+  /// No description provided for @settingsHoldOrTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A short tap starts and stops recording; holding records until you let go.'**
+  String get settingsHoldOrTapHint;
+
   /// No description provided for @settingsSpeechRecognition.
   ///
   /// In en, this message translates to:
