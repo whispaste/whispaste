@@ -152,6 +152,9 @@ export const DEFAULT_FEATURE_KEYS: readonly string[] = [
   "history",
   "privacy",
   "hardware",
+  "notes",
+  "vocabulary",
+  "remote",
 ];
 
 /** Lokalisierte Default-`featureList` aus den `highlights.*.title`-Keys. */

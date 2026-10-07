@@ -1,5 +1,5 @@
 ---
-import HeroCarousel from './HeroCarousel.astro';
+import PromoFilm from './PromoFilm.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import StoreButton from './StoreButton.astro';
 import MacStoreButton from './MacStoreButton.astro';
@@ -13,11 +13,17 @@ import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
 import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const platformBadges = [
+  { os: 'macos', icon: appleIconRaw },
+  { os: 'windows', icon: windowsIconRaw },
+  { os: 'linux', icon: ubuntuIconRaw },
+] as const;
 ---
 
 <!-- Hero Section -->
 <section
-  class="wp-parallax-scope relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
+  class="wp-parallax-scope relative xl:min-h-[100svh] flex items-center justify-center overflow-hidden pt-24 sm:pt-28 pb-14 sm:pb-20"
+  data-testid="hero"
 >
   <!-- Ambient wash — the app's WpColorsDark.warmSurfaceGradient (navy → indigo
        → violet), the app/website gradient drift the redesign brief flagged:
@@ -87,165 +93,145 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
        viewports. Splitting it onto a static layer keeps it aligned always. -->
   <div class="hero-handoff-glow absolute inset-0 pointer-events-none" aria-hidden="true"></div>
 
-  <div class="wp-recede relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
-    <div class="mb-4 sm:mb-6 mt-4">
-      <img
-        src="/app-icon-dark.png"
-        alt="WhisPaste"
-        width="80"
-        height="80"
-        class="hero-logo-in w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl"
+  <!-- Split hero from xl (5/7: copy + CTAs left, the promo film as the
+       dominant visual right); below xl the copy sits centred above a
+       near-container-wide film. The film replaced the
+       former three-scene carousel mockup: it shows the real flow — hotkey,
+       speak, text at the cursor — in three everyday apps instead of an
+       abstract window, and it is the LCP element via its preloaded poster. -->
+  <div class="wp-recede wp-container relative z-10 grid gap-10 sm:gap-12 xl:gap-16 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center">
+    <div class="hero-copy text-center xl:text-left min-w-0">
+      <SectionEyebrow
+        key="hero.eyebrow"
+        class="hero-fade-rise mb-4 sm:mb-5"
+        style="--wp-rise-delay: 40ms"
       />
-    </div>
 
-    <SectionEyebrow
-      key="hero.eyebrow"
-      class="hero-fade-rise mb-4 sm:mb-5"
-      style="--wp-rise-delay: 80ms"
-    />
-
-    <h1
-      class="hero-title tracking-tight text-ink leading-[0.98]"
-    >
-      <span
-        class="wp-rise-in hero-title-line"
-        data-i18n="hero.title1"
-        style="--wp-rise-delay: 160ms"
-        >{t(lang, "hero.title1")}</span
-      ><br />
-      <span
-        class="wp-rise-in hero-title-line"
-        style="--wp-rise-delay: 280ms"
-        ><span
-          class="text-gradient-brand"
-          data-i18n="hero.title2"
-          >{t(lang, "hero.title2")}</span
-        ></span
+      <h1
+        class="hero-title tracking-tight text-ink leading-[0.98]"
       >
-    </h1>
-    <p
-      class="hero-fade-rise mt-4 sm:mt-6 text-base sm:text-xl text-ink-muted max-w-2xl mx-auto leading-relaxed"
-      data-i18n="hero.desc"
-      style="--wp-rise-delay: 480ms"
-    >
-      {t(lang, "hero.desc")}
-    </p>
-
-    <!-- CTA buttons -->
-<div
-  class="hero-fade-rise mt-6 sm:mt-8 flex flex-col items-center gap-4"
-  style="--wp-rise-delay: 560ms"
->
-  <!-- Primary row: all three desktop platforms as equal-rank CTAs
-       (Plattform-Parität, PRODUCT.md). The existing data-os/data-platform-btn
-       mechanism (global.css) reduces this to the visitor's own platform once
-       detected; unknown OS (bots, crawlers, privacy tools) sees all three
-       equally weighted. -->
-  <div class="flex flex-wrap items-stretch justify-center gap-3">
-    <div data-platform-btn="windows"><StoreButton size="lg" /></div>
-    <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
-    <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
-  </div>
-
-  <!-- Store-Hint gilt nur für die Store-Wege (Microsoft Store / Mac App
-       Store) — auf Linux gibt es keinen Store-Download, den es zu bewerten
-       gäbe. Gegatet über data-requires-os (global.css, gleiche data-os-
-       Konvention wie die Plattform-Buttons): sichtbar NUR bei positiv
-       erkanntem Windows/macOS, im ungegateten Fallback (alle drei CTAs
-       sichtbar) bewusst versteckt. -->
-  <div data-requires-os="windows macos">
-    <p class="text-xs text-ink-subtle flex items-center gap-1" data-testid="hero-store-hint">
-      <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-      <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
-    </p>
-  </div>
-
-  <!-- Privacy hook (Nordstern differentiator): honest, non-absolute claim —
-       mirrors the app's own "aboutPrivacyFirstDesc" wording (on-device by
-       default, cloud only if the user opts in). No dark pattern. Now the
-       single supporting statement under the CTAs (the former "Privacy-first"
-       trust chip is folded into this line — one message, one place). -->
-  <p class="mt-1 inline-flex items-start sm:items-center justify-center gap-2 text-sm sm:text-base text-ink-muted max-w-xl mx-auto">
-    <svg class="w-4 h-4 mt-0.5 sm:mt-0 shrink-0 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
-    <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
-  </p>
-</div>
-
-    <!-- Plattform-Kommunikation (Issue 09): macOS · Windows · Ubuntu Linux —
-         drei gleichrangige Desktops, kein Mobile. Now the ONLY pill row in the
-         hero (the former trust-chip row was redundant with the hero.desc copy
-         and is gone), so the badges own the pill shape. The OS detected by the
-         existing data-os head-script (see Layout.astro) is highlighted via CSS
-         attribute selectors only, so there is no reflow and it degrades
-         gracefully (unknown OS → all three shown equally, see global.css
-         `[data-os=...]` convention).
-
-         Task #10: badges are links to the matching download-page anchor
-         (`#macos`/`#windows`/`#linux`, added in download.astro), not just
-         informational pills. `platform-badge` class + `data-platform-badge`
-         are kept exactly as-is so the highlight CSS above keeps matching. -->
-    <div class="platform-row hero-fade-rise mt-7 sm:mt-9 flex flex-col items-center gap-2.5" style="--wp-rise-delay: 640ms">
-      <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle" data-i18n="hero.platforms.claim">
-        {t(lang, "hero.platforms.claim")}
+        <span
+          class="wp-rise-in hero-title-line"
+          data-i18n="hero.title1"
+          style="--wp-rise-delay: 120ms"
+          >{t(lang, "hero.title1")}</span
+        ><br />
+        <span
+          class="wp-rise-in hero-title-line"
+          style="--wp-rise-delay: 220ms"
+          ><span
+            class="text-gradient-brand"
+            data-i18n="hero.title2"
+            >{t(lang, "hero.title2")}</span
+          ></span
+        >
+      </h1>
+      <p
+        class="hero-fade-rise mt-4 sm:mt-6 text-base sm:text-lg xl:text-xl text-ink-muted max-w-2xl mx-auto xl:mx-0 xl:max-w-xl leading-relaxed"
+        data-i18n="hero.desc"
+        style="--wp-rise-delay: 360ms"
+      >
+        {t(lang, "hero.desc")}
       </p>
-      <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+
+      <!-- CTA block -->
+      <div
+        class="hero-fade-rise mt-6 sm:mt-8 flex flex-col items-center xl:items-start gap-3"
+        style="--wp-rise-delay: 440ms"
+      >
+        <!-- Primary row: all three desktop platforms as equal-rank CTAs
+             (Plattform-Parität). The existing data-os/data-platform-btn
+             mechanism (global.css) reduces this to the visitor's own platform
+             once detected; unknown OS (bots, crawlers, privacy tools) sees all
+             three equally weighted. -->
+        <div class="flex flex-wrap items-stretch justify-center xl:justify-start gap-3">
+          <div data-platform-btn="windows"><StoreButton size="lg" /></div>
+          <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
+          <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
+        </div>
+
+        <!-- Store-Hint gilt nur für die Store-Wege (Microsoft Store / Mac App
+             Store) — gegatet über data-requires-os (global.css): sichtbar NUR
+             bei positiv erkanntem Windows/macOS, im ungegateten Fallback
+             (alle drei CTAs sichtbar) bewusst versteckt. -->
+        <div data-requires-os="windows macos">
+          <p class="text-xs text-ink-subtle flex items-center gap-1" data-testid="hero-store-hint">
+            <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
+          </p>
+        </div>
+
+        <!-- Secondary CTA: every download route in one place, incl. the free
+             GitHub builds and package managers — a quiet text link, so it
+             never competes with the platform button above. -->
         <a
-          href={`${localePath(lang, "download")}#macos`}
-          data-testid="hero-platform-badge-macos"
-          aria-label={`${t(lang, "hero.platforms.macos")}: ${t(lang, "nav.download")}`}
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
-          data-platform-badge="macos"
+          href={localePath(lang, "download")}
+          class="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-brand-cyan hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan rounded"
+          data-testid="hero-secondary-cta"
         >
-          <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
-          <span data-i18n="hero.platforms.macos">{t(lang, "hero.platforms.macos")}</span>
-          <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-        </a>
-        <a
-          href={`${localePath(lang, "download")}#windows`}
-          data-testid="hero-platform-badge-windows"
-          aria-label={`${t(lang, "hero.platforms.windows")}: ${t(lang, "nav.download")}`}
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
-          data-platform-badge="windows"
-        >
-          <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
-          <span data-i18n="hero.platforms.windows">{t(lang, "hero.platforms.windows")}</span>
-          <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-        </a>
-        <a
-          href={`${localePath(lang, "download")}#linux`}
-          data-testid="hero-platform-badge-linux"
-          aria-label={`${t(lang, "hero.platforms.linux")}: ${t(lang, "nav.download")}`}
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
-          data-platform-badge="linux"
-        >
-          <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
-          <span data-i18n="hero.platforms.linux">{t(lang, "hero.platforms.linux")}</span>
-          <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
+          <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
         </a>
       </div>
+
+      <!-- Trust line: honest, non-absolute privacy claim (local by default,
+           cloud only on opt-in) — one supporting statement, one place. -->
+      <p
+        class="hero-fade-rise mt-6 inline-flex items-start xl:items-center justify-center xl:justify-start gap-2 text-sm text-ink-muted max-w-xl"
+        style="--wp-rise-delay: 520ms"
+      >
+        <svg class="w-4 h-4 mt-0.5 xl:mt-0 shrink-0 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+        <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
+      </p>
+
+      <!-- Platform badges: macOS · Windows · Ubuntu Linux, linked to the
+           matching download-page anchor. The OS detected by the data-os head
+           script (Layout.astro) is highlighted via CSS attribute selectors
+           only (no reflow); unknown OS → all three shown equally. -->
+      <div class="platform-row hero-fade-rise mt-6 flex flex-col items-center xl:items-start gap-2.5" style="--wp-rise-delay: 600ms">
+        <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle" data-i18n="hero.platforms.claim">
+          {t(lang, "hero.platforms.claim")}
+        </p>
+        <div class="flex flex-wrap items-center justify-center xl:justify-start gap-2 sm:gap-2.5">
+          {platformBadges.map(({ os, icon }) => (
+            <a
+              href={`${localePath(lang, "download")}#${os}`}
+              data-testid={`hero-platform-badge-${os}`}
+              aria-label={`${t(lang, `hero.platforms.${os}`)}: ${t(lang, "nav.download")}`}
+              class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+              data-platform-badge={os}
+            >
+              <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={icon} />
+              <span data-i18n={`hero.platforms.${os}`}>{t(lang, `hero.platforms.${os}`)}</span>
+              <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <!-- GitHub stars — hidden until fetched (index.astro script fills
+           #github-stars-count and clears display:none). -->
+      <a
+        id="github-stars-badge"
+        href="https://github.com/whispaste/whispaste"
+        target="_blank"
+        rel="noopener"
+        class="hero-fade-rise mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
+        style="display:none; --wp-rise-delay: 680ms"
+        aria-label={t(lang, "nav.githubAria")}
+        data-i18n-aria="nav.githubAria"
+      >
+        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span id="github-stars-count"></span>
+      </a>
     </div>
 
-    <!-- GitHub stars — hidden until fetched (index.astro script fills
-         #github-stars-count and clears display:none). Quiet text link instead
-         of another pill so social proof doesn't compete with the platform
-         badges; the amber star is a deliberate semantic signal (convention),
-         not a brand accent. -->
-    <a
-      id="github-stars-badge"
-      href="https://github.com/whispaste/whispaste"
-      target="_blank"
-      rel="noopener"
-      class="hero-fade-rise mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
-      style="display:none; --wp-rise-delay: 720ms"
-      aria-label={t(lang, "nav.githubAria")}
-      data-i18n-aria="nav.githubAria"
-    >
-      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      <span id="github-stars-count"></span>
-    </a>
-
-    <!-- Carousel -->
-    <HeroCarousel />
+    <!-- Hero visual: the promo film in a device-less framed panel. No
+         opacity/clip entrance animation on purpose — its poster is the LCP
+         element and must paint at full opacity on first frame. -->
+    <div class="hero-film min-w-0 w-full max-w-5xl mx-auto xl:max-w-none">
+      <PromoFilm />
+    </div>
   </div>
 </section>
 
@@ -270,6 +256,13 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
        shared line-height, which would also loosen the two title lines
        against each other. */
     padding-bottom: 0.12em;
+  }
+  /* Split layout (xl+): the headline shares the row with the film, so it
+     scales against the narrower copy column instead of the full viewport. */
+  @media (min-width: 1280px) {
+    .hero-title {
+      font-size: clamp(3rem, 0.9rem + 3.4vw, 4.5rem);
+    }
   }
 
   /* ---- Platform-badge row (Issue 09): macOS / Windows / Ubuntu Linux ----
@@ -320,20 +313,12 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       transform: translateY(0);
     }
   }
-  /* Load partiture ("Der Hotkey-Moment"): logo -> eyebrow (bracket-lock,
-     global.css) -> H1 lines (wp-rise-in, global.css) -> desc/CTA/badges/
-     GitHub link (this fade-rise), each on its own --wp-rise-delay instead of
-     the old two-tier animate-fade-in/-delay split. Everything lands by
-     ~800ms; the H1 (likely LCP) gets <=200ms and no opacity:0 start. */
+  /* Load partiture ("Der Hotkey-Moment"): eyebrow -> H1 lines (wp-rise-in,
+     global.css) -> desc/CTA/badges/GitHub link (this fade-rise), each on its
+     own --wp-rise-delay. Everything lands by ~700ms. The film panel (LCP via
+     its preloaded poster) deliberately has no entrance animation at all. */
   .hero-fade-rise {
     animation: fade-in 0.6s var(--ease-flow) var(--wp-rise-delay, 0ms) both;
-  }
-  @keyframes hero-logo-in {
-    from { opacity: 0; scale: 0.92; }
-    to { opacity: 1; scale: 1; }
-  }
-  .hero-logo-in {
-    animation: hero-logo-in 0.5s var(--ease-flow) var(--wp-rise-delay, 0ms) both;
   }
   /* inline-block so .wp-rise-in's translate/clip-path apply cleanly (both
      spans wrap normally inside it -- title1 wraps across two visual lines by
@@ -536,8 +521,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     .hero-wave,
     .hero-bar,
     .hero-ribbon,
-    .hero-fade-rise,
-    .hero-logo-in {
+    .hero-fade-rise {
       animation: none !important;
     }
     :global([data-os="macos"] .wp-mac-store-btn),

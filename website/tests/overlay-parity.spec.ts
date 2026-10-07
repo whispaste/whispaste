@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 /**
  * AC4 — browser parity for the overlay mockup.
  *
- * The recording overlay on the hero is drawn on a <canvas> by the shared
+ * The recording overlay in the paste demo (AppPasteDemo, step 2) is drawn on
+ * a <canvas> by the shared
  * `overlay-mockup` renderer, which mirrors the in-app `OverlayPainter` 1:1.
  * This spec runs under both the `chromium` (Chrome/Edge engine) and `webkit`
  * (Safari engine) projects and asserts each renders the SAME pixels via a
@@ -32,13 +33,20 @@ test.use({
 test('overlay mockup renders identically in WebKit and Chromium', async ({ page }) => {
   await page.goto('/');
 
-  // Show scene 2 (the recording overlay). Under reduced motion the carousel
-  // does not auto-advance, so click the second dot to reveal it; the renderer
-  // then paints its deterministic frozen frame.
-  await page.locator('.carousel-dot').nth(1).click();
-
-  const canvas = page.locator('#overlay-canvas');
+  // Under reduced motion the paste demo paints its deterministic frozen
+  // frame as soon as the section is on screen.
+  const canvas = page.locator('#app-paste-demo .apd-overlay-canvas');
+  await canvas.scrollIntoViewIfNeeded();
   await expect(canvas).toBeVisible();
+  // The demo scales the canvas to a fluid CSS width, which leaves a
+  // fractional CSS height that each engine rounds differently in an element
+  // screenshot. Pin it to its backing store at DPR 2 (integral CSS box,
+  // 1:1 device pixels) so both engines snapshot the identical box.
+  await canvas.evaluate((el: HTMLCanvasElement) => {
+    el.style.width = `${el.width / 2}px`;
+    el.style.height = `${el.height / 2}px`;
+    el.style.maxWidth = 'none';
+  });
   // Give the frozen frame a beat to paint before snapshotting.
   await page.waitForTimeout(300);
 

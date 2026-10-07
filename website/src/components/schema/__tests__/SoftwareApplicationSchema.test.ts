@@ -57,7 +57,7 @@ describe("buildSoftwareApplicationSchema", () => {
     expect(schema.description as string).toMatch(/Cursor/i);
     // featureList mirrors the visible FeatureHighlights cards (localized).
     expect(Array.isArray(schema.featureList)).toBe(true);
-    expect(schema.featureList).toHaveLength(7);
+    expect(schema.featureList).toHaveLength(10);
     expect(schema.featureList as readonly string[]).toContain(
       "Smart Mode: bereinigen, kürzen, übersetzen",
     );

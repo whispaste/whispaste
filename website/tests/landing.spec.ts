@@ -285,13 +285,17 @@ test('package manager section stays scannable at 390px mobile width', async ({
   expect(box!.width).toBeLessThanOrEqual(390);
 });
 
-test('hero recording mockup renders the final overlay on a canvas (no privacy badge)', async ({ page }) => {
+test('recording overlay renders on a canvas in the paste demo (no privacy badge)', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.carousel-dot').nth(1).click();
+  // The hero shows the promo film now; the former three-scene carousel
+  // mockup (and its own overlay canvas) is gone.
+  await expect(page.locator('.carousel-dot')).toHaveCount(0);
+  await expect(page.locator('#overlay-canvas')).toHaveCount(0);
 
-  // The overlay is now a single canvas drawn 1:1 from the SSOT design spec —
+  // The overlay is a single canvas drawn 1:1 from the SSOT design spec —
   // not a DOM pill. (Issue 10: website = fourth parity platform.)
-  const canvas = page.locator('#overlay-canvas');
+  const canvas = page.locator('#app-paste-demo .apd-overlay-canvas');
+  await canvas.scrollIntoViewIfNeeded();
   await expect(canvas).toBeVisible();
 
   // AC2: the privacy badge (anti-vocabulary) is gone from markup entirely.
@@ -387,3 +391,20 @@ test('mobile nav download button adapts label + icon to detected OS (EN)', async
   await page.locator('#mobileMenuBtn').click();
   await assertNavDownloadAdaptsToOs(page, page.locator('#mobileMenu .nav-download-btn'), NAV_DL_LABELS.en);
 });
+
+// Smart Mode can rewrite transcripts on request, so the paste demo no longer
+// promises "transcribed, not rewritten"; and "free" always names its channel
+// (GitHub), because the Store versions are paid.
+for (const { path, freeOnGitHub } of [
+  { path: '/', freeOnGitHub: 'kostenlos auf GitHub' },
+  { path: '/en/', freeOnGitHub: 'free on GitHub' },
+]) {
+  test(`${path}: no "not rewritten" chip, free means free on GitHub`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.locator('#app-paste-demo [data-i18n="appdemo.noAiEdit"]')).toHaveCount(0);
+    await expect(page.locator('#app-paste-demo .apd-callout')).toHaveCount(1);
+    await expect(page).toHaveTitle(new RegExp(freeOnGitHub, 'i'));
+    await expect(page.getByTestId('hero').locator('[data-i18n="hero.desc"]')).toContainText(/GitHub/);
+    await expect(page.getByTestId('hero-secondary-cta')).toContainText(new RegExp(freeOnGitHub, 'i'));
+  });
+}

@@ -89,6 +89,9 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
         avoid a flash of fallback text for the above-the-fold copy. */}
     <link rel="preload" href="/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    {/* Page-specific head additions, e.g. the landing page preloads the hero
+        film poster (its LCP element). */}
+    <slot name="head" />
     {/* Kein Fraunces-Preload mehr: die Serif wurde mit dem Redesign entfernt
         (Design-Contract "No serif"); der Link lud auf jeder Seite einen 404. */}
     {/* Kleine, dedizierte Varianten statt des vollen 1024px-App-Icons (das nur

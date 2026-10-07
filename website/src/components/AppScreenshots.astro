@@ -7,7 +7,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 <!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
 <section id="app-screenshots" class="band band-deep relative py-24 sm:py-32 scroll-mt-20 wp-parallax-scope">
-  <div class="relative max-w-6xl mx-auto px-6">
+  <div class="relative wp-container">
     <div class="max-w-2xl mx-auto text-center mb-10 scroll-reveal">
       <SectionEyebrow key="screenshots.label" />
       <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="text-gradient-brand" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>

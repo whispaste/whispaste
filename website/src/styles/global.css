@@ -138,7 +138,7 @@
 
      Nicht in dieser Leiter: Pills (9999px), Kreise (50%) und die
      App-/Device-Fidelity-Zonen (AppPasteDemo, AppScreenshots,
-     HeroCarousel-Keycaps, overlay-mockup.ts) — dort spiegeln die Radien
+     overlay-mockup.ts) — dort spiegeln die Radien
      echte Flutter-/Geräte-Geometrie und dürfen nicht konsolidiert werden.
 
      Die Werte stehen weiter unten im regulären :root-Block, nicht hier: in
@@ -155,6 +155,29 @@
   --ease-flow: cubic-bezier(0.22, 1, 0.36, 1);
   --default-transition-timing-function: var(--ease-flow);
   --default-transition-duration: 180ms;
+}
+
+/* ---- Site container ----
+   ONE outer width for the floating nav pill AND every section's content, so
+   their outer edges line up at every breakpoint: the nav is never narrower
+   than the content and the content never wider than the nav. Gutter 16px on
+   phones, 24px from sm, 32px from lg; capped at 1280px. Reading-width
+   sections may add a narrower max-width on top (they stay centred inside the
+   same frame), but nothing may exceed it. Uses 100% of the containing block
+   (not 100vw) so a classic scrollbar never causes horizontal overflow. */
+:root {
+  --site-max: 1280px;
+  --site-gutter: 16px;
+}
+@media (min-width: 640px) {
+  :root { --site-gutter: 24px; }
+}
+@media (min-width: 1024px) {
+  :root { --site-gutter: 32px; }
+}
+.wp-container {
+  width: min(var(--site-max), calc(100% - 2 * var(--site-gutter)));
+  margin-inline: auto;
 }
 
 /* Named durations so hand-written CSS stops picking freely between 0.12s and
@@ -687,20 +710,7 @@
 /* Theme-aware wordmark */
 .nav-logo-light { display: none; }
 
-/* ---- Hero carousel global styles ---- */
-/* Dynamic elements created by JS need global scope */
-.typing-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  background: var(--color-brand-cyan);
-  margin-left: 1px;
-  animation: cursor-blink 0.8s step-end infinite;
-  vertical-align: text-bottom;
-}
-.carousel-heart {
-  color: #ef4444;
-}
+/* Caret blink — shared keyframes (whisper-desktop pages' typing demo). */
 @keyframes cursor-blink {
   0%,
   50% {
@@ -709,13 +719,6 @@
   51%,
   100% {
     opacity: 0;
-  }
-}
-/* Reduced motion for dynamic elements */
-@media (prefers-reduced-motion: reduce) {
-  .typing-cursor {
-    animation: none !important;
-    transition: none !important;
   }
 }
 
@@ -853,7 +856,7 @@
    unten.
 
    Bewusst NICHT umgesetzt (Auftrag: „lieber wenige, präzise Details"):
-   - Kein zweiter Cursor. `.typing-cursor` (HeroCarousel) blinkt bereits im
+   - Kein zweiter Cursor. Der Tipp-Caret (früher HeroCarousel) blinkte im
      ersten Viewport neben der H1; ein zweiter Caret dort wäre Eskalation
      statt Motiv. Das Blinken bleibt exklusiv bei der Tipp-Demo.
    - Keine Tick-/Lineal-Marken an den Bandkanten. Die träfen vier und mehr

@@ -2,7 +2,6 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
-import PromoFilm from "../components/PromoFilm.astro";
 import FeatureHighlights from "../components/FeatureHighlights.astro";
 import UseCaseCards from "../components/UseCaseCards.astro";
 import MarketingMoment from "../components/MarketingMoment.astro";
@@ -48,6 +47,14 @@ const faqKeys = [
   title={t(lang, "meta.title.home")}
   description={t(lang, "meta.description.home")}
 >
+  {/* The hero film's poster is the landing page's LCP element. */}
+  <link
+    slot="head"
+    rel="preload"
+    as="image"
+    href={`/videos/whispaste-promo-16x9-${lang}-poster.jpg`}
+    fetchpriority="high"
+  />
   <Nav variant="landing" />
   <main id="main-content">
     {/*
@@ -60,7 +67,8 @@ const faqKeys = [
       UseCaseCards und MarketingMoment folgen danach als klar eigenständige
       Blöcke (UseCaseCards vor MarketingMoment, damit kein raised↔raised-Stoß
       mit SpeedComparison entsteht):
-        Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
+        Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche;
+                                     enthält den Promo-Film als Hero-Visual)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
         SpatialJourney    deep     (band-deep, in SpatialJourney.astro)
         FeatureHighlights spotlight (band-spotlight, in FeatureHighlights.astro)
@@ -82,7 +90,6 @@ const faqKeys = [
       Komponente) gesetzt — hier nur dokumentiert, nicht dupliziert gesetzt.
     */}
     <Hero />
-    <PromoFilm />
     <AppPasteDemo />
     <SpatialJourney />
     <FeatureHighlights />

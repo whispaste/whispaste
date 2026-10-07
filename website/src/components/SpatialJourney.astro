@@ -3,7 +3,7 @@
 // (maintainer brief: GSAP + Scrollytelling + Spatial Web Design +
 // WebGL/Three.js). A camera dollies through floating app-window panels in
 // Z-depth as the visitor scrolls, closing on the platform-parity claim no
-// competitor can make (macOS + Windows + Linux, CUDA/Vulkan/CPU).
+// competitor can make (macOS + Windows + Linux, Metal/Vulkan/CPU).
 //
 // The panel copy below is the single source of truth: the static grid here
 // is always server-rendered (SEO, no-JS, reduced-motion), and the client
@@ -27,7 +27,7 @@ const appPanels = [
   id="spatial-journey"
   class="band band-deep py-24 sm:py-32 relative scroll-mt-20"
 >
-  <div class="relative max-w-5xl mx-auto px-6">
+  <div class="relative wp-container">
     <div class="text-center mb-14 scroll-reveal">
       <SectionEyebrow key="spatial.label" />
       <h2 class="section-title">
