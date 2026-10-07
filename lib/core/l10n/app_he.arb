@@ -1160,7 +1160,7 @@
   "onboardingNext": "הבא",
   "onboardingBack": "חזור",
   "onboardingPrivacyTitle": "עזרו לנו לשפר את WhisPaste",
-  "onboardingPrivacyHint": "האודיו והטקסט נשארים מקומיים. רק נתוני שימוש אנונימיים נשלחים לשרת באירוח עצמי באיחוד האירופי — בהתאם ל-GDPR.",
+  "onboardingPrivacyHint": "האודיו והטקסט נשארים מקומיים. נתוני שימוש אנונימיים נשלחים לשרת באירוח עצמי באיחוד האירופי, ודיווחי קריסה ל-Sentry (אזור האיחוד האירופי) — בהתאם ל-GDPR.",
   "onboardingPrivacyToggle": "שיתוף נתוני שימוש אנונימיים",
   "onboardingPrivacyToggleHint": "פעיל כברירת מחדל, ניתן לכבות בכל עת",
   "onboardingPrivacyCrashToggle": "שליחת דיווחי קריסה אנונימיים",

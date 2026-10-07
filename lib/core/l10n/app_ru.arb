@@ -829,7 +829,7 @@
   "onboardingNext": "Далее",
   "onboardingBack": "Назад",
   "onboardingPrivacyTitle": "Помогите сделать WhisPaste лучше",
-  "onboardingPrivacyHint": "Аудио и текст остаются на устройстве. Только анонимная статистика отправляется на наш сервер в ЕС.",
+  "onboardingPrivacyHint": "Аудио и текст остаются на устройстве. Анонимная статистика отправляется на наш сервер в ЕС, отчеты о сбоях — в Sentry (регион ЕС).",
   "onboardingPrivacyToggle": "Отправлять анонимную статистику использования",
   "onboardingPrivacyToggleHint": "Включено по умолчанию, можно отключить в любой момент",
   "onboardingPrivacyCrashToggle": "Отправлять анонимные отчеты о сбоях",

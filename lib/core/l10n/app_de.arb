@@ -1006,7 +1006,7 @@
   "onboardingNext": "Weiter",
   "onboardingBack": "Zurück",
   "onboardingPrivacyTitle": "Hilf mit, WhisPaste zu verbessern",
-  "onboardingPrivacyHint": "Audio und Text bleiben lokal. Nur anonyme Nutzungsstatistik geht an einen selbst gehosteten Server in der EU — DSGVO-konform.",
+  "onboardingPrivacyHint": "Audio und Text bleiben lokal. Anonyme Nutzungsstatistik geht an einen selbst gehosteten Server in der EU, Absturzberichte an Sentry (EU-Region) — DSGVO-konform.",
   "onboardingPrivacyToggle": "Anonyme Nutzungsstatistik teilen",
   "onboardingPrivacyToggleHint": "Standardmäßig aktiv, jederzeit abschaltbar",
   "onboardingPrivacyCrashToggle": "Anonyme Absturzberichte senden",

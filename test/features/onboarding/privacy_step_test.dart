@@ -251,6 +251,31 @@ void main() {
         reason: 'CONTEXT.md §7 forbids the absolute "no tracking" claim.',
       );
     });
+
+    // Both streams are on by default, so the hint must not imply that only
+    // the usage statistics leave the device — crash reports go to Sentry.
+    test('every locale names crash reports next to the usage statistics, '
+        'never "only" the statistics', () async {
+      const crashWords = {
+        'en': 'crash reports',
+        'de': 'absturzberichte',
+        'he': 'דיווחי קריסה',
+        'ru': 'отчеты о сбоях',
+      };
+      const onlyWords = {
+        'en': 'only ',
+        'de': 'nur ',
+        'he': 'רק ',
+        'ru': 'только ',
+      };
+      for (final code in crashWords.keys) {
+        final loc = await L10n.delegate.load(Locale(code));
+        final hint = loc.onboardingPrivacyHint.toLowerCase();
+        expect(hint, contains(crashWords[code]), reason: code);
+        expect(hint, contains('sentry'), reason: code);
+        expect(hint, isNot(contains(onlyWords[code])), reason: code);
+      }
+    });
   });
 
   // ── Layout — fixed onboarding window & enlarged system text ──────────────

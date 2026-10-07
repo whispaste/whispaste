@@ -34,7 +34,7 @@ const breadcrumbItems = [
           <!-- DE content (server-rendered, the only locale on this URL) -->
           <div id="content-de" class="space-y-6">
             <p>
-              <strong class="text-white">Stand:</strong> Juli 2026<br>
+              <strong class="text-white">Stand:</strong> Oktober 2026<br>
               WhisPaste ist eine Desktop-Anwendung für Windows, macOS und Linux, die Sprache in Text umwandelt. Diese Erklärung beschreibt, welche Daten die App verarbeitet, wo sie gespeichert werden und was, falls überhaupt, übertragen wird.
             </p>
 
@@ -103,7 +103,7 @@ const breadcrumbItems = [
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">6. Kernprinzip</h2>
               <p>
-                WhisPaste ist auf <strong class="text-white">Privatsphäre zuerst</strong> ausgelegt. Deine <strong class="text-white">Audiodaten und dein transkribierter Text verlassen dein Gerät nicht</strong>, außer du wählst ausdrücklich einen Cloud-Anbieter für die Transkription. Die App erhebt standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> und optionale Absturzberichte zur Weiterentwicklung; diese sind cookiefrei, tragen keinen Konto- oder Nutzer-Identifikator (ein rein lokales, wöchentlich rotierendes pseudonymes Kennzeichen ist enthalten — nie ein dauerhafter Geräte-Identifikator, siehe Abschnitt&nbsp;15), enthalten niemals dein Audio, deinen Text oder Verlauf und lassen sich jederzeit abschalten (siehe Abschnitt&nbsp;15).
+                WhisPaste ist auf <strong class="text-white">Privatsphäre zuerst</strong> ausgelegt. Deine <strong class="text-white">Audiodaten und dein transkribierter Text verlassen dein Gerät nicht</strong>, außer du wählst ausdrücklich einen Cloud-Anbieter für die Transkription oder für den Smart Mode. Die App sendet standardmäßig (Opt-out) <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> und <strong class="text-white">Absturzberichte</strong> zur Weiterentwicklung; beide sind cookiefrei, tragen keinen Konto-Identifikator, enthalten niemals dein Audio, deinen Text oder Verlauf und lassen sich jederzeit getrennt abschalten (Details in Abschnitt&nbsp;15).
               </p>
             </section>
 
@@ -121,6 +121,9 @@ const breadcrumbItems = [
                 </li>
               </ul>
               <p class="mt-3">
+                <strong class="text-white">Smart Mode (optionale Textaufbereitung):</strong> Standardmäßig ausgeschaltet. Läuft er lokal, wird der transkribierte Text mit einem heruntergeladenen Sprachmodell auf deinem Gerät aufbereitet. Wählst du in den Smart-Mode-Einstellungen OpenAI als Dienst, wird der transkribierte Text zusammen mit der Anweisung des gewählten Presets mit deinem eigenen OpenAI-API-Schlüssel direkt an OpenAI gesendet.
+              </p>
+              <p class="mt-3">
                 Bei Nutzung der Cloud-Anbieter gelten deren Datenverarbeitungsbedingungen: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> bzw. <a href="https://deepgram.com/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">Deepgram Privacy Policy</a>.
               </p>
             </section>
@@ -135,7 +138,7 @@ const breadcrumbItems = [
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">9. Speicherung der API-Schlüssel</h2>
               <p>
-                API-Schlüssel für Cloud-Anbieter (OpenAI, Deepgram) werden <strong class="text-white">nicht</strong> im Klartext in einer Konfigurationsdatei gespeichert, sondern über den sicheren Zugangsdaten-Speicher deines Betriebssystems: den Windows-Anmeldeinformations-Manager, den macOS-Schlüsselbund oder libsecret unter Linux. Ein Schlüssel wird <strong class="text-white">ausschließlich</strong> direkt an die API-Schnittstelle des jeweiligen Anbieters übertragen, wenn du eine Transkriptionsanfrage stellst. WhisPaste sendet deinen API-Schlüssel an keinen anderen Dienst oder Server.
+                API-Schlüssel für Cloud-Anbieter (OpenAI, Deepgram) werden <strong class="text-white">nicht</strong> im Klartext in einer Konfigurationsdatei gespeichert, sondern über den sicheren Zugangsdaten-Speicher deines Betriebssystems: den Windows-Anmeldeinformations-Manager, den macOS-Schlüsselbund oder libsecret unter Linux. Ein Schlüssel wird <strong class="text-white">ausschließlich</strong> direkt an die API-Schnittstelle des jeweiligen Anbieters übertragen, wenn du eine Transkriptions- oder Smart-Mode-Anfrage stellst. WhisPaste sendet deinen API-Schlüssel an keinen anderen Dienst oder Server.
               </p>
             </section>
 
@@ -149,7 +152,7 @@ const breadcrumbItems = [
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">11. KI-Modell-Downloads</h2>
               <p>
-                Für die lokale/Offline-Transkription lädt WhisPaste KI-Modelle von <strong class="text-white">Hugging Face</strong> herunter: Sowohl die Whisper- als auch die Parakeet-Modelle stammen von dort, aus jeweils eigenen Repositories. Beim Download wird eine Standard-HTTPS-Anfrage an die Hugging-Face-Server gestellt. Es werden keine personenbezogenen Daten oder Identifikatoren übermittelt, nur die Modelldatei-URL wird angefragt. Heruntergeladene Modelle werden lokal auf deinem Gerät gespeichert.
+                Für die lokale/Offline-Transkription lädt WhisPaste KI-Modelle von <strong class="text-white">Hugging Face</strong> herunter: Die Whisper- und Parakeet-Modelle sowie das optionale Smart-Mode-Sprachmodell stammen von dort, aus jeweils eigenen Repositories. Ein beschädigtes Whisper-Modell wird automatisch neu heruntergeladen. Beim Download wird eine Standard-HTTPS-Anfrage an die Hugging-Face-Server gestellt. Es werden keine personenbezogenen Daten oder Identifikatoren übermittelt, nur die Modelldatei-URL wird angefragt. Heruntergeladene Modelle werden lokal auf deinem Gerät gespeichert.
               </p>
             </section>
 
@@ -160,18 +163,18 @@ const breadcrumbItems = [
               </p>
               <ul class="list-disc list-inside space-y-1 ml-4">
                 <li>Bei Installation über den <strong class="text-white">Microsoft Store</strong>, den <strong class="text-white">Mac App Store</strong>, <strong class="text-white">Homebrew</strong> oder <strong class="text-white">Scoop</strong> übernimmt der jeweilige Store bzw. Paketmanager die Update-Prüfung; die App selbst führt keine eigene Update-Prüfung durch. (Snap und Flatpak sind geplant, aktuell aber noch nicht verfügbar.)</li>
-                <li>Beim <strong class="text-white">Windows-Installer</strong> (inkl. portabler Variante) sowie dem direkt von GitHub geladenen <strong class="text-white">macOS-DMG</strong> (außerhalb des Mac App Store) prüft die App über signierte Appcast-Feeds, die von GitHub bezogen werden, ob eine neue Version verfügbar ist.</li>
+                <li>Beim <strong class="text-white">Windows-Installer</strong> (inkl. portabler Variante) sowie dem direkt von GitHub geladenen <strong class="text-white">macOS-DMG</strong> (außerhalb des Mac App Store) prüft die App beim Start und danach alle 24&nbsp;Stunden über signierte Appcast-Feeds, die von GitHub bezogen werden, ob eine neue Version verfügbar ist.</li>
                 <li>Unter <strong class="text-white">Linux</strong> (AppImage/.deb) erfolgt die Prüfung direkt über die GitHub-Releases-API.</li>
               </ul>
               <p class="mt-3">
-                Diese Anfragen enthalten keine personenbezogenen Daten; sie fragen lediglich die neueste Release-Version ab. Es werden keine Nutzer-Identifikatoren, Geräteinformationen oder Nutzungsdaten übermittelt.
+                Diese Anfragen enthalten keine personenbezogenen Daten; sie fragen lediglich die neueste Release-Version ab. Es werden keine Nutzer-Identifikatoren, Geräteinformationen oder Nutzungsdaten übermittelt. Die automatische Prüfung lässt sich unter <strong class="text-white">Einstellungen → Updates</strong> abschalten.
               </p>
             </section>
 
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">13. Weitergabe an Dritte</h2>
               <p>
-                WhisPaste gibt deine Inhalte <strong class="text-white">nicht an Dritte weiter</strong>. Audio wird nur dann an einen Cloud-Anbieter gesendet, wenn du das ausdrücklich wählst (OpenAI oder Deepgram), direkt von deinem Gerät und zu den Bedingungen dieses Anbieters. Anonyme Nutzungsstatistiken laufen über einen von uns selbst betriebenen Matomo-Server (kein Dritter). Optionale Absturzberichte werden von Sentry als Auftragsverarbeiter verarbeitet. Beide lassen sich abschalten, siehe Abschnitt&nbsp;15.
+                WhisPaste gibt deine Inhalte <strong class="text-white">nicht an Dritte weiter</strong>. Audio bzw. Text wird nur dann an einen Cloud-Anbieter gesendet, wenn du das ausdrücklich wählst (OpenAI oder Deepgram für die Transkription, OpenAI für den Smart Mode), direkt von deinem Gerät und zu den Bedingungen dieses Anbieters. Anonyme Nutzungsstatistiken laufen über einen von uns selbst betriebenen Matomo-Server (kein Dritter). Absturzberichte und Leistungsdaten werden von Sentry (Datenregion EU) als Auftragsverarbeiter verarbeitet. Beide lassen sich abschalten, siehe Abschnitt&nbsp;15.
               </p>
             </section>
 
@@ -182,24 +185,28 @@ const breadcrumbItems = [
               </p>
               <ul class="list-disc list-inside space-y-1 ml-4">
                 <li>OpenAI- bzw. Deepgram-API — bei aktivierter Cloud-Transkription (von dir ausgelöst)</li>
+                <li>OpenAI-API — nur wenn du für den Smart Mode OpenAI als Dienst wählst (von dir ausgelöst)</li>
                 <li>Hugging Face — beim Herunterladen lokaler KI-Modelle (von dir ausgelöst)</li>
-                <li>GitHub — für automatische Update-Prüfungen (Releases-API bzw. Appcast)</li>
-                <li>Matomo — anonyme, abschaltbare Nutzungsstatistik (siehe Abschnitt 15)</li>
-                <li>Sentry — optionale Absturzberichte (abschaltbar)</li>
+                <li>GitHub — für automatische Update-Prüfungen (Releases-API bzw. Appcast; standardmäßig aktiv, abschaltbar)</li>
+                <li>Matomo — anonyme Nutzungsstatistik (standardmäßig aktiv, abschaltbar, siehe Abschnitt 15)</li>
+                <li>Sentry — Absturzberichte und stichprobenartige Leistungsdaten (standardmäßig aktiv, abschaltbar, siehe Abschnitt 15)</li>
                 <li>Supabase — nur beim Absenden des freiwilligen Feedback-Formulars (siehe Abschnitt 16)</li>
               </ul>
               <p class="mt-3">
-                Alle Netzwerkverbindungen sind <strong class="text-white">HTTPS-verschlüsselt</strong>. Außer der Update-Prüfung und der in Abschnitt 15 beschriebenen anonymen Telemetrie findet keine Hintergrund-Netzwerkaktivität statt.
+                Alle Netzwerkverbindungen sind <strong class="text-white">HTTPS-verschlüsselt</strong>. Außer der Update-Prüfung sowie den in Abschnitt 15 beschriebenen Nutzungsstatistiken und Absturzberichten findet keine Hintergrund-Netzwerkaktivität statt. Eine vollständige technische Liste aller Verbindungen steht in der Datei <a href="https://github.com/whispaste/whispaste/blob/main/NETWORK.md" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">NETWORK.md</a>.
               </p>
             </section>
 
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">15. Anonyme Nutzungsstatistik &amp; Absturzberichte</h2>
               <p>
-                Zur bedarfsgerechten Weiterentwicklung erhebt die App standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> über einen Matomo-Server sowie optionale Absturzberichte (Sentry). Beide Datenströme sind cookiefrei und ohne Konto- oder Nutzer-Identifikator. Bei Matomo wird die IP-Adresse serverseitig vollständig anonymisiert, und eine aktive Do-Not-Track-Einstellung des Betriebssystems wird respektiert. Für wochenbasierte Auswertungen (z.&nbsp;B. wiederkehrende Nutzung innerhalb derselben Woche) wird zusätzlich ein rein lokal erzeugtes, pseudonymes Kennzeichen übertragen: ein Hash-Wert aus einem zufälligen, nie übertragenen Gerätewert und der aktuellen Kalenderwoche. Dieser Wert ändert sich automatisch jede Woche und lässt keine Zuordnung über eine Woche hinaus zu — er ist damit kein dauerhafter Geräte-Identifikator.
+                Zur bedarfsgerechten Weiterentwicklung erhebt die App standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> über einen selbst betriebenen Matomo-Server sowie <strong class="text-white">Absturzberichte</strong> über Sentry (Datenregion EU). Beides ist standardmäßig aktiv (Opt-out) — darauf weist auch der Datenschutz-Schritt der Einrichtung hin. Beide Datenströme sind cookiefrei und ohne Konto-Identifikator. Bei Matomo wird die IP-Adresse serverseitig vollständig anonymisiert; ist die Umgebungsvariable <code class="text-brand-cyan">DNT=1</code> gesetzt, sendet die App keine Nutzungsstatistik. Für wochenbasierte Auswertungen (z.&nbsp;B. wiederkehrende Nutzung innerhalb derselben Woche) wird zusätzlich ein rein lokal erzeugtes, pseudonymes Kennzeichen übertragen: ein Hash-Wert aus einem zufälligen, nie übertragenen Gerätewert und der aktuellen Kalenderwoche. Dieser Wert ändert sich automatisch jede Woche und lässt keine Zuordnung über eine Woche hinaus zu — er ist damit kein dauerhafter Geräte-Identifikator.
               </p>
               <p>
-                <strong class="text-white">Niemals</strong> übertragen werden: dein Audio, transkribierter Text, Verlauf, Textbausteine, Tags, Notizen, API-Schlüssel, konkrete Tastenkürzel, Dateipfade, Cursor-Position oder die Ziel-Anwendung. Erhoben werden ausschließlich aggregierte Ereigniszähler und Kategorien (App-Version, Plattform, gewählter Anbieter, Installationskanal, Sprache, das oben beschriebene wöchentlich rotierende Kohorten-Kennzeichen). Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse). Du kannst beide Datenströme jederzeit getrennt unter <strong class="text-white">Einstellungen → Datenschutz</strong> abschalten (Widerspruch nach Art. 21 DSGVO); ist die Nutzungsstatistik abgeschaltet, wird auch kein Kohorten-Kennzeichen erzeugt oder übertragen.
+                <strong class="text-white">Absturzberichte (Sentry)</strong> enthalten technische Fehlerdaten: Fehlermeldung und Stacktrace, App-Version, Betriebssystem und Prozessorarchitektur, Installationskanal sowie die letzten App-Protokollzeilen (diese enthalten nie transkribierten Text, können aber lokale Dateipfade enthalten). Zur Erkennung, ob ein Fehler wiederholt auf demselben Gerät auftritt, wird ein gekürzter Hash-Wert des Gerätenamens mitgesendet. Ereignisse, die Geheimnisse wie API-Schlüssel enthalten, werden verworfen; Bildschirmfotos und Bildschirminhalte werden nie übertragen. Zusätzlich wird ein kleiner Teil der App-Vorgänge (0,5&nbsp;%) als Leistungsmessung übertragen: nur Zeitmessungen, Datenbankabfrage-Vorlagen ohne Werte und die Adressen von Modell- und Update-Downloads.
+              </p>
+              <p>
+                <strong class="text-white">Niemals</strong> übertragen werden (in beiden Datenströmen): dein Audio, transkribierter Text, Verlauf, Textbausteine, Tags, Notizen oder API-Schlüssel. Die Nutzungsstatistik enthält darüber hinaus keine konkreten Tastenkürzel, Dateipfade, Cursor-Position oder die Ziel-Anwendung; erhoben werden dort ausschließlich aggregierte Ereigniszähler und Kategorien (App-Version, Plattform, gewählter Anbieter, Installationskanal, Sprache, das oben beschriebene wöchentlich rotierende Kohorten-Kennzeichen). Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse). Du kannst beide Datenströme jederzeit getrennt unter <strong class="text-white">Einstellungen → Datenschutz</strong> („Fehlerberichte“ bzw. „Anonyme Nutzungsstatistiken senden“) abschalten (Widerspruch nach Art. 21 DSGVO); ist die Nutzungsstatistik abgeschaltet, wird auch kein Kohorten-Kennzeichen erzeugt oder übertragen.
               </p>
             </section>
 

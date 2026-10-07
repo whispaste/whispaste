@@ -2914,7 +2914,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'Audio and text stay local. Only anonymous usage statistics go to a self-hosted server in the EU — GDPR-compliant.';
+      'Audio and text stay local. Anonymous usage statistics go to a self-hosted server in the EU, crash reports to Sentry (EU region) — GDPR-compliant.';
 
   @override
   String get onboardingPrivacyToggle => 'Share anonymous usage statistics';

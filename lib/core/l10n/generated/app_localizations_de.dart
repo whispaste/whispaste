@@ -2939,7 +2939,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'Audio und Text bleiben lokal. Nur anonyme Nutzungsstatistik geht an einen selbst gehosteten Server in der EU — DSGVO-konform.';
+      'Audio und Text bleiben lokal. Anonyme Nutzungsstatistik geht an einen selbst gehosteten Server in der EU, Absturzberichte an Sentry (EU-Region) — DSGVO-konform.';
 
   @override
   String get onboardingPrivacyToggle => 'Anonyme Nutzungsstatistik teilen';

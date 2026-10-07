@@ -28,7 +28,7 @@ const breadcrumbItems = [
 
         <div class="prose prose-invert max-w-none space-y-6 text-ink-muted leading-relaxed">
           <p>
-            <strong class="text-white">Effective date:</strong> July 2026<br>
+            <strong class="text-white">Effective date:</strong> October 2026<br>
             WhisPaste is a desktop application for Windows, macOS, and Linux that transcribes speech to text. This policy explains what data the application processes, where it is stored, and what, if anything, is transmitted.
           </p>
 
@@ -101,7 +101,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">6. Core Principle</h2>
             <p>
-              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud transcription service. The app does collect <strong class="text-white">anonymous, aggregated usage statistics</strong> and optional crash reports to guide development; these are cookieless, carry no account or user identifier (a purely local, weekly-rotating pseudonymous marker is included — never a persistent device ID, see section&nbsp;15), never contain your audio, text, or history, and can be switched off at any time (see section&nbsp;15).
+              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud service for transcription or for Smart Mode. By default (opt-out) the app sends <strong class="text-white">anonymous, aggregated usage statistics</strong> and <strong class="text-white">crash reports</strong> to guide development; both are cookieless, carry no account identifier, never contain your audio, text, or history, and can each be switched off at any time (details in section&nbsp;15).
             </p>
           </section>
 
@@ -119,6 +119,9 @@ const breadcrumbItems = [
               </li>
             </ul>
             <p class="mt-3">
+              <strong class="text-white">Smart Mode (optional text cleanup):</strong> Off by default. When it runs locally, the transcribed text is processed on your device with a downloaded language model. If you choose OpenAI as the Smart Mode service, the transcribed text and the selected preset's instructions are sent directly to OpenAI using your own OpenAI API key.
+            </p>
+            <p class="mt-3">
               When using a cloud provider, that provider's data processing terms apply: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> or <a href="https://deepgram.com/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">Deepgram Privacy Policy</a>.
             </p>
           </section>
@@ -133,7 +136,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">9. API Key Storage</h2>
             <p>
-              API keys for cloud providers (OpenAI, Deepgram) are <strong class="text-white">not</strong> stored in plain text in a configuration file. They are kept in your operating system's secure credential store: Windows Credential Manager, the macOS Keychain, or libsecret on Linux. A key is transmitted <strong class="text-white">only</strong> directly to that provider's API endpoint when you perform a transcription request. WhisPaste does not send your API key to any other service or server.
+              API keys for cloud providers (OpenAI, Deepgram) are <strong class="text-white">not</strong> stored in plain text in a configuration file. They are kept in your operating system's secure credential store: Windows Credential Manager, the macOS Keychain, or libsecret on Linux. A key is transmitted <strong class="text-white">only</strong> directly to that provider's API endpoint when you perform a transcription or Smart Mode request. WhisPaste does not send your API key to any other service or server.
             </p>
           </section>
 
@@ -147,7 +150,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">11. AI Model Downloads</h2>
             <p>
-              For local/offline transcription, WhisPaste downloads AI models from <strong class="text-white">Hugging Face</strong>: both the Whisper and the Parakeet models come from separate repositories there. During a model download, a standard HTTPS request is made to Hugging Face's servers. No personal data or identifiers are sent; only the model file URL is requested. Downloaded models are stored locally on your device.
+              For local/offline transcription, WhisPaste downloads AI models from <strong class="text-white">Hugging Face</strong>: the Whisper and Parakeet models as well as the optional Smart Mode language model come from separate repositories there. A corrupted Whisper model is re-downloaded automatically. During a model download, a standard HTTPS request is made to Hugging Face's servers. No personal data or identifiers are sent; only the model file URL is requested. Downloaded models are stored locally on your device.
             </p>
           </section>
 
@@ -158,18 +161,18 @@ const breadcrumbItems = [
             </p>
             <ul class="list-disc list-inside space-y-1 ml-4">
               <li>Installed via the <strong class="text-white">Microsoft Store</strong>, the <strong class="text-white">Mac App Store</strong>, <strong class="text-white">Homebrew</strong>, or <strong class="text-white">Scoop</strong>: the respective store or package manager handles update checks; the app itself performs no separate check. (Snap and Flatpak are planned but not yet available.)</li>
-              <li>Installed via the <strong class="text-white">Windows installer</strong> (incl. portable build) or the <strong class="text-white">macOS DMG</strong> downloaded directly from GitHub (outside the Mac App Store): the app checks for a new version through signed appcast feeds fetched from GitHub.</li>
+              <li>Installed via the <strong class="text-white">Windows installer</strong> (incl. portable build) or the <strong class="text-white">macOS DMG</strong> downloaded directly from GitHub (outside the Mac App Store): the app checks for a new version at startup and every 24&nbsp;hours afterwards through signed appcast feeds fetched from GitHub.</li>
               <li>On <strong class="text-white">Linux</strong> (AppImage/.deb): the check queries the GitHub Releases API directly.</li>
             </ul>
             <p class="mt-3">
-              These requests contain no personal data; they simply fetch the latest release version information. No user identifiers, device information, or usage data are transmitted.
+              These requests contain no personal data; they simply fetch the latest release version information. No user identifiers, device information, or usage data are transmitted. Automatic checks can be switched off under <strong class="text-white">Settings → Updates</strong>.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">13. Third-Party Data Sharing</h2>
             <p>
-              WhisPaste does <strong class="text-white">not share your content with third parties</strong>. Audio is sent to a cloud provider only when you explicitly choose one (OpenAI or Deepgram), directly from your device under that provider's terms. Anonymous usage statistics go to a Matomo server operated by us (not a third party). Optional crash reports are processed by Sentry as a data processor. Both can be switched off (see section&nbsp;15).
+              WhisPaste does <strong class="text-white">not share your content with third parties</strong>. Audio or text is sent to a cloud provider only when you explicitly choose one (OpenAI or Deepgram for transcription, OpenAI for Smart Mode), directly from your device under that provider's terms. Anonymous usage statistics go to a Matomo server operated by us (not a third party). Crash reports and performance data are processed by Sentry (EU data region) as a data processor. Both can be switched off (see section&nbsp;15).
             </p>
           </section>
 
@@ -180,24 +183,28 @@ const breadcrumbItems = [
             </p>
             <ul class="list-disc list-inside space-y-1 ml-4">
               <li>OpenAI / Deepgram API — when cloud transcription is enabled (user-initiated)</li>
+              <li>OpenAI API — only if you choose OpenAI as the Smart Mode service (user-initiated)</li>
               <li>Hugging Face — when downloading offline AI models (user-initiated)</li>
-              <li>GitHub — for automatic update checks (Releases API or appcast)</li>
-              <li>Matomo — anonymous, opt-out usage statistics (see section 15)</li>
-              <li>Sentry — optional crash reports (opt-out)</li>
+              <li>GitHub — for automatic update checks (Releases API or appcast; on by default, can be switched off)</li>
+              <li>Matomo — anonymous usage statistics (on by default, can be switched off, see section 15)</li>
+              <li>Sentry — crash reports and sampled performance data (on by default, can be switched off, see section 15)</li>
               <li>Supabase — only when you submit the optional feedback form (see section 16)</li>
             </ul>
             <p class="mt-3">
-              All network connections use <strong class="text-white">HTTPS</strong> encryption. Aside from the update check and the anonymous telemetry described in section 15, no background network activity occurs.
+              All network connections use <strong class="text-white">HTTPS</strong> encryption. Aside from the update check and the usage statistics and crash reports described in section 15, no background network activity occurs. A complete technical list of every connection is in <a href="https://github.com/whispaste/whispaste/blob/main/NETWORK.md" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">NETWORK.md</a>.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">15. Anonymous Usage Statistics &amp; Crash Reports</h2>
             <p>
-              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> by default via a Matomo server, plus optional crash reports (Sentry). Both are cookieless and carry no account or user identifier. For Matomo, the IP address is fully anonymised server-side, and an active operating-system Do-Not-Track setting is honoured. For week-level analysis (e.g. returning usage within the same week), a purely locally generated pseudonymous marker is also sent: a hash of a random, never-transmitted device value and the current calendar week. This value automatically changes every week and cannot be linked across weeks — it is therefore not a persistent device identifier.
+              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> via a self-hosted Matomo server, plus <strong class="text-white">crash reports</strong> via Sentry (EU data region). Both are on by default (opt-out) — the Privacy step of the onboarding says so as well. Both are cookieless and carry no account identifier. For Matomo, the IP address is fully anonymised server-side; if the <code class="text-brand-cyan">DNT=1</code> environment variable is set, the app sends no usage statistics. For week-level analysis (e.g. returning usage within the same week), a purely locally generated pseudonymous marker is also sent: a hash of a random, never-transmitted device value and the current calendar week. This value automatically changes every week and cannot be linked across weeks — it is therefore not a persistent device identifier.
             </p>
             <p>
-              <strong class="text-white">Never</strong> transmitted: your audio, transcribed text, history, snippets, tags, notes, API keys, concrete hotkeys, file paths, cursor position, or the target application. Only aggregated event counters and categories are collected (app version, platform, selected provider, install channel, language, the weekly-rotating cohort marker described above). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong class="text-white">Settings → Privacy</strong>; when usage statistics are off, no cohort marker is generated or sent either.
+              <strong class="text-white">Crash reports (Sentry)</strong> contain technical error data: the error message and stack trace, app version, operating system and CPU architecture, install channel and the most recent app log lines (these never contain transcribed text, but may contain local file paths). To tell whether an error keeps recurring on the same device, a truncated hash of the device name is included. Events containing secrets such as API keys are dropped; screenshots and on-screen content are never sent. In addition, a small share of app operations (0.5&nbsp;%) is sent as performance measurements: timings only, database query templates without values, and the addresses of model and update downloads.
+            </p>
+            <p>
+              <strong class="text-white">Never</strong> transmitted (in either stream): your audio, transcribed text, history, snippets, tags, notes, or API keys. Usage statistics additionally never include concrete hotkeys, file paths, cursor position, or the target application; they only collect aggregated event counters and categories (app version, platform, selected provider, install channel, language, the weekly-rotating cohort marker described above). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong class="text-white">Settings → Privacy</strong> ("Error Reporting" and "Share anonymous usage statistics"); when usage statistics are off, no cohort marker is generated or sent either.
             </p>
           </section>
 

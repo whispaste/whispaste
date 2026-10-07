@@ -5096,7 +5096,7 @@ abstract class L10n {
   /// No description provided for @onboardingPrivacyHint.
   ///
   /// In en, this message translates to:
-  /// **'Audio and text stay local. Only anonymous usage statistics go to a self-hosted server in the EU — GDPR-compliant.'**
+  /// **'Audio and text stay local. Anonymous usage statistics go to a self-hosted server in the EU, crash reports to Sentry (EU region) — GDPR-compliant.'**
   String get onboardingPrivacyHint;
 
   /// No description provided for @onboardingPrivacyToggle.

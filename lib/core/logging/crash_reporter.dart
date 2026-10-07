@@ -319,7 +319,8 @@ class CrashReporter {
   // Sentry beforeSendTransaction — Free-Tier span throttle + consent fallback
   // -------------------------------------------------------------------------
 
-  /// Drops performance transactions once the per-session ceiling is hit.
+  /// Drops performance transactions once the per-session ceiling is hit and
+  /// strips the log breadcrumbs from the ones that are kept.
   ///
   /// Performance events count against Sentry's Free-Tier span quota — this
   /// is a belt-and-braces guard on top of [_maxTransactionsPerWindow]
@@ -340,6 +341,10 @@ class CrashReporter {
     _txCount++;
     if (_txCount > _maxTransactionsPerWindow) return null;
 
+    // Traces only need timings. The scope copies the log breadcrumbs onto
+    // every event, transactions included, but only [beforeSend] scrubs
+    // them — so drop them here instead of shipping unchecked log lines.
+    transaction.breadcrumbs = null;
     return transaction;
   }
 

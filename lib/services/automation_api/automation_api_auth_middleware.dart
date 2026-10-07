@@ -11,6 +11,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shelf/shelf.dart';
 
 /// Builds the auth [Middleware].
@@ -26,7 +27,7 @@ Middleware bearerTokenAuth({required Future<String?> Function() currentToken}) {
       final isValid =
           expected != null &&
           expected.isNotEmpty &&
-          header == 'Bearer $expected';
+          constantTimeEquals(header, 'Bearer $expected');
       if (!isValid) {
         return Response(
           401,
@@ -37,4 +38,22 @@ Middleware bearerTokenAuth({required Future<String?> Function() currentToken}) {
       return innerHandler(request);
     };
   };
+}
+
+/// Compares [provided] against [expected] in time that depends only on the
+/// lengths of the inputs, never on the position of the first mismatching
+/// byte — so a local attacker cannot recover the token byte by byte via
+/// response timing. A `null` [provided] (missing header) never matches.
+@visibleForTesting
+bool constantTimeEquals(String? provided, String expected) {
+  if (provided == null) return false;
+  final a = utf8.encode(provided);
+  final b = utf8.encode(expected);
+  // Fold the length difference into the result instead of returning early,
+  // and always walk the full expected value.
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < b.length; i++) {
+    diff |= (i < a.length ? a[i] : 0) ^ b[i];
+  }
+  return diff == 0;
 }

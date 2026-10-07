@@ -2972,7 +2972,7 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'Аудио и текст остаются на устройстве. Только анонимная статистика отправляется на наш сервер в ЕС.';
+      'Аудио и текст остаются на устройстве. Анонимная статистика отправляется на наш сервер в ЕС, отчеты о сбоях — в Sentry (регион ЕС).';
 
   @override
   String get onboardingPrivacyToggle =>

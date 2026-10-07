@@ -95,4 +95,34 @@ void main() {
       expect(freshResponse.statusCode, 200);
     });
   });
+
+  group('constantTimeEquals', () {
+    test('equal strings → true', () {
+      expect(constantTimeEquals('Bearer abc123', 'Bearer abc123'), isTrue);
+    });
+
+    test('same length, different content → false', () {
+      expect(constantTimeEquals('Bearer abc123', 'Bearer abc124'), isFalse);
+      expect(constantTimeEquals('Bearer xbc123', 'Bearer abc123'), isFalse);
+    });
+
+    test('different length → false (prefix is not a match)', () {
+      expect(constantTimeEquals('Bearer abc', 'Bearer abc123'), isFalse);
+      expect(constantTimeEquals('Bearer abc123', 'Bearer abc'), isFalse);
+    });
+
+    test('missing header (null) → false', () {
+      expect(constantTimeEquals(null, 'Bearer abc123'), isFalse);
+    });
+
+    test('empty vs empty → true; empty vs non-empty → false', () {
+      expect(constantTimeEquals('', ''), isTrue);
+      expect(constantTimeEquals('', 'x'), isFalse);
+    });
+
+    test('compares UTF-8 bytes, not UTF-16 code units', () {
+      expect(constantTimeEquals('Bearer ä', 'Bearer ä'), isTrue);
+      expect(constantTimeEquals('Bearer ä', 'Bearer a'), isFalse);
+    });
+  });
 }

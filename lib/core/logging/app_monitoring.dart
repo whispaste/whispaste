@@ -60,38 +60,7 @@ class AppMonitoring {
     //   throttle (see CrashReporter.beforeSendTransaction). For a *real*
     //   monthly guarantee, set a Spend Cap in the Sentry dashboard.
     await SentryFlutter.init(
-      (options) {
-        options.dsn = _sentryDsn;
-        options.environment = kReleaseMode ? 'production' : 'development';
-        options.release = sentryRelease;
-        options.dist = currentArchTag();
-        options.sendDefaultPii = false;
-        options.attachScreenshot = false;
-        // Attach the widget tree (structure only — no text content) to error
-        // events. Privacy-safe and very helpful for UI bugs.
-        // ignore: experimental_member_use
-        options.attachViewHierarchy = true;
-        // Shrink per-event payload to stay well under the 1 GB attachment
-        // bucket and reduce noise in issue grouping.
-        options.maxBreadcrumbs = 30;
-        options.beforeSend = CrashReporter.beforeSend;
-        options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
-        // tracesSampler takes precedence over tracesSampleRate when both are
-        // set — see sentry_traces_sampler.dart. Our sampler returns 0.0 on
-        // consent=false (blocks the trace entirely so no spans can leak) and
-        // null otherwise (falls through to tracesSampleRate below).
-        options.tracesSampler = CrashReporter.tracesSampler;
-        options.tracesSampleRate = kReleaseMode ? 0.005 : 0.05;
-        options.enableAutoPerformanceTracing = true;
-        options.enableAutoNativeBreadcrumbs = true;
-        // Distributed Tracing bewusst NICHT aktiviert: WhisPaste hat keinen
-        // eigenen Backend-Service mit Sentry. Supabase wird nur für Feedback-
-        // Submits (PostgREST) und Testimonials (Build-Zeit der Astro-Site)
-        // genutzt — beide ohne serverseitige Sentry-Instrumentierung.
-        // `tracePropagationTargets` bleibt leer (Default) → keine
-        // `sentry-trace`/`baggage`-Header an irgendeinen Host.
-        options.tracePropagationTargets.clear();
-      },
+      configureSentryOptions,
       appRunner: () async {
         // 3. Initialize crash reporter (configures Sentry scope context).
         CrashReporter.init(deployChannel: detectDeployChannel().name);
@@ -104,6 +73,43 @@ class AppMonitoring {
         await appRunner();
       },
     );
+  }
+
+  /// Applies WhisPaste's Sentry options. Extracted from [bootstrap] so the
+  /// privacy-relevant switches can be pinned by tests.
+  @visibleForTesting
+  static void configureSentryOptions(SentryFlutterOptions options) {
+    options.dsn = _sentryDsn;
+    options.environment = kReleaseMode ? 'production' : 'development';
+    options.release = sentryRelease;
+    options.dist = currentArchTag();
+    options.sendDefaultPii = false;
+    options.attachScreenshot = false;
+    // No view hierarchy: crash reports are opt-out and must never carry
+    // on-screen content. The widget tree includes widget-key identifiers,
+    // which can be derived from user data, so it stays off entirely.
+    // ignore: experimental_member_use
+    options.attachViewHierarchy = false;
+    // Shrink per-event payload to stay well under the 1 GB attachment
+    // bucket and reduce noise in issue grouping.
+    options.maxBreadcrumbs = 30;
+    options.beforeSend = CrashReporter.beforeSend;
+    options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
+    // tracesSampler takes precedence over tracesSampleRate when both are
+    // set — see sentry_traces_sampler.dart. Our sampler returns 0.0 on
+    // consent=false (blocks the trace entirely so no spans can leak) and
+    // null otherwise (falls through to tracesSampleRate below).
+    options.tracesSampler = CrashReporter.tracesSampler;
+    options.tracesSampleRate = kReleaseMode ? 0.005 : 0.05;
+    options.enableAutoPerformanceTracing = true;
+    options.enableAutoNativeBreadcrumbs = true;
+    // Distributed Tracing bewusst NICHT aktiviert: WhisPaste hat keinen
+    // eigenen Backend-Service mit Sentry. Supabase wird nur für Feedback-
+    // Submits (PostgREST) und Testimonials (Build-Zeit der Astro-Site)
+    // genutzt — beide ohne serverseitige Sentry-Instrumentierung.
+    // `tracePropagationTargets` bleibt leer (Default) → keine
+    // `sentry-trace`/`baggage`-Header an irgendeinen Host.
+    options.tracePropagationTargets.clear();
   }
 
   // ── Cascade guard ────────────────────────────────────────────────────────
