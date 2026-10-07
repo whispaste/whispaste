@@ -775,6 +775,11 @@ export const i18n: Record<string, Record<string, string>> = {
     'comparison.osDictation.faq.multiLanguage.q': 'Can WhisPaste handle multiple languages better than the OS dictation?',
     'comparison.osDictation.faq.multiLanguage.a': 'Yes, in two ways. First, a single Whisper recording can contain code-switching (English-German, Spanish-English, etc.) and the model transcribes it as spoken, where the OS dictation usually forces a single input language per session. Second, switching the primary language is a setting toggle in WhisPaste; in the OS dictation it is tied to the system input source, which has its own UX cost.',
     'comparison.osDictation.cta.label': 'Get WhisPaste, free and open source',
+    // Promo film (silent brand film below the hero).
+    'promofilm.label': 'At a glance',
+    'promofilm.videoLabel': 'Silent animated film: press the hotkey, speak, and the text appears at the cursor, shown in a chat reply, a code review comment and study notes. Then: runs on your machine, works offline, GPU via Metal, Vulkan or CPU, no account. Free and open source for Mac, Windows and Linux.',
+    'promofilm.pause': 'Pause film',
+    'promofilm.play': 'Play film',
     // App-in-Any-Context Demo (Phase B, Issue 04).
     // Section that demonstrates the core promise: hotkey → speak → text appears
     // at cursor in the currently open app, without any app switch.
@@ -1661,6 +1666,11 @@ export const i18n: Record<string, Record<string, string>> = {
     'comparison.osDictation.faq.multiLanguage.q': 'Kommt WhisPaste besser mit mehreren Sprachen klar als das OS-Diktat?',
     'comparison.osDictation.faq.multiLanguage.a': 'Ja, in zwei Hinsichten. Erstens kann eine einzelne Whisper-Aufnahme Code-Switching enthalten (Englisch-Deutsch, Spanisch-Englisch usw.), und das Modell transkribiert es so, wie es gesprochen wurde. Das OS-Diktat erzwingt meist eine einzige Eingabesprache pro Sitzung. Zweitens ist der Wechsel der Primärsprache in WhisPaste ein Setting-Schalter; im OS-Diktat hängt er an der Systemeingabequelle, was eigene UX-Kosten verursacht.',
     'comparison.osDictation.cta.label': 'WhisPaste holen, kostenlos und Open Source',
+    // Promo film (silent brand film below the hero).
+    'promofilm.label': 'Kurz gezeigt',
+    'promofilm.videoLabel': 'Stummer Animationsfilm: Tastenkürzel drücken, sprechen, und der Text erscheint am Cursor, gezeigt an einer Chat-Antwort, einem Code-Review-Kommentar und Studiennotizen. Danach: läuft auf deinem Rechner, offline nutzbar, GPU per Metal, Vulkan oder CPU, kein Konto. Kostenlos und Open Source für Mac, Windows und Linux.',
+    'promofilm.pause': 'Film pausieren',
+    'promofilm.play': 'Film abspielen',
     // App-in-Any-Context Demo (Phase B, Issue 04).
     'appdemo.label': 'In jeder App',
     'appdemo.titleLead': 'Hier sprechen. Der Text erscheint ',

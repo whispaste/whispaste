@@ -1,0 +1,126 @@
+---
+/**
+ * `PromoFilm.astro` — the silent ~27 s animated product film directly below
+ * the hero: hotkey → speak → text at the cursor, played through the site's
+ * three user stories (chat reply, code review, study notes), then the local /
+ * offline promise and the end card. Rendered from code (Remotion) with the
+ * website's own tokens and the overlay-mockup painter, so it matches the page.
+ * Muted inline loop; reduced-motion users get the poster and start it
+ * themselves, everyone gets a pause toggle (WCAG 2.2.2). Playback also pauses
+ * while the section is off screen.
+ */
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const base = `/videos/whispaste-promo-16x9-${lang}`;
+---
+
+<section id="promo-film" data-testid="promo-film" class="band band-deep py-16 sm:py-24 relative overflow-hidden">
+  <div class="relative max-w-6xl mx-auto px-4 sm:px-6">
+    <SectionEyebrow key="promofilm.label" class="mb-6 text-center" />
+    <div class="pf-frame">
+      <video
+        class="pf-video"
+        data-testid="promo-film-video"
+        width="1920"
+        height="1080"
+        poster={`${base}-poster.jpg`}
+        muted
+        loop
+        playsinline
+        preload="metadata"
+        aria-label={t(lang, 'promofilm.videoLabel')}
+        data-i18n-aria="promofilm.videoLabel"
+      >
+        <source src={`${base}.webm`} type="video/webm" />
+        <source src={`${base}.mp4`} type="video/mp4" />
+      </video>
+      <button
+        type="button"
+        class="pf-toggle"
+        data-testid="promo-film-toggle"
+        aria-pressed="true"
+        aria-label={t(lang, 'promofilm.play')}
+        data-label-play={t(lang, 'promofilm.play')}
+        data-label-pause={t(lang, 'promofilm.pause')}
+      >
+        <svg class="pf-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /></svg>
+        <svg class="pf-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" /></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+  const section = document.querySelector<HTMLElement>('#promo-film');
+  const video = section?.querySelector<HTMLVideoElement>('video');
+  const toggle = section?.querySelector<HTMLButtonElement>('.pf-toggle');
+  if (section && video && toggle) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The viewer's explicit choice wins over autoplay; reduced motion starts paused.
+    let userPaused = reduced;
+    let visible = false;
+
+    const render = () => {
+      const paused = video.paused;
+      toggle.setAttribute('aria-pressed', String(paused));
+      toggle.setAttribute('aria-label', (paused ? toggle.dataset.labelPlay : toggle.dataset.labelPause) ?? '');
+    };
+    const sync = () => {
+      if (visible && !userPaused) video.play().catch(() => render());
+      else video.pause();
+    };
+
+    video.addEventListener('play', render);
+    video.addEventListener('pause', render);
+    toggle.addEventListener('click', () => {
+      userPaused = !video.paused;
+      if (!userPaused) visible = true;
+      sync();
+    });
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    }, { threshold: 0.25 }).observe(video);
+    render();
+  }
+</script>
+
+<style>
+  .pf-frame {
+    position: relative;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 18%, transparent);
+    box-shadow: 0 30px 80px -30px color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+    background: var(--color-brand-dark);
+  }
+  .pf-video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+  .pf-toggle {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--color-ink, #f0f4fa);
+    background: color-mix(in srgb, var(--color-brand-dark) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .pf-toggle:hover { background: color-mix(in srgb, var(--color-brand-card) 90%, transparent); }
+  .pf-toggle:focus-visible { outline: 2px solid var(--color-brand-cyan); outline-offset: 2px; }
+  .pf-toggle svg { width: 1.125rem; height: 1.125rem; }
+  .pf-toggle[aria-pressed='true'] .pf-icon-pause,
+  .pf-toggle[aria-pressed='false'] .pf-icon-play { display: none; }
+</style>
