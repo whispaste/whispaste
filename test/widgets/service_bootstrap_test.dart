@@ -6,9 +6,12 @@
 /// `.scratch/hotkey-modifier-storage-fix/issues/06-trigger-handler-persistent-state.md`.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -26,6 +29,7 @@ import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/side_panel/side_panel_controller_interface.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/side_panel/side_panel_service.dart';
+import 'package:whispaste/services/single_instance_service.dart';
 import 'package:whispaste/services/tray_service.dart';
 import 'package:whispaste/widgets/service_bootstrap.dart';
 
@@ -620,5 +624,70 @@ void main() {
         expect(hotkeySvc.unregisterCancelDictationCalls, 0);
       },
     );
+  });
+  group('WpServiceBootstrap — CLI remote control (--toggle / --cancel)', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('whispaste_remote_cmd_');
+      SingleInstanceService.lockDirOverride = tmp.path;
+    });
+
+    tearDown(() async {
+      await SingleInstanceService.release();
+      SingleInstanceService.onRemoteCommand = null;
+      SingleInstanceService.lockDirOverride = null;
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+
+    /// Claims the lock with [signal] already waiting, so the startup
+    /// catch-up queues it exactly like a command that reached the primary
+    /// before the bootstrap was mounted.
+    Future<void> queueRemoteCommand(WidgetTester tester, String signal) {
+      return tester.runAsync(() async {
+        final file = File(p.join(tmp.path, 'focus.signal'));
+        await file.writeAsString('2026-10-07T10:00:00.000 $signal');
+        file.setLastModifiedSync(
+          DateTime.now().add(const Duration(seconds: 5)),
+        );
+        await SingleInstanceService.ensureSingleInstance();
+      });
+    }
+
+    Future<void> mount(
+      WidgetTester tester,
+      _CounterOrchestrator orchestrator, {
+      bool pushToTalk = false,
+    }) async {
+      await tester.pumpWidget(
+        _makeApp(
+          hotkeySvc: _FakeHotkeyService(),
+          orchestrator: orchestrator,
+          settings: _FakeSettingsNotifier(pushToTalk: pushToTalk),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a queued --toggle toggles the recording once mounted, even '
+        'in Push-to-Talk mode', (tester) async {
+      await queueRemoteCommand(tester, 'toggle');
+      final orchestrator = _CounterOrchestrator();
+
+      await mount(tester, orchestrator, pushToTalk: true);
+
+      expect(orchestrator.toggleCalls, 1);
+      expect(orchestrator.startCalls, 0);
+    });
+
+    testWidgets('a queued --cancel cancels the dictation', (tester) async {
+      await queueRemoteCommand(tester, 'cancel');
+      final orchestrator = _CounterOrchestrator();
+
+      await mount(tester, orchestrator);
+
+      expect(orchestrator.cancelCalls, 1);
+      expect(orchestrator.toggleCalls, 0);
+    });
   });
 }

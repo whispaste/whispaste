@@ -52,6 +52,7 @@ void main() {
     await SingleInstanceService.release();
     SingleInstanceService.clock = DateTime.now;
     SingleInstanceService.onSecondInstanceLaunched = null;
+    SingleInstanceService.onRemoteCommand = null;
     SingleInstanceService.lockDirOverride = null;
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
@@ -208,6 +209,187 @@ void main() {
     expect(callCount, 1);
   });
 
+  group('InstanceCommand.fromArgs', () {
+    test('no remote-control flag means a plain focus request', () {
+      expect(InstanceCommand.fromArgs(const []), InstanceCommand.focus);
+      expect(
+        InstanceCommand.fromArgs(const ['--autostart']),
+        InstanceCommand.focus,
+      );
+    });
+
+    test('--toggle and --cancel map to their commands', () {
+      expect(
+        InstanceCommand.fromArgs(const ['--toggle']),
+        InstanceCommand.toggle,
+      );
+      expect(
+        InstanceCommand.fromArgs(const ['--cancel']),
+        InstanceCommand.cancel,
+      );
+    });
+
+    test('flags are found among unrelated arguments', () {
+      expect(
+        InstanceCommand.fromArgs(const [
+          '-NSDocumentRevisionsDebugMode',
+          'YES',
+          '--toggle',
+        ]),
+        InstanceCommand.toggle,
+      );
+    });
+
+    test('the first remote-control flag wins when both are given', () {
+      expect(
+        InstanceCommand.fromArgs(const ['--cancel', '--toggle']),
+        InstanceCommand.cancel,
+      );
+      expect(
+        InstanceCommand.fromArgs(const ['--toggle', '--cancel']),
+        InstanceCommand.toggle,
+      );
+    });
+
+    test('bare words without the double dash are ignored', () {
+      expect(
+        InstanceCommand.fromArgs(const ['toggle', 'cancel']),
+        InstanceCommand.focus,
+      );
+    });
+  });
+
+  group('remote commands (--toggle / --cancel)', () {
+    Future<InstanceCommand> nextCommand() {
+      final completer = Completer<InstanceCommand>();
+      SingleInstanceService.onRemoteCommand = (command) {
+        if (!completer.isCompleted) completer.complete(command);
+      };
+      return completer.future.timeout(const Duration(seconds: 5));
+    }
+
+    test('a toggle signal is routed to onRemoteCommand, not focus', () async {
+      final primary = await SingleInstanceService.ensureSingleInstance();
+      expect(primary, isTrue);
+      var focusCalls = 0;
+      SingleInstanceService.onSecondInstanceLaunched = () => focusCalls++;
+
+      final received = nextCommand();
+      await File(
+        p.join(tmp.path, 'focus.signal'),
+      ).writeAsString('2026-10-07T10:00:00.000 toggle', flush: true);
+
+      expect(await received, InstanceCommand.toggle);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(focusCalls, 0);
+    });
+
+    test('a cancel signal is routed to onRemoteCommand', () async {
+      final primary = await SingleInstanceService.ensureSingleInstance();
+      expect(primary, isTrue);
+
+      final received = nextCommand();
+      await File(
+        p.join(tmp.path, 'focus.signal'),
+      ).writeAsString('2026-10-07T10:00:00.000 cancel', flush: true);
+
+      expect(await received, InstanceCommand.cancel);
+    });
+
+    test(
+      'a focus request right before a toggle does not swallow the toggle',
+      () async {
+        // Debounce is per command: a focus followed by a toggle inside the
+        // same window are two different requests, not a double-click.
+        final now = DateTime(2026, 9, 30, 15);
+        SingleInstanceService.clock = () => now;
+        final primary = await SingleInstanceService.ensureSingleInstance();
+        expect(primary, isTrue);
+        final focused = Completer<void>();
+        SingleInstanceService.onSecondInstanceLaunched = () {
+          if (!focused.isCompleted) focused.complete();
+        };
+
+        final signal = File(p.join(tmp.path, 'focus.signal'));
+        await signal.writeAsString('2026-10-07T10:00:00.000', flush: true);
+        await focused.future.timeout(const Duration(seconds: 5));
+
+        final received = nextCommand();
+        await signal.writeAsString(
+          '2026-10-07T10:00:00.100 toggle',
+          flush: true,
+        );
+        expect(await received, InstanceCommand.toggle);
+      },
+    );
+
+    test('a command that arrives before a handler is registered is delivered '
+        'once one is', () async {
+      // Written just before the lock is taken, so the startup catch-up (not
+      // the FS watcher, whose latency varies per OS) picks it up —
+      // deterministically before any handler exists. The mtime is pinned
+      // ahead so whole-second mtime truncation can never push it outside
+      // the catch-up window.
+      final signal = File(p.join(tmp.path, 'focus.signal'));
+      await signal.writeAsString('2026-10-07T10:00:00.000 toggle', flush: true);
+      signal.setLastModifiedSync(
+        DateTime.now().add(const Duration(seconds: 5)),
+      );
+      final primary = await SingleInstanceService.ensureSingleInstance();
+      expect(primary, isTrue);
+
+      final delivered = <InstanceCommand>[];
+      SingleInstanceService.onRemoteCommand = delivered.add;
+      expect(delivered, [InstanceCommand.toggle]);
+    });
+
+    test('the primary launched with --toggle queues its own toggle for the '
+        'handler (no running instance: start the app, then record)', () async {
+      final primary = await SingleInstanceService.ensureSingleInstance(
+        command: InstanceCommand.toggle,
+      );
+      expect(primary, isTrue);
+
+      final delivered = <InstanceCommand>[];
+      SingleInstanceService.onRemoteCommand = delivered.add;
+      expect(delivered, [InstanceCommand.toggle]);
+    });
+
+    test('a plain primary launch queues nothing', () async {
+      final primary = await SingleInstanceService.ensureSingleInstance();
+      expect(primary, isTrue);
+
+      final delivered = <InstanceCommand>[];
+      SingleInstanceService.onRemoteCommand = delivered.add;
+      expect(delivered, isEmpty);
+    });
+
+    test(
+      'SIGUSR2 toggles the primary instance (Unix only)',
+      () async {
+        final primary = await SingleInstanceService.ensureSingleInstance();
+        expect(primary, isTrue);
+
+        final received = nextCommand();
+        Process.killPid(pid, ProcessSignal.sigusr2);
+
+        expect(await received, InstanceCommand.toggle);
+      },
+      skip: Platform.isWindows ? 'SIGUSR2 does not exist on Windows' : false,
+    );
+
+    test('release() drops commands nobody picked up', () async {
+      await SingleInstanceService.ensureSingleInstance(
+        command: InstanceCommand.toggle,
+      );
+      await SingleInstanceService.release();
+
+      final delivered = <InstanceCommand>[];
+      SingleInstanceService.onRemoteCommand = delivered.add;
+      expect(delivered, isEmpty);
+    });
+  });
+
   group('cross-process', () {
     test(
       'a second real OS process is refused the lock and signals this one',
@@ -240,6 +422,53 @@ void main() {
         );
 
         await completer.future.timeout(const Duration(seconds: 10));
+      },
+      tags: ['process'],
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'a secondary launched with --toggle forwards the command to the '
+      'process holding the lock',
+      () async {
+        final dart = _resolveDartExecutable();
+        if (dart == null) {
+          markTestSkipped(
+            'no dart executable resolvable from this test runner',
+          );
+          return;
+        }
+
+        // A real second OS process holds the lock as primary ...
+        final holder = await Process.start(dart, [
+          'run',
+          _probePath,
+          tmp.path,
+          '20000',
+        ]);
+        // Kill AND await exit before the shared tearDown deletes the temp
+        // dir: on Windows a still-dying holder keeps the lock file open and
+        // the deletion fails with errno 32.
+        addTearDown(() async {
+          holder.kill();
+          await holder.exitCode;
+        });
+        final firstLine = await holder.stdout
+            .transform(const SystemEncoding().decoder)
+            .first
+            .timeout(const Duration(minutes: 1));
+        expect(firstLine, contains('PRIMARY'));
+
+        // ... so this process is the secondary `whispaste --toggle`.
+        final isPrimary = await SingleInstanceService.ensureSingleInstance(
+          command: InstanceCommand.toggle,
+        );
+        expect(isPrimary, isFalse);
+
+        final signal = await File(
+          p.join(tmp.path, 'focus.signal'),
+        ).readAsString();
+        expect(signal.trim(), endsWith(' toggle'));
       },
       tags: ['process'],
       timeout: const Timeout(Duration(minutes: 2)),

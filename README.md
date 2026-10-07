@@ -67,6 +67,28 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU interface · Autostart · System tray
 
+## Command-Line Remote Control
+
+Start, stop or cancel a dictation from a shortcut, launcher or script — handy on Wayland, where apps cannot grab global hotkeys themselves:
+
+```sh
+whispaste --toggle   # start a dictation, or stop the running one
+whispaste --cancel   # discard the running dictation
+```
+
+The call is forwarded to the running WhisPaste and the second process exits right away. If WhisPaste is not running, `--toggle` starts it and then begins a dictation; `--cancel` does nothing. On Linux and macOS, `pkill -USR2 -x whispaste` toggles too, without starting a second process (only send it to a running instance).
+
+| Platform | Command |
+|---|---|
+| Linux (`.deb`) | `whispaste --toggle` |
+| Linux (AppImage) | `/path/to/WhisPaste-linux-x64.AppImage --toggle` |
+| macOS | `open -n -a WhisPaste --args --toggle` |
+| Windows (installer) | `"%LOCALAPPDATA%\Programs\WhisPaste\whispaste.exe" --toggle` |
+
+**GNOME:** Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts → **+**. Name `WhisPaste`, command `whispaste --toggle`, then set the shortcut. Add a second one with `whispaste --cancel` if you like.
+
+**KDE Plasma 6:** System Settings → Keyboard → Shortcuts → **Add New** → **Command or Script…**, enter `whispaste --toggle` and assign the shortcut. (Plasma 5: System Settings → Shortcuts → Custom Shortcuts → Edit → New → Global Shortcut → Command/URL.)
+
 ## Development
 
 **Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 11 Big Sur or newer (Apple Silicon), or a recent Linux distro

@@ -262,9 +262,20 @@ Future<void> _runApp(List<String> args) async {
   await _runBundleIdMigration();
 
   // Single-instance guard: if another instance is running, signal it and exit.
+  // The signal carries `--toggle`/`--cancel`, so `whispaste --toggle` from a
+  // shortcut or script drives the running instance's recording.
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    final isPrimary = await SingleInstanceService.ensureSingleInstance();
+    final command = InstanceCommand.fromArgs(args);
+    final isPrimary = await SingleInstanceService.ensureSingleInstance(
+      command: command,
+    );
     if (!isPrimary) {
+      exit(0);
+    }
+    // No running instance means no dictation to cancel — a cancel shortcut
+    // must not launch the app as a side effect. (`--toggle` instead starts
+    // the app and then a dictation, queued inside ensureSingleInstance.)
+    if (command == InstanceCommand.cancel) {
       exit(0);
     }
   }

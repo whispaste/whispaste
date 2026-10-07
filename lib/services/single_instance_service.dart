@@ -7,11 +7,41 @@ import 'package:path/path.dart' as p;
 import '../core/logging/app_logger.dart';
 import 'path_service.dart' as paths;
 
+/// What a launch asks of the running (primary) WhisPaste instance.
+///
+/// A plain launch only brings the existing window to the front. The
+/// remote-control flags let shortcuts, scripts and launchers (GNOME/KDE
+/// custom shortcuts on Wayland, Raycast/Alfred, window managers) drive the
+/// recording without the opt-in automation API: `whispaste --toggle`
+/// starts/stops a dictation, `whispaste --cancel` discards the running one.
+enum InstanceCommand {
+  /// Plain launch — focus the running instance's window.
+  focus,
+
+  /// `--toggle` — start a dictation, or stop the running one.
+  toggle,
+
+  /// `--cancel` — discard the running dictation (no-op when idle).
+  cancel;
+
+  /// Parses the process arguments. Unrelated arguments are ignored; if both
+  /// flags are given, the first one wins.
+  static InstanceCommand fromArgs(List<String> args) {
+    for (final arg in args) {
+      if (arg == '--toggle') return toggle;
+      if (arg == '--cancel') return cancel;
+    }
+    return focus;
+  }
+}
+
 /// Ensures only one instance of WhisPaste runs at a time.
 ///
 /// Uses an exclusive file lock in the app data directory. If the lock is
 /// acquired, this is the primary instance. If it's already held, another
 /// instance is running — we drop a signal file for it to pick up and exit.
+/// The signal carries the second launch's [InstanceCommand], so the same
+/// channel forwards `--toggle`/`--cancel` to the running instance.
 ///
 /// Deliberately network-free: an earlier version used a loopback
 /// `ServerSocket` for this, which required the `com.apple.security.network.
@@ -29,9 +59,12 @@ class SingleInstanceService {
 
   static RandomAccessFile? _lock;
   static StreamSubscription<FileSystemEvent>? _watch;
+  static StreamSubscription<ProcessSignal>? _toggleSignal;
   static Timer? _rearmTimer;
-  static DateTime? _lastSignalHandled;
+  static final Map<InstanceCommand, DateTime> _lastSignalHandled = {};
   static String? _lastSignalContent;
+  static void Function(InstanceCommand command)? _onRemoteCommand;
+  static final List<InstanceCommand> _pendingRemoteCommands = [];
 
   /// Time source for the debounce window; tests pin it instead of racing
   /// the wall clock.
@@ -46,10 +79,32 @@ class SingleInstanceService {
   /// Callback invoked when a second instance requests focus.
   static void Function()? onSecondInstanceLaunched;
 
+  /// Handler for [InstanceCommand.toggle]/[InstanceCommand.cancel] requests.
+  ///
+  /// Commands that arrive while no handler is registered (the recording
+  /// pipeline is wired up only after the first frame) are queued and
+  /// delivered, in order, as soon as one is set.
+  static set onRemoteCommand(void Function(InstanceCommand command)? handler) {
+    _onRemoteCommand = handler;
+    if (handler == null) return;
+    final pending = List.of(_pendingRemoteCommands);
+    _pendingRemoteCommands.clear();
+    pending.forEach(handler);
+  }
+
   /// Attempt to claim the single-instance lock.
   /// Returns `true` if this is the primary instance.
-  /// Returns `false` if another instance is already running (and was signalled).
-  static Future<bool> ensureSingleInstance() async {
+  /// Returns `false` if another instance is already running (and was signalled
+  /// with [command]).
+  ///
+  /// When this process becomes the primary and [command] is
+  /// [InstanceCommand.toggle], the toggle is queued for [onRemoteCommand]:
+  /// `whispaste --toggle` with no running instance starts the app and then
+  /// starts a dictation. Handling a primary [InstanceCommand.cancel] (nothing
+  /// to cancel) is the caller's decision.
+  static Future<bool> ensureSingleInstance({
+    InstanceCommand command = InstanceCommand.focus,
+  }) async {
     // Already holding the lock — we ARE the primary. Never open a second
     // handle: on POSIX, closing any file descriptor for a file drops every
     // advisory lock this process holds on it, even ones held via other
@@ -93,14 +148,16 @@ class SingleInstanceService {
       await raf.lock(FileLock.exclusive);
     } on FileSystemException {
       await raf.close();
-      _log.info('Another instance detected, sending focus signal');
-      await _writeFocusSignal(dir);
+      _log.info('Another instance detected, sending ${command.name} signal');
+      await _writeSignal(dir, command);
       return false;
     }
 
     _lock = raf;
     _log.info('Single instance lock acquired at $dir');
+    if (command == InstanceCommand.toggle) _dispatchRemoteCommand(command);
     _startWatching(dir);
+    _watchToggleSignal();
     await _catchUpOnMissedSignal(dir, lockedAt);
     return true;
   }
@@ -117,10 +174,13 @@ class SingleInstanceService {
     _rearmTimer = null;
     await _watch?.cancel();
     _watch = null;
+    await _toggleSignal?.cancel();
+    _toggleSignal = null;
     final raf = _lock;
     _lock = null;
-    _lastSignalHandled = null;
+    _lastSignalHandled.clear();
     _lastSignalContent = null;
+    _pendingRemoteCommands.clear();
     if (raf == null) return;
     try {
       await raf.unlock();
@@ -133,14 +193,21 @@ class SingleInstanceService {
     _log.info('Single instance lock released (relaunch in progress)');
   }
 
-  /// Writes the focus-request signal for the primary instance to pick up.
+  /// Writes the signal for the primary instance to pick up.
   /// Kept in a separate file from the lock file so a secondary instance can
   /// always write it, even though the lock file itself may hold an exclusive
   /// (and on Windows, mandatory) lock.
-  static Future<void> _writeFocusSignal(String dir) async {
+  ///
+  /// Format: `<ISO-8601 timestamp> <command>`. The unique timestamp keeps
+  /// every signal distinct (see [_onSignal]); an older primary that predates
+  /// the command suffix still treats any new content as a focus request.
+  static Future<void> _writeSignal(String dir, InstanceCommand command) async {
     try {
       final file = File(p.join(dir, _signalFileName));
-      await file.writeAsString(DateTime.now().toIso8601String(), flush: true);
+      await file.writeAsString(
+        '${DateTime.now().toIso8601String()} ${command.name}',
+        flush: true,
+      );
     } catch (e) {
       _log.warning('Failed to signal existing instance: $e');
     }
@@ -166,6 +233,24 @@ class SingleInstanceService {
           onDone: () => _rearmWatcher(dir),
           cancelOnError: true,
         );
+  }
+
+  /// Unix only: `SIGUSR2` toggles the recording, same as `--toggle` (e.g.
+  /// `pkill -USR2 -x whispaste`) but without booting a second process.
+  /// Checked safe: neither the Dart VM, the Flutter engine nor GTK/GLib
+  /// install a SIGUSR2 handler of their own. Armed only once this process
+  /// holds the lock, so only the primary reacts; before that (early startup)
+  /// the signal's default action still terminates the process, which is why
+  /// `--toggle` stays the documented, robust way.
+  static void _watchToggleSignal() {
+    if (Platform.isWindows) return;
+    try {
+      _toggleSignal = ProcessSignal.sigusr2.watch().listen(
+        (_) => _fireDebounced(InstanceCommand.toggle),
+      );
+    } on SignalException catch (e) {
+      _log.warning('SIGUSR2 toggle unavailable: $e');
+    }
   }
 
   /// Re-arms the directory watcher after its stream ends (e.g. a Windows
@@ -219,21 +304,43 @@ class SingleInstanceService {
     // Empty: the event fired between truncate and write.
     if (content.isEmpty || content == _lastSignalContent) return;
     _lastSignalContent = content;
-    _fireFocusDebounced();
+    _fireDebounced(_parseSignalCommand(content));
+  }
+
+  /// Reads the command suffix of a signal. Anything unrecognised — including
+  /// a bare timestamp from an older secondary — is a focus request.
+  static InstanceCommand _parseSignalCommand(String content) {
+    final suffix = content.split(' ').last;
+    for (final command in InstanceCommand.values) {
+      if (command.name == suffix) return command;
+    }
+    return InstanceCommand.focus;
   }
 
   /// Collapses distinct signals from secondary instances launched in quick
-  /// succession (e.g. a double-click on the app icon) into one focus.
-  static void _fireFocusDebounced() {
-    final cb = onSecondInstanceLaunched;
-    if (cb == null) return;
+  /// succession (e.g. a double-click on the app icon) into one. Debounced
+  /// per command, so a focus request never swallows a following toggle.
+  static void _fireDebounced(InstanceCommand command) {
+    final focusCb = onSecondInstanceLaunched;
+    if (command == InstanceCommand.focus && focusCb == null) return;
     final now = clock();
-    if (_lastSignalHandled != null &&
-        now.difference(_lastSignalHandled!) < _debounce) {
+    final last = _lastSignalHandled[command];
+    if (last != null && now.difference(last) < _debounce) return;
+    _lastSignalHandled[command] = now;
+    _log.info('Received ${command.name} signal from second instance');
+    if (command == InstanceCommand.focus) {
+      focusCb!();
+    } else {
+      _dispatchRemoteCommand(command);
+    }
+  }
+
+  static void _dispatchRemoteCommand(InstanceCommand command) {
+    final handler = _onRemoteCommand;
+    if (handler == null) {
+      _pendingRemoteCommands.add(command);
       return;
     }
-    _lastSignalHandled = now;
-    _log.info('Received focus signal from second instance');
-    cb();
+    handler(command);
   }
 }

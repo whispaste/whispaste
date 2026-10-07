@@ -29,6 +29,7 @@ import '../services/smart_mode/smart_mode_presets.dart';
 import '../services/snippet_picker/snippet_picker_service.dart';
 import '../services/snippets/interactive_snippet_controller.dart';
 import '../services/side_panel/side_panel_service.dart';
+import '../services/single_instance_service.dart';
 import '../services/tray_service.dart';
 
 /// Invisible wrapper that eagerly boots keepAlive service providers.
@@ -213,6 +214,17 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           .start(fields, template: snippet.body);
     };
 
+    // ── CLI remote control (`whispaste --toggle` / `--cancel`) — forwarded
+    // by a second process over the single-instance channel. Registered after
+    // the first frame, alongside the orchestrator's deferred init, so a
+    // command queued during startup (cold start via `--toggle`) runs against
+    // a live pipeline. `--toggle` always toggles, like the tray entry, also
+    // in Push-to-Talk mode: a CLI call has no key-up to stop on. ──
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SingleInstanceService.onRemoteCommand = _onRemoteCommand;
+    });
+
     // ── Tray callbacks — stateless closures, safe to wire once ──
     final tray = ref.read(trayServiceProvider.notifier);
     tray.onToggleRecording = () {
@@ -249,8 +261,26 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     };
   }
 
+  void _onRemoteCommand(InstanceCommand command) {
+    final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+    switch (command) {
+      case InstanceCommand.toggle:
+        unawaited(
+          _isInteractiveSnippetActive
+              ? _stopOrAdvance()
+              : orchestrator.toggleRecording(),
+        );
+      case InstanceCommand.cancel:
+        unawaited(orchestrator.cancelRecording());
+      case InstanceCommand.focus:
+        // Handled by SingleInstanceService.onSecondInstanceLaunched.
+        break;
+    }
+  }
+
   @override
   void dispose() {
+    SingleInstanceService.onRemoteCommand = null;
     UiThreadWatchdog.instance.dispose();
     super.dispose();
   }

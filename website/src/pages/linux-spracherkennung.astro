@@ -99,6 +99,9 @@ const faqQuestions = [
   { question: t(lang, "linuxStt.faq.gpu.q"), answer: t(lang, "linuxStt.faq.gpu.a") },
 ];
 
+/** Literal commands, identical in every locale (they are CLI input, not prose). */
+const shortcutCommands = "whispaste --toggle\nwhispaste --cancel";
+
 const alternateSlugs = { de: "linux-spracherkennung", en: "linux-speech-to-text" };
 
 const relatedPages = [
@@ -153,6 +156,16 @@ const relatedPages = [
     <h2>{t(lang, "linuxStt.section.noPython.heading")}</h2>
     <p>{t(lang, "linuxStt.section.noPython.body")}</p>
     <p>{t(lang, "linuxStt.section.noPython.modelNote")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "linuxStt.section.shortcuts.heading")}</h2>
+    <p>{t(lang, "linuxStt.section.shortcuts.body")}</p>
+    <pre class="command"><code>{shortcutCommands}</code></pre>
+    <p>{t(lang, "linuxStt.section.shortcuts.gnome")}</p>
+    <p>{t(lang, "linuxStt.section.shortcuts.kde")}</p>
+    <p>{t(lang, "linuxStt.section.shortcuts.signal")}</p>
+    <pre class="command"><code>pkill -USR2 -x whispaste</code></pre>
   </section>
 
   <section>
@@ -222,6 +235,19 @@ const relatedPages = [
   .file-alias code {
     display: block;
     margin-top: 0.15rem;
+    overflow-wrap: anywhere;
+  }
+
+  .command {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    background: var(--color-brand-card);
+    border: 1px solid var(--color-brand-border);
+    color: var(--color-brand-cyan);
+    font-size: 0.9375rem;
+    /* Wrap instead of forcing a horizontal page scroll on narrow viewports. */
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
