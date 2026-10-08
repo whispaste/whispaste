@@ -8,7 +8,17 @@
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  // Quitting via PostQuitMessage (window_manager's destroy()) ends the message
+  // loop while the main HWND is still alive, so WM_DESTROY never reaches
+  // OnDestroy() and ~Win32Window()'s Destroy() only dispatches to the no-op
+  // base OnDestroy(). Without this call the members would be torn down
+  // implicitly: ~unique_ptr does not null flutter_controller_ before deleting
+  // it and is_destroying_ is still false, so WM_PARENTNOTIFY from the Flutter
+  // child's DestroyWindow() is forwarded into the half-destroyed controller
+  // (Sentry 121115654/127954786, misattributed to sh::TFunctionLookup).
+  OnDestroy();
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {

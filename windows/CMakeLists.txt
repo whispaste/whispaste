@@ -34,6 +34,14 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # (e.g. flutter_soloud's player.cpp) on a from-scratch Windows build.
 add_definitions(-DUNICODE -D_UNICODE -DNOMINMAX)
 
+# VS 2022 17.10+ made std::mutex's constructor constexpr; binaries built that
+# way null-deref in MSVCP140!mtx_do_lock when an older VC++ runtime is loaded
+# from System32 (seen with a 2020 msvcp140.dll in record_windows_plugin).
+# Keep the pre-17.10 mutex layout for everything compiled in this tree
+# (runner + plugins); prebuilt DLLs are covered by the app-local runtime below.
+# https://github.com/microsoft/STL/wiki/Changelog#vs-2022-1710
+add_definitions(-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
@@ -113,6 +121,13 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# Ship the build toolset's VC++ runtime (msvcp140/vcruntime140*) next to the
+# exe so the portable zip and the NSIS installer never fall back to an older
+# System32 copy (app-local deployment; the UCRT is part of Windows 10+).
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${CMAKE_INSTALL_PREFIX}")
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT Runtime)
+include(InstallRequiredSystemLibraries)
 
 if(EXISTS "${TRAY_ICON_SOURCE}")
   install(FILES "${TRAY_ICON_SOURCE}"
