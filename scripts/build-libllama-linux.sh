@@ -35,7 +35,8 @@
 # Usage:  [BUILD_JOBS=N] scripts/build-libllama-linux.sh [--bundle <flutter-bundle-dir>]
 # Output: .build/libllama/linux/{libllama.so.0,libllama-common.so.0,
 #         libggml-llama*.so.0,libggml-{cpu-*,vulkan}.so,libsmartmode_shim.so,
-#         SHA256SUMS} and, with --bundle, copies them into
+#         SHA256SUMS} plus debug/<lib>.debug (split DWARF for Sentry, never
+#         shipped) and, with --bundle, copies the libraries into
 #         <flutter-bundle-dir>/lib/smart_mode/.
 #
 # Requires: cmake, g++, patchelf, libvulkan-dev + glslc (Vulkan backend), a
@@ -79,6 +80,7 @@ echo "[1/5] source verified: $LLAMA_TAG @ $LLAMA_PINNED_COMMIT"
 echo "[2/5] cmake configure + build (Vulkan + CPU variants, shared, backend-dl) …"
 cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS=-g -DCMAKE_CXX_FLAGS=-g \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_VULKAN=ON \
   -DGGML_NATIVE=OFF \
@@ -151,7 +153,7 @@ echo "      staged: $(cd "$STAGE_DIR" && ls | tr '\n' ' ')"
 # --- 4. Compile WhisPaste's shim against the staged, renamed libraries ------
 echo "[4/5] compiling smart_mode_shim.cpp → libsmartmode_shim.so"
 LLAMA_COMMON_SO="$(cd "$STAGE_DIR" && ls libllama-common.so* | head -n1)"
-g++ -std=c++17 -O2 -shared -fPIC \
+g++ -std=c++17 -O2 -g -shared -fPIC \
   -I "$LLAMA_SRC/include" -I "$LLAMA_SRC/ggml/include" -I "$LLAMA_SRC/common" -I "$LLAMA_SRC/vendor" \
   -o "$STAGE_DIR/libsmartmode_shim.so" \
   "$SHIM_SRC" \
@@ -163,6 +165,9 @@ g++ -std=c++17 -O2 -shared -fPIC \
   -Wl,-soname,libsmartmode_shim.so \
   -Wl,-rpath,'$ORIGIN'
 echo "      shim NEEDED: $(readelf -d "$STAGE_DIR/libsmartmode_shim.so" | awk '/NEEDED/{print $5}' | tr -d '[]' | tr '\n' ' ')"
+
+# Built with -g for Sentry; ship stripped libraries, keep the DWARF aside.
+bash "$REPO_ROOT/scripts/split-debug-linux.sh" "$STAGE_DIR" "$STAGE_DIR/debug"
 
 # --- 5. SHA-256 manifest + optional bundle copy -----------------------------
 echo "[5/5] writing SHA256SUMS"

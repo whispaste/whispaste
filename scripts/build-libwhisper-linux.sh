@@ -35,7 +35,8 @@
 #
 # Usage:  [BUILD_JOBS=N] scripts/build-libwhisper-linux.sh [--bundle <flutter-bundle-dir>]
 # Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,libggml-cpu-*.so,SHA256SUMS}
-#         and, with --bundle, copies them into <flutter-bundle-dir>/lib/.
+#         plus debug/<lib>.debug (split DWARF for Sentry, never shipped),
+#         and, with --bundle, copies the libraries into <flutter-bundle-dir>/lib/.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -74,6 +75,7 @@ echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
 echo "[2/4] cmake configure + build (Vulkan + CPU variants, shared, backend-dl) …"
 cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS=-g -DCMAKE_CXX_FLAGS=-g \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_VULKAN=ON \
   -DGGML_NATIVE=OFF \
@@ -113,6 +115,9 @@ if ! ls "$STAGE_DIR"/libggml-cpu-*.so >/dev/null 2>&1; then
   exit 1
 fi
 echo "      staged: $(cd "$STAGE_DIR" && ls *.so* | tr '\n' ' ')"
+
+# Built with -g for Sentry; ship stripped libraries, keep the DWARF aside.
+bash "$REPO_ROOT/scripts/split-debug-linux.sh" "$STAGE_DIR" "$STAGE_DIR/debug"
 
 # --- 4. SHA-256 manifest + optional bundle copy -----------------------------
 echo "[4/4] writing SHA256SUMS"

@@ -109,6 +109,7 @@ cmd/
 scripts/*
 !scripts/build-libwhisper-macos.sh
 !scripts/build-libwhisper-linux.sh
+!scripts/split-debug-linux.sh
 !scripts/bundle-libwhisper-windows.ps1
 !scripts/build-libllama-macos.sh
 !scripts/build-libllama-linux.sh
@@ -116,6 +117,7 @@ scripts/*
 !scripts/build-libllama-windows.ps1
 !scripts/build-smartmode-shim-windows.ps1
 !scripts/bundle-libllama-windows.ps1
+!scripts/collect-pdbs-windows.ps1
 !scripts/git-hooks/
 !scripts/smoke/
 !scripts/generate-release-notes.mjs

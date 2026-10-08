@@ -141,7 +141,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/windows
-          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1') }}
+          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1', 'scripts/collect-pdbs-windows.ps1') }}
 
       - name: Clone pinned whisper.cpp source
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
@@ -167,6 +167,10 @@ jobs:
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          # /Z7 + /DEBUG: PDBs for Sentry, see scripts/build-libllama-windows.ps1.
+          $env:CFLAGS = '/Z7'
+          $env:CXXFLAGS = '/Z7'
+          $env:LDFLAGS = '/DEBUG /OPT:REF /OPT:ICF'
           cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
@@ -175,6 +179,8 @@ jobs:
           cmake --build .build/libwhisper/windows-build --config Release -j
           New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
           Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
+          pwsh scripts/collect-pdbs-windows.ps1 -DllDir .build/libwhisper/windows -OutDir .build/libwhisper/windows/pdb
+          if ($LASTEXITCODE -ne 0) { throw "collect-pdbs-windows.ps1 failed" }
 
       - name: Stage libwhisper next to whispaste.exe
         shell: pwsh
@@ -204,7 +210,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libllama/windows
-          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1', 'native/smart_mode/**') }}
+          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1', 'scripts/collect-pdbs-windows.ps1', 'native/smart_mode/**') }}
 
       - name: Clone pinned llama.cpp source
         if: steps.libllama_cache.outputs.cache-hit != 'true'
@@ -261,6 +267,15 @@ jobs:
           # the action-release step at the end of this workflow.
           $env:SENTRY_RELEASE = "whispaste@$version"
           dart run sentry_dart_plugin
+          # The plugin only scans the Flutter Release dir, where no PDB may
+          # go (it is packaged as-is). Upload the whisper/ggml/llama/shim
+          # PDBs from their staging dirs with the sentry-cli the plugin just
+          # downloaded and checksum-verified. A failed upload must not block
+          # the release, so it only warns.
+          & .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli.exe --url https://de.sentry.io `
+            debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste `
+            .build/libwhisper/windows/pdb .build/libllama/windows/pdb
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whisper/ggml/llama stay unsymbolicated for this release." }
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
@@ -1228,7 +1243,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/linux
-          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh') }}
+          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh', 'scripts/split-debug-linux.sh') }}
 
       - name: Clone pinned whisper.cpp source
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
@@ -1265,7 +1280,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libllama/linux
-          key: libllama-linux-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-linux.sh', 'native/smart_mode/**') }}
+          key: libllama-linux-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-linux.sh', 'scripts/split-debug-linux.sh', 'native/smart_mode/**') }}
 
       - name: Clone pinned llama.cpp source
         if: steps.libllama_cache.outputs.cache-hit != 'true'
@@ -1291,6 +1306,31 @@ jobs:
           # below, which runs ldd over every ELF file of the installed .deb
           # and the extracted AppImage (scripts/smoke/smoke-linux.sh).
           echo "libsmartmode_shim.so present: $(ls -la "$SO")"
+
+      # Linux counterpart of the Windows/macOS "Upload debug symbols to
+      # Sentry" steps. The plugin uploads the bundle (Dart AOT libapp.so,
+      # plugin .so files); the native engines ship stripped, so their split
+      # DWARF (debug/*.debug, see scripts/split-debug-linux.sh) goes up
+      # separately with the sentry-cli the plugin downloaded. Symbol uploads
+      # do not count against Sentry's event quota.
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          # Must match `sentryRelease` in lib/core/app_info.dart.
+          SENTRY_RELEASE="whispaste@$VERSION" dart run sentry_dart_plugin
+          if ! .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli --url https://de.sentry.io \
+            debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste \
+            .build/libwhisper/linux/debug .build/libllama/linux/debug; then
+            echo "::warning::Native debug-file upload to Sentry failed — crash frames in whisper/ggml/llama stay unsymbolicated for this release."
+          fi
 
       # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
       - name: Ensure crashpad_handler is executable

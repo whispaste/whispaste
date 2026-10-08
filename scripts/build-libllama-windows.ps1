@@ -83,6 +83,13 @@ Write-Host "[2/3] cmake configure + build (Vulkan + CPU variants, shared, backen
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 $GgmlSuffixInclude = Join-Path $BuildDir "ggml-llama-suffix.cmake"
 'set(CMAKE_SHARED_LIBRARY_SUFFIX "-llama.dll")' | Set-Content -Encoding ascii $GgmlSuffixInclude
+# /Z7 + /DEBUG: PDBs for Sentry (collected into $StageDir\pdb below, never
+# bundled). CFLAGS/CXXFLAGS/LDFLAGS are appended to CMake's defaults, so /MD
+# and the Release optimisation stay as they are; /OPT:REF /OPT:ICF undo the
+# size growth /DEBUG would otherwise cause.
+$env:CFLAGS = '/Z7'
+$env:CXXFLAGS = '/Z7'
+$env:LDFLAGS = '/DEBUG /OPT:REF /OPT:ICF'
 cmake -S $LlamaSrc -B $BuildDir -G Ninja `
   -DCMAKE_BUILD_TYPE=Release `
   "-DCMAKE_PROJECT_ggml_INCLUDE=$($GgmlSuffixInclude -replace '\\','/')" `
@@ -132,6 +139,9 @@ foreach ($dll in Get-ChildItem -Path $StageDir -Filter *.dll) {
   }
 }
 Write-Host "      ggml namespacing verified (no ggml.dll / ggml-base.dll name or import)."
+
+pwsh (Join-Path $PSScriptRoot "collect-pdbs-windows.ps1") -DllDir $StageDir -OutDir (Join-Path $StageDir "pdb")
+if ($LASTEXITCODE -ne 0) { throw "collect-pdbs-windows.ps1 failed" }
 
 Push-Location $StageDir
 try {

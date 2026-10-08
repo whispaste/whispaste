@@ -66,12 +66,12 @@ $ggmlImportLib = Get-RequiredImportLib "ggml.lib"
 $llamaCommonImportLib = Get-RequiredImportLib "llama-common.lib"
 
 Write-Host "[1/2] compiling smart_mode_shim.cpp"
-cl.exe /std:c++17 /O2 /EHsc /LD `
+cl.exe /std:c++17 /O2 /Z7 /EHsc /LD `
   /I "$LlamaSrc\include" /I "$LlamaSrc\ggml\include" /I "$LlamaSrc\common" /I "$LlamaSrc\vendor" `
   "$ShimSrc" `
   "$llamaImportLib" "$ggmlImportLib" "$llamaCommonImportLib" `
   /Fe:"$StageDir\smartmode_shim.dll" `
-  /link /MACHINE:X64
+  /link /MACHINE:X64 /DEBUG /OPT:REF /OPT:ICF /PDB:"$WindowsBuildDir\smartmode_shim.pdb"
 
 if ($LASTEXITCODE -ne 0) { throw "cl.exe failed with exit code $LASTEXITCODE" }
 
@@ -88,6 +88,10 @@ $shimImports = dumpbin /nologo /dependents (Join-Path $StageDir "smartmode_shim.
 foreach ($c in @('ggml.dll', 'ggml-base.dll')) {
   if ($shimImports -contains $c) { throw "smartmode_shim.dll imports $c -- would bind to libwhisper's ggml" }
 }
+
+# Adds the shim's PDB next to libllama's (see collect-pdbs-windows.ps1).
+pwsh (Join-Path $PSScriptRoot "collect-pdbs-windows.ps1") -DllDir $StageDir -OutDir (Join-Path $StageDir "pdb")
+if ($LASTEXITCODE -ne 0) { throw "collect-pdbs-windows.ps1 failed" }
 
 Write-Host "[2/2] refreshing SHA256SUMS"
 Push-Location $StageDir
