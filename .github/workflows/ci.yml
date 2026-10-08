@@ -95,7 +95,7 @@ jobs:
       - name: Logging gate — no dev.log/debugPrint outside AppLogger
         run: |
           echo 'Checking for logging calls that bypass AppLogger...'
-          ALLOWED='lib/core/logging/app_logger.dart|lib/core/logging/app_monitoring.dart|lib/core/logging/crash_reporter.dart|lib/services/floating_overlay/overlay_render_channel.dart|_render_entrypoint\.dart'
+          ALLOWED='lib/core/logging/app_logger.dart|lib/core/logging/app_monitoring.dart|lib/core/logging/crash_reporter.dart|lib/core/logging/crash_reporting_consent.dart|lib/services/floating_overlay/overlay_render_channel.dart|_render_entrypoint\.dart'
           MATCHES=$(grep -rEln 'dev\.log\(|debugPrint\(' --include='*.dart' lib \
             | grep -Ev "$ALLOWED" || true)
           if [ -n "$MATCHES" ]; then
