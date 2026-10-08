@@ -21,6 +21,7 @@ import '../../core/logging/app_logger.dart';
 import '../audio/pcm_wav_codec.dart';
 import '../stt/isolate_shutdown_helper.dart';
 import '../stt/stt_benchmark.dart';
+import 'parakeet_audio_chunker.dart';
 import 'parakeet_model_registry.dart';
 
 final _log = AppLogger('ParakeetEngine');
@@ -129,25 +130,23 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
           );
           break;
         }
-        final stream = r.createStream();
         try {
-          stream.acceptWaveform(
-            samples: req.samples,
+          // One encoder pass per chunk — see parakeet_audio_chunker.dart.
+          final texts = <String>[];
+          for (final chunk in splitForParakeet(
+            req.samples,
             sampleRate: req.sampleRate,
-          );
-          r.decode(stream);
-          final result = r.getResult(stream);
+          )) {
+            final text = _decodeChunk(r, chunk, req.sampleRate).trim();
+            if (text.isNotEmpty) texts.add(text);
+          }
           mainSendPort.send(
-            _TranscribeResult(requestId: req.requestId, text: result.text),
+            _TranscribeResult(requestId: req.requestId, text: texts.join(' ')),
           );
         } catch (e) {
           mainSendPort.send(
             _TranscribeResult(requestId: req.requestId, error: '$e'),
           );
-        } finally {
-          // Must run even on error — otherwise the native stream object
-          // leaks for the isolate's lifetime (found by cross-review).
-          stream.free();
         }
 
       case _ShutdownRequest():
@@ -162,6 +161,23 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
         Isolate.exit(mainSendPort, const _ShutdownAck());
     }
   });
+}
+
+String _decodeChunk(
+  sherpa_onnx.OfflineRecognizer r,
+  Float32List samples,
+  int sampleRate,
+) {
+  final stream = r.createStream();
+  try {
+    stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+    r.decode(stream);
+    return r.getResult(stream).text;
+  } finally {
+    // Must run even on error — otherwise the native stream object
+    // leaks for the isolate's lifetime (found by cross-review).
+    stream.free();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -379,8 +395,11 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
       ),
     );
 
+    final audio = Duration(
+      microseconds: samples.length * Duration.microsecondsPerSecond ~/ 16000,
+    );
     final result = await completer.future.timeout(
-      const Duration(seconds: 30),
+      parakeetTranscribeTimeout(audio),
       onTimeout: () {
         _pending.remove(requestId);
         throw StateError('parakeet_transcribe_timeout');

@@ -47,6 +47,43 @@ FASTLANE_TEAM_ID = ENV.fetch("FASTLANE_TEAM_ID")
 # `mac devid_release` run, which failed with exactly this symptom.
 PROJECT_ROOT = File.expand_path("..", __dir__)
 
+# Marketing version (X.Y.Z) from pubspec.yaml — baked in via
+# --dart-define=APP_VERSION like release.yml does. Without it the app tags
+# every Sentry event `whispaste@unknown` (the native SDK keeps the release it
+# was initialised with), so store-build hangs could not be tied to a release
+# or symbolicated.
+def pubspec_version
+  line = File.readlines(File.join(PROJECT_ROOT, "pubspec.yaml")).find { |l| l.start_with?("version:") }
+  UI.user_error!("version: missing in pubspec.yaml") unless line
+  line.split(":", 2).last.strip.split("+").first
+end
+
+# Uploads the MAS archive's dSYMs (App.framework.dSYM carries the Dart AOT
+# code) under the same release the app reports. sentry_dart_plugin only scans
+# build/macos/Build/Products/Release*, so the zip gym exported is unpacked
+# into Release-mas first. The token comes from the environment or the local
+# ~/.config/sentry/.env; without one the upload is skipped with a warning.
+def upload_mas_dsyms(dsym_zip)
+  token = ENV["SENTRY_AUTH_TOKEN"]
+  env_file = File.expand_path("~/.config/sentry/.env")
+  if (token.nil? || token.empty?) && File.exist?(env_file)
+    token = File.readlines(env_file).map(&:strip)
+                .find { |l| l.start_with?("SENTRY_AUTH_TOKEN=") }&.split("=", 2)&.last
+  end
+  if token.nil? || token.empty? || dsym_zip.nil? || !File.exist?(dsym_zip)
+    UI.important("Skipping Sentry dSYM upload (no SENTRY_AUTH_TOKEN or no dSYM zip) — hangs from this build stay unsymbolicated.")
+    return
+  end
+  target = File.join(PROJECT_ROOT, "build/macos/Build/Products/Release-mas")
+  FileUtils.rm_rf(target)
+  FileUtils.mkdir_p(target)
+  sh("unzip", "-q", "-o", dsym_zip, "-d", target)
+  Dir.chdir(PROJECT_ROOT) do
+    sh({ "SENTRY_AUTH_TOKEN" => token, "SENTRY_RELEASE" => "whispaste@#{pubspec_version}" },
+       "dart", "run", "sentry_dart_plugin")
+  end
+end
+
 def load_asc_api_key
   app_store_connect_api_key(
     key_id:        ASC_KEY_ID,
@@ -233,7 +270,8 @@ platform :mac do
          "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
          "RBENV_VERSION=system " \
          "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
-         "flutter build macos --release --dart-define=WHISPASTE_MAS=true#{build_number_flag}")
+         "flutter build macos --release --dart-define=WHISPASTE_MAS=true " \
+         "--dart-define=APP_VERSION=#{pubspec_version}#{build_number_flag}")
     end
 
     build_mac_app(
@@ -259,6 +297,8 @@ platform :mac do
         provisioningProfiles: { "de.whispaste.app" => "de.whispaste.app AppStore" }
       }
     )
+
+    upload_mas_dsyms(lane_context[SharedValues::DSYM_OUTPUT_PATH])
 
     # Clean baseline before touching screenshots at all — in case a prior
     # run left duplicates behind (see dedupe_mas_screenshots' own comment).
@@ -424,7 +464,7 @@ platform :mac do
          "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
          "RBENV_VERSION=system " \
          "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
-         "flutter build macos --release")
+         "flutter build macos --release --dart-define=APP_VERSION=#{pubspec_version}")
     end
 
     # build_mac_app (gym/build_app) only populates lane_context's shared
