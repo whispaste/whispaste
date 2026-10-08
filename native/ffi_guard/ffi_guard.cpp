@@ -4,6 +4,7 @@
 // "C" callees never throw and may drop the handlers below).
 #include "ffi_guard.h"
 
+#include <cstdint>
 #include <cstring>
 #include <exception>
 
@@ -81,6 +82,16 @@ int wpg_whisper_full_with_state(wpg_whisper_full_with_state_fn fn,
   return guarded(err, err_len, [&] {
     *out_rc = fn(ctx, state, *params, samples, n_samples);
   });
+}
+
+bool wpg_abort_flag_cb(void* flag) {
+  if (flag == nullptr) return false;
+#if defined(_MSC_VER)
+  return *static_cast<volatile const int32_t*>(flag) != 0;
+#else
+  return __atomic_load_n(static_cast<const int32_t*>(flag),
+                         __ATOMIC_RELAXED) != 0;
+#endif
 }
 
 int wpg_call_void_pp(wpg_void_pp_fn fn, const void* a, const void* b,

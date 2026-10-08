@@ -15,8 +15,10 @@
 /// loads and decodes through the guard.
 library;
 
+import 'dart:ffi' as ffi;
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:whispaste/services/headless/package_diagnose.dart'
@@ -135,6 +137,17 @@ void main() {
           expect(() => guard.selfTest(1), throwsA(isA<NativeCallException>()));
         }
         expect(() => guard.selfTest(0), returnsNormally);
+      });
+
+      test('abort-flag callback reports whether the flag is raised', () {
+        final cb = guard.abortFlagCallback!
+            .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
+        final flag = calloc<ffi.Int32>();
+        addTearDown(() => calloc.free(flag));
+        expect(cb(flag.cast()), isFalse);
+        flag.value = 1;
+        expect(cb(flag.cast()), isTrue);
+        expect(cb(ffi.nullptr), isFalse);
       });
 
       test('was built against the bundled whisper.h struct layouts', () {

@@ -10,9 +10,11 @@
 library;
 
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/settings_enums.dart' show GpuAcceleration;
@@ -101,7 +103,10 @@ class _PartialTranscriptUpdate {
 /// isolate boundary the same way [_TranscribeRequest]/[_TranscribeResult] do
 /// for [WhisperEngine.transcribe].
 class _StartLivePreviewRequest {
-  const _StartLivePreviewRequest();
+  const _StartLivePreviewRequest(this.abortFlagAddress);
+
+  /// Address of [WhisperIsolateEngine._previewAbortFlag] (ticket 30).
+  final int abortFlagAddress;
 }
 
 class _StartLivePreviewResult {
@@ -249,7 +254,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
         }
 
-      case _StartLivePreviewRequest():
+      case final _StartLivePreviewRequest req:
         final e = engine;
         if (e == null) {
           mainSendPort.send(
@@ -260,6 +265,13 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
           return;
         }
+        // Cleared here, in queue order, rather than by the main isolate:
+        // preview decodes still queued from the previous recording must
+        // keep seeing the flag its stop raised.
+        final abortFlag = ffi.Pointer<ffi.Int32>.fromAddress(
+          req.abortFlagAddress,
+        )..value = 0;
+        e.livePreviewAbortFlag = abortFlag;
         try {
           await e.startLivePreview();
           mainSendPort.send(const _StartLivePreviewResult(ok: true));
@@ -500,6 +512,13 @@ class WhisperIsolateEngine
   // ticket) — proxies [LivePreviewEngine] to the worker isolate the same way
   // [transcribe] proxies [WhisperEngine.transcribe] above. ──────────────────
 
+  /// Raised by [stopLivePreview] so the worker's in-flight preview decode
+  /// aborts instead of delaying the final transcription queued behind it
+  /// (ticket 30); the worker clears it on the next start. Allocated here
+  /// and freed only once the worker has exited, as a native call there may
+  /// still read it.
+  ffi.Pointer<ffi.Int32>? _previewAbortFlag;
+
   Completer<_StartLivePreviewResult>? _startPreviewCompleter;
   Completer<_StopLivePreviewAck>? _stopPreviewCompleter;
   final Map<int, Completer<_LivePreviewDecodeResult>> _pendingPreview = {};
@@ -534,7 +553,8 @@ class WhisperIsolateEngine
     }
     final completer = Completer<_StartLivePreviewResult>();
     _startPreviewCompleter = completer;
-    _workerPort!.send(const _StartLivePreviewRequest());
+    final abortFlag = _previewAbortFlag ??= calloc<ffi.Int32>();
+    _workerPort!.send(_StartLivePreviewRequest(abortFlag.address));
     final result = await completer.future;
     if (!result.ok) {
       throw StateError(result.error ?? 'whisper_init_state_failed');
@@ -569,6 +589,7 @@ class WhisperIsolateEngine
   @override
   Future<void> stopLivePreview() async {
     if (_isolate == null || _workerPort == null) return;
+    _previewAbortFlag?.value = 1;
     final completer = Completer<_StopLivePreviewAck>();
     _stopPreviewCompleter = completer;
     try {
@@ -681,6 +702,7 @@ class WhisperIsolateEngine
     } catch (e) {
       _log.warning('Failed to signal worker shutdown: $e');
     }
+    var killed = false;
     await awaitGracefulShutdown(
       completer: completer,
       timeout: const Duration(seconds: 10),
@@ -688,8 +710,16 @@ class WhisperIsolateEngine
       timeoutMessage:
           'Worker shutdown did not complete within 10s — force-killing '
           '(native resources may leak)',
-      onTimeout: () => isolate.kill(priority: Isolate.immediate),
+      onTimeout: () {
+        killed = true;
+        isolate.kill(priority: Isolate.immediate);
+      },
     );
+    // A killed worker's native decode may still be running and reading the
+    // flag — leak four bytes rather than risk a use-after-free.
+    final abortFlag = _previewAbortFlag;
+    _previewAbortFlag = null;
+    if (abortFlag != null && !killed) calloc.free(abortFlag);
     _sub?.cancel();
     _sub = null;
     _isolate = null;

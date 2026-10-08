@@ -20,6 +20,7 @@
 #define WPG_API __attribute__((visibility("default")))
 #endif
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "whisper.h"
@@ -85,6 +86,13 @@ WPG_API int wpg_whisper_full_with_state(
 // SherpaOnnxDecodeOfflineStream(recognizer, stream).
 WPG_API int wpg_call_void_pp(wpg_void_pp_fn fn, const void* a, const void* b,
                              char* err, size_t err_len);
+
+// whisper `abort_callback` (ggml_abort_callback shape): true once the int32
+// at `flag` is non-zero. Dart owns the flag and raises it from another
+// isolate (another thread) to cancel an in-flight decode, hence the atomic
+// read. whisper.cpp polls it after the encoder and between decoder steps,
+// so a raise mid-encoder takes effect once the encoder finishes.
+WPG_API bool wpg_abort_flag_cb(void* flag);
 
 // Test hook with the wpg_void_pp_fn shape, deliberately UNGUARDED and built
 // in its own translation unit with the platform's default exception model

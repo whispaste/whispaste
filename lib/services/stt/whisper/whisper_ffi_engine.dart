@@ -1285,6 +1285,13 @@ class WhisperFfiEngine
   /// [startLivePreview] has not (yet) been called, or was stopped.
   ffi.Pointer<whisper_state>? _previewState;
 
+  /// Int32 that aborts a running [decodeLivePreview] once non-zero (ticket
+  /// 30). Owned and raised by another isolate ([WhisperIsolateEngine]) so a
+  /// stop does not wait behind a whole preview window; only honoured when
+  /// the guard exports `wpg_abort_flag_cb`, otherwise previews run to the
+  /// end as before.
+  ffi.Pointer<ffi.Int32>? livePreviewAbortFlag;
+
   /// Maps a C++ exception caught by `wp_ffi_guard` during inference to the
   /// notifier's resilience taxonomy: on a GPU backend it is treated like a
   /// GPU fault (ggml-vulkan/Metal throwing mid-decode) so the notifier
@@ -1361,6 +1368,12 @@ class WhisperFfiEngine
       if (promptC != null) {
         params.initial_prompt = promptC.cast<ffi.Char>();
       }
+      final abortFlag = livePreviewAbortFlag;
+      final abortCallback = _guard?.abortFlagCallback;
+      if (abortFlag != null && abortCallback != null) {
+        params.abort_callback = abortCallback;
+        params.abort_callback_user_data = abortFlag.cast();
+      }
 
       final int rc;
       try {
@@ -1384,6 +1397,9 @@ class WhisperFfiEngine
       } on NativeCallException catch (e) {
         throw _nativeInferenceFailure('whisper_full_with_state', e);
       }
+      // Stopped mid-decode: whatever whisper produced is stale, and an
+      // aborted run is not an error.
+      if (abortFlag != null && abortFlag.value != 0) return '';
       if (rc != 0) {
         throw WhisperEngineException(
           WhisperFailureKind.transient,

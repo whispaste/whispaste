@@ -355,6 +355,17 @@ class NativeCallGuard {
     _run((err, len) => _callVoidPP(fn, a, b, err, len));
   }
 
+  /// `wpg_abort_flag_cb` (see `ffi_guard.h`): a whisper `abort_callback`
+  /// that fires once the int32 its user data points at is non-zero — lets
+  /// another isolate cancel an in-flight decode. `null` for a guard built
+  /// before the export existed.
+  late final ffi.Pointer<
+    ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>
+  >?
+  abortFlagCallback = library.providesSymbol('wpg_abort_flag_cb')
+      ? library.lookup('wpg_abort_flag_cb')
+      : null;
+
   /// Address of the guard's own throwing test hook (`wpg_selftest_throw`,
   /// see `ffi_guard.h`) — for tests and `--diagnose` only.
   ffi.Pointer<ffi.Void> get selfTestThrow =>
