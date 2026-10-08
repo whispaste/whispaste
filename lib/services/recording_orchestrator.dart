@@ -19,6 +19,7 @@ import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/mic_start_trace.dart';
 import '../core/logging/perf_instrumentation.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
@@ -141,6 +142,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// [startRecording] call always overwrites it before any session that
   /// could read it exists.
   DateTime? _hotkeyPressedAtForLatencyKpi;
+
+  /// Mic-start trace of the most recent start (handy-catchup ticket 19):
+  /// hotkey → phase change → paster primed → capture started → first real
+  /// sample, logged at debug level once the first sample arrives.
+  MicStartTrace? _micStartTrace;
+
+  @visibleForTesting
+  MicStartTrace? get debugLastMicStartTrace => _micStartTrace;
 
   /// Handles OOM retry policy and model-fallback decisions.
   ///
@@ -392,6 +401,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
     // reset separately) is unaffected.
     _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
+    final hotkeyMicros =
+        PerfMarkers.instance.pendingHotkeyPressedMonotonicMicros;
+    final triggerMicros = PerfMarkers.instance.monotonicMicros();
     _cancelRequested = false;
 
     // Same "next start always overwrites, never reset at exit" pattern as
@@ -481,6 +493,12 @@ class RecordingOrchestrator extends Notifier<void> {
       _stateMachine.transition(RecordingIntent.start);
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
+      final micTrace = _micStartTrace = MicStartTrace(
+        sessionId: sid,
+        clock: PerfMarkers.instance.monotonicMicros,
+        hotkeyMicros: hotkeyMicros,
+        triggerMicros: triggerMicros,
+      )..mark(MicStartStage.phaseRecording);
 
       // No per-start telemetry: a recording's outcome is captured once at the
       // end via the aggregated pipeline-outcome counter (see
@@ -508,6 +526,7 @@ class RecordingOrchestrator extends Notifier<void> {
       if (target == RecordingTarget.clipboard ||
           target == RecordingTarget.selectionEdit) {
         await ref.read(pasterProvider)?.prime();
+        micTrace.mark(MicStartStage.pasterPrimed);
       }
 
       // Start audio capture. `streamRawPcm` opens the live-transcript-
@@ -533,6 +552,13 @@ class RecordingOrchestrator extends Notifier<void> {
         );
         return;
       }
+      micTrace.mark(MicStartStage.captureStarted);
+      unawaited(
+        audioNotifier.firstSampleArrived?.then((_) {
+          micTrace.mark(MicStartStage.firstSample);
+          _log.debug(micTrace.summary());
+        }),
+      );
 
       // Subscribe to amplitude for level metering + safety guard (also
       // cancels any stale live-preview PCM subscription from a previous

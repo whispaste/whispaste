@@ -154,6 +154,14 @@ class PerfMarkers {
 
   DateTime? _coldStartBegin;
   DateTime? _hotkeyPressedAt;
+  int? _hotkeyPressedMonotonicMicros;
+
+  /// Monotonic clock for latency traces that must not jump with wall-clock
+  /// adjustments (see `MicStartTrace`).
+  static final Stopwatch _monotonic = Stopwatch()..start();
+
+  /// Microseconds on the monotonic clock shared by all PERF traces.
+  int monotonicMicros() => _monotonic.elapsedMicroseconds;
 
   // ── Cold-start ──────────────────────────────────────────────────────────
 
@@ -190,6 +198,7 @@ class PerfMarkers {
   /// Dart-layer moment of the hotkey event.
   void markHotkeyPressed() {
     _hotkeyPressedAt = DateTime.now();
+    _hotkeyPressedMonotonicMicros = monotonicMicros();
     _log.debug('[PERF] hotkey pressed (t₀ for hotkey→overlay)');
   }
 
@@ -208,6 +217,7 @@ class PerfMarkers {
   void markOverlayShown() {
     final pressedAt = _hotkeyPressedAt;
     _hotkeyPressedAt = null; // reset — next press gets a clean t₀
+    _hotkeyPressedMonotonicMicros = null;
     if (pressedAt == null) return;
     final elapsedMs = DateTime.now().difference(pressedAt).inMilliseconds;
     const budget = PerfBudgets.hotkeyOverlayMs;
@@ -232,6 +242,10 @@ class PerfMarkers {
   /// latencies are derived independently from the same key-down event.
   DateTime? get pendingHotkeyPressedAt => _hotkeyPressedAt;
 
+  /// Same pending key-down as [pendingHotkeyPressedAt], on the
+  /// [monotonicMicros] clock — t₀ for the mic-start trace.
+  int? get pendingHotkeyPressedMonotonicMicros => _hotkeyPressedMonotonicMicros;
+
   // ── Test helpers ─────────────────────────────────────────────────────────
 
   /// Returns the currently-pending hotkey timestamp, or null if none.
@@ -251,5 +265,6 @@ class PerfMarkers {
   void reset() {
     _coldStartBegin = null;
     _hotkeyPressedAt = null;
+    _hotkeyPressedMonotonicMicros = null;
   }
 }

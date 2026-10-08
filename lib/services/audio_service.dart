@@ -16,6 +16,7 @@ import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/mic_start_trace.dart';
 import 'audio/amplitude_from_pcm.dart';
 import 'audio/pcm_gain_processor.dart';
 import 'audio/recording_start_stop_arbiter.dart';
@@ -196,6 +197,14 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// the samples themselves.
   Stream<Uint8List>? get pcmChunkStream => _pcmChunkController?.stream;
 
+  /// Completes when the current recording delivers its first non-silent PCM
+  /// chunk — the moment the microphone is really live, as opposed to
+  /// [startRecording] returning. Feeds the mic-start trace (debug log only).
+  /// `null` before the first [startRecording]; never completes for a
+  /// recording that stays digitally silent.
+  Future<void>? get firstSampleArrived => _firstSample?.future;
+  Completer<void>? _firstSample;
+
   @override
   AudioStatus build() {
     ref.onDispose(_cleanup);
@@ -371,8 +380,11 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       // explicit gain, the chunk passes through [PcmGainProcessor] first so
       // both downstream branches see the scaled samples.
       final gainProcessor = _gainProcessor;
+      final firstSample = _firstSample = Completer<void>();
+      final firstSampleDetector = FirstSampleDetector();
       _pcmSub = pcmStream.listen(
         (chunk) {
+          if (firstSampleDetector.observe(chunk)) firstSample.complete();
           final scaled = gainProcessor == null
               ? chunk
               : gainProcessor.process(chunk);

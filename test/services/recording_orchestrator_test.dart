@@ -18,6 +18,7 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/logging/mic_start_trace.dart';
 import 'package:whispaste/core/logging/perf_instrumentation.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -115,6 +116,12 @@ class FakeAudioService extends AudioServiceNotifier {
 
   @override
   Stream<double>? get amplitudeStream => _ampCtrl?.stream;
+
+  /// Completed by tests to simulate the microphone's first non-silent chunk.
+  Completer<void>? firstSampleCompleter;
+
+  @override
+  Future<void>? get firstSampleArrived => firstSampleCompleter?.future;
 
   @override
   Future<void> startRecording({bool streamRawPcm = false}) async {
@@ -3958,6 +3965,68 @@ void main() {
             reason: 'History content field leaked into telemetry payload',
           );
         }
+      },
+    );
+  });
+
+  // =========================================================================
+  // Mic-start trace (handy-catchup ticket 19): hotkey → first real sample,
+  // split into the startRecording steps. Debug log only.
+  // =========================================================================
+
+  group('Mic-start trace', () {
+    setUp(() {
+      PerfMarkers.instance.reset();
+      ensureFakeLocalSttFilesExist();
+    });
+    tearDown(() => PerfMarkers.instance.reset());
+
+    test('stamps every start step and completes on the first sample, '
+        'measured from the hotkey press', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      fakeAudio.firstSampleCompleter = Completer<void>();
+
+      PerfMarkers.instance.markHotkeyPressed();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await orch.startRecording();
+
+      final trace = orch.debugLastMicStartTrace!;
+      expect(trace.isComplete, isFalse);
+      expect(
+        trace.elapsedMs(MicStartStage.phaseRecording),
+        greaterThanOrEqualTo(20),
+      );
+      expect(trace.elapsedMs(MicStartStage.captureStarted), isNotNull);
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      fakeAudio.firstSampleCompleter!.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(trace.isComplete, isTrue);
+      expect(
+        trace.elapsedMs(MicStartStage.firstSample)! -
+            trace.elapsedMs(MicStartStage.captureStarted)!,
+        greaterThanOrEqualTo(30),
+      );
+      await orch.stopRecording();
+    });
+
+    test(
+      'never stamps a first sample when the capture fails to start',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        fakeAudio.errorOnStart = true;
+        fakeAudio.firstSampleCompleter = Completer<void>()..complete();
+
+        await orch.startRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(container.read(recordingProvider).phase, RecordingPhase.error);
+        final trace = orch.debugLastMicStartTrace!;
+        expect(trace.elapsedMs(MicStartStage.captureStarted), isNull);
+        expect(trace.isComplete, isFalse);
       },
     );
   });

@@ -148,6 +148,18 @@ void main() {
       expect(markers.debugHotkeyPressedAt, isNull);
     });
 
+    test('markHotkeyPressed also stamps the monotonic t₀ until consumed', () {
+      expect(markers.pendingHotkeyPressedMonotonicMicros, isNull);
+      final before = markers.monotonicMicros();
+      markers.markHotkeyPressed();
+      final stamped = markers.pendingHotkeyPressedMonotonicMicros;
+      expect(stamped, isNotNull);
+      expect(stamped, greaterThanOrEqualTo(before));
+      expect(markers.monotonicMicros(), greaterThanOrEqualTo(stamped!));
+      markers.markOverlayShown();
+      expect(markers.pendingHotkeyPressedMonotonicMicros, isNull);
+    });
+
     test('markHotkeyPressed → markOverlayShown does not throw', () {
       markers.markHotkeyPressed();
       expect(() => markers.markOverlayShown(), returnsNormally);
