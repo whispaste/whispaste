@@ -39,7 +39,7 @@ if [ -f "$LOCAL_BLOCK" ]; then
 fi
 
 # --- Englisch-Pflicht-Dateien (öffentliche GitHub-Markdown) ---
-ENGLISH_FILES="README.md SECURITY.md CHANGELOG.md CONTRIBUTING.md CODE_OF_CONDUCT.md"
+ENGLISH_FILES="README.md SECURITY.md CHANGELOG.md CONTRIBUTING.md CONTRIBUTING_TRANSLATIONS.md CODE_OF_CONDUCT.md"
 GERMAN_RE='(^|[^[:alpha:]])(und|oder|nicht|werden|wurde|eine|einen|keine|sind|auch|dass|wird|diese|sich|wenn|gehört|über|für)([^[:alpha:]]|$)'
 
 list_files(){

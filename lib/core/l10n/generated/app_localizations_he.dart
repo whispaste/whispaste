@@ -521,63 +521,67 @@ class L10nHe extends L10n {
   String get pasteFailureOpenSettings => 'פתח הגדרות';
 
   @override
-  String get pasteNotificationNoTargetTitle => 'WhisPaste: Auto-Paste Skipped';
+  String get pasteNotificationNoTargetTitle =>
+      'WhisPaste: ההדבקה האוטומטית דולגה';
 
   @override
   String get pasteNotificationNoTargetBody =>
-      'No target app detected. Focus the destination app first, then start recording. The text is on the clipboard.';
+      'לא זוהתה אפליקציית יעד. עברו קודם לאפליקציית היעד, ואז התחילו להקליט. הטקסט נמצא בלוח.';
 
   @override
-  String get pasteNotificationNoTargetTray => 'Auto-Paste: Target App Missing';
+  String get pasteNotificationNoTargetTray =>
+      'הדבקה אוטומטית: אפליקציית היעד חסרה';
 
   @override
-  String get pasteNotificationRestartNeededTitle => 'WhisPaste: Restart Needed';
+  String get pasteNotificationRestartNeededTitle =>
+      'WhisPaste: נדרשת הפעלה מחדש';
 
   @override
   String get pasteNotificationRestartNeededBody =>
-      'The permission was granted, but WhisPaste is still running the old state. Click here to restart WhisPaste.';
+      'ההרשאה ניתנה, אבל WhisPaste עדיין פועלת עם המצב הישן. לחצו כאן כדי להפעיל מחדש את WhisPaste.';
 
   @override
   String get pasteNotificationRestartNeededTray =>
-      'Auto-Paste Blocked — Restart Needed';
+      'ההדבקה האוטומטית חסומה — נדרשת הפעלה מחדש';
 
   @override
   String get pasteNotificationPermissionBlockedTitle =>
-      'WhisPaste: Auto-Paste Blocked';
+      'WhisPaste: ההדבקה האוטומטית חסומה';
 
   @override
   String get pasteNotificationPermissionResetEntryBody =>
-      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here: WhisPaste will clear a possibly stale entry and let macOS ask again.';
+      'WhisPaste זקוקה להרשאה כדי להכניס טקסט לאפליקציות אחרות — ב-macOS ההרשאה הזו נקראת \"נגישות\". לחצו כאן: WhisPaste תנקה רשומה שאולי אינה עדכנית ותאפשר ל-macOS לבקש שוב.';
 
   @override
   String get pasteNotificationPermissionOpenSettingsBody =>
-      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here or the tray icon to open System Settings.';
+      'WhisPaste זקוקה להרשאה כדי להכניס טקסט לאפליקציות אחרות — ב-macOS ההרשאה הזו נקראת \"נגישות\". לחצו כאן או על סמל המגש כדי לפתוח את הגדרות המערכת.';
 
   @override
   String get pasteNotificationPermissionBlockedTray =>
-      'Auto-Paste Blocked — Open System Settings';
+      'ההדבקה האוטומטית חסומה — פתחו את הגדרות המערכת';
 
   @override
   String get pasteNotificationElevationBlockedTitle =>
-      'WhisPaste: Auto-Paste Blocked';
+      'WhisPaste: ההדבקה האוטומטית חסומה';
 
   @override
   String get pasteNotificationElevationBlockedBody =>
-      'The target app is running with administrator rights. Restart WhisPaste as an administrator too, to paste into that app.';
+      'אפליקציית היעד פועלת עם הרשאות מנהל. כדי להדביק בה, הפעילו מחדש גם את WhisPaste כמנהל.';
 
   @override
   String get pasteNotificationElevationBlockedTray =>
-      'Auto-Paste Blocked — Administrator Needed';
+      'ההדבקה האוטומטית חסומה — נדרשות הרשאות מנהל';
 
   @override
-  String get pasteNotificationFailedTitle => 'WhisPaste: Auto-Paste Failed';
+  String get pasteNotificationFailedTitle =>
+      'WhisPaste: ההדבקה האוטומטית נכשלה';
 
   @override
   String get pasteNotificationFailedBody =>
-      'The system rejected the paste. The text is on the clipboard — paste it manually with ⌘V / Ctrl+V.';
+      'המערכת דחתה את ההדבקה. הטקסט נמצא בלוח — הדביקו אותו ידנית עם ⌘V / Ctrl+V.';
 
   @override
-  String get pasteNotificationFailedTray => 'Auto-Paste Failed';
+  String get pasteNotificationFailedTray => 'ההדבקה האוטומטית נכשלה';
 
   @override
   String get pasteCapabilityCheckTitle => 'רגע…';
@@ -1447,7 +1451,7 @@ class L10nHe extends L10n {
 
   @override
   String get correctionLearningHowTo =>
-      'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.';
+      'בזמן הקלטת הערה בהיסטוריה, אמרו \"correct: …\" (או \"korrektur: …\") ואחריו את הטקסט המתוקן כדי לדרוס אותו. תקנו את אותו הדבר פעמיים, ו-WhisPaste תציע אותו כאן כהחלפה אוטומטית.';
 
   @override
   String get correctionCandidatesCardTitle => 'הצעות מהתיקונים שלך';
@@ -1461,11 +1465,17 @@ class L10nHe extends L10n {
   String get correctionCandidatesReviewButton => 'בדיקה';
 
   @override
-  String get correctionCandidatesReviewTitle => 'Review learned corrections';
+  String get correctionCandidatesReviewTitle => 'סקירת תיקונים שנלמדו';
 
   @override
   String correctionCandidatesReviewSubtitle(int count) {
-    return '$count correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count תיקונים שחזרתם עליהם',
+      one: 'תיקון אחד שחזרתם עליו',
+    );
+    return '$_temp0 — אשרו את אלה ש-WhisPaste תחיל מעכשיו אוטומטית. שום דבר לא משתנה עד שתאשרו.';
   }
 
   @override
@@ -2028,21 +2038,21 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get statusBarAutomationApiChipLabelError => 'API: error';
+  String get statusBarAutomationApiChipLabelError => 'API: שגיאה';
 
   @override
   String statusBarAutomationApiTooltip(int port) {
-    return 'Automation API active on port $port';
+    return 'ממשק האוטומציה פעיל בפורט $port';
   }
 
   @override
   String statusBarAutomationApiTooltipFallback(int port, int requestedPort) {
-    return 'Automation API active on port $port (port $requestedPort was in use)';
+    return 'ממשק האוטומציה פעיל בפורט $port (פורט $requestedPort היה תפוס)';
   }
 
   @override
   String get statusBarAutomationApiTooltipError =>
-      'Automation API: no free port found';
+      'ממשק האוטומציה: לא נמצא פורט פנוי';
 
   @override
   String get modifierCtrl => 'Ctrl';
@@ -3262,7 +3272,7 @@ class L10nHe extends L10n {
   String get voiceCorrectionApplied => 'תמלול תוקן בקול';
 
   @override
-  String get voiceCorrectionUndone => 'Correction undone';
+  String get voiceCorrectionUndone => 'התיקון בוטל';
 
   @override
   String get voiceNoteEmpty => 'לא זוהה דיבור';
@@ -3272,7 +3282,7 @@ class L10nHe extends L10n {
 
   @override
   String get historyVoiceNoteButtonTooltip =>
-      'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript';
+      'הערת קול — אמרו \"tag: …\" כדי להוסיף תגית, או \"correct: …\" כדי לכתוב מחדש את התמליל הזה';
 
   @override
   String updateAvailable(String version) {
@@ -4212,18 +4222,18 @@ class L10nHe extends L10n {
       'Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט המוכתב שלך אוטומטית — לגמרי במכשיר שלך. הורד את המודל המקומי עכשיו, או הגדר אותו מאוחר יותר בהגדרות.';
 
   @override
-  String get smartModeOnboardingHintExampleBeforeLabel => 'Raw dictation';
+  String get smartModeOnboardingHintExampleBeforeLabel => 'הכתבה גולמית';
 
   @override
   String get smartModeOnboardingHintExampleBefore =>
-      'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing';
+      'אז אממ פגישת הלקוח נדחתה ליום חמישי בשלוש אחר הצהריים ו אה אנחנו עדיין צריכים את המצגת המעודכנת מהשיווק';
 
   @override
-  String get smartModeOnboardingHintExampleAfterLabel => 'Smart Mode result';
+  String get smartModeOnboardingHintExampleAfterLabel => 'התוצאה של Smart Mode';
 
   @override
   String get smartModeOnboardingHintExampleAfter =>
-      'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.';
+      'אז, פגישת הלקוח נדחתה ליום חמישי בשלוש אחר הצהריים, ואנחנו עדיין צריכים את המצגת המעודכנת מהשיווק.';
 
   @override
   String get smartModeOnboardingHintDownloadCta => 'הורדה';
@@ -4245,22 +4255,22 @@ class L10nHe extends L10n {
   String get smartModeUsageHintDismiss => 'לא עכשיו';
 
   @override
-  String get settingsAutomationApi => 'Local Automation API';
+  String get settingsAutomationApi => 'ממשק API מקומי לאוטומציה';
 
   @override
   String get settingsAutomationApiSubtitle =>
-      'Trigger dictation from your own scripts over a loopback-only HTTP API';
+      'הפעילו הכתבה מסקריפטים משלכם דרך ממשק HTTP שזמין רק במחשב המקומי (loopback)';
 
   @override
-  String get settingsAutomationApiEnable => 'Enable local automation API';
+  String get settingsAutomationApiEnable => 'הפעלת ממשק האוטומציה המקומי';
 
   @override
   String get settingsAutomationApiEnableSubtitle =>
-      'Binds only to 127.0.0.1/::1 — never reachable from the network';
+      'מאזין רק ל-127.0.0.1/::1 — אף פעם לא נגיש מהרשת';
 
   @override
   String settingsAutomationApiStatusRunning(int port) {
-    return 'Running on port $port';
+    return 'פועל בפורט $port';
   }
 
   @override
@@ -4268,63 +4278,63 @@ class L10nHe extends L10n {
     int port,
     int requestedPort,
   ) {
-    return 'Running on port $port (port $requestedPort was in use)';
+    return 'פועל בפורט $port (פורט $requestedPort היה תפוס)';
   }
 
   @override
-  String get settingsAutomationApiStatusStopped => 'Not running';
+  String get settingsAutomationApiStatusStopped => 'לא פועל';
 
   @override
   String settingsAutomationApiStatusError(int start, int end) {
-    return 'No free port found in range $start–$end';
+    return 'לא נמצא פורט פנוי בטווח $start–$end';
   }
 
   @override
-  String get settingsAutomationApiCustomPortLabel => 'Custom port';
+  String get settingsAutomationApiCustomPortLabel => 'פורט מותאם אישית';
 
   @override
   String get settingsAutomationApiCustomPortSubtitle =>
-      'Leave empty for automatic port selection — falls back automatically if it\'s taken';
+      'השאירו ריק לבחירת פורט אוטומטית — אם הפורט תפוס, ייבחר פורט חלופי אוטומטית';
 
   @override
-  String get settingsAutomationApiCustomPortHint => 'Automatic';
+  String get settingsAutomationApiCustomPortHint => 'אוטומטי';
 
   @override
   String get settingsAutomationApiCustomPortInvalid =>
-      'Enter a port between 1024 and 65535';
+      'הזינו פורט בין 1024 ל-65535';
 
   @override
-  String get settingsAutomationApiToken => 'Bearer token';
+  String get settingsAutomationApiToken => 'טוקן Bearer';
 
   @override
   String get settingsAutomationApiTokenSubtitle =>
-      'Send it as \"Authorization: Bearer <token>\" — every request without it is rejected';
+      'שלחו אותו בכותרת \"Authorization: Bearer <token>\" — כל בקשה בלעדיו נדחית';
 
   @override
-  String get settingsAutomationApiRegenerate => 'Regenerate';
+  String get settingsAutomationApiRegenerate => 'צור מחדש';
 
   @override
-  String get settingsAutomationApiRegenerateConfirmTitle => 'Regenerate token?';
+  String get settingsAutomationApiRegenerateConfirmTitle => 'ליצור טוקן חדש?';
 
   @override
   String get settingsAutomationApiRegenerateConfirmMessage =>
-      'The current token stops working immediately. Any script using it will need the new one.';
+      'הטוקן הנוכחי יפסיק לעבוד מיד. כל סקריפט שמשתמש בו יצטרך את הטוקן החדש.';
 
   @override
-  String get settingsAutomationApiCopyToken => 'Copy token';
+  String get settingsAutomationApiCopyToken => 'העתק טוקן';
 
   @override
-  String get settingsAutomationApiTokenCopied => 'Token copied to clipboard';
+  String get settingsAutomationApiTokenCopied => 'הטוקן הועתק ללוח';
 
   @override
-  String get settingsAutomationApiDocumentation => 'Documentation';
+  String get settingsAutomationApiDocumentation => 'תיעוד';
 
   @override
   String get settingsAutomationApiDocumentationSubtitle =>
-      'Endpoint reference and curl examples';
+      'תיעוד נקודות הקצה ודוגמאות curl';
 
   @override
-  String get settingsAutomationApiDocumentationAction => 'Open';
+  String get settingsAutomationApiDocumentationAction => 'פתח';
 
   @override
   String historyCharacterCount(int count) {

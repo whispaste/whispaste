@@ -53,6 +53,12 @@ npx playwright test <path>
 to build/run the desktop app. See the [README](README.md#development) for the
 quickstart.
 
+## Translations
+
+Translations and new languages are welcome. See
+[CONTRIBUTING_TRANSLATIONS.md](CONTRIBUTING_TRANSLATIONS.md) for how the ARB
+files, placeholders, right-to-left languages and the key-parity gate work.
+
 ## Design changes
 
 WhisPaste favors existing `Wp*` widgets and the theme tokens in
