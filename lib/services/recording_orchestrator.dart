@@ -1553,11 +1553,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// character count changes.
   String _cleanupTranscriptWhitespace(String sid, String transcript) {
     final rawLen = transcript.length;
-    final cleaned = transcript
-        .replaceAll(RegExp(r'\r\n|\r'), '\n')
-        .replaceAll(RegExp(r'\n+'), ' ')
-        .replaceAll(RegExp(r' {2,}'), ' ')
-        .trim();
+    final cleaned = collapseTranscriptWhitespace(transcript);
     if (cleaned.length != rawLen) {
       _log.info('[$sid] Whitespace cleanup: $rawLen→${cleaned.length} chars');
     }

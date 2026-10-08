@@ -42,6 +42,9 @@ import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/graceful_shutdown.dart';
 import 'services/hardware_info_service.dart' as hw;
+import 'services/headless/headless_cli.dart';
+import 'services/headless/headless_transcription.dart'
+    show HeadlessTranscriptionOptions;
 import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
 import 'services/recording_orchestrator.dart';
@@ -224,6 +227,13 @@ Future<void> main(List<String> args) async {
     // sidePanelMain() pragma function above.
     runSidePanelEngine();
     return;
+  }
+
+  // `whispaste --transcribe-file <wav> …`: headless transcription/latency
+  // benchmark (lib/services/headless/). Runs before crash reporting, the
+  // single-instance guard and any window/UI setup, then exits.
+  if (HeadlessTranscriptionOptions.isRequested(args)) {
+    exit(await runHeadlessCli(args));
   }
 
   // NOTE: WidgetsFlutterBinding.ensureInitialized() is called INSIDE the

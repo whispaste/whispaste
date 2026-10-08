@@ -1,0 +1,286 @@
+name: Headless benchmark
+
+# Transcription latency benchmark (handy-catchup ticket 10): builds the real
+# release app, runs `whispaste --transcribe-file` (lib/services/headless/)
+# on a fixed LibriSpeech clip with whisper (whisper-small) and Parakeet, and
+# fails when the median real-time factor regresses past the stored baseline
+# (tool/headless_benchmark_baseline.json, checked by
+# tool/headless_benchmark_check.dart). The JSON reports are uploaded as an
+# artifact either way.
+#
+# Weekly + on demand only (infrastructure/github-actions-minutes.md): a
+# release build per OS is far too expensive per push, and latency is not
+# something a single push needs to gate. Linux and Windows only — macOS has
+# the 10x runner multiplier and is benchmarked locally instead
+# (website/scripts/benchmark-engines-*.mjs).
+#
+# Scheduled runs only fire from the default branch; use workflow_dispatch to
+# run it on any branch.
+on:
+  schedule:
+    - cron: '0 6 * * 0' # Sundays 06:00 UTC, after the weekly CI full run
+  workflow_dispatch:
+
+concurrency:
+  group: headless-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 7.1 s, 16 kHz mono (LibriSpeech test-clean, CC BY 4.0, see ATTRIBUTION.md).
+  BENCH_WAV: website/scripts/librispeech-sample/2277-149896-0001.wav
+  BENCH_REPEAT: '5'
+  # Bump to re-download the models (paths/versions in tool/fetch_benchmark_models.sh).
+  MODELS_CACHE_KEY: headless-bench-models-whisper-small-q5_1-parakeet-v3-int8-v1
+
+jobs:
+  linux:
+    name: Benchmark (Linux)
+    runs-on: ubuntu-24.04
+    # Cold run: libwhisper build + model download + release build (~25 min).
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux build dependencies
+        run: |
+          # Retried + hard-bounded like ci.yml (stalled mirror, run 32296050925).
+          for attempt in 1 2 3; do
+            timeout 120 sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts."
+              exit 1
+            fi
+            sleep 15
+          done
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev \
+            libkeybinder-3.0-dev libnotify-dev libcurl4-openssl-dev \
+            libayatana-appindicator3-dev libasound2-dev xvfb \
+            g++ patchelf libvulkan-dev glslang-tools glslc
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux (release)
+        run: flutter build linux --release
+
+      # Same key as release.yml, so both reuse one libwhisper build.
+      - name: Cache libwhisper build (Linux)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/linux
+          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      - name: Build + stage libwhisper (Linux)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libwhisper-linux.sh
+
+      - name: Copy libwhisper + VAD model into the bundle
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib
+          cp .build/libwhisper/linux/*.so* build/linux/x64/release/bundle/lib/
+          cp assets/models/vad/ggml-silero-v5.1.2.bin build/linux/x64/release/bundle/lib/
+
+      - name: Cache benchmark models
+        id: models_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/bench-models
+          key: ${{ env.MODELS_CACHE_KEY }}
+
+      - name: Download benchmark models
+        if: steps.models_cache.outputs.cache-hit != 'true'
+        run: bash tool/fetch_benchmark_models.sh .build/bench-models
+
+      # The app resolves models under $XDG_CONFIG_HOME/whispaste/models/stt
+      # (path_service.dart) — point that at the cached model dir. xvfb-run:
+      # the GTK runner opens its window before Dart's main() runs.
+      # dbus-run-session: see ci.yml (libnotify/keybinder hang without a bus).
+      - name: Run headless benchmark
+        run: |
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/wp-config"
+          mkdir -p "$XDG_CONFIG_HOME/whispaste/models"
+          ln -s "$GITHUB_WORKSPACE/.build/bench-models" "$XDG_CONFIG_HOME/whispaste/models/stt"
+          mkdir -p bench-results
+          for engine in whisper parakeet; do
+            timeout 600 xvfb-run -a dbus-run-session -- \
+              build/linux/x64/release/bundle/whispaste \
+              --transcribe-file "$BENCH_WAV" --engine "$engine" \
+              --model whisper-small --repeat "$BENCH_REPEAT" \
+              --json --out "bench-results/linux-$engine.json"
+          done
+
+      # Run from outside the repo: plain `dart`, no app build hooks (see the
+      # tool's doc comment).
+      - name: Check against baseline
+        shell: bash
+        run: |
+          ws="$PWD"
+          cd "$RUNNER_TEMP"
+          dart "$ws/tool/headless_benchmark_check.dart" \
+            --baseline "$ws/tool/headless_benchmark_baseline.json" \
+            "$ws"/bench-results/*.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-benchmark-linux
+          path: bench-results/
+          if-no-files-found: warn
+
+  windows:
+    name: Benchmark (Windows)
+    runs-on: windows-2025
+    # Cold run additionally installs the Vulkan SDK and builds libwhisper.
+    timeout-minutes: 60
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows (release)
+        run: flutter build windows --release
+
+      # libwhisper build mirrors release.yml (same flags and cache key — see
+      # the reasoning there); the Vulkan SDK/MSVC steps only run on a miss.
+      - name: Cache libwhisper build (Windows)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/windows
+          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1') }}
+
+      - name: Cache Vulkan SDK
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        id: vulkan_sdk_cache
+        uses: actions/cache@v4
+        with:
+          path: C:\VulkanSDK\1.4.328.1
+          key: vulkan-sdk-windows-1.4.328.1
+
+      - name: Setup Vulkan SDK
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true' && steps.vulkan_sdk_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $VulkanVersion = "1.4.328.1"
+          $InstallerUrl = "https://sdk.lunarg.com/sdk/download/$VulkanVersion/windows/vulkansdk-windows-X64-$VulkanVersion.exe"
+          $InstallerPath = "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          Invoke-WebRequest -Uri $InstallerUrl -OutFile $InstallerPath
+          & $InstallerPath --root "C:\VulkanSDK\$VulkanVersion" --accept-licenses --default-answer --confirm-command install
+          if ($LASTEXITCODE -ne 0) { throw "Vulkan SDK installer exited with code $LASTEXITCODE" }
+
+      - name: Add Vulkan SDK to PATH/env
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          echo "VULKAN_SDK=C:\VulkanSDK\1.4.328.1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "C:\VulkanSDK\1.4.328.1\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      - name: Activate MSVC dev environment (x64)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build libwhisper (Windows)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
+            -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
+          cmake --build .build/libwhisper/windows-build --config Release -j
+          New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
+          Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
+
+      # Also stages the VAD model next to whisper.dll.
+      - name: Stage libwhisper next to whispaste.exe
+        shell: pwsh
+        run: pwsh scripts/bundle-libwhisper-windows.ps1 -Source .build/libwhisper/windows
+
+      - name: Cache benchmark models
+        id: models_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/bench-models
+          key: ${{ env.MODELS_CACHE_KEY }}
+
+      - name: Download benchmark models
+        if: steps.models_cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: bash tool/fetch_benchmark_models.sh .build/bench-models
+
+      # The app resolves models under %APPDATA%\WhisPaste\models\stt
+      # (path_service.dart) — point APPDATA at a scratch dir whose stt dir is
+      # a junction to the cached models. whispaste.exe is a GUI-subsystem
+      # binary: its stdout does not reach this console reliably, so the
+      # report goes through --out and success through the exit code.
+      - name: Run headless benchmark
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP "wp-appdata"
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:APPDATA "WhisPaste\models") | Out-Null
+          New-Item -ItemType Junction -Path (Join-Path $env:APPDATA "WhisPaste\models\stt") -Target (Resolve-Path ".build\bench-models") | Out-Null
+          New-Item -ItemType Directory -Force -Path bench-results | Out-Null
+          $exe = Resolve-Path "build\windows\x64\runner\Release\whispaste.exe"
+          foreach ($engine in @("whisper", "parakeet")) {
+            $out = Join-Path (Resolve-Path bench-results) "windows-$engine.json"
+            $p = Start-Process -FilePath $exe -PassThru -Wait -NoNewWindow `
+              -RedirectStandardError "bench-results\windows-$engine.stderr.txt" `
+              -ArgumentList @("--transcribe-file", (Resolve-Path $env:BENCH_WAV), "--engine", $engine,
+                              "--model", "whisper-small", "--repeat", $env:BENCH_REPEAT, "--json", "--out", $out)
+            Get-Content "bench-results\windows-$engine.stderr.txt" -ErrorAction SilentlyContinue
+            if ($p.ExitCode -ne 0) { throw "$engine benchmark exited with code $($p.ExitCode)" }
+            Get-Content $out
+          }
+
+      - name: Check against baseline
+        shell: bash
+        run: |
+          ws="$PWD"
+          cd "$RUNNER_TEMP"
+          dart "$ws/tool/headless_benchmark_check.dart" \
+            --baseline "$ws/tool/headless_benchmark_baseline.json" \
+            "$ws"/bench-results/*.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-benchmark-windows
+          path: bench-results/
+          if-no-files-found: warn

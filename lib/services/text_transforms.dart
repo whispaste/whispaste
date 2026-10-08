@@ -46,6 +46,18 @@ String stripPunctuation(String text) {
       .trim();
 }
 
+/// Collapses the extraneous whitespace STT engines insert into a raw
+/// transcript: line breaks become single spaces, runs of spaces collapse,
+/// and the ends are trimmed. Always applied to a finished transcript, so
+/// the result is clean for copy/paste.
+String collapseTranscriptWhitespace(String transcript) {
+  return transcript
+      .replaceAll(RegExp(r'\r\n|\r'), '\n')
+      .replaceAll(RegExp(r'\n+'), ' ')
+      .replaceAll(RegExp(r' {2,}'), ' ')
+      .trim();
+}
+
 /// Appends [addition] to a quick note's [existing] content as a new
 /// paragraph — exactly one blank line as separator, regardless of how many
 /// trailing newlines [existing] already has. No timestamp is inserted, and

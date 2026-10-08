@@ -132,4 +132,21 @@ void main() {
       );
     });
   });
+
+  group('collapseTranscriptWhitespace', () {
+    test('turns engine-inserted newlines into single spaces', () {
+      expect(
+        collapseTranscriptWhitespace('Hello\nworld\r\n\r\nagain\rnow'),
+        'Hello world again now',
+      );
+    });
+
+    test('collapses repeated spaces and trims the ends', () {
+      expect(collapseTranscriptWhitespace('  Hello    world  '), 'Hello world');
+    });
+
+    test('leaves already clean text untouched', () {
+      expect(collapseTranscriptWhitespace('Hello world.'), 'Hello world.');
+    });
+  });
 }

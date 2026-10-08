@@ -89,6 +89,15 @@ The call is forwarded to the running WhisPaste and the second process exits righ
 
 **KDE Plasma 6:** System Settings → Keyboard → Shortcuts → **Add New** → **Command or Script…**, enter `whispaste --toggle` and assign the shortcut. (Plasma 5: System Settings → Shortcuts → Custom Shortcuts → Edit → New → Global Shortcut → Command/URL.)
 
+### Transcribe a file / benchmark
+
+```sh
+whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whisper-small] \
+  [--repeat 5] [--language en] [--replacements] [--json] [--out report.json]
+```
+
+Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
+
 ## Development
 
 **Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 11 Big Sur or newer (Apple Silicon), or a recent Linux distro

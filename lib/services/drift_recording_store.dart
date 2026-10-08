@@ -8,8 +8,11 @@ import '../features/history/data/history_title.dart';
 import 'recording_store.dart';
 import 'replacements/text_replacement_matcher.dart';
 
-/// Converts DB rows into the pure matcher's input shape.
-List<TextReplacementRule> _rulesFrom(List<ReplacementWithTriggers> rows) => [
+/// Converts DB rows into the pure matcher's input shape (also used by
+/// the headless `--transcribe-file --replacements` mode).
+List<TextReplacementRule> textReplacementRulesFrom(
+  List<ReplacementWithTriggers> rows,
+) => [
   for (final r in rows)
     TextReplacementRule(
       triggers: r.triggers,
@@ -41,7 +44,7 @@ class DriftRecordingStore implements RecordingStore {
         final replacements = await _db.readAllReplacements();
         processedTranscript = applyTextReplacements(
           processedTranscript,
-          _rulesFrom(replacements),
+          textReplacementRulesFrom(replacements),
         );
       } on Exception {
         // Non-fatal: save raw transcript if replacements fail.
