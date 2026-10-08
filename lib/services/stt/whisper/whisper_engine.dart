@@ -86,6 +86,7 @@ class WhisperEngineStatus {
     required this.isLoaded,
     this.backend = WhisperBackend.cpu,
     this.errorMessage,
+    this.cpuFeatures,
   });
 
   /// Whether a model is loaded and the engine can [WhisperEngine.transcribe].
@@ -98,6 +99,45 @@ class WhisperEngineStatus {
 
   /// The last load/transcribe failure, or `null` if none.
   final String? errorMessage;
+
+  /// ISA features of the CPU backend ggml actually loaded (e.g.
+  /// `AVX AVX2 F16C FMA BMI2`), which identifies the picked
+  /// `ggml-cpu-<level>` variant — see [cpuBackendFeaturesFromSystemInfo].
+  /// `null` before the first load or when the library does not report it.
+  final String? cpuFeatures;
+}
+
+/// Extracts the CPU backend's feature list from whisper.cpp's
+/// `whisper_print_system_info()` string, formatted as
+/// `WHISPER : COREML = 0 | … | CPU : SSE3 = 1 | AVX2 = 1 | … |` (one
+/// `<registry> : ` prefix per backend that reports features).
+///
+/// The CPU backend reports the instruction sets it was *compiled* for, so
+/// with `-DGGML_CPU_ALL_VARIANTS=ON` this names the variant ggml picked for
+/// this machine (`AVX2 … BMI2` = haswell, `… AVX512 …` = skylakex+, only
+/// `SSE3 SSSE3` = the x64 baseline). Disabled (`= 0`) entries are dropped;
+/// non-boolean values are kept as `NAME=value`. Returns `null` when the
+/// string has no CPU section.
+String? cpuBackendFeaturesFromSystemInfo(String systemInfo) {
+  final features = <String>[];
+  String? registry;
+  for (final raw in systemInfo.split('|')) {
+    var token = raw.trim();
+    if (token.isEmpty) continue;
+    final regSep = token.indexOf(' : ');
+    if (regSep >= 0) {
+      registry = token.substring(0, regSep).trim();
+      token = token.substring(regSep + 3).trim();
+    }
+    if (registry != 'CPU') continue;
+    final eq = token.indexOf('=');
+    if (eq < 0) continue;
+    final name = token.substring(0, eq).trim();
+    final value = token.substring(eq + 1).trim();
+    if (name.isEmpty || value == '0') continue;
+    features.add(value == '1' ? name : '$name=$value');
+  }
+  return features.isEmpty ? null : features.join(' ');
 }
 
 /// In-process speech-to-text engine over a bundled `libwhisper`.

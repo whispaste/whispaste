@@ -170,7 +170,7 @@ jobs:
           cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
-            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
+            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
             -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
           cmake --build .build/libwhisper/windows-build --config Release -j
           New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null

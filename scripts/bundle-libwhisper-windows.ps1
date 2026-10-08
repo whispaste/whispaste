@@ -41,10 +41,17 @@
 #   cmake -S <whisper-src> -B build -G "Visual Studio 17 2022" -A x64 `
 #         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DGGML_VULKAN=ON `
 #         -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
+#         -DGGML_CPU_ALL_VARIANTS=ON `
 #         -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
 #   cmake --build build --config Release
 # (GGML_OPENMP=OFF avoids an extra VCOMP140.DLL runtime dependency that isn't
 # bundled anywhere else in the app — verified missing on a real Windows box.)
+# GGML_CPU_ALL_VARIANTS=ON replaces the single ggml-cpu.dll with one
+# ggml-cpu-<level>.dll per x86-64 feature level (x64, sse42, sandybridge,
+# haswell, skylakex, icelake, alderlake, ...); ggml's backend registry scores
+# them at load time and picks the best one the CPU supports. Without it,
+# GGML_NATIVE=OFF leaves a baseline build with no AVX/AVX2 at all. All
+# ggml-cpu-*.dll match the `^ggml` filter below and must ship together.
 #
 # Usage:
 #   pwsh scripts/bundle-libwhisper-windows.ps1 -Source <dir-with-dlls> `
@@ -66,6 +73,11 @@ $dlls = Get-ChildItem -Path $Source -Filter *.dll | Where-Object {
   $_.Name -match '^(whisper|ggml)' -or $_.Name -match '^(msvcp|vcruntime|concrt)'
 }
 if ($dlls.Count -eq 0) { throw "No whisper/ggml DLLs found in $Source" }
+# A pre-variants build (single ggml-cpu.dll) would silently fall back to a
+# baseline CPU backend without AVX/AVX2 — refuse it instead.
+if (-not ($dlls | Where-Object { $_.Name -like 'ggml-cpu-*.dll' })) {
+  throw "No CPU backend variants (ggml-cpu-*.dll) in $Source - build with -DGGML_CPU_ALL_VARIANTS=ON"
+}
 
 # AC3: verify against a pinned SHA-256 manifest when provided.
 if ($ExpectedSums -and (Test-Path $ExpectedSums)) {

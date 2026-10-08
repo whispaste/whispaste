@@ -172,6 +172,9 @@ class WhisperFfiEngine
   ffi.Pointer<whisper_context>? _ctx;
   String? _errorMessage;
 
+  /// See [WhisperEngineStatus.cpuFeatures]; set by [load].
+  String? _cpuFeatures;
+
   /// Resolved path to the bundled Silero-VAD ggml model, set by [load].
   /// `null` means VAD is unavailable this session (path not resolved / not
   /// bundled on this platform yet) — [transcribe]'s `vadEnabled` is then a
@@ -248,6 +251,7 @@ class WhisperFfiEngine
     isLoaded: _ctx != null,
     backend: _confirmedBackend,
     errorMessage: _errorMessage,
+    cpuFeatures: _cpuFeatures,
   );
 
   @override
@@ -272,6 +276,7 @@ class WhisperFfiEngine
       _confirmedBackend = _confirmBackend(dylib, _backend);
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       _ensureLogCallbackRegistered(bindings);
+      _cpuFeatures = _readCpuFeatures(bindings);
       _resolveSegmentTimestampLookups(dylib);
       final cparams = bindings.whisper_context_default_params();
       cparams.use_gpu = _confirmedBackend != WhisperBackend.cpu;
@@ -296,6 +301,34 @@ class WhisperFfiEngine
     } catch (e) {
       _errorMessage = 'whisper_library_load_failed';
       throw StateError('whisper_library_load_failed: $e');
+    }
+  }
+
+  /// Registers ggml's backends exactly as [load] does and returns the CPU
+  /// backend's features (see [cpuBackendFeaturesFromSystemInfo]) without
+  /// loading a model — `null` when no CPU backend was registered. Used by
+  /// `whispaste --diagnose` to prove a package's backend modules are found.
+  static String? probeCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) {
+    _ensureBackendsLoaded(dylib, libraryPath);
+    return _readCpuFeatures(WhisperBindings.fromLookup(dylib.lookup));
+  }
+
+  /// Reads which CPU backend variant ggml loaded (see
+  /// [cpuBackendFeaturesFromSystemInfo]) and logs it once per load, so
+  /// both the app log and the In-App-Diagnostik show it. Never throws —
+  /// a library without the call just reports nothing.
+  static String? _readCpuFeatures(WhisperBindings bindings) {
+    try {
+      final info = bindings
+          .whisper_print_system_info()
+          .cast<Utf8>()
+          .toDartString();
+      final features = cpuBackendFeaturesFromSystemInfo(info);
+      _log.info('ggml CPU backend features: ${features ?? '(none reported)'}');
+      return features;
+    } on Object catch (e) {
+      _log.warning('whisper_print_system_info failed: $e');
+      return null;
     }
   }
 
@@ -349,11 +382,22 @@ class WhisperFfiEngine
 
   static bool _backendsLoaded = false;
 
-  /// Calls ggml's `ggml_backend_load_all()` exactly once per process — see
-  /// the file doc comment for why this is required at all with
+  /// Registers ggml's dynamically loaded backends exactly once per process —
+  /// see the file doc comment for why this is required at all with
   /// `-DGGML_BACKEND_DL=ON`. Safe/idempotent to skip on repeat [load] calls;
   /// ggml's own registry dedupes by backend name regardless, this guard just
   /// avoids the redundant directory scan.
+  ///
+  /// Scans [libraryPath]'s own directory via
+  /// `ggml_backend_load_all_from_path` — that is where every build script
+  /// stages the backend modules (`ggml-cpu-*.dll`/`libggml-cpu-*.so`,
+  /// `ggml-vulkan`). The argument-less `ggml_backend_load_all()` only scans
+  /// the executable's directory and the CWD: identical to [libraryPath]'s
+  /// directory on Windows, but on Linux the modules live in `<bundle>/lib/`
+  /// next to `libwhisper.so`, one level below the executable — so ggml found
+  /// no backend at all there (not even CPU) and whisper.cpp aborted on its
+  /// null CPU device. `ggml_backend_load_all()` stays as the fallback for an
+  /// older bundled library without the `_from_path` export.
   ///
   /// Usually exported by a separate `ggml` shared library next to
   /// [libraryPath] (confirmed via `dumpbin /exports` against the real
@@ -368,25 +412,32 @@ class WhisperFfiEngine
     String libraryPath,
   ) {
     if (_backendsLoaded) return;
-    void Function()? loadAll;
     var resolved = dylib;
-    try {
-      loadAll = dylib.lookupFunction<ffi.Void Function(), void Function()>(
-        'ggml_backend_load_all',
-      );
-    } on ArgumentError {
+    if (!dylib.providesSymbol('ggml_backend_load_all')) {
       final ggmlName = Platform.isWindows
           ? 'ggml.dll'
           : (Platform.isMacOS ? 'libggml.dylib' : 'libggml.so');
       final ggmlPath = p.join(p.dirname(libraryPath), ggmlName);
       if (!File(ggmlPath).existsSync()) return;
-      final ggml = ffi.DynamicLibrary.open(ggmlPath);
-      resolved = ggml;
-      loadAll = ggml.lookupFunction<ffi.Void Function(), void Function()>(
-        'ggml_backend_load_all',
-      );
+      resolved = ffi.DynamicLibrary.open(ggmlPath);
     }
-    loadAll();
+    if (resolved.providesSymbol('ggml_backend_load_all_from_path')) {
+      final loadAllFromPath = resolved
+          .lookupFunction<
+            ffi.Void Function(ffi.Pointer<Utf8>),
+            void Function(ffi.Pointer<Utf8>)
+          >('ggml_backend_load_all_from_path');
+      final dirC = p.dirname(libraryPath).toNativeUtf8();
+      try {
+        loadAllFromPath(dirC);
+      } finally {
+        malloc.free(dirC);
+      }
+    } else {
+      resolved.lookupFunction<ffi.Void Function(), void Function()>(
+        'ggml_backend_load_all',
+      )();
+    }
     _resolvedGgmlLibrary = resolved;
     _backendsLoaded = true;
   }

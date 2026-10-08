@@ -48,9 +48,10 @@ class _LoadRequest {
 }
 
 class _LoadResult {
-  const _LoadResult({required this.ok, this.error});
+  const _LoadResult({required this.ok, this.error, this.cpuFeatures});
   final bool ok;
   final String? error;
+  final String? cpuFeatures;
 }
 
 class _TranscribeRequest {
@@ -205,7 +206,9 @@ void _whisperIsolateMain(SendPort mainSendPort) {
               mainSendPort.send(_PartialTranscriptUpdate(text));
             });
           }
-          mainSendPort.send(const _LoadResult(ok: true));
+          mainSendPort.send(
+            _LoadResult(ok: true, cpuFeatures: engine!.status.cpuFeatures),
+          );
         } catch (e) {
           mainSendPort.send(_LoadResult(ok: false, error: '$e'));
         }
@@ -378,6 +381,7 @@ class WhisperIsolateEngine
 
   bool _isLoaded = false;
   String? _errorMessage;
+  String? _cpuFeatures;
 
   /// Re-broadcasts [_PartialTranscriptUpdate] messages relayed from the
   /// worker isolate's [WhisperFfiEngine.partialTranscript] (ticket 11). See
@@ -393,6 +397,7 @@ class WhisperIsolateEngine
     isLoaded: _isLoaded,
     backend: _config.backend,
     errorMessage: _errorMessage,
+    cpuFeatures: _cpuFeatures,
   );
 
   @override
@@ -448,6 +453,7 @@ class WhisperIsolateEngine
     }
     _isLoaded = true;
     _errorMessage = null;
+    _cpuFeatures = result.cpuFeatures;
   }
 
   @override

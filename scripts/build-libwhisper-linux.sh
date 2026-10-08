@@ -22,8 +22,19 @@
 # fine (the Vulkan backend is now discovered + dlopen'd at runtime by ggml's
 # own registry, which silently skips a missing/broken backend).
 #
-# Usage:  scripts/build-libwhisper-linux.sh [--bundle <flutter-bundle-dir>]
-# Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,SHA256SUMS}
+# -DGGML_CPU_ALL_VARIANTS=ON: ships one CPU backend module per x86-64 feature
+# level (libggml-cpu-{x64,sse42,sandybridge,haswell,skylakex,icelake,...}.so)
+# and lets ggml score them at load time, picking the best one the CPU
+# supports. Without it, GGML_NATIVE=OFF yields a single baseline CPU backend
+# with no AVX/AVX2 at all. Same flags as build-libllama-linux.sh.
+#
+# The backend modules are dlopen()ed by ggml's registry, which only scans the
+# directory it is told to — WhisperFfiEngine passes libwhisper.so's own
+# directory (<bundle>/lib/) to ggml_backend_load_all_from_path, since the
+# default search (executable directory + CWD) never sees <bundle>/lib/.
+#
+# Usage:  [BUILD_JOBS=N] scripts/build-libwhisper-linux.sh [--bundle <flutter-bundle-dir>]
+# Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,libggml-cpu-*.so,SHA256SUMS}
 #         and, with --bundle, copies them into <flutter-bundle-dir>/lib/.
 set -euo pipefail
 
@@ -60,17 +71,20 @@ echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
 # Vulkan is the broadest GPU backend on Linux (NVIDIA/AMD/Intel); CPU is always
 # built as the portable fallback. A dedicated CUDA variant is a CI matrix job
 # (see .github/workflows/build-whisper-server.yml), out of scope for this host.
-echo "[2/4] cmake configure + build (Vulkan + CPU, shared) …"
+echo "[2/4] cmake configure + build (Vulkan + CPU variants, shared, backend-dl) …"
 cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_VULKAN=ON \
   -DGGML_NATIVE=OFF \
   -DGGML_BACKEND_DL=ON \
+  -DGGML_CPU_ALL_VARIANTS=ON \
   -DWHISPER_BUILD_EXAMPLES=OFF \
   -DWHISPER_BUILD_TESTS=OFF \
   -DWHISPER_BUILD_SERVER=OFF
-cmake --build "$BUILD_DIR" --config Release -j
+# BUILD_JOBS caps parallelism (see build-libllama-linux.sh: the CPU-variant +
+# Vulkan-shader compile can OOM a small-RAM box with an unbounded -j).
+cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(nproc)}"
 echo "      built."
 
 # --- 3. Stage flat, relocatable ($ORIGIN rpath) shared objects --------------
@@ -94,6 +108,10 @@ for so in "$STAGE_DIR"/*.so*; do
   patchelf --remove-rpath "$so" 2>/dev/null || true
   patchelf --set-rpath '$ORIGIN' "$so" 2>/dev/null || true
 done
+if ! ls "$STAGE_DIR"/libggml-cpu-*.so >/dev/null 2>&1; then
+  echo "ERROR: no CPU backend variants (libggml-cpu-*.so) staged." >&2
+  exit 1
+fi
 echo "      staged: $(cd "$STAGE_DIR" && ls *.so* | tr '\n' ' ')"
 
 # --- 4. SHA-256 manifest + optional bundle copy -----------------------------

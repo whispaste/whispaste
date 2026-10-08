@@ -791,16 +791,13 @@ class _CopyDiagnosticsButtonState
         );
       } else {
         final stt = ref.read(localSttBundleProvider);
-        final engineBackend = ref
-            .read(whisperEngineProvider)
-            .status
-            .backend
-            .name;
+        final engineStatus = ref.read(whisperEngineProvider).status;
         report = await gatherDiagnosticsReport(
           engine: OnDeviceEngine.whisper.value,
           sttServerState: stt.serverState.name,
           sttErrorMessage: stt.errorMessage,
-          backend: engineBackend,
+          backend: engineStatus.backend.name,
+          cpuFeatures: engineStatus.cpuFeatures,
           loadedModel: stt.modelId.isEmpty ? null : stt.modelId,
           cpuFallbackActive: stt.cpuFallbackActive,
         );

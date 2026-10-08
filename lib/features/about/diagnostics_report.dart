@@ -51,6 +51,10 @@ Future<String> gatherDiagnosticsReport({
   /// never re-derived from the retired server-binary marker.
   String? backend,
 
+  /// ISA features of the CPU backend variant the engine loaded
+  /// (`WhisperEngineStatus.cpuFeatures`), supplied by the caller.
+  String? cpuFeatures,
+
   /// The model currently loaded in the engine (`SttStatus.modelId`).
   String? loadedModel,
 
@@ -86,6 +90,7 @@ Future<String> gatherDiagnosticsReport({
     serverPath: serverPath,
     serverExists: serverExists,
     backend: backend,
+    cpuFeatures: cpuFeatures,
     loadedModel: loadedModel,
     cpuFallbackActive: cpuFallbackActive,
     sttServerState: sttServerState,

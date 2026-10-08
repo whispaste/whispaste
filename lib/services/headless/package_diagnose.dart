@@ -19,7 +19,8 @@ import 'dart:io';
 import '../../core/app_info.dart' show appVersion;
 import '../../core/utils/windows_dll_search_path.dart';
 import '../smart_mode/smart_mode_ffi_engine.dart' show smartModeLibraryPathFor;
-import '../stt/whisper/whisper_ffi_engine.dart' show whisperLibraryPathFor;
+import '../stt/whisper/whisper_ffi_engine.dart'
+    show WhisperFfiEngine, whisperLibraryPathFor;
 
 /// Usage text printed for an invalid `--diagnose` command line.
 const String packageDiagnoseUsage = '''
@@ -64,11 +65,18 @@ class NativeLibrary {
     required this.name,
     required this.path,
     required this.symbols,
+    this.checksCpuBackend = false,
   });
 
   final String name;
   final String path;
   final List<String> symbols;
+
+  /// Whether ggml must register a CPU backend from this library's directory.
+  /// Windows and Linux builds load the `ggml-cpu-<level>` modules at runtime
+  /// (`-DGGML_BACKEND_DL=ON`), so a package missing them still opens
+  /// libwhisper fine and only aborts on the first transcription.
+  final bool checksCpuBackend;
 }
 
 /// The engine libraries bundled next to [executablePath], resolved exactly
@@ -78,6 +86,7 @@ List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
     name: 'whisper',
     path: whisperLibraryPathFor(executablePath),
     symbols: const ['whisper_full'],
+    checksCpuBackend: !Platform.isMacOS,
   ),
   NativeLibrary(
     name: 'smart_mode_shim',
@@ -87,8 +96,10 @@ List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
 ];
 
 /// Opens [library] and looks up its [NativeLibrary.symbols]; throws when the
-/// library or one of its dependencies cannot be loaded.
-void probeNativeLibrary(NativeLibrary library) {
+/// library or one of its dependencies cannot be loaded. For a library that
+/// [NativeLibrary.checksCpuBackend], returns the loaded CPU backend's
+/// features (`null` = none registered).
+String? probeNativeLibrary(NativeLibrary library) {
   ensureWindowsDllSearchPath(library.path);
   final dylib = ffi.DynamicLibrary.open(library.path);
   for (final symbol in library.symbols) {
@@ -96,14 +107,19 @@ void probeNativeLibrary(NativeLibrary library) {
       throw StateError('${library.path} does not export $symbol');
     }
   }
+  if (!library.checksCpuBackend) return null;
+  return WhisperFfiEngine.probeCpuBackend(dylib, library.path);
 }
 
 /// Outcome of probing one [NativeLibrary]; [error] is null on success.
 class NativeLibraryResult {
-  const NativeLibraryResult(this.library, this.error);
+  const NativeLibraryResult(this.library, this.error, {this.cpuBackend});
 
   final NativeLibrary library;
   final String? error;
+
+  /// Features of the ggml CPU backend variant loaded for [library].
+  final String? cpuBackend;
 
   bool get ok => error == null;
 
@@ -111,6 +127,7 @@ class NativeLibraryResult {
     'name': library.name,
     'path': library.path,
     'ok': ok,
+    if (cpuBackend != null) 'cpuBackend': cpuBackend,
     if (error != null) 'error': error,
   };
 }
@@ -144,17 +161,21 @@ PackageDiagnoseReport runPackageDiagnose({
   required List<NativeLibrary> libraries,
   required String version,
   required String executable,
-  void Function(NativeLibrary library) probe = probeNativeLibrary,
+  String? Function(NativeLibrary library) probe = probeNativeLibrary,
 }) {
   final results = <NativeLibraryResult>[];
   for (final library in libraries) {
     String? error;
+    String? cpuBackend;
     try {
-      probe(library);
+      cpuBackend = probe(library);
+      if (library.checksCpuBackend && cpuBackend == null) {
+        error = 'no ggml CPU backend registered from ${library.path}';
+      }
     } on Object catch (e) {
       error = '$e';
     }
-    results.add(NativeLibraryResult(library, error));
+    results.add(NativeLibraryResult(library, error, cpuBackend: cpuBackend));
   }
   return PackageDiagnoseReport(
     version: version,

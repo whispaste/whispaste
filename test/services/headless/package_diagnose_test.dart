@@ -64,7 +64,10 @@ void main() {
         libraries: libs,
         version: '1.2.3',
         executable: '/x/whispaste',
-        probe: (lib) => probed.add(lib.path),
+        probe: (lib) {
+          probed.add(lib.path);
+          return null;
+        },
       );
       expect(probed, ['/x/liba.so', '/x/libb.so']);
       expect(report.ok, isTrue);
@@ -87,6 +90,7 @@ void main() {
         executable: '/x/whispaste',
         probe: (lib) {
           if (lib.name == 'a') throw ArgumentError('libfoo.so: not found');
+          return null;
         },
       );
       expect(report.ok, isFalse);
@@ -101,6 +105,53 @@ void main() {
       expect((entries[1]! as Map)['ok'], isTrue);
       // The report must stay valid JSON for the CI smoke scripts.
       expect(jsonDecode(jsonEncode(json)), json);
+    });
+  });
+
+  group('CPU backend check', () {
+    const whisper = NativeLibrary(
+      name: 'whisper',
+      path: '/x/libwhisper.so',
+      symbols: ['whisper_full'],
+      checksCpuBackend: true,
+    );
+
+    test('reports the CPU backend variant ggml loaded', () {
+      final report = runPackageDiagnose(
+        libraries: const [whisper],
+        version: '1.2.3',
+        executable: '/x/whispaste',
+        probe: (_) => 'SSE3 SSSE3 AVX AVX2 F16C FMA BMI2',
+      );
+      expect(report.ok, isTrue);
+      final entries = report.toJson()['libraries']! as List<Object?>;
+      expect(entries.single, {
+        'name': 'whisper',
+        'path': '/x/libwhisper.so',
+        'ok': true,
+        'cpuBackend': 'SSE3 SSSE3 AVX AVX2 F16C FMA BMI2',
+      });
+    });
+
+    test('fails when no CPU backend was registered', () {
+      // The Linux SIGABRT (Sentry 137899969): ggml found no backend module
+      // next to libwhisper, so whisper.cpp aborted on a null CPU device.
+      final report = runPackageDiagnose(
+        libraries: const [whisper],
+        version: '1.2.3',
+        executable: '/x/whispaste',
+        probe: (_) => null,
+      );
+      expect(report.ok, isFalse);
+      final entries = report.toJson()['libraries']! as List<Object?>;
+      expect((entries.single! as Map)['error'], contains('CPU backend'));
+    });
+
+    test('is checked for whisper only where backends load dynamically', () {
+      final exe = p.join('opt', 'whispaste', 'whispaste');
+      final libs = bundledNativeLibraries(exe);
+      expect(libs[0].checksCpuBackend, !Platform.isMacOS);
+      expect(libs[1].checksCpuBackend, isFalse);
     });
   });
 

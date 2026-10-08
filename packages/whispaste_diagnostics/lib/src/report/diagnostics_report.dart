@@ -114,6 +114,11 @@ String formatDiagnosticsReport({
   /// pure GPU-detection input the standalone CLI derives it from). Sourced
   /// from live engine state, never from the retired server-binary marker.
   String? backend,
+
+  /// ISA features of the CPU backend variant ggml loaded (e.g.
+  /// `AVX AVX2 F16C FMA BMI2`, the app's `WhisperEngineStatus.cpuFeatures`).
+  /// `null` when no engine is loaded or in the standalone CLI.
+  String? cpuFeatures,
   String? sttServerState,
   String? sttErrorMessage,
 
@@ -209,6 +214,9 @@ String formatDiagnosticsReport({
   }
   if (loadedModel != null && loadedModel.isNotEmpty) {
     b.writeln('  Modell: $loadedModel');
+  }
+  if (cpuFeatures != null && cpuFeatures.isNotEmpty) {
+    b.writeln('  CPU-Backend: $cpuFeatures');
   }
   if (cpuFallbackActive != null) {
     b.writeln('  CPU-Fallback aktiv: ${cpuFallbackActive ? "ja" : "nein"}');

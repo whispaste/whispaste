@@ -59,13 +59,15 @@ git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .bui
 cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
   -G Ninja `
   -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
-  -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
+  -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
   -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
 cmake --build .build/libwhisper/windows-build --config Release -j
 New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
 Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
 pwsh scripts/bundle-libwhisper-windows.ps1 -Source .build/libwhisper/windows
 ```
+
+`-DGGML_CPU_ALL_VARIANTS=ON` builds one `ggml-cpu-<level>.dll` per x86-64 feature level (x64, sse42, sandybridge, haswell, skylakex, icelake, alderlake, …); ggml loads the best one the CPU supports at runtime. The bundle script refuses a build without them. `whispaste --diagnose` reports the variant it picked (`cpuBackend`).
 
 `libllama` and the Smart Mode shim (optional):
 
@@ -99,7 +101,7 @@ sudo apt-get install -y \
 flutter build linux --release --no-tree-shake-icons
 ```
 
-`libwhisper` (Vulkan + CPU backends, `$ORIGIN` rpath):
+`libwhisper` (Vulkan + one CPU backend per x86-64 feature level via `-DGGML_CPU_ALL_VARIANTS=ON`, `$ORIGIN` rpath). The `libggml-cpu-*.so` modules must stay next to `libwhisper.so` in `bundle/lib/`, where the app tells ggml to look for them. Set `BUILD_JOBS=N` to cap parallelism on machines with little RAM:
 
 ```bash
 git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
