@@ -98,6 +98,16 @@ def main() -> None:
             shutil.rmtree(unpack_dir)
             archive.unlink()
 
+    if platform.startswith("linux"):
+        # nvcc.profile links against $(TOP)/targets/<arch>-linux/lib, which a
+        # regular toolkit install provides but the merged redist archives do not.
+        target = dest / "targets" / f"{platform.split('-', 1)[1]}-linux"
+        target.mkdir(parents=True, exist_ok=True)
+        for name in ("include", "lib"):
+            link = target / name
+            if not link.exists():
+                link.symlink_to(Path("..") / ".." / name)
+
     print(f"CUDA {version} ({platform}) installed to {dest}")
 
 
