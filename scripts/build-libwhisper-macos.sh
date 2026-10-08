@@ -12,7 +12,8 @@
 # stay separate (data, still downloadable).
 #
 # Usage:  scripts/build-libwhisper-macos.sh
-# Output: .build/libwhisper/macos/{libwhisper.dylib,libggml*.dylib,SHA256SUMS}
+# Output: .build/libwhisper/macos/{libwhisper.dylib,libggml*.dylib,
+#         libwp_ffi_guard.dylib,SHA256SUMS}
 #
 # Requires: cmake, Xcode command-line tools (clang, otool, install_name_tool,
 # codesign), a checked-out whisper.cpp source tree (see WHISPER_SRC below).
@@ -66,6 +67,13 @@ cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DWHISPER_BUILD_SERVER=OFF \
   >/dev/null
 cmake --build "$BUILD_DIR" --config Release -j >/dev/null
+# wp_ffi_guard: catches C++ exceptions before they unwind into Dart FFI
+# frames (native/ffi_guard/ffi_guard.h). Built against the same headers.
+cmake -S "$REPO_ROOT/native/ffi_guard" -B "$BUILD_DIR/ffi_guard" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DWHISPER_SOURCE_DIR="$WHISPER_SRC" \
+  >/dev/null
+cmake --build "$BUILD_DIR/ffi_guard" --config Release -j >/dev/null
 echo "      built."
 
 # --- 3. Stage flat, relocatable dylibs --------------------------------------
@@ -82,7 +90,7 @@ while IFS= read -r real; do
   install_name="$(otool -D "$real" | sed -n '2p')"          # e.g. @rpath/libggml.0.dylib
   base="$(basename "$install_name")"                          # e.g. libggml.0.dylib
   cp "$real" "$STAGE_DIR/$base"
-done < <(find "$BUILD_DIR/src" "$BUILD_DIR/ggml" -type f -name '*.dylib')
+done < <(find "$BUILD_DIR/src" "$BUILD_DIR/ggml" "$BUILD_DIR/ffi_guard" -type f -name '*.dylib')
 
 # The app opens the plain name; ensure it exists (copy of the SONAME file).
 if [[ ! -f "$STAGE_DIR/libwhisper.dylib" ]]; then

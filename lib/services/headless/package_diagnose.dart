@@ -21,6 +21,7 @@ import 'package:ffi/ffi.dart';
 import '../../core/app_info.dart' show appVersion;
 import '../../core/utils/windows_dll_search_path.dart';
 import '../smart_mode/smart_mode_ffi_engine.dart' show smartModeLibraryPathFor;
+import '../stt/native_call_guard.dart';
 import '../stt/whisper/whisper_engine.dart'
     show cpuBackendFeaturesFromSystemInfo;
 import '../stt/whisper/whisper_ffi_engine.dart'
@@ -75,11 +76,16 @@ class NativeLibrary {
     required this.path,
     required this.symbols,
     this.cpuBackendProbe,
+    this.selfCheck,
   });
 
   final String name;
   final String path;
   final List<String> symbols;
+
+  /// Extra check after the symbol lookup; throws when the library loads but
+  /// does not work.
+  final void Function(String libraryPath)? selfCheck;
 
   /// Set where ggml must register a CPU backend from this library's
   /// directory. Windows and Linux builds load the `ggml-cpu-<level>` modules
@@ -103,6 +109,27 @@ String? probeSmartModeCpuBackend(ffi.DynamicLibrary dylib, String _) {
   return cpuBackendFeaturesFromSystemInfo(systemInfo().toDartString());
 }
 
+/// [NativeLibrary.selfCheck] for `wp_ffi_guard`: the guard must accept its
+/// ABI, match the bundled whisper struct layouts and actually catch a C++
+/// exception in this process (a guard that cannot would abort right here,
+/// which fails the smoke test just as well).
+void selfCheckNativeCallGuard(String libraryPath) {
+  final guard = NativeCallGuard.tryOpen(libraryPath);
+  if (guard == null) {
+    throw StateError('$libraryPath: unknown ABI version or failed to load');
+  }
+  if (!guard.supportsWhisperStructs) {
+    throw StateError('$libraryPath: built against other whisper.h structs');
+  }
+  try {
+    guard.selfTest(1);
+  } on NativeCallException catch (e) {
+    if (e.message == 'wpg selftest') return;
+    throw StateError('$libraryPath: self-test caught unexpected "$e"');
+  }
+  throw StateError('$libraryPath: self-test exception was not reported');
+}
+
 /// The engine libraries bundled next to [executablePath], resolved exactly
 /// like the engines resolve them at runtime.
 List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
@@ -111,6 +138,12 @@ List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
     path: whisperLibraryPathFor(executablePath),
     symbols: const ['whisper_full'],
     cpuBackendProbe: Platform.isMacOS ? null : WhisperFfiEngine.probeCpuBackend,
+  ),
+  NativeLibrary(
+    name: 'ffi_guard',
+    path: NativeCallGuard.pathNextTo(whisperLibraryPathFor(executablePath)),
+    symbols: const ['wpg_whisper_full', 'wpg_call_void_pp'],
+    selfCheck: selfCheckNativeCallGuard,
   ),
   NativeLibrary(
     name: 'smart_mode_shim',
@@ -132,6 +165,7 @@ String? probeNativeLibrary(NativeLibrary library) {
       throw StateError('${library.path} does not export $symbol');
     }
   }
+  library.selfCheck?.call(library.path);
   return library.cpuBackendProbe?.call(dylib, library.path);
 }
 

@@ -38,6 +38,7 @@ import 'package:path/path.dart' as p;
 import '../../../core/logging/app_logger.dart';
 import '../../../core/utils/windows_dll_search_path.dart';
 import '../../audio/pcm_wav_codec.dart';
+import '../native_call_guard.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
 
@@ -170,6 +171,22 @@ class WhisperFfiEngine
 
   WhisperBindings? _bindings;
   ffi.Pointer<whisper_context>? _ctx;
+
+  /// `wp_ffi_guard` next to [_libraryPath], set by [load] — `null` when it
+  /// is missing or built against other struct layouts, in which case the
+  /// throwing entry points are called directly (pre-guard behaviour). See
+  /// `native_call_guard.dart`.
+  NativeCallGuard? _guard;
+
+  /// Raw addresses of the entry points routed through [_guard].
+  ffi.Pointer<ffi.Void> _initStateFn = ffi.nullptr;
+  ffi.Pointer<ffi.Void> _fullFn = ffi.nullptr;
+  ffi.Pointer<ffi.Void> _fullWithStateFn = ffi.nullptr;
+
+  /// Whether [load] routes whisper's throwing entry points through
+  /// `wp_ffi_guard`.
+  @visibleForTesting
+  bool get usesNativeCallGuard => _guard != null;
   String? _errorMessage;
 
   /// See [WhisperEngineStatus.cpuFeatures]; set by [load].
@@ -278,14 +295,35 @@ class WhisperFfiEngine
       _ensureLogCallbackRegistered(bindings);
       _cpuFeatures = _readCpuFeatures(bindings);
       _resolveSegmentTimestampLookups(dylib);
+      final guard = NativeCallGuard.nextTo(_libraryPath);
+      _guard = guard != null && guard.supportsWhisperStructs ? guard : null;
+      _initStateFn = dylib.lookup<ffi.Void>('whisper_init_state');
+      _fullFn = dylib.lookup<ffi.Void>('whisper_full');
+      _fullWithStateFn = dylib.lookup<ffi.Void>('whisper_full_with_state');
       final cparams = bindings.whisper_context_default_params();
       cparams.use_gpu = _confirmedBackend != WhisperBackend.cpu;
       final pathC = modelPath.toNativeUtf8();
       try {
-        final ctx = bindings.whisper_init_from_file_with_params(
-          pathC.cast<ffi.Char>(),
-          cparams,
-        );
+        final ffi.Pointer<whisper_context> ctx;
+        try {
+          ctx = _guard != null
+              ? _guard!.whisperInitFromFile(
+                  dylib.lookup<ffi.Void>('whisper_init_from_file_with_params'),
+                  pathC.cast<ffi.Char>(),
+                  cparams,
+                )
+              : bindings.whisper_init_from_file_with_params(
+                  pathC.cast<ffi.Char>(),
+                  cparams,
+                );
+        } on NativeCallException catch (e) {
+          // E.g. ggml-vulkan's vk::SystemError while creating the device
+          // (Sentry 140866975/151627808) — previously a process abort. A
+          // StateError lets SttServerStateNotifier retry the load on CPU.
+          _log.warning('whisper_init threw natively: ${e.message}');
+          _errorMessage = 'whisper_init_failed';
+          throw StateError('whisper_init_failed: ${e.message}');
+        }
         if (ctx == ffi.nullptr) {
           _errorMessage = 'whisper_init_failed';
           throw StateError('whisper_init_from_file_with_params returned null');
@@ -1165,7 +1203,18 @@ class WhisperFfiEngine
 
       final int rc;
       try {
-        rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
+        final guard = _guard;
+        rc = guard != null
+            ? guard.whisperFull(
+                _fullFn,
+                ctx,
+                params,
+                samplesPtr,
+                samples.length,
+              )
+            : bindings.whisper_full(ctx, params, samplesPtr, samples.length);
+      } on NativeCallException catch (e) {
+        throw _nativeInferenceFailure('whisper_full', e);
       } finally {
         segmentCallable.close();
       }
@@ -1236,6 +1285,19 @@ class WhisperFfiEngine
   /// [startLivePreview] has not (yet) been called, or was stopped.
   ffi.Pointer<whisper_state>? _previewState;
 
+  /// Maps a C++ exception caught by `wp_ffi_guard` during inference to the
+  /// notifier's resilience taxonomy: on a GPU backend it is treated like a
+  /// GPU fault (ggml-vulkan/Metal throwing mid-decode) so the notifier
+  /// re-runs the transcription on CPU; on CPU there is nothing to degrade
+  /// to, so it is surfaced as [WhisperFailureKind.other].
+  WhisperEngineException _nativeInferenceFailure(
+    String call,
+    NativeCallException e,
+  ) {
+    _log.warning('$call threw natively: ${e.message}');
+    return nativeInferenceFailure(call, e, _confirmedBackend);
+  }
+
   @override
   Future<void> startLivePreview() async {
     if (_previewState != null) return;
@@ -1244,7 +1306,15 @@ class WhisperFfiEngine
     if (bindings == null || ctx == null) {
       throw StateError('whisper_engine_not_loaded');
     }
-    final state = bindings.whisper_init_state(ctx);
+    final ffi.Pointer<whisper_state> state;
+    try {
+      final guard = _guard;
+      state = guard != null
+          ? guard.whisperInitState(_initStateFn, ctx)
+          : bindings.whisper_init_state(ctx);
+    } on NativeCallException catch (e) {
+      throw _nativeInferenceFailure('whisper_init_state', e);
+    }
     if (state == ffi.nullptr) {
       throw StateError('whisper_init_state_failed');
     }
@@ -1292,13 +1362,28 @@ class WhisperFfiEngine
         params.initial_prompt = promptC.cast<ffi.Char>();
       }
 
-      final rc = bindings.whisper_full_with_state(
-        ctx,
-        state,
-        params,
-        samplesPtr,
-        samples.length,
-      );
+      final int rc;
+      try {
+        final guard = _guard;
+        rc = guard != null
+            ? guard.whisperFullWithState(
+                _fullWithStateFn,
+                ctx,
+                state,
+                params,
+                samplesPtr,
+                samples.length,
+              )
+            : bindings.whisper_full_with_state(
+                ctx,
+                state,
+                params,
+                samplesPtr,
+                samples.length,
+              );
+      } on NativeCallException catch (e) {
+        throw _nativeInferenceFailure('whisper_full_with_state', e);
+      }
       if (rc != 0) {
         throw WhisperEngineException(
           WhisperFailureKind.transient,
@@ -1427,3 +1512,17 @@ WhisperBackend confirmBackendForTesting(
   WhisperFfiEngine._ensureBackendsLoaded(dylib, libraryPath);
   return WhisperFfiEngine._confirmBackend(dylib, requested);
 }
+
+/// Pure mapping behind [WhisperFfiEngine._nativeInferenceFailure], split out
+/// for unit tests.
+@visibleForTesting
+WhisperEngineException nativeInferenceFailure(
+  String call,
+  NativeCallException e,
+  WhisperBackend backend,
+) => WhisperEngineException(
+  backend == WhisperBackend.cpu
+      ? WhisperFailureKind.other
+      : WhisperFailureKind.gpuCrash,
+  '$call threw a native exception: ${e.message}',
+);

@@ -67,16 +67,22 @@ $ErrorActionPreference = "Stop"
 if (-not (Test-Path $Source)) { throw "Source dir not found: $Source" }
 if (-not (Test-Path $ReleaseDir)) { throw "Flutter Release dir not found: $ReleaseDir (run 'flutter build windows' first)" }
 
-# whisper.dll plus its ggml* backend DLLs (and, for the CPU build, bundled VC++
-# runtime DLLs staged alongside them by the CI job).
+# whisper.dll plus its ggml* backend DLLs, wp_ffi_guard.dll (native/ffi_guard,
+# catches C++ exceptions before they reach Dart) and, for the CPU build,
+# bundled VC++ runtime DLLs staged alongside them by the CI job.
 $dlls = Get-ChildItem -Path $Source -Filter *.dll | Where-Object {
-  $_.Name -match '^(whisper|ggml)' -or $_.Name -match '^(msvcp|vcruntime|concrt)'
+  $_.Name -match '^(whisper|ggml|wp_ffi_guard)' -or $_.Name -match '^(msvcp|vcruntime|concrt)'
 }
 if ($dlls.Count -eq 0) { throw "No whisper/ggml DLLs found in $Source" }
 # A pre-variants build (single ggml-cpu.dll) would silently fall back to a
 # baseline CPU backend without AVX/AVX2 — refuse it instead.
 if (-not ($dlls | Where-Object { $_.Name -like 'ggml-cpu-*.dll' })) {
   throw "No CPU backend variants (ggml-cpu-*.dll) in $Source - build with -DGGML_CPU_ALL_VARIANTS=ON"
+}
+# Without the guard every C++ exception from ggml-vulkan/onnxruntime aborts
+# the app again (0xC0000409) — refuse a build that lacks it.
+if (-not ($dlls | Where-Object { $_.Name -eq 'wp_ffi_guard.dll' })) {
+  throw "wp_ffi_guard.dll missing in $Source - build native/ffi_guard (see release.yml)"
 }
 
 # AC3: verify against a pinned SHA-256 manifest when provided.

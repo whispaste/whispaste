@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:whispaste/services/headless/package_diagnose.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLibraryPathFor;
+import 'package:whispaste/services/stt/native_call_guard.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart'
     show whisperLibraryPathFor;
 
@@ -45,15 +46,27 @@ void main() {
   });
 
   group('bundledNativeLibraries', () {
-    test('covers the whisper engine and the Smart Mode shim of the bundle', () {
-      final exe = p.join('opt', 'whispaste', 'whispaste');
-      final libs = bundledNativeLibraries(exe);
-      expect(libs.map((l) => l.name), ['whisper', 'smart_mode_shim']);
-      expect(libs[0].path, whisperLibraryPathFor(exe));
-      expect(libs[0].symbols, contains('whisper_full'));
-      expect(libs[1].path, smartModeLibraryPathFor(exe));
-      expect(libs[1].symbols, contains('smart_mode_load'));
-    });
+    test(
+      'covers the whisper engine, its FFI guard and the Smart Mode shim',
+      () {
+        final exe = p.join('opt', 'whispaste', 'whispaste');
+        final libs = bundledNativeLibraries(exe);
+        expect(libs.map((l) => l.name), [
+          'whisper',
+          'ffi_guard',
+          'smart_mode_shim',
+        ]);
+        expect(libs[0].path, whisperLibraryPathFor(exe));
+        expect(libs[0].symbols, contains('whisper_full'));
+        expect(
+          libs[1].path,
+          NativeCallGuard.pathNextTo(whisperLibraryPathFor(exe)),
+        );
+        expect(libs[1].selfCheck, isNotNull);
+        expect(libs[2].path, smartModeLibraryPathFor(exe));
+        expect(libs[2].symbols, contains('smart_mode_load'));
+      },
+    );
   });
 
   group('runPackageDiagnose', () {
@@ -158,7 +171,17 @@ void main() {
       final exe = p.join('opt', 'whispaste', 'whispaste');
       final libs = bundledNativeLibraries(exe);
       expect(libs[0].checksCpuBackend, !Platform.isMacOS);
-      expect(libs[1].checksCpuBackend, !Platform.isMacOS);
+      expect(libs[1].checksCpuBackend, isFalse);
+      expect(libs[2].checksCpuBackend, !Platform.isMacOS);
+    });
+  });
+
+  group('selfCheckNativeCallGuard', () {
+    test('fails for a missing guard', () {
+      expect(
+        () => selfCheckNativeCallGuard('/definitely/not/here/libwp.so'),
+        throwsStateError,
+      );
     });
   });
 

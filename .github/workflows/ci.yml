@@ -310,7 +310,7 @@ jobs:
             .build/libwhisper/macos
             .build/libllama/macos
             .build/test-models
-          key: ci-macos-native-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**') }}
+          key: ci-macos-native-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**', 'native/ffi_guard/**') }}
 
       - name: Build macOS (debug)
         run: flutter build macos --debug

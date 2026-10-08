@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/linux
-          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh') }}
+          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh', 'native/ffi_guard/**') }}
 
       - name: Clone pinned whisper.cpp source
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
@@ -174,7 +174,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/windows
-          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1') }}
+          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1', 'native/ffi_guard/**') }}
 
       - name: Cache Vulkan SDK
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
@@ -223,8 +223,15 @@ jobs:
             -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
             -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
           cmake --build .build/libwhisper/windows-build --config Release -j
+          # wp_ffi_guard (native/ffi_guard): catches C++ exceptions before
+          # they unwind into Dart FFI frames; bundled next to whisper.dll.
+          cmake -S native/ffi_guard -B .build/libwhisper/windows-build/ffi_guard `
+            -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.8.4"
+          cmake --build .build/libwhisper/windows-build/ffi_guard --config Release
           New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
           Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
+          Copy-Item .build/libwhisper/windows-build/ffi_guard/wp_ffi_guard.dll .build/libwhisper/windows/ -Force
 
       # Also stages the VAD model next to whisper.dll.
       - name: Stage libwhisper next to whispaste.exe

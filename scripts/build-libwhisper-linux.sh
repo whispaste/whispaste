@@ -34,7 +34,8 @@
 # default search (executable directory + CWD) never sees <bundle>/lib/.
 #
 # Usage:  [BUILD_JOBS=N] scripts/build-libwhisper-linux.sh [--bundle <flutter-bundle-dir>]
-# Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,libggml-cpu-*.so,SHA256SUMS}
+# Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,libggml-cpu-*.so,
+#         libwp_ffi_guard.so,SHA256SUMS}
 #         plus debug/<lib>.debug (split DWARF for Sentry, never shipped),
 #         and, with --bundle, copies the libraries into <flutter-bundle-dir>/lib/.
 set -euo pipefail
@@ -87,6 +88,14 @@ cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
 # BUILD_JOBS caps parallelism (see build-libllama-linux.sh: the CPU-variant +
 # Vulkan-shader compile can OOM a small-RAM box with an unbounded -j).
 cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(nproc)}"
+# wp_ffi_guard: catches C++ exceptions before they unwind into Dart FFI
+# frames (native/ffi_guard/ffi_guard.h). Built inside $BUILD_DIR so the
+# staging below picks it up like every other .so.
+cmake -S "$REPO_ROOT/native/ffi_guard" -B "$BUILD_DIR/ffi_guard" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_FLAGS=-g \
+  -DWHISPER_SOURCE_DIR="$WHISPER_SRC"
+cmake --build "$BUILD_DIR/ffi_guard" --config Release -j "${BUILD_JOBS:-$(nproc)}"
 echo "      built."
 
 # --- 3. Stage flat, relocatable ($ORIGIN rpath) shared objects --------------

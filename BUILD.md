@@ -62,10 +62,16 @@ cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
   -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
   -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
 cmake --build .build/libwhisper/windows-build --config Release -j
+cmake -S native/ffi_guard -B .build/libwhisper/windows-build/ffi_guard -G Ninja `
+  -DCMAKE_BUILD_TYPE=Release -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.8.4"
+cmake --build .build/libwhisper/windows-build/ffi_guard --config Release
 New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
 Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
+Copy-Item .build/libwhisper/windows-build/ffi_guard/wp_ffi_guard.dll .build/libwhisper/windows/ -Force
 pwsh scripts/bundle-libwhisper-windows.ps1 -Source .build/libwhisper/windows
 ```
+
+`wp_ffi_guard` (`native/ffi_guard`) wraps the whisper and sherpa-onnx calls that can throw C++ exceptions, so an exception from ggml-vulkan or ONNX Runtime becomes a normal error instead of aborting the app. The macOS and Linux build scripts build it alongside `libwhisper`; the Windows bundle script refuses a build without it.
 
 `-DGGML_CPU_ALL_VARIANTS=ON` builds one `ggml-cpu-<level>.dll` per x86-64 feature level (x64, sse42, sandybridge, haswell, skylakex, icelake, alderlake, …); ggml loads the best one the CPU supports at runtime. The bundle script refuses a build without them. `whispaste --diagnose` reports the variant it picked (`cpuBackend`).
 

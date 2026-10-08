@@ -10,6 +10,7 @@
 library;
 
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:io' show Platform;
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -20,7 +21,9 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 import '../../core/logging/app_logger.dart';
 import '../audio/pcm_wav_codec.dart';
 import '../stt/isolate_shutdown_helper.dart';
+import '../stt/native_call_guard.dart';
 import '../stt/stt_benchmark.dart';
+import '../stt/whisper/whisper_ffi_engine.dart' show defaultWhisperLibraryPath;
 import 'parakeet_audio_chunker.dart';
 import 'parakeet_model_registry.dart';
 
@@ -90,12 +93,14 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
   mainSendPort.send(workerPort.sendPort);
 
   sherpa_onnx.OfflineRecognizer? recognizer;
+  _GuardedDecode? guardedDecode;
 
   workerPort.listen((dynamic message) {
     switch (message) {
       case final _InitRequest req:
         try {
           sherpa_onnx.initBindings();
+          guardedDecode = _resolveGuardedDecode();
           final config = sherpa_onnx.OfflineRecognizerConfig(
             model: sherpa_onnx.OfflineModelConfig(
               transducer: sherpa_onnx.OfflineTransducerModelConfig(
@@ -137,7 +142,12 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
             req.samples,
             sampleRate: req.sampleRate,
           )) {
-            final text = _decodeChunk(r, chunk, req.sampleRate).trim();
+            final text = _decodeChunk(
+              r,
+              chunk,
+              req.sampleRate,
+              guardedDecode,
+            ).trim();
             if (text.isNotEmpty) texts.add(text);
           }
           mainSendPort.send(
@@ -163,15 +173,61 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
   });
 }
 
+/// `SherpaOnnxDecodeOfflineStream` routed through `wp_ffi_guard`, so an
+/// ONNX Runtime exception thrown during decode (Sentry 140866975: 6 of 8
+/// sampled events in `sherpa-onnx-c-api.dll`/`onnxruntime.dll`) arrives as a
+/// [NativeCallException] — reported back as a normal transcription error —
+/// instead of aborting the app.
+typedef _GuardedDecode =
+    void Function(sherpa_onnx.OfflineRecognizer, sherpa_onnx.OfflineStream);
+
+/// The file name `sherpa_onnx.initBindings()` opens without a path (see
+/// `package:sherpa_onnx/sherpa_onnx.dart`), so this resolves the very same
+/// already-loaded library.
+String get _sherpaLibraryName => Platform.isWindows
+    ? 'sherpa-onnx-c-api.dll'
+    : Platform.isMacOS
+    ? 'libsherpa-onnx-c-api.dylib'
+    : 'libsherpa-onnx-c-api.so';
+
+/// `null` (decode unguarded, as before) when the guard is not bundled.
+///
+/// Only decode is guarded: recognizer creation (`OfflineRecognizer(config)`)
+/// marshals sherpa-onnx's large config struct privately inside the package,
+/// so guarding it would mean duplicating that marshalling per sherpa-onnx
+/// release — and every sampled Sentry event threw during decode, not load.
+_GuardedDecode? _resolveGuardedDecode() {
+  final guard = NativeCallGuard.nextTo(defaultWhisperLibraryPath());
+  if (guard == null) return null;
+  try {
+    final decode = ffi.DynamicLibrary.open(
+      _sherpaLibraryName,
+    ).lookup<ffi.Void>('SherpaOnnxDecodeOfflineStream');
+    return (recognizer, stream) {
+      // Same null check as OfflineRecognizer.decode.
+      if (recognizer.ptr == ffi.nullptr || stream.ptr == ffi.nullptr) return;
+      guard.callVoidPP(decode, recognizer.ptr.cast(), stream.ptr.cast());
+    };
+  } on Object catch (e) {
+    _log.warning('sherpa-onnx decode not guarded: $e');
+    return null;
+  }
+}
+
 String _decodeChunk(
   sherpa_onnx.OfflineRecognizer r,
   Float32List samples,
   int sampleRate,
+  _GuardedDecode? guardedDecode,
 ) {
   final stream = r.createStream();
   try {
     stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
-    r.decode(stream);
+    if (guardedDecode != null) {
+      guardedDecode(r, stream);
+    } else {
+      r.decode(stream);
+    }
     return r.getResult(stream).text;
   } finally {
     // Must run even on error — otherwise the native stream object
