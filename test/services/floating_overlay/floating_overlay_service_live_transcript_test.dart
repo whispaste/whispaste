@@ -225,6 +225,9 @@ void main() {
             final last = h.fake.snapshots.last;
             expect(last.state, OverlayVisualState.recording);
             expect(last.elapsed, 'Hallo Welt');
+            // Flags the text as a live transcript so the painter anchors
+            // truncation at the newest words (live-preview spike).
+            expect(last.liveTranscript, 'Hallo Welt');
           } finally {
             h.dispose();
           }
@@ -246,6 +249,7 @@ void main() {
           final last = h.fake.snapshots.last;
           expect(last.state, OverlayVisualState.recording);
           expect(last.elapsed, isNot('Hallo Welt'));
+          expect(last.liveTranscript, isNull);
         } finally {
           h.dispose();
         }

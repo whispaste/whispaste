@@ -22,6 +22,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../../core/theme/overlay_design_spec.dart';
+import 'live_text_tail.dart';
 
 /// Paints the overlay capsule and its per-state content from the SSOT spec.
 class WpOverlayPainter extends CustomPainter {
@@ -53,6 +54,7 @@ class WpOverlayPainter extends CustomPainter {
     this.liquidMotion = 0.0,
     this.liquidLevel = 0.0,
     this.style = OverlayStyleVariant.glass,
+    this.tailFirstText = false,
   });
 
   /// The visual state being rendered.
@@ -141,6 +143,11 @@ class WpOverlayPainter extends CustomPainter {
   /// the shadow, border, content, waveform and liquid silhouette wobble are
   /// identical in both styles and for all three [sizeSpec] variants.
   final OverlayStyleVariant style;
+
+  /// Whether the primary text is a live transcript. Overflowing live text is
+  /// cut at its START (`…newest words`) instead of the classic trailing
+  /// ellipsis, so the words just spoken stay visible (live-preview spike).
+  final bool tailFirstText;
 
   bool get _isRecording => state == OverlayDesignState.recording;
 
@@ -568,10 +575,12 @@ class WpOverlayPainter extends CustomPainter {
     // live in the dot and the done/error icons, not in text colour.
     const textColor = OverlayDesignSpec.contentGlyphFill;
     final textLeft = leadCenter.dx + layout.timerGap;
-    final maxTextWidth = pill.right - layout.padH - textLeft;
+    final maxTextWidth = _isRecording
+        ? recordingTextMaxWidth(pill, textLeft)
+        : pill.right - layout.padH - textLeft;
     final textWidth = _drawText(
       canvas,
-      _isRecording ? timerText : statusText,
+      fittedTextFor(_isRecording ? timerText : statusText, maxTextWidth),
       Offset(textLeft, cy),
       layout.timerFontSize,
       textColor,
@@ -662,10 +671,11 @@ class WpOverlayPainter extends CustomPainter {
     final primaryCy = twoLines
         ? cy + OverlayDesignSpec.secondaryTextPrimaryDy
         : cy;
-    final fillTp = statusText.isEmpty
+    final shownStatus = fittedTextFor(statusText, maxTextWidth);
+    final fillTp = shownStatus.isEmpty
         ? null
         : _layoutTextPainter(
-            statusText,
+            shownStatus,
             baseStyle.copyWith(color: OverlayDesignSpec.contentGlyphFill),
             maxTextWidth,
           );
@@ -700,7 +710,7 @@ class WpOverlayPainter extends CustomPainter {
     if (fillTp != null) {
       _paintLaidOutText(
         canvas,
-        statusText,
+        shownStatus,
         fillTp,
         Offset(textLeft, primaryCy),
         baseStyle,
@@ -1088,6 +1098,60 @@ class WpOverlayPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Width available to the recording text starting at [textLeft]: up to
+  /// the waveform's start gap before the stop square, so a long live
+  /// transcript can squeeze the waveform but never runs under the stop
+  /// button.
+  @visibleForTesting
+  double recordingTextMaxWidth(Rect pill, double textLeft) =>
+      pill.right -
+      layout.padH -
+      layout.stopSize -
+      layout.waveEndGap -
+      layout.waveStartGap -
+      textLeft;
+
+  /// The text actually laid out for [text] at [maxWidth]: unchanged unless
+  /// [tailFirstText] is set, in which case an overflowing live transcript is
+  /// cut down to its newest words ([tailThatFits]).
+  ///
+  /// The overlay repaints every frame while recording (dot pulse, waveform)
+  /// but the live text only changes every ~2 s, so the last result is cached
+  /// — the binary-search layouts run once per new preview, not per frame.
+  @visibleForTesting
+  String fittedTextFor(String text, double maxWidth) {
+    if (!tailFirstText || text.isEmpty || maxWidth <= 0) return text;
+    final fontSize = layout.timerFontSize;
+    final cached = _tailCache;
+    if (cached != null &&
+        cached.text == text &&
+        cached.fontSize == fontSize &&
+        cached.maxWidth == maxWidth) {
+      return cached.result;
+    }
+    final style = _textStyle(fontSize);
+    final result = tailThatFits(text, (candidate) {
+      final tp = TextPainter(
+        text: TextSpan(text: candidate, style: style),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      final fits = tp.width <= maxWidth;
+      tp.dispose();
+      return fits;
+    });
+    _tailCache = (
+      text: text,
+      fontSize: fontSize,
+      maxWidth: maxWidth,
+      result: result,
+    );
+    return result;
+  }
+
+  static ({String text, double fontSize, double maxWidth, String result})?
+  _tailCache;
+
   /// The shared single-line status/timer text style at [fontSize].
   TextStyle _textStyle(double fontSize) => TextStyle(
     fontFamily: 'Inter',
@@ -1187,6 +1251,7 @@ class WpOverlayPainter extends CustomPainter {
         old.liquidMotion != liquidMotion ||
         old.liquidLevel != liquidLevel ||
         old.style != style ||
+        old.tailFirstText != tailFirstText ||
         !identical(old.waveformBars, waveformBars);
   }
 }

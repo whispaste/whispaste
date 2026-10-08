@@ -165,6 +165,10 @@ class WpFloatingOverlayView extends StatefulWidget {
       glassPhase: glassPhase,
       liquidMotion: liquidMotion,
       liquidLevel: liquidLevel,
+      tailFirstText:
+          (snapshot.liveTranscript ?? '').trim().isNotEmpty &&
+          (snapshot.state == OverlayVisualState.recording ||
+              snapshot.state == OverlayVisualState.transcribing),
     );
   }
 

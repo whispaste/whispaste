@@ -25,15 +25,27 @@ import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 FloatingOverlaySnapshot _snap({
   required OverlaySizeVariant size,
   String? liveTranscript,
+  OverlayVisualState state = OverlayVisualState.transcribing,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
-    state: OverlayVisualState.transcribing,
+    state: state,
     size: size,
     label: 'Transcribing…',
+    // While recording the service puts the live text into `elapsed` too.
+    elapsed: state == OverlayVisualState.recording
+        ? (liveTranscript ?? '0:12')
+        : '',
+    progress: state == OverlayVisualState.recording ? 0.3 : 0.0,
     liveTranscript: liveTranscript,
   );
 }
+
+/// A preview long enough to overflow every pill: the newest words
+/// ("…seventeen eighteen") must stay visible (live-preview spike).
+const _longLiveText =
+    'one two three four five six seven eight nine ten eleven twelve '
+    'thirteen fourteen fifteen sixteen seventeen eighteen';
 
 Widget _buildStaticFrame({
   required FloatingOverlaySnapshot snapshot,
@@ -108,6 +120,40 @@ void main() {
           matchesGoldenFile('goldens/overlay/$goldenName.png'),
         );
       });
+    }
+  });
+
+  group('Long live transcript keeps the newest words (live-preview spike) '
+      '— goldens', () {
+    for (final size in [
+      OverlaySizeVariant.normal,
+      OverlaySizeVariant.compact,
+    ]) {
+      for (final state in [
+        OverlayVisualState.recording,
+        OverlayVisualState.transcribing,
+      ]) {
+        final goldenName =
+            'overlay_liveTranscript_long_${state.name}_dark_${size.name}';
+        testWidgets('golden: $goldenName', (tester) async {
+          final testKey = ValueKey(goldenName);
+          final snapshot = _snap(
+            size: size,
+            state: state,
+            liveTranscript: _longLiveText,
+          );
+
+          await tester.pumpWidget(
+            _buildStaticFrame(snapshot: snapshot, key: testKey),
+          );
+          await tester.pump();
+
+          await expectLater(
+            find.byKey(testKey),
+            matchesGoldenFile('goldens/overlay/$goldenName.png'),
+          );
+        });
+      }
     }
   });
 }
