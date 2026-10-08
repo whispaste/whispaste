@@ -4240,6 +4240,10 @@ class L10nEn extends L10n {
       'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'On-device Smart Mode isn\'t included in this build. Switch to OpenAI, or install an official WhisPaste release.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override

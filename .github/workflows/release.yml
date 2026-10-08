@@ -1084,8 +1084,11 @@ jobs:
   build-linux:
     name: Build Linux x86_64
     runs-on: ubuntu-latest
-    # See build-windows' timeout-minutes comment. Observed ~8-11min.
-    timeout-minutes: 30
+    # See build-windows' timeout-minutes comment. Observed ~8-11min with a
+    # warm libllama cache; a cold libllama build (Vulkan shaders + one CPU
+    # backend per x86-64 level, see build-libllama-linux.sh) adds a long
+    # compile on top, same order as the Windows job's 60-minute budget.
+    timeout-minutes: 60
     # See build-windows: skip on a Promote dispatch (no rebuild).
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
     outputs:
@@ -1126,7 +1129,7 @@ jobs:
             libcurl4-openssl-dev zlib1g-dev \
             libflac-dev libogg-dev libopus-dev libvorbis-dev \
             default-jdk \
-            g++ patchelf libvulkan-dev glslang-tools glslc
+            g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers
 
       # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
       - name: Set JAVA_HOME
@@ -1215,6 +1218,50 @@ jobs:
             exit 1
           fi
           echo "libwhisper.so present: $(ls -la "$SO")"
+
+      # ── Bundle libllama + libsmartmode_shim (Smart Mode's on-device engine) ──
+      # Linux counterpart of the Windows libllama steps above: without it the
+      # on-device Smart Mode option is disabled in Settings (the app probes
+      # lib/smart_mode/libsmartmode_shim.so, see smart_mode_ffi_engine.dart).
+      # Staged under bundle/lib/smart_mode/, so the tarball, .deb, AppImage
+      # and the tarball-based Flatpak/Snap recipes all carry it unchanged.
+      # Same pin + cache pattern as libwhisper; vulkan/glslc/patchelf come
+      # from the dependency step at the top of this job.
+      - name: Cache libllama build (Linux)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/linux
+          key: libllama-linux-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-linux.sh', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      - name: Build + stage libllama + smartmode_shim (Linux)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libllama-linux.sh
+
+      - name: Copy libllama into the Flutter bundle
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib/smart_mode
+          cp .build/libllama/linux/*.so* build/linux/x64/release/bundle/lib/smart_mode/
+
+      - name: Verify smartmode_shim is embedded
+        run: |
+          SO="build/linux/x64/release/bundle/lib/smart_mode/libsmartmode_shim.so"
+          if [[ ! -f "$SO" ]]; then
+            echo "::error::libsmartmode_shim.so missing from $SO — on-device Smart Mode would be disabled in this build."
+            exit 1
+          fi
+          # Every NEEDED entry must resolve inside the bundle or the system
+          # (libvulkan is only dlopen'd by the backend module, never NEEDED here).
+          if ldd "$SO" | grep -q 'not found'; then
+            ldd "$SO"
+            echo "::error::libsmartmode_shim.so has unresolved dependencies."
+            exit 1
+          fi
+          echo "libsmartmode_shim.so present: $(ls -la "$SO")"
 
       # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
       - name: Ensure crashpad_handler is executable

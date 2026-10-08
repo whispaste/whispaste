@@ -4326,6 +4326,10 @@ class L10nRu extends L10n {
       'Пример: обработка типичной диктовки из 50 слов занимает около 1–6 секунд, в зависимости от устройства.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'Локальный Умный режим не входит в эту сборку. Переключитесь на OpenAI или установите официальный релиз WhisPaste.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Умный режим';
 
   @override

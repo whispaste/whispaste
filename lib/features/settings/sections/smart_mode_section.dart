@@ -20,6 +20,8 @@ import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/hotkey_service.dart';
 import '../../../services/model_download_service.dart'
     show formatModelSizeLabel;
+import '../../../services/smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeLocalEngineAvailableProvider;
 import '../../../services/smart_mode/smart_mode_model_download_service.dart';
 import '../../../services/smart_mode/smart_mode_presets.dart';
 import '../../../widgets/dialog.dart';
@@ -78,6 +80,7 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
     final isLocal = SmartModeProviderType.fromValue(
       settings.smartMode.provider,
     ).isLocal;
+    final localAvailable = ref.watch(smartModeLocalEngineAvailableProvider);
     if (!isLocal) syncController(_apiKeyCtrl, settings.openAiApiKey);
 
     ref.listen<SmartModeDownloadState>(smartModeDownloadProvider, (
@@ -148,6 +151,15 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
               ).value,
               items: SmartModeProviderType.values.map((e) => e.value).toList(),
               labels: [l10n.settingsServiceOnDevicePrivate, 'OpenAI'],
+              // A build without the bundled local engine (e.g. a Linux dev
+              // build that skipped scripts/build-libllama-linux.sh) can only
+              // fail on-device — keep the option visible but unselectable.
+              disabledItems: localAvailable
+                  ? null
+                  : {SmartModeProviderType.local.value},
+              disabledTooltip: localAvailable
+                  ? null
+                  : l10n.smartModeLocalUnavailable,
               onChanged: (v) {
                 if (v == null) return;
                 ref
@@ -206,7 +218,16 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
               ),
             ),
           ],
-          if (isLocal) ...[
+          if (isLocal && !localAvailable) ...[
+            const SizedBox(height: WpSpacing.md),
+            _SmartModeHotkeyNotice(
+              noticeKey: const Key('smartModeLocalUnavailableHint'),
+              icon: LucideIcons.info,
+              color: WpColors.textMuted,
+              text: l10n.smartModeLocalUnavailable,
+            ),
+          ],
+          if (isLocal && localAvailable) ...[
             const SizedBox(height: WpSpacing.md),
             _ModelDownloadRow(download: download, l10n: l10n),
           ],

@@ -4190,6 +4190,10 @@ class L10nHe extends L10n {
       'לדוגמה: הכתבה טיפוסית של 50 מילים אורכת כ-1–6 שניות לעיבוד, בהתאם לחומרת המכשיר שלכם.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'Smart Mode המקומי אינו כלול בגרסה זו. עברו ל-OpenAI או התקינו גרסה רשמית של WhisPaste.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override

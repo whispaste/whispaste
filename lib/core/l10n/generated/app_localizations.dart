@@ -7418,6 +7418,12 @@ abstract class L10n {
   /// **'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.'**
   String get smartModeSpeedExampleInfo;
 
+  /// Shown in Smart Mode settings when the on-device engine library is not bundled in this build (e.g. a Linux dev build); also the tooltip of the disabled on-device option.
+  ///
+  /// In en, this message translates to:
+  /// **'On-device Smart Mode isn\'t included in this build. Switch to OpenAI, or install an official WhisPaste release.'**
+  String get smartModeLocalUnavailable;
+
   /// No description provided for @settingsHotkeyActionSmartMode.
   ///
   /// In en, this message translates to:

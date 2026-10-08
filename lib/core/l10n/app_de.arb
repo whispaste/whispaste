@@ -1506,6 +1506,7 @@
   "smartModeRamWarningCancel": "Abbrechen",
   "smartModeMemoryFootprintInfo": "Läuft vollständig auf dem Gerät. Im aktiven Zustand belegt es zusätzlich zum Speicherplatz etwa 4–5 GB RAM — geteilt mit dem Transkriptionsmodell, der tatsächliche Gesamtverbrauch hängt also auch davon ab, welches STT-Modell zusätzlich geladen ist.",
   "smartModeSpeedExampleInfo": "Beispiel: Ein typisches Diktat mit 50 Wörtern braucht je nach Hardware etwa 1–6 Sekunden zur Verarbeitung.",
+  "smartModeLocalUnavailable": "Der lokale Smart Mode ist in diesem Build nicht enthalten. Wechsle zu OpenAI oder installiere ein offizielles WhisPaste-Release.",
 
   "settingsHotkeyActionSmartMode": "Smart Mode",
   "settingsSmartModeHotkeyEnabled": "Smart-Mode-Hotkey",

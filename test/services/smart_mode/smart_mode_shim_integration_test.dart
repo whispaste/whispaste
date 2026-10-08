@@ -6,6 +6,8 @@
 /// as `whisper_isolate_engine_test.dart`:
 /// - `.build/libllama/macos/libsmartmode_shim.dylib`
 ///   (`scripts/build-libllama-macos.sh && scripts/build-smartmode-shim-macos.sh`)
+///   or, on Linux, `.build/libllama/linux/libsmartmode_shim.so`
+///   (`scripts/build-libllama-linux.sh`)
 /// - any small GGUF chat model at `.build/test-models/smart_mode/test.gguf`
 ///   (a tiny one is enough — this proves the native session lifecycle, not
 ///   output quality; the production Gemma model works the same way).
@@ -36,12 +38,14 @@ void main() {
   final root = _repoRoot();
   final libPath = root == null
       ? null
+      : Platform.isLinux
+      ? p.join(root, '.build', 'libllama', 'linux', 'libsmartmode_shim.so')
       : p.join(root, '.build', 'libllama', 'macos', 'libsmartmode_shim.dylib');
   final modelPath = root == null
       ? null
       : p.join(root, '.build', 'test-models', 'smart_mode', 'test.gguf');
   final available =
-      Platform.isMacOS &&
+      (Platform.isMacOS || Platform.isLinux) &&
       libPath != null &&
       File(libPath).existsSync() &&
       File(modelPath!).existsSync();

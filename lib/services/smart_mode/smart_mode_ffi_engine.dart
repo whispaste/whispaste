@@ -4,8 +4,8 @@
 /// "[WP] Embed & Sign libllama" phase, `../Frameworks/` resolution,
 /// `@loader_path`-relocatable dylibs, Apple Guideline 2.5.2
 /// no-runtime-code-download constraint; Windows: DLLs staged next to
-/// `whispaste.exe` under a dedicated `smart_mode\` subdirectory, see
-/// [smartModeLibraryPathFor]).
+/// `whispaste.exe` under a dedicated `smart_mode\` subdirectory; Linux:
+/// `lib/smart_mode/` of the Flutter bundle, see [smartModeLibraryPathFor]).
 ///
 /// Hosted like `whisper_isolate_engine.dart`: every blocking native call
 /// (model load, decode loop) runs in one long-lived worker isolate, so the
@@ -102,7 +102,8 @@ String defaultSmartModeLibraryPath() =>
 
 /// Pure resolver behind [defaultSmartModeLibraryPath], split out for unit
 /// tests exactly like [whisperLibraryPathFor]. Given the app [executablePath],
-/// returns the bundled `libsmartmode_shim` path for the current OS:
+/// returns the bundled `libsmartmode_shim` path for [operatingSystem]
+/// (defaults to the host's [Platform.operatingSystem]):
 /// - macOS: `<App>.app/Contents/MacOS/<exe>` → `../Frameworks/libsmartmode_shim.dylib`
 ///   (embedded by the "[WP] Embed & Sign libllama" Xcode phase, see
 ///   `macos/embed_libllama.sh` — runs for every build).
@@ -116,21 +117,60 @@ String defaultSmartModeLibraryPath() =>
 ///   renaming every ggml dylib with a `-llama` suffix instead (see
 ///   `build-libllama-macos.sh`); Windows instead keeps the two engines'
 ///   native libraries in disjoint directories, which needs no dylib-renaming
-///   or relinking. Linux support is not part of this ticket.
-String smartModeLibraryPathFor(String executablePath) {
+///   or relinking.
+/// - Linux (the fallback, like [whisperLibraryPathFor]):
+///   `lib/smart_mode/libsmartmode_shim.so` next to the executable — a
+///   subdirectory of the `lib/` that holds libwhisper, staged by
+///   `scripts/build-libllama-linux.sh --bundle`. Linux needs BOTH measures:
+///   the separate directory keeps ggml's backend scan
+///   (`ggml_backend_load_all_from_path`, see `smart_mode_shim.cpp`) from
+///   picking up libwhisper's `libggml-cpu.so`/`libggml-vulkan.so`, and the
+///   core ggml libraries are renamed with a `-llama` suffix because the ELF
+///   loader dedupes `DT_NEEDED` entries by SONAME process-wide — an unrenamed
+///   `libggml.so.0` would silently bind to whichever engine loaded first.
+String smartModeLibraryPathFor(
+  String executablePath, {
+  String? operatingSystem,
+}) {
+  final os = operatingSystem ?? Platform.operatingSystem;
   final execDir = p.dirname(executablePath);
-  if (Platform.isMacOS) {
+  if (os == 'macos') {
     return p.normalize(
       p.join(execDir, '..', 'Frameworks', 'libsmartmode_shim.dylib'),
     );
   }
-  if (Platform.isWindows) {
+  if (os == 'windows') {
     return p.join(execDir, 'smart_mode', 'smartmode_shim.dll');
   }
-  throw UnsupportedError(
-    'SmartModeFfiEngine is not bundled for this platform yet',
-  );
+  return p.join(execDir, 'lib', 'smart_mode', 'libsmartmode_shim.so');
 }
+
+/// Whether the local Smart Mode engine's native library is present in this
+/// build, so the UI can disable the on-device option (with a hint) instead
+/// of offering a choice that can only fail at load time.
+///
+/// Only Linux probes the file: there the library is staged by a separate
+/// post-build step (`scripts/build-libllama-linux.sh --bundle`) that a plain
+/// `flutter build linux`/`flutter run` skips. macOS embeds it in every build
+/// (Xcode phase) and the Windows release job hard-fails without it, so both
+/// report `true` without touching the disk — which also keeps widget tests
+/// and store screenshots on those hosts rendering the real settings UI.
+bool isSmartModeLocalEngineAvailable({
+  String? operatingSystem,
+  String? libraryPath,
+}) {
+  final os = operatingSystem ?? Platform.operatingSystem;
+  if (os == 'macos' || os == 'windows') return true;
+  return File(
+    libraryPath ?? smartModeLibraryPathFor(Platform.resolvedExecutable),
+  ).existsSync();
+}
+
+/// [isSmartModeLocalEngineAvailable] for the running app — overridable in
+/// tests. Not reactive: the bundle cannot change while the app runs.
+final smartModeLocalEngineAvailableProvider = Provider<bool>(
+  (ref) => isSmartModeLocalEngineAvailable(),
+);
 
 /// Below this much physical RAM, Smart Mode does not keep its model resident
 /// between calls: the ~2.9GB GGUF is freed right after every [run], so on the

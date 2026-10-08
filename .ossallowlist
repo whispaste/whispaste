@@ -110,6 +110,7 @@ scripts/build-libwhisper-macos.sh
 scripts/build-libwhisper-linux.sh
 scripts/bundle-libwhisper-windows.ps1
 scripts/build-libllama-macos.sh
+scripts/build-libllama-linux.sh
 scripts/build-smartmode-shim-macos.sh
 scripts/build-libllama-windows.ps1
 scripts/build-smartmode-shim-windows.ps1

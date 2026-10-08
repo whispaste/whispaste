@@ -115,15 +115,14 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
   ),
   // Smart Mode v2 (`.scratch/smart-mode-v2/PRODUCT-SPEC.md`): local
   // post-processing presets (Cleanup/Concise/Translate) with a dedicated
-  // second hotkey and per-hotkey target language. The local engine is only
-  // bundled for macOS and Windows (`smartModeLibraryPathFor` throws
-  // elsewhere), so the entry stays off Linux like the settings surface it
-  // points to. No mini-screenshot captured yet — text-only, same as above.
+  // second hotkey and per-hotkey target language. Originally macos+windows
+  // only; opened up to all platforms once the local engine shipped in the
+  // Linux bundle too (`scripts/build-libllama-linux.sh`). No mini-screenshot
+  // captured yet — text-only, same as above.
   FeatureSpotlightEntry(
     id: 'smart_mode',
     title: (l10n) => l10n.featureSpotlightSmartModeTitle,
     description: (l10n) => l10n.featureSpotlightSmartModeDescription,
-    platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
   ),
   // 1.3.0: the history PIN lock (`.scratch/history-pin-lock/`) — a new
   // privacy capability the target audience would not go looking for.

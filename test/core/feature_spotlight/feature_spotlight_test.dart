@@ -93,15 +93,12 @@ void main() {
       expect(kFeatureSpotlightReviewedVersion, version);
     });
 
-    test('smart_mode is scoped to macos+windows — the local engine is not '
-        'bundled for Linux (smartModeLibraryPathFor throws there)', () {
+    test('smart_mode applies to every platform — the local engine is '
+        'bundled on Linux too since handy-catchup/21', () {
       final entry = kFeatureSpotlightRegistry.firstWhere(
         (e) => e.id == 'smart_mode',
       );
-      expect(entry.platforms, {
-        OnboardingPlatform.macos,
-        OnboardingPlatform.windows,
-      });
+      expect(entry.platforms, isNull);
     });
   });
 

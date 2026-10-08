@@ -1816,6 +1816,7 @@
   "smartModeRamWarningCancel": "בטל",
   "smartModeMemoryFootprintInfo": "פועל לגמרי במכשיר. בזמן פעילות הוא צורך כ-4–5GB זיכרון RAM בנוסף לשטח האחסון — משותף עם מודל התמלול, כך שהצריכה הכוללת תלויה גם באיזה מודל STT טעון בנוסף.",
   "smartModeSpeedExampleInfo": "לדוגמה: הכתבה טיפוסית של 50 מילים אורכת כ-1–6 שניות לעיבוד, בהתאם לחומרת המכשיר שלכם.",
+  "smartModeLocalUnavailable": "Smart Mode המקומי אינו כלול בגרסה זו. עברו ל-OpenAI או התקינו גרסה רשמית של WhisPaste.",
   "settingsHotkeyActionSmartMode": "Smart Mode",
   "settingsSmartModeHotkeyEnabled": "מקש קיצור ל-Smart Mode",
   "settingsSmartModeHotkeyHint": "מתחיל הקלטה עם פריסט קבוע, ללא תלות בפריסט הרגיל שלמעלה. תומך ב-Push-to-Talk בדיוק כמו מקש הקיצור הראשי.",

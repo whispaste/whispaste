@@ -22,6 +22,8 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#elif defined(__linux__)
+#include <dlfcn.h>
 #endif
 
 namespace {
@@ -61,6 +63,24 @@ void ensure_backends_loaded() {
           return;
         }
       }
+    }
+  }
+#elif defined(__linux__)
+  // Same problem on Linux: ggml_backend_load_all() searches the directory of
+  // /proc/self/exe (the Flutter bundle root) and the CWD, but the backend
+  // modules (libggml-cpu-*.so, libggml-vulkan.so) ship next to this shim in
+  // <bundle>/lib/smart_mode/ (see scripts/build-libllama-linux.sh). Scanning
+  // exactly this directory also keeps ggml from ever picking up libwhisper's
+  // own backend modules one level up in <bundle>/lib/.
+  Dl_info info;
+  if (dladdr(reinterpret_cast<void*>(&ensure_backends_loaded), &info) != 0 &&
+      info.dli_fname != nullptr) {
+    std::string path(info.dli_fname);
+    auto last_slash = path.find_last_of('/');
+    if (last_slash != std::string::npos) {
+      ggml_backend_load_all_from_path(path.substr(0, last_slash).c_str());
+      g_backends_loaded = true;
+      return;
     }
   }
 #endif

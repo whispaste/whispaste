@@ -4276,6 +4276,10 @@ class L10nDe extends L10n {
       'Beispiel: Ein typisches Diktat mit 50 Wörtern braucht je nach Hardware etwa 1–6 Sekunden zur Verarbeitung.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'Der lokale Smart Mode ist in diesem Build nicht enthalten. Wechsle zu OpenAI oder installiere ein offizielles WhisPaste-Release.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override
