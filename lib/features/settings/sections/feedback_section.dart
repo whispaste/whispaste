@@ -574,7 +574,7 @@ class _PushToTalkRow extends ConsumerWidget {
       trailing: supportsKeyUp
           ? toggle
           : Tooltip(
-              message: l10n.pushToTalkUnavailableTooltip,
+              message: pushToTalkUnavailableMessage(l10n),
               // A disabled Switch still contributes its own hasEnabledState/
               // hasToggledState/isToggled semantics regardless of this row's
               // `semanticToggledValue: null` above — Semantics(toggled: null)
@@ -652,7 +652,7 @@ class _HoldOrTapRow extends ConsumerWidget {
         trailing: supportsKeyUp
             ? toggle
             : Tooltip(
-                message: l10n.pushToTalkUnavailableTooltip,
+                message: pushToTalkUnavailableMessage(l10n),
                 // Same reasoning as in _PushToTalkRow: a disabled Switch would
                 // otherwise merge its own toggled-state flags into the row.
                 child: ExcludeSemantics(child: toggle),

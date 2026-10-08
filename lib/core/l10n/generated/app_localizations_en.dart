@@ -388,6 +388,10 @@ class L10nEn extends L10n {
   String get pushToTalkUnavailableTooltip => 'Not available on this platform';
 
   @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.';
+
+  @override
   String get settingsExperimentalBadge => 'Experimental';
 
   @override

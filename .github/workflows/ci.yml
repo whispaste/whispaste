@@ -438,6 +438,11 @@ jobs:
       - name: ARB key parity gate
         run: dart tool/check_arb_parity.dart
 
+      # Pure C++ unit test of the Linux push-to-talk autorepeat filter
+      # (linux/runner/autorepeat_filter.h); no X11 needed.
+      - name: Linux autorepeat filter unit test
+        run: bash test/scripts/autorepeat_filter_test.sh
+
       # loam ratchet gate — fails when any new a11y, anti-AI-slop,
       # code-duplicate, unused-public-export, complexity-hotspot or
       # circular-dependency finding is introduced relative to baseline.json.

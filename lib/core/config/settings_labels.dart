@@ -65,6 +65,17 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
 /// Cached platform check to avoid repeated dart:io calls.
 bool get _isMacOS => Platform.isMacOS;
 
+/// Tooltip for the disabled push-to-talk switch when the platform reports no
+/// key-up. On Linux the desktop can still trigger recording through the
+/// `whispaste --toggle` CLI (handy-catchup/23), so point there instead of
+/// the generic "not available" hint.
+String pushToTalkUnavailableMessage(L10n l10n, {String? operatingSystem}) {
+  final os = operatingSystem ?? Platform.operatingSystem;
+  return os == 'linux'
+      ? l10n.pushToTalkUnavailableLinuxTooltip
+      : l10n.pushToTalkUnavailableTooltip;
+}
+
 /// Returns a localized label for the primary key portion of a shortcut.
 ///
 /// When [displayOverride] is non-empty (e.g. `'Ö'` captured by the recorder

@@ -1,5 +1,7 @@
 #include "keyboard_monitor_host.h"
 
+#include "autorepeat_filter.h"
+
 #include <X11/Xlib.h>
 #include <X11/extensions/XInput2.h>
 #include <glib-unix.h>
@@ -271,15 +273,21 @@ void KeyboardMonitorHost::DrainX11Events() {
         !XGetEventData(x_display_, cookie)) {
       continue;
     }
-    if (watched_keycode_ != 0) {
+    if (cookie->evtype == XI_RawKeyRelease ||
+        cookie->evtype == XI_RawKeyPress) {
       const auto* raw = static_cast<XIRawEvent*>(cookie->data);
-      if (static_cast<unsigned int>(raw->detail) == watched_keycode_) {
-        if (cookie->evtype == XI_RawKeyRelease) {
+      switch (ClassifyRawKeyEvent(watched_keycode_,
+                                  static_cast<unsigned int>(raw->detail),
+                                  cookie->evtype == XI_RawKeyRelease)) {
+        case RawKeyAction::kScheduleRelease:
           ScheduleRelease();
-        } else if (cookie->evtype == XI_RawKeyPress) {
+          break;
+        case RawKeyAction::kCancelPendingRelease:
           // Autorepeat: the release just seen was the first half of a pair.
           CancelPendingRelease();
-        }
+          break;
+        case RawKeyAction::kIgnore:
+          break;
       }
     }
     XFreeEventData(x_display_, cookie);

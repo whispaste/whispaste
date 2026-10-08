@@ -126,6 +126,7 @@
   "settingsClippingDismiss": "Verstanden",
   "settingsHoldToRecord": "Gedrückt halten für Aufnahme",
   "pushToTalkUnavailableTooltip": "Auf dieser Plattform nicht verfügbar",
+  "pushToTalkUnavailableLinuxTooltip": "Dein Desktop meldet hier kein Loslassen von Tasten. Lege stattdessen „whispaste --toggle“ in den Systemeinstellungen auf ein Tastenkürzel.",
   "settingsExperimentalBadge": "Experimentell",
   "settingsHoldOrTap": "Tippen oder Halten",
   "settingsHoldOrTapHint": "Kurz tippen startet und stoppt die Aufnahme, gedrückt halten nimmt bis zum Loslassen auf.",

@@ -779,6 +779,12 @@ abstract class L10n {
   /// **'Not available on this platform'**
   String get pushToTalkUnavailableTooltip;
 
+  /// Tooltip on the disabled push-to-talk switch on Linux when neither XInput2 nor the GlobalShortcuts portal reports key-up. Keep the CLI command whispaste --toggle untranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.'**
+  String get pushToTalkUnavailableLinuxTooltip;
+
   /// Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk).
   ///
   /// In en, this message translates to:

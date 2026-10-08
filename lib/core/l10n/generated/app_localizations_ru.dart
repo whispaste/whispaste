@@ -416,6 +416,10 @@ class L10nRu extends L10n {
   String get pushToTalkUnavailableTooltip => 'Недоступно на этой платформе';
 
   @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'Ваш рабочий стол здесь не сообщает об отпускании клавиш. Вместо этого назначьте «whispaste --toggle» сочетанию клавиш в настройках системы.';
+
+  @override
   String get settingsExperimentalBadge => 'Экспериментально';
 
   @override

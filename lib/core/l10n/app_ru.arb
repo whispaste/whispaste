@@ -113,6 +113,7 @@
   "settingsClippingDismiss": "Скрыть",
   "settingsHoldToRecord": "Удерживать для записи",
   "pushToTalkUnavailableTooltip": "Недоступно на этой платформе",
+  "pushToTalkUnavailableLinuxTooltip": "Ваш рабочий стол здесь не сообщает об отпускании клавиш. Вместо этого назначьте «whispaste --toggle» сочетанию клавиш в настройках системы.",
   "settingsExperimentalBadge": "Экспериментально",
   "settingsHoldOrTap": "Нажатие или удержание",
   "settingsHoldOrTapHint": "Короткое нажатие запускает и останавливает запись, удержание записывает до отпускания.",

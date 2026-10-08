@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
@@ -340,7 +341,7 @@ class _PushToTalkRow extends ConsumerWidget {
       trailingHugsLabel: true,
       trailing: supportsKeyUp
           ? toggle
-          : Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
+          : Tooltip(message: pushToTalkUnavailableMessage(l10n), child: toggle),
     );
   }
 }

@@ -39,7 +39,8 @@ import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
 import 'snippet_picker/snippet_picker_service.dart';
-import 'smart_mode/smart_mode_ffi_engine.dart' show smartModeEngineProvider;
+import 'smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
 import 'smart_mode/smart_mode_model_download_service.dart'
     show smartModeDownloadProvider;
 import 'smart_mode/smart_mode_presets.dart';
@@ -1334,6 +1335,12 @@ class RecordingOrchestrator extends Notifier<void> {
     final provider = SmartModeProviderType.fromValue(
       settings.smartMode.provider,
     );
+    // A build without the bundled local engine library (see the Smart Mode
+    // settings, which disable the on-device option then) can never run it,
+    // whatever the model download state says.
+    if (provider.isLocal && !ref.read(smartModeLocalEngineAvailableProvider)) {
+      return 'selection_edit_local_unavailable';
+    }
     final engineReady = provider.isLocal
         ? ref.read(smartModeDownloadProvider).modelDownloaded
         : settings.cloudProvider.openAiApiKey.trim().isNotEmpty;

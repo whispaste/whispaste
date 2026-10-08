@@ -385,6 +385,10 @@ class L10nHe extends L10n {
   String get pushToTalkUnavailableTooltip => 'לא זמין בפלטפורמה זו';
 
   @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'שולחן העבודה שלך לא מדווח כאן על שחרור מקשים. במקום זאת, הקצה את „whispaste --toggle“ לקיצור מקלדת בהגדרות המערכת.';
+
+  @override
   String get settingsExperimentalBadge => 'ניסיוני';
 
   @override

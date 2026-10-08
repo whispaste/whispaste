@@ -151,6 +151,10 @@
   "settingsClippingDismiss": "Dismiss",
   "settingsHoldToRecord": "Hold to Record",
   "pushToTalkUnavailableTooltip": "Not available on this platform",
+  "pushToTalkUnavailableLinuxTooltip": "Your desktop doesn't report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.",
+  "@pushToTalkUnavailableLinuxTooltip": {
+    "description": "Tooltip on the disabled push-to-talk switch on Linux when neither XInput2 nor the GlobalShortcuts portal reports key-up. Keep the CLI command whispaste --toggle untranslated."
+  },
   "settingsExperimentalBadge": "Experimental",
   "@settingsExperimentalBadge": {
     "description": "Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk)."

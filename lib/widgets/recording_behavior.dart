@@ -69,6 +69,8 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorSelectionEditNoSelection;
     case 'selection_edit_no_engine':
       return l10n.errorSelectionEditNoEngine;
+    case 'selection_edit_local_unavailable':
+      return l10n.smartModeLocalUnavailable;
     case 'selection_edit_unsupported':
       return l10n.errorSelectionEditUnsupported;
     case 'selection_edit_copy_failed':

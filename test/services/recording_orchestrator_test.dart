@@ -40,7 +40,7 @@ import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
-    show smartModeEngineProvider;
+    show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
@@ -5290,6 +5290,7 @@ void main() {
       bool modelDownloaded = true,
       String provider = 'local',
       bool pasteAvailable = true,
+      bool localEngineAvailable = true,
     }) async {
       ensureFakeLocalSttFilesExist();
       container.dispose();
@@ -5332,6 +5333,9 @@ void main() {
                 FakeSmartModeDownloadNotifier(modelDownloaded: modelDownloaded),
           ),
           smartModeEngineProvider.overrideWith((ref) => engine),
+          smartModeLocalEngineAvailableProvider.overrideWithValue(
+            localEngineAvailable,
+          ),
         ],
       );
       await container.read(settingsProvider.future);
@@ -5415,6 +5419,19 @@ void main() {
       expect(fakeAudio.startCallCount, 0);
       expect(fakeDesktopPaste.copyCalls, 0);
       expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('local engine library missing from this build: same hint as the '
+        'settings, nothing recorded', () async {
+      final orch = await setUpSelectionEdit(localEngineAvailable: false);
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'selection_edit_local_unavailable');
+      expect(fakeAudio.startCallCount, 0);
+      expect(fakeDesktopPaste.copyCalls, 0);
     });
 
     test('no engine (cloud provider without OpenAI key): setup hint', () async {

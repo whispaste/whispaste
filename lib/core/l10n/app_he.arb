@@ -161,6 +161,7 @@
   "settingsClippingDismiss": "הבנתי",
   "settingsHoldToRecord": "החזק להקלטה",
   "pushToTalkUnavailableTooltip": "לא זמין בפלטפורמה זו",
+  "pushToTalkUnavailableLinuxTooltip": "שולחן העבודה שלך לא מדווח כאן על שחרור מקשים. במקום זאת, הקצה את „whispaste --toggle“ לקיצור מקלדת בהגדרות המערכת.",
   "settingsExperimentalBadge": "ניסיוני",
   "settingsHoldOrTap": "הקשה או החזקה",
   "settingsHoldOrTapHint": "הקשה קצרה מתחילה ועוצרת את ההקלטה; החזקה מקליטה עד שמשחררים.",

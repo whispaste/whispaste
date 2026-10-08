@@ -389,6 +389,10 @@ class L10nDe extends L10n {
       'Auf dieser Plattform nicht verfügbar';
 
   @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'Dein Desktop meldet hier kein Loslassen von Tasten. Lege stattdessen „whispaste --toggle“ in den Systemeinstellungen auf ein Tastenkürzel.';
+
+  @override
   String get settingsExperimentalBadge => 'Experimentell';
 
   @override

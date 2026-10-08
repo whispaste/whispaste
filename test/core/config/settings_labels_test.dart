@@ -55,4 +55,28 @@ void main() {
       ]);
     });
   });
+
+  group('pushToTalkUnavailableMessage', () {
+    for (final locale in L10n.supportedLocales) {
+      final l10n = lookupL10n(locale);
+
+      test('Linux points to the --toggle CLI trigger '
+          '(${locale.languageCode})', () {
+        final message = pushToTalkUnavailableMessage(
+          l10n,
+          operatingSystem: 'linux',
+        );
+        expect(message, l10n.pushToTalkUnavailableLinuxTooltip);
+        expect(message, contains('whispaste --toggle'));
+      });
+
+      test('other platforms keep the generic hint '
+          '(${locale.languageCode})', () {
+        expect(
+          pushToTalkUnavailableMessage(l10n, operatingSystem: 'windows'),
+          l10n.pushToTalkUnavailableTooltip,
+        );
+      });
+    }
+  });
 }
