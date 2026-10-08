@@ -1,5 +1,7 @@
 # Changelog
 
+Entries for releases after 1.3.0 are written in English. Older entries stay in German.
+
 ## 1.3.0
 
 Mit 1.3 bündelt WhisPaste die Funktionen der letzten Wochen zu einem Minor-Release. Die Details zu jeder Version stehen weiter unten.

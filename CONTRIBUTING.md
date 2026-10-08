@@ -21,11 +21,13 @@ in progress. It reflects direction, not a binding schedule.
 
 ## Contributing code
 
-1. Fork the repo and create a branch off `main`.
+1. Fork the repo and create a branch off `dev`.
 2. Make your change. Keep it focused — one logical change per PR.
 3. Run the gate commands below for the parts of the repo you touched and make
    sure they pass.
-4. Open a pull request against `main` describing what changed and why.
+4. Open a pull request against `dev` describing what changed and why.
+
+`dev` is the integration branch; `main` only receives tested releases from `dev`.
 
 ### Gate commands
 
@@ -50,8 +52,11 @@ npx playwright test <path>
 
 [Flutter](https://flutter.dev/docs/get-started/install) 3.x, and Windows 10
 (64-bit), macOS 11 Big Sur or newer (Apple Silicon), or a recent Linux distro
-to build/run the desktop app. See the [README](README.md#development) for the
-quickstart.
+to build/run the desktop app. [BUILD.md](BUILD.md) lists the full toolchain
+per OS and how to build the bundled native engines (whisper.cpp, llama.cpp);
+[ARCHITECTURE.md](ARCHITECTURE.md) maps the code. `whispaste --diagnose` and
+`whispaste --transcribe-file` let you check a build without the UI, and
+`scripts/smoke/` holds the package smoke tests the release pipeline runs.
 
 ## Translations
 

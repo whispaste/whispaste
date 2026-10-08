@@ -111,6 +111,8 @@ flutter pub get
 flutter run -d windows   # or: flutter run -d macos / flutter run -d linux
 ```
 
+To build the bundled on-device engines and for the full per-OS toolchain, see [BUILD.md](BUILD.md); [ARCHITECTURE.md](ARCHITECTURE.md) explains how the code is organized.
+
 ### Project Structure
 
 ```

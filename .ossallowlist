@@ -18,6 +18,8 @@ LOGGING.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 CONTRIBUTING_TRANSLATIONS.md
+BUILD.md
+ARCHITECTURE.md
 
 # Build-/Paket-Metadaten
 pubspec.yaml
