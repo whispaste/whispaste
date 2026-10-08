@@ -2507,12 +2507,20 @@ class L10nRu extends L10n {
       'Не удалось начать запись. Пожалуйста, попробуйте еще раз.';
 
   @override
+  String get errorNoMicrophone =>
+      'Микрофон не найден. Подключите микрофон и попробуйте еще раз.';
+
+  @override
   String get errorGeneric =>
       'Что-то пошло не так. Пожалуйста, попробуйте еще раз.';
 
   @override
   String get modelDownloadFailed =>
       'Сбой скачивания. Проверьте ваше подключение к интернету.';
+
+  @override
+  String get modelDeleteInUse =>
+      'Файл модели используется другой программой и не может быть удален. Закройте ее и попробуйте еще раз.';
 
   @override
   String get statusSttLoading => 'Загрузка модели…';

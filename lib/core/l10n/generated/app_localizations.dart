@@ -4325,6 +4325,12 @@ abstract class L10n {
   /// **'Could not start recording. Please try again.'**
   String get errorRecordingStartFailed;
 
+  /// No description provided for @errorNoMicrophone.
+  ///
+  /// In en, this message translates to:
+  /// **'No microphone found. Connect a microphone and try again.'**
+  String get errorNoMicrophone;
+
   /// No description provided for @errorGeneric.
   ///
   /// In en, this message translates to:
@@ -4336,6 +4342,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Download failed. Please check your internet connection.'**
   String get modelDownloadFailed;
+
+  /// No description provided for @modelDeleteInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'The model file is in use by another program and could not be deleted. Close it and try again.'**
+  String get modelDeleteInUse;
 
   /// No description provided for @statusSttLoading.
   ///

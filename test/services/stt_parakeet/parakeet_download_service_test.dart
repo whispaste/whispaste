@@ -18,6 +18,7 @@ library;
 
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -51,6 +52,25 @@ class _FakeFetcher extends HttpModelFetcher {
       ),
     );
   }
+
+  @override
+  void cancel([String reason = 'cancelled']) {}
+}
+
+/// Fails every fetch with [error], the way the real fetcher surfaces a
+/// transfer it could not complete.
+class _FailingFetcher extends HttpModelFetcher {
+  _FailingFetcher(this.error);
+
+  final Object error;
+
+  @override
+  Future<void> fetch({
+    required String url,
+    required String destPath,
+    required int expectedSize,
+    void Function(FetchProgress)? onProgress,
+  }) async => throw error;
 
   @override
   void cancel([String reason = 'cancelled']) {}
@@ -141,5 +161,44 @@ void main() {
           'model path does after model_download_service.dart\'s '
           '_markModelDone',
     );
+  });
+
+  group('a failed transfer ends in a retryable error state', () {
+    Future<ParakeetDownloadState> runWith(Object error) async {
+      final container = ProviderContainer(
+        overrides: [
+          parakeetDownloadProvider.overrideWith(
+            () =>
+                ParakeetDownloadNotifier()
+                  ..fetcherOverride = _FailingFetcher(error),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      // Called fire-and-forget by the UI — it must never throw.
+      await container.read(parakeetDownloadProvider.notifier).downloadBundle();
+      return container.read(parakeetDownloadProvider);
+    }
+
+    test('connection lost (Sentry 138737241)', () async {
+      final state = await runWith(
+        DioException.connectionError(
+          requestOptions: RequestOptions(path: 'https://x/e'),
+          reason: 'Connection closed while receiving data',
+          error: const HttpException('Connection closed while receiving data'),
+        ),
+      );
+      expect(state.phase, ParakeetDownloadPhase.error);
+      expect(state.errorMessage, isNotNull);
+      expect(state.isBusy, isFalse);
+    });
+
+    test('a disk error does not escape as an unhandled exception', () async {
+      final state = await runWith(
+        const FileSystemException('No space left on device', 'encoder.tmp'),
+      );
+      expect(state.phase, ParakeetDownloadPhase.error);
+      expect(state.isBusy, isFalse);
+    });
   });
 }

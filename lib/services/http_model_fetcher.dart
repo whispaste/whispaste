@@ -102,10 +102,18 @@ class HttpModelFetcher {
   /// [_stallCheckInterval] is how often the detector wakes to compare „now"
   /// against the timestamp of the last received chunk. Default 5 s — the
   /// PRD-pinned value. Must be ≤ [_stallThreshold].
+  ///
+  /// [_retryBackoff] holds the pauses before each automatic resume after
+  /// the connection drops mid-transfer; its length is the retry budget.
   HttpModelFetcher({
     Dio? dio,
     this._stallThreshold = const Duration(seconds: 30),
     this._stallCheckInterval = const Duration(seconds: 5),
+    this._retryBackoff = const [
+      Duration(seconds: 1),
+      Duration(seconds: 3),
+      Duration(seconds: 9),
+    ],
   }) : _dio = dio ?? _defaultDio();
 
   final Dio _dio;
@@ -121,6 +129,8 @@ class HttpModelFetcher {
   /// Stall-detector poll interval. See [_stallThreshold].
   final Duration _stallCheckInterval;
 
+  final List<Duration> _retryBackoff;
+
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
@@ -132,7 +142,11 @@ class HttpModelFetcher {
   ///
   /// Progress events are emitted to [onProgress] at most every 500 ms.
   ///
-  /// Throws [DioException] on network errors or if [cancel] is called.
+  /// A connection that drops mid-transfer is resumed from the partial file
+  /// up to `retryBackoff.length` times before the fetch gives up.
+  ///
+  /// Throws [DioException] on network errors (a drop that outlasts the retry
+  /// budget as [DioExceptionType.connectionError]) or if [cancel] is called.
   /// Throws [FileSystemException] on I/O errors.
   Future<void> fetch({
     required String url,
@@ -140,13 +154,34 @@ class HttpModelFetcher {
     required int expectedSize,
     void Function(FetchProgress)? onProgress,
   }) async {
-    _cancelToken = CancelToken();
-    await _fetchInternal(
-      url: url,
-      destPath: destPath,
-      expectedSize: expectedSize,
-      onProgress: onProgress,
-    );
+    final token = CancelToken();
+    _cancelToken = token;
+    for (var attempt = 0; ; attempt++) {
+      try {
+        await _fetchInternal(
+          url: url,
+          destPath: destPath,
+          expectedSize: expectedSize,
+          onProgress: onProgress,
+        );
+        return;
+      } on _TransferInterrupted catch (interrupted) {
+        if (attempt >= _retryBackoff.length) {
+          throw DioException.connectionError(
+            requestOptions: interrupted.requestOptions,
+            reason: '${interrupted.error}',
+            error: interrupted.error,
+            stackTrace: interrupted.stackTrace,
+          );
+        }
+        _log.warning(
+          'Download interrupted (${interrupted.error}) — resuming '
+          '(retry ${attempt + 1}/${_retryBackoff.length})',
+        );
+        await Future<void>.delayed(_retryBackoff[attempt]);
+        if (token.isCancelled) throw token.cancelError!;
+      }
+    }
   }
 
   /// Cancels the in-progress fetch, if any.
@@ -259,6 +294,13 @@ class HttpModelFetcher {
         }
       }
       await sink.flush();
+    } on HttpException catch (e, s) {
+      // Dio only maps connection failures up to the response headers; a
+      // drop while the body streams arrives raw (Sentry 138737241, the
+      // CDN closing a long model download).
+      throw _TransferInterrupted(e, s, response.requestOptions);
+    } on SocketException catch (e, s) {
+      throw _TransferInterrupted(e, s, response.requestOptions);
     } on DioException catch (e) {
       // Translate a stall-classified cancel into the PRD-contract shape:
       // `DioException(cancel, message: httpStallCancelMessage)`. Dio's
@@ -368,6 +410,16 @@ Dio _defaultDio() => buildDioWithSentry(
   connectTimeout: const Duration(seconds: 30),
   receiveTimeout: const Duration(minutes: 10),
 );
+
+/// The connection dropped while the body was streaming; the bytes received
+/// so far are in the `.tmp` file, so [HttpModelFetcher.fetch] can resume.
+class _TransferInterrupted implements Exception {
+  const _TransferInterrupted(this.error, this.stackTrace, this.requestOptions);
+
+  final IOException error;
+  final StackTrace stackTrace;
+  final RequestOptions requestOptions;
+}
 
 class _SpeedSample {
   const _SpeedSample(this.time, this.bytes);

@@ -840,8 +840,10 @@
   "errorTranscriptionTimeout": "Transkription hat zu lange gedauert. Bitte versuche eine kürzere Aufnahme.",
   "errorMicPermissionDenied": "Mikrofonzugriff wird benötigt. Bitte erlaube ihn in den Systemeinstellungen.",
   "errorRecordingStartFailed": "Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.",
+  "errorNoMicrophone": "Kein Mikrofon gefunden. Schließe ein Mikrofon an und versuche es erneut.",
   "errorGeneric": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
   "modelDownloadFailed": "Download fehlgeschlagen. Bitte überprüfe deine Internetverbindung.",
+  "modelDeleteInUse": "Die Modelldatei wird von einem anderen Programm verwendet und konnte nicht gelöscht werden. Schließe es und versuche es erneut.",
 
   "statusSttLoading": "Modell wird geladen…",
   "statusSttReady": "Modell bereit",

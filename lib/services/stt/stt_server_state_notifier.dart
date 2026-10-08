@@ -368,6 +368,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   @override
   SttStatus build() {
     _engine = ref.read(whisperEngineProvider);
+    // The provider rebuilds when its GPU inputs change (settings finishing
+    // their async load, the GPU toggle, detection) and its onDispose shuts
+    // the previous engine down. Keeping that instance left `state` ready on
+    // a dead engine, so the next dictation failed with
+    // whisper_engine_not_loaded (Sentry 120963723) — follow the replacement
+    // and reload on next use instead.
+    ref.listen<WhisperEngine>(whisperEngineProvider, (_, next) {
+      if (identical(next, _engine)) return;
+      _log.info('STT engine replaced — reloading on next use');
+      unawaited(stop());
+      _engine = next;
+    });
 
     ref.onDispose(() {
       _idleTimer?.cancel();
@@ -670,6 +682,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
 
     return text;
+  }
+
+  /// Unloads the engine if it holds or is loading [modelId], so the model
+  /// file can be deleted — Windows refuses to delete a file that is open.
+  Future<void> releaseModel(String modelId) async {
+    if (_activeModel != modelId && state.modelId != modelId) return;
+    await stop();
   }
 
   /// Stops the engine. Returns a [Future] that completes once the native

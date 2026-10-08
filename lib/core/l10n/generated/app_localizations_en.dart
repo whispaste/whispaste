@@ -2451,11 +2451,19 @@ class L10nEn extends L10n {
       'Could not start recording. Please try again.';
 
   @override
+  String get errorNoMicrophone =>
+      'No microphone found. Connect a microphone and try again.';
+
+  @override
   String get errorGeneric => 'Something went wrong. Please try again.';
 
   @override
   String get modelDownloadFailed =>
       'Download failed. Please check your internet connection.';
+
+  @override
+  String get modelDeleteInUse =>
+      'The model file is in use by another program and could not be deleted. Close it and try again.';
 
   @override
   String get statusSttLoading => 'Loading model…';

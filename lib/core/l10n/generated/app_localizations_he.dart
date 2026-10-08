@@ -2414,10 +2414,17 @@ class L10nHe extends L10n {
   String get errorRecordingStartFailed => 'לא הצלחתי להתחיל הקלטה. נסה שוב.';
 
   @override
+  String get errorNoMicrophone => 'לא נמצא מיקרופון. חבר מיקרופון ונסה שוב.';
+
+  @override
   String get errorGeneric => 'משהו השתבש. נסה שוב.';
 
   @override
   String get modelDownloadFailed => 'הורדה נכשלה. בדוק חיבור אינטרנט.';
+
+  @override
+  String get modelDeleteInUse =>
+      'קובץ המודל בשימוש על ידי תוכנה אחרת ולא ניתן היה למחוק אותו. סגור אותה ונסה שוב.';
 
   @override
   String get statusSttLoading => 'טוען מודל…';

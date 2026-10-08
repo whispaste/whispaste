@@ -103,6 +103,8 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorMicPermissionDenied;
     case 'recording_start_failed':
       return l10n.errorRecordingStartFailed;
+    case 'no_microphone':
+      return l10n.errorNoMicrophone;
     case 'cloud_auth_error':
       return l10n.errorCloudAuth;
     case 'cloud_quota_exceeded':

@@ -2474,12 +2474,20 @@ class L10nDe extends L10n {
       'Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.';
 
   @override
+  String get errorNoMicrophone =>
+      'Kein Mikrofon gefunden. Schließe ein Mikrofon an und versuche es erneut.';
+
+  @override
   String get errorGeneric =>
       'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
 
   @override
   String get modelDownloadFailed =>
       'Download fehlgeschlagen. Bitte überprüfe deine Internetverbindung.';
+
+  @override
+  String get modelDeleteInUse =>
+      'Die Modelldatei wird von einem anderen Programm verwendet und konnte nicht gelöscht werden. Schließe es und versuche es erneut.';
 
   @override
   String get statusSttLoading => 'Modell wird geladen…';

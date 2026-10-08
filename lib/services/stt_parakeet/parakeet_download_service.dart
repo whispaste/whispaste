@@ -145,10 +145,24 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
           return;
         }
         final description = _describeDioError(e);
-        _log.error('Download failed for ${file.filename}: $description');
+        // A connection the fetcher could not resume is the user's network,
+        // not a defect — the partial file stays and a retry resumes it.
+        final log = e.type == DioExceptionType.connectionError
+            ? _log.warning
+            : _log.error;
+        log('Download failed for ${file.filename}: $description');
         state = state.copyWith(
           phase: ParakeetDownloadPhase.error,
           errorMessage: 'Download failed: $description',
+        );
+        return;
+      } on Exception catch (e) {
+        // The UI starts downloads fire-and-forget, so anything rethrown here
+        // would be an unhandled error and leave the UI stuck "downloading".
+        _log.error('Download failed for ${file.filename}: $e');
+        state = state.copyWith(
+          phase: ParakeetDownloadPhase.error,
+          errorMessage: 'Download failed: $e',
         );
         return;
       }

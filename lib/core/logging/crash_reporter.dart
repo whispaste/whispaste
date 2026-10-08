@@ -99,6 +99,10 @@ class CrashReporter {
     }
   }
 
+  /// Anonymous per-install id (hashed hostname) attached to every event;
+  /// `'unknown'` when it could not be derived.
+  String get deviceId => _deviceId;
+
   /// Whether crash reporting consent has been granted.
   /// Gate-controlled: nothing is sent when `false`.
   bool get consentGranted => _consentGranted;

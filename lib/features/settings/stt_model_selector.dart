@@ -108,7 +108,12 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
                       if (downloadState.downloadedModels.contains(m.id)) {
                         ref
                             .read(modelDownloadProvider.notifier)
-                            .deleteModel(m.id);
+                            .deleteModel(
+                              m.id,
+                              releaseEngine: ref
+                                  .read(localSttBundleProvider.notifier)
+                                  .releaseModel,
+                            );
                       }
                     }
                   }
@@ -119,7 +124,9 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
         if (downloadState.isError && downloadState.errorMessage != null) ...[
           const SizedBox(height: WpSpacing.sm),
           _ErrorBanner(
-            message: downloadState.errorMessage!,
+            message: downloadState.errorMessage == modelDeleteInUseError
+                ? l10n.modelDeleteInUse
+                : downloadState.errorMessage!,
             l10n: l10n,
             onRetry: () => ref.invalidate(modelDownloadProvider),
           ),

@@ -19,6 +19,7 @@ import '../core/logging/app_logger.dart';
 // changes.
 export '../core/config/quality_tier.dart' show QualityTier;
 import 'file_verification_service.dart';
+import '../core/utils/sharing_violation_retry.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
@@ -100,6 +101,10 @@ const List<SttModelInfo> sttModels = [
 ];
 
 /// Looks up a model by ID. Returns null if not found.
+/// [ModelDownloadState.errorMessage] when a model file stays locked by
+/// another process and could not be deleted; localized by the UI.
+const String modelDeleteInUseError = 'model_delete_in_use';
+
 SttModelInfo? findSttModel(String id) {
   for (final m in sttModels) {
     if (m.id == id) return m;
@@ -397,6 +402,14 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   @visibleForTesting
   Future<bool> Function(String path)? existsHookOverride;
 
+  /// Injected file delete — override in tests to simulate Windows locks.
+  @visibleForTesting
+  Future<void> Function(File file)? deleteFileOverride;
+
+  /// Injected retry pause — override in tests to skip the backoff delays.
+  @visibleForTesting
+  Future<void> Function(Duration delay)? retryWaitOverride;
+
   /// Resolves to the injected checker or the real `File.exists` implementation.
   Future<bool> Function(String path) get _checker =>
       existsHookOverride ?? (path) => File(path).exists();
@@ -555,14 +568,38 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     );
   }
 
-  /// Deletes a downloaded model file.
-  Future<void> deleteModel(String modelId) async {
+  /// Deletes a downloaded model file. [releaseEngine] must unload the model
+  /// from the STT engine first (`SttServerStateNotifier.releaseModel`).
+  Future<void> deleteModel(
+    String modelId, {
+    required Future<void> Function(String modelId) releaseEngine,
+  }) async {
     final model = findSttModel(modelId);
     if (model == null) return;
 
+    // The engine reads the model file while loading it; on Windows that
+    // open handle makes the delete fail (Sentry 133414579).
+    await releaseEngine(modelId);
+
     final file = File(p.join(sttDir(), model.filename));
     if (file.existsSync()) {
-      await file.delete();
+      final delete = deleteFileOverride ?? (File f) => f.delete();
+      try {
+        await retryOnSharingViolation(
+          () => delete(file),
+          wait: retryWaitOverride,
+        );
+      } on FileSystemException catch (e) {
+        if (!isSharingViolation(e)) rethrow;
+        // Held by another process (virus scanner, backup tool) beyond the
+        // retry budget — keep the model listed and let the user retry.
+        _log.warning('Model file still in use, not deleted: ${e.path}');
+        state = state.copyWith(
+          phase: DownloadPhase.error,
+          errorMessage: modelDeleteInUseError,
+        );
+        return;
+      }
     }
     state = state.copyWith(
       downloadedModels: {...state.downloadedModels}..remove(modelId),

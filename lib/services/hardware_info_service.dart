@@ -7,8 +7,10 @@
 /// that the core package cannot reference directly.
 library;
 
+import 'dart:convert' show utf8;
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' show md5;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart' as diag;
@@ -120,6 +122,27 @@ void initHardwareInfoTelemetry() {
 bool shouldReportGpuVendorTelemetry(String operatingSystem) =>
     operatingSystem == 'windows' || operatingSystem == 'linux';
 
+/// Share of installs that report the GPU-vendor signal: 1 in 20 (5 %).
+/// Sending it from every session consumed most of the shared Sentry error
+/// quota; a stable per-install sample keeps the vendor distribution
+/// representative at a twentieth of the volume.
+const int _gpuVendorTelemetrySampleModulus = 20;
+
+/// Whether the install identified by [deviceId] belongs to the 5 % sample
+/// that reports the GPU-vendor signal. Deterministic, so an install is
+/// either always or never in the sample.
+bool isInGpuVendorTelemetrySample(String deviceId) {
+  if (deviceId.isEmpty || deviceId == 'unknown') return false;
+  final digest = md5.convert(utf8.encode('gpu-vendor-sample:$deviceId'));
+  final bucket =
+      (digest.bytes[0] << 24 |
+          digest.bytes[1] << 16 |
+          digest.bytes[2] << 8 |
+          digest.bytes[3]) %
+      _gpuVendorTelemetrySampleModulus;
+  return bucket == 0;
+}
+
 /// One-shot guard so [reportGpuVendorTelemetry] sends at most once per app
 /// session. Re-armed by [resetGpuVendorTelemetryForTesting].
 bool _gpuVendorTelemetrySent = false;
@@ -135,14 +158,24 @@ bool _gpuVendorTelemetrySent = false;
 /// field set as a regression guard.
 ///
 /// [operatingSystem] defaults to [Platform.operatingSystem]; tests inject a
-/// fixed value since `Platform` itself cannot be mocked.
-void reportGpuVendorTelemetry(GpuInfo gpu, {String? operatingSystem}) {
+/// fixed value since `Platform` itself cannot be mocked. [inSample] defaults
+/// to [isInGpuVendorTelemetrySample] for the crash reporter's device id;
+/// tests inject it.
+void reportGpuVendorTelemetry(
+  GpuInfo gpu, {
+  String? operatingSystem,
+  bool? inSample,
+}) {
   final os = operatingSystem ?? Platform.operatingSystem;
   if (_gpuVendorTelemetrySent) return;
   if (!shouldReportGpuVendorTelemetry(os)) return;
+  final reporter = CrashReporter.instance;
+  if (!(inSample ?? isInGpuVendorTelemetrySample(reporter?.deviceId ?? ''))) {
+    return;
+  }
   _gpuVendorTelemetrySent = true;
 
-  CrashReporter.instance?.captureError(
+  reporter?.captureError(
     message: 'GPU vendor telemetry (Ticket 10 — CUDA build decision)',
     severity: 'info',
     type: 'gpu_vendor_telemetry',
