@@ -313,6 +313,29 @@ void main() {
     });
 
     test(
+      'a signal still being read when the lock is released is dropped',
+      () async {
+        // One write can surface as several watcher events; a read started by
+        // the last of them may finish after release(). It must not reach the
+        // handler registered afterwards (CI run on 88d77dab delivered a stale
+        // cancel into the next test's toggle handler).
+        final primary = await SingleInstanceService.ensureSingleInstance();
+        expect(primary, isTrue);
+        await File(
+          p.join(tmp.path, 'focus.signal'),
+        ).writeAsString('2026-10-07T10:00:00.000 cancel', flush: true);
+
+        final pendingRead = SingleInstanceService.debugReadSignal(tmp.path);
+        await SingleInstanceService.release();
+        final delivered = <InstanceCommand>[];
+        SingleInstanceService.onRemoteCommand = delivered.add;
+        await pendingRead;
+
+        expect(delivered, isEmpty);
+      },
+    );
+
+    test(
       'a focus request right before a toggle does not swallow the toggle',
       () async {
         // Debounce is per command: a focus followed by a toggle inside the
