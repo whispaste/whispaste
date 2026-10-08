@@ -529,9 +529,8 @@ class _PushToTalkRow extends ConsumerWidget {
 
     // Read the notifier directly — we only need supportsKeyUp once per build
     // and do not need to rebuild on hotkey-service state changes.
-    final supportsKeyUp = ref
-        .read(hotkeyServiceProvider.notifier)
-        .supportsKeyUp;
+    final hotkeyService = ref.read(hotkeyServiceProvider.notifier);
+    final supportsKeyUp = hotkeyService.supportsKeyUp;
 
     final toggle = settingsToggle(
       value: settings.pushToTalk,
@@ -562,6 +561,12 @@ class _PushToTalkRow extends ConsumerWidget {
       icon: LucideIcons.hand,
       label: l10n.settingsHoldToRecord,
       subtitle: modeHint,
+      // Linux key-up (handy-catchup/09) is not verified on a real GNOME/KDE
+      // desktop yet — say so right at the option instead of hiding it.
+      badge: hotkeyService.keyUpExperimental
+          ? l10n.settingsExperimentalBadge
+          : null,
+      badgeKey: const Key('settings-push-to-talk-experimental-badge'),
       // Was the one toggle row in all of Settings that never announced its
       // state. Null where the platform cannot do push-to-talk, so the row
       // does not claim a state its disabled switch will not accept.

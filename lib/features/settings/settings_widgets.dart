@@ -8,6 +8,7 @@ import '../../core/config/settings_labels.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_dropdown.dart';
 import '../../widgets/wp_text_field.dart';
@@ -33,10 +34,19 @@ class SettingRow extends StatefulWidget {
     this.semanticToggledValue,
     this.trailingHugsLabel = false,
     this.iconSize = WpIconSize.sm,
+    this.badge,
+    this.badgeKey,
   });
 
   final IconData icon;
   final String label;
+
+  /// Short status word shown as a [WpAccentBadge] after [label] (e.g.
+  /// "Experimental"); also appended to the row's semantics label.
+  final String? badge;
+
+  /// Key for the badge, so tests and agents can address it by ID.
+  final Key? badgeKey;
   final Widget trailing;
   final String? subtitle;
 
@@ -102,8 +112,9 @@ class _SettingRowState extends State<SettingRow> {
     // belongs to. Excluding only the text keeps the row a named group *and*
     // every trailing control independently reachable — verified across all
     // four trailing shapes.
+    final badge = widget.badge;
     return Semantics(
-      label: widget.label,
+      label: badge == null ? widget.label : '${widget.label}, $badge',
       hint: widget.subtitle,
       toggled: widget.semanticToggledValue,
       child: MouseRegion(
@@ -138,7 +149,18 @@ class _SettingRowState extends State<SettingRow> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(widget.label, style: tt.bodyLarge),
+                        if (badge == null)
+                          Text(widget.label, style: tt.bodyLarge)
+                        else
+                          Wrap(
+                            spacing: WpSpacing.xs,
+                            runSpacing: WpSpacing.xxs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(widget.label, style: tt.bodyLarge),
+                              WpAccentBadge(key: widget.badgeKey, label: badge),
+                            ],
+                          ),
                         if (widget.subtitle != null)
                           Padding(
                             // 2px title-subtitle gap: tighter than

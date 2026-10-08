@@ -389,6 +389,9 @@ class L10nDe extends L10n {
       'Auf dieser Plattform nicht verfügbar';
 
   @override
+  String get settingsExperimentalBadge => 'Experimentell';
+
+  @override
   String get settingsHoldOrTap => 'Tippen oder Halten';
 
   @override

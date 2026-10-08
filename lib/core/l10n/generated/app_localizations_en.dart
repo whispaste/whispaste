@@ -388,6 +388,9 @@ class L10nEn extends L10n {
   String get pushToTalkUnavailableTooltip => 'Not available on this platform';
 
   @override
+  String get settingsExperimentalBadge => 'Experimental';
+
+  @override
   String get settingsHoldOrTap => 'Tap or Hold';
 
   @override

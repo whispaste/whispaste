@@ -339,6 +339,13 @@ class HotkeyService extends Notifier<void> {
   /// available — this is the capability flag the settings toggle reads.
   bool get supportsKeyUp => _registrar.supportsKeyUp || _monitor.supportsKeyUp;
 
+  /// Whether push-to-talk rests solely on the experimental Linux key-up
+  /// monitor (handy-catchup/09) — the settings UI marks the option then.
+  bool get keyUpExperimental =>
+      !_registrar.supportsKeyUp &&
+      _monitor.supportsKeyUp &&
+      _monitor.experimental;
+
   bool _initialized = false;
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
@@ -380,10 +387,10 @@ class HotkeyService extends Notifier<void> {
   HotKeyRegistrar _registrar = const _PackageHotKeyRegistrar();
 
   /// Key-up source for platforms whose registrar is key-down only (Windows
-  /// RawInput; issue #39). On macOS/Linux this is a no-op monitor and the
-  /// registrar (or nothing) provides key-up. Override in tests via
-  /// [injectMonitor].
-  KeyboardUpMonitor _monitor = Platform.isWindows
+  /// RawInput, issue #39; Linux XInput2/GlobalShortcuts portal, experimental,
+  /// handy-catchup/09). On macOS this is a no-op monitor and the registrar
+  /// provides key-up. Override in tests via [injectMonitor].
+  KeyboardUpMonitor _monitor = (Platform.isWindows || Platform.isLinux)
       ? ChannelKeyboardUpMonitor()
       : NoopKeyboardUpMonitor();
 
@@ -397,7 +404,7 @@ class HotkeyService extends Notifier<void> {
   void build() {
     if (!_isDesktop) return;
 
-    _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
+    _wireMonitor();
 
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final previous = prev?.value;
@@ -524,7 +531,15 @@ class HotkeyService extends Notifier<void> {
   @visibleForTesting
   void injectMonitor(KeyboardUpMonitor monitor) {
     _monitor = monitor;
+    _wireMonitor();
+  }
+
+  /// Routes the monitor's events into the global action. Key-down only
+  /// arrives from the Linux portal path; a press the X11 grab reports as well
+  /// is deduplicated by [_handleKeyDown]'s held-key guard.
+  void _wireMonitor() {
     _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
+    _monitor.onKeyDown = () => _handleKeyDown(_globalActionId, 'Global');
   }
 
   /// Injects a custom [HotKeyRegistrar] for unit testing.

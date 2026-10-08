@@ -77,18 +77,25 @@ class FakeHotKeyRegistrar implements HotKeyRegistrar {
 /// Fake RawInput key-up monitor (#39). Records start/stop and can emit a
 /// synthetic key-up to drive the service's release path.
 class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
-  FakeKeyboardUpMonitor({this.supportsKeyUp = true});
+  FakeKeyboardUpMonitor({this.supportsKeyUp = true, this.experimental = false});
 
   @override
   final bool supportsKeyUp;
+
+  @override
+  final bool experimental;
 
   final List<HotKey> started = [];
   int stopCount = 0;
   int armCount = 0;
   VoidCallback? _onKeyUp;
+  VoidCallback? _onKeyDown;
 
   @override
   set onKeyUp(VoidCallback? handler) => _onKeyUp = handler;
+
+  @override
+  set onKeyDown(VoidCallback? handler) => _onKeyDown = handler;
 
   @override
   Future<void> start(HotKey hotKey) async => started.add(hotKey);
@@ -101,6 +108,9 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
 
   /// Simulates the native host reporting the watched hotkey's release.
   void emitKeyUp() => _onKeyUp?.call();
+
+  /// Simulates a monitor-sourced press (Linux GlobalShortcuts portal).
+  void emitKeyDown() => _onKeyDown?.call();
 }
 
 /// A [FakeHotKeyRegistrar] whose [register] can be held open via [gate] —
@@ -553,6 +563,65 @@ void main() {
       // updateHotkey unregisters first → monitor.stop ran at least once.
       expect(monitor.stopCount, greaterThanOrEqualTo(1));
       expect(monitor.started, hasLength(2));
+    });
+  });
+
+  group('HotkeyService — Linux monitor (handy-catchup/09)', () {
+    test('a portal press + release drives a full hold cycle', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final service = _makeService(registrar);
+      final monitor = FakeKeyboardUpMonitor(experimental: true);
+      service.injectMonitor(monitor);
+      var pressed = 0;
+      var released = 0;
+      service.onHotkeyPressed = () => pressed++;
+      service.onHotkeyReleased = () => released++;
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      monitor.emitKeyDown();
+      monitor.emitKeyUp();
+
+      expect(pressed, 1);
+      expect(released, 1);
+    });
+
+    test('portal and X11 grab both firing the same press start once', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final service = _makeService(registrar);
+      final monitor = FakeKeyboardUpMonitor(experimental: true);
+      service.injectMonitor(monitor);
+      var pressed = 0;
+      service.onHotkeyPressed = () => pressed++;
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      monitor.emitKeyDown();
+      registrar.capturedKeyDownHandler!(registrar.registered.first);
+
+      expect(pressed, 1);
+    });
+
+    test('keyUpExperimental mirrors a monitor-only experimental key-up', () {
+      final service = _makeService(FakeHotKeyRegistrar(supportsKeyUp: false));
+      service.injectMonitor(FakeKeyboardUpMonitor(experimental: true));
+
+      expect(service.keyUpExperimental, isTrue);
+    });
+
+    test(
+      'keyUpExperimental is false when the registrar has key-up (macOS)',
+      () {
+        final service = _makeService(FakeHotKeyRegistrar(supportsKeyUp: true));
+        service.injectMonitor(FakeKeyboardUpMonitor(experimental: true));
+
+        expect(service.keyUpExperimental, isFalse);
+      },
+    );
+
+    test('keyUpExperimental is false for the Windows monitor', () {
+      final service = _makeService(FakeHotKeyRegistrar(supportsKeyUp: false));
+      service.injectMonitor(FakeKeyboardUpMonitor());
+
+      expect(service.keyUpExperimental, isFalse);
     });
   });
 

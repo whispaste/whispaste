@@ -416,6 +416,9 @@ class L10nRu extends L10n {
   String get pushToTalkUnavailableTooltip => 'Недоступно на этой платформе';
 
   @override
+  String get settingsExperimentalBadge => 'Экспериментально';
+
+  @override
   String get settingsHoldOrTap => 'Нажатие или удержание';
 
   @override

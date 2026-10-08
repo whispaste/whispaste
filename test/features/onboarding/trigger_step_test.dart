@@ -89,10 +89,26 @@ class _NoopHotkeyService extends HotkeyService {
   void build() {}
 }
 
-HotkeyService _fakeHotkeyService({required bool supportsKeyUp}) {
+/// Linux-style monitor: experimental native key-up (handy-catchup/09).
+class _ExperimentalMonitor extends NoopKeyboardUpMonitor {
+  @override
+  bool get supportsKeyUp => true;
+
+  @override
+  bool get experimental => true;
+}
+
+HotkeyService _fakeHotkeyService({
+  required bool supportsKeyUp,
+  bool experimental = false,
+}) {
   final svc = _NoopHotkeyService();
-  svc.injectRegistrar(_FakeRegistrar(supportsKeyUp: supportsKeyUp));
-  svc.injectMonitor(NoopKeyboardUpMonitor());
+  svc.injectRegistrar(
+    _FakeRegistrar(supportsKeyUp: supportsKeyUp && !experimental),
+  );
+  svc.injectMonitor(
+    experimental ? _ExperimentalMonitor() : NoopKeyboardUpMonitor(),
+  );
   return svc;
 }
 
@@ -103,6 +119,7 @@ Future<_FakeSettingsNotifier> _pumpStep(
   _FakeSettingsNotifier? settings,
   HotkeyRegistrationStatus hotkeyStatus = HotkeyRegistrationStatus.success,
   bool supportsKeyUp = true,
+  bool experimental = false,
 }) async {
   final s = settings ?? _FakeSettingsNotifier();
   await tester.pumpWidget(
@@ -116,7 +133,10 @@ Future<_FakeSettingsNotifier> _pumpStep(
           () => _FakeHotkeyStatusController(hotkeyStatus),
         ),
         hotkeyServiceProvider.overrideWith(
-          () => _fakeHotkeyService(supportsKeyUp: supportsKeyUp),
+          () => _fakeHotkeyService(
+            supportsKeyUp: supportsKeyUp,
+            experimental: experimental,
+          ),
         ),
       ],
     ),
@@ -175,6 +195,26 @@ void main() {
         expect(tooltips, isNotEmpty);
       },
     );
+  });
+
+  group('TriggerStep — experimental Linux key-up (handy-catchup/09)', () {
+    testWidgets('experimental key-up: badge next to the enabled toggle', (
+      tester,
+    ) async {
+      await _pumpStep(tester, experimental: true);
+
+      expect(find.byKey(kTriggerStepPttExperimentalBadgeKey), findsOneWidget);
+      expect(
+        tester.widget<Switch>(find.byKey(kTriggerStepPttToggleKey)).onChanged,
+        isNotNull,
+      );
+    });
+
+    testWidgets('native key-up: no badge', (tester) async {
+      await _pumpStep(tester);
+
+      expect(find.byKey(kTriggerStepPttExperimentalBadgeKey), findsNothing);
+    });
   });
 
   // ── Hotkey rebind (modal path) ────────────────────────────────────────

@@ -19,6 +19,12 @@ import '../../settings/settings_widgets.dart';
 const kTriggerStepChangeHotkeyKey = Key('triggerStepChangeHotkeyButton');
 @visibleForTesting
 const kTriggerStepPttToggleKey = Key('triggerStepPushToTalkToggle');
+
+/// "Experimental" badge on the push-to-talk row (Linux key-up,
+/// handy-catchup/09).
+const kTriggerStepPttExperimentalBadgeKey = Key(
+  'onboarding-trigger-ptt-experimental-badge',
+);
 @visibleForTesting
 const kTriggerStepConflictWarnBoxKey = Key('triggerStepHotkeyConflictWarnBox');
 @visibleForTesting
@@ -47,9 +53,8 @@ class TriggerStep extends ConsumerWidget {
     final status = ref.watch(hotkeyRegistrationStatusProvider);
     // Read once — this step only needs the platform capability, not live
     // updates to it (mirrors `_PushToTalkRow` in `feedback_section.dart`).
-    final supportsKeyUp = ref
-        .read(hotkeyServiceProvider.notifier)
-        .supportsKeyUp;
+    final hotkeyService = ref.read(hotkeyServiceProvider.notifier);
+    final supportsKeyUp = hotkeyService.supportsKeyUp;
     final l10n = L10n.of(context);
 
     final hotkeyKey = settings.hotkeyKey;
@@ -213,6 +218,7 @@ class TriggerStep extends ConsumerWidget {
         _PushToTalkRow(
           settings: settings,
           supportsKeyUp: supportsKeyUp,
+          experimental: hotkeyService.keyUpExperimental,
           l10n: l10n,
         ),
 
@@ -282,6 +288,7 @@ class _PushToTalkRow extends ConsumerWidget {
   const _PushToTalkRow({
     required this.settings,
     required this.supportsKeyUp,
+    required this.experimental,
     required this.l10n,
   });
 
@@ -289,6 +296,7 @@ class _PushToTalkRow extends ConsumerWidget {
 
   final AppSettings settings;
   final bool supportsKeyUp;
+  final bool experimental;
   final L10n l10n;
 
   @override
@@ -326,6 +334,8 @@ class _PushToTalkRow extends ConsumerWidget {
       iconSize: WpIconSize.md,
       label: l10n.settingsHoldToRecord,
       subtitle: modeHint,
+      badge: experimental ? l10n.settingsExperimentalBadge : null,
+      badgeKey: kTriggerStepPttExperimentalBadgeKey,
       semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
       trailingHugsLabel: true,
       trailing: supportsKeyUp

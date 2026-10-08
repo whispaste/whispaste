@@ -385,6 +385,9 @@ class L10nHe extends L10n {
   String get pushToTalkUnavailableTooltip => 'לא זמין בפלטפורמה זו';
 
   @override
+  String get settingsExperimentalBadge => 'ניסיוני';
+
+  @override
   String get settingsHoldOrTap => 'הקשה או החזקה';
 
   @override

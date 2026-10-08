@@ -62,6 +62,10 @@ pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 # needed explicitly for runner/snippet_picker_host.cc's direct Xlib calls
 # (XGetInputFocus/XSetInputFocus, visual-refresh-2026 ticket 30).
 pkg_check_modules(X11 REQUIRED IMPORTED_TARGET x11)
+# XInput2 raw key events for the Linux push-to-talk key-up
+# (runner/keyboard_monitor_host.cc, handy-catchup/09). libxi-dev is already a
+# dependency of libgtk-3-dev, so this adds no new build requirement.
+pkg_check_modules(XI REQUIRED IMPORTED_TARGET xi)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")

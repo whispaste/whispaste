@@ -39,20 +39,40 @@ class _FakeRegistrar implements HotKeyRegistrar {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Linux-style monitor: key-up comes from the experimental native host
+/// (handy-catchup/09), not from the registrar.
+class _ExperimentalMonitor extends NoopKeyboardUpMonitor {
+  @override
+  bool get supportsKeyUp => true;
+
+  @override
+  bool get experimental => true;
+}
+
 /// Creates a [HotkeyService] with [supportsKeyUp] faked.
-HotkeyService _fakeHotkeyService({required bool supportsKeyUp}) {
+HotkeyService _fakeHotkeyService({
+  required bool supportsKeyUp,
+  bool experimental = false,
+}) {
   final svc = HotkeyService();
-  svc.injectRegistrar(_FakeRegistrar(supportsKeyUp: supportsKeyUp));
+  svc.injectRegistrar(
+    _FakeRegistrar(supportsKeyUp: supportsKeyUp && !experimental),
+  );
   // Pin the key-up monitor to a no-op so the overall capability equals the
   // injected registrar value on every host platform. Without this, the default
   // Windows ChannelKeyboardUpMonitor (supportsKeyUp=true) would make the toggle
   // appear enabled in the supportsKeyUp=false cases on Windows CI (#39).
-  svc.injectMonitor(NoopKeyboardUpMonitor());
+  svc.injectMonitor(
+    experimental ? _ExperimentalMonitor() : NoopKeyboardUpMonitor(),
+  );
   return svc;
 }
 
-Widget _makeSection({required bool supportsKeyUp}) {
-  final fakeSvc = _fakeHotkeyService(supportsKeyUp: supportsKeyUp);
+Widget _makeSection({required bool supportsKeyUp, bool experimental = false}) {
+  final fakeSvc = _fakeHotkeyService(
+    supportsKeyUp: supportsKeyUp,
+    experimental: experimental,
+  );
 
   return makeTestable(
     // Scrollbar gepumpt, weil die Sektion seit dem dritten Hotkey (Ticket 27)
@@ -137,4 +157,42 @@ void main() {
       );
     });
   });
+  group(
+    'Push-to-Talk toggle — experimental Linux key-up (handy-catchup/09)',
+    () {
+      const badgeKey = Key('settings-push-to-talk-experimental-badge');
+
+      testWidgets('experimental key-up: toggle enabled and badge shown', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _makeSection(supportsKeyUp: true, experimental: true),
+        );
+        await tester.pump();
+
+        expect(find.byKey(badgeKey), findsOneWidget);
+        expect(find.text('Experimental'), findsOneWidget);
+        expect(
+          tester
+              .widgetList<Switch>(find.byType(Switch))
+              .any((s) => s.onChanged != null),
+          isTrue,
+        );
+      });
+
+      testWidgets('native key-up (macOS/Windows): no badge', (tester) async {
+        await tester.pumpWidget(_makeSection(supportsKeyUp: true));
+        await tester.pump();
+
+        expect(find.byKey(badgeKey), findsNothing);
+      });
+
+      testWidgets('no key-up at all: no badge', (tester) async {
+        await tester.pumpWidget(_makeSection(supportsKeyUp: false));
+        await tester.pump();
+
+        expect(find.byKey(badgeKey), findsNothing);
+      });
+    },
+  );
 }

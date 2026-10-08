@@ -779,6 +779,12 @@ abstract class L10n {
   /// **'Not available on this platform'**
   String get pushToTalkUnavailableTooltip;
 
+  /// Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk).
+  ///
+  /// In en, this message translates to:
+  /// **'Experimental'**
+  String get settingsExperimentalBadge;
+
   /// No description provided for @settingsHoldOrTap.
   ///
   /// In en, this message translates to:
