@@ -260,6 +260,17 @@ List<File> createFakeStubFiles() {
 // Tests
 // ---------------------------------------------------------------------------
 
+/// Waits until a fire-and-forget `toggleRecording()` reached the recording
+/// phase (audio capture subscribed). Fixed 50–100 ms yields were flaky: a
+/// cold start took over 100 ms on CI (run on 88d77dab).
+Future<void> _untilRecording(ProviderContainer c) async {
+  final waited = Stopwatch()..start();
+  while (c.read(recordingProvider).phase != RecordingPhase.recording &&
+      waited.elapsed < const Duration(seconds: 5)) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -390,8 +401,7 @@ void main() {
       unawaited(
         c.read(recordingOrchestratorProvider.notifier).toggleRecording(),
       );
-      // Yield to let the orchestrator reach audio capture + subscribe.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await _untilRecording(c);
       return c;
     }
 
@@ -728,7 +738,7 @@ void main() {
             .read(recordingOrchestratorProvider.notifier)
             .toggleRecording(),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await _untilRecording(guardContainer);
       expect(
         guardContainer.read(recordingProvider).phase,
         RecordingPhase.recording,
