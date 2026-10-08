@@ -93,10 +93,10 @@ The call is forwarded to the running WhisPaste and the second process exits righ
 
 ```sh
 whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whisper-small] \
-  [--repeat 5] [--language en] [--replacements] [--json] [--out report.json]
+  [--repeat 5] [--language en] [--gpu auto|enabled|disabled] [--replacements] [--json] [--out report.json]
 ```
 
-Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
+Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text, plus the compute backend and GPU device the engine ran on. `--gpu disabled` forces the CPU, like "CPU only" in the settings. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
 
 `whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing.
 

@@ -9,6 +9,9 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/services/headless/headless_transcription.dart';
 import 'package:whispaste/services/replacements/text_replacement_matcher.dart';
 import 'package:whispaste/services/stt/on_device_engine_lifecycle.dart';
+import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
+import 'package:whispaste/services/stt/whisper/whisper_isolate_engine.dart'
+    show whisperEngineProvider;
 import 'package:whispaste/services/stt_engine_lifecycle_provider.dart';
 import 'package:whispaste/services/transcription/transcriber.dart';
 
@@ -133,6 +136,17 @@ class _FakeLifecycle implements OnDeviceEngineLifecycle {
   void notifyTranscriptionCompleted() => events.add('transcriptionCompleted');
 }
 
+/// Only [status] is read by the headless run; everything else is unused.
+class _FakeWhisperEngine implements WhisperEngine {
+  _FakeWhisperEngine(this.status);
+
+  @override
+  final WhisperEngineStatus status;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _FixedSettingsNotifier extends SettingsNotifier {
   _FixedSettingsNotifier(this._settings);
 
@@ -183,6 +197,8 @@ void main() {
         '--json',
         '--out',
         'r.json',
+        '--gpu',
+        'disabled',
       ]);
       expect(o.engine, OnDeviceEngine.parakeet);
       expect(o.model, 'whisper-small');
@@ -191,6 +207,28 @@ void main() {
       expect(o.applyReplacements, isTrue);
       expect(o.json, isTrue);
       expect(o.outPath, 'r.json');
+      expect(o.gpu, GpuAcceleration.disabled);
+    });
+
+    test('--gpu maps onto the app\'s GPU acceleration setting', () {
+      HeadlessTranscriptionOptions parse(List<String> extra) =>
+          HeadlessTranscriptionOptions.parse([
+            '--transcribe-file',
+            'a.wav',
+            ...extra,
+          ]);
+
+      expect(
+        parse([]).applyTo(AppSettings.defaults).behavior.gpuAcceleration,
+        GpuAcceleration.auto.value,
+      );
+      expect(
+        parse([
+          '--gpu',
+          'disabled',
+        ]).applyTo(AppSettings.defaults).behavior.gpuAcceleration,
+        GpuAcceleration.disabled.value,
+      );
     });
 
     for (final bad in [
@@ -200,6 +238,7 @@ void main() {
       ['--transcribe-file', 'a.wav', '--repeat', 'x'],
       ['--transcribe-file', 'a.wav', '--model', 'whisper-huge'],
       ['--transcribe-file', 'a.wav', '--bogus'],
+      ['--transcribe-file', 'a.wav', '--gpu', 'cuda'],
     ]) {
       test('rejects ${bad.skip(2).join(' ')}', () {
         expect(
@@ -240,6 +279,9 @@ void main() {
     ProviderContainer containerWith(
       Transcriber transcriber, {
       AppSettings? settings,
+      WhisperEngineStatus whisperStatus = const WhisperEngineStatus(
+        isLoaded: true,
+      ),
     }) {
       final container = ProviderContainer(
         overrides: [
@@ -248,6 +290,9 @@ void main() {
           ),
           transcriberProvider.overrideWithValue(transcriber),
           onDeviceEngineLifecycleProvider.overrideWithValue(lifecycle),
+          whisperEngineProvider.overrideWithValue(
+            _FakeWhisperEngine(whisperStatus),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -353,6 +398,55 @@ void main() {
             ? 'auto'
             : AppSettings.defaults.sttLanguageCode,
       ]);
+    });
+
+    test(
+      'reports the whisper backend and the ggml GPU device it ran on',
+      () async {
+        final report = await runHeadlessTranscription(
+          containerWith(
+            _FakeTranscriber(clock),
+            whisperStatus: const WhisperEngineStatus(
+              isLoaded: true,
+              backend: WhisperBackend.cuda,
+              gpuDevice: 'CUDA0',
+            ),
+          ),
+          options([]),
+          _wav(),
+          clockMs: () => clock.nowMs,
+        );
+
+        expect(report.toJson()['backend'], 'cuda');
+        expect(report.toJson()['gpuDevice'], 'CUDA0');
+      },
+    );
+
+    test('reports cpu when the GPU engine did not load (CPU fallback) and '
+        'for parakeet', () async {
+      final fallback = await runHeadlessTranscription(
+        containerWith(
+          _FakeTranscriber(clock),
+          whisperStatus: const WhisperEngineStatus(
+            isLoaded: false,
+            backend: WhisperBackend.vulkan,
+            gpuDevice: 'Vulkan0',
+          ),
+        ),
+        options([]),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+      final parakeet = await runHeadlessTranscription(
+        containerWith(_FakeTranscriber(clock)),
+        options(['--engine', 'parakeet']),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+
+      expect(fallback.toJson()['backend'], 'cpu');
+      expect(fallback.toJson()['gpuDevice'], isNull);
+      expect(parakeet.toJson()['backend'], 'cpu');
     });
 
     test('fails with the engine error when prepare leaves it not ready', () {

@@ -118,6 +118,7 @@ scripts/*
 !scripts/build-smartmode-shim-windows.ps1
 !scripts/bundle-libllama-windows.ps1
 !scripts/collect-pdbs-windows.ps1
+!scripts/fetch-cuda-redist.py
 !scripts/git-hooks/
 !scripts/smoke/
 !scripts/generate-release-notes.mjs

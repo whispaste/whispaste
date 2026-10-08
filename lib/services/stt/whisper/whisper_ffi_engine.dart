@@ -192,6 +192,9 @@ class WhisperFfiEngine
   /// See [WhisperEngineStatus.cpuFeatures]; set by [load].
   String? _cpuFeatures;
 
+  /// See [WhisperEngineStatus.gpuDevice]; set by [load].
+  String? _gpuDevice;
+
   /// Resolved path to the bundled Silero-VAD ggml model, set by [load].
   /// `null` means VAD is unavailable this session (path not resolved / not
   /// bundled on this platform yet) — [transcribe]'s `vadEnabled` is then a
@@ -269,6 +272,7 @@ class WhisperFfiEngine
     backend: _confirmedBackend,
     errorMessage: _errorMessage,
     cpuFeatures: _cpuFeatures,
+    gpuDevice: _gpuDevice,
   );
 
   @override
@@ -290,7 +294,9 @@ class WhisperFfiEngine
       ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
       _ensureBackendsLoaded(dylib, _libraryPath);
-      _confirmedBackend = _confirmBackend(dylib, _backend);
+      final (backend, gpuDevice) = _confirmBackend(dylib, _backend);
+      _confirmedBackend = backend;
+      _gpuDevice = gpuDevice;
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       _ensureLogCallbackRegistered(bindings);
       _cpuFeatures = _readCpuFeatures(bindings);
@@ -508,11 +514,15 @@ class WhisperFfiEngine
   /// bundled lib) degrade to trusting [requested] unchanged, matching
   /// [_resolveSegmentTimestampLookups]'s degrade-gracefully contract — this
   /// is a confirmation layer, not a hard requirement.
-  static WhisperBackend _confirmBackend(
+  ///
+  /// Also returns the name of the GPU device whisper.cpp will pick (see
+  /// [WhisperEngineStatus.gpuDevice]), `null` when it runs on CPU or the
+  /// registry cannot be read.
+  static (WhisperBackend, String?) _confirmBackend(
     ffi.DynamicLibrary dylib,
     WhisperBackend requested,
   ) {
-    if (requested == WhisperBackend.cpu) return WhisperBackend.cpu;
+    if (requested == WhisperBackend.cpu) return (WhisperBackend.cpu, null);
     final candidates = <ffi.DynamicLibrary>[
       dylib,
       if (_resolvedGgmlLibrary != null &&
@@ -536,22 +546,41 @@ class WhisperFfiEngine
               int Function(ffi.Pointer<ffi.Void>)
             >('ggml_backend_dev_type');
         for (var i = 0; i < devCount(); i++) {
-          final type = devType(devGet(i));
+          final dev = devGet(i);
+          final type = devType(dev);
           if (type == _ggmlBackendDeviceTypeGpu ||
               type == _ggmlBackendDeviceTypeIgpu) {
-            return requested;
+            return (requested, _deviceName(lib, dev));
           }
         }
         _log.warning(
           'Requested $requested but no GPU device is registered in the '
           'ggml backend registry — downgrading to CPU',
         );
-        return WhisperBackend.cpu;
+        return (WhisperBackend.cpu, null);
       } on ArgumentError {
         continue;
       }
     }
-    return requested;
+    return (requested, null);
+  }
+
+  /// `ggml_backend_dev_name(dev)`, or `null` if [lib] does not export it.
+  static String? _deviceName(
+    ffi.DynamicLibrary lib,
+    ffi.Pointer<ffi.Void> dev,
+  ) {
+    try {
+      final name = lib
+          .lookupFunction<
+            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>),
+            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>)
+          >('ggml_backend_dev_name');
+      final ptr = name(dev);
+      return ptr == ffi.nullptr ? null : ptr.toDartString();
+    } on ArgumentError {
+      return null;
+    }
   }
 
   /// Best-effort lookup of `whisper_full_get_segment_t0/t1`, used only by
@@ -1520,7 +1549,7 @@ class WhisperFfiEngine
 /// model or the gitignored durchstich fixtures this file's other tests skip
 /// without.
 @visibleForTesting
-WhisperBackend confirmBackendForTesting(
+(WhisperBackend, String?) confirmBackendForTesting(
   ffi.DynamicLibrary dylib,
   String libraryPath,
   WhisperBackend requested,

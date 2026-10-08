@@ -120,6 +120,7 @@ scripts/build-libllama-windows.ps1
 scripts/build-smartmode-shim-windows.ps1
 scripts/bundle-libllama-windows.ps1
 scripts/collect-pdbs-windows.ps1
+scripts/fetch-cuda-redist.py
 
 # Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
 native/

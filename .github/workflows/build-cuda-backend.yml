@@ -1,0 +1,192 @@
+name: Build CUDA backend
+
+# Optional ggml CUDA backend for NVIDIA users (handy-catchup ticket 13):
+# builds ONLY the ggml-cuda module plus the CUDA runtime it needs, from the
+# same whisper.cpp pin and ggml options as the shipped Vulkan/CPU libwhisper
+# (release.yml), so it plugs into the shipped ggml-base. Dropped next to
+# libwhisper, ggml_backend_load_all_from_path registers it before Vulkan and
+# whisper.cpp picks CUDA0 (see WhisperEngineStatus.gpuDevice).
+#
+# Not part of any package yet: the artifacts feed the GPU benchmark
+# (tool/gpu_bench_vast.sh) and the size/licence decision. The repo is
+# public, so these standard runners cost no Actions minutes
+# (infrastructure/github-actions-minutes.md); still no per-push trigger
+# beyond changes to this build itself.
+#
+# CUDA 12.8 (first release with Blackwell sm_120), installed from NVIDIA's
+# redistributable archives (scripts/fetch-cuda-redist.py, SHA-256 checked) —
+# the same component set upstream whisper.cpp's Windows CUDA job installs.
+# Architectures: real SASS for Turing/Ampere/Ada/Blackwell + sm_75 PTX for
+# the driver to JIT anything newer or in between; pre-Turing stays on Vulkan.
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - .github/workflows/build-cuda-backend.yml
+      - scripts/fetch-cuda-redist.py
+      - scripts/build-libwhisper-linux.sh
+
+concurrency:
+  group: build-cuda-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CUDA_VERSION: 12.8.1
+  CUDA_ARCHS: 75;86-real;89-real;120-real
+
+jobs:
+  linux:
+    name: ggml-cuda (Linux x64)
+    # Same image as release.yml's build-linux (glibc of the shipped bundle).
+    runs-on: ubuntu-24.04
+    # ggml-cuda's kernels for four architectures compile for a long time.
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install build tools
+        run: |
+          for attempt in 1 2 3; do
+            timeout 120 sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts."
+              exit 1
+            fi
+            sleep 15
+          done
+          sudo apt-get install -y cmake patchelf
+
+      - name: Install CUDA toolkit (redist)
+        run: |
+          python3 scripts/fetch-cuda-redist.py "$CUDA_VERSION" linux-x86_64 "$RUNNER_TEMP/cuda"
+          echo "CUDA_HOME=$RUNNER_TEMP/cuda" >> "$GITHUB_ENV"
+          echo "CUDACXX=$RUNNER_TEMP/cuda/bin/nvcc" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/cuda/bin" >> "$GITHUB_PATH"
+
+      - name: Clone pinned whisper.cpp source
+        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      - name: Build ggml-cuda (Linux)
+        run: bash scripts/build-libwhisper-linux.sh --cuda
+
+      - name: Verify module
+        run: |
+          stage=.build/libwhisper/linux-cuda
+          nm -D --defined-only "$stage/libggml-cuda.so" | grep -q ' ggml_backend_init$' \
+            || { echo "::error::libggml-cuda.so does not export ggml_backend_init"; exit 1; }
+          # Everything but the driver (libcuda.so.1) and ggml-base (shipped
+          # in the app bundle) must resolve from the staged dir or the system.
+          missing="$(LD_LIBRARY_PATH="$stage" ldd "$stage/libggml-cuda.so" \
+            | awk '/=> not found/ {print $1}' | grep -vE '^(libcuda\.so\.1|libggml-base\.so.*)$' || true)"
+          if [ -n "$missing" ]; then
+            echo "::error::unresolved libraries: $missing"
+            exit 1
+          fi
+
+      - name: Pack + size summary
+        run: |
+          tar -C .build/libwhisper -czf ggml-cuda-linux-x64.tar.gz linux-cuda
+          {
+            echo "### ggml-cuda Linux x64 (CUDA $CUDA_VERSION, archs $CUDA_ARCHS)"
+            echo '```'
+            ls -l .build/libwhisper/linux-cuda
+            echo "unpacked: $(du -sh .build/libwhisper/linux-cuda | cut -f1)"
+            echo "packed (tar.gz): $(du -h ggml-cuda-linux-x64.tar.gz | cut -f1)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ggml-cuda-linux-x64
+          path: ggml-cuda-linux-x64.tar.gz
+          retention-days: 30
+
+  windows:
+    name: ggml-cuda (Windows x64)
+    # windows-2022: MSVC 19.4x, which CUDA 12.8's nvcc accepts.
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install CUDA toolkit (redist)
+        shell: pwsh
+        run: |
+          $cuda = Join-Path $env:RUNNER_TEMP 'cuda'
+          python scripts/fetch-cuda-redist.py $env:CUDA_VERSION windows-x86_64 $cuda
+          if ($LASTEXITCODE -ne 0) { throw "fetch-cuda-redist.py failed" }
+          "CUDA_PATH=$cuda" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CUDACXX=$cuda\bin\nvcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "$cuda\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Clone pinned whisper.cpp source
+        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      # Ninja + cl.exe from the dev environment, as in release.yml's
+      # libwhisper build (the VS generator's instance detection failed there).
+      - name: Activate MSVC dev environment (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # Same ggml options as release.yml's "Build libwhisper (Windows)" step,
+      # with Vulkan off (ggml-base does not depend on the enabled backends
+      # under GGML_BACKEND_DL) and only the ggml-cuda target built.
+      - name: Build ggml-cuda (Windows)
+        shell: pwsh
+        run: |
+          cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-cuda-build `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+            -DGGML_CUDA=ON "-DCMAKE_CUDA_ARCHITECTURES=$env:CUDA_ARCHS" `
+            -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
+            -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
+          if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
+          cmake --build .build/libwhisper/windows-cuda-build --config Release --target ggml-cuda -j
+          if ($LASTEXITCODE -ne 0) { throw "cmake build failed" }
+
+      - name: Stage ggml-cuda.dll + CUDA runtime
+        shell: pwsh
+        run: |
+          $stage = '.build/libwhisper/windows-cuda'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item .build/libwhisper/windows-cuda-build/bin/ggml-cuda.dll $stage
+          # The runtime DLLs ggml-cuda.dll imports; nvcuda.dll is the driver's.
+          foreach ($dll in 'cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll') {
+            Copy-Item (Join-Path $env:CUDA_PATH "bin\$dll") $stage
+          }
+          $imports = & dumpbin /dependents "$stage/ggml-cuda.dll" | Out-String
+          Write-Host $imports
+          foreach ($dll in 'cudart64_12.dll', 'cublas64_12.dll') {
+            if ($imports -notmatch [regex]::Escape($dll)) { throw "ggml-cuda.dll does not import $dll - runtime list is stale" }
+          }
+          Get-ChildItem $stage/*.dll | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content "$stage/SHA256SUMS"
+
+      - name: Pack + size summary
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .build/libwhisper/windows-cuda -DestinationPath ggml-cuda-windows-x64.zip
+          $unpacked = (Get-ChildItem .build/libwhisper/windows-cuda -File | Measure-Object Length -Sum).Sum
+          $packed = (Get-Item ggml-cuda-windows-x64.zip).Length
+          $lines = @("### ggml-cuda Windows x64 (CUDA $env:CUDA_VERSION, archs $env:CUDA_ARCHS)", '```')
+          $lines += Get-ChildItem .build/libwhisper/windows-cuda -File | ForEach-Object { "{0,12:N0}  {1}" -f $_.Length, $_.Name }
+          $lines += ("unpacked: {0:N1} MB" -f ($unpacked / 1MB))
+          $lines += ("packed (zip): {0:N1} MB" -f ($packed / 1MB))
+          $lines += '```'
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ggml-cuda-windows-x64
+          path: ggml-cuda-windows-x64.zip
+          retention-days: 30

@@ -87,6 +87,7 @@ class WhisperEngineStatus {
     this.backend = WhisperBackend.cpu,
     this.errorMessage,
     this.cpuFeatures,
+    this.gpuDevice,
   });
 
   /// Whether a model is loaded and the engine can [WhisperEngine.transcribe].
@@ -105,6 +106,14 @@ class WhisperEngineStatus {
   /// `ggml-cpu-<level>` variant — see [cpuBackendFeaturesFromSystemInfo].
   /// `null` before the first load or when the library does not report it.
   final String? cpuFeatures;
+
+  /// Name of the ggml GPU device whisper.cpp runs on (e.g. `CUDA0`,
+  /// `Vulkan0`, `MTL0`): the first GPU/iGPU device in ggml's registry, which
+  /// is the one `whisper_backend_init_gpu` picks for `gpu_device = 0`.
+  /// Backends register in `ggml_backend_load_all_from_path` order, so an
+  /// optional `ggml-cuda` module next to libwhisper wins over Vulkan.
+  /// `null` on CPU or before the first load.
+  final String? gpuDevice;
 }
 
 /// Extracts the CPU backend's feature list from whisper.cpp's

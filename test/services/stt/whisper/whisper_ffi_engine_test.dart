@@ -238,10 +238,15 @@ void main() {
         return;
       }
       final dylib = ffi.DynamicLibrary.open(path);
-      expect(
-        confirmBackendForTesting(dylib, path, WhisperBackend.metal),
+      final (backend, device) = confirmBackendForTesting(
+        dylib,
+        path,
         WhisperBackend.metal,
       );
+      expect(backend, WhisperBackend.metal);
+      // The device whisper.cpp actually runs on — what the headless
+      // benchmark reports to tell CUDA from Vulkan runs apart.
+      expect(device, startsWith('MTL'));
     });
 
     test('CPU is never downgraded (no registry probe needed)', () {
@@ -251,10 +256,10 @@ void main() {
         return;
       }
       final dylib = ffi.DynamicLibrary.open(path);
-      expect(
-        confirmBackendForTesting(dylib, path, WhisperBackend.cpu),
+      expect(confirmBackendForTesting(dylib, path, WhisperBackend.cpu), (
         WhisperBackend.cpu,
-      );
+        null,
+      ));
     });
   });
 

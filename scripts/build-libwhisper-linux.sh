@@ -34,10 +34,24 @@
 # default search (executable directory + CWD) never sees <bundle>/lib/.
 #
 # Usage:  [BUILD_JOBS=N] scripts/build-libwhisper-linux.sh [--bundle <flutter-bundle-dir>]
+#         [BUILD_JOBS=N] [CUDA_ARCHS=...] scripts/build-libwhisper-linux.sh --cuda
 # Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,libggml-cpu-*.so,
 #         libwp_ffi_guard.so,SHA256SUMS}
 #         plus debug/<lib>.debug (split DWARF for Sentry, never shipped),
 #         and, with --bundle, copies the libraries into <flutter-bundle-dir>/lib/.
+#
+# --cuda builds ONLY the optional CUDA backend module (libggml-cuda.so) plus
+# the CUDA runtime libraries it needs (cudart, cuBLAS, cuBLASLt) into
+# .build/libwhisper/linux-cuda/. Same pin and ggml options as the regular
+# build, so the module plugs into the shipped libggml-base.so: dropped into
+# <bundle>/lib/, ggml_backend_load_all_from_path registers it before Vulkan
+# (load order cuda → … → vulkan → cpu), which makes CUDA0 the device
+# whisper.cpp picks. Needs nvcc on PATH (scripts/fetch-cuda-redist.py) and
+# no Vulkan SDK — Vulkan is off here because ggml-base does not depend on
+# which backends are enabled under GGML_BACKEND_DL.
+# CUDA_ARCHS defaults to Turing+ (75;86-real;89-real;120-real): real SASS for
+# RTX 20/30/40/50 plus sm_75 PTX that the driver JIT-compiles for anything
+# newer or in between (A100 sm_80, Hopper, …). Pre-Turing cards stay on Vulkan.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -50,8 +64,13 @@ BUILD_DIR="$REPO_ROOT/.build/libwhisper/linux-build"
 STAGE_DIR="$REPO_ROOT/.build/libwhisper/linux"
 
 BUNDLE_DIR=""
+CUDA=0
 if [[ "${1:-}" == "--bundle" ]]; then
   BUNDLE_DIR="${2:?--bundle needs a path to the Flutter Linux bundle dir}"
+elif [[ "${1:-}" == "--cuda" ]]; then
+  CUDA=1
+  BUILD_DIR="$REPO_ROOT/.build/libwhisper/linux-cuda-build"
+  STAGE_DIR="$REPO_ROOT/.build/libwhisper/linux-cuda"
 fi
 
 echo "=== build-libwhisper-linux ($WHISPER_TAG) ==="
@@ -68,6 +87,54 @@ if [[ "$ACTUAL_COMMIT" != "$WHISPER_PINNED_COMMIT" ]]; then
   exit 1
 fi
 echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
+
+if [[ "$CUDA" == 1 ]]; then
+  echo "[2/4] cmake configure + build (ggml-cuda module only) …"
+  cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=ON \
+    -DGGML_CUDA=ON \
+    -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHS:-75;86-real;89-real;120-real}" \
+    -DGGML_NATIVE=OFF \
+    -DGGML_BACKEND_DL=ON \
+    -DGGML_CPU_ALL_VARIANTS=ON \
+    -DWHISPER_BUILD_EXAMPLES=OFF \
+    -DWHISPER_BUILD_TESTS=OFF \
+    -DWHISPER_BUILD_SERVER=OFF
+  cmake --build "$BUILD_DIR" --config Release --target ggml-cuda \
+    -j "${BUILD_JOBS:-$(nproc)}"
+
+  echo "[3/4] staging libggml-cuda.so + CUDA runtime → $STAGE_DIR"
+  rm -rf "$STAGE_DIR"
+  mkdir -p "$STAGE_DIR"
+  module="$(find "$BUILD_DIR" -type f -name 'libggml-cuda.so' | head -n1)"
+  [[ -n "$module" ]] || { echo "ERROR: libggml-cuda.so not built" >&2; exit 1; }
+  cp "$module" "$STAGE_DIR/"
+  # The CUDA runtime libraries the module links, copied under their SONAME
+  # from the toolkit. libcuda.so.1 (the driver) is the user's, never shipped.
+  while read -r name path; do
+    case "$name" in
+      libcudart.so.*|libcublas.so.*|libcublasLt.so.*) cp -L "$path" "$STAGE_DIR/$name" ;;
+    esac
+  done < <(LD_LIBRARY_PATH="${CUDA_HOME:+$CUDA_HOME/lib64:$CUDA_HOME/lib:}${LD_LIBRARY_PATH:-}" \
+    ldd "$module" | awk '$2 == "=>" && $3 != "not" { print $1, $3 }')
+  for lib in libcudart.so libcublas.so libcublasLt.so; do
+    ls "$STAGE_DIR/$lib".* >/dev/null 2>&1 \
+      || { echo "ERROR: $lib.* not staged (is CUDA_HOME set?)" >&2; exit 1; }
+  done
+  for so in "$STAGE_DIR"/*.so*; do
+    strip --strip-unneeded "$so"
+    patchelf --remove-rpath "$so" 2>/dev/null || true
+    patchelf --set-rpath '$ORIGIN' "$so"
+  done
+
+  echo "[4/4] writing SHA256SUMS"
+  ( cd "$STAGE_DIR" && sha256sum *.so* > SHA256SUMS )
+  cat "$STAGE_DIR/SHA256SUMS"
+  du -sh "$STAGE_DIR"
+  echo "=== done (cuda) ==="
+  exit 0
+fi
 
 # --- 2. Configure + build shared libs (Vulkan + CPU) ------------------------
 # Vulkan is the broadest GPU backend on Linux (NVIDIA/AMD/Intel); CPU is always

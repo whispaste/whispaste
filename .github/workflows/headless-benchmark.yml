@@ -96,6 +96,20 @@ jobs:
           cp .build/libwhisper/linux/*.so* build/linux/x64/release/bundle/lib/
           cp assets/models/vad/ggml-silero-v5.1.2.bin build/linux/x64/release/bundle/lib/
 
+      # Input for the CUDA/Vulkan/CPU comparison on a rented NVIDIA box
+      # (tool/gpu_bench_vast.sh, ticket 13); manual runs only.
+      - name: Pack Linux bundle
+        if: github.event_name == 'workflow_dispatch'
+        run: tar -C build/linux/x64/release -czf whispaste-linux-bundle.tar.gz bundle
+
+      - name: Upload Linux bundle
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-benchmark-linux-bundle
+          path: whispaste-linux-bundle.tar.gz
+          retention-days: 7
+
       - name: Cache benchmark models
         id: models_cache
         uses: actions/cache@v4

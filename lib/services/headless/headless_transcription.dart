@@ -21,6 +21,7 @@ import '../../core/config/settings_provider.dart';
 import '../model_download_service.dart' show findSttModel;
 import '../replacements/text_replacement_matcher.dart';
 import '../stt_engine_lifecycle_provider.dart';
+import '../stt/whisper/whisper_isolate_engine.dart' show whisperEngineProvider;
 import '../stt_parakeet/parakeet_model_registry.dart' show parakeetModelId;
 import '../text_transforms.dart';
 import '../transcription/transcriber.dart';
@@ -35,6 +36,8 @@ Transcribes a 16 kHz mono 16-bit PCM WAV without opening the app window.
                              whisper-large-v3-turbo (default: whisper-medium)
   --repeat <n>               transcribe n times after one model load (default: 1)
   --language <code>          language hint, e.g. en, de (default: auto)
+  --gpu auto|enabled|disabled  GPU acceleration, as in the app settings;
+                             disabled forces CPU (default: auto)
   --replacements             apply the text replacements from the app's data
   --json                     print a JSON timing report instead of the text
   --out <file>               also write the JSON timing report to <file>
@@ -51,6 +54,7 @@ class HeadlessTranscriptionOptions {
     this.applyReplacements = false,
     this.json = false,
     this.outPath,
+    this.gpu = GpuAcceleration.auto,
   });
 
   final String wavPath;
@@ -63,6 +67,10 @@ class HeadlessTranscriptionOptions {
   final bool applyReplacements;
   final bool json;
   final String? outPath;
+
+  /// Overrides the app's GPU acceleration setting for this run — lets a
+  /// benchmark compare GPU against CPU on the same machine.
+  final GpuAcceleration gpu;
 
   static bool isRequested(List<String> args) =>
       args.contains('--transcribe-file');
@@ -77,6 +85,7 @@ class HeadlessTranscriptionOptions {
     var applyReplacements = false;
     var json = false;
     String? outPath;
+    var gpu = GpuAcceleration.auto;
 
     for (var i = 0; i < args.length; i++) {
       final arg = args[i];
@@ -115,6 +124,12 @@ class HeadlessTranscriptionOptions {
           json = true;
         case '--out':
           outPath = value();
+        case '--gpu':
+          final name = value();
+          gpu = GpuAcceleration.values.firstWhere(
+            (g) => g.value == name,
+            orElse: () => throw FormatException('unknown --gpu value "$name"'),
+          );
         default:
           throw FormatException('unknown option "$arg"');
       }
@@ -131,6 +146,7 @@ class HeadlessTranscriptionOptions {
       applyReplacements: applyReplacements,
       json: json,
       outPath: outPath,
+      gpu: gpu,
     );
   }
 
@@ -142,6 +158,7 @@ class HeadlessTranscriptionOptions {
     sttModel: model,
     sttLanguage: language,
     overlayShowLiveTranscript: false,
+    gpuAcceleration: gpu.value,
   );
 }
 
@@ -220,6 +237,8 @@ class HeadlessTranscriptionReport {
     required this.runs,
     required this.totalMs,
     required this.transcript,
+    this.backend = 'cpu',
+    this.gpuDevice,
   });
 
   final String engine;
@@ -236,6 +255,13 @@ class HeadlessTranscriptionReport {
   final int totalMs;
   final String transcript;
 
+  /// Compute backend the engine ran on (`cpu`, `cuda`, `vulkan`, `metal`).
+  final String backend;
+
+  /// ggml GPU device whisper ran on, e.g. `CUDA0` or `Vulkan0` — tells an
+  /// optional CUDA backend apart from Vulkan on the same NVIDIA card.
+  final String? gpuDevice;
+
   double _rtf(int ms) => audioDurationMs == 0 ? 0 : ms / audioDurationMs;
 
   Map<String, Object?> toJson() {
@@ -245,6 +271,8 @@ class HeadlessTranscriptionReport {
       'engine': engine,
       'model': model,
       'platform': Platform.operatingSystem,
+      'backend': backend,
+      'gpuDevice': gpuDevice,
       'audioFile': audioFile,
       'audioDurationMs': audioDurationMs,
       'loadMs': loadMs,
@@ -325,6 +353,13 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
   }
   lifecycle.notifyTranscriptionCompleted();
 
+  // Parakeet is CPU-only. A whisper engine that is not loaded means the
+  // GPU load failed and the CPU fallback engine did the work.
+  final whisper = options.engine == OnDeviceEngine.whisper
+      ? container.read(whisperEngineProvider).status
+      : null;
+  final onGpu = whisper != null && whisper.isLoaded;
+
   return HeadlessTranscriptionReport(
     engine: options.engine.value,
     model: options.engine == OnDeviceEngine.parakeet
@@ -336,5 +371,7 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
     runs: runs,
     totalMs: now() - start,
     transcript: transcript,
+    backend: onGpu ? whisper.backend.name : 'cpu',
+    gpuDevice: onGpu ? whisper.gpuDevice : null,
   );
 }
