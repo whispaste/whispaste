@@ -13,6 +13,22 @@ import 'package:whispaste/services/single_instance_service.dart';
 /// than throwing) if neither resolves, so the one test that needs a real
 /// second OS process can skip cleanly instead of failing the whole suite
 /// over test-runner plumbing unrelated to the code under test.
+/// On Windows `dart run` starts the probe as a child of the dartdev process
+/// it returns, so killing the handle can leave the probe holding the lock
+/// file until its own hold time runs out (errno 32 on deletion, CI run on
+/// c777f2fe). Retry until the probe is gone instead of failing teardown.
+Future<void> _deleteWhenUnlocked(Directory dir) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 30));
+  while (dir.existsSync()) {
+    try {
+      dir.deleteSync(recursive: true);
+    } on FileSystemException {
+      if (DateTime.now().isAfter(deadline)) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+}
+
 String? _resolveDartExecutable() {
   final resolved = Platform.resolvedExecutable;
   if (p.basenameWithoutExtension(resolved).toLowerCase() == 'dart') {
@@ -54,7 +70,7 @@ void main() {
     SingleInstanceService.onSecondInstanceLaunched = null;
     SingleInstanceService.onRemoteCommand = null;
     SingleInstanceService.lockDirOverride = null;
-    if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    await _deleteWhenUnlocked(tmp);
   });
 
   test('acquires the lock and creates instance.lock', () async {
