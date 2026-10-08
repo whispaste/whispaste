@@ -177,6 +177,15 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     clipboard_monitor_host_->HandleClipboardUpdate();
   }
 
+  // Clipboard-owner messages for the receipt-based paste (delayed
+  // rendering). WM_RENDERFORMAT must be answered by the owner window itself.
+  if ((message == WM_RENDERFORMAT || message == WM_RENDERALLFORMATS ||
+       message == WM_DESTROYCLIPBOARD) &&
+      desktop_paste_host_ &&
+      desktop_paste_host_->HandleClipboardOwnerMessage(message, wparam)) {
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   // Skipped while tearing down: flutter_controller_ can be non-null but
   // mid-destruction here (see is_destroying_ above).

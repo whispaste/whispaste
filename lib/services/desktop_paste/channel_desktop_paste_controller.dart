@@ -134,6 +134,24 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
     }
   }
 
+  /// Shared channel plumbing for [ClipboardReceiptBridge] — only the
+  /// macOS/Windows controllers mix it in (see
+  /// [ChannelClipboardReceiptBridge]); Linux has no native handler.
+  Future<Object?> _invokeReceiptMethod(
+    String method, [
+    Map<String, Object?>? args,
+  ]) async {
+    if (disposed) return null;
+    try {
+      return await channel.invokeMethod<Object?>(method, args);
+    } on MissingPluginException {
+      return null;
+    } on PlatformException catch (e) {
+      _log.debug('$method failed', e);
+      return null;
+    }
+  }
+
   @override
   Future<void> dispose() async {
     if (disposed) return;
@@ -144,5 +162,39 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
       // Expected in test environments without the native runner bridge.
       _log.debug('destroy channel unavailable (MissingPlugin)', e);
     }
+  }
+}
+
+/// Channel implementation of [ClipboardReceiptBridge] for the macOS and
+/// Windows native hosts (`DesktopPasteHost.swift` / `desktop_paste_host.cpp`).
+/// Every channel failure degrades to the "no receipt" answer, so the caller
+/// falls back to the classic fixed-delay restore.
+mixin ChannelClipboardReceiptBridge on ChannelDesktopPasteController
+    implements ClipboardReceiptBridge {
+  @override
+  Future<bool> writeClipboardTextWithReceipt(String text) async =>
+      await _invokeReceiptMethod('writeClipboardTextWithReceipt', {
+        'text': text,
+      }) ==
+      true;
+
+  @override
+  Future<ClipboardReadReceipt> waitForClipboardRead() async {
+    final raw = await _invokeReceiptMethod('waitForClipboardRead');
+    return ClipboardReadReceipt.fromCode(
+      raw is Map ? raw['status'] as String? : null,
+    );
+  }
+
+  @override
+  Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(
+    String text,
+  ) async {
+    final raw = await _invokeReceiptMethod('restoreClipboardTextIfOwner', {
+      'text': text,
+    });
+    return ClipboardRestoreOutcome.fromCode(
+      raw is Map ? raw['status'] as String? : null,
+    );
   }
 }

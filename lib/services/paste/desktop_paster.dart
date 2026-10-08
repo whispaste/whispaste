@@ -27,10 +27,22 @@ final _log = AppLogger('DesktopPaster');
 /// The choice of native mechanism is an implementation detail: from the
 /// user's perspective there is one "paste" action, regardless of which of
 /// the two channels actually delivered the text.
+///
+/// With a [ClipboardReceiptBridge] (macOS/Windows), the "wait" step is
+/// receipt-based: the restore runs [receiptSafetyMargin] after the target
+/// app actually read the transcript, and only while WhisPaste still owns the
+/// clipboard. Without a receipt within the classic buffer, the restore
+/// happens after that buffer as before (still ownership-checked).
 class DesktopPaster implements Paster {
-  const DesktopPaster(this._controller);
+  const DesktopPaster(this._controller, {this._receipts});
 
   final DesktopPasteController _controller;
+  final ClipboardReceiptBridge? _receipts;
+
+  /// Pause between the target's read receipt and the restore, so a reader
+  /// that pulls the data in several quick calls (or re-reads it while
+  /// handling the paste event) still sees the transcript.
+  static const receiptSafetyMargin = Duration(milliseconds: 150);
 
   @override
   Future<void> prime() async {
@@ -139,15 +151,20 @@ class DesktopPaster implements Paster {
       );
     }
 
-    // 3. Write transcript to clipboard — history-excluded on platforms that
-    // support it (Windows), so this transient write never becomes a new
-    // Win+V/cloud-clipboard entry (issue #146).
-    try {
-      await _writeTransientClipboardText(
-        text,
-      ).timeout(const Duration(seconds: 5));
-    } on Exception {
-      return PasteOutcome.failed;
+    // 3. Write transcript to clipboard — preferably as a receipt write
+    // (lazily rendered, so the native host learns when the target reads it),
+    // otherwise as the classic transient write. Both are history-excluded on
+    // platforms that support it, so this transient write never becomes a
+    // new Win+V/cloud-clipboard entry (issue #146).
+    final receipts = await _armReceipt(text) ? _receipts : null;
+    if (receipts == null) {
+      try {
+        await _writeTransientClipboardText(
+          text,
+        ).timeout(const Duration(seconds: 5));
+      } on Exception {
+        return PasteOutcome.failed;
+      }
     }
 
     // 4. Trigger native paste shortcut.
@@ -198,9 +215,14 @@ class DesktopPaster implements Paster {
     }
 
     // 5. Wait before restoring clipboard.
-    // Minimum 500 ms so the OS paste has landed before we overwrite it.
-    final restoreMs = math.max(500, delayMs + 350);
-    await Future<void>.delayed(Duration(milliseconds: restoreMs));
+    // Minimum 500 ms so the OS paste has landed before we overwrite it —
+    // with a receipt, this is only the upper bound (timeout fallback).
+    final restoreBuffer = Duration(milliseconds: math.max(500, delayMs + 350));
+    if (receipts != null) {
+      await _restoreAfterReceipt(receipts, previousClipboard, restoreBuffer);
+      return PasteOutcome.success;
+    }
+    await Future<void>.delayed(restoreBuffer);
 
     // 6. Restore previous clipboard contents — same history-exclusion as the
     // transcript write above: restoring is WhisPaste's own housekeeping, not
@@ -216,6 +238,72 @@ class DesktopPaster implements Paster {
     }
 
     return PasteOutcome.success;
+  }
+
+  /// Tries the receipt write for [text]; `false` (no bridge, unsupported,
+  /// channel failure) means the caller uses the classic transient write.
+  Future<bool> _armReceipt(String text) async {
+    final receipts = _receipts;
+    if (receipts == null) return false;
+    try {
+      AppClipboard.markSelfWrite(text);
+      return await receipts
+          .writeClipboardTextWithReceipt(text)
+          .timeout(const Duration(seconds: 5));
+    } on Exception catch (e) {
+      _log.debug('Receipt clipboard write unavailable — classic path', e);
+      return false;
+    }
+  }
+
+  /// Waits for the target's read receipt (bounded by [restoreBuffer]), then
+  /// restores [previousClipboard] unless another process took the clipboard
+  /// over in the meantime.
+  Future<void> _restoreAfterReceipt(
+    ClipboardReceiptBridge receipts,
+    String? previousClipboard,
+    Duration restoreBuffer,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    // The fixed buffer doubles as the timeout and as the floor for every
+    // "no usable signal" answer (superseded receipt, channel error).
+    final fallback = Future<void>.delayed(
+      restoreBuffer,
+    ).then((_) => ClipboardReadReceipt.unknown);
+    final signal = receipts.waitForClipboardRead().then<ClipboardReadReceipt>(
+      (r) => r == ClipboardReadReceipt.unknown ? fallback : r,
+      onError: (Object e) {
+        _log.debug('Waiting for the clipboard read receipt failed', e);
+        return fallback;
+      },
+    );
+    final receipt = await Future.any<ClipboardReadReceipt>([signal, fallback]);
+    switch (receipt) {
+      case ClipboardReadReceipt.read:
+        await Future<void>.delayed(receiptSafetyMargin);
+      case ClipboardReadReceipt.ownershipLost:
+        _log.info('Clipboard taken over by another writer — skipping restore');
+        return;
+      case ClipboardReadReceipt.unknown:
+        break;
+    }
+
+    final restoreText = previousClipboard ?? '';
+    AppClipboard.markSelfWrite(restoreText);
+    ClipboardRestoreOutcome outcome;
+    try {
+      outcome = await receipts
+          .restoreClipboardTextIfOwner(restoreText)
+          .timeout(const Duration(seconds: 5));
+    } on Exception catch (e) {
+      // Non-fatal — clipboard restore is best-effort.
+      _log.debug('Clipboard restore after paste failed', e);
+      outcome = ClipboardRestoreOutcome.failed;
+    }
+    _log.info(
+      'Receipt restore: receipt=${receipt.name} restore=${outcome.name} '
+      'after=${stopwatch.elapsedMilliseconds}ms',
+    );
   }
 
   /// Writes [text] to the clipboard for a transient purpose (the paste
@@ -278,5 +366,11 @@ class DesktopPaster implements Paster {
 final pasterProvider = Provider<Paster?>((ref) {
   final controller = ref.watch(desktopPasteControllerProvider);
   if (controller == null) return null;
-  return DesktopPaster(controller);
+  return DesktopPaster(
+    controller,
+    // macOS/Windows only — Linux's controller has no receipt bridge.
+    receipts: controller is ClipboardReceiptBridge
+        ? controller as ClipboardReceiptBridge
+        : null,
+  );
 });

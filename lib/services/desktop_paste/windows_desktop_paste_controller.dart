@@ -3,7 +3,8 @@ import 'channel_desktop_paste_controller.dart';
 import 'desktop_paste_controller_interface.dart';
 
 /// Windows bridge for desktop auto-paste.
-class WindowsDesktopPasteController extends ChannelDesktopPasteController {
+class WindowsDesktopPasteController extends ChannelDesktopPasteController
+    with ChannelClipboardReceiptBridge {
   WindowsDesktopPasteController()
     : super(AppLogger('WindowsDesktopPasteController'));
 

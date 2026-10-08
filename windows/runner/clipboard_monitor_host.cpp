@@ -148,14 +148,19 @@ void ClipboardMonitorHost::HandleMarkSelfWrite(const EncodableMap& args) {
 }
 
 void ClipboardMonitorHost::ProcessClipboardChange() {
-  const bool concealed = IsPrivacyExcluded();
+  // Privacy-excluded content is dropped by Dart's `shouldExcludeForPrivacy`
+  // anyway -- don't even read it. Reading would also force-render the
+  // delayed-rendered transcript of WhisPaste's own receipt paste
+  // (DesktopPasteHost) before the target app reads it, defeating the read
+  // receipt.
+  if (IsPrivacyExcluded()) return;
 
   const std::wstring wide_text = ReadClipboardText();
   if (!wide_text.empty()) {
     const std::string utf8_text = WideToUtf8(wide_text);
     const Fingerprint fp = FingerprintOfUtf8(utf8_text);
     if (ShouldSuppress(fp)) return;
-    EmitTextEntry(utf8_text, concealed);
+    EmitTextEntry(utf8_text, /*concealed=*/false);
     return;
   }
 
@@ -164,7 +169,7 @@ void ClipboardMonitorHost::ProcessClipboardChange() {
   // for images.
   const std::vector<uint8_t> png = ReadClipboardImagePng();
   if (!png.empty()) {
-    EmitImageEntry(png, concealed);
+    EmitImageEntry(png, /*concealed=*/false);
   }
 }
 

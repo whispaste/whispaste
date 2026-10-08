@@ -5,7 +5,8 @@ import 'channel_desktop_paste_controller.dart';
 import 'desktop_paste_controller_interface.dart';
 
 /// macOS bridge for desktop auto-paste via CGEvent Cmd+V.
-class MacOSDesktopPasteController extends ChannelDesktopPasteController {
+class MacOSDesktopPasteController extends ChannelDesktopPasteController
+    with ChannelClipboardReceiptBridge {
   MacOSDesktopPasteController()
     : super(AppLogger('MacOSDesktopPasteController'));
 
