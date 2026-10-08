@@ -2946,7 +2946,11 @@ class L10nRu extends L10n {
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'Помогите улучшить WhisPaste, отправляя анонимные отчеты о сбоях';
+      'Отправляет отчёты о сбоях и ошибках с хешированным ID устройства, но никогда — ваше аудио или текст';
+
+  @override
+  String get settingsErrorReportingRestartHint =>
+      'Вступит в силу после перезапуска WhisPaste.';
 
   @override
   String get settingsAutoPasteDelay => 'Задержка авто-вставки';
@@ -2971,7 +2975,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsCheckUpdatesSubtitle =>
-      'Автоматически проверять наличие новых версий при запуске';
+      'Проверять наличие новых версий при запуске и каждые 24 часа';
 
   @override
   String get settingsCheckForUpdatesNow => 'Проверить обновления сейчас';
@@ -3965,7 +3969,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Отправляется без куки и идентификаторов, чтобы помочь нам понять, как используется WhisPaste';
+      'Без cookie, со случайным ID сеанса и еженедельно меняющимся псевдонимом — помогает понять, как используется WhisPaste';
 
   @override
   String get settingsRetainRecentAudio => 'Сохранять недавние аудио';

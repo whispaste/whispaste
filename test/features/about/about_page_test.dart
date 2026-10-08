@@ -24,14 +24,12 @@ void main() {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
       setFeedUrlFn = (_) async {};
-      setIntervalFn = (_) async {};
       checkForUpdatesFn = ({inBackground}) async {};
     });
 
     tearDown(() {
       platformSupportsSparkle = () => false;
       setFeedUrlFn = (_) async {};
-      setIntervalFn = (_) async {};
       checkForUpdatesFn = ({inBackground}) async {};
     });
 

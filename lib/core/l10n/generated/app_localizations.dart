@@ -5030,8 +5030,14 @@ abstract class L10n {
   /// No description provided for @settingsErrorReportingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Help improve WhisPaste by sending anonymous crash reports'**
+  /// **'Sends crash and error reports with a hashed device ID, never your audio or text'**
   String get settingsErrorReportingSubtitle;
+
+  /// No description provided for @settingsErrorReportingRestartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Takes effect after restarting WhisPaste.'**
+  String get settingsErrorReportingRestartHint;
 
   /// No description provided for @settingsAutoPasteDelay.
   ///
@@ -5072,7 +5078,7 @@ abstract class L10n {
   /// No description provided for @settingsCheckUpdatesSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Automatically check for new versions on startup'**
+  /// **'Check for new versions at startup and every 24 hours'**
   String get settingsCheckUpdatesSubtitle;
 
   /// No description provided for @settingsCheckForUpdatesNow.
@@ -6779,7 +6785,7 @@ abstract class L10n {
   /// No description provided for @settingsShareUsageStatsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sent cookieless and without any identifiers, help us understand how WhisPaste is used'**
+  /// **'Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used'**
   String get settingsShareUsageStatsSubtitle;
 
   /// No description provided for @settingsRetainRecentAudio.

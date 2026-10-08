@@ -68,6 +68,10 @@ void AutoUpdater::SetFeedURL(std::string feedURL) {
   // EdDSA pubkey must be set before win_sparkle_init() (config functions precede
   // init); without it WinSparkle 0.9.x would treat the enclosure as unsigned.
   win_sparkle_set_eddsa_public_key(kWhisPasteEdDSAPublicKey);
+  // WhisPaste schedules its automatic checks in Dart, gated by the "Check for
+  // Updates" setting; WinSparkle must neither poll on its own nor ask the
+  // user on the second launch whether to check automatically.
+  win_sparkle_set_automatic_check_for_updates(0);
   win_sparkle_init();
 
   win_sparkle_set_error_callback(__onErrorCallback);

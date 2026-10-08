@@ -3,12 +3,16 @@
 /// the rotating WAV-retention feature in `RecordingOrchestrator`.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/logging/crash_reporter.dart';
+import 'package:whispaste/core/logging/crash_reporting_consent.dart';
 import 'package:whispaste/features/settings/sections/privacy_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 
@@ -80,6 +84,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.privacy.retainRecentAudio, isTrue);
+    });
+  });
+
+  group('PrivacySection error-reporting toggle', () {
+    late Directory dir;
+
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('wp_privacy_');
+    });
+
+    tearDown(() async {
+      await CrashReporter.instance?.dispose();
+      dir.deleteSync(recursive: true);
+    });
+
+    testWidgets('opting back in says it takes effect after a restart', (
+      tester,
+    ) async {
+      final marker = CrashReportingConsentMarker(directory: dir.path)
+        ..record(granted: false);
+      // Launched after an opt-out: Sentry was never started.
+      CrashReporter.init(consentGranted: false, consentMarker: marker);
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(behavior: BehaviorSettings(errorReporting: false)),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: PrivacySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(l10n.settingsErrorReportingRestartHint),
+        findsNothing,
+      );
+
+      final row = find.widgetWithText(SettingRow, l10n.settingsErrorReporting);
+      await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.behavior.errorReporting, isTrue);
+      expect(CrashReporter.instance!.consentGranted, isTrue);
+      expect(marker.optedOut, isFalse);
+      expect(
+        find.textContaining(l10n.settingsErrorReportingRestartHint),
+        findsOneWidget,
+      );
     });
   });
 }

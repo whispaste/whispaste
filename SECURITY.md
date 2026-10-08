@@ -51,7 +51,7 @@ The following are **out of scope**:
 - All network requests use HTTPS exclusively
 - Auto-update packages are cryptographically signed via EdDSA (Ed25519); model file downloads are verified via SHA-256 checksums
 - API keys are stored in platform-native secure storage (OS keychain / credential manager)
-- Crash reporting and performance traces via Sentry (EU data region) are **opt-out** — on by default, switched off in Settings → Privacy → "Error Reporting" (also offered on the onboarding Privacy step). Reports never contain audio or transcribed text: no screenshots, no view hierarchy, no default PII, events containing secrets (e.g. API keys) are dropped, and log breadcrumbs are stripped from performance traces
+- Crash reporting and performance traces via Sentry (EU data region) are **opt-out** — on by default, switched off in Settings → Privacy → "Error Reporting" (also offered on the onboarding Privacy step). Reports never contain audio or transcribed text: no screenshots, no view hierarchy, no default PII, events containing secrets (e.g. API keys) are dropped, the OS account name in file paths is replaced, switching it off also stops native crash and app-hang reports, and log breadcrumbs are stripped from performance traces
 - Usage analytics (self-hosted Matomo) are anonymous and **opt-out** — on by default, switched off in Settings → Privacy → "Share anonymous usage statistics". Cookieless, no account, IP anonymised server-side, only aggregated event counters plus a weekly rotating pseudonym; never audio, text, history, tags or notes (see the privacy policy)
 - The optional local automation API binds to loopback only and compares its bearer token in constant time
 - Every host the app contacts on its own is listed in [`NETWORK.md`](./NETWORK.md)

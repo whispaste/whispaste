@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:auto_updater/auto_updater.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/auto_updater_service.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
@@ -7,21 +10,21 @@ import 'package:whispaste/services/update_channel_service.dart';
 void main() {
   // Captured seam invocations for the current test.
   String? feedUrl;
-  int? interval;
   var checkCalled = false;
+  var checkCount = 0;
   bool? checkInBackground;
 
   /// Wires the seams to in-memory captures and forces the platform branch.
   void installSeams({required bool sparklePlatform}) {
     feedUrl = null;
-    interval = null;
     checkCalled = false;
+    checkCount = 0;
     checkInBackground = null;
     platformSupportsSparkle = () => sparklePlatform;
     setFeedUrlFn = (url) async => feedUrl = url;
-    setIntervalFn = (seconds) async => interval = seconds;
     checkForUpdatesFn = ({inBackground}) async {
       checkCalled = true;
+      checkCount++;
       checkInBackground = inBackground;
     };
   }
@@ -31,9 +34,9 @@ void main() {
     // native singleton via the lazy production defaults.
     platformSupportsSparkle = () => false;
     setFeedUrlFn = (_) async {};
-    setIntervalFn = (_) async {};
     checkForUpdatesFn = ({inBackground}) async {};
     addUpdaterListenerFn = (_) {};
+    stopAutomaticUpdateChecks();
   });
 
   group('appcastFeedUrl', () {
@@ -102,7 +105,6 @@ void main() {
       installSeams(sparklePlatform: true);
       await initAutoUpdater(DeployChannel.store, UpdateChannel.beta);
       expect(feedUrl, isNull);
-      expect(interval, isNull);
       expect(checkCalled, isFalse);
     });
 
@@ -112,7 +114,6 @@ void main() {
         installSeams(sparklePlatform: true);
         await initAutoUpdater(DeployChannel.packageManaged, UpdateChannel.beta);
         expect(feedUrl, isNull);
-        expect(interval, isNull);
         expect(checkCalled, isFalse);
       },
     );
@@ -125,13 +126,12 @@ void main() {
     });
 
     test(
-      'installer + stable → sets the stable appcast feed, interval, and checks',
+      'installer + stable → sets the stable appcast feed and checks',
       () async {
         installSeams(sparklePlatform: true);
         await initAutoUpdater(DeployChannel.installer, UpdateChannel.stable);
         expect(feedUrl, appcastFeedUrl(UpdateChannel.stable));
         expect(feedUrl, contains('/releases/latest/download/appcast.xml'));
-        expect(interval, greaterThanOrEqualTo(3600));
         expect(checkCalled, isTrue);
         expect(checkInBackground, isTrue);
       },
@@ -177,6 +177,62 @@ void main() {
         expect(checkCalled, isFalse); // aborted after the failing setFeedURL
       },
     );
+
+    test('automatic checks off → the native updater is never touched '
+        '(no feed URL, no appcast request)', () async {
+      installSeams(sparklePlatform: true);
+      await initAutoUpdater(
+        DeployChannel.installer,
+        UpdateChannel.stable,
+        isEnabled: () => false,
+      );
+      expect(feedUrl, isNull);
+      expect(checkCalled, isFalse);
+    });
+
+    test('checks again every 24 h and follows the toggle at runtime', () {
+      fakeAsync((async) {
+        installSeams(sparklePlatform: true);
+        var enabled = true;
+        initAutoUpdater(
+          DeployChannel.installer,
+          UpdateChannel.stable,
+          isEnabled: () => enabled,
+        );
+        async.flushMicrotasks();
+        expect(checkCount, 1);
+
+        async.elapse(const Duration(hours: 24));
+        expect(checkCount, 2);
+
+        enabled = false;
+        async.elapse(const Duration(hours: 24));
+        expect(checkCount, 2);
+
+        enabled = true;
+        async.elapse(const Duration(hours: 24));
+        expect(checkCount, 3);
+      });
+    });
+  });
+
+  group('startAutomaticUpdateChecks (Linux GitHub check)', () {
+    test('first check only when enabled, then every 24 h', () {
+      fakeAsync((async) {
+        var calls = 0;
+        var enabled = false;
+        startAutomaticUpdateChecks(
+          check: () async => calls++,
+          enabled: () => enabled,
+        );
+        async.flushMicrotasks();
+        expect(calls, 0);
+
+        enabled = true;
+        async.elapse(const Duration(hours: 24));
+        expect(calls, 1);
+      });
+    });
   });
 
   group('presentSparkleUpdate', () {
@@ -326,6 +382,32 @@ void main() {
         const AppcastItem(displayVersionString: '1.2.44-beta.9'),
       );
       expect(readyToInstallCalled, isTrue);
+    });
+  });
+
+  group('native updaters never check on their own', () {
+    // The Dart schedule above is only the single switch if Sparkle and
+    // WinSparkle keep their own schedulers off.
+    test('macOS: Info.plist disables Sparkle automatic checks and the '
+        'runner drops a stored per-user override', () {
+      final plist = File('macos/Runner/Info.plist').readAsStringSync();
+      expect(
+        plist,
+        matches(RegExp(r'<key>SUEnableAutomaticChecks</key>\s*<false/>')),
+      );
+      expect(
+        File('macos/Runner/MainFlutterWindow.swift').readAsStringSync(),
+        contains('removeObject(forKey: "SUEnableAutomaticChecks")'),
+      );
+    });
+
+    test('Windows: WinSparkle automatic checks are off before init', () {
+      final src = File(
+        'packages/auto_updater_windows/windows/auto_updater.h',
+      ).readAsStringSync();
+      final off = src.indexOf('win_sparkle_set_automatic_check_for_updates(0)');
+      expect(off, isNonNegative);
+      expect(off, lessThan(src.indexOf('win_sparkle_init();')));
     });
   });
 }

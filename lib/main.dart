@@ -313,8 +313,9 @@ Future<void> _runApp(List<String> args) async {
   }
 
   // Sync crash reporting consent BEFORE any other work that could throw.
-  // Closes the GDPR window where bootstrap errors could reach Sentry
-  // without user consent (default is true until this runs).
+  // A launch that already knew about an opt-out never started Sentry (see
+  // AppMonitoring.startMonitoring); this sync covers the first launch after
+  // an opt-out stored only in the settings, and closes Sentry right here.
   CrashReporter.instance?.consentGranted = settings.errorReporting;
 
   // Crash-loop breaker: if the previous session died mid GPU model-load (a
@@ -517,6 +518,10 @@ Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
   };
 }
 
+/// The "Check for Updates" toggle as of now (off while settings are unknown).
+bool _automaticUpdateChecksEnabled(ProviderContainer container) =>
+    container.read(settingsProvider).value?.updates.checkUpdates ?? false;
+
 /// Schedules fire-and-forget startup side effects that do not block the UI.
 void _scheduleStartupSideEffects(
   ProviderContainer container,
@@ -540,13 +545,16 @@ void _scheduleStartupSideEffects(
   final channel = container.read(deployChannelProvider);
   if (!isExternallyManaged(channel)) {
     if (Platform.isLinux) {
-      // Linux — no Sparkle/WinSparkle; keep the GitHub API check. Gated by
-      // the toggle since it's the only mechanism Linux has.
-      if (settings.checkUpdates) {
-        Future<void>.delayed(const Duration(seconds: 3), () {
-          container.read(updateProvider.notifier).checkForUpdate();
-        });
-      }
+      // Linux — no Sparkle/WinSparkle; keep the GitHub API check, at start
+      // and every 24 h, each gated by the toggle at that moment.
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        unawaited(
+          startAutomaticUpdateChecks(
+            check: container.read(updateProvider.notifier).checkForUpdate,
+            enabled: () => _automaticUpdateChecksEnabled(container),
+          ),
+        );
+      });
     } else {
       // macOS / Windows non-store. Register the listener UNCONDITIONALLY
       // (not gated by `settings.checkUpdates`) so the native "update
@@ -569,16 +577,21 @@ void _scheduleStartupSideEffects(
         onReadyToInstall: updateNotifier.markReadyToInstallNative,
         onError: updateNotifier.markErrorNative,
       );
-      // The automatic (scheduled + startup-silent) check stays gated by the
-      // toggle. Load the persisted update channel first so the correct feed
+      // The automatic (startup-silent + 24 h) checks stay gated by the
+      // toggle, re-read on every tick so it applies without a restart.
+      // Load the persisted update channel first so the correct feed
       // (stable/beta appcast) is requested from the very first check.
-      if (settings.checkUpdates) {
-        unawaited(
-          container
-              .read(updateChannelProvider.future)
-              .then((updateChannel) => initAutoUpdater(channel, updateChannel)),
-        );
-      }
+      unawaited(
+        container
+            .read(updateChannelProvider.future)
+            .then(
+              (updateChannel) => initAutoUpdater(
+                channel,
+                updateChannel,
+                isEnabled: () => _automaticUpdateChecksEnabled(container),
+              ),
+            ),
+      );
     }
   }
 

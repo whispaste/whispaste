@@ -43,6 +43,12 @@
 	<string>Ek8FS/co3CPMeZt7ss9XMDkga7jIG6RWNWbefZhtRck=</string>
 	<key>SUFeedURL</key>
 	<string>https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml</string>
+	<!-- Sparkle never schedules checks or asks for permission on its own: the
+	     Dart side runs the automatic checks (start + every 24 h) only while
+	     Settings → Updates → "Check for Updates" is on
+	     (lib/services/auto_updater_service.dart). -->
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
 	<!-- Export compliance: WhisPaste only ever talks HTTPS/TLS via the OS-provided
 	     networking stack (Sentry, Supabase, OpenAI, Deepgram, Sparkle appcast,
 	     GitHub) — no proprietary or custom cryptography. That's exempt encryption,

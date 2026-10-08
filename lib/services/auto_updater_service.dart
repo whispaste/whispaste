@@ -68,9 +68,14 @@ String appcastFeedUrl(UpdateChannel channel) {
   };
 }
 
-/// Scheduled background check interval (24 h). Sparkle/WinSparkle enforce a
-/// 3600 s minimum.
-const int _checkIntervalSeconds = 86400;
+/// Interval of the automatic update check while the app runs. Scheduled on
+/// the Dart side for every platform — Sparkle/WinSparkle's own schedulers are
+/// switched off natively (`SUEnableAutomaticChecks`, WinSparkle's
+/// `win_sparkle_set_automatic_check_for_updates(0)`) so the "Check for
+/// Updates" toggle is the only switch.
+const Duration automaticUpdateCheckInterval = Duration(hours: 24);
+
+Timer? _automaticChecks;
 
 // ---------------------------------------------------------------------------
 // Test seams
@@ -87,11 +92,6 @@ bool Function() platformSupportsSparkle = () =>
 /// touched.
 @visibleForTesting
 Future<void> Function(String feedUrl) setFeedUrlFn = autoUpdater.setFeedURL;
-
-/// Seam over [autoUpdater.setScheduledCheckInterval].
-@visibleForTesting
-Future<void> Function(int seconds) setIntervalFn =
-    autoUpdater.setScheduledCheckInterval;
 
 /// Seam over [autoUpdater.checkForUpdates].
 @visibleForTesting
@@ -122,29 +122,61 @@ bool shouldUseAutoUpdater(DeployChannel channel) {
 
 /// Initializes the channel-specific self-updater.
 ///
-/// No-op when [shouldUseAutoUpdater] is `false`. Otherwise points
-/// Sparkle/WinSparkle at the appcast feed derived from [updateChannel]
-/// (`stable`/`beta`), registers a periodic background check, and triggers one
-/// silent check on startup. Failures are logged, never thrown — a broken
-/// updater must not block app startup.
+/// No-op when [shouldUseAutoUpdater] is `false`. Otherwise runs one silent
+/// check now and then every [automaticUpdateCheckInterval] against the
+/// appcast feed derived from [updateChannel] (`stable`/`beta`) — each only
+/// while [isEnabled] returns `true`, so the "Check for Updates" toggle
+/// applies at runtime and the native updater is not touched while it is off.
+/// Failures are logged, never thrown — a broken updater must not block app
+/// startup.
 Future<void> initAutoUpdater(
   DeployChannel channel,
-  UpdateChannel updateChannel,
-) async {
+  UpdateChannel updateChannel, {
+  bool Function() isEnabled = _alwaysEnabled,
+}) async {
   if (!shouldUseAutoUpdater(channel)) {
     _log.info('Self-updater disabled for channel=$channel — no-op');
     return;
   }
+  await startAutomaticUpdateChecks(
+    check: () => _checkInBackground(updateChannel),
+    enabled: isEnabled,
+  );
+  _log.info(
+    'Self-updater initialized (deploy=$channel, update=$updateChannel)',
+  );
+}
+
+bool _alwaysEnabled() => true;
+
+Future<void> _checkInBackground(UpdateChannel updateChannel) async {
   try {
     await setFeedUrlFn(appcastFeedUrl(updateChannel));
-    await setIntervalFn(_checkIntervalSeconds);
     await checkForUpdatesFn(inBackground: true);
-    _log.info(
-      'Self-updater initialized (deploy=$channel, update=$updateChannel)',
-    );
   } on Exception catch (e) {
-    _log.warning('Self-updater init failed: $e');
+    _log.warning('Self-updater background check failed: $e');
   }
+}
+
+/// Runs [check] now and then every [automaticUpdateCheckInterval], each time
+/// only if [enabled] returns `true`. Replaces any earlier schedule. Also
+/// drives the Linux GitHub-API check, which has no native updater.
+Future<void> startAutomaticUpdateChecks({
+  required Future<void> Function() check,
+  required bool Function() enabled,
+}) async {
+  stopAutomaticUpdateChecks();
+  _automaticChecks = Timer.periodic(automaticUpdateCheckInterval, (_) {
+    if (enabled()) unawaited(check());
+  });
+  if (enabled()) await check();
+}
+
+/// Cancels the schedule started by [startAutomaticUpdateChecks].
+@visibleForTesting
+void stopAutomaticUpdateChecks() {
+  _automaticChecks?.cancel();
+  _automaticChecks = null;
 }
 
 /// Presents Sparkle/WinSparkle's native update window immediately.

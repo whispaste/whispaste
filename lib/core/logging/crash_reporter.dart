@@ -5,8 +5,10 @@
 ///
 /// Features:
 /// - PII sanitization via `beforeSend` (regex-based sensitive data redaction)
-/// - GDPR-compliant consent gate (nothing sent without consent)
-/// - Path sanitization (user home, appdata, username → placeholders)
+/// - GDPR-compliant consent gate: an opt-out stops Sentry (incl. the native
+///   SDK) and keeps it from starting on later launches
+/// - Path sanitization: home directory → `~`, account name → `<user>` in
+///   messages, exception values and breadcrumbs ([scrubUserPaths])
 /// - Breadcrumb context from AppLogger ring buffer
 /// - Anonymous device ID (MD5 hash of hostname, not a hardware identifier)
 ///
@@ -26,6 +28,7 @@
 /// "not linked to user" in iOS privacy manifest.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
@@ -38,6 +41,8 @@ import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
 
 import '../app_info.dart';
 import 'breadcrumbs.dart';
+import 'crash_reporting_consent.dart';
+import 'user_path_scrubber.dart';
 
 // ---------------------------------------------------------------------------
 // CrashReporter
@@ -54,6 +59,12 @@ class CrashReporter {
 
   bool _consentGranted = true;
   String _deviceId = '';
+  CrashReportingConsentMarker? _consentMarker;
+
+  /// Whether Sentry runs in this session. It is only started at app launch
+  /// (see [AppMonitoring]), so an opt-in after an opted-out launch waits for
+  /// the next start.
+  bool _sentryRunning = false;
 
   /// Error cascade throttle — prevents exponential error storms
   /// (e.g., RenderFlex overflow → Sentry tree walk → deactivated widget →
@@ -109,17 +120,26 @@ class CrashReporter {
   set consentGranted(bool value) {
     if (_consentGranted == value) return;
     _consentGranted = value;
-    Sentry.configureScope((scope) {
-      scope.setTag('consent', value ? 'granted' : 'revoked');
-    });
+    _consentMarker?.record(granted: value);
+    if (!value && _sentryRunning) {
+      // Stops the native SDK too: crash, app-hang and session reporting
+      // never pass through the Dart callbacks that check consent.
+      _sentryRunning = false;
+      unawaited(Sentry.close());
+    }
     dev.log('Crash reporting consent: $value', name: 'CrashReporter');
   }
+
+  /// `true` after an opt-in while Sentry is not running in this session —
+  /// reporting resumes on the next app start.
+  bool get restartRequired => _consentGranted && !_sentryRunning;
 
   // -------------------------------------------------------------------------
   // Initialization
   // -------------------------------------------------------------------------
 
-  /// Initializes the crash reporter. Call AFTER [SentryFlutter.init].
+  /// Initializes the crash reporter. Call AFTER [SentryFlutter.init], or
+  /// without it when the user opted out before launch.
   ///
   /// [deployChannel] tags native crashes with the distribution channel
   /// (store/installer/packageManaged/portable) — e.g. some Windows
@@ -127,9 +147,20 @@ class CrashReporter {
   /// to the MSIX/Store AppContainer sandbox (flutter/flutter #183313), which
   /// this tag lets us confirm or rule out. Passed in rather than detected
   /// here to keep this core/logging module free of a services/ dependency.
-  static CrashReporter init({String? deployChannel}) {
+  ///
+  /// [consentGranted] is `false` when the launch already knew about an
+  /// opt-out and Sentry was not started; [consentMarker] persists later
+  /// changes so the next launch can decide before starting Sentry.
+  static CrashReporter init({
+    String? deployChannel,
+    bool consentGranted = true,
+    CrashReportingConsentMarker? consentMarker,
+  }) {
     final cr = CrashReporter._();
     cr._deviceId = _deriveDeviceId();
+    cr._consentGranted = consentGranted;
+    cr._consentMarker = consentMarker;
+    cr._sentryRunning = Sentry.isEnabled;
 
     Sentry.configureScope((scope) {
       scope.setUser(SentryUser(id: cr._deviceId));
@@ -292,7 +323,32 @@ class CrashReporter {
       return null;
     }
 
+    _scrubUserPaths(event);
     return event;
+  }
+
+  /// Replaces the OS account name in the free-text parts of [event]: home
+  /// directories reach Sentry through log breadcrumbs and exception values.
+  static void _scrubUserPaths(SentryEvent event) {
+    final message = event.message;
+    if (message != null) message.formatted = scrubUserPaths(message.formatted);
+    for (final ex in event.exceptions ?? const <SentryException>[]) {
+      final value = ex.value;
+      if (value != null) ex.value = scrubUserPaths(value);
+    }
+    for (final b in event.breadcrumbs ?? const <Breadcrumb>[]) {
+      final text = b.message;
+      if (text != null) b.message = scrubUserPaths(text);
+      final data = b.data;
+      if (data != null) {
+        b.data = {
+          for (final e in data.entries)
+            e.key: e.value is String
+                ? scrubUserPaths(e.value as String)
+                : e.value,
+        };
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

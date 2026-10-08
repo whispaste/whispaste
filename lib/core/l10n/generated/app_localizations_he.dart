@@ -2834,7 +2834,11 @@ class L10nHe extends L10n {
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'עזור לשפר את WhisPaste על ידי שליחת דיווחי קריסה אנונימיים';
+      'שולח דיווחי קריסה ושגיאה עם מזהה מכשיר מגובב, לעולם לא את האודיו או הטקסט שלך';
+
+  @override
+  String get settingsErrorReportingRestartHint =>
+      'ייכנס לתוקף לאחר הפעלה מחדש של WhisPaste.';
 
   @override
   String get settingsAutoPasteDelay => 'השהיית הדבקה אוטומטית';
@@ -2859,7 +2863,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsCheckUpdatesSubtitle =>
-      'בדוק אוטומטית גרסאות חדשות בהפעלה';
+      'בדוק גרסאות חדשות בהפעלה וכל 24 שעות';
 
   @override
   String get settingsCheckForUpdatesNow => 'בדוק עדכונים עכשיו';
@@ -3834,7 +3838,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Sent cookieless and without any identifiers, help us understand how WhisPaste is used';
+      'ללא עוגיות, עם מזהה אקראי לכל הפעלה וכינוי מתחלף מדי שבוע — עוזר לנו להבין איך משתמשים ב-WhisPaste';
 
   @override
   String get settingsRetainRecentAudio => 'Keep recent recordings';
