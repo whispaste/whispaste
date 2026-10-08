@@ -98,6 +98,8 @@ whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whispe
 
 Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
 
+`whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing.
+
 ## Development
 
 **Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 11 Big Sur or newer (Apple Silicon), or a recent Linux distro

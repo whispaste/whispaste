@@ -117,6 +117,7 @@ scripts/*
 !scripts/build-smartmode-shim-windows.ps1
 !scripts/bundle-libllama-windows.ps1
 !scripts/git-hooks/
+!scripts/smoke/
 !scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1
 !scripts/extract-cumulative-changelog.mjs

@@ -45,6 +45,8 @@ import 'services/hardware_info_service.dart' as hw;
 import 'services/headless/headless_cli.dart';
 import 'services/headless/headless_transcription.dart'
     show HeadlessTranscriptionOptions;
+import 'services/headless/package_diagnose.dart'
+    show PackageDiagnoseOptions, runPackageDiagnoseCli;
 import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
 import 'services/recording_orchestrator.dart';
@@ -234,6 +236,11 @@ Future<void> main(List<String> args) async {
   // single-instance guard and any window/UI setup, then exits.
   if (HeadlessTranscriptionOptions.isRequested(args)) {
     exit(await runHeadlessCli(args));
+  }
+  // `whispaste --diagnose`: start probe for the release package smoke tests
+  // (scripts/smoke/) — same early exit, no UI, settings or permissions.
+  if (PackageDiagnoseOptions.isRequested(args)) {
+    exit(await runPackageDiagnoseCli(args));
   }
 
   // NOTE: WidgetsFlutterBinding.ensureInitialized() is called INSIDE the

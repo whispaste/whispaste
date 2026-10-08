@@ -534,6 +534,23 @@ jobs:
           name: msix-symbol-package
           path: release-artifacts/*.appxupload
 
+      # Package smoke test (handy-catchup ticket 11): silent NSIS install +
+      # MSIX side-load (throwaway test certificate, the uploaded MSIX stays
+      # untouched), each started once with `whispaste.exe --diagnose`. Runs
+      # before mark_success, so a failure keeps create-release and the Store
+      # submission from publishing. Windows PowerShell: Add-AppxPackage is
+      # unreliable under pwsh 7.
+      - name: Smoke-test Windows packages
+        shell: powershell
+        run: |
+          $msix = Get-ChildItem "build\windows\x64\runner\Release\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $smokeArgs = @{ ArtifactDir = "release-artifacts"; InstallDir = (Join-Path $env:RUNNER_TEMP "whispaste-smoke-install") }
+          if ("${{ steps.msix_config.outputs.skip }}" -ne "true") {
+            if (-not $msix) { throw "MSIX was configured but not built" }
+            $smokeArgs.MsixPath = $msix.FullName
+          }
+          & .\scripts\smoke\smoke-windows.ps1 @smokeArgs
+
       - name: Mark build succeeded
         id: mark_success
         shell: pwsh
@@ -1071,6 +1088,21 @@ jobs:
           echo "Release artifacts:"
           ls -lh "$ARTIFACT_DIR"
 
+      # Package smoke test (handy-catchup ticket 11): mounts the DMG, checks
+      # the signature and that every linked dylib resolves inside the bundle
+      # or the system (otool), then starts the app once with `--diagnose`.
+      # The DMG step above is best-effort, so fall back to the built .app
+      # rather than skipping the test.
+      - name: Smoke-test macOS package
+        run: |
+          DMG="release-artifacts/WhisPaste-macos-arm64.dmg"
+          if [[ -f "$DMG" ]]; then
+            bash scripts/smoke/smoke-macos.sh "$DMG"
+          else
+            echo "::warning::$DMG was not built — smoke-testing the .app instead."
+            bash scripts/smoke/smoke-macos.sh build/macos/Build/Products/Release/WhisPaste.app
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -1129,7 +1161,8 @@ jobs:
             libcurl4-openssl-dev zlib1g-dev \
             libflac-dev libogg-dev libopus-dev libvorbis-dev \
             default-jdk \
-            g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers
+            g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers \
+            xvfb
 
       # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
       - name: Set JAVA_HOME
@@ -1254,13 +1287,9 @@ jobs:
             echo "::error::libsmartmode_shim.so missing from $SO — on-device Smart Mode would be disabled in this build."
             exit 1
           fi
-          # Every NEEDED entry must resolve inside the bundle or the system
-          # (libvulkan is only dlopen'd by the backend module, never NEEDED here).
-          if ldd "$SO" | grep -q 'not found'; then
-            ldd "$SO"
-            echo "::error::libsmartmode_shim.so has unresolved dependencies."
-            exit 1
-          fi
+          # Unresolved dependencies are caught by "Smoke-test Linux packages"
+          # below, which runs ldd over every ELF file of the installed .deb
+          # and the extracted AppImage (scripts/smoke/smoke-linux.sh).
           echo "libsmartmode_shim.so present: $(ls -la "$SO")"
 
       # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
@@ -1336,6 +1365,13 @@ jobs:
             build/linux/x64/release/bundle "$VERSION" release-artifacts
           echo "All Linux release artifacts:"
           ls -lh release-artifacts
+
+      # Package smoke test (handy-catchup ticket 11): installs the .deb,
+      # extracts the AppImage, runs ldd over every bundled ELF file and starts
+      # each once with `whispaste --diagnose` under Xvfb. Fails the job before
+      # upload/mark_success, so nothing broken gets published.
+      - name: Smoke-test Linux packages
+        run: bash scripts/smoke/smoke-linux.sh release-artifacts
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7

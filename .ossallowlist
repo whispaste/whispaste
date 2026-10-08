@@ -97,6 +97,7 @@ scripts/docs-drift.sh
 scripts/check-workflow-hygiene.sh
 scripts/ci/detect-changes.sh
 scripts/ci/flutter-test.sh
+scripts/smoke/
 scripts/extract-cumulative-changelog.mjs
 scripts/generate-release-notes.mjs
 scripts/generate-screenshots.py
