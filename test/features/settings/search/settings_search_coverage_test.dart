@@ -42,6 +42,7 @@ const Map<String, String> _rowLabelKeysBySection = {
   'settingsOpenAiApiKey': 'stt',
   'settingsPunctuationPriming': 'stt',
   'settingsRecognitionLanguage': 'stt',
+  'settingsRemoveFillerWords': 'stt',
   'settingsSttEngine': 'stt',
   'settingsStripPunctuation': 'stt',
   'settingsVadEnabled': 'stt',

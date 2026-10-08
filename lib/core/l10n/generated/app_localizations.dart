@@ -1661,6 +1661,18 @@ abstract class L10n {
   /// **'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.'**
   String get settingsNumericOnlyModeSubtitle;
 
+  /// No description provided for @settingsRemoveFillerWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove filler words'**
+  String get settingsRemoveFillerWords;
+
+  /// No description provided for @settingsRemoveFillerWordsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.'**
+  String get settingsRemoveFillerWordsSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:

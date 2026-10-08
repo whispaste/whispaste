@@ -293,6 +293,27 @@ class _SpeechRecognitionSectionState
             ),
           ),
 
+          // Filler word removal — same engine/provider-independent text
+          // transform path as the two rows above (handy-catchup ticket 16),
+          // so it stays visible for every engine. Default off.
+          SettingRow(
+            icon: LucideIcons.messageSquareOff,
+            label: l10n.settingsRemoveFillerWords,
+            subtitle: l10n.settingsRemoveFillerWordsSubtitle,
+            semanticToggledValue: settings.stt.removeFillerWords,
+            trailing: settingsToggle(
+              key: const Key('removeFillerWordsToggle'),
+              value: settings.stt.removeFillerWords,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(removeFillerWords: v),
+                    ),
+                  ),
+            ),
+          ),
+
           // Punctuation priming — local Whisper only (a prompt nudge fed
           // into whisper.cpp's initial-prompt mechanism; no equivalent
           // exists for the cloud providers or Parakeet). For a toggle that

@@ -60,6 +60,43 @@ void main() {
     });
   });
 
+  group('SttSettings.removeFillerWords', () {
+    test('defaults to false', () {
+      expect(SttSettings.defaults.removeFillerWords, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      const settings = SttSettings(removeFillerWords: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.removeFillerWords, isTrue);
+    });
+
+    test('is persisted under stt_remove_filler_words', () {
+      const settings = SttSettings(removeFillerWords: true);
+      expect(settings.toMap()['stt_remove_filler_words'], 'true');
+    });
+
+    test('missing key in map falls back to the default (false)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_remove_filler_words');
+      expect(SttSettings.fromMap(map).removeFillerWords, isFalse);
+    });
+
+    test('copyWith(removeFillerWords: true) changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(removeFillerWords: true);
+      expect(updated.removeFillerWords, isTrue);
+      expect(updated.copyWith(removeFillerWords: false), original);
+    });
+
+    test('two instances differing only in removeFillerWords are unequal', () {
+      const a = SttSettings(removeFillerWords: true);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+  });
+
   group('OnboardingSettings.seenFeatureSpotlightIds', () {
     test('defaults to the empty string', () {
       expect(OnboardingSettings.defaults.seenFeatureSpotlightIds, '');

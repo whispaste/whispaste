@@ -1130,6 +1130,18 @@ class RecordingOrchestrator extends Notifier<void> {
     // before this snapshot rather than counting as part of the diff.
     final preTransformText = finalText;
 
+    // ── Filler word removal (opt-in, handy-catchup ticket 16) ──────────
+    // After the snapshot (it is a product-level transform the History
+    // detail panel should show as a diff) but before Smart Mode and the
+    // text-replacement pass inside the history save, so a trigger phrase
+    // interrupted by an "äh" still fires and the LLM gets cleaner input.
+    if (settings.stt.removeFillerWords) {
+      finalText = removeFillerWords(
+        finalText,
+        languageCode: _resolveEffectiveLang(settings),
+      );
+    }
+
     // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
     // Runs before history-save/snippet-picker/paste so every downstream
     // consumer of `finalText` sees the same (possibly refined) value — this

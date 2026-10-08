@@ -271,6 +271,8 @@
   "settingsStripPunctuationSubtitle": "Удаляет точки, запятые и другие знаки из транскрипции перед сохранением или вставкой.",
   "settingsNumericOnlyMode": "Только цифры",
   "settingsNumericOnlyModeSubtitle": "Преобразует произнесенные числа в цифры, например 'пять' в '5'.",
+  "settingsRemoveFillerWords": "Удалять слова-паразиты",
+  "settingsRemoveFillerWordsSubtitle": "Удаляет звуки-заминки вроде «uh», «um» и «äh» перед сохранением или вставкой транскрипции. Только однозначные английские и немецкие паразиты; слова со смыслом не затрагиваются.",
   "settingsAppLanguage": "Язык приложения",
   "settingsSttModels": "Модели распознавания речи",
   "settingsOpenAiApiKey": "API-ключ OpenAI",

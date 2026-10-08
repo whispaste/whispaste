@@ -358,6 +358,7 @@ class SttSettings {
     this.stripPunctuation = false,
     this.vadEnabled = true,
     this.numericOnlyMode = false,
+    this.removeFillerWords = false,
   });
 
   final String provider;
@@ -420,6 +421,14 @@ class SttSettings {
   /// nothing: a transcript that isn't fully convertible is left unchanged.
   final bool numericOnlyMode;
 
+  /// Whether unambiguous hesitation fillers ("äh", "ähm", "uh", "um", ...)
+  /// are removed from the final transcript before Smart Mode and text
+  /// replacements run — see `removeFillerWords` in `text_transforms.dart`.
+  /// Same engine-independent post-processing path as [stripPunctuation].
+  /// Default off (maintainer decision 4b, `.scratch/handy-catchup/` ticket
+  /// 16): a dictation stays verbatim unless the user opts in.
+  final bool removeFillerWords;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -449,6 +458,11 @@ class SttSettings {
       'stt_numeric_only_mode',
       defaults.numericOnlyMode,
     ),
+    removeFillerWords: _readBool(
+      v,
+      'stt_remove_filler_words',
+      defaults.removeFillerWords,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -462,6 +476,7 @@ class SttSettings {
     'stt_strip_punctuation': '$stripPunctuation',
     'stt_vad_enabled': '$vadEnabled',
     'stt_numeric_only_mode': '$numericOnlyMode',
+    'stt_remove_filler_words': '$removeFillerWords',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -479,6 +494,7 @@ class SttSettings {
     bool? stripPunctuation,
     bool? vadEnabled,
     bool? numericOnlyMode,
+    bool? removeFillerWords,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -490,6 +506,7 @@ class SttSettings {
     stripPunctuation: stripPunctuation ?? this.stripPunctuation,
     vadEnabled: vadEnabled ?? this.vadEnabled,
     numericOnlyMode: numericOnlyMode ?? this.numericOnlyMode,
+    removeFillerWords: removeFillerWords ?? this.removeFillerWords,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -508,7 +525,8 @@ class SttSettings {
           punctuationPriming == other.punctuationPriming &&
           stripPunctuation == other.stripPunctuation &&
           vadEnabled == other.vadEnabled &&
-          numericOnlyMode == other.numericOnlyMode;
+          numericOnlyMode == other.numericOnlyMode &&
+          removeFillerWords == other.removeFillerWords;
 
   @override
   int get hashCode => Object.hash(
@@ -522,6 +540,7 @@ class SttSettings {
     stripPunctuation,
     vadEnabled,
     numericOnlyMode,
+    removeFillerWords,
   );
 }
 

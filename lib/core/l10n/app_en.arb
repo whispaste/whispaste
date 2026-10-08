@@ -314,6 +314,8 @@
   "settingsStripPunctuationSubtitle": "Removes periods, commas, and other sentence punctuation from every transcript before it's saved or pasted. Works the same way for every engine and provider, not just Whisper.",
   "settingsNumericOnlyMode": "Numbers only",
   "settingsNumericOnlyModeSubtitle": "Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn't fully convertible.",
+  "settingsRemoveFillerWords": "Remove filler words",
+  "settingsRemoveFillerWordsSubtitle": "Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.",
   "settingsAppLanguage": "App Language",
   "settingsSttModels": "Speech Recognition Models",
   "settingsOpenAiApiKey": "OpenAI API Key",

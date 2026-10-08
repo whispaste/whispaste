@@ -896,6 +896,13 @@ class L10nHe extends L10n {
       'ממיר מספרים מדוברים (בגרמנית ובאנגלית) לספרות, למשל \"חמש פסיק שתיים\" הופך ל-\"5,2\". משאיר את התמלול ללא שינוי אם אינו ניתן להמרה מלאה.';
 
   @override
+  String get settingsRemoveFillerWords => 'הסרת מילות מילוי';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'מסירה צלילי היסוס כמו \"uh\", \"um\" ו-\"äh\" לפני שהתמלול נשמר או מודבק. רק מילות מילוי חד-משמעיות באנגלית ובגרמנית; מילים שיכולות לשאת משמעות לא משתנות.';
+
+  @override
   String get settingsAppLanguage => 'שפת האפליקציה';
 
   @override

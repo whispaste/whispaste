@@ -913,6 +913,13 @@ class L10nDe extends L10n {
       'Wandelt gesprochene Zahlen (Deutsch und Englisch) in Ziffern um, z. B. wird „fünf Komma zwei“ zu „5,2“. Lässt das Transkript unverändert, wenn es nicht vollständig umwandelbar ist.';
 
   @override
+  String get settingsRemoveFillerWords => 'Füllwörter entfernen';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'Entfernt Verlegenheitslaute wie „äh“, „ähm“ und „öhm“, bevor das Transkript gespeichert oder eingefügt wird. Nur eindeutige deutsche und englische Füllwörter; Wörter mit Bedeutung bleiben unangetastet.';
+
+  @override
   String get settingsAppLanguage => 'App-Sprache';
 
   @override

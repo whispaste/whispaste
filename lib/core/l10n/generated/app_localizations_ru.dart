@@ -940,6 +940,13 @@ class L10nRu extends L10n {
       'Преобразует произнесенные числа в цифры, например \'пять\' в \'5\'.';
 
   @override
+  String get settingsRemoveFillerWords => 'Удалять слова-паразиты';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'Удаляет звуки-заминки вроде «uh», «um» и «äh» перед сохранением или вставкой транскрипции. Только однозначные английские и немецкие паразиты; слова со смыслом не затрагиваются.';
+
+  @override
   String get settingsAppLanguage => 'Язык приложения';
 
   @override

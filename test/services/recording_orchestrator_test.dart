@@ -1173,6 +1173,91 @@ void main() {
     });
   });
 
+  group('Filler word removal (removeFillerWords)', () {
+    Future<void> runCase({
+      required SttSettings stt,
+      BehaviorSettings behavior = const BehaviorSettings(),
+      required String transcript,
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          stt: stt,
+          behavior: behavior,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = transcript;
+      await orch.stopRecording();
+    }
+
+    test('off by default: fillers stay in the transcript', () async {
+      await runCase(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+        transcript: 'Ich habe, äh, keine Zeit.',
+      );
+
+      expect(clipboardText, 'Ich habe, äh, keine Zeit.');
+    });
+
+    test('on: fillers are removed before paste, history keeps the original '
+        'dictation for the detail panel', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          removeFillerWords: true,
+        ),
+        transcript: 'Ich habe, äh, keine Zeit.',
+      );
+
+      expect(clipboardText, 'Ich habe keine Zeit.');
+      final entries = await db.allEntries();
+      expect(entries.first.content, 'Ich habe keine Zeit.');
+      expect(entries.first.originalTranscript, 'Ich habe, äh, keine Zeit.');
+    });
+
+    test('runs before text replacements, so a trigger split by a filler '
+        'still fires', () async {
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: ['mfg'],
+        replacement: 'Mit freundlichen Grüßen',
+        createdAt: DateTime.now(),
+      );
+
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          removeFillerWords: true,
+        ),
+        behavior: const BehaviorSettings(textReplacementsEnabled: true),
+        transcript: 'Ähm, mfg',
+      );
+
+      expect(clipboardText, 'Mit freundlichen Grüßen');
+    });
+
+    test('uses the transcription language: German keeps "um"', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          removeFillerWords: true,
+        ),
+        transcript: 'Wir treffen uns, äh, um 8 Uhr.',
+      );
+
+      expect(clipboardText, 'Wir treffen uns um 8 Uhr.');
+    });
+  });
+
   // =========================================================================
   // Snippet-Picker dispatch (exact-match short-circuit, dictation-automations
   // ticket 06)

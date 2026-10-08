@@ -904,6 +904,13 @@ class L10nEn extends L10n {
       'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.';
 
   @override
+  String get settingsRemoveFillerWords => 'Remove filler words';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override

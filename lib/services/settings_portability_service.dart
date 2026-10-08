@@ -256,6 +256,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'stt_numeric_only_mode',
   'stt_provider',
   'stt_punctuation_priming',
+  'stt_remove_filler_words',
   'stt_strip_punctuation',
   'stt_vad_enabled',
   'text_replacements_enabled',

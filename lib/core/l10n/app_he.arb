@@ -322,6 +322,8 @@
   "settingsStripPunctuationSubtitle": "מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה. פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.",
   "settingsNumericOnlyMode": "מספרים בלבד",
   "settingsNumericOnlyModeSubtitle": "ממיר מספרים מדוברים (בגרמנית ובאנגלית) לספרות, למשל \"חמש פסיק שתיים\" הופך ל-\"5,2\". משאיר את התמלול ללא שינוי אם אינו ניתן להמרה מלאה.",
+  "settingsRemoveFillerWords": "הסרת מילות מילוי",
+  "settingsRemoveFillerWordsSubtitle": "מסירה צלילי היסוס כמו \"uh\", \"um\" ו-\"äh\" לפני שהתמלול נשמר או מודבק. רק מילות מילוי חד-משמעיות באנגלית ובגרמנית; מילים שיכולות לשאת משמעות לא משתנות.",
   "settingsAppLanguage": "שפת האפליקציה",
   "settingsSttModels": "מודלי זיהוי דיבור",
   "settingsOpenAiApiKey": "מפתח OpenAI",

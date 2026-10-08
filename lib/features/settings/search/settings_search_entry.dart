@@ -92,12 +92,13 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       'Cloud', 'Sprache', 'Wartezeit', 'Vokabular', 'Wörterbuch',
       'STT', 'Sprachdienst', 'Wörter', 'Deepgram', 'OpenAI', 'API-Schlüssel',
       'Nur Zahlen', 'Interpunktion', 'Zeichensetzung', 'Engine', 'Stille',
-      'Trimmen',
+      'Trimmen', 'Füllwörter', 'äh',
       // EN
       'model', 'whisper', 'quality', 'transcription', 'service', 'local',
       'on-device', 'cloud', 'language', 'timeout', 'vocabulary',
       'dictionary', 'words', 'STT', 'voice', 'deepgram', 'openai', 'api key',
       'numbers only', 'punctuation', 'priming', 'engine', 'silence', 'trim',
+      'filler words', 'filler',
       // GPU (now embedded in STT section, local mode only)
       'GPU', 'Grafik', 'Beschleunigung', 'Prozessor', 'Hardware',
       'graphics', 'acceleration', 'processor', 'hardware',
