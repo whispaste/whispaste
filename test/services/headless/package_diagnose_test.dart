@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'dart:ffi' as ffi;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -9,6 +11,8 @@ import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLibraryPathFor;
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart'
     show whisperLibraryPathFor;
+
+String? _noCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) => null;
 
 void main() {
   group('PackageDiagnoseOptions', () {
@@ -113,7 +117,7 @@ void main() {
       name: 'whisper',
       path: '/x/libwhisper.so',
       symbols: ['whisper_full'],
-      checksCpuBackend: true,
+      cpuBackendProbe: _noCpuBackend,
     );
 
     test('reports the CPU backend variant ggml loaded', () {
@@ -147,11 +151,14 @@ void main() {
       expect((entries.single! as Map)['error'], contains('CPU backend'));
     });
 
-    test('is checked for whisper only where backends load dynamically', () {
+    test('is checked for both engines where backends load dynamically', () {
+      // Each engine loads its own ggml-cpu-<level> modules from its own
+      // directory (Windows/Linux, -DGGML_BACKEND_DL=ON); the Smart Mode
+      // shim's must resolve against its own ggml, not libwhisper's.
       final exe = p.join('opt', 'whispaste', 'whispaste');
       final libs = bundledNativeLibraries(exe);
       expect(libs[0].checksCpuBackend, !Platform.isMacOS);
-      expect(libs[1].checksCpuBackend, isFalse);
+      expect(libs[1].checksCpuBackend, !Platform.isMacOS);
     });
   });
 

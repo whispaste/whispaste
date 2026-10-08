@@ -109,15 +109,15 @@ String defaultSmartModeLibraryPath() =>
 ///   `macos/embed_libllama.sh` — runs for every build).
 /// - Windows: `smart_mode\smartmode_shim.dll` next to `whispaste.exe` — a
 ///   dedicated subdirectory, NOT the Flutter bundle root that
-///   [whisperLibraryPathFor] uses. Reason: llama.cpp vendors its own copy of
-///   `ggml` (see `build-libllama-windows.ps1`), independently pinned from
-///   whisper.cpp's vendored copy and not guaranteed ABI-compatible with it —
-///   staging both engines' `ggml*.dll` under the same directory would let one
-///   silently overwrite/shadow the other's build. macOS avoids this by
-///   renaming every ggml dylib with a `-llama` suffix instead (see
-///   `build-libllama-macos.sh`); Windows instead keeps the two engines'
-///   native libraries in disjoint directories, which needs no dylib-renaming
-///   or relinking.
+///   [whisperLibraryPathFor] uses. llama.cpp vendors its own copy of `ggml`,
+///   independently pinned from whisper.cpp's and not ABI-compatible with it,
+///   so Windows needs the same two measures as Linux: the separate directory
+///   keeps the shim's backend scan to its own `ggml-cpu-*.dll`/
+///   `ggml-vulkan.dll`, and the core ggml DLLs are renamed
+///   (`ggml-llama.dll`, `ggml-base-llama.dll`, see `build-libllama-windows.ps1`)
+///   because the Windows loader resolves static imports by module name
+///   process-wide — an unrenamed `ggml.dll` bound to whichever engine loaded
+///   first (error 127 for the shim after libwhisper).
 /// - Linux (the fallback, like [whisperLibraryPathFor]):
 ///   `lib/smart_mode/libsmartmode_shim.so` next to the executable — a
 ///   subdirectory of the `lib/` that holds libwhisper, staged by

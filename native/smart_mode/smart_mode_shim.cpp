@@ -292,6 +292,11 @@ extern "C" char* smart_mode_run(
   return result;
 }
 
+extern "C" const char* smart_mode_system_info(void) {
+  ensure_backends_loaded();
+  return llama_print_system_info();
+}
+
 extern "C" void smart_mode_free_result(char* result) {
   std::free(result);
 }

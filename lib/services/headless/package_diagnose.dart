@@ -16,9 +16,13 @@ import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
+
 import '../../core/app_info.dart' show appVersion;
 import '../../core/utils/windows_dll_search_path.dart';
 import '../smart_mode/smart_mode_ffi_engine.dart' show smartModeLibraryPathFor;
+import '../stt/whisper/whisper_engine.dart'
+    show cpuBackendFeaturesFromSystemInfo;
 import '../stt/whisper/whisper_ffi_engine.dart'
     show WhisperFfiEngine, whisperLibraryPathFor;
 
@@ -59,24 +63,44 @@ class PackageDiagnoseOptions {
   }
 }
 
+/// Loads [dylib]'s ggml backends and returns the features of the CPU
+/// backend variant ggml registered (`null` = none).
+typedef CpuBackendProbe =
+    String? Function(ffi.DynamicLibrary dylib, String libraryPath);
+
 /// A native library the app bundles, plus entry points it must export.
 class NativeLibrary {
   const NativeLibrary({
     required this.name,
     required this.path,
     required this.symbols,
-    this.checksCpuBackend = false,
+    this.cpuBackendProbe,
   });
 
   final String name;
   final String path;
   final List<String> symbols;
 
-  /// Whether ggml must register a CPU backend from this library's directory.
-  /// Windows and Linux builds load the `ggml-cpu-<level>` modules at runtime
-  /// (`-DGGML_BACKEND_DL=ON`), so a package missing them still opens
-  /// libwhisper fine and only aborts on the first transcription.
-  final bool checksCpuBackend;
+  /// Set where ggml must register a CPU backend from this library's
+  /// directory. Windows and Linux builds load the `ggml-cpu-<level>` modules
+  /// at runtime (`-DGGML_BACKEND_DL=ON`), so a package missing them still
+  /// opens the library fine and only aborts on the first transcription or
+  /// Smart Mode run.
+  final CpuBackendProbe? cpuBackendProbe;
+
+  bool get checksCpuBackend => cpuBackendProbe != null;
+}
+
+/// [CpuBackendProbe] for the Smart Mode shim: `smart_mode_system_info()`
+/// loads the shim's own ggml backends and returns llama.cpp's system info,
+/// which has the same `CPU : … |` section as whisper.cpp's.
+String? probeSmartModeCpuBackend(ffi.DynamicLibrary dylib, String _) {
+  final systemInfo = dylib
+      .lookupFunction<
+        ffi.Pointer<Utf8> Function(),
+        ffi.Pointer<Utf8> Function()
+      >('smart_mode_system_info');
+  return cpuBackendFeaturesFromSystemInfo(systemInfo().toDartString());
 }
 
 /// The engine libraries bundled next to [executablePath], resolved exactly
@@ -86,18 +110,19 @@ List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
     name: 'whisper',
     path: whisperLibraryPathFor(executablePath),
     symbols: const ['whisper_full'],
-    checksCpuBackend: !Platform.isMacOS,
+    cpuBackendProbe: Platform.isMacOS ? null : WhisperFfiEngine.probeCpuBackend,
   ),
   NativeLibrary(
     name: 'smart_mode_shim',
     path: smartModeLibraryPathFor(executablePath),
     symbols: const ['smart_mode_load'],
+    cpuBackendProbe: Platform.isMacOS ? null : probeSmartModeCpuBackend,
   ),
 ];
 
 /// Opens [library] and looks up its [NativeLibrary.symbols]; throws when the
-/// library or one of its dependencies cannot be loaded. For a library that
-/// [NativeLibrary.checksCpuBackend], returns the loaded CPU backend's
+/// library or one of its dependencies cannot be loaded. For a library with a
+/// [NativeLibrary.cpuBackendProbe], returns the loaded CPU backend's
 /// features (`null` = none registered).
 String? probeNativeLibrary(NativeLibrary library) {
   ensureWindowsDllSearchPath(library.path);
@@ -107,8 +132,7 @@ String? probeNativeLibrary(NativeLibrary library) {
       throw StateError('${library.path} does not export $symbol');
     }
   }
-  if (!library.checksCpuBackend) return null;
-  return WhisperFfiEngine.probeCpuBackend(dylib, library.path);
+  return library.cpuBackendProbe?.call(dylib, library.path);
 }
 
 /// Outcome of probing one [NativeLibrary]; [error] is null on success.

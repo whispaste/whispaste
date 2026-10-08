@@ -6,20 +6,17 @@
 # MSIX/setup automatically — same delivery mechanism as
 # bundle-libwhisper-windows.ps1.
 #
-# Windows equivalent of macos/embed_libllama.sh, with one structural
-# difference: macOS embeds straight into Contents/Frameworks/ alongside
-# libwhisper's own dylibs, relying on the `-llama`-suffix renaming done in
-# build-libllama-macos.sh to avoid a ggml*.dylib name collision. Windows
-# DLLs aren't renamed (see build-libllama-windows.ps1's doc comment for why:
-# renaming would require re-linking every consumer, which install_name_tool
-# does for free on macOS but has no MSVC equivalent). Instead this script
-# stages everything into its OWN subdirectory, `<ReleaseDir>\smart_mode\`,
-# fully disjoint from the bundle-root DLLs bundle-libwhisper-windows.ps1
-# stages — see smart_mode_ffi_engine.dart's `smartModeLibraryPathFor`
-# (resolves the bundled library at exactly this path) and
-# `_ensureWindowsDllSearchPath` (adds that subdirectory to the DLL search
-# path before `DynamicLibrary.open`, exactly like the whisper engine already
-# does for its own bundle-root DLLs).
+# Windows equivalent of macos/embed_libllama.sh. As on macOS/Linux, llama's
+# core ggml DLLs are renamed (ggml-llama.dll / ggml-base-llama.dll, see
+# build-libllama-windows.ps1's "ggml namespacing") -- that, not the
+# directory, is what keeps them apart from libwhisper's ggml.dll in the bundle
+# root. Everything is still staged into its OWN subdirectory,
+# `<ReleaseDir>\smart_mode\`, because the backend modules
+# (ggml-cpu-<level>.dll, ggml-vulkan.dll) keep their ggml-defined names and
+# the shim scans exactly that directory for them -- see
+# smart_mode_ffi_engine.dart's `smartModeLibraryPathFor` (resolves the bundled
+# library at exactly this path) and `_ensureWindowsDllSearchPath` (adds that
+# subdirectory to the DLL search path before `DynamicLibrary.open`).
 #
 # Smart Mode ships in the real app now (Settings → Smart Mode → On-Device is
 # selectable on every platform, no build-time gate) — same status as

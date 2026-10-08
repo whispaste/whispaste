@@ -81,6 +81,12 @@ WP_SMART_MODE_API char* smart_mode_run(
     int top_k
 );
 
+// Loads the shim's ggml backends (if not done yet) and returns llama.cpp's
+// system info, e.g. `CPU : SSE3 = 1 | AVX2 = 1 | ... |`, naming the CPU
+// backend variant ggml picked. Used by `whispaste --diagnose` to prove the
+// package's smart_mode backends load. Static storage: do NOT free.
+WP_SMART_MODE_API const char* smart_mode_system_info(void);
+
 // Frees a string previously returned by smart_mode_generate/smart_mode_run.
 // No-op on NULL.
 WP_SMART_MODE_API void smart_mode_free_result(char* result);

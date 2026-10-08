@@ -59,8 +59,9 @@ function Get-RequiredImportLib([string]$Name) {
 }
 $llamaImportLib = Get-RequiredImportLib "llama.lib"
 # `ggml_backend_load_all` (the GGML_BACKEND_DL dynamic-backend loader this
-# shim calls at startup) lives in the top-level `ggml.dll`/ggml.lib, NOT
-# ggml-base.lib -- ggml-base only carries the backend-agnostic core.
+# shim calls at startup) lives in the top-level ggml (ggml-llama.dll, import
+# library still ggml.lib -- see build-libllama-windows.ps1's "ggml
+# namespacing"), NOT ggml-base -- that only carries the backend-agnostic core.
 $ggmlImportLib = Get-RequiredImportLib "ggml.lib"
 $llamaCommonImportLib = Get-RequiredImportLib "llama-common.lib"
 
@@ -80,6 +81,13 @@ if ($LASTEXITCODE -ne 0) { throw "cl.exe failed with exit code $LASTEXITCODE" }
 Remove-Item (Join-Path $RepoRoot "native\smart_mode\smart_mode_shim.obj") -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $StageDir "smartmode_shim.exp") -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $StageDir "smartmode_shim.lib") -ErrorAction SilentlyContinue
+
+# Same guard as build-libllama-windows.ps1: the shim must bind to the renamed
+# ggml-llama*.dll, never to libwhisper's ggml.dll/ggml-base.dll.
+$shimImports = dumpbin /nologo /dependents (Join-Path $StageDir "smartmode_shim.dll") | ForEach-Object { $_.Trim().ToLower() }
+foreach ($c in @('ggml.dll', 'ggml-base.dll')) {
+  if ($shimImports -contains $c) { throw "smartmode_shim.dll imports $c -- would bind to libwhisper's ggml" }
+}
 
 Write-Host "[2/2] refreshing SHA256SUMS"
 Push-Location $StageDir
