@@ -101,7 +101,7 @@ const dict: Record<string, string> = {
   'gallery.desc': 'Nine views that show the full workflow, from voice input to polished text.',
   'gallery.workspace': 'Your transcripts at a glance',
   'gallery.detail': 'Edit and refine each entry',
-  'gallery.shortcuts': 'Voice Snippets that save keystrokes',
+  'gallery.shortcuts': 'Replacements turn short words into the exact text you want',
   'gallery.settings': 'Customize to fit your workflow',
   'gallery.analytics': 'Track how you use your voice',
   'gallery.smartmode': 'Clean up, shorten, or translate as you speak',

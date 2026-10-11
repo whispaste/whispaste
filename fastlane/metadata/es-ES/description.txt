@@ -1,0 +1,22 @@
+Entrada por voz para tu Mac: pulsa un atajo, habla, y WhisPaste escribe tus palabras justo en el cursor, en cualquier app: Mail, Notas, Slack, VS Code o donde sea que escribas.
+
+TU AUDIO SE QUEDA EN TU MAC
+Dos motores en el dispositivo hacen el trabajo: Whisper (Small, Medium o Large v3 Turbo, hasta 99 idiomas, acelerado por Metal en Apple Silicon) y el motor especialmente rápido Parakeet. Tras la descarga única del modelo, la transcripción funciona sin conexión y tu audio nunca sale de tu Mac. La transcripción en la nube con OpenAI o Deepgram es opcional, usa tu propia clave de API y va directamente al proveedor, nunca pasa por los servidores de WhisPaste. No necesitas cuenta.
+
+SMART MODE
+Haz que tu texto se limpie, se acorte o se traduzca antes de pegarlo, en tu Mac o a través de OpenAI. También puedes aplicarlo después a una transcripción anterior.
+
+EDITAR EL TEXTO SELECCIONADO POR VOZ
+Selecciona una frase en cualquier app, pulsa el atajo de selección y di qué debe cambiar, por ejemplo «hazlo más amable». WhisPaste reescribe la selección en su sitio. Desactivado por defecto.
+
+VOICE SNIPPETS
+Di una palabra de activación corta y WhisPaste inserta el texto completo: firmas, saludos, frases que repites a menudo o plantillas interactivas con varios campos.
+
+HISTORIAL Y EXPORTACIÓN
+Cada transcripción se guarda en tu Mac. Busca, etiqueta, fija, archiva y combina entradas, protege el historial con un PIN y expórtalo a TXT, Markdown, JSON, CSV o Word.
+
+COMPRA ÚNICA, SIN SUSCRIPCIÓN
+Sin suscripción, sin límites de tiempo, sin costes recurrentes. WhisPaste es de código abierto (licencia MIT) y se desarrolla abiertamente en GitHub. Tu compra apoya directamente su desarrollo.
+
+PENSADA PARA EL TRABAJO DIARIO
+Alternar o push-to-talk · Superposición en vivo mientras hablas · Botón de grabación flotante · Panel lateral de pegado rápido en el borde de la pantalla · Vocabulario personalizado y reemplazos · Barra de menús · Inicio automático al iniciar sesión · Interfaz en inglés, alemán, hebreo y ruso (todavía no en español)

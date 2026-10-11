@@ -15,7 +15,7 @@ Cada transcrição é salva localmente e pode ser pesquisada. Marque, fixe, arqu
 Diga uma palavra-gatilho e o WhisPaste insere o texto completo: assinaturas, saudações, frases que você digita todos os dias. Snippets interativos preenchem modelos campo por campo. Vocabulário personalizado e substituições garantem que nomes e termos técnicos saiam certos.
 
 🎛️ FEITO PARA O DIA A DIA
-Alternar ou push-to-talk · Overlay ao vivo com prévia opcional · Botão flutuante · Painel lateral da área de transferência na borda da tela · Bandeja do sistema e início automático · Interface em inglês, alemão, hebraico e russo
+Alternar ou push-to-talk · Overlay ao vivo com prévia opcional · Botão flutuante · Painel lateral da área de transferência na borda da tela · Bandeja do sistema e início automático · Interface em inglês, alemão, hebraico e russo; ainda não em português
 
 💶 COMPRA ÚNICA, SEM ASSINATURA
 O WhisPaste é de código aberto (licença MIT) e gratuito no GitHub. A versão da Store tem os mesmos recursos, é atualizada automaticamente, e sua compra financia diretamente o desenvolvimento contínuo.

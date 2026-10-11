@@ -1,0 +1,1 @@
+Premi una scorciatoia, parla: il testo compare nel cursore, in qualsiasi app. Funziona sul Mac, offline dopo il download del modello. Senza abbonamento, open source.

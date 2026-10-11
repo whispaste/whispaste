@@ -1,16 +1,22 @@
-Speech-to-text for your Mac: WhisPaste turns your voice into text and writes it right where your cursor is, in any app: Mail, Notes, Slack, VS Code, or anywhere else you type. Press a hotkey, speak, done.
+Speech-to-text for your Mac: press a hotkey, speak, and WhisPaste writes your words right where your cursor is, in any app: Mail, Notes, Slack, VS Code or anywhere else you type.
 
-YOUR AUDIO STAYS LOCAL
-Three Whisper models (Small, Medium, and Large v3 Turbo) plus the extra-fast, CPU-only Parakeet engine transcribe your speech entirely on your Mac. Your audio never leaves your device. Up to 99 languages with Whisper. Cloud options (OpenAI, Deepgram) are available but always opt-in, and audio goes directly to the provider, never through WhisPaste servers. No account required.
+YOUR AUDIO STAYS ON YOUR MAC
+Two on-device engines do the work: Whisper (Small, Medium or Large v3 Turbo, up to 99 languages, accelerated by Metal on Apple Silicon) and the especially fast Parakeet. After a one-time model download, transcription runs offline and your audio never leaves your Mac. Cloud transcription via OpenAI or Deepgram is optional, uses your own API key and goes straight to the provider, never through WhisPaste servers. No account required.
 
-ONE-TIME, NOT A SUBSCRIPTION
-No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and built transparently on GitHub. Your purchase directly supports its ongoing development.
+SMART MODE
+Have your text cleaned up, shortened or translated before it is pasted, on your Mac or via OpenAI. You can also apply it to a past transcription later.
+
+EDIT SELECTED TEXT BY VOICE
+Select a sentence in any app, press the selection hotkey and say what should change, such as "make it friendlier". WhisPaste rewrites the selection in place. Off by default.
+
+VOICE SNIPPETS
+Say a short trigger and WhisPaste inserts the full text: signatures, greetings, recurring phrases, or interactive templates with several fields.
 
 HISTORY & EXPORT
-Every recording is saved automatically. Search, tag, pin, archive, and export to TXT, Markdown, JSON, CSV, or Word.
+Every transcription is saved on your Mac. Search, tag, pin, archive and merge entries, protect the history with a PIN, and export to TXT, Markdown, JSON, CSV or Word.
 
-VOICE SHORTCUTS
-Say a short trigger: WhisPaste expands it into the full text before it's inserted. Perfect for signatures, greetings, and frequently typed phrases.
+ONE-TIME PURCHASE, NOT A SUBSCRIPTION
+No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and developed in the open on GitHub. Your purchase directly supports its development.
 
 BUILT FOR DAILY WORK
-Push-to-talk or toggle · Floating Button above your other windows · Menu bar integration · Launch at Login · Light, Dark, and System appearance · English, German, Hebrew, and Russian UI
+Toggle or push-to-talk · live overlay while you speak · floating record button · quick-paste side panel at the screen edge · custom vocabulary and replacements · menu bar · launch at login · English, German, Hebrew and Russian interface
