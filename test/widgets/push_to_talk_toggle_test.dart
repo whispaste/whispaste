@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
+import 'package:whispaste/core/config/settings_labels.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/sections/feedback_section.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
@@ -119,21 +121,21 @@ void main() {
       (tester) async {
         await tester.pumpWidget(_makeSection(supportsKeyUp: false));
         await tester.pump();
+        // Host-specific copy (Linux gets its own hint), same as the app shows.
+        final expected = pushToTalkUnavailableMessage(
+          await L10n.delegate.load(const Locale('en')),
+        );
 
-        // Find tooltip with the correct message.
         final tooltips = tester
             .widgetList<Tooltip>(find.byType(Tooltip))
-            .where(
-              (t) =>
-                  t.message != null &&
-                  t.message!.contains('Not available on this platform'),
-            )
+            .where((t) => t.message != null && t.message == expected)
             .toList();
 
         expect(
           tooltips,
           isNotEmpty,
-          reason: 'A Tooltip with "Not available on this platform" must exist',
+          reason:
+              'A Tooltip with the platform\'s unavailable message must exist',
         );
       },
     );

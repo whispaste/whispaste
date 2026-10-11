@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
@@ -190,7 +191,8 @@ void main() {
 
         final tooltips = tester
             .widgetList<Tooltip>(find.byType(Tooltip))
-            .where((t) => t.message == l10n.pushToTalkUnavailableTooltip)
+            // Host-specific copy (Linux gets its own hint), same as the app shows.
+            .where((t) => t.message == pushToTalkUnavailableMessage(l10n))
             .toList();
         expect(tooltips, isNotEmpty);
       },

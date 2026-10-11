@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -225,7 +226,7 @@ void main() {
           of: find.byKey(toggleKey),
           matching: find.byWidgetPredicate(
             (w) =>
-                w is Tooltip && w.message == l10n.pushToTalkUnavailableTooltip,
+                w is Tooltip && w.message == pushToTalkUnavailableMessage(l10n),
           ),
         ),
         findsOneWidget,
