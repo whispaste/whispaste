@@ -1,7 +1,7 @@
 ---
 // StoreButton.astro — Brand-consistent Microsoft Store download button.
 // URL and product ID sourced exclusively from the central platform config.
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 import { MS_STORE_URL } from '../data/platforms.ts';
 
 interface Props {
@@ -14,7 +14,7 @@ const STORE_URL = MS_STORE_URL;
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 
 <a

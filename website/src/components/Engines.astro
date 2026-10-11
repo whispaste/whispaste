@@ -14,9 +14,9 @@
  * for free.
  */
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t, localePath } from '../scripts/i18n.ts';
+import { t, localePath, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 
 <!-- Engines Section — band-spotlight: alterniert zwischen SpeedComparison

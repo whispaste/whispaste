@@ -1,0 +1,21 @@
+O WhisPaste transforma sua voz em texto exatamente onde está o cursor, em qualquer app do Windows. Pressione um atalho, fale, pronto. Sem copiar e colar, sem trocar de janela.
+
+Funciona em todo lugar onde você digita: Outlook, Teams, Word, VS Code, Chrome, Slack e qualquer outro app.
+
+🔒 SUA VOZ FICA NO SEU PC
+O Whisper (três tamanhos de modelo, 99 idiomas) e o rápido motor Parakeet (cerca de 25 idiomas europeus, só CPU) transcrevem inteiramente no seu computador. As gravações não são guardadas após a transcrição. Uma placa de vídeo acelera o Whisper via Vulkan, mas nunca é obrigatória. Depois do download único do modelo, a transcrição funciona sem conexão com a internet. A transcrição na nuvem com OpenAI ou Deepgram é opcional e usa sua própria chave de API; o áudio vai direto para o provedor, nunca passando por um servidor do WhisPaste. Não é preciso conta.
+
+✨ SMART MODE (OPCIONAL)
+Remova palavras de preenchimento e corrija a pontuação, encurte um texto ou traduza-o para sete idiomas antes de ele ser colado. Funciona com um modelo de IA local ou via OpenAI com sua própria chave. Selecione um texto em qualquer app, diga o que deve mudar, e o WhisPaste o reescreve no lugar.
+
+📋 HISTÓRICO, NOTAS E EXPORTAÇÃO
+Cada transcrição é salva localmente e pode ser pesquisada. Marque, fixe, arquive, mescle e exporte para TXT, Markdown, JSON, CSV ou Word. Um bloqueio por PIN mantém o histórico privado. Notas e anotações rápidas reúnem pensamentos mais longos em um só lugar.
+
+⌨️ VOICE SNIPPETS E SUAS PRÓPRIAS PALAVRAS
+Diga uma palavra-gatilho e o WhisPaste insere o texto completo: assinaturas, saudações, frases que você digita todos os dias. Snippets interativos preenchem modelos campo por campo. Vocabulário personalizado e substituições garantem que nomes e termos técnicos saiam certos.
+
+🎛️ FEITO PARA O DIA A DIA
+Alternar ou push-to-talk · Overlay ao vivo com prévia opcional · Botão flutuante · Painel lateral da área de transferência na borda da tela · Bandeja do sistema e início automático · Interface em inglês, alemão, hebraico e russo
+
+💶 COMPRA ÚNICA, SEM ASSINATURA
+O WhisPaste é de código aberto (licença MIT) e gratuito no GitHub. A versão da Store tem os mesmos recursos, é atualizada automaticamente, e sua compra financia diretamente o desenvolvimento contínuo.

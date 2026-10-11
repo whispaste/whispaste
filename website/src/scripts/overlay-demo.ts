@@ -45,12 +45,12 @@ import {
   type OverlayTheme,
 } from './overlay-mockup';
 
-/** Demo languages — mirrors the site's two locales. */
-export type OverlayDemoLang = 'de' | 'en';
+/** Demo languages — the app UI languages the site also ships (others show English, like the app). */
+export type OverlayDemoLang = 'de' | 'en' | 'ru';
 
 /**
  * Status texts per state, verbatim from the app's own localisations
- * (`app_localizations_{en,de}.dart`: overlayTranscribing / overlayDonePasted /
+ * (`app_{en,de,ru}.arb`: overlayTranscribing / overlayDonePasted /
  * overlayError) — the demo shows exactly what the real overlay says.
  */
 const LABELS: Readonly<
@@ -58,6 +58,7 @@ const LABELS: Readonly<
 > = {
   en: { transcribing: 'Transcribing…', done: 'Pasted', error: 'Error' },
   de: { transcribing: 'Wird transkribiert…', done: 'Eingefügt', error: 'Fehler' },
+  ru: { transcribing: 'Транскрипция…', done: 'Вставлено', error: 'Ошибка' },
 };
 
 export interface OverlayDemoOptions {
@@ -251,7 +252,7 @@ export class OverlayDemo {
   }
 
   private labels(): Readonly<Record<'transcribing' | 'done' | 'error', string>> {
-    return this.opts.getLang() === 'de' ? LABELS.de : LABELS.en;
+    return LABELS[this.opts.getLang()];
   }
 
   private textFor(state: OverlayState): string {

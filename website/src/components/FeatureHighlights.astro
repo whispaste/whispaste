@@ -1,12 +1,11 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
-// Neun Karten (3×3) unter der Lead-Karte (Hotkey→Text). Icon-Pfade sind
-// Lucide-Outlines (24×24, stroke), inline statt Icon-Font — wie die
-// übrigen SVGs der Site.
+// Twelve cards (3×4) below the lead card (hotkey → text). Icon paths are
+// Lucide outlines (24×24, stroke), inlined like the site's other SVGs.
 const cards = [
   {
     key: 'snippets',
@@ -15,6 +14,10 @@ const cards = [
   {
     key: 'smartmode',
     icon: 'M12 3v3m0 12v3M5.6 5.6l2.2 2.2m8.4 8.4 2.2 2.2M3 12h3m12 0h3M5.6 18.4l2.2-2.2m8.4-8.4 2.2-2.2M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z',
+  },
+  {
+    key: 'editSelection',
+    icon: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z',
   },
   {
     key: 'sidepanel',
@@ -29,6 +32,10 @@ const cards = [
     icon: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z',
   },
   {
+    key: 'cloud',
+    icon: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z',
+  },
+  {
     key: 'hardware',
     icon: 'M6 9a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Zm3 0h6v6H9ZM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4',
   },
@@ -39,6 +46,10 @@ const cards = [
   {
     key: 'vocabulary',
     icon: 'm4 7 4-4 4 4M8 3v11m4 3h8m-8-4h8M4 21h16',
+  },
+  {
+    key: 'overlay',
+    icon: 'M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3',
   },
   {
     key: 'remote',

@@ -15,7 +15,7 @@
  * `el.textContent` (i18n.ts) und würde jedes Kind-Element beim
  * Sprachwechsel wegwerfen.
  */
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
 interface Props {
   /** i18n-Key, z. B. `pricing.label`. Muss DE **und** EN haben. */
@@ -27,7 +27,7 @@ interface Props {
 }
 
 const { key, class: className = '', style } = Astro.props;
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 
 <p class:list={['wp-eyebrow', className]} data-i18n={key} style={style}>{t(lang, key)}</p>

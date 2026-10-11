@@ -2,7 +2,7 @@
 // AppleButton.astro — Brand-consistent macOS DMG download button.
 // Mirrors StoreButton layout/sizing for visual parity in the Hero row.
 // URL sourced exclusively from the central platform config.
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 import { MACOS_DMG_URL, STORES } from '../data/platforms.ts';
 
 interface Props {
@@ -15,7 +15,7 @@ const DMG_URL = MACOS_DMG_URL;
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 // Architecture label — single source of truth. The config
 // (`STORES.macos.archLabel`) is the "is there an arch label?" fact; the

@@ -1,8 +1,8 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 // Each language shows a representative country flag (a language is not a
 // country — the flag is chosen pragmatically for visual recognition). Flag

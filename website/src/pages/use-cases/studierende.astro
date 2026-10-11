@@ -14,7 +14,7 @@
  * auf der Page.
  *
  * Slug-Divergenz DE/EN: DE `studierende`, EN `students`. Über
- * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * `DE_SLUGS` (scripts/locales.ts) an `LandingPageLayout` → `Layout` durchgereicht, damit
  * hreflang-Alternates korrekt zwischen den beiden Routen pendeln (analog
  * zu `programmierer` ↔ `programmer`).
  */
@@ -60,7 +60,6 @@ const howToSteps = [
   },
 ];
 
-const alternateSlugs = { de: "use-cases/studierende", en: "use-cases/students" };
 ---
 
 <LandingPageLayout
@@ -70,7 +69,6 @@ const alternateSlugs = { de: "use-cases/studierende", en: "use-cases/students" }
   hero={hero}
   heroImage={{ src: "/illustrations/use-case-students.svg", alt: t(lang, "useCase.students.illustrationAlt") }}
   cta={cta}
-  alternateSlugs={alternateSlugs}
 >
   <section>
     <h2>{t(lang, "useCase.students.section.workflow.heading")}</h2>

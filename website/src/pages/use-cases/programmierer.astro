@@ -13,7 +13,7 @@
  * Rich-Results-Anforderung.
  *
  * Slug-Divergenz DE/EN: DE `programmierer`, EN `programmer`. Über
- * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * `DE_SLUGS` (scripts/locales.ts) an `LandingPageLayout` → `Layout` durchgereicht, damit
  * hreflang-Alternates korrekt zwischen den beiden Routen pendeln.
  */
 import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
@@ -58,7 +58,6 @@ const howToSteps = [
   },
 ];
 
-const alternateSlugs = { de: "use-cases/programmierer", en: "use-cases/programmer" };
 ---
 
 <LandingPageLayout
@@ -68,7 +67,6 @@ const alternateSlugs = { de: "use-cases/programmierer", en: "use-cases/programme
   hero={hero}
   heroImage={{ src: "/illustrations/use-case-developer.svg", alt: t(lang, "useCase.programmer.illustrationAlt") }}
   cta={cta}
-  alternateSlugs={alternateSlugs}
 >
   <section>
     <h2>{t(lang, "useCase.programmer.section.codeReview.heading")}</h2>

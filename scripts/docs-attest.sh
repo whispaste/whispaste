@@ -257,22 +257,24 @@ check_removed_features() {
 check_i18n() {
   [ -d "$PAGES" ] || { note "website/src/pages fehlt"; return; }
   # Format je Eintrag: "<DE-relativ-zu-pages>|<EN-relativ-zu-pages>"
+  # Non-legal mirrors live in the shared [lang]/ route (en + further locales);
+  # only the legal pages stay as en/-specific files.
   local -a PAIRS=(
-    "index.astro|en/index.astro"
-    "download.astro|en/download.astro"
-    "changelog.astro|en/changelog.astro"
+    "index.astro|[lang]/index.astro"
+    "download.astro|[lang]/download.astro"
+    "changelog.astro|[lang]/changelog.astro"
     "datenschutz.astro|en/privacy.astro"
-    "sponsor.astro|en/sponsor.astro"
+    "sponsor.astro|[lang]/sponsor.astro"
     "impressum.astro|en/impressum.astro"
-    "screenshots.astro|en/screenshots.astro"
-    "offline-speech-to-text.astro|en/offline-speech-to-text.astro"
-    "whisper-desktop.astro|en/whisper-desktop.astro"
-    "privatsphaere-spracherkennung.astro|en/privacy-speech-recognition.astro"
-    "vergleich/whispaste-vs-system-spracheingabe.astro|en/comparison/whispaste-vs-system-speech-to-text.astro"
-    "vergleich/diktiersoftware-alternativen.astro|en/comparison/voice-input-tool-alternatives.astro"
-    "use-cases/programmierer.astro|en/use-cases/programmer.astro"
-    "use-cases/studierende.astro|en/use-cases/students.astro"
-    "use-cases/vielschreiber.astro|en/use-cases/everyday.astro"
+    "screenshots.astro|[lang]/screenshots.astro"
+    "offline-speech-to-text.astro|[lang]/offline-speech-to-text.astro"
+    "whisper-desktop.astro|[lang]/whisper-desktop.astro"
+    "privatsphaere-spracherkennung.astro|[lang]/privacy-speech-recognition.astro"
+    "vergleich/whispaste-vs-system-spracheingabe.astro|[lang]/comparison/whispaste-vs-system-speech-to-text.astro"
+    "vergleich/diktiersoftware-alternativen.astro|[lang]/comparison/voice-input-tool-alternatives.astro"
+    "use-cases/programmierer.astro|[lang]/use-cases/programmer.astro"
+    "use-cases/studierende.astro|[lang]/use-cases/students.astro"
+    "use-cases/vielschreiber.astro|[lang]/use-cases/everyday.astro"
   )
   local pair de en
   for pair in "${PAIRS[@]}"; do

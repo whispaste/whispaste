@@ -15,7 +15,7 @@
  * `<dl>`-Liste — Google Rich-Results-Anforderung.
  *
  * Slug-Divergenz DE/EN: DE `privatsphaere-spracherkennung`, EN
- * `privacy-speech-recognition`. Über `alternateSlugs` an `LandingPageLayout`
+ * `privacy-speech-recognition`. Über `DE_SLUGS` (scripts/locales.ts) an `LandingPageLayout`
  * → `Layout` durchgereicht, damit hreflang-Alternates korrekt zwischen den
  * beiden Routen pendeln.
  *
@@ -73,7 +73,6 @@ const faqQuestions = [
   },
 ];
 
-const alternateSlugs = { de: "privatsphaere-spracherkennung", en: "privacy-speech-recognition" };
 
 const relatedPages = [
   { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
@@ -89,7 +88,6 @@ const relatedPages = [
   breadcrumbs={breadcrumbs}
   hero={hero}
   cta={cta}
-  alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
   <p class="tldr">{t(lang, "explainer.privacy.tldr")}</p>

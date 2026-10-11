@@ -12,9 +12,9 @@
  * can't drift from the measured numbers.
  */
 import benchmarkData from '../data/engine-benchmarks.json';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 const whisperCpu = benchmarkData.rows.find(
   (r) => r.engine === 'whisper.cpp' && r.hardwareClass === 'Apple Silicon (CPU)',

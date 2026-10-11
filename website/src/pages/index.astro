@@ -22,25 +22,10 @@ import MobileCta from "../components/MobileCta.astro";
 import SoftwareApplicationSchema from "../components/schema/SoftwareApplicationSchema.astro";
 import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
 import HowToSchema from "../components/schema/HowToSchema.astro";
-import { t } from "../scripts/i18n.ts";
+import { t, currentLocale } from "../scripts/i18n.ts";
 
-const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
+const lang = currentLocale(Astro.currentLocale);
 
-// Landing-Page-FAQ-Schlüssel — spiegelt die im `FAQ.astro`-Akkordeon
-// sichtbaren Fragen (ohne `sysreq` / `gatekeeper`, die nur auf der Detail-
-// Page erscheinen). Google Rich Results verlangt, dass die im FAQ-Schema
-// gelisteten Fragen 1:1 mit dem sichtbaren Seitentext übereinstimmen.
-const faqKeys = [
-  "free",
-  "offline",
-  "accuracy",
-  "languages",
-  "snippets",
-  "smartmode",
-  "privacy",
-  "windows",
-  "smartscreen",
-];
 ---
 
 <Layout
@@ -52,7 +37,7 @@ const faqKeys = [
     slot="head"
     rel="preload"
     as="image"
-    href={`/videos/whispaste-promo-16x9-${lang}-poster.jpg`}
+    href={`/videos/whispaste-promo-16x9-${lang === "de" ? "de" : "en"}-poster.jpg`}
     fetchpriority="high"
   />
   <Nav variant="landing" />
@@ -117,7 +102,7 @@ const faqKeys = [
     `src/components/schema/__tests__/`).
   */}
   <SoftwareApplicationSchema locale={lang} />
-  <FAQPageSchema locale={lang} questionKeys={faqKeys} />
+  <FAQPageSchema locale={lang} />
   <HowToSchema locale={lang} />
 
   <style is:global>
@@ -150,7 +135,7 @@ const faqKeys = [
   </style>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
 
     // Scroll reveal observer
     const observer = new IntersectionObserver(
@@ -200,10 +185,7 @@ const faqKeys = [
           const badge = document.getElementById('github-stars-badge');
           const span = document.getElementById('github-stars-count');
           if (badge && span) {
-            const lang = localStorage.getItem('whispaste-lang') || 'en';
-            span.textContent = lang === 'de'
-              ? `${count} Sterne auf GitHub`
-              : `${count} stars on GitHub`;
+            span.textContent = (span.dataset.template ?? '{count}').replace('{count}', String(count));
             badge.style.display = '';
           }
         }

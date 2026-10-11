@@ -1,14 +1,14 @@
 ---
 import { Picture } from 'astro:assets';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 import { STORES } from '../data/platforms.ts';
 import heroDeviceDe from '../assets/hero-device/hero-device-clean-de.png';
 import heroDeviceEn from '../assets/hero-device/hero-device-clean-en.png';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 const msReviewUrl = STORES.windows.reviewUrl;
 const macosReviewUrl = STORES.macos.reviewUrl;
-const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
+const heroDevice = lang === 'de' ? heroDeviceDe : heroDeviceEn;
 ---
 <!-- Support Section -->
 <section id="support" class="band band-deep py-16 sm:py-20 relative scroll-mt-20">

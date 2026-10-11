@@ -25,14 +25,21 @@ test('hero CTA contains platform download button(s)', async ({ page }) => {
   expect(storeVisible || appleVisible).toBe(true);
 });
 
-test('language toggle switches the landing page between DE and EN', async ({ page }) => {
+test('language menu switches the landing page between locales', async ({ page }) => {
   await page.goto('/');
 
   const heroHeading = page.locator('section h1').first();
   await expect(heroHeading).toContainText('Sprechen statt');
-  await page.getByTestId('lang-toggle').click();
+  await page.getByTestId('lang-switch').locator('summary').click();
+  await page.getByTestId('lang-switch-en').click();
   await page.waitForURL(/\/en\/?$/);
   await expect(page.locator('section h1').first()).toContainText('Speak instead of');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+
+  await page.getByTestId('lang-switch').locator('summary').click();
+  await page.getByTestId('lang-switch-de').click();
+  await page.waitForURL(/\/$/);
+  await expect(page.locator('section h1').first()).toContainText('Sprechen statt');
 });
 
 test('FAQ section is visible and has accordion items', async ({ page }) => {

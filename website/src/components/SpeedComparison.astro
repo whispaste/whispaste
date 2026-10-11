@@ -9,9 +9,9 @@
  * flüssiges Sprechen ~150 WpM) und als „~" + Caption als Durchschnitt markiert.
  */
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 // Balken-Muster der Wellenform-Textur — einmal definiert, zweimal gerendert
 // (nahtlose Marquee-Schleife braucht zwei identische Kacheln nebeneinander).

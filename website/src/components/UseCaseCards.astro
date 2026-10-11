@@ -1,26 +1,25 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
-const isEn = lang === 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 const workflows = [
   {
     key: 'developer',
-    href: isEn ? '/en/use-cases/programmer/' : '/use-cases/programmierer/',
+    href: pathForSlug(lang, 'use-cases/programmer'),
     illustration: '/illustrations/use-case-developer.svg',
     illustrationAltKey: 'useCase.programmer.illustrationAlt',
   },
   {
     key: 'students',
-    href: isEn ? '/en/use-cases/students/' : '/use-cases/studierende/',
+    href: pathForSlug(lang, 'use-cases/students'),
     illustration: '/illustrations/use-case-students.svg',
     illustrationAltKey: 'useCase.students.illustrationAlt',
   },
   {
     key: 'everyday',
-    href: isEn ? '/en/use-cases/everyday/' : '/use-cases/vielschreiber/',
+    href: pathForSlug(lang, 'use-cases/everyday'),
     illustration: '/illustrations/use-case-everyday.svg',
     illustrationAltKey: 'useCase.everyday.illustrationAlt',
   },

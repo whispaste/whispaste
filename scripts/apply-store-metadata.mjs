@@ -131,7 +131,15 @@ export function loadManagedMetadata(storeDir) {
   // The neutral 'de' key is an orphan nobody sees. This script and
   // submit-ms-store.ps1 must write the SAME key; their prior disagreement
   // ('de' here vs 'de-de' there) is what created the orphan in the first place.
-  const localeMap = { 'en-US': 'en-us', 'de-DE': 'de-de' };
+  const localeMap = {
+    'en-US': 'en-us',
+    'de-DE': 'de-de',
+    'es-ES': 'es-es',
+    'pt-BR': 'pt-br',
+    'it-IT': 'it-it',
+    'ru-RU': 'ru-ru',
+    'zh-CN': 'zh-cn',
+  };
 
   const listings = {};
   for (const [folder, submissionLocale] of Object.entries(localeMap)) {

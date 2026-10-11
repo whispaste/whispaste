@@ -25,7 +25,7 @@
  * Empfehlungen für maximale Lesbarkeit im Rendered-HTML.
  */
 
-import { t, type Locale } from "../../scripts/i18n.ts";
+import { t, localePath, LOCALE_META, type Locale } from "../../scripts/i18n.ts";
 
 // ---------------------------------------------------------------------------
 // Gemeinsame Konstanten
@@ -58,17 +58,17 @@ export const ORGANIZATION_SAME_AS: readonly string[] = [GITHUB_REPO_URL];
  * Sprachcodes; wir nutzen die Region-spezifische Variante, weil Google sie
  * für Locale-Targeting bevorzugt.
  */
-export function inLanguageFor(locale: Locale): "de-DE" | "en-US" {
-  return locale === "de" ? "de-DE" : "en-US";
+export function inLanguageFor(locale: Locale): string {
+  return LOCALE_META[locale].ogLocale.replace("_", "-");
 }
 
 /**
- * Locale-aware Home-URL. Astro liefert DE unter `/`, EN unter `/en/` (siehe
- * Astro-i18n-Routing in `astro.config.mjs`). Beide Endpoints sind kanonisch
- * und mit Trailing-Slash zu adressieren.
+ * Locale-aware Home-URL. Astro liefert DE unter `/`, alle anderen Sprachen
+ * unter `/<locale>/` (siehe Astro-i18n-Routing in `astro.config.mjs`). Alle
+ * Endpoints sind kanonisch und mit Trailing-Slash zu adressieren.
  */
 export function homeUrlFor(locale: Locale): string {
-  return locale === "de" ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/en/`;
+  return `${SITE_ORIGIN}${localePath(locale, "")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,13 +108,13 @@ export interface SoftwareApplicationOptions {
 /**
  * Default-OS-Liste — `CONTEXT.md` §1 nennt Windows, macOS und Linux als aktiv
  * unterstützte Plattformen. Die konkreten Versions-Hinweise spiegeln den
- * Stand der `download.astro`-Seite (Windows 10/11, macOS 13+) plus Linux als
+ * Stand der `download.astro`-Seite (Windows 10/11, macOS 12+) plus Linux als
  * Generic-Entry. PRD §C verlangt explizit Linux-Deklaration.
  */
 export const DEFAULT_OPERATING_SYSTEMS: readonly string[] = [
   "Windows 10",
   "Windows 11",
-  "macOS 13",
+  "macOS 12",
   "Linux",
 ];
 
@@ -155,6 +155,9 @@ export const DEFAULT_FEATURE_KEYS: readonly string[] = [
   "notes",
   "vocabulary",
   "remote",
+  "editSelection",
+  "cloud",
+  "overlay",
 ];
 
 /** Lokalisierte Default-`featureList` aus den `highlights.*.title`-Keys. */
@@ -370,9 +373,8 @@ export interface FAQPageOptions {
   readonly locale: Locale;
   /**
    * Optional explizite Liste von Fragen/Antworten. Default ist die Sequenz
-   * der FAQ-Keys aus `FAQ.astro` (`free`, `offline`, `accuracy`, `sysreq`,
-   * `languages`, `privacy`, `windows`, `smartscreen`, `gatekeeper`), die der
-   * Builder direkt aus dem i18n-Glossar zieht.
+   * der FAQ-Keys aus `FAQ.astro` ([DEFAULT_FAQ_KEYS]), die der Builder direkt
+   * aus dem i18n-Glossar zieht.
    */
   readonly questions?: readonly FAQQuestion[];
   /**
@@ -394,6 +396,9 @@ export const DEFAULT_FAQ_KEYS: readonly string[] = [
   "accuracy",
   "sysreq",
   "languages",
+  "engines",
+  "snippets",
+  "smartmode",
   "privacy",
   "windows",
   "smartscreen",

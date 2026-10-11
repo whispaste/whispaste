@@ -1,0 +1,1 @@
+Habla en lugar de escribir: tus palabras aparecen como texto justo en el cursor, en cualquier app. La transcripción se ejecuta en tu PC con Whisper o Parakeet, funciona sin conexión tras una descarga única del modelo y no necesita cuenta. La nube es opcional. Compra única, sin suscripción. Código abierto (MIT).

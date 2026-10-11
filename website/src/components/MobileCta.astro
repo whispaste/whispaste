@@ -1,8 +1,8 @@
 ---
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
-const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
+const lang = currentLocale(Astro.currentLocale);
+const downloadHref = pathForSlug(lang, 'download');
 ---
 
 <!-- Sticky mobile download bar — reveals once the hero has scrolled out.

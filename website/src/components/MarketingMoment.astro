@@ -11,9 +11,9 @@
  * no illustration.
  */
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 
 <section id="marketing-moment" class="band band-deep py-24 sm:py-32 relative overflow-hidden">

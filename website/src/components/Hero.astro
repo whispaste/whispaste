@@ -4,7 +4,7 @@ import SectionEyebrow from './SectionEyebrow.astro';
 import StoreButton from './StoreButton.astro';
 import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
-import { t, localePath } from '../scripts/i18n.ts';
+import { t, localePath, currentLocale } from '../scripts/i18n.ts';
 // Inline-tintable OS glyphs for the platform-badge row (Issue 09). Raw-imported
 // so `fill="currentColor"` inherits the pill's `color` — an <img>-embedded SVG
 // cannot do this. See website/public/os-icons/ATTRIBUTION.txt for provenance.
@@ -12,7 +12,7 @@ import appleIconRaw from '../../public/os-icons/apple.svg?raw';
 import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
 import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 const platformBadges = [
   { os: 'macos', icon: appleIconRaw },
   { os: 'windows', icon: windowsIconRaw },
@@ -222,7 +222,7 @@ const platformBadges = [
         data-i18n-aria="nav.githubAria"
       >
         <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span id="github-stars-count"></span>
+        <span id="github-stars-count" data-template={t(lang, "hero.githubStars")}></span>
       </a>
     </div>
 

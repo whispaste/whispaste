@@ -1,9 +1,9 @@
 ---
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t, localePath } from '../scripts/i18n.ts';
+import { t, localePath, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 <!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
 <section id="app-screenshots" class="band band-deep relative py-24 sm:py-32 scroll-mt-20 wp-parallax-scope">
@@ -64,11 +64,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
                   <button
                     class="teaser-thumb-btn"
                     data-teaser-idx="0"
-                    aria-label={lang === 'en'
-                      ? 'Transcript overview. Open a larger view.'
-                      : 'Übersicht der Transkripte. Größere Ansicht öffnen.'}
-                    data-aria-label-en="Transcript overview. Open a larger view."
-                    data-aria-label-de="Übersicht der Transkripte. Größere Ansicht öffnen."
+                    aria-label={t(lang, "screenshots.teaser.overview.aria")}
                   >
                     <img
                       class="teaser-img"
@@ -77,11 +73,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
                       data-screenshot-de="/screenshots/de/dark/01_workspace_overview.webp"
                       data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.webp"
                       data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.webp"
-                      data-alt-en="WhisPaste transcript overview in the dark theme"
-                      data-alt-de="WhisPaste-Übersicht der Transkripte im dunklen Design"
-                      alt={lang === 'en'
-                        ? 'WhisPaste transcript overview in the dark theme'
-                        : 'WhisPaste-Übersicht der Transkripte im dunklen Design'}
+                      alt={t(lang, "screenshots.teaser.overview.alt")}
                       width="1920"
                       height="1080"
                       loading="eager"
@@ -112,11 +104,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <button
           class="teaser-thumb-btn"
           data-teaser-idx="1"
-          aria-label={lang === 'en'
-            ? 'Transcript detail editor. Open a larger view.'
-            : 'Detail-Editor für Transkripte. Größere Ansicht öffnen.'}
-          data-aria-label-en="Transcript detail editor. Open a larger view."
-          data-aria-label-de="Detail-Editor für Transkripte. Größere Ansicht öffnen."
+          aria-label={t(lang, "screenshots.teaser.detail.aria")}
         >
           <img
             class="teaser-img"
@@ -125,11 +113,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
             data-screenshot-de="/screenshots/de/dark/02_workspace_detail.webp"
             data-screenshot-mac-en="/screenshots/mac/en/dark/02_workspace_detail.webp"
             data-screenshot-mac-de="/screenshots/mac/de/dark/02_workspace_detail.webp"
-            data-alt-en="WhisPaste transcript detail editor in the dark theme"
-            data-alt-de="WhisPaste-Detail-Editor für Transkripte im dunklen Design"
-            alt={lang === 'en'
-              ? 'WhisPaste transcript detail editor in the dark theme'
-              : 'WhisPaste-Detail-Editor für Transkripte im dunklen Design'}
+            alt={t(lang, "screenshots.teaser.detail.alt")}
             width="1920"
             height="1080"
             loading="lazy"
@@ -402,15 +386,16 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     font-variant-numeric: tabular-nums;
     font-weight: 500;
   }
-  /* Language toggle for the menu titles (driven by <html lang>) */
-  .mbp-lang-en { display: none; }
-  :global(html[lang="en"]) .mbp-lang-en { display: inline; }
-  :global(html[lang="en"]) .mbp-lang-de { display: none; }
+  /* Menu titles follow <html lang>: German menus on German pages, English
+     everywhere else (the app UI ships in English for those locales). */
+  .mbp-lang-de { display: none; }
+  :global(html[lang="de"]) .mbp-lang-de { display: inline; }
+  :global(html[lang="de"]) .mbp-lang-en { display: none; }
 
   /* Hide the menu titles when the device gets narrow — keep apple + app name. */
   @container (max-width: 360px) {
     .mbp-mb-menus { display: none; }
-    :global(html[lang="en"]) .mbp-mb-menus { display: none; }
+    :global(html[lang]) .mbp-mb-menus { display: none; }
   }
 
   /* ---- App window: maximised, but stopping above the dock ---- */
@@ -529,14 +514,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         nextSrc = lang === 'de' ? img.dataset.screenshotMacDe : img.dataset.screenshotMacEn;
       }
       nextSrc ??= lang === 'de' ? img.dataset.screenshotDe : img.dataset.screenshotEn;
-      const nextAlt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
       if (nextSrc && img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
-      if (nextAlt) img.setAttribute('alt', nextAlt);
-    });
-    // Sync aria-labels on buttons
-    document.querySelectorAll<HTMLElement>('[data-aria-label-en]').forEach(el => {
-      const label = lang === 'de' ? el.dataset.ariaLabelDe : el.dataset.ariaLabelEn;
-      if (label) el.setAttribute('aria-label', label);
     });
   }
 

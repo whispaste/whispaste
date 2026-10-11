@@ -1,0 +1,13 @@
+Premi una scorciatoia, parla e il testo compare nel cursore in qualsiasi app di Windows
+Due motori sul dispositivo: Whisper (99 lingue, GPU tramite Vulkan) e Parakeet (veloce sulla CPU)
+Il tuo audio resta sul PC; funziona offline dopo il download, una tantum, del modello
+Trascrizione cloud facoltativa tramite OpenAI o Deepgram con la tua chiave API, diretta al provider
+Smart Mode: pulisci, accorcia o traduci prima di incollare, in locale o tramite OpenAI
+Modifica a voce il testo selezionato: dici cosa cambiare e WhisPaste lo riscrive
+Voice Snippets: parole di attivazione che inseriscono testo completo, anche modelli interattivi
+Vocabolario personalizzato e sostituzioni per nomi e gergo
+Cronologia ricercabile con tag, fissaggi, archivio, unione e blocco PIN
+Esportazione in TXT, Markdown, JSON, CSV e Word (.docx)
+Attiva/disattiva o push-to-talk con una scorciatoia globale personalizzabile
+Overlay in tempo reale, pulsante flottante, pannello laterale degli appunti, area di notifica e avvio automatico
+Acquisto unico, nessun abbonamento, nessun account; open source con licenza MIT

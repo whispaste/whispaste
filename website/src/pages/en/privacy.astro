@@ -16,7 +16,6 @@ const breadcrumbItems = [
   title={t(lang, "meta.title.privacy")}
   description={t(lang, "meta.description.privacy")}
   lang={lang}
-  alternateSlugs={{ de: 'datenschutz', en: 'privacy' }}
 >
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
@@ -273,12 +272,8 @@ const breadcrumbItems = [
   </div>
 
   <script>
-    import { applyLang } from '../../scripts/i18n';
+    import { applyLang } from '../../scripts/lang-switch';
 
-    // Language switch on this EN-only page routes to the DE-counterpart.
-    (window as any).toggleLang = function () {
-      window.location.assign('/datenschutz/');
-    };
 
     applyLang();
   </script>

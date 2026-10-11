@@ -1,34 +1,34 @@
 ---
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
 interface Props {
   variant?: 'landing' | 'subpage';
 }
 const { variant = 'landing' } = Astro.props;
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
-const impressumHref = lang === 'de' ? '/impressum/' : '/en/impressum/';
-const privacyHref = lang === 'de' ? '/datenschutz/' : '/en/privacy/';
-const changelogHref = lang === 'de' ? '/changelog/' : '/en/changelog/';
-const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
-const sponsorHref = lang === 'de' ? '/sponsor/' : '/en/sponsor/';
-const screenshotsHref = lang === 'de' ? '/screenshots/' : '/en/screenshots/';
+const impressumHref = pathForSlug(lang, 'impressum');
+const privacyHref = pathForSlug(lang, 'privacy');
+const changelogHref = pathForSlug(lang, 'changelog');
+const downloadHref = pathForSlug(lang, 'download');
+const sponsorHref = pathForSlug(lang, 'sponsor');
+const screenshotsHref = pathForSlug(lang, 'screenshots');
 const year = new Date().getFullYear();
 
 // Ressourcen-Spalte: verlinkt die Long-Tail-Erklär-/Vergleichsseiten von der
 // Startseite aus. Ohne diese Links waren die Seiten reine Sitemap-Einträge
 // ohne ein einziges internes <a href> — siehe seo-audit vom 2026-07-02.
-const whisperDesktopHref = lang === 'de' ? '/whisper-desktop/' : '/en/whisper-desktop/';
-const enginesHref = lang === 'de' ? '/engines/' : '/en/engines/';
-const engineBenchmarksHref = lang === 'de' ? '/engine-benchmarks/' : '/en/engine-benchmarks/';
-const offlineSttHref = lang === 'de' ? '/offline-speech-to-text/' : '/en/offline-speech-to-text/';
-const privacyExplainerHref = lang === 'de' ? '/privatsphaere-spracherkennung/' : '/en/privacy-speech-recognition/';
-const dictationAlternativesHref = lang === 'de' ? '/vergleich/diktiersoftware-alternativen/' : '/en/comparison/voice-input-tool-alternatives/';
-const osDictationHref = lang === 'de' ? '/vergleich/whispaste-vs-system-spracheingabe/' : '/en/comparison/whispaste-vs-system-speech-to-text/';
-const gpuCheckHref = lang === 'de' ? '/gpu-kompatibilitaet/' : '/en/gpu-compatibility/';
-const modelSizeHref = lang === 'de' ? '/whisper-modellgroesse/' : '/en/whisper-model-size/';
-const linuxSttHref = lang === 'de' ? '/linux-spracherkennung/' : '/en/linux-speech-to-text/';
+const whisperDesktopHref = pathForSlug(lang, 'whisper-desktop');
+const enginesHref = pathForSlug(lang, 'engines');
+const engineBenchmarksHref = pathForSlug(lang, 'engine-benchmarks');
+const offlineSttHref = pathForSlug(lang, 'offline-speech-to-text');
+const privacyExplainerHref = pathForSlug(lang, 'privacy-speech-recognition');
+const dictationAlternativesHref = pathForSlug(lang, 'comparison/voice-input-tool-alternatives');
+const osDictationHref = pathForSlug(lang, 'comparison/whispaste-vs-system-speech-to-text');
+const gpuCheckHref = pathForSlug(lang, 'gpu-compatibility');
+const modelSizeHref = pathForSlug(lang, 'whisper-model-size');
+const linuxSttHref = pathForSlug(lang, 'linux-speech-to-text');
 ---
 
 {/* pb-28 unter 640px: die fixe MobileCta-Leiste (~75px hoch) verdeckte sonst

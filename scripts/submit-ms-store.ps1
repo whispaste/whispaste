@@ -145,10 +145,12 @@ $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 # entry." on the 2026-07-29 run and concluded 'de-de' was therefore new/fake.
 # That log line is real, but the conclusion drawn from it was backwards - see
 # above for what actually determines which locale is live.
-$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de' }
+$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de'; 'es-ES' = 'es-es'; 'pt-BR' = 'pt-br'; 'it-IT' = 'it-it'; 'ru-RU' = 'ru-ru'; 'zh-CN' = 'zh-cn' }
 
 # store/ folder name → tools/appstore-screens output lang folder ('en'/'de').
-$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de' }
+# Screenshots exist in English and German only; the other listings reuse the
+# English set (the app UI is English for those locales, Russian aside).
+$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de'; 'es-ES' = 'en'; 'pt-BR' = 'en'; 'it-IT' = 'en'; 'ru-RU' = 'en'; 'zh-CN' = 'en' }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

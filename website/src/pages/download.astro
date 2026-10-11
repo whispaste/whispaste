@@ -9,7 +9,7 @@ import MacStoreButton from "../components/MacStoreButton.astro";
 import AppleButton from "../components/AppleButton.astro";
 import DownloadSupportModal from "../components/DownloadSupportModal.astro";
 import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
-import { t, localePath } from "../scripts/i18n.ts";
+import { t, localePath, currentLocale } from "../scripts/i18n.ts";
 import {
   WINDOWS_SETUP_URL,
   DIAGNOSE_WINDOWS_URL,
@@ -23,7 +23,7 @@ import { PKG_MANAGER_ICONS } from "../scripts/pkgManagerIcons.ts";
 
 const pkgManagerGroups = getLivePkgManagersGroupedByPlatform();
 
-const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
+const lang = currentLocale(Astro.currentLocale);
 const breadcrumbItems = [
   { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
   { name: t(lang, "breadcrumb.download"), item: localePath(lang, "download") },
@@ -480,7 +480,7 @@ const breadcrumbItems = [
                     </div>
                     <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-ink overflow-x-auto">
                       <div class="flex items-center justify-between mb-1">
-                        <div class="pkg-comment text-ink-subtle">{ch.comment[lang]}</div>
+                        <div class="pkg-comment text-ink-subtle">{lang === "de" ? ch.comment.de : ch.comment.en}</div>
                         <button
                           class="pkg-copy-btn text-xs text-ink-muted hover:text-ink transition-colors px-2 py-0.5 rounded-[var(--radius-chip)] border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] inline-flex items-center gap-1.5"
                           data-copy-text={ch.commands.join('\n')}
@@ -619,7 +619,7 @@ const breadcrumbItems = [
   <DownloadSupportModal />
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
 
     applyLang();
 

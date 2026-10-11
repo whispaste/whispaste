@@ -1,6 +1,6 @@
 # WhisPaste
 
-> WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and inserts the transcript at the cursor position of the active application on Windows and macOS (Linux copies it to the clipboard for a manual paste). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated) and Parakeet via sherpa-onnx (~25 languages, CPU-only but several times faster than whisper.cpp on the same hardware). It is a desktop-only app; iOS and Android are not planned.
+> WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and inserts the transcript at the cursor position of the active application (on Linux after a one-time uinput setup; otherwise it lands on the clipboard). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated via Metal or Vulkan) and Parakeet via sherpa-onnx (~25 European languages, CPU-only and about ten times faster than whisper.cpp on the same CPU in the project's own benchmark). Optional cloud transcription (OpenAI, Deepgram) uses the user's own API key. It is a desktop-only app; iOS and Android are not planned.
 
 ## Download
 
@@ -34,10 +34,14 @@
 - [Anwendungsfälle (Deutsch)](https://whispaste.de/use-cases/): Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App
 - [Use cases (English)](https://whispaste.de/en/use-cases/): Voice input for developers, students, and everyday writing — straight at the cursor in any app
 
-## Comparisons
+## Screenshots
 
 - [Screenshots (Deutsch)](https://whispaste.de/screenshots/): Visueller Einblick in die App-Oberfläche
 - [Screenshots (English)](https://whispaste.de/en/screenshots/): Visual tour of the app surface
+
+## Other languages
+
+- [Español](https://whispaste.de/es/), [Português (Brasil)](https://whispaste.de/pt/), [Italiano](https://whispaste.de/it/), [Русский](https://whispaste.de/ru/), [简体中文](https://whispaste.de/zh/): the landing page and guides in further languages
 
 ## Source & Releases
 

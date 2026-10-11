@@ -1,18 +1,21 @@
-Speech-to-text for your desktop: WhisPaste turns your voice into text and pastes it right where your cursor is, in any app. Press a hotkey, speak, done. No copy-paste, no app switching.
+WhisPaste turns your voice into text right where your cursor is, in any Windows app. Press a hotkey, speak, done. No copy and paste, no switching windows.
 
-Works everywhere: Outlook, Teams, VS Code, Chrome, Slack, or any other window.
+It works wherever you type: Outlook, Teams, Word, VS Code, Chrome, Slack and every other app.
 
-🔒 YOUR AUDIO STAYS LOCAL
-Three Whisper models (Small, Medium, and Large v3 Turbo) plus the extra-fast, CPU-only Parakeet engine transcribe your speech entirely on your machine. Your audio never leaves your device. Up to 99 languages with Whisper. Cloud options (OpenAI, Deepgram) are available but always opt-in, and audio goes directly to the provider, never through WhisPaste servers. No account required.
+🔒 YOUR VOICE STAYS ON YOUR PC
+Whisper (three model sizes, 99 languages) and the fast Parakeet engine (about 25 European languages, CPU only) transcribe entirely on your computer. Recordings are not kept after transcription. A graphics card speeds Whisper up through Vulkan but is never required. After the one-time model download, transcription works without an internet connection. Cloud transcription with OpenAI or Deepgram is optional and uses your own API key; the audio goes straight to the provider, never through a WhisPaste server. No account needed.
 
-💶 ONE-TIME, NOT A SUBSCRIPTION
-No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and built transparently on GitHub. Your purchase directly supports its ongoing development.
+✨ SMART MODE (OPTIONAL)
+Clean up filler words and punctuation, shorten a text or translate it into seven languages before it is pasted. Runs on a local AI model or through OpenAI with your own key. Select text in any app and say what should change, and WhisPaste rewrites it in place.
 
-📋 HISTORY & EXPORT
-Every recording is saved automatically. Search, tag, pin, archive, and export to TXT, Markdown, JSON, CSV, or Word.
+📋 HISTORY, NOTES & EXPORT
+Every transcript is saved locally and searchable. Tag, pin, archive, merge and export to TXT, Markdown, JSON, CSV or Word. A PIN lock keeps the history private. Notes and quick notes keep longer thoughts in one place.
 
-⌨️ VOICE SHORTCUTS
-Say a short trigger: WhisPaste expands it into the full text before pasting. Perfect for signatures, greetings, and frequently typed phrases.
+⌨️ VOICE SNIPPETS & YOUR OWN WORDS
+Say a trigger word and WhisPaste inserts the full text: signatures, greetings, phrases you type every day. Interactive snippets fill templates field by field. Custom vocabulary and replacements make names and jargon come out right.
 
 🎛️ BUILT FOR DAILY WORK
-Push-to-talk or toggle · Floating Button above your desktop · System tray integration · Auto-start with Windows · English, German, Hebrew, and Russian UI
+Toggle or push-to-talk · Live overlay with optional live preview · Floating button · Clipboard side panel at the screen edge · System tray and autostart · Interface in English, German, Hebrew and Russian
+
+💶 ONE-TIME PURCHASE, NO SUBSCRIPTION
+WhisPaste is open source (MIT license) and free on GitHub. The Store version has the same features, updates automatically, and your purchase directly funds further development.

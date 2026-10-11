@@ -10,9 +10,9 @@
 // bootstrap script (inline below) reads its text straight out of that DOM to
 // build the WebGL scene — no copy is duplicated into a second data format.
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 const appPanels = [
   { id: 'editor', labelKey: 'spatial.panel.editor', captionKey: 'spatial.caption.editor' },

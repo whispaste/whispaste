@@ -3,9 +3,9 @@ import StoreButton from './StoreButton.astro';
 import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 const FEATURE_ICON = `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`;
 

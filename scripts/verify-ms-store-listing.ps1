@@ -39,7 +39,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
-$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de' }
+$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de'; 'es-ES' = 'es-es'; 'pt-BR' = 'pt-br'; 'it-IT' = 'it-it'; 'ru-RU' = 'ru-ru'; 'zh-CN' = 'zh-cn' }
 $problems = @()
 
 function Read-StoreFile { param([string]$Path) (Get-Content $Path -Raw -Encoding UTF8).TrimEnd("`r","`n") }

@@ -1,23 +1,12 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
+import { DEFAULT_FAQ_KEYS } from './schema/builders.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
-const faqs = [
-  { key: 'free' },
-  { key: 'offline' },
-  { key: 'accuracy' },
-  { key: 'sysreq' },
-  { key: 'languages' },
-  { key: 'engines' },
-  { key: 'snippets' },
-  { key: 'smartmode' },
-  { key: 'privacy' },
-  { key: 'windows' },
-  { key: 'smartscreen' },
-  { key: 'gatekeeper' },
-];
+// Same order as the FAQPage schema, so rich results match the visible text.
+const faqs = DEFAULT_FAQ_KEYS.map((key) => ({ key }));
 ---
 
 <!-- FAQ Section -->

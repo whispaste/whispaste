@@ -15,9 +15,11 @@
  * screenshot shows.
  */
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
+// Screenshots exist for the German and English app UI; other locales show English.
+const screenshotLang = lang === 'de' ? 'de' : 'en';
 
 type GalleryTheme = 'dark' | 'light';
 
@@ -37,18 +39,16 @@ const screens: Array<{
   id: string;
   theme: GalleryTheme;
   i18nLabel: string;
-  defaultLabel: string;
-  deLabel: string;
   height: number;
 }> = [
-  { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick', height: 1080 },
+  { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', height: 1080 },
   { id: '02_workspace_detail',   theme: 'dark',  i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern', height: 1080 },
-  { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice Snippets that save keystrokes', deLabel: 'Sprach-Snippets, die Tippen ersparen', height: 1080 },
+  { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', height: 1080 },
   { id: '04_settings',           theme: 'dark',  i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow', height: 1080 },
-  { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', defaultLabel: 'Track how you use your voice', deLabel: 'Verfolge, wie du deine Stimme nutzt', height: 1080 },
+  { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', height: 1080 },
   { id: '06_smart_mode',           theme: 'dark', i18nLabel: 'gallery.smartmode',   defaultLabel: 'Clean up, shorten, or translate as you speak', deLabel: 'Bereinigen, kürzen oder übersetzen beim Sprechen', height: 1072 },
   { id: '07_snippet_picker',       theme: 'dark', i18nLabel: 'gallery.picker',      defaultLabel: 'Search and insert snippets right at your cursor', deLabel: 'Snippets direkt am Cursor suchen und einfügen', height: 1072 },
-  { id: '08_interactive_snippet',  theme: 'dark', i18nLabel: 'gallery.interactive', defaultLabel: 'Guided snippets fill in every field by voice', deLabel: 'Geführte Snippets füllen jedes Feld per Stimme', height: 1072 },
+  { id: '08_interactive_snippet',  theme: 'dark', i18nLabel: 'gallery.interactive', height: 1072 },
   { id: '09_side_panel',           theme: 'dark', i18nLabel: 'gallery.sidepanel',   defaultLabel: 'Your clipboard and transcripts, one edge-pull away', deLabel: 'Zwischenablage und Transkripte, nur einen Handgriff entfernt', height: 1080 },
 ];
 ---
@@ -61,20 +61,14 @@ const screens: Array<{
         <button
           class="gallery-thumb-btn"
           data-gallery-id={screen.id}
-          aria-label={`${screen.defaultLabel}: click to enlarge`}
-          data-aria-label-en={`${screen.defaultLabel}: click to enlarge`}
-          data-aria-label-de={`${screen.deLabel}: klicken zum Vergrößern`}
-          data-alt-en={screen.defaultLabel}
-          data-alt-de={screen.deLabel}
+          aria-label={t(lang, 'gallery.enlargeAria').replace('{label}', t(lang, screen.i18nLabel))}
         >
           <img
             class="gallery-image"
-            src={`/screenshots/${lang}/${screen.theme}/${screen.id}.webp`}
+            src={`/screenshots/${screenshotLang}/${screen.theme}/${screen.id}.webp`}
             data-gallery-id={screen.id}
             data-gallery-theme={screen.theme}
-            alt={screen.defaultLabel}
-            data-alt-en={screen.defaultLabel}
-            data-alt-de={screen.deLabel}
+            alt={t(lang, screen.i18nLabel)}
             width="1920"
             height={screen.height}
             loading={idx === 0 ? 'eager' : 'lazy'}
@@ -215,12 +209,6 @@ const screens: Array<{
         const theme = img.dataset.galleryTheme || 'dark';
         const newSrc = buildSrc(id, lang, theme);
         if (img.getAttribute('src') !== newSrc) img.src = newSrc;
-        const alt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
-        if (alt) img.alt = alt;
-      });
-      root.querySelectorAll<HTMLElement>('[data-aria-label-en]').forEach(el => {
-        const label = lang === 'de' ? el.dataset.ariaLabelDe : el.dataset.ariaLabelEn;
-        if (label) el.setAttribute('aria-label', label);
       });
     }
 

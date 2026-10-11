@@ -38,7 +38,7 @@ WhisPaste turns your voice into text right where your cursor is, in any app you 
 2. Eject this disk image.
 3. Open **WhisPaste** from Launchpad or Spotlight.
 
-The first time you launch the app, macOS Gatekeeper may warn that WhisPaste is from an unidentified developer. WhisPaste is open source but not yet notarized by Apple. Right-click the app, choose **Open**, and confirm in the dialog to proceed. After that, future launches behave normally.
+WhisPaste is signed and notarized by Apple, so it opens like any other app. If macOS still blocks an older or self-built copy, open **System Settings → Privacy & Security** and click **Open Anyway**.
 
 ## First-run permissions
 

@@ -436,7 +436,7 @@ describe("SSoT: no literal package-manager commands in download pages", () => {
     "utf8"
   );
   const enDownload = readFileSync(
-    resolve(thisDir, "../../pages/en/download.astro"),
+    resolve(thisDir, "../../pages/[lang]/download.astro"),
     "utf8"
   );
 

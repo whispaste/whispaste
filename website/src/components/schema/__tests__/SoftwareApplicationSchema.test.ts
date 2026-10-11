@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 import {
   APPLICATION_ID,
+  DEFAULT_FEATURE_KEYS,
   buildSoftwareApplicationSchema,
   DEFAULT_OPERATING_SYSTEMS,
   SCHEMA_CONTEXT,
@@ -57,7 +58,7 @@ describe("buildSoftwareApplicationSchema", () => {
     expect(schema.description as string).toMatch(/Cursor/i);
     // featureList mirrors the visible FeatureHighlights cards (localized).
     expect(Array.isArray(schema.featureList)).toBe(true);
-    expect(schema.featureList).toHaveLength(10);
+    expect(schema.featureList).toHaveLength(DEFAULT_FEATURE_KEYS.length);
     expect(schema.featureList as readonly string[]).toContain(
       "Smart Mode: bereinigen, kürzen, übersetzen",
     );

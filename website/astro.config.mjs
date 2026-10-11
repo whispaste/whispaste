@@ -9,13 +9,14 @@ const BUILD_LASTMOD = new Date().toISOString();
 
 export default defineConfig({
   site: 'https://whispaste.de',
-  // i18n-Routing: Deutsch ist Default (kein Prefix), Englisch unter `/en/`.
+  // i18n-Routing: Deutsch ist Default (kein Prefix), alle anderen Sprachen
+  // unter `/<locale>/` (Seiten in `src/pages/[lang]/`, Registry in
+  // `src/scripts/locales.ts` — beide Listen müssen übereinstimmen).
   // Das `<html lang>`-Attribut wird aus `Astro.currentLocale` in `Layout.astro`
-  // gesetzt; die client-seitige `data-i18n`-Schicht bleibt als
-  // Progressive-Enhancement-Sprachumschalter erhalten.
+  // gesetzt; jede Sprache wird vollständig serverseitig gerendert.
   i18n: {
     defaultLocale: 'de',
-    locales: ['de', 'en'],
+    locales: ['de', 'en', 'es', 'pt', 'it', 'ru', 'zh'],
     routing: {
       prefixDefaultLocale: false,
     },
@@ -31,6 +32,11 @@ export default defineConfig({
         locales: {
           de: 'de',
           en: 'en',
+          es: 'es',
+          pt: 'pt-BR',
+          it: 'it',
+          ru: 'ru',
+          zh: 'zh-Hans',
         },
       },
       // `lastmod` auf den Build-Zeitstempel setzen — bei einer statisch

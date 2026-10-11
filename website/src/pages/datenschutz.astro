@@ -7,7 +7,7 @@ import { t, localePath } from "../scripts/i18n.ts";
 
 // Diese Page ist die deutsche Datenschutz-Variante. Die i18n-Routing-
 // Aufteilung (Issue 03) trennt EN nach `/en/privacy/`; daher liefern wir hier
-// hart `lang = 'de'` und setzen den entsprechenden `alternateSlugs`-Mapping
+// hart `lang = 'de'` und setzen den entsprechenden `DE_SLUGS` (scripts/locales.ts)-Mapping
 // für das `<link rel="alternate">`-Pair (DE: `/datenschutz/`, EN: `/en/privacy/`).
 const lang = 'de' as const;
 const breadcrumbItems = [
@@ -20,7 +20,6 @@ const breadcrumbItems = [
   title={t(lang, "meta.title.privacy")}
   description={t(lang, "meta.description.privacy")}
   lang={lang}
-  alternateSlugs={{ de: 'datenschutz', en: 'privacy' }}
 >
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
@@ -274,14 +273,8 @@ const breadcrumbItems = [
   </div>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
 
-    // Language switch on this DE-only page routes to the EN-counterpart
-    // instead of toggling inline content. The server-rendered HTML is
-    // already locale-correct.
-    (window as any).toggleLang = function () {
-      window.location.assign('/en/privacy/');
-    };
 
     applyLang();
   </script>

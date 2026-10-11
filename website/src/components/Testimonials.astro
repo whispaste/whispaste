@@ -1,8 +1,8 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 
 // Testimonials.astro — Fetches approved testimonials at BUILD TIME (SSG).
 // Uses PostgREST directly (no Edge Function) — zero invocations against the

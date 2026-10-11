@@ -15,15 +15,16 @@
  * start it themselves, everyone gets a pause toggle (WCAG 2.2.2). Playback
  * also pauses while the film is scrolled off screen.
  */
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 
 interface Props {
   class?: string;
 }
 
 const { class: className = '' } = Astro.props;
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
-const base = `/videos/whispaste-promo-16x9-${lang}`;
+const lang = currentLocale(Astro.currentLocale);
+// The film exists in German and English; every other locale gets the English cut.
+const base = `/videos/whispaste-promo-16x9-${lang === 'de' ? 'de' : 'en'}`;
 ---
 
 <figure id="promo-film" data-testid="promo-film" class:list={['pf-frame', className]}>

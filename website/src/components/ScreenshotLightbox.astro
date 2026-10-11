@@ -1,10 +1,11 @@
 ---
+import { t, currentLocale } from "../scripts/i18n.ts";
 /**
  * Fullscreen screenshot lightbox with navigation.
  * Open via: window.openScreenshotLightbox(images, startIndex)
  * images: Array<{ src: string, alt: string }>
  */
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 
 <div
@@ -12,21 +13,19 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   class="lightbox"
   role="dialog"
   aria-modal="true"
-  aria-label={lang === 'en' ? 'Screenshot viewer' : 'Screenshot-Ansicht'}
-  data-aria-label-en="Screenshot viewer"
-  data-aria-label-de="Screenshot-Ansicht"
+  aria-label={t(lang, "lightbox.aria")}
   hidden
 >
   <div class="lightbox-backdrop" data-lightbox-close></div>
 
-  <button class="lightbox-close" aria-label={lang === 'en' ? 'Close' : 'Schließen'} data-aria-label-en="Close" data-aria-label-de="Schließen" data-lightbox-close>
+  <button class="lightbox-close" aria-label={t(lang, "lightbox.close")} data-lightbox-close>
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
   </button>
 
-  <button class="lightbox-nav lightbox-nav--prev" aria-label={lang === 'en' ? 'Previous screenshot' : 'Vorheriger Screenshot'} data-aria-label-en="Previous screenshot" data-aria-label-de="Vorheriger Screenshot" data-lightbox-prev>
+  <button class="lightbox-nav lightbox-nav--prev" aria-label={t(lang, "lightbox.prev")} data-lightbox-prev>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="15 18 9 12 15 6"></polyline>
     </svg>
@@ -42,7 +41,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     alt=""
   />
 
-  <button class="lightbox-nav lightbox-nav--next" aria-label={lang === 'en' ? 'Next screenshot' : 'Nächster Screenshot'} data-aria-label-en="Next screenshot" data-aria-label-de="Nächster Screenshot" data-lightbox-next>
+  <button class="lightbox-nav lightbox-nav--next" aria-label={t(lang, "lightbox.next")} data-lightbox-next>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="9 18 15 12 9 6"></polyline>
     </svg>
@@ -203,20 +202,12 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       nextBtn.disabled = currentIdx === images.length - 1;
     }
 
-    function syncAriaLabels() {
-      const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
-      root.querySelectorAll<HTMLElement>('[data-aria-label-en]').forEach(el => {
-        const label = lang === 'de' ? el.dataset.ariaLabelDe : el.dataset.ariaLabelEn;
-        if (label) el.setAttribute('aria-label', label);
-      });
-    }
 
     function open(imgs: LightboxImage[], startIdx: number) {
       if (!imgs.length) return;
       images = imgs;
       previousFocus = document.activeElement as HTMLElement;
 
-      syncAriaLabels();
       root.hidden = false;
       // Force reflow so the transition triggers
       void root.offsetHeight;

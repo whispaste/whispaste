@@ -1,12 +1,13 @@
-Press a hotkey, speak, text appears at your cursor, in any Windows app
-Two on-device AI engines: Whisper (up to 99 languages) and Parakeet (extra-fast, CPU-only); your audio never leaves your computer
-Cloud transcription via OpenAI or Deepgram, direct to provider, no WhisPaste server
-No subscription, no time limits; your one-time purchase directly supports development
-Fully offline, no internet or account required
-Open source (MIT license); code is public on GitHub, your purchase funds its development
-Push-to-talk or toggle recording with a fully customizable global hotkey
-Floating Button: always-on-top, draggable recording button above other apps
-Transcription history with full-text search, tags, pin, and archive
-Export to TXT, Markdown, JSON, CSV, and Word (.docx)
-Voice Shortcuts: spoken triggers that expand into full text before pasting
-System tray, auto-start with Windows
+Press a hotkey, speak, and the text appears at your cursor in any Windows app
+Two on-device engines: Whisper (99 languages, GPU via Vulkan) and Parakeet (fast on the CPU)
+Your audio stays on your PC; works offline after a one-time model download
+Optional cloud transcription via OpenAI or Deepgram with your own API key, direct to the provider
+Smart Mode: clean up, shorten or translate before pasting, locally or via OpenAI
+Edit selected text by voice: say what should change and WhisPaste rewrites it
+Voice Snippets: spoken triggers that insert full text, including interactive templates
+Custom vocabulary and replacements for names and jargon
+Searchable history with tags, pins, archive, merge and PIN lock
+Export to TXT, Markdown, JSON, CSV and Word (.docx)
+Toggle or push-to-talk with a customizable global hotkey
+Live overlay, floating button, clipboard side panel, system tray and autostart
+One-time purchase, no subscription, no account; open source under the MIT license

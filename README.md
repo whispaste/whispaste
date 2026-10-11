@@ -61,7 +61,7 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
-**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left or right screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
+**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages) · Edit selected text by voice (select text, press the selection hotkey, say what should change; off by default) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left or right screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
 
 **History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Optional privacy gate and PIN lock (also withholds transcriptions from the side panel, floating-button menu and automation API; auto-lock after inactivity)
 
@@ -102,7 +102,7 @@ Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model 
 
 ## Development
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 11 Big Sur or newer (Apple Silicon), or a recent Linux distro
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 12 Monterey or newer (Apple Silicon), or a recent Linux distro
 
 ```bash
 git clone https://github.com/whispaste/whispaste.git

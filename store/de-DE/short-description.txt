@@ -1,1 +1,1 @@
-Sprache-zu-Text direkt am Cursor, in jeder App. Hotkey drücken, sprechen, fertig. Läuft komplett offline und lokal. Kein Abo, kein Zeitlimit, kein Konto. Cloud optional. Verlauf, Tags und Export inklusive. Quelloffen (MIT). Dein Kauf unterstützt die Entwicklung.
+Sprechen statt tippen: Deine Worte erscheinen als Text direkt am Cursor, in jeder App. Die Transkription läuft mit Whisper oder Parakeet auf deinem PC, funktioniert nach einem einmaligen Modell-Download offline und braucht kein Konto. Cloud optional. Einmalkauf, kein Abo. Quelloffen (MIT).

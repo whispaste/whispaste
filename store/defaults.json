@@ -1,7 +1,12 @@
 {
   "locales": {
     "en-US": "en-us",
-    "de-DE": "de"
+    "de-DE": "de",
+    "es-ES": "es-es",
+    "pt-BR": "pt-br",
+    "it-IT": "it-it",
+    "ru-RU": "ru-ru",
+    "zh-CN": "zh-cn"
   },
   "default": {
     "Title": "WhisPaste – Speech to Text & Voice Typing",

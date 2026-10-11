@@ -1,0 +1,1 @@
+Fale em vez de digitar: suas palavras aparecem como texto direto no cursor, em qualquer app. A transcrição roda no seu PC com Whisper ou Parakeet, funciona offline após um download único do modelo e não exige conta. Nuvem opcional. Compra única, sem assinatura. Código aberto (MIT).

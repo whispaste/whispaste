@@ -40,7 +40,7 @@
  * spiegeln 1:1 die sichtbare `<dl>`-Liste (Google-Rich-Results-Anforderung).
  *
  * Slug divergiert zwischen DE und EN (`linux-spracherkennung` ↔
- * `linux-speech-to-text`), daher explizite `alternateSlugs`.
+ * `linux-speech-to-text`), daher explizite `DE_SLUGS` (scripts/locales.ts).
  */
 import LandingPageLayout from "../layouts/LandingPageLayout.astro";
 import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
@@ -102,7 +102,6 @@ const faqQuestions = [
 /** Literal commands, identical in every locale (they are CLI input, not prose). */
 const shortcutCommands = "whispaste --toggle\nwhispaste --cancel";
 
-const alternateSlugs = { de: "linux-spracherkennung", en: "linux-speech-to-text" };
 
 const relatedPages = [
   { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
@@ -118,7 +117,6 @@ const relatedPages = [
   breadcrumbs={breadcrumbs}
   hero={hero}
   cta={cta}
-  alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
   <p class="tldr">{t(lang, "linuxStt.tldr")}</p>
