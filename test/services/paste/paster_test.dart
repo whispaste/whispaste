@@ -4,7 +4,11 @@ import 'dart:io';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 
+import 'package:whispaste/services/clipboard_history/app_clipboard.dart';
+import 'package:whispaste/services/clipboard_history/clipboard_fingerprint.dart';
+import 'package:whispaste/services/clipboard_history/self_write_suppression_registry.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paster.dart';
 
@@ -394,6 +398,101 @@ void main() {
         expect(controller.writeExcludingHistoryCalls, ['hello', '']);
       },
     );
+  });
+
+  group('DesktopPaster.paste — Win+V leak diagnostics (issue #146)', () {
+    late List<LogRecord> warnings;
+    late StreamSubscription<LogRecord> sub;
+
+    setUp(() {
+      AppClipboard.transientWrites = SelfWriteSuppressionRegistry();
+      warnings = <LogRecord>[];
+      Logger.root.level = Level.ALL;
+      sub = Logger.root.onRecord
+          .where((r) => r.level >= Level.WARNING)
+          .listen(warnings.add);
+    });
+
+    tearDown(() => sub.cancel());
+
+    test(
+      'warns for each plain fallback write where a history-excluded '
+      'write was expected (Windows), so a log shows the Win+V leak',
+      () async {
+        clipboardContent = 'previous clipboard value';
+        final controller = _FakeController();
+        final paster = DesktopPaster(controller, expectsHistoryExclusion: true);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.success);
+        expect(warnings, hasLength(2));
+        expect(warnings.map((r) => r.message), everyElement(contains('Win+V')));
+      },
+    );
+
+    test('stays quiet where no history-excluded write exists '
+        '(macOS/Linux)', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller, expectsHistoryExclusion: false);
+
+      await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(warnings, isEmpty);
+    });
+
+    test('marks the transcript and the restore as transient writes, so a '
+        'later re-copy by another app can be recognized', () async {
+      clipboardContent = 'previous clipboard value';
+      final controller = _FakeController()..writeExcludingHistoryResult = true;
+      final paster = DesktopPaster(controller, expectsHistoryExclusion: true);
+
+      await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(warnings, isEmpty);
+      expect(
+        AppClipboard.transientWrites.shouldSuppress(
+          ClipboardFingerprint.ofText('hello'),
+        ),
+        isTrue,
+      );
+      expect(
+        AppClipboard.transientWrites.shouldSuppress(
+          ClipboardFingerprint.ofText('previous clipboard value'),
+        ),
+        isTrue,
+      );
+    });
+
+    // Win+V honors the Microsoft opt-out formats, but third-party clipboard
+    // managers like Ditto 3.25 only skip writes carrying the older
+    // "Clipboard Viewer Ignore" marker (reporter's finding on #146).
+    test('Windows: transient writes also carry the Clipboard Viewer Ignore '
+        'marker for third-party clipboard managers', () {
+      final src = File(
+        'windows/runner/desktop_paste_host.cpp',
+      ).readAsStringSync();
+      final start = src.indexOf('void ExcludeFromClipboardHistory()');
+      expect(start, isNonNegative);
+      final body = src.substring(start, src.indexOf('\n}\n', start));
+      for (final format in [
+        'ExcludeClipboardContentFromMonitorProcessing',
+        'CanIncludeInClipboardHistory',
+        'CanUploadToCloudClipboard',
+        'Clipboard Viewer Ignore',
+      ]) {
+        expect(body, contains('L"$format"'), reason: format);
+      }
+    });
   });
 
   group('DesktopPaster.typeText', () {

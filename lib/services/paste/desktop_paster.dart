@@ -34,10 +34,19 @@ final _log = AppLogger('DesktopPaster');
 /// clipboard. Without a receipt within the classic buffer, the restore
 /// happens after that buffer as before (still ownership-checked).
 class DesktopPaster implements Paster {
-  const DesktopPaster(this._controller, {this._receipts});
+  const DesktopPaster(
+    this._controller, {
+    this._receipts,
+    this._expectsHistoryExclusion,
+  });
 
   final DesktopPasteController _controller;
   final ClipboardReceiptBridge? _receipts;
+
+  /// Whether this platform has a native history-excluded clipboard write, so
+  /// falling back to the plain write is a Win+V leak worth a warning rather
+  /// than the expected path. Defaults to Windows; injectable for tests.
+  final bool? _expectsHistoryExclusion;
 
   /// Pause between the target's read receipt and the restore, so a reader
   /// that pulls the data in several quick calls (or re-reads it while
@@ -246,7 +255,7 @@ class DesktopPaster implements Paster {
     final receipts = _receipts;
     if (receipts == null) return false;
     try {
-      AppClipboard.markSelfWrite(text);
+      AppClipboard.markTransientWrite(text);
       return await receipts
           .writeClipboardTextWithReceipt(text)
           .timeout(const Duration(seconds: 5));
@@ -289,7 +298,7 @@ class DesktopPaster implements Paster {
     }
 
     final restoreText = previousClipboard ?? '';
-    AppClipboard.markSelfWrite(restoreText);
+    AppClipboard.markTransientWrite(restoreText);
     ClipboardRestoreOutcome outcome;
     try {
       outcome = await receipts
@@ -314,9 +323,15 @@ class DesktopPaster implements Paster {
   /// OS-history-excluded write where the platform supports one — falling
   /// back to the plain clipboard write everywhere else.
   Future<void> _writeTransientClipboardText(String text) async {
-    AppClipboard.markSelfWrite(text);
+    AppClipboard.markTransientWrite(text);
     final excluded = await _controller.writeClipboardTextExcludingHistory(text);
     if (!excluded) {
+      if (_expectsHistoryExclusion ?? Platform.isWindows) {
+        _log.warning(
+          'History-excluded clipboard write failed — falling back to a plain '
+          'write that Win+V clipboard history records (issue #146)',
+        );
+      }
       await Clipboard.setData(ClipboardData(text: text));
     }
   }

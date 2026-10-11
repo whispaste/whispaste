@@ -64,9 +64,24 @@ struct ClipboardBackup {
   std::wstring text;
 };
 
+// OpenClipboard fails outright while any other process holds the clipboard
+// open -- routinely the case for a few ms right after every clipboard
+// change, when Windows' clipboard-history service, clipboard managers and
+// the paste target read it. A single failed attempt used to send the Dart
+// side to its plain, non-history-excluded fallback write, which Win+V then
+// records (issue #146). Bounded at ~100 ms on the platform thread.
+bool OpenClipboardWithRetry(HWND owner) {
+  constexpr int kAttempts = 10;
+  for (int attempt = 0; attempt < kAttempts; ++attempt) {
+    if (::OpenClipboard(owner)) return true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  return false;
+}
+
 ClipboardBackup BackupClipboard(HWND owner) {
   ClipboardBackup backup;
-  if (!::OpenClipboard(owner)) return backup;
+  if (!OpenClipboardWithRetry(owner)) return backup;
   HANDLE handle = ::GetClipboardData(CF_UNICODETEXT);
   if (handle != nullptr) {
     auto* locked = static_cast<const wchar_t*>(::GlobalLock(handle));
@@ -86,13 +101,17 @@ ClipboardBackup BackupClipboard(HWND owner) {
 // (https://learn.microsoft.com/windows/win32/dataxchg/clipboard-history):
 // "ExcludeClipboardContentFromMonitorProcessing" hides the write entirely,
 // while "CanIncludeInClipboardHistory"/"CanUploadToCloudClipboard" (DWORD 0)
-// cover clients that only honor the more specific opt-outs. Must be called
-// with the clipboard already open; does not close it.
+// cover clients that only honor the more specific opt-outs.
+// "Clipboard Viewer Ignore" (presence-only) is the older convention that
+// third-party clipboard managers check instead -- Ditto 3.25 records every
+// write without it (issue #146). Must be called with the clipboard already
+// open; does not close it.
 void ExcludeFromClipboardHistory() {
   const wchar_t* const kFormatNames[] = {
       L"ExcludeClipboardContentFromMonitorProcessing",
       L"CanIncludeInClipboardHistory",
       L"CanUploadToCloudClipboard",
+      L"Clipboard Viewer Ignore",
   };
   for (const wchar_t* name : kFormatNames) {
     UINT format = ::RegisterClipboardFormatW(name);
@@ -122,7 +141,7 @@ void ExcludeFromClipboardHistory() {
 // entry, since it's WhisPaste re-writing it, not the user re-copying it).
 bool WriteClipboardText(HWND owner, const std::wstring& text,
                         bool exclude_from_history = true) {
-  if (!::OpenClipboard(owner)) return false;
+  if (!OpenClipboardWithRetry(owner)) return false;
   ::EmptyClipboard();
   const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
   HGLOBAL handle = ::GlobalAlloc(GMEM_MOVEABLE, bytes);
@@ -153,7 +172,7 @@ bool WriteClipboardText(HWND owner, const std::wstring& text,
 void RestoreClipboard(HWND owner, const ClipboardBackup& backup) {
   if (backup.had_text) {
     WriteClipboardText(owner, backup.text, /*exclude_from_history=*/true);
-  } else if (::OpenClipboard(owner)) {
+  } else if (OpenClipboardWithRetry(owner)) {
     ::EmptyClipboard();
     ::CloseClipboard();
   }
@@ -453,7 +472,7 @@ bool DesktopPasteHost::WriteClipboardTextExcludingHistory(
 bool DesktopPasteHost::WriteClipboardTextWithReceipt(const std::string& text) {
   ResolvePendingRead("superseded");
   receipt_active_ = false;
-  if (!::OpenClipboard(owner_)) return false;
+  if (!OpenClipboardWithRetry(owner_)) return false;
   // EmptyClipboard sends WM_DESTROYCLIPBOARD to the previous owner (maybe
   // us), so the new receipt state is only armed afterwards.
   ::EmptyClipboard();

@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logging/app_logger.dart';
+import 'app_clipboard.dart';
+import 'clipboard_fingerprint.dart';
 import 'clipboard_history_entry.dart';
 import 'clipboard_history_provider.dart';
 
@@ -57,6 +59,23 @@ class ClipboardHistoryMonitorService extends Notifier<void> {
     };
     if (entry == null) {
       _log.warning('clipEntryDetected: malformed payload, ignoring');
+      return;
+    }
+
+    // WhisPaste's own transient write never gets here (self-write
+    // suppression + its opt-out markers). Seeing the same text again means
+    // another app re-copied it without the markers -- that app, not
+    // WhisPaste, is what puts it into Win+V history (issue #146).
+    final text = entry.textValue;
+    if (text != null &&
+        AppClipboard.transientWrites.shouldSuppress(
+          ClipboardFingerprint.ofText(text),
+        )) {
+      _log.warning(
+        'Another app re-copied text WhisPaste had placed on the clipboard '
+        'transiently (${text.length} chars) — clipboard history entries for '
+        'it come from that app (issue #146)',
+      );
       return;
     }
 
