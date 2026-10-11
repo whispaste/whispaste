@@ -224,7 +224,7 @@ void main() {
       expect(OverlayDesignSpec.compactSize.minimalContent, isFalse);
     });
 
-    test('ONE glass material across all three sizes (impeccable pass)', () {
+    test('ONE glass material across all three sizes (design pass)', () {
       // Glass fill/sheen are global constants consumed identically for every
       // size — mini no longer carries its own, more transparent material.
       // Dock-glass values (Maintainer, 2026-07-29, round 2 "noch zu grau"):
@@ -312,7 +312,7 @@ void main() {
     });
 
     test('mini timeline metrics scale so the timeline clears the waveform '
-        '(impeccable layout pass)', () {
+        '(design layout pass)', () {
       const m = OverlayDesignSpec.miniSize;
       expect(m.timelineInsetBottom, 4.0);
       expect(m.timelineStrokeWidth, 1.5);

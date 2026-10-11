@@ -303,7 +303,7 @@ class WpOverlayPainter extends CustomPainter {
       );
       return;
     }
-    // ONE glass material for all three sizes (impeccable pass) — the sizes
+    // ONE glass material for all three sizes (design pass) — the sizes
     // must read as the same slab of glass, only smaller.
     const a = OverlayDesignSpec.fillOpacityFactor;
     canvas.drawPath(
@@ -993,7 +993,7 @@ class WpOverlayPainter extends CustomPainter {
 
   void _drawTimeline(Canvas canvas, Rect pill) {
     final radius = sizeSpec.capsuleRadius;
-    // Per-size timeline metrics (impeccable layout pass): the shared absolute
+    // Per-size timeline metrics (design layout pass): the shared absolute
     // inset/stroke collided with the waveform inside the 28 px mini pill.
     final lineY = pill.bottom - sizeSpec.timelineInsetBottom;
     final lineL = pill.left + radius;
