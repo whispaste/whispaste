@@ -2,23 +2,29 @@
 ///
 /// The search table is the single source of truth for section keywords.
 /// Each entry carries the section key (matching [SettingsPage._sectionKeys]),
-/// localised title/subtitle for DE and EN, and a flat keyword list that
-/// includes synonyms in both languages so searches work regardless of app
-/// locale.
+/// the L10n keys of the section's own title and subtitle (the same strings the
+/// section header renders, so chips and search hits never drift from the page),
+/// and a flat keyword list that includes synonyms in both DE and EN so searches
+/// work regardless of app locale.
 library;
+
+import 'package:flutter/widgets.dart';
+
+import '../../../core/l10n/generated/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
 // Model
 // ---------------------------------------------------------------------------
 
+/// Resolves one localised settings label from the generated [L10n] strings.
+typedef SettingsSearchLabel = String Function(L10n l10n);
+
 class SettingsSearchEntry {
   const SettingsSearchEntry({
     required this.id,
     required this.sectionKey,
-    required this.titleDe,
-    required this.titleEn,
-    required this.subtitleDe,
-    required this.subtitleEn,
+    required this.titleOf,
+    required this.subtitleOf,
     required this.keywords,
   });
 
@@ -28,10 +34,11 @@ class SettingsSearchEntry {
   /// Section key matching [SettingsPage._sectionKeys].
   final String sectionKey;
 
-  final String titleDe;
-  final String titleEn;
-  final String subtitleDe;
-  final String subtitleEn;
+  /// Section title as rendered by the section header (all UI languages).
+  final SettingsSearchLabel titleOf;
+
+  /// Section subtitle as rendered by the section header (all UI languages).
+  final SettingsSearchLabel subtitleOf;
 
   /// Synonym keywords in both DE and EN for accent-tolerant substring search.
   ///
@@ -39,13 +46,21 @@ class SettingsSearchEntry {
   /// synonyms that are not part of the displayed text.
   final List<String> keywords;
 
-  /// Returns the title for the given locale language tag.
-  /// Falls back to EN for any locale other than `'de'`.
-  String title(String locale) => locale.startsWith('de') ? titleDe : titleEn;
+  /// Returns the title for the given locale language tag (e.g. `'ru'`).
+  String title(String locale) => titleOf(_l10nFor(locale));
 
   /// Returns the subtitle for the given locale language tag.
-  String subtitle(String locale) =>
-      locale.startsWith('de') ? subtitleDe : subtitleEn;
+  String subtitle(String locale) => subtitleOf(_l10nFor(locale));
+}
+
+/// Resolves the generated [L10n] for a BCP-47 language tag. Tags without an
+/// app translation fall back to English, the template locale.
+L10n _l10nFor(String locale) {
+  final language = locale.split(RegExp('[-_]')).first;
+  final supported = L10n.supportedLocales.any(
+    (l) => l.languageCode == language,
+  );
+  return lookupL10n(Locale(supported ? language : 'en'));
 }
 
 // ---------------------------------------------------------------------------
@@ -56,14 +71,12 @@ class SettingsSearchEntry {
 ///
 /// Keywords deliberately include both DE and EN synonyms so the matcher works
 /// regardless of the app language the user has selected.
-const List<SettingsSearchEntry> kSettingsSearchTable = [
+final List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'interface',
     sectionKey: 'interface',
-    titleDe: 'Oberfläche',
-    titleEn: 'Interface',
-    subtitleDe: 'Aussehen und Verhalten',
-    subtitleEn: 'Appearance and behavior',
+    titleOf: (l10n) => l10n.settingsInterface,
+    subtitleOf: (l10n) => l10n.settingsInterfaceSubtitle,
     keywords: [
       // DE
       'Thema', 'Hell', 'Dunkel', 'Design', 'Erscheinungsbild', 'Sprache',
@@ -82,10 +95,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'stt',
     sectionKey: 'stt',
-    titleDe: 'Spracherkennung',
-    titleEn: 'Speech Recognition',
-    subtitleDe: 'Spracherkennungsqualität und Dienst',
-    subtitleEn: 'Voice recognition quality and service',
+    titleOf: (l10n) => l10n.settingsSpeechRecognition,
+    subtitleOf: (l10n) => l10n.settingsSpeechRecognitionSubtitle,
     keywords: [
       // DE
       'Modell', 'Whisper', 'Qualität', 'Transkription', 'Dienst', 'lokal',
@@ -107,10 +118,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'smartMode',
     sectionKey: 'smartMode',
-    titleDe: 'Smart Mode',
-    titleEn: 'Smart Mode',
-    subtitleDe: 'Nachbearbeitung nach dem Diktieren',
-    subtitleEn: 'Post-processing after dictation',
+    titleOf: (l10n) => l10n.settingsSmartMode,
+    subtitleOf: (l10n) => l10n.settingsSmartModeSubtitle,
     keywords: [
       // DE
       'Preset', 'Aufräumen', 'Kürzen', 'Übersetzen', 'Gemma', 'Modell',
@@ -125,10 +134,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'audio',
     sectionKey: 'audio',
-    titleDe: 'Audio',
-    titleEn: 'Audio',
-    subtitleDe: 'Mikrofon und Aufnahme',
-    subtitleEn: 'Microphone and recording',
+    titleOf: (l10n) => l10n.settingsAudio,
+    subtitleOf: (l10n) => l10n.settingsAudioSubtitle,
     keywords: [
       // DE
       'Mikrofon', 'Aufnahme', 'Verstärkung', 'Lautstärke', 'Push-to-Talk',
@@ -141,10 +148,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'afterTranscription',
     sectionKey: 'afterTranscription',
-    titleDe: 'Nach der Transkription',
-    titleEn: 'After Transcription',
-    subtitleDe: 'Was mit dem transkribierten Text geschieht',
-    subtitleEn: 'What happens with the transcribed text',
+    titleOf: (l10n) => l10n.settingsAfterTranscription,
+    subtitleOf: (l10n) => l10n.settingsAfterTranscriptionSubtitle,
     keywords: [
       // DE
       'Zwischenablage', 'Einfügen', 'Autopaste', 'Kopieren', 'Aktion',
@@ -157,10 +162,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'overlay',
     sectionKey: 'overlay',
-    titleDe: 'Aufnahme-Overlay',
-    titleEn: 'Recording Overlay',
-    subtitleDe: 'Aufnahmezustand beim Diktieren anzeigen',
-    subtitleEn: 'Recording status display while dictating',
+    titleOf: (l10n) => l10n.settingsOverlayFloatingButton,
+    subtitleOf: (l10n) => l10n.settingsOverlayFloatingButtonSubtitle,
     keywords: [
       // DE
       'Overlay', 'schwebend', 'Anzeige', 'Status', 'Position', 'Fenster',
@@ -174,10 +177,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'floatingButton',
     sectionKey: 'floatingButton',
-    titleDe: 'Schwebender Button',
-    titleEn: 'Floating Button',
-    subtitleDe: 'Immer sichtbarer Aufnahme-Button für schnellen Zugriff',
-    subtitleEn: 'Always-on-top recording button for quick access',
+    titleOf: (l10n) => l10n.settingsFloatingButtonSection,
+    subtitleOf: (l10n) => l10n.settingsFloatingButtonSectionSubtitle,
     keywords: [
       // DE
       'Button', 'schwebend', 'immer sichtbar', 'Aufnahme-Button',
@@ -190,10 +191,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'hotkey',
     sectionKey: 'hotkey',
-    titleDe: 'Tastenkürzel',
-    titleEn: 'Keyboard Shortcut',
-    subtitleDe: 'Globaler Hotkey zum Starten und Stoppen der Aufnahme',
-    subtitleEn: 'Global hotkey to start and stop recording',
+    titleOf: (l10n) => l10n.settingsKeyboardShortcut,
+    subtitleOf: (l10n) => l10n.settingsKeyboardShortcutSubtitle,
     keywords: [
       // DE
       'Tastenkürzel', 'Tastenkombination', 'Hotkey', 'Kürzel', 'Shortcut',
@@ -206,10 +205,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'sound',
     sectionKey: 'sound',
-    titleDe: 'Ton & Feedback',
-    titleEn: 'Sound & Feedback',
-    subtitleDe: 'Audio-Signale für Aufnahme-Ereignisse',
-    subtitleEn: 'Audio cues for recording events',
+    titleOf: (l10n) => l10n.settingsSoundFeedback,
+    subtitleOf: (l10n) => l10n.settingsSoundFeedbackSubtitle,
     keywords: [
       // DE
       'Ton', 'Klang', 'Audio-Signal', 'Signal', 'Piep', 'Lautstärke',
@@ -222,10 +219,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'recordingSafety',
     sectionKey: 'recordingSafety',
-    titleDe: 'Aufnahme-Schutz',
-    titleEn: 'Recording Safety',
-    subtitleDe: 'Automatische Prüfungen und Schutzmaßnahmen',
-    subtitleEn: 'Automatic checks and safeguards',
+    titleOf: (l10n) => l10n.settingsRecordingSafety,
+    subtitleOf: (l10n) => l10n.settingsRecordingSafetySubtitle,
     keywords: [
       // DE
       'Schutz', 'Stille', 'automatisch stoppen', 'Timeout', 'Mikrofon-Timeout',
@@ -238,10 +233,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'history',
     sectionKey: 'history',
-    titleDe: 'Verlauf',
-    titleEn: 'History',
-    subtitleDe: 'Aufbewahrung und automatische Bereinigung',
-    subtitleEn: 'Retention and automatic cleanup',
+    titleOf: (l10n) => l10n.settingsHistory,
+    subtitleOf: (l10n) => l10n.settingsHistorySubtitle,
     keywords: [
       // DE
       'Einträge', 'Papierkorb', 'Bereinigung', 'Aufbewahrung', 'Maximum',
@@ -261,15 +254,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'settingsPortability',
     sectionKey: 'settingsPortability',
-    titleDe: 'Sicherung & Übertragung',
-    titleEn: 'Backup & Transfer',
-    // Mirrors the section's own header prose (Ticket 25): the row label and
-    // row subtitle this used to echo are gone, and a search hit must not
-    // advertise wording the section no longer shows.
-    subtitleDe:
-        'Sicherung anlegen oder Einrichtung auf einen anderen Rechner '
-        'mitnehmen',
-    subtitleEn: 'Back up your setup or take it to another computer',
+    titleOf: (l10n) => l10n.settingsPortabilitySectionTitle,
+    subtitleOf: (l10n) => l10n.settingsPortabilitySectionSubtitle,
     keywords: [
       // DE
       'Export', 'Import', 'exportieren', 'importieren', 'Umzug', 'übertragen',
@@ -288,10 +274,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'advanced',
     sectionKey: 'advanced',
-    titleDe: 'Erweitert',
-    titleEn: 'Advanced',
-    subtitleDe: 'Zurücksetzen, Fehlerberichte, Updates und Systemverhalten',
-    subtitleEn: 'Reset, error reporting, updates, and system behavior',
+    titleOf: (l10n) => l10n.settingsAdvanced,
+    subtitleOf: (l10n) => l10n.settingsAdvancedSubtitle,
     keywords: [
       // DE
       'Zurücksetzen', 'Standardwerte', 'Fehlerberichte', 'Updates',
@@ -306,10 +290,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'automationApi',
     sectionKey: 'automationApi',
-    titleDe: 'Lokale Automatisierungs-API',
-    titleEn: 'Local Automation API',
-    subtitleDe: 'Diktat per Skript auslösen',
-    subtitleEn: 'Trigger dictation from your own scripts',
+    titleOf: (l10n) => l10n.settingsAutomationApi,
+    subtitleOf: (l10n) => l10n.settingsAutomationApiSubtitle,
     keywords: [
       // DE
       'Automatisierung', 'API', 'Skript', 'Token', 'Bearer', 'HTTP',
@@ -322,10 +304,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'updates',
     sectionKey: 'updates',
-    titleDe: 'Updates',
-    titleEn: 'Updates',
-    subtitleDe: 'Release-Kanal und Update-Prüfung',
-    subtitleEn: 'Release channel and update checks',
+    titleOf: (l10n) => l10n.settingsUpdates,
+    subtitleOf: (l10n) => l10n.settingsUpdatesSubtitle,
     keywords: [
       // DE
       'Update', 'Beta', 'Kanal', 'Release-Kanal', 'Vorabversion', 'prüfen',
@@ -338,10 +318,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'onboardingReview',
     sectionKey: 'onboardingReview',
-    titleDe: 'Einführung',
-    titleEn: 'Introduction',
-    subtitleDe: 'Die fünf Einrichtungsschritte erneut durchgehen',
-    subtitleEn: 'Go through the five setup steps again',
+    titleOf: (l10n) => l10n.onboardingReviewEntry,
+    subtitleOf: (l10n) => l10n.onboardingReviewSubtitle,
     keywords: [
       // DE
       'Einführung', 'Onboarding', 'Ersteinrichtung', 'Einrichtung',
@@ -354,14 +332,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'reviewSupport',
     sectionKey: 'reviewSupport',
-    titleDe: 'WhisPaste bewerten & unterstützen',
-    titleEn: 'Rate & support WhisPaste',
-    subtitleDe:
-        'Deine Bewertung hilft anderen, WhisPaste zu finden, und '
-        'unterstützt das Projekt.',
-    subtitleEn:
-        'Your rating helps others discover WhisPaste and supports '
-        'the project.',
+    titleOf: (l10n) => l10n.reviewSupportEntry,
+    subtitleOf: (l10n) => l10n.reviewSupportSubtitle,
     keywords: [
       // DE
       'Bewertung', 'bewerten', 'Sterne', 'Store', 'unterstützen',
@@ -372,10 +344,8 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
   SettingsSearchEntry(
     id: 'privacy',
     sectionKey: 'privacy',
-    titleDe: 'Datenschutz',
-    titleEn: 'Privacy',
-    subtitleDe: 'Lege fest, welche Daten WhisPaste teilt',
-    subtitleEn: 'Control what data WhisPaste shares',
+    titleOf: (l10n) => l10n.settingsPrivacy,
+    subtitleOf: (l10n) => l10n.settingsPrivacySubtitle,
     keywords: [
       // DE
       'Datenschutz', 'Analyse', 'Statistik', 'Tracking', 'anonym',
