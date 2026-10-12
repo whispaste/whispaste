@@ -189,7 +189,7 @@ class L10nPt extends L10n {
 
   @override
   String historyNoResultsHint(String query) {
-    return 'Nenhuma transcrição corresponde a \\\"$query\\\".\nTente outro termo de pesquisa.';
+    return 'Nenhuma transcrição corresponde a \"$query\".\nTente outro termo de pesquisa.';
   }
 
   @override
@@ -1114,7 +1114,7 @@ class L10nPt extends L10n {
 
   @override
   String get groqRemovedToast =>
-      'O Groq STT foi removido. O provedor voltou para On-Device.';
+      'O Groq STT foi removido. O provedor voltou para o modo no dispositivo.';
 
   @override
   String get tccResetAfterUpdateToast =>
@@ -1209,7 +1209,7 @@ class L10nPt extends L10n {
   String get actionRetry => 'Tentar novamente';
 
   @override
-  String get actionClearSearch => 'Limpar busca';
+  String get actionClearSearch => 'Limpar pesquisa';
 
   @override
   String get tooltipLanguage => 'Idioma';
@@ -1372,10 +1372,10 @@ class L10nPt extends L10n {
   }
 
   @override
-  String get replacementsSearch => 'Buscar substituições…';
+  String get replacementsSearch => 'Pesquisar substituições…';
 
   @override
-  String get replacementsSearchFieldLabel => 'Buscar substituições';
+  String get replacementsSearchFieldLabel => 'Pesquisar substituições';
 
   @override
   String get replacementsAdd => 'Adicionar';
@@ -1391,7 +1391,7 @@ class L10nPt extends L10n {
   String get replacementsNoMatches => 'Nenhum resultado';
 
   @override
-  String get replacementsNoMatchesHint => 'Tente outro termo de busca.';
+  String get replacementsNoMatchesHint => 'Tente outro termo de pesquisa.';
 
   @override
   String get replacementsToggleLabel => 'Ativar substituições';
@@ -1457,7 +1457,7 @@ class L10nPt extends L10n {
 
   @override
   String get replacementsImportHint =>
-      'Procura identificadores em uma pasta de projeto e os adiciona como substituições fuzzy — nada sai do seu dispositivo.';
+      'Procura identificadores em uma pasta de projeto e os adiciona como substituições semelhantes — nada sai do seu dispositivo.';
 
   @override
   String replacementsImportSummary(int found, int added, int skipped) {
@@ -1905,7 +1905,7 @@ class L10nPt extends L10n {
       'Ajude a melhorar o WhisPaste. Cada opinião conta.';
 
   @override
-  String get feedbackCategoryLabel => 'Sobre o que é?';
+  String get feedbackCategoryLabel => 'Sobre o que se trata?';
 
   @override
   String get feedbackCategoryBug => 'Relatar bug';
@@ -2016,10 +2016,10 @@ class L10nPt extends L10n {
   String get statusBarOnDevice => 'No dispositivo';
 
   @override
-  String get statusBarOverlayFloating => 'Sobreposição: flutuante';
+  String get statusBarOverlayFloating => 'Overlay: flutuante';
 
   @override
-  String get statusBarOverlayOff => 'Sobreposição: desativada';
+  String get statusBarOverlayOff => 'Overlay: desativado';
 
   @override
   String get statusBarAfterCopy => 'Depois: copiar';
@@ -2074,11 +2074,11 @@ class L10nPt extends L10n {
 
   @override
   String get statusBarAutoPasteOffHint =>
-      'Colagem automática desativada; ative em Configurações';
+      'Auto-Paste desativado; ative em Configurações';
 
   @override
   String get statusBarAutoPasteOffHintTooltip =>
-      'A colagem automática está desativada no momento. Clique para abrir as Configurações.';
+      'O Auto-Paste está desativado no momento. Clique para abrir as Configurações.';
 
   @override
   String get statusBarAutoPasteOffHintDismiss => 'Dispensar';
@@ -2218,7 +2218,7 @@ class L10nPt extends L10n {
 
   @override
   String get qualityTierPremiumDesc =>
-      'Máxima precisão para gravações longas e conteúdo complexo. Requer uma GPU capaz.';
+      'Máxima precisão para gravações longas e conteúdo complexo. Requer uma GPU potente.';
 
   @override
   String get qualityTierRecommended => 'Recomendado para o seu dispositivo';
@@ -2509,7 +2509,7 @@ class L10nPt extends L10n {
   String get historyDuplicated => 'Entrada duplicada';
 
   @override
-  String get historyViewRaw => 'Bruto';
+  String get historyViewRaw => 'Original';
 
   @override
   String get historyViewEdited => 'Editado';
@@ -2648,7 +2648,7 @@ class L10nPt extends L10n {
 
   @override
   String tagDeleteUnusedAction(int count) {
-    return 'Excluir $count tags sem uso';
+    return 'Excluir $count sem uso';
   }
 
   @override
@@ -2883,8 +2883,7 @@ class L10nPt extends L10n {
       'Continuar em execução na bandeja do sistema ao fechar a janela';
 
   @override
-  String get settingsSidePanelEnabled =>
-      'Painel de colagem rápida da área de transferência';
+  String get settingsSidePanelEnabled => 'Painel de colagem rápida';
 
   @override
   String get settingsSidePanelEnabledSubtitle =>
@@ -2915,19 +2914,18 @@ class L10nPt extends L10n {
       'Entra em vigor após reiniciar o WhisPaste.';
 
   @override
-  String get settingsAutoPasteDelay => 'Atraso da colagem automática';
+  String get settingsAutoPasteDelay => 'Atraso do Auto-Paste';
 
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Tempo de espera antes de colar na janela ativa';
 
   @override
-  String get settingsAutoPasteBlocklist =>
-      'Lista de bloqueio da colagem automática';
+  String get settingsAutoPasteBlocklist => 'Lista de bloqueio do Auto-Paste';
 
   @override
   String get settingsAutoPasteBlocklistSubtitle =>
-      'Identificadores de apps separados por vírgula nos quais a colagem automática fica desativada';
+      'Identificadores de apps, separados por vírgula, nos quais o Auto-Paste fica desativado';
 
   @override
   String get settingsAutoPasteBlocklistPlaceholder =>
@@ -2977,7 +2975,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'Áudio e texto ficam no seu computador. Estatísticas anônimas de uso vão para um servidor próprio na UE, e os relatórios de falhas para o Sentry (região UE), em conformidade com o RGPD.';
+      'Áudio e texto ficam no seu computador. Estatísticas anônimas de uso vão para um servidor próprio na UE, e os relatórios de falhas para o Sentry (região UE), em conformidade com o GDPR.';
 
   @override
   String get onboardingPrivacyToggle =>
@@ -3005,7 +3003,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingAppearancePageSubtitle =>
-      'Como o app inicia e como a sobreposição de gravação fica.';
+      'Como o app inicia e como o overlay de gravação aparece.';
 
   @override
   String get onboardingBeat1Title => 'Pressione o atalho, fale, pronto';
@@ -3157,7 +3155,8 @@ class L10nPt extends L10n {
       'O WhisPaste mantém o contexto da gravação anterior por até dez minutos. Antes de mudar rapidamente para um assunto não relacionado, faça uma pequena pausa para que o próximo resultado continue certo.';
 
   @override
-  String get onboardingReadyAutostartToggle => 'Iniciar o WhisPaste no login';
+  String get onboardingReadyAutostartToggle =>
+      'Iniciar o WhisPaste ao fazer login';
 
   @override
   String get onboardingReadyAutostartToggleHint =>
@@ -3384,7 +3383,7 @@ class L10nPt extends L10n {
 
   @override
   String get historyVoiceNoteButtonTooltip =>
-      'Nota de voz — diga “tag: …” para adicionar uma tag, ou “correção: …” para reescrever esta transcrição';
+      'Nota de voz — diga “tag: …” para adicionar uma tag, ou “correct: …” para reescrever esta transcrição';
 
   @override
   String updateAvailable(String version) {
@@ -3643,7 +3642,7 @@ class L10nPt extends L10n {
       'Botão de gravação sempre no topo, para acesso rápido';
 
   @override
-  String get settingsSttIdleTimeout => 'Tempo ocioso do motor';
+  String get settingsSttIdleTimeout => 'Tempo de inatividade do motor';
 
   @override
   String get settingsSttIdleTimeoutSubtitle =>
@@ -3812,14 +3811,14 @@ class L10nPt extends L10n {
 
   @override
   String get historyWriteFailedToast =>
-      'Não foi possível salvar o registro. Verifique o espaço de armazenamento disponível.';
+      'Não foi possível salvar a entrada. Verifique o espaço de armazenamento disponível.';
 
   @override
   String get historyWriteFailedAction => 'Copiar diagnóstico';
 
   @override
   String get factoryResetFailedToast =>
-      'Restauração de fábrica incompleta. Reiniciar o app?';
+      'Redefinição de fábrica incompleta. Reiniciar o app?';
 
   @override
   String get factoryResetFailedAction => 'Sair do app';
@@ -3841,7 +3840,7 @@ class L10nPt extends L10n {
       'O vocabulário personalizado está muito longo. Encurte-o em Configurações.';
 
   @override
-  String get settingsGpuAcceleration => 'Aceleração gráfica';
+  String get settingsGpuAcceleration => 'Aceleração por GPU';
 
   @override
   String get settingsGpuAccelerationSubtitle =>
@@ -3997,8 +3996,7 @@ class L10nPt extends L10n {
       'Mantenha suas transcrições privadas atrás de um PIN — inclusive o painel lateral e o menu do botão flutuante — com bloqueio automático opcional após inatividade. Configurações → Histórico.';
 
   @override
-  String get featureSpotlightChangelogLink =>
-      'Ver registro completo de alterações';
+  String get featureSpotlightChangelogLink => 'Ver changelog completo';
 
   @override
   String get featureSpotlightReviewLabel => 'Conhecer os novos recursos';
@@ -4039,7 +4037,7 @@ class L10nPt extends L10n {
 
   @override
   String get notesQuickNoteSet =>
-      'Tornar esta a nota rápida à qual o atalho acrescenta texto';
+      'Definir como nota rápida: o atalho acrescenta texto a ela';
 
   @override
   String get notesQuickNoteClear => 'Nota rápida — remover a marcação';
@@ -4229,7 +4227,7 @@ class L10nPt extends L10n {
   String get smartModeStandardPreset => 'Predefinição padrão';
 
   @override
-  String get smartModePresetOff => 'Desligado';
+  String get smartModePresetOff => 'Desativado';
 
   @override
   String get smartModePresetOffDescription =>
@@ -4419,7 +4417,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsAutomationApiCustomPortSubtitle =>
-      'Deixe vazio para seleção automática de porta — muda automaticamente se ela estiver ocupada';
+      'Deixe em branco para escolher a porta automaticamente — se ela estiver ocupada, outra é usada';
 
   @override
   String get settingsAutomationApiCustomPortHint => 'Automática';
@@ -4522,11 +4520,11 @@ class L10nPt extends L10n {
 
   @override
   String get errorSelectionEditUnsupported =>
-      'Editar uma seleção exige colagem automática, que não está disponível nesta versão';
+      'Editar uma seleção exige o Auto-Paste, que não está disponível nesta versão';
 
   @override
   String get errorSelectionEditCopyFailed =>
-      'Não foi possível ler a seleção — verifique a permissão de colagem automática';
+      'Não foi possível ler a seleção — verifique a permissão do Auto-Paste';
 
   @override
   String get errorSelectionEditFailed =>
