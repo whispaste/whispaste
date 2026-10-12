@@ -998,6 +998,12 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _submit(),
         ),
+        const SizedBox(height: WpSpacing.xxs),
+        Text(
+          l10n.replacementsReplacementHelper,
+          key: const Key('replacementsReplacementHelper'),
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: WpSpacing.md),
 
         // Match mode: Exact / Similar (PRD.md vocabulary-fuzzy-replacements)

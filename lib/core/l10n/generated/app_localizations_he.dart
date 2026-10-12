@@ -910,6 +910,13 @@ class L10nHe extends L10n {
       'מסירה צלילי היסוס כמו \"uh\", \"um\" ו-\"äh\" לפני שהתמלול נשמר או מודבק. רק מילות מילוי חד-משמעיות באנגלית ובגרמנית; מילים שיכולות לשאת משמעות לא משתנות.';
 
   @override
+  String get settingsVoiceLineBreaks => 'מעברי שורה בקול';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'הופך פקודות קוליות כמו „פסקה חדשה“ ו„שורה חדשה“ למעברי שורה אמיתיים. פועל לפי שפת התמלול, ובזיהוי אוטומטי לפי כל השפות הנתמכות.';
+
+  @override
   String get settingsAppLanguage => 'שפת האפליקציה';
 
   @override
@@ -1420,6 +1427,10 @@ class L10nHe extends L10n {
 
   @override
   String get replacementsReplacementHint => 'לדוגמה: אגב';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'השתמשו ב-\\n למעבר שורה וב-\\n\\n לשורה ריקה. לשמירת backslash-n כטקסט רגיל כתבו \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'מחק קיצור';

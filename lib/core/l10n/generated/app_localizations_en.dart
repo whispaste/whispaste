@@ -918,6 +918,13 @@ class L10nEn extends L10n {
       'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.';
 
   @override
+  String get settingsVoiceLineBreaks => 'Spoken line breaks';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override
@@ -1429,6 +1436,10 @@ class L10nEn extends L10n {
 
   @override
   String get replacementsReplacementHint => 'e.g. by the way';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'Delete Replacement';

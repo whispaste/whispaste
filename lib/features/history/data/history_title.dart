@@ -16,7 +16,9 @@ const _maxTitleLength = 60;
 /// position 20, so a title with no early space (e.g. a long single "word")
 /// doesn't get cut down to an unhelpfully short fragment.
 String deriveHistoryTitle(String content) {
-  final trimmed = content.trim();
+  // A title is one line: line breaks from spoken "new paragraph" commands
+  // become spaces here, the content itself keeps them.
+  final trimmed = content.replaceAll(RegExp(r'\s*\n\s*'), ' ').trim();
   if (trimmed.length <= _maxTitleLength) return trimmed;
   final cut = trimmed.substring(0, _maxTitleLength);
   final lastSpace = cut.lastIndexOf(' ');

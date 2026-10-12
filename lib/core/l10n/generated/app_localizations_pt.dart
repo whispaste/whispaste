@@ -927,6 +927,13 @@ class L10nPt extends L10n {
       'Remove hesitações como \"uh\", \"um\" e \"erm\" antes de a transcrição ser salva ou colada. Só palavras de preenchimento inequívocas em inglês e alemão; palavras que podem ter significado nunca são alteradas.';
 
   @override
+  String get settingsVoiceLineBreaks => 'Quebras de linha por voz';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Transforma comandos falados como «novo parágrafo» e «nova linha» em quebras de linha reais. Vale para o idioma da transcrição ou, com detecção automática, para todos os idiomas suportados.';
+
+  @override
   String get settingsAppLanguage => 'Idioma do app';
 
   @override
@@ -1443,6 +1450,10 @@ class L10nPt extends L10n {
 
   @override
   String get replacementsReplacementHint => 'ex.: também';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Use \\n para uma quebra de linha e \\n\\n para uma linha em branco. Para manter uma barra invertida e n como texto, escreva \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'Excluir substituição';

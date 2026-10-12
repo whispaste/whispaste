@@ -359,6 +359,7 @@ class SttSettings {
     this.vadEnabled = true,
     this.numericOnlyMode = false,
     this.removeFillerWords = false,
+    this.voiceLineBreaks = true,
   });
 
   final String provider;
@@ -429,6 +430,13 @@ class SttSettings {
   /// 16): a dictation stays verbatim unless the user opts in.
   final bool removeFillerWords;
 
+  /// Whether spoken line-break commands ("new paragraph", "neue Zeile", ...)
+  /// are turned into real line breaks, after filler removal and before Smart
+  /// Mode and text replacements — see `applyVoiceLineBreaks` in
+  /// `voice_line_breaks.dart`. Default on: the Dragon-style behaviour is the
+  /// point of the feature, and a dictation without those phrases is untouched.
+  final bool voiceLineBreaks;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -463,6 +471,11 @@ class SttSettings {
       'stt_remove_filler_words',
       defaults.removeFillerWords,
     ),
+    voiceLineBreaks: _readBool(
+      v,
+      'stt_voice_line_breaks',
+      defaults.voiceLineBreaks,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -477,6 +490,7 @@ class SttSettings {
     'stt_vad_enabled': '$vadEnabled',
     'stt_numeric_only_mode': '$numericOnlyMode',
     'stt_remove_filler_words': '$removeFillerWords',
+    'stt_voice_line_breaks': '$voiceLineBreaks',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -495,6 +509,7 @@ class SttSettings {
     bool? vadEnabled,
     bool? numericOnlyMode,
     bool? removeFillerWords,
+    bool? voiceLineBreaks,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -507,6 +522,7 @@ class SttSettings {
     vadEnabled: vadEnabled ?? this.vadEnabled,
     numericOnlyMode: numericOnlyMode ?? this.numericOnlyMode,
     removeFillerWords: removeFillerWords ?? this.removeFillerWords,
+    voiceLineBreaks: voiceLineBreaks ?? this.voiceLineBreaks,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -526,7 +542,8 @@ class SttSettings {
           stripPunctuation == other.stripPunctuation &&
           vadEnabled == other.vadEnabled &&
           numericOnlyMode == other.numericOnlyMode &&
-          removeFillerWords == other.removeFillerWords;
+          removeFillerWords == other.removeFillerWords &&
+          voiceLineBreaks == other.voiceLineBreaks;
 
   @override
   int get hashCode => Object.hash(
@@ -541,6 +558,7 @@ class SttSettings {
     vadEnabled,
     numericOnlyMode,
     removeFillerWords,
+    voiceLineBreaks,
   );
 }
 

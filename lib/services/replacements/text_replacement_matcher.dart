@@ -51,6 +51,60 @@ String _flexibleTriggerPattern(String trigger) {
   return parts.join(r'[^\p{L}\p{N}]+');
 }
 
+/// Glue around a trigger that inserts a line break: spaces before it, and
+/// punctuation plus spaces after it. The comma/period *before* a break is a
+/// deliberate keep: it closes the preceding clause ("Hello, new paragraph.
+/// Next" becomes "Hello,\n\nNext"). Only used for line-break replacements,
+/// so plain replacements keep their exact trigger boundaries.
+const _leadingSpaces = r'[ \t]*';
+const _trailingGlue = r'[.,;:!?…]*[ \t]*';
+
+/// Turns the stored replacement text into the text that gets inserted.
+///
+/// Escape syntax (documented in the replacement editor helper text):
+/// - `\n` inserts a line break, so `\n\n` gives a blank line;
+/// - `\\` inserts one literal backslash, so `\\n` stays a literal `\n`;
+/// - any other backslash is kept as typed.
+///
+/// Spaces directly around an inserted break are dropped. Runs of spaces
+/// collapse to one (as before), which never touches a line break.
+String _renderReplacement(String raw) {
+  final decoded = raw.replaceAllMapped(
+    RegExp(r'\\(\\|n)'),
+    (m) => m.group(1) == 'n' ? '\n' : r'\',
+  );
+  return decoded
+      .replaceAll(RegExp(r'[ \t]*\n[ \t]*'), '\n')
+      .replaceAll(RegExp(' {2,}'), ' ');
+}
+
+bool _startsWithBreak(String replacementText) =>
+    replacementText.startsWith('\n');
+
+bool _endsWithBreak(String replacementText) => replacementText.endsWith('\n');
+
+/// Widens a fuzzy match [start]..[end] over the glue [_leadingSpaces] and
+/// [_trailingGlue] — the same rule the exact pass applies via regex, and only
+/// on the sides where [replacementText] actually has a line break.
+(int, int) _widenLineBreakGlue(
+  String text,
+  int start,
+  int end,
+  String replacementText,
+) {
+  var s = start;
+  if (_startsWithBreak(replacementText)) {
+    while (s > 0 && (text[s - 1] == ' ' || text[s - 1] == '\t')) {
+      s--;
+    }
+  }
+  var e = end;
+  if (_endsWithBreak(replacementText)) {
+    e = RegExp(_trailingGlue).matchAsPrefix(text, end)?.end ?? end;
+  }
+  return (s, e);
+}
+
 /// Applies every exact-mode [rules] entry to [text], in order — extracted
 /// verbatim from the pre-v20 `DriftRecordingStore.save()` logic, unchanged
 /// behavior (PRD.md User Story 17: "exakte Replacements ... durch die neue
@@ -66,12 +120,18 @@ String applyExactReplacements(String text, List<TextReplacementRule> rules) {
     final sortedTriggers = [...r.triggers]
       ..sort((a, b) => b.length.compareTo(a.length));
     final alternation = sortedTriggers.map(_flexibleTriggerPattern).join('|');
+    final replacementText = _renderReplacement(r.replacement);
+    // A replacement that starts or ends with a line break also takes the
+    // glue on that side of the trigger with it (see [_leadingSpaces]).
     final pattern = RegExp(
-      r'(?<![\p{L}\p{N}])(?:' + alternation + r')(?![\p{L}\p{N}])',
+      (_startsWithBreak(replacementText) ? _leadingSpaces : '') +
+          r'(?<![\p{L}\p{N}])(?:' +
+          alternation +
+          r')(?![\p{L}\p{N}])' +
+          (_endsWithBreak(replacementText) ? _trailingGlue : ''),
       caseSensitive: false,
       unicode: true,
     );
-    final replacementText = r.replacement.replaceAll(RegExp(' {2,}'), ' ');
     result = result.replaceAll(pattern, replacementText);
   }
   return result;
@@ -146,6 +206,7 @@ Iterable<_FuzzyCandidate> _scoreWindows(
 ) sync* {
   final minScore = (threshold * 100).round();
   final lowerTrigger = trigger.toLowerCase();
+  final replacementText = _renderReplacement(rule.replacement);
   for (final windowSize in {
     if (targetWordCount > 1) targetWordCount - 1,
     targetWordCount,
@@ -160,7 +221,13 @@ Iterable<_FuzzyCandidate> _scoreWindows(
         lowerTrigger,
       );
       if (score >= minScore) {
-        yield _FuzzyCandidate(start, end, score, rule.replacement);
+        final (from, to) = _widenLineBreakGlue(
+          text,
+          start,
+          end,
+          replacementText,
+        );
+        yield _FuzzyCandidate(from, to, score, replacementText);
       }
     }
   }

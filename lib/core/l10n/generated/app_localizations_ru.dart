@@ -954,6 +954,13 @@ class L10nRu extends L10n {
       'Удаляет звуки-заминки вроде «uh», «um» и «äh» перед сохранением или вставкой транскрипции. Только однозначные английские и немецкие паразиты; слова со смыслом не затрагиваются.';
 
   @override
+  String get settingsVoiceLineBreaks => 'Голосовые переносы строк';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Превращает голосовые команды вроде «новый абзац» и «новая строка» в настоящие переносы строк. Действует для языка транскрипции, а при автоопределении — для всех поддерживаемых языков.';
+
+  @override
   String get settingsAppLanguage => 'Язык приложения';
 
   @override
@@ -1472,6 +1479,10 @@ class L10nRu extends L10n {
 
   @override
   String get replacementsReplacementHint => 'напр. кстати';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Используйте \\n для переноса строки и \\n\\n для пустой строки. Чтобы оставить обратный слеш и n как текст, напишите \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'Удалить замену';

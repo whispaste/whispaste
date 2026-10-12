@@ -1271,6 +1271,60 @@ void main() {
     });
   });
 
+  group('Spoken line breaks (voiceLineBreaks)', () {
+    Future<void> runCase({
+      required SttSettings stt,
+      required String transcript,
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          stt: stt,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = transcript;
+      await orch.stopRecording();
+    }
+
+    test('on by default: "neuer Absatz" becomes a blank line in the paste, '
+        'history keeps the spoken original', () async {
+      await runCase(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+        transcript: 'Sehr geehrte Damen und Herren, neuer Absatz. Vielen Dank.',
+      );
+
+      expect(clipboardText, 'Sehr geehrte Damen und Herren,\n\nVielen Dank.');
+      final entries = await db.allEntries();
+      expect(
+        entries.first.content,
+        'Sehr geehrte Damen und Herren,\n\nVielen Dank.',
+      );
+      expect(
+        entries.first.originalTranscript,
+        'Sehr geehrte Damen und Herren, neuer Absatz. Vielen Dank.',
+      );
+    });
+
+    test('off: the command stays in the transcript', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          voiceLineBreaks: false,
+        ),
+        transcript: 'Hallo neue Zeile du',
+      );
+
+      expect(clipboardText, 'Hallo neue Zeile du');
+    });
+  });
+
   // =========================================================================
   // Snippet-Picker dispatch (exact-match short-circuit, dictation-automations
   // ticket 06)

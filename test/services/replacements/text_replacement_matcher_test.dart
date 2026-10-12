@@ -135,4 +135,89 @@ void main() {
       expect(result, 'on my way to getUserById');
     });
   });
+
+  group('replacement escapes', () {
+    test(r'\n in the replacement inserts a line break', () {
+      final result = applyExactReplacements('Gruß sig', const [
+        TextReplacementRule(triggers: ['sig'], replacement: r'Best\n\nMax'),
+      ]);
+      expect(result, 'Gruß Best\n\nMax');
+    });
+
+    test(r'\\n stays a literal backslash-n', () {
+      final result = applyExactReplacements('set dir', const [
+        TextReplacementRule(triggers: ['dir'], replacement: r'Pfad\\n'),
+      ]);
+      expect(result, 'set Pfad\\n');
+    });
+
+    test(r'\\ in the replacement inserts one backslash', () {
+      final result = applyExactReplacements('x path', const [
+        TextReplacementRule(triggers: ['path'], replacement: r'C:\\new'),
+      ]);
+      expect(result, 'x C:\\new');
+    });
+
+    test('other backslashes are kept as typed', () {
+      final result = applyExactReplacements('x go', const [
+        TextReplacementRule(triggers: ['go'], replacement: r'a\tb'),
+      ]);
+      expect(result, r'x a\tb');
+    });
+
+    test('spaces around an inserted break are dropped, runs stay intact', () {
+      final result = applyExactReplacements('hi there', const [
+        TextReplacementRule(triggers: ['hi'], replacement: r'Hallo \n Welt'),
+      ]);
+      expect(result, 'Hallo\nWelt there');
+    });
+
+    test('a run of line breaks is not collapsed', () {
+      final result = applyExactReplacements('x y', const [
+        TextReplacementRule(triggers: ['y'], replacement: r'a\n\n\nb'),
+      ]);
+      expect(result, 'x a\n\n\nb');
+    });
+
+    test('"Hello, new paragraph. Next" gives "Hello,\\n\\nNext"', () {
+      final result = applyExactReplacements(
+        'Hello, new paragraph. Next',
+        const [
+          TextReplacementRule(
+            triggers: ['new paragraph'],
+            replacement: r'\n\n',
+          ),
+        ],
+      );
+      expect(result, 'Hello,\n\nNext');
+    });
+
+    test('glue is only taken on the side that has the break', () {
+      // Replacement starts with text, ends with a break: the space before
+      // the trigger stays, the punctuation after it goes.
+      final result = applyExactReplacements('Hi sig. Next', const [
+        TextReplacementRule(triggers: ['sig'], replacement: r'Best\n'),
+      ]);
+      expect(result, 'Hi Best\nNext');
+    });
+
+    test('a plain replacement keeps its punctuation and spaces', () {
+      final result = applyExactReplacements('Hello, btw. Next', const [
+        TextReplacementRule(triggers: ['btw'], replacement: 'by the way'),
+      ]);
+      expect(result, 'Hello, by the way. Next');
+    });
+
+    test('fuzzy line-break replacement takes the same glue', () {
+      final result = applyFuzzyReplacements('Hello, new paragrph. Next', const [
+        TextReplacementRule(
+          triggers: ['new paragraph'],
+          replacement: r'\n\n',
+          matchMode: TextReplacementMatchMode.fuzzy,
+          fuzzyThreshold: 0.85,
+        ),
+      ]);
+      expect(result, 'Hello,\n\nNext');
+    });
+  });
 }

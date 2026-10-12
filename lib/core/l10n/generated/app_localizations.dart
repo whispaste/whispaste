@@ -1689,6 +1689,18 @@ abstract class L10n {
   /// **'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.'**
   String get settingsRemoveFillerWordsSubtitle;
 
+  /// No description provided for @settingsVoiceLineBreaks.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoken line breaks'**
+  String get settingsVoiceLineBreaks;
+
+  /// No description provided for @settingsVoiceLineBreaksSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.'**
+  String get settingsVoiceLineBreaksSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:
@@ -2588,6 +2600,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'e.g. by the way'**
   String get replacementsReplacementHint;
+
+  /// No description provided for @replacementsReplacementHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.'**
+  String get replacementsReplacementHelper;
 
   /// No description provided for @replacementsDeleteTitle.
   ///

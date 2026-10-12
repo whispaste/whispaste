@@ -927,6 +927,13 @@ class L10nDe extends L10n {
       'Entfernt Verlegenheitslaute wie „äh“, „ähm“ und „öhm“, bevor das Transkript gespeichert oder eingefügt wird. Nur eindeutige deutsche und englische Füllwörter; Wörter mit Bedeutung bleiben unangetastet.';
 
   @override
+  String get settingsVoiceLineBreaks => 'Gesprochene Zeilenumbrüche';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Macht aus gesprochenen Befehlen wie „neuer Absatz“ und „neue Zeile“ echte Zeilenumbrüche. Gilt für die Sprache der Transkription, bei automatischer Erkennung für alle unterstützten Sprachen.';
+
+  @override
   String get settingsAppLanguage => 'App-Sprache';
 
   @override
@@ -1443,6 +1450,10 @@ class L10nDe extends L10n {
 
   @override
   String get replacementsReplacementHint => 'z. B. mit freundlichen Grüßen';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Verwende \\n für einen Zeilenumbruch und \\n\\n für eine Leerzeile. Für ein wörtliches Backslash-n schreibe \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'Ersetzung löschen';

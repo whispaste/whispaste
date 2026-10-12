@@ -262,6 +262,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'stt_remove_filler_words',
   'stt_strip_punctuation',
   'stt_vad_enabled',
+  'stt_voice_line_breaks',
   'text_replacements_enabled',
   // No 'theme_mode' since 2026-08-11. It left this list with the light theme:
   // `toStorageMap()` no longer emits the key, and the assertion that every

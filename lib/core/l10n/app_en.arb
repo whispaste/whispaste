@@ -324,6 +324,8 @@
   "settingsNumericOnlyModeSubtitle": "Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn't fully convertible.",
   "settingsRemoveFillerWords": "Remove filler words",
   "settingsRemoveFillerWordsSubtitle": "Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.",
+  "settingsVoiceLineBreaks": "Spoken line breaks",
+  "settingsVoiceLineBreaksSubtitle": "Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.",
   "settingsAppLanguage": "App Language",
   "settingsSttModels": "Speech Recognition Models",
   "settingsOpenAiApiKey": "OpenAI API Key",
@@ -569,6 +571,7 @@
   "replacementsRemoveTrigger": "Remove trigger phrase",
   "replacementsReplacementLabel": "Replacement text",
   "replacementsReplacementHint": "e.g. by the way",
+  "replacementsReplacementHelper": "Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.",
   "replacementsDeleteTitle": "Delete Replacement",
   "replacementsDeleteMessage": "Remove the replacement \"{trigger}\"? This cannot be undone.",
   "@replacementsDeleteMessage": {

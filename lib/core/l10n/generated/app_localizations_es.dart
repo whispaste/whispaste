@@ -924,6 +924,13 @@ class L10nEs extends L10n {
       'Elimina sonidos de duda como «uh», «um» o «erm» antes de guardar o pegar la transcripción. Solo muletillas inequívocas en inglés y alemán; las palabras con significado nunca se tocan.';
 
   @override
+  String get settingsVoiceLineBreaks => 'Saltos de línea por voz';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Convierte comandos hablados como «nuevo párrafo» y «nueva línea» en saltos de línea reales. Usa el idioma de la transcripción o, con detección automática, todos los idiomas compatibles.';
+
+  @override
   String get settingsAppLanguage => 'Idioma de la app';
 
   @override
@@ -1443,6 +1450,10 @@ class L10nEs extends L10n {
 
   @override
   String get replacementsReplacementHint => 'p. ej. by the way';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Usa \\n para un salto de línea y \\n\\n para una línea en blanco. Para mantener una barra invertida y n como texto, escribe \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'Eliminar reemplazo';

@@ -56,6 +56,7 @@ import 'selection_edit/selection_edit_service.dart'
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
 import 'text_transforms.dart';
+import 'voice_line_breaks.dart';
 import 'tray_service.dart';
 import 'recording_store.dart';
 import 'stt/inference_client_rejected.dart';
@@ -1169,6 +1170,10 @@ class RecordingOrchestrator extends Notifier<void> {
       );
     }
 
+    // Spoken line breaks: same position and history contract as filler
+    // removal (after the snapshot, before Smart Mode and replacements).
+    finalText = _applySpokenLineBreaks(finalText, settings);
+
     // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
     // Runs before history-save/snippet-picker/paste so every downstream
     // consumer of `finalText` sees the same (possibly refined) value — this
@@ -1608,6 +1613,17 @@ class RecordingOrchestrator extends Notifier<void> {
     final override = ref.read(sttLanguageOverrideProvider);
     final language = override ?? settings.sttLanguageCode;
     return language.isEmpty ? 'auto' : language;
+  }
+
+  /// Turns spoken line-break commands into real line breaks when the setting
+  /// is on. Kept out of [_finalizeTranscription], whose branch count is
+  /// already at the complexity limit.
+  String _applySpokenLineBreaks(String text, AppSettings settings) {
+    if (!settings.stt.voiceLineBreaks) return text;
+    return applyVoiceLineBreaks(
+      text,
+      languageCode: _resolveEffectiveLang(settings),
+    );
   }
 
   /// Collapses extraneous whitespace from a raw whisper transcript.

@@ -323,6 +323,27 @@ class _SpeechRecognitionSectionState
             ),
           ),
 
+          // Spoken line breaks ("new paragraph" → blank line). Same
+          // engine-independent text transform path as filler removal above.
+          // Default on: the Dragon-style behaviour is the point of it.
+          SettingRow(
+            icon: LucideIcons.cornerDownLeft,
+            label: l10n.settingsVoiceLineBreaks,
+            subtitle: l10n.settingsVoiceLineBreaksSubtitle,
+            semanticToggledValue: settings.stt.voiceLineBreaks,
+            trailing: settingsToggle(
+              key: const Key('voiceLineBreaksToggle'),
+              value: settings.stt.voiceLineBreaks,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(voiceLineBreaks: v),
+                    ),
+                  ),
+            ),
+          ),
+
           // Punctuation priming — local Whisper only (a prompt nudge fed
           // into whisper.cpp's initial-prompt mechanism; no equivalent
           // exists for the cloud providers or Parakeet). For a toggle that

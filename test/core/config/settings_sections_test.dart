@@ -60,6 +60,35 @@ void main() {
     });
   });
 
+  group('SttSettings.voiceLineBreaks', () {
+    test('defaults to true', () {
+      expect(SttSettings.defaults.voiceLineBreaks, isTrue);
+    });
+
+    test('toMap -> fromMap round-trip preserves false', () {
+      const settings = SttSettings(voiceLineBreaks: false);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.voiceLineBreaks, isFalse);
+    });
+
+    test('is persisted under stt_voice_line_breaks', () {
+      const settings = SttSettings(voiceLineBreaks: false);
+      expect(settings.toMap()['stt_voice_line_breaks'], 'false');
+    });
+
+    test('missing key in map falls back to the default (true)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_voice_line_breaks');
+      expect(SttSettings.fromMap(map).voiceLineBreaks, isTrue);
+    });
+
+    test('two instances differing only in voiceLineBreaks are unequal', () {
+      const a = SttSettings(voiceLineBreaks: false);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+    });
+  });
+
   group('SttSettings.removeFillerWords', () {
     test('defaults to false', () {
       expect(SttSettings.defaults.removeFillerWords, isFalse);
