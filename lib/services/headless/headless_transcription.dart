@@ -2,7 +2,7 @@
 /// runs the app's own on-device transcription path without any UI and
 /// reports load time, per-run inference time and real-time factor (RTF).
 ///
-/// Used for latency benchmarks (`.github/workflows/headless-benchmark.yml`)
+/// Used for latency benchmarks (`tool/headless_benchmark_check.dart`, `tool/vast_cuda_bench.sh`)
 /// and scripting. It deliberately builds no pipeline of its own: the engine
 /// is reached through the same [transcriberProvider] adapter and
 /// [onDeviceEngineLifecycleProvider] the recording pipeline uses, so whisper

@@ -1,6 +1,6 @@
 /// Compares `whispaste --transcribe-file … --json` reports against the stored
 /// baseline (`tool/headless_benchmark_baseline.json`) and fails on a latency
-/// regression. Run by `.github/workflows/headless-benchmark.yml`.
+/// regression. No CI job runs it since the headless-benchmark workflow was removed; run it locally.
 ///
 /// ```sh
 /// dart "$REPO/tool/headless_benchmark_check.dart" \

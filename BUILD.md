@@ -1,6 +1,6 @@
 # Building WhisPaste from source
 
-This guide shows how to build the desktop app and its bundled on-device engines on macOS, Windows and Linux. Every command below is taken from the CI workflows (`.github/workflows/ci.yml`, `release.yml`, `headless-benchmark.yml`) and the scripts in `scripts/`. If this file and a workflow disagree, the workflow is the source of truth.
+This guide shows how to build the desktop app and its bundled on-device engines on macOS, Windows and Linux. Every command below is taken from the CI workflows (`.github/workflows/ci.yml`, `release.yml`) and the scripts in `scripts/`. If this file and a workflow disagree, the workflow is the source of truth.
 
 ## What gets built
 
@@ -125,7 +125,7 @@ mkdir -p build/linux/x64/release/bundle/lib/smart_mode
 cp .build/libllama/linux/*.so* build/linux/x64/release/bundle/lib/smart_mode/
 ```
 
-Optional, experimental CUDA backend for NVIDIA GPUs (not shipped in any package yet): `--cuda` builds only `libggml-cuda.so` plus the CUDA runtime it links (cudart, cuBLAS, cuBLASLt) into `.build/libwhisper/linux-cuda/`. It needs `nvcc` (e.g. via `python3 scripts/fetch-cuda-redist.py 12.8.1 linux-x86_64 <dir>`, then set `CUDA_HOME=<dir>` and put `<dir>/bin` on `PATH`). Copied into `bundle/lib/`, ggml prefers it over Vulkan; `whispaste --transcribe-file <wav> --json` reports the device in `gpuDevice` (`CUDA0`). CI builds it for Linux and Windows in `.github/workflows/build-cuda-backend.yml`.
+Optional, experimental CUDA backend for NVIDIA GPUs (not shipped in any package yet): `--cuda` builds only `libggml-cuda.so` plus the CUDA runtime it links (cudart, cuBLAS, cuBLASLt) into `.build/libwhisper/linux-cuda/`. It needs `nvcc` (e.g. via `python3 scripts/fetch-cuda-redist.py 12.8.1 linux-x86_64 <dir>`, then set `CUDA_HOME=<dir>` and put `<dir>/bin` on `PATH`). Copied into `bundle/lib/`, ggml prefers it over Vulkan; `whispaste --transcribe-file <wav> --json` reports the device in `gpuDevice` (`CUDA0`). CI does not build it. `tool/vast_cuda_bench.sh` builds it on a rented NVIDIA box, orchestrated from the Mac without GitHub.
 
 ```bash
 bash scripts/build-libwhisper-linux.sh --cuda

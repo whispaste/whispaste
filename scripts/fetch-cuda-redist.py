@@ -5,8 +5,7 @@ redistributable archives, for building ggml's CUDA backend in CI.
 The full CUDA installer is several GB and needs admin rights; ggml-cuda only
 needs nvcc, the runtime, cuBLAS and the header-only CCCL. Upstream
 whisper.cpp's Windows CUDA job installs the same component set from
-https://developer.download.nvidia.com/compute/cuda/redist (see
-.github/workflows/build-cuda-backend.yml). Every archive is checked against
+https://developer.download.nvidia.com/compute/cuda/redist. Every archive is checked against
 the SHA-256 published in NVIDIA's redistrib_<version>.json manifest before it
 is unpacked; the archives' top-level directories are merged into <dest>, so
 <dest> ends up shaped like a regular toolkit install (bin/, include/, lib/…).

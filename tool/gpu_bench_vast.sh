@@ -2,36 +2,39 @@
 # gpu_bench_vast.sh — CUDA vs Vulkan vs CPU whisper benchmark on a rented
 # NVIDIA box (handy-catchup ticket 13). Runs the real app headless
 # (`whispaste --transcribe-file`, lib/services/headless/) with the optional
-# ggml CUDA backend from .github/workflows/build-cuda-backend.yml.
+# ggml CUDA backend built by scripts/build-libwhisper-linux.sh --cuda.
 #
-# Target: a fresh Vast.ai (or RunPod) Ubuntu 24.04 container as root, e.g.
-# image nvidia/cuda:12.8.1-base-ubuntu24.04 with NVIDIA_DRIVER_CAPABILITIES=all
-# (the Vulkan run needs the driver's graphics/ICD files inside the container;
-# without them it is reported as skipped). Driver >= 570 (CUDA 12.8). Ubuntu
-# 24.04 because the bundle and the CUDA module are built on ubuntu-24.04
-# runners (glibc 2.39).
+# Driven locally from the Mac by tool/vast_cuda_bench.sh, which builds
+# everything on the box and rsyncs our code in. The bundle, the CUDA module and
+# the audio clips are local paths on the box; the Whisper models come from
+# Hugging Face (the only download this script makes).
 #
-# Inputs (local path or tokenless URL — GitHub artifacts need auth, so
-# download them locally with `gh run download` and scp them up):
-#   <bundle.tar.gz>     Linux release bundle: the `headless-benchmark-linux-bundle`
-#                       artifact of headless-benchmark.yml (workflow_dispatch),
-#                       must contain lib/libwhisper.so
-#   <ggml-cuda.tar.gz>  `ggml-cuda-linux-x64` artifact of build-cuda-backend.yml
+# Target: a rented Ubuntu 24.04 container as root (nvidia/cuda:12.8.1-devel-
+# ubuntu24.04, NVIDIA_DRIVER_CAPABILITIES=all so the Vulkan run finds the
+# driver's ICD; without it Vulkan is reported as skipped). Driver >= 570.
 #
-# Usage: bash gpu_bench_vast.sh <bundle.tar.gz|url> <ggml-cuda.tar.gz|url> [out-dir]
+# Inputs (local paths):
+#   <bundle-dir>    Flutter Linux bundle (contains `whispaste` and lib/, with
+#                   lib/libwhisper.so + the CPU/Vulkan ggml modules)
+#   <cuda-lib-dir>  output of `build-libwhisper-linux.sh --cuda`
+#                   (libggml-cuda.so + libcudart/libcublas/libcublasLt)
+#
+# Usage: bash gpu_bench_vast.sh <bundle-dir> <cuda-lib-dir> [out-dir]
 # Env:   BENCH_REPEAT (default 5), BENCH_MODELS (default "whisper-medium
-#        whisper-large-v3-turbo"), BENCH_CLIPS (seconds, default "10 30")
+#        whisper-large-v3-turbo"), BENCH_CLIPS (seconds, default "10 30"),
+#        BENCH_SAMPLES (default: website/scripts/librispeech-sample of this repo)
 # Output: <out-dir>/{system.json,<mode>-<model>-<clip>s.json,results.json,results.md}
 set -euo pipefail
 
-BUNDLE_SRC="${1:?usage: gpu_bench_vast.sh <bundle.tar.gz|url> <ggml-cuda.tar.gz|url> [out-dir]}"
-CUDA_SRC="${2:?usage: gpu_bench_vast.sh <bundle.tar.gz|url> <ggml-cuda.tar.gz|url> [out-dir]}"
+BUNDLE_SRC="${1:?usage: gpu_bench_vast.sh <bundle-dir> <cuda-lib-dir> [out-dir]}"
+CUDA_SRC="${2:?usage: gpu_bench_vast.sh <bundle-dir> <cuda-lib-dir> [out-dir]}"
 OUT="$(mkdir -p "${3:-gpu-bench-results}" && cd "${3:-gpu-bench-results}" && pwd)"
 REPEAT="${BENCH_REPEAT:-5}"
 MODELS="${BENCH_MODELS:-whisper-medium whisper-large-v3-turbo}"
 CLIPS="${BENCH_CLIPS:-10 30}"
 WORK="${BENCH_WORK:-/opt/wp-bench}"
-SAMPLE_BASE="https://raw.githubusercontent.com/whispaste/whispaste/dev/website/scripts/librispeech-sample"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SAMPLE_DIR="${BENCH_SAMPLES:-$REPO_ROOT/website/scripts/librispeech-sample}"
 
 echo "=== gpu_bench_vast: deps ==="
 export DEBIAN_FRONTEND=noninteractive
@@ -44,23 +47,16 @@ apt-get install -y -qq --no-install-recommends \
   libgtk-3-0 libsecret-1-0 libnotify4 libayatana-appindicator3-1 libasound2t64 \
   libcurl4 libkeybinder-3.0-0 liblzma5 zlib1g libvulkan1 vulkan-tools >/dev/null
 
-fetch() { # <path-or-url> <dest>
-  if [[ "$1" =~ ^https?:// ]]; then
-    curl -fsSL --retry 3 --retry-delay 5 -o "$2.part" "$1" && mv "$2.part" "$2"
-  else
-    cp "$1" "$2"
-  fi
-}
-
-mkdir -p "$WORK"/{bundle,cuda,models/stt,clips}
-fetch "$BUNDLE_SRC" "$WORK/bundle.tar.gz"
-fetch "$CUDA_SRC" "$WORK/cuda.tar.gz"
-tar -xzf "$WORK/bundle.tar.gz" -C "$WORK/bundle"
-tar -xzf "$WORK/cuda.tar.gz" -C "$WORK/cuda"
-BUNDLE="$(dirname "$(find "$WORK/bundle" -name whispaste -type f -perm -u+x | head -n1)")"
-CUDA_DIR="$(dirname "$(find "$WORK/cuda" -name libggml-cuda.so | head -n1)")"
+mkdir -p "$WORK"/{models/stt,clips}
+BUNDLE="$(cd "$BUNDLE_SRC" && pwd)"
+CUDA_DIR="$(cd "$CUDA_SRC" && pwd)"
+[[ -x "$BUNDLE/whispaste" ]] || { echo "ERROR: no whispaste executable in $BUNDLE" >&2; exit 1; }
 [[ -f "$BUNDLE/lib/libwhisper.so" ]] || { echo "ERROR: no lib/libwhisper.so in bundle" >&2; exit 1; }
-[[ -f "$CUDA_DIR/libggml-cuda.so" ]] || { echo "ERROR: no libggml-cuda.so in CUDA archive" >&2; exit 1; }
+[[ -f "$CUDA_DIR/libggml-cuda.so" ]] || { echo "ERROR: no libggml-cuda.so in $CUDA_DIR" >&2; exit 1; }
+
+download() { # <url> <dest> — only for the Hugging Face model files
+  curl -fsSL --retry 3 --retry-delay 5 -o "$2.part" "$1" && mv "$2.part" "$2"
+}
 
 echo "=== models ==="
 # Same files + SHA-256 as the app's catalog (lib/services/model_download_service.dart).
@@ -75,7 +71,7 @@ declare -A MODEL_SHA=(
 for model in $MODELS; do
   file="$WORK/models/stt/${MODEL_FILE[$model]}"
   if [[ ! -f "$file" ]]; then
-    fetch "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILE[$model]}" "$file"
+    download "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILE[$model]}" "$file"
   fi
   echo "${MODEL_SHA[$model]}  $file" | sha256sum -c -
 done
@@ -84,7 +80,7 @@ echo "=== clips ==="
 # LibriSpeech test-clean (CC BY 4.0, website/scripts/librispeech-sample/)
 # concatenated and cut to exactly N seconds of 16 kHz mono 16-bit PCM.
 for i in $(seq -w 0 19); do
-  fetch "$SAMPLE_BASE/2277-149896-00$i.wav" "$WORK/clips/src-$i.wav"
+  cp "$SAMPLE_DIR/2277-149896-00$i.wav" "$WORK/clips/src-$i.wav"
 done
 python3 -I - "$WORK/clips" $CLIPS <<'PY'
 import glob, os, struct, sys
@@ -110,7 +106,8 @@ PY
 
 echo "=== system ==="
 VULKAN_OK=0
-if vulkaninfo --summary 2>/dev/null | grep -qi nvidia; then VULKAN_OK=1; fi
+vulkaninfo --summary >"$WORK/vulkan.txt" 2>/dev/null || true
+if grep -qi nvidia "$WORK/vulkan.txt"; then VULKAN_OK=1; fi
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader \
   | head -n1 > "$WORK/gpu.csv"
 CUDA_VERSION="$(nvidia-smi | grep -o 'CUDA Version: [0-9.]*' | awk '{print $3}')"
@@ -124,7 +121,7 @@ PY
 cat "$OUT/system.json"
 
 # The app resolves models under $XDG_CONFIG_HOME/whispaste/models/stt
-# (path_service.dart), like headless-benchmark.yml.
+# (path_service.dart).
 export XDG_CONFIG_HOME="$WORK/config"
 mkdir -p "$XDG_CONFIG_HOME/whispaste/models"
 ln -sfn "$WORK/models/stt" "$XDG_CONFIG_HOME/whispaste/models/stt"

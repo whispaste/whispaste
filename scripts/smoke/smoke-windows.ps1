@@ -58,7 +58,7 @@ function Invoke-Diagnose([string]$Exe, [string]$Label) {
   }
   # whispaste.exe is a GUI-subsystem binary: its stdout does not reliably
   # reach this console, so the report goes through --out and success through
-  # the exit code (same as headless-benchmark.yml). stdout/stderr must still
+  # the exit code (same contract as the former headless benchmark workflow). stdout/stderr must still
   # be redirected: started without std handles, the Dart CLI blocks on its
   # stdout write and never exits (seen on Windows 11 24H2).
   $stdoutLog = Join-Path $workDir "$Label.stdout.txt"

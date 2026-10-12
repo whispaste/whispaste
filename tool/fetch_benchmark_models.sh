@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # fetch_benchmark_models.sh — downloads the STT models the headless latency
-# benchmark (.github/workflows/headless-benchmark.yml) runs against, in the
+# benchmark (tool/headless_benchmark_check.dart) runs against, in the
 # app's own on-disk layout (<sttDir>/ggml-*.bin, <sttDir>/parakeet-tdt-0.6b-v3/),
 # so the directory can be mounted as the app's models/stt directory as is.
 #
