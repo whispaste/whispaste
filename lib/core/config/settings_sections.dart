@@ -1244,7 +1244,8 @@ class HotkeySettings {
     hotkeyEnabled: _readBool(v, 'hotkey_enabled', defaults.hotkeyEnabled),
     hotkeyKey: v['hotkey_key'] ?? defaults.hotkeyKey,
     hotkeyKeyDisplay: v['hotkey_key_display'] ?? defaults.hotkeyKeyDisplay,
-    hotkeyModifiers: v['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
+    hotkeyModifiers:
+        v['hotkey_modifiers'] ?? buildDefaultHotkeySettings().hotkeyModifiers,
   );
 
   Map<String, String> toMap() => {
@@ -1328,7 +1329,7 @@ class QuickNoteHotkeySettings {
             defaults.quickNoteHotkeyKeyDisplay,
         quickNoteHotkeyModifiers:
             v['quick_note_hotkey_modifiers'] ??
-            defaults.quickNoteHotkeyModifiers,
+            buildDefaultQuickNoteHotkeySettings().quickNoteHotkeyModifiers,
       );
 
   Map<String, String> toMap() => {
@@ -1413,22 +1414,23 @@ class SnippetPickerHotkeySettings {
   static const SnippetPickerHotkeySettings defaults =
       SnippetPickerHotkeySettings();
 
-  factory SnippetPickerHotkeySettings.fromMap(Map<String, String> v) =>
-      SnippetPickerHotkeySettings(
-        snippetPickerHotkeyEnabled: _readBool(
-          v,
-          'snippet_picker_hotkey_enabled',
-          defaults.snippetPickerHotkeyEnabled,
-        ),
-        snippetPickerHotkeyKey:
-            v['snippet_picker_hotkey_key'] ?? defaults.snippetPickerHotkeyKey,
-        snippetPickerHotkeyKeyDisplay:
-            v['snippet_picker_hotkey_key_display'] ??
-            defaults.snippetPickerHotkeyKeyDisplay,
-        snippetPickerHotkeyModifiers:
-            v['snippet_picker_hotkey_modifiers'] ??
-            defaults.snippetPickerHotkeyModifiers,
-      );
+  factory SnippetPickerHotkeySettings.fromMap(
+    Map<String, String> v,
+  ) => SnippetPickerHotkeySettings(
+    snippetPickerHotkeyEnabled: _readBool(
+      v,
+      'snippet_picker_hotkey_enabled',
+      defaults.snippetPickerHotkeyEnabled,
+    ),
+    snippetPickerHotkeyKey:
+        v['snippet_picker_hotkey_key'] ?? defaults.snippetPickerHotkeyKey,
+    snippetPickerHotkeyKeyDisplay:
+        v['snippet_picker_hotkey_key_display'] ??
+        defaults.snippetPickerHotkeyKeyDisplay,
+    snippetPickerHotkeyModifiers:
+        v['snippet_picker_hotkey_modifiers'] ??
+        buildDefaultSnippetPickerHotkeySettings().snippetPickerHotkeyModifiers,
+  );
 
   Map<String, String> toMap() => {
     'snippet_picker_hotkey_enabled': '$snippetPickerHotkeyEnabled',
@@ -2243,7 +2245,7 @@ class SmartModeHotkeySettings {
             defaults.smartModeHotkeyKeyDisplay,
         smartModeHotkeyModifiers:
             v['smart_mode_hotkey_modifiers'] ??
-            defaults.smartModeHotkeyModifiers,
+            buildDefaultSmartModeHotkeySettings().smartModeHotkeyModifiers,
         smartModeHotkeyPreset:
             v['smart_mode_hotkey_preset'] ?? defaults.smartModeHotkeyPreset,
         smartModeHotkeyTargetLanguage:
@@ -2340,22 +2342,23 @@ class SelectionEditHotkeySettings {
   static const SelectionEditHotkeySettings defaults =
       SelectionEditHotkeySettings();
 
-  factory SelectionEditHotkeySettings.fromMap(Map<String, String> v) =>
-      SelectionEditHotkeySettings(
-        selectionEditHotkeyEnabled: _readBool(
-          v,
-          'selection_edit_hotkey_enabled',
-          defaults.selectionEditHotkeyEnabled,
-        ),
-        selectionEditHotkeyKey:
-            v['selection_edit_hotkey_key'] ?? defaults.selectionEditHotkeyKey,
-        selectionEditHotkeyKeyDisplay:
-            v['selection_edit_hotkey_key_display'] ??
-            defaults.selectionEditHotkeyKeyDisplay,
-        selectionEditHotkeyModifiers:
-            v['selection_edit_hotkey_modifiers'] ??
-            defaults.selectionEditHotkeyModifiers,
-      );
+  factory SelectionEditHotkeySettings.fromMap(
+    Map<String, String> v,
+  ) => SelectionEditHotkeySettings(
+    selectionEditHotkeyEnabled: _readBool(
+      v,
+      'selection_edit_hotkey_enabled',
+      defaults.selectionEditHotkeyEnabled,
+    ),
+    selectionEditHotkeyKey:
+        v['selection_edit_hotkey_key'] ?? defaults.selectionEditHotkeyKey,
+    selectionEditHotkeyKeyDisplay:
+        v['selection_edit_hotkey_key_display'] ??
+        defaults.selectionEditHotkeyKeyDisplay,
+    selectionEditHotkeyModifiers:
+        v['selection_edit_hotkey_modifiers'] ??
+        buildDefaultSelectionEditHotkeySettings().selectionEditHotkeyModifiers,
+  );
 
   Map<String, String> toMap() => {
     'selection_edit_hotkey_enabled': '$selectionEditHotkeyEnabled',

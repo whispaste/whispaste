@@ -451,7 +451,7 @@ void main() {
       () {
         final settings = AppSettings.fromStorageMap(const {});
 
-        expect(settings.quickNoteHotkey, QuickNoteHotkeySettings.defaults);
+        expect(settings.quickNoteHotkey, buildDefaultQuickNoteHotkeySettings());
       },
     );
 
@@ -489,7 +489,7 @@ void main() {
 
         expect(
           settings.snippetPickerHotkey,
-          SnippetPickerHotkeySettings.defaults,
+          buildDefaultSnippetPickerHotkeySettings(),
         );
       },
     );

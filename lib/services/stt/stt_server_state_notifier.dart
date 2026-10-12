@@ -839,6 +839,49 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// Moves the active model from the GPU engine onto the always-CPU fallback
+  /// engine after a transcribe-time GPU crash, so the retry does not run on
+  /// the same crashing GPU configuration. Mirrors the load-time fallback in
+  /// [_start]: load the model on the fallback engine, swap [_engine],
+  /// then unload the old engine.
+  ///
+  /// Returns `false` (and leaves [_engine] untouched) when no retry on CPU is
+  /// possible — no active model, already on the fallback engine, or the CPU
+  /// load itself failed. The caller then surfaces the original crash.
+  Future<bool> _swapToCpuEngineForRetry() async {
+    final modelId = _activeModel;
+    final modelPath = modelId == null ? null : sttModelPath(modelId);
+    final gpuEngine = _engine;
+    final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
+    if (modelPath == null || gpuEngine == null) return false;
+    if (identical(gpuEngine, cpuEngine)) return false;
+    try {
+      await cpuEngine.load(
+        modelPath: modelPath,
+        vadModelPath: defaultWhisperVadModelPath(),
+      );
+    } catch (cpuError) {
+      _log.warning('CPU load after GPU crash failed: $cpuError');
+      return false;
+    }
+    _engine = cpuEngine;
+    unawaited(
+      gpuEngine.unload().catchError((Object e) {
+        _log.warning('Unload of crashed GPU engine failed: $e');
+      }),
+    );
+    if (ref.mounted) {
+      state = state.copyWith(
+        cpuFallbackActive: true,
+        backend: WhisperBackend.cpu,
+      );
+    }
+    _log.warning(
+      'GPU crash during inference — reloaded model on CPU and retrying',
+    );
+    return true;
+  }
+
   /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain
   /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
   /// [WhisperFailureKind] signals:
@@ -911,18 +954,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       } on WhisperEngineException catch (e) {
         switch (e.kind) {
           case WhisperFailureKind.gpuCrash:
-            if (!cpuFallbackTried &&
-                _resiliencePolicy.shouldRetryOnCpu(e.kind)) {
-              cpuFallbackTried = true;
-              if (ref.mounted) {
-                state = state.copyWith(
-                  cpuFallbackActive: true,
-                  backend: WhisperBackend.cpu,
-                );
-              }
-              _log.warning(
-                'GPU crash during inference — degrading to CPU and retrying',
-              );
+            final retryOnCpu =
+                !cpuFallbackTried && _resiliencePolicy.shouldRetryOnCpu(e.kind);
+            cpuFallbackTried = true;
+            if (retryOnCpu && await _swapToCpuEngineForRetry()) {
               continue;
             }
             _captureInferenceFailure(

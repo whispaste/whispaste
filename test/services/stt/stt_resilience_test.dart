@@ -135,6 +135,51 @@ class _FakeWhisperEngine implements WhisperEngine {
   };
 }
 
+/// A GPU-backed [WhisperEngine] fake whose next [transcribe] can be armed to
+/// throw a [WhisperFailureKind.gpuCrash], mirroring a native GPU fault during
+/// inference. Tracks whether it was unloaded so tests can assert the crashed
+/// engine is released after the swap.
+class _CrashingGpuEngine implements WhisperEngine {
+  bool _loaded = false;
+  bool crashNextTranscribe = false;
+  int crashes = 0;
+  bool unloaded = false;
+
+  @override
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.vulkan);
+
+  @override
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
+    _loaded = true;
+  }
+
+  @override
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+  }) async {
+    if (crashNextTranscribe) {
+      crashNextTranscribe = false;
+      crashes++;
+      throw const WhisperEngineException(
+        WhisperFailureKind.gpuCrash,
+        'simulated GPU backend crash',
+      );
+    }
+    return 'gpu';
+  }
+
+  @override
+  Future<void> unload() async {
+    _loaded = false;
+    unloaded = true;
+  }
+}
+
 /// A [WhisperEngine] fake with a fixed, non-swappable [backend] whose [load]
 /// can be armed to fail — used to exercise the FLUTTER_WHISPASTE-80 load-time
 /// CPU-fallback path (a GPU/driver cold-start that hangs past the engine's
@@ -219,10 +264,14 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
 ProviderContainer _makeContainer(
   WhisperEngine engine, {
   AppSettings? settings,
+  WhisperEngine? cpuFallbackEngine,
 }) {
   return ProviderContainer(
     overrides: [
       whisperEngineProvider.overrideWithValue(engine),
+      whisperCpuFallbackEngineProvider.overrideWithValue(
+        cpuFallbackEngine ?? _FakeWhisperEngine(),
+      ),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
           settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
@@ -316,7 +365,8 @@ void main() {
     test('a GPU crash degrades to CPU, sets cpuFallbackActive, and the '
         'retry succeeds', () async {
       final engine = _FakeWhisperEngine();
-      final container = _makeContainer(engine);
+      final cpuEngine = _FakeWhisperEngine();
+      final container = _makeContainer(engine, cpuFallbackEngine: cpuEngine);
       addTearDown(container.dispose);
 
       final notifier = await _bringReady(container);
@@ -340,8 +390,10 @@ void main() {
       );
       expect(
         engine.armedCallCount,
-        2,
-        reason: 'one crashing attempt + one successful CPU retry',
+        1,
+        reason:
+            'the single crashing GPU attempt; the retry runs on the CPU '
+            'engine, not the crashed one',
       );
 
       await CrashReporter.instance!.flush();
@@ -350,6 +402,112 @@ void main() {
         isEmpty,
         reason: 'a successfully recovered GPU crash is not a surfaced error',
       );
+    });
+  });
+
+  // ── F3: transcribe-time GPU crash must swap the engine, not just the flag ─
+  group('GPU crash during inference swaps to the CPU engine', () {
+    ProviderContainer makeGpuContainer({
+      required WhisperEngine gpuEngine,
+      required _LoadFailingEngine cpuEngine,
+    }) {
+      return ProviderContainer(
+        overrides: [
+          whisperEngineProvider.overrideWithValue(gpuEngine),
+          whisperCpuFallbackEngineProvider.overrideWithValue(cpuEngine),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(),
+          ),
+          hw.gpuInfoProvider.overrideWith(
+            (_) async =>
+                const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+          ),
+        ],
+      );
+    }
+
+    test('the retry runs on the CPU engine (loaded with the model), and the '
+        'crashed GPU engine is unloaded', () async {
+      final gpuEngine = _CrashingGpuEngine();
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu)
+        ..trace = <String>[];
+      final container = makeGpuContainer(
+        gpuEngine: gpuEngine,
+        cpuEngine: cpuEngine,
+      );
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      gpuEngine.crashNextTranscribe = true;
+      _capturedEvents.clear();
+
+      final text = await notifier.transcribeBytes(
+        _validWav(),
+        language: 'auto',
+      );
+
+      expect(text, 'ok', reason: 'the retry must be served by the CPU engine');
+      expect(gpuEngine.crashes, 1);
+      expect(
+        cpuEngine.lastLoadedModelPath,
+        isNotNull,
+        reason: 'the CPU engine must load the active model before the retry',
+      );
+      expect(
+        cpuEngine.trace,
+        containsAllInOrder(['load', 'transcribe']),
+        reason: 'load on CPU must precede the CPU retry',
+      );
+      expect(
+        gpuEngine.unloaded,
+        isTrue,
+        reason: 'the crashed GPU engine must be released after the swap',
+      );
+      expect(container.read(localSttBundleProvider).cpuFallbackActive, isTrue);
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.ready,
+      );
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, isEmpty, reason: 'a recovered crash is no error');
+    });
+
+    test('if the CPU load fails, the original GPU crash surfaces and the '
+        'GPU engine stays in place', () async {
+      final gpuEngine = _CrashingGpuEngine();
+      final cpuEngine = _LoadFailingEngine(
+        backend: WhisperBackend.cpu,
+        failLoad: true,
+      );
+      final container = makeGpuContainer(
+        gpuEngine: gpuEngine,
+        cpuEngine: cpuEngine,
+      );
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      gpuEngine.crashNextTranscribe = true;
+      _capturedEvents.clear();
+
+      Object? caught;
+      try {
+        await notifier.transcribeBytes(_validWav(), language: 'auto');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(
+        '$caught',
+        contains('simulated GPU backend crash'),
+        reason: 'the original crash must surface, not a CPU-load error',
+      );
+      expect(gpuEngine.unloaded, isFalse);
+      expect(container.read(localSttBundleProvider).cpuFallbackActive, isFalse);
     });
   });
 
