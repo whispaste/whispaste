@@ -625,6 +625,20 @@ void ensureFakeLocalSttFilesExist({String modelId = 'whisper-small'}) {
   }
 }
 
+/// Runs [body] with the fake model file present, then removes it again: the
+/// scratch directory is shared, and other tests rely on the model being absent.
+Future<T> withFakeSttModel<T>(Future<T> Function() body) async {
+  ensureFakeLocalSttFilesExist();
+  try {
+    return await body();
+  } finally {
+    final modelPath = sttModelPath('whisper-small');
+    if (modelPath != null && File(modelPath).existsSync()) {
+      File(modelPath).deleteSync();
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -760,6 +774,26 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     container.read(recordingProvider.notifier).startRecording();
+    expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    return orch;
+  }
+
+  /// Like [startRecordingPhase], but starts through the orchestrator the way
+  /// production does, so the target and overrides are captured in that
+  /// recording's session instead of being set on the shared providers.
+  Future<RecordingOrchestrator> startRecordingPhaseWithTarget({
+    required RecordingTarget target,
+    SmartModePreset? smartModeHotkeyPreset,
+  }) async {
+    final orch = container.read(recordingOrchestratorProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+
+    await withFakeSttModel(
+      () => orch.startRecording(
+        target: target,
+        forcedSmartModePreset: smartModeHotkeyPreset,
+      ),
+    );
     expect(container.read(recordingProvider).phase, RecordingPhase.recording);
     return orch;
   }
@@ -1601,10 +1635,9 @@ void main() {
       await db.setQuickNote(note.id);
 
       fakeStt.transcriptToReturn = 'Snippets.';
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -2113,6 +2146,151 @@ void main() {
       await orch.cancelRecording();
 
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+  });
+
+  // =========================================================================
+  // Session isolation: a cancelled transcription must not leak into, or
+  // block, the recording that was started after it (cancel/stop-lock/F5).
+  // =========================================================================
+
+  group('Session isolation across cancel and a newer recording', () {
+    Future<void> waitForPhase(RecordingPhase phase) async {
+      for (
+        var i = 0;
+        i < 200 && container.read(recordingProvider).phase != phase;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(container.read(recordingProvider).phase, phase);
+    }
+
+    test('a cancelled transcription never inserts its result into a newer '
+        'recording (session-scoped cancel)', () async {
+      final gate = Completer<String>();
+      fakeStt.transcribeGate = gate;
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+      );
+      final stopFuture = orch.stopRecording();
+      await waitForPhase(RecordingPhase.transcribing);
+
+      await orch.cancelRecording();
+      // A newer recording starts while the cancelled transcription is still
+      // in flight.
+      await withFakeSttModel(orch.startRecording);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      gate.complete('stale transcript');
+      await stopFuture;
+
+      // The stale result is discarded; the newer recording is untouched.
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      expect(await db.allEntries(), isEmpty);
+      expect(clipboardText, isNull);
+    });
+
+    test(
+      'cancelling a transcription frees the stop lock, so the next '
+      'recording can be stopped while the old pipeline is still running',
+      () async {
+        final gate = Completer<String>();
+        fakeStt.transcribeGate = gate;
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.clipboard,
+        );
+        final firstStop = orch.stopRecording();
+        await waitForPhase(RecordingPhase.transcribing);
+
+        await orch.cancelRecording();
+        await withFakeSttModel(orch.startRecording);
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        final callsBefore = fakeStt.transcribeCallCount;
+        final secondStop = orch.stopRecording();
+        await waitForPhase(RecordingPhase.transcribing);
+        expect(fakeStt.transcribeCallCount, callsBefore + 1);
+
+        gate.complete('second transcript');
+        await Future.wait([firstStop, secondStop]);
+
+        // Only the second recording is saved; the cancelled one never is.
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.single.content, 'second transcript');
+      },
+    );
+
+    test(
+      'a start rejected while a transcription is in flight does not '
+      'overwrite the target or overrides that transcription finalizes with',
+      () async {
+        final gate = Completer<String>();
+        fakeStt.transcribeGate = gate;
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.clipboard,
+        );
+        final stopFuture = orch.stopRecording();
+        await waitForPhase(RecordingPhase.transcribing);
+
+        // Rejected: the pipeline above is still busy.
+        await orch.startRecording(
+          target: RecordingTarget.quickNote,
+          forcedSmartModePreset: SmartModePreset.translate,
+          languageOverride: 'fr',
+          silenceTimeoutOverride: 42,
+        );
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.transcribing,
+        );
+        expect(
+          container.read(recordingTargetProvider),
+          RecordingTarget.clipboard,
+        );
+        expect(container.read(smartModeHotkeyOverridePresetProvider), isNull);
+        expect(container.read(sttLanguageOverrideProvider), isNull);
+        expect(container.read(autoStopSilenceOverrideProvider), isNull);
+
+        gate.complete('Hello there');
+        await stopFuture;
+
+        // The original recording (clipboard target, no overrides) is finalized
+        // as usual: saved to history, not treated as a quick note.
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.single.content, 'Hello there');
+      },
+    );
+    test('reset() during transcribing (snippet abort) discards the in-flight '
+        'transcription: a newer recording is untouched and the stale result is '
+        'never saved or pasted', () async {
+      final gate = Completer<String>();
+      fakeStt.transcribeGate = gate;
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+      );
+      final stopFuture = orch.stopRecording();
+      await waitForPhase(RecordingPhase.transcribing);
+
+      // The snippet controller aborts by resetting the orchestrator while
+      // the pipeline keeps running.
+      orch.reset();
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+
+      await withFakeSttModel(orch.startRecording);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      gate.complete('stale transcript');
+      await stopFuture;
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      expect(await db.allEntries(), isEmpty);
+      expect(clipboardText, isNull);
     });
   });
 
@@ -3175,10 +3353,9 @@ void main() {
       clipboardText = 'Untouched clipboard';
       fakeStt.transcriptToReturn = 'First thought';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3195,10 +3372,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Second thought';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3213,10 +3389,9 @@ void main() {
       () async {
         fakeStt.transcriptToReturn = 'No note marked yet';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         await orch.stopRecording();
 
@@ -3234,10 +3409,9 @@ void main() {
         await db.softDeleteNote(trashed.id);
         fakeStt.transcriptToReturn = 'Marked note was trashed';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         await orch.stopRecording();
 
@@ -3257,10 +3431,9 @@ void main() {
       await db.permanentDeleteNote(deleted.id);
       fakeStt.transcriptToReturn = 'Marked note was deleted';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3279,10 +3452,9 @@ void main() {
         await db.setQuickNote(note.id);
         fakeStt.transcriptToReturn = 'Only for the note';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         await orch.stopRecording();
 
@@ -3298,10 +3470,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Direct write';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
       expect(orch.quickNoteLiveEditorOverride, isNull);
 
       await orch.stopRecording();
@@ -3316,10 +3487,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Handled by the editor';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       String? overrideNoteId;
       String? overrideContent;
@@ -3343,10 +3513,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Not handled';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
       orch.quickNoteLiveEditorOverride = (_, _) => false;
 
       await orch.stopRecording();
@@ -3361,10 +3530,9 @@ void main() {
         await db.setQuickNote(note.id);
         fakeStt.transcriptToReturn = 'Observable completion';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         String? appendedNoteId;
         orch.onQuickNoteAppended = (noteId) => appendedNoteId = noteId;
@@ -3381,10 +3549,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = '';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       var fired = false;
       orch.onQuickNoteAppended = (_) => fired = true;
@@ -3403,10 +3570,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Appended';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       final order = <String>[];
       // Stands in for NotesPage's autosave flush: it writes the keystrokes
@@ -3441,10 +3607,9 @@ void main() {
       await db.updateNoteContent(note.id, 'Start');
       await db.setQuickNote(note.id);
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       // Miniature of the editor: a live buffer plus a pending (debounced)
       // write that only lands on flush — exactly NotesPage's arrangement.
@@ -3468,10 +3633,7 @@ void main() {
       // so drive it the way a real re-trigger does (preempting reset)
       // instead of forcing the phase again.
       container.read(recordingProvider.notifier).reset();
-      container.read(recordingProvider.notifier).startRecording();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      await orch.startRecording(target: RecordingTarget.quickNote);
       fakeStt.transcriptToReturn = 'Second';
       await orch.stopRecording();
 
@@ -3488,10 +3650,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Appended';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       // What NotesPage's override does when a *different* note is open.
       const openNoteId = 'some-other-note';
@@ -3527,10 +3688,9 @@ void main() {
       );
       await container.read(settingsProvider.future);
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -5935,12 +6095,12 @@ void main() {
       );
       await container.read(settingsProvider.future);
       container.read(systemAttentionServiceProvider);
-      container
-          .read(smartModeHotkeyOverridePresetProvider.notifier)
-          .set(SmartModePreset.translate);
       fakeSmartModeEngine.resultToReturn = 'Texte traduit.';
 
-      final orch = await startRecordingPhase();
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+        smartModeHotkeyPreset: SmartModePreset.translate,
+      );
       fakeStt.transcriptToReturn = 'raw text in some language';
       await orch.stopRecording();
 
