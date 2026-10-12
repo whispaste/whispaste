@@ -447,7 +447,22 @@ fi
 # Loam ratchet gate (Dart-only)
 if command -v dart >/dev/null 2>&1; then
   echo ""; echo "Loam ratchet gate..."
-  dart pub global activate loam 0.1.14 >/dev/null
+  # Without a resolved package_config, loam cannot follow imports and reports
+  # every public symbol as an unused export (hundreds of bogus findings in a
+  # fresh worktree). Fail with the actual cause instead.
+  if [ ! -f "$ROOT/.dart_tool/package_config.json" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: .dart_tool/package_config.json fehlt        ║
+╚══════════════════════════════════════════════════════════════╝
+Loam braucht aufgelöste Imports: erst \`flutter pub get\` im Repo-Root
+ausführen, dann erneut pushen.
+EOF
+    exit 1
+  fi
+  # Keep in sync with .githooks/pre-commit and .github/workflows/ci.yml.
+  dart pub global activate loam 0.1.15 >/dev/null
   export PATH="$HOME/.pub-cache/bin:$PATH"
   # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
   if [ -z "${DART_SDK:-}" ]; then
