@@ -4438,4 +4438,52 @@ class L10nHe extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה';
+
+  @override
+  String get settingsCudaPackTitle => 'האצת NVIDIA CUDA';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'הכתבה מהירה יותר בכרטיסי GeForce RTX ו-GTX 16. הורדה חד-פעמית של $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'מותקן. אם מנהל ההתקן הגרפי ישן מדי, WhisPaste ימשיך להשתמש ב-Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'הורדה';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'מוריד $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'מתקין …';
+
+  @override
+  String get settingsCudaPackCancel => 'ביטול ההורדה';
+
+  @override
+  String get settingsCudaPackRemove => 'הסרת חבילת CUDA';
+
+  @override
+  String get settingsCudaPackToggle => 'שימוש ב-CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'ההורדה נכשלה. בדקו את החיבור ונסו שוב.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'ההורדה הגיעה פגומה. נסו שוב.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'לא ניתן היה לשמור את החבילה. בדקו את שטח הדיסק הפנוי.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההכתבה פועלת כרגיל.';
 }

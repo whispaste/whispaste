@@ -1859,5 +1859,18 @@
   "errorSelectionEditUnsupported": "עריכת בחירה דורשת הדבקה אוטומטית, שאינה זמינה בגרסה זו",
   "errorSelectionEditCopyFailed": "לא ניתן היה לקרוא את הבחירה — בדקו את ההרשאה להדבקה אוטומטית",
   "errorSelectionEditFailed": "העריכה נכשלה — הטקסט שלכם לא שונה",
-  "errorSelectionEditPasteFailed": "לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה"
+  "errorSelectionEditPasteFailed": "לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה",
+  "settingsCudaPackTitle": "האצת NVIDIA CUDA",
+  "settingsCudaPackSubtitle": "הכתבה מהירה יותר בכרטיסי GeForce RTX ו-GTX 16. הורדה חד-פעמית של {size}.",
+  "settingsCudaPackInstalledSubtitle": "מותקן. אם מנהל ההתקן הגרפי ישן מדי, WhisPaste ימשיך להשתמש ב-Vulkan.",
+  "settingsCudaPackDownload": "הורדה",
+  "settingsCudaPackDownloading": "מוריד {percent} %",
+  "settingsCudaPackInstalling": "מתקין …",
+  "settingsCudaPackCancel": "ביטול ההורדה",
+  "settingsCudaPackRemove": "הסרת חבילת CUDA",
+  "settingsCudaPackToggle": "שימוש ב-CUDA",
+  "settingsCudaPackErrorNetwork": "ההורדה נכשלה. בדקו את החיבור ונסו שוב.",
+  "settingsCudaPackErrorVerification": "ההורדה הגיעה פגומה. נסו שוב.",
+  "settingsCudaPackErrorStorage": "לא ניתן היה לשמור את החבילה. בדקו את שטח הדיסק הפנוי.",
+  "recoveryCudaDisabledToast": "האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההכתבה פועלת כרגיל."
 }

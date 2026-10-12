@@ -1600,5 +1600,18 @@
   "errorSelectionEditUnsupported": "Auswahl bearbeiten braucht Auto-Einfügen, das in diesem Build nicht verfügbar ist",
   "errorSelectionEditCopyFailed": "Auswahl konnte nicht gelesen werden — prüf die Berechtigung für Auto-Einfügen",
   "errorSelectionEditFailed": "Bearbeiten fehlgeschlagen — dein Text bleibt unverändert",
-  "errorSelectionEditPasteFailed": "Auswahl konnte nicht ersetzt werden — dein Text bleibt unverändert"
+  "errorSelectionEditPasteFailed": "Auswahl konnte nicht ersetzt werden — dein Text bleibt unverändert",
+  "settingsCudaPackTitle": "NVIDIA-CUDA-Beschleunigung",
+  "settingsCudaPackSubtitle": "Schnelleres Diktat auf GeForce-RTX- und GTX-16-Karten. Einmaliger Download, {size}.",
+  "settingsCudaPackInstalledSubtitle": "Installiert. Ist der Grafiktreiber zu alt, nutzt WhisPaste weiter Vulkan.",
+  "settingsCudaPackDownload": "Herunterladen",
+  "settingsCudaPackDownloading": "Wird geladen: {percent} %",
+  "settingsCudaPackInstalling": "Wird installiert …",
+  "settingsCudaPackCancel": "Download abbrechen",
+  "settingsCudaPackRemove": "CUDA-Paket entfernen",
+  "settingsCudaPackToggle": "CUDA verwenden",
+  "settingsCudaPackErrorNetwork": "Download fehlgeschlagen. Prüfe die Verbindung und versuche es erneut.",
+  "settingsCudaPackErrorVerification": "Der Download war beschädigt. Bitte erneut versuchen.",
+  "settingsCudaPackErrorStorage": "Das Paket konnte nicht gespeichert werden. Prüfe den freien Speicherplatz.",
+  "recoveryCudaDisabledToast": "Die CUDA-Beschleunigung wurde ausgeschaltet, weil es beim letzten Start ein Problem gab. WhisPaste nutzt jetzt Vulkan, Diktieren funktioniert unverändert."
 }

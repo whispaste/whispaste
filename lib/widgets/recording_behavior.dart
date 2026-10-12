@@ -198,10 +198,15 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     // listener exists).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (ref.read(gpuLoadCrashGuardProvider).consumePendingUserNotice()) {
+      final guard = ref.read(gpuLoadCrashGuardProvider);
+      if (guard.consumePendingUserNotice()) {
         ref
             .read(recoveryToastNotifierProvider.notifier)
             .report(RecoveryToastKind.gpuLoadCrashDisabled);
+      } else if (guard.consumePendingCudaNotice()) {
+        ref
+            .read(recoveryToastNotifierProvider.notifier)
+            .report(RecoveryToastKind.cudaLoadCrashDisabled);
       }
     });
   }
@@ -792,6 +797,18 @@ void showRecoveryToast({
       WpToast.show(
         context,
         message: l10n.recoveryGpuDisabledToast,
+        type: WpToastType.warning,
+        duration: const Duration(seconds: 8),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        action: WpToastAction(
+          label: l10n.recoveryExhaustedAction,
+          onPressed: () => openSettings('stt'),
+        ),
+      );
+    case RecoveryToastKind.cudaLoadCrashDisabled:
+      WpToast.show(
+        context,
+        message: l10n.recoveryCudaDisabledToast,
         type: WpToastType.warning,
         duration: const Duration(seconds: 8),
         // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text

@@ -21,6 +21,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/stt/stt_bundle.dart';
+import '../../../services/stt/whisper/cuda_pack.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
@@ -30,6 +31,7 @@ import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
+import 'cuda_pack_row.dart';
 
 // ---------------------------------------------------------------------------
 // Speech Recognition section
@@ -201,6 +203,13 @@ class _SpeechRecognitionSectionState
                       ),
                 ),
               ),
+            // Optional NVIDIA CUDA pack — only for Turing+ NVIDIA cards
+            // outside the Store build, and moot when "CPU only" is chosen.
+            if (settings.onDeviceEngine == OnDeviceEngine.whisper &&
+                settings.behavior.gpuAcceleration !=
+                    GpuAcceleration.disabled.value &&
+                ref.watch(cudaPackOfferedProvider))
+              const CudaPackRow(),
             settingsInlineBreak,
           ],
 

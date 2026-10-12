@@ -32,6 +32,7 @@ import 'live_preview/live_transcript_previewer.dart';
 import 'prompt_token_budget.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
+import 'whisper/cuda_pack.dart';
 import 'whisper/gpu_load_crash_guard.dart';
 import 'whisper/whisper_engine.dart';
 import 'whisper/whisper_ffi_engine.dart' show defaultWhisperVadModelPath;
@@ -1390,7 +1391,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // inference, or once the GPU path has been abandoned for CPU.
     final crashGuard = ref.read(gpuLoadCrashGuardProvider);
     final attemptingGpu = _engine!.status.backend != WhisperBackend.cpu;
-    if (attemptingGpu) crashGuard.markAttempt();
+    if (attemptingGpu) {
+      crashGuard.markAttempt(cuda: ref.read(activeCudaPackDirProvider) != null);
+    }
     // Tracks whether the marker set above still needs clearing — a plain
     // bool rather than re-deriving from `attemptingGpu` at each call site,
     // so the catch branch's clear (GPU abandoned for CPU) and the

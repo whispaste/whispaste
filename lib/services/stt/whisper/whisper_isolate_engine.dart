@@ -22,6 +22,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../hardware_info_service.dart';
 import '../isolate_shutdown_helper.dart';
+import 'cuda_pack.dart';
 import 'whisper_engine.dart';
 import 'whisper_ffi_engine.dart';
 
@@ -33,9 +34,14 @@ final _log = AppLogger('WhisperIsolateEngine');
 // ---------------------------------------------------------------------------
 
 class _EngineConfig {
-  const _EngineConfig({this.libraryPath, required this.backend});
+  const _EngineConfig({
+    this.libraryPath,
+    required this.backend,
+    this.cudaPackDir,
+  });
   final String? libraryPath;
   final WhisperBackend backend;
+  final String? cudaPackDir;
 }
 
 class _LoadRequest {
@@ -207,6 +213,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           engine ??= WhisperFfiEngine(
             libraryPath: req.config.libraryPath,
             backend: req.config.backend,
+            cudaPackDir: req.config.cudaPackDir,
           );
           await engine!.load(
             modelPath: req.modelPath,
@@ -385,11 +392,15 @@ class WhisperIsolateEngine
         PartialTranscriptSource,
         LivePreviewEngine,
         PromptTokenCounter {
-  WhisperIsolateEngine({String? libraryPath, WhisperBackend? backend})
-    : _config = _EngineConfig(
-        libraryPath: libraryPath,
-        backend: backend ?? WhisperBackend.cpu,
-      );
+  WhisperIsolateEngine({
+    String? libraryPath,
+    WhisperBackend? backend,
+    String? cudaPackDir,
+  }) : _config = _EngineConfig(
+         libraryPath: libraryPath,
+         backend: backend ?? WhisperBackend.cpu,
+         cudaPackDir: cudaPackDir,
+       );
 
   final _EngineConfig _config;
 
@@ -808,7 +819,12 @@ final whisperEngineProvider = Provider<WhisperEngine>((ref) {
     gpuPreference: gpuPreference,
     gpu: ref.watch(gpuInfoProvider).value,
   );
-  final engine = WhisperIsolateEngine(backend: backend);
+  final engine = WhisperIsolateEngine(
+    backend: backend,
+    cudaPackDir: backend == WhisperBackend.cpu
+        ? null
+        : ref.watch(activeCudaPackDirProvider),
+  );
   ref.onDispose(engine.shutdown);
   return engine;
 });

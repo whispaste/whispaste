@@ -4536,4 +4536,52 @@ class L10nEs extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'No se pudo reemplazar la selección; tu texto no ha cambiado';
+
+  @override
+  String get settingsCudaPackTitle => 'Aceleración NVIDIA CUDA';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Dictado más rápido en tarjetas GeForce RTX y GTX 16. Descarga única de $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Instalado. Si el controlador gráfico es demasiado antiguo, WhisPaste sigue usando Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Descargar';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Descargando $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Instalando …';
+
+  @override
+  String get settingsCudaPackCancel => 'Cancelar descarga';
+
+  @override
+  String get settingsCudaPackRemove => 'Quitar paquete CUDA';
+
+  @override
+  String get settingsCudaPackToggle => 'Usar CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'La descarga falló. Revisa la conexión e inténtalo de nuevo.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'La descarga llegó dañada. Inténtalo de nuevo.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'No se pudo guardar el paquete. Revisa el espacio libre en disco.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'La aceleración CUDA se desactivó por un problema en el último inicio. WhisPaste usa ahora Vulkan y el dictado funciona como siempre.';
 }

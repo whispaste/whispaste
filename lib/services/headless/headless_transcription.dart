@@ -38,6 +38,8 @@ Transcribes a 16 kHz mono 16-bit PCM WAV without opening the app window.
   --language <code>          language hint, e.g. en, de (default: auto)
   --gpu auto|enabled|disabled  GPU acceleration, as in the app settings;
                              disabled forces CPU (default: auto)
+  --cuda-pack <dir>          load the optional CUDA pack from <dir> instead
+                             of the installed one (default: installed pack)
   --replacements             apply the text replacements from the app's data
   --json                     print a JSON timing report instead of the text
   --out <file>               also write the JSON timing report to <file>
@@ -55,9 +57,14 @@ class HeadlessTranscriptionOptions {
     this.json = false,
     this.outPath,
     this.gpu = GpuAcceleration.auto,
+    this.cudaPackDir,
   });
 
   final String wavPath;
+
+  /// `--cuda-pack`: an extracted CUDA pack folder to load instead of the
+  /// installed one — exercises the app's real loading path from any folder.
+  final String? cudaPackDir;
   final OnDeviceEngine engine;
 
   /// Whisper model id from [sttModels]; `null` keeps the app default.
@@ -86,6 +93,7 @@ class HeadlessTranscriptionOptions {
     var json = false;
     String? outPath;
     var gpu = GpuAcceleration.auto;
+    String? cudaPackDir;
 
     for (var i = 0; i < args.length; i++) {
       final arg = args[i];
@@ -130,6 +138,8 @@ class HeadlessTranscriptionOptions {
             (g) => g.value == name,
             orElse: () => throw FormatException('unknown --gpu value "$name"'),
           );
+        case '--cuda-pack':
+          cudaPackDir = value();
         default:
           throw FormatException('unknown option "$arg"');
       }
@@ -147,6 +157,7 @@ class HeadlessTranscriptionOptions {
       json: json,
       outPath: outPath,
       gpu: gpu,
+      cudaPackDir: cudaPackDir,
     );
   }
 

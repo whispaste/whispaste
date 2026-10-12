@@ -1310,5 +1310,18 @@
   "errorSelectionEditUnsupported": "Для редактирования выделения нужна автовставка, которая недоступна в этой сборке",
   "errorSelectionEditCopyFailed": "Не удалось прочитать выделение — проверьте разрешение на автовставку",
   "errorSelectionEditFailed": "Не удалось отредактировать — ваш текст не изменён",
-  "errorSelectionEditPasteFailed": "Не удалось заменить выделение — ваш текст не изменён"
+  "errorSelectionEditPasteFailed": "Не удалось заменить выделение — ваш текст не изменён",
+  "settingsCudaPackTitle": "Ускорение NVIDIA CUDA",
+  "settingsCudaPackSubtitle": "Более быстрая диктовка на видеокартах GeForce RTX и GTX 16. Однократная загрузка, {size}.",
+  "settingsCudaPackInstalledSubtitle": "Установлено. Если драйвер видеокарты слишком старый, WhisPaste продолжит использовать Vulkan.",
+  "settingsCudaPackDownload": "Загрузить",
+  "settingsCudaPackDownloading": "Загрузка: {percent} %",
+  "settingsCudaPackInstalling": "Установка …",
+  "settingsCudaPackCancel": "Отменить загрузку",
+  "settingsCudaPackRemove": "Удалить пакет CUDA",
+  "settingsCudaPackToggle": "Использовать CUDA",
+  "settingsCudaPackErrorNetwork": "Не удалось загрузить. Проверьте подключение и попробуйте снова.",
+  "settingsCudaPackErrorVerification": "Загруженный файл повреждён. Попробуйте ещё раз.",
+  "settingsCudaPackErrorStorage": "Не удалось сохранить пакет. Проверьте свободное место на диске.",
+  "recoveryCudaDisabledToast": "Ускорение CUDA отключено из-за проблемы при последнем запуске. WhisPaste теперь использует Vulkan, диктовка работает как обычно."
 }

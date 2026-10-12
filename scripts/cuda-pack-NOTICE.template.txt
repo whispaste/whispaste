@@ -1,0 +1,35 @@
+WhisPaste CUDA acceleration module (optional download)
+=======================================================
+
+This archive is the optional NVIDIA CUDA acceleration module for WhisPaste.
+It is not required: WhisPaste runs on the CPU and on Vulkan-capable GPUs
+without it. When it is installed next to the WhisPaste application libraries,
+whisper.cpp can run transcription on NVIDIA GPUs through CUDA.
+
+Pack:     WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1
+Contents: the ggml-cuda backend module, built from whisper.cpp / ggml v1.8.4,
+          and the CUDA 12.8.1 runtime libraries it links (cudart, cuBLAS,
+          cuBLASLt). The NVIDIA display driver, which provides the CUDA driver
+          library, is not part of this archive and must be installed separately.
+
+
+1. ggml-cuda (ggml CUDA backend)
+
+   Built without modifications from the whisper.cpp v1.8.4 release, which
+   contains ggml. Source: https://github.com/ggml-org/whisper.cpp
+   License: MIT
+
+   The license text of whisper.cpp (which covers the bundled ggml) follows:
+
+@WHISPER_LICENSE@
+
+
+2. NVIDIA CUDA runtime libraries
+
+   The cudart, cuBLAS and cuBLASLt libraries are unmodified redistributable
+   components of the NVIDIA CUDA Toolkit 12.8 (release 12.8.1). They are
+   distributed under the NVIDIA CUDA End User License Agreement, Attachment A
+   (https://docs.nvidia.com/cuda/eula/index.html). Under that agreement these
+   components may only be used by WhisPaste.
+
+   Copyright NVIDIA Corporation. All rights reserved.

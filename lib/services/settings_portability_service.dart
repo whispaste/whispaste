@@ -152,6 +152,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // vocab-learning-corrections/`) — a behavior preference like the other
   // 'text_replacements_enabled'/'snippet_picker_trigger' toggles nearby.
   'correction_learning_enabled',
+  // Optional CUDA pack switch — a preference like 'gpu_acceleration'; on a
+  // machine without the pack installed it simply has no effect.
+  'cuda_acceleration',
   'custom_vocabulary',
   'dead_mic_timeout',
   'duration_warning_sound',

@@ -4533,4 +4533,52 @@ class L10nPt extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'Não foi possível substituir a seleção — seu texto foi mantido sem alterações';
+
+  @override
+  String get settingsCudaPackTitle => 'Aceleração NVIDIA CUDA';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Ditado mais rápido em placas GeForce RTX e GTX 16. Download único de $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Instalado. Se o driver de vídeo for antigo demais, o WhisPaste continua usando Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Baixar';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Baixando $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Instalando …';
+
+  @override
+  String get settingsCudaPackCancel => 'Cancelar download';
+
+  @override
+  String get settingsCudaPackRemove => 'Remover pacote CUDA';
+
+  @override
+  String get settingsCudaPackToggle => 'Usar CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'O download falhou. Verifique a conexão e tente novamente.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'O download chegou corrompido. Tente novamente.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'Não foi possível salvar o pacote. Verifique o espaço livre em disco.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'A aceleração CUDA foi desativada por causa de um problema na última inicialização. O WhisPaste agora usa Vulkan, e o ditado funciona normalmente.';
 }

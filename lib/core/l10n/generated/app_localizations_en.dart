@@ -4491,4 +4491,52 @@ class L10nEn extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'Could not replace the selection — your text was left unchanged';
+
+  @override
+  String get settingsCudaPackTitle => 'NVIDIA CUDA acceleration';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Faster dictation on GeForce RTX and GTX 16 cards. One-time download of $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Download';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Downloading $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Installing …';
+
+  @override
+  String get settingsCudaPackCancel => 'Cancel download';
+
+  @override
+  String get settingsCudaPackRemove => 'Remove CUDA pack';
+
+  @override
+  String get settingsCudaPackToggle => 'Use CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'Download failed. Check your connection and try again.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'The download was damaged. Please try again.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'The pack could not be saved. Check your free disk space.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.';
 }

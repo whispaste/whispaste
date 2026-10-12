@@ -42,6 +42,11 @@ enum RecoveryToastKind {
   /// toast with an "Einstellungen öffnen" action so the user can re-enable
   /// GPU acceleration themselves once they see fit.
   gpuLoadCrashDisabled,
+
+  /// Same breaker, but the crashed load had the optional CUDA pack enabled:
+  /// only the pack was switched off, Vulkan stays. Informational toast with
+  /// the same "open settings" action.
+  cudaLoadCrashDisabled,
 }
 
 /// One recovery event emitted by `_attemptRecovery`.

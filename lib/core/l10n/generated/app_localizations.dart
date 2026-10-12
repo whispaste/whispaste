@@ -7844,6 +7844,84 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Could not replace the selection — your text was left unchanged'**
   String get errorSelectionEditPasteFailed;
+
+  /// No description provided for @settingsCudaPackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'NVIDIA CUDA acceleration'**
+  String get settingsCudaPackTitle;
+
+  /// No description provided for @settingsCudaPackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Faster dictation on GeForce RTX and GTX 16 cards. One-time download of {size}.'**
+  String settingsCudaPackSubtitle(String size);
+
+  /// No description provided for @settingsCudaPackInstalledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.'**
+  String get settingsCudaPackInstalledSubtitle;
+
+  /// No description provided for @settingsCudaPackDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get settingsCudaPackDownload;
+
+  /// No description provided for @settingsCudaPackDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {percent} %'**
+  String settingsCudaPackDownloading(int percent);
+
+  /// No description provided for @settingsCudaPackInstalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing …'**
+  String get settingsCudaPackInstalling;
+
+  /// No description provided for @settingsCudaPackCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get settingsCudaPackCancel;
+
+  /// No description provided for @settingsCudaPackRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove CUDA pack'**
+  String get settingsCudaPackRemove;
+
+  /// No description provided for @settingsCudaPackToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use CUDA'**
+  String get settingsCudaPackToggle;
+
+  /// No description provided for @settingsCudaPackErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed. Check your connection and try again.'**
+  String get settingsCudaPackErrorNetwork;
+
+  /// No description provided for @settingsCudaPackErrorVerification.
+  ///
+  /// In en, this message translates to:
+  /// **'The download was damaged. Please try again.'**
+  String get settingsCudaPackErrorVerification;
+
+  /// No description provided for @settingsCudaPackErrorStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'The pack could not be saved. Check your free disk space.'**
+  String get settingsCudaPackErrorStorage;
+
+  /// No description provided for @recoveryCudaDisabledToast.
+  ///
+  /// In en, this message translates to:
+  /// **'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.'**
+  String get recoveryCudaDisabledToast;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

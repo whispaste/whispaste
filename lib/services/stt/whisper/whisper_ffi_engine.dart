@@ -156,13 +156,23 @@ class WhisperFfiEngine
         PartialTranscriptSource,
         LivePreviewEngine,
         PromptTokenCounter {
-  WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
-    : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
-      _backend = backend ?? WhisperBackend.cpu,
-      _confirmedBackend = backend ?? WhisperBackend.cpu;
+  WhisperFfiEngine({
+    String? libraryPath,
+    WhisperBackend? backend,
+    this._cudaPackDir,
+  }) : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
+       _backend = backend ?? WhisperBackend.cpu,
+       _confirmedBackend = backend ?? WhisperBackend.cpu;
 
   final String _libraryPath;
   final WhisperBackend _backend;
+
+  /// Directory of an installed optional CUDA pack (`ggml-cuda` plus the
+  /// CUDA runtime libraries, see `cuda_pack.dart`), or `null` when none is
+  /// installed or the user switched it off. When set and a GPU backend is
+  /// requested, [load] registers the module with ggml and prefers its
+  /// `CUDA0` device over Vulkan — see [_ensureCudaPackLoaded].
+  final String? _cudaPackDir;
 
   /// [_backend] as actually confirmed against ggml's device registry by
   /// [_confirmBackend] — see its doc comment. Equals [_backend] until the
@@ -294,7 +304,15 @@ class WhisperFfiEngine
       ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
       _ensureBackendsLoaded(dylib, _libraryPath);
-      final (backend, gpuDevice) = _confirmBackend(dylib, _backend);
+      final cudaPackDir = _cudaPackDir;
+      if (cudaPackDir != null && _backend != WhisperBackend.cpu) {
+        _ensureCudaPackLoaded(dylib, cudaPackDir, _libraryPath);
+      }
+      final (backend, gpuDevice, gpuIndex) = _confirmBackend(
+        dylib,
+        _backend,
+        preferCuda: cudaPackDir != null,
+      );
       _confirmedBackend = backend;
       _gpuDevice = gpuDevice;
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
@@ -308,6 +326,7 @@ class WhisperFfiEngine
       _fullWithStateFn = dylib.lookup<ffi.Void>('whisper_full_with_state');
       final cparams = bindings.whisper_context_default_params();
       cparams.use_gpu = _confirmedBackend != WhisperBackend.cpu;
+      cparams.gpu_device = gpuIndex;
       final pathC = modelPath.toNativeUtf8();
       try {
         final ffi.Pointer<whisper_context> ctx;
@@ -517,12 +536,16 @@ class WhisperFfiEngine
   ///
   /// Also returns the name of the GPU device whisper.cpp will pick (see
   /// [WhisperEngineStatus.gpuDevice]), `null` when it runs on CPU or the
-  /// registry cannot be read.
-  static (WhisperBackend, String?) _confirmBackend(
+  /// registry cannot be read, and that device's index among the registered
+  /// GPU devices — the value `whisper_context_params.gpu_device` expects.
+  /// [preferCuda] picks the first `CUDA*` device when one is registered (see
+  /// [pickGpuDeviceIndex]); otherwise the first GPU device, as before.
+  static (WhisperBackend, String?, int) _confirmBackend(
     ffi.DynamicLibrary dylib,
-    WhisperBackend requested,
-  ) {
-    if (requested == WhisperBackend.cpu) return (WhisperBackend.cpu, null);
+    WhisperBackend requested, {
+    bool preferCuda = false,
+  }) {
+    if (requested == WhisperBackend.cpu) return (WhisperBackend.cpu, null, 0);
     final candidates = <ffi.DynamicLibrary>[
       dylib,
       if (_resolvedGgmlLibrary != null &&
@@ -545,24 +568,104 @@ class WhisperFfiEngine
               ffi.Int32 Function(ffi.Pointer<ffi.Void>),
               int Function(ffi.Pointer<ffi.Void>)
             >('ggml_backend_dev_type');
+        final gpuNames = <String?>[];
         for (var i = 0; i < devCount(); i++) {
           final dev = devGet(i);
           final type = devType(dev);
           if (type == _ggmlBackendDeviceTypeGpu ||
               type == _ggmlBackendDeviceTypeIgpu) {
-            return (requested, _deviceName(lib, dev));
+            gpuNames.add(_deviceName(lib, dev));
           }
         }
-        _log.warning(
-          'Requested $requested but no GPU device is registered in the '
-          'ggml backend registry — downgrading to CPU',
-        );
-        return (WhisperBackend.cpu, null);
+        if (gpuNames.isEmpty) {
+          _log.warning(
+            'Requested $requested but no GPU device is registered in the '
+            'ggml backend registry — downgrading to CPU',
+          );
+          return (WhisperBackend.cpu, null, 0);
+        }
+        final index = pickGpuDeviceIndex(gpuNames, preferCuda: preferCuda);
+        if (preferCuda && !(gpuNames[index]?.startsWith('CUDA') ?? false)) {
+          _log.warning(
+            'CUDA pack is enabled but no CUDA device is registered '
+            '(driver too old or no supported NVIDIA GPU) — using '
+            '${gpuNames[index]} instead',
+          );
+        }
+        return (requested, gpuNames[index], index);
       } on ArgumentError {
         continue;
       }
     }
-    return (requested, null);
+    return (requested, null, 0);
+  }
+
+  /// Process-wide: the CUDA pack directory whose module is already
+  /// registered with ggml. ggml's registry cannot unregister a backend, so a
+  /// second pack directory in the same process is ignored (the user would
+  /// only get there by reinstalling a pack, which restarts the engine but
+  /// not the process; the old module keeps working until the next launch).
+  static String? _cudaPackLoadedFrom;
+
+  /// Registers the optional CUDA module from [packDir] with ggml via
+  /// `ggml_backend_load`, once per process. The module lives outside the
+  /// app's own library folder (installed packages are read-only), so
+  /// [_ensureBackendsLoaded]'s directory scan never sees it.
+  ///
+  /// Dependency resolution: on Linux the module's `$ORIGIN` RUNPATH finds
+  /// the CUDA runtime next to it and `libggml-base.so.0` is matched by
+  /// soname against the copy libwhisper already loaded. On Windows ggml calls
+  /// a plain `LoadLibraryW`, whose transitive imports (`cudart64_12.dll`,
+  /// `cublas64_12.dll`) are searched in the `SetDllDirectoryW` folder — so
+  /// that folder points at [packDir] for the call and back at the app's
+  /// library folder afterwards; `ggml-base.dll` is already loaded by name.
+  ///
+  /// Never throws: a missing, corrupt or driver-incompatible pack only means
+  /// no `CUDA*` device gets registered, and [_confirmBackend] then keeps the
+  /// Vulkan device.
+  static void _ensureCudaPackLoaded(
+    ffi.DynamicLibrary dylib,
+    String packDir,
+    String libraryPath,
+  ) {
+    if (_cudaPackLoadedFrom != null) {
+      if (_cudaPackLoadedFrom != packDir) {
+        _log.warning(
+          'CUDA module already loaded from $_cudaPackLoadedFrom; '
+          'ignoring $packDir until the next launch',
+        );
+      }
+      return;
+    }
+    final modulePath = p.join(packDir, cudaModuleFileName());
+    if (!File(modulePath).existsSync()) {
+      _log.warning('CUDA pack has no module at $modulePath');
+      return;
+    }
+    final lib = _resolvedGgmlLibrary ?? dylib;
+    try {
+      final load = lib
+          .lookupFunction<
+            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
+            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
+          >('ggml_backend_load');
+      final pathC = modulePath.toNativeUtf8();
+      try {
+        ensureWindowsDllSearchPath(modulePath);
+        final reg = load(pathC);
+        _cudaPackLoadedFrom = packDir;
+        if (reg == ffi.nullptr) {
+          _log.warning('ggml_backend_load rejected the CUDA module');
+        } else {
+          _log.info('CUDA module registered from $packDir');
+        }
+      } finally {
+        ensureWindowsDllSearchPath(libraryPath);
+        malloc.free(pathC);
+      }
+    } on ArgumentError {
+      _log.warning('ggml_backend_load is not exported — CUDA pack unusable');
+    }
   }
 
   /// `ggml_backend_dev_name(dev)`, or `null` if [lib] does not export it.
@@ -1555,7 +1658,31 @@ class WhisperFfiEngine
   WhisperBackend requested,
 ) {
   WhisperFfiEngine._ensureBackendsLoaded(dylib, libraryPath);
-  return WhisperFfiEngine._confirmBackend(dylib, requested);
+  final (backend, device, _) = WhisperFfiEngine._confirmBackend(
+    dylib,
+    requested,
+  );
+  return (backend, device);
+}
+
+/// File name of the ggml CUDA module inside an optional CUDA pack.
+String cudaModuleFileName() =>
+    Platform.isWindows ? 'ggml-cuda.dll' : 'libggml-cuda.so';
+
+/// Index (among the registered GPU devices, in registry order) of the device
+/// whisper.cpp should use — the value for `whisper_context_params.gpu_device`.
+///
+/// With [preferCuda] the first `CUDA*` device wins: the optional CUDA pack is
+/// registered after the bundled backends, so on an NVIDIA machine the same
+/// card usually shows up first as `Vulkan0` and later as `CUDA0`. Without a
+/// CUDA device (or without [preferCuda]) it is the first device, matching
+/// whisper.cpp's default of `0`.
+int pickGpuDeviceIndex(List<String?> gpuNames, {required bool preferCuda}) {
+  if (preferCuda) {
+    final cuda = gpuNames.indexWhere((n) => n?.startsWith('CUDA') ?? false);
+    if (cuda >= 0) return cuda;
+  }
+  return 0;
 }
 
 /// Pure mapping behind [WhisperFfiEngine._nativeInferenceFailure], split out

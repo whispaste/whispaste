@@ -4532,4 +4532,52 @@ class L10nDe extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'Auswahl konnte nicht ersetzt werden — dein Text bleibt unverändert';
+
+  @override
+  String get settingsCudaPackTitle => 'NVIDIA-CUDA-Beschleunigung';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Schnelleres Diktat auf GeForce-RTX- und GTX-16-Karten. Einmaliger Download, $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Installiert. Ist der Grafiktreiber zu alt, nutzt WhisPaste weiter Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Herunterladen';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Wird geladen: $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Wird installiert …';
+
+  @override
+  String get settingsCudaPackCancel => 'Download abbrechen';
+
+  @override
+  String get settingsCudaPackRemove => 'CUDA-Paket entfernen';
+
+  @override
+  String get settingsCudaPackToggle => 'CUDA verwenden';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'Download fehlgeschlagen. Prüfe die Verbindung und versuche es erneut.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'Der Download war beschädigt. Bitte erneut versuchen.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'Das Paket konnte nicht gespeichert werden. Prüfe den freien Speicherplatz.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'Die CUDA-Beschleunigung wurde ausgeschaltet, weil es beim letzten Start ein Problem gab. WhisPaste nutzt jetzt Vulkan, Diktieren funktioniert unverändert.';
 }

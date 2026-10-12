@@ -210,6 +210,25 @@ void main() {
       expect(o.gpu, GpuAcceleration.disabled);
     });
 
+    test('--cuda-pack names the pack folder to load', () {
+      expect(
+        HeadlessTranscriptionOptions.parse([
+          '--transcribe-file',
+          'a.wav',
+          '--cuda-pack',
+          '/opt/cuda-pack',
+        ]).cudaPackDir,
+        '/opt/cuda-pack',
+      );
+      expect(
+        HeadlessTranscriptionOptions.parse([
+          '--transcribe-file',
+          'a.wav',
+        ]).cudaPackDir,
+        isNull,
+      );
+    });
+
     test('--gpu maps onto the app\'s GPU acceleration setting', () {
       HeadlessTranscriptionOptions parse(List<String> extra) =>
           HeadlessTranscriptionOptions.parse([

@@ -18,6 +18,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../drift_recording_store.dart' show textReplacementRulesFrom;
 import '../hardware_info_service.dart' as hw;
+import '../stt/whisper/cuda_pack.dart' show activeCudaPackDirProvider;
 import '../replacements/text_replacement_matcher.dart';
 import '../stt_engine_lifecycle_provider.dart';
 import 'headless_transcription.dart';
@@ -58,6 +59,8 @@ Future<int> runHeadlessCli(List<String> args) async {
       settingsProvider.overrideWith(
         () => _HeadlessSettingsNotifier(options.applyTo(AppSettings.defaults)),
       ),
+      if (options.cudaPackDir case final dir?)
+        activeCudaPackDirProvider.overrideWithValue(dir),
     ],
   );
   try {

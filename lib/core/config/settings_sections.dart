@@ -867,6 +867,7 @@ class BehaviorSettings {
     this.textReplacementsEnabled = false,
     this.snippetPickerTrigger = '',
     this.correctionLearningEnabled = true,
+    this.cudaAcceleration = true,
   });
 
   final int maxRecordDuration;
@@ -897,6 +898,13 @@ class BehaviorSettings {
   /// entries or pending candidates.
   final bool correctionLearningEnabled;
 
+  /// Whether an installed optional CUDA pack (see `cuda_pack.dart`) is used
+  /// for on-device Whisper. Default on: installing the pack is the opt-in,
+  /// this switch lets the user (or the GPU-load crash recovery) fall back to
+  /// Vulkan without deleting the download. No effect without an installed
+  /// pack or with `gpuAcceleration` set to CPU only.
+  final bool cudaAcceleration;
+
   static const BehaviorSettings defaults = BehaviorSettings();
 
   factory BehaviorSettings.fromMap(Map<String, String> v) => BehaviorSettings(
@@ -923,6 +931,11 @@ class BehaviorSettings {
       'correction_learning_enabled',
       defaults.correctionLearningEnabled,
     ),
+    cudaAcceleration: _readBool(
+      v,
+      'cuda_acceleration',
+      defaults.cudaAcceleration,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -935,6 +948,7 @@ class BehaviorSettings {
     'text_replacements_enabled': '$textReplacementsEnabled',
     'snippet_picker_trigger': snippetPickerTrigger,
     'correction_learning_enabled': '$correctionLearningEnabled',
+    'cuda_acceleration': '$cudaAcceleration',
   };
 
   BehaviorSettings copyWith({
@@ -947,6 +961,7 @@ class BehaviorSettings {
     bool? textReplacementsEnabled,
     String? snippetPickerTrigger,
     bool? correctionLearningEnabled,
+    bool? cudaAcceleration,
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
     closeToTray: closeToTray ?? this.closeToTray,
@@ -959,6 +974,7 @@ class BehaviorSettings {
     snippetPickerTrigger: snippetPickerTrigger ?? this.snippetPickerTrigger,
     correctionLearningEnabled:
         correctionLearningEnabled ?? this.correctionLearningEnabled,
+    cudaAcceleration: cudaAcceleration ?? this.cudaAcceleration,
   );
 
   @override
@@ -973,7 +989,8 @@ class BehaviorSettings {
         autoPasteBlocklist == other.autoPasteBlocklist &&
         textReplacementsEnabled == other.textReplacementsEnabled &&
         snippetPickerTrigger == other.snippetPickerTrigger &&
-        correctionLearningEnabled == other.correctionLearningEnabled;
+        correctionLearningEnabled == other.correctionLearningEnabled &&
+        cudaAcceleration == other.cudaAcceleration;
   }
 
   @override
@@ -987,6 +1004,7 @@ class BehaviorSettings {
     textReplacementsEnabled,
     snippetPickerTrigger,
     correctionLearningEnabled,
+    cudaAcceleration,
   );
 }
 

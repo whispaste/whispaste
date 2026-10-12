@@ -1885,5 +1885,28 @@
   "errorSelectionEditPasteFailed": "Could not replace the selection — your text was left unchanged",
   "@errorSelectionEditPasteFailed": {
     "description": "Overlay error: the edited text could not be pasted; nothing was replaced"
-  }
+  },
+  "settingsCudaPackTitle": "NVIDIA CUDA acceleration",
+  "settingsCudaPackSubtitle": "Faster dictation on GeForce RTX and GTX 16 cards. One-time download of {size}.",
+  "@settingsCudaPackSubtitle": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "settingsCudaPackInstalledSubtitle": "Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.",
+  "settingsCudaPackDownload": "Download",
+  "settingsCudaPackDownloading": "Downloading {percent} %",
+  "@settingsCudaPackDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "settingsCudaPackInstalling": "Installing …",
+  "settingsCudaPackCancel": "Cancel download",
+  "settingsCudaPackRemove": "Remove CUDA pack",
+  "settingsCudaPackToggle": "Use CUDA",
+  "settingsCudaPackErrorNetwork": "Download failed. Check your connection and try again.",
+  "settingsCudaPackErrorVerification": "The download was damaged. Please try again.",
+  "settingsCudaPackErrorStorage": "The pack could not be saved. Check your free disk space.",
+  "recoveryCudaDisabledToast": "CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual."
 }

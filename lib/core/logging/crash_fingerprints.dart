@@ -214,6 +214,12 @@ const String gpuDetectionFailed = 'gpu-detection-failed';
 /// not a new failure.
 const String sttGpuLoadCrashRecovered = 'stt-gpu-load-crash-recovered';
 
+/// [GpuLoadCrashGuard] detected that the previous session died mid model
+/// load with the optional CUDA pack enabled, and switched only the pack off
+/// (`behavior.cudaAcceleration`), keeping Vulkan. Warning, like
+/// [sttGpuLoadCrashRecovered].
+const String sttCudaLoadCrashRecovered = 'stt-cuda-load-crash-recovered';
+
 // ---------------------------------------------------------------------------
 // Ticket 10 (GPU-vendor-distribution telemetry, 2026-09). One anonymous
 // "vendor" + "platform" info-level signal per session on Windows/Linux,
@@ -269,6 +275,7 @@ const List<String> allCrashFingerprints = <String>[
   sttStartupDeadline,
   gpuDetectionFailed,
   sttGpuLoadCrashRecovered,
+  sttCudaLoadCrashRecovered,
   // Ticket 10 (GPU-vendor-distribution telemetry, 2026-09).
   gpuVendorTelemetry,
 ];

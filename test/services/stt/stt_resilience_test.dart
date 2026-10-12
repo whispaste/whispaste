@@ -873,10 +873,10 @@ class _SpyGpuLoadCrashGuard extends GpuLoadCrashGuard {
   final List<String>? trace;
 
   @override
-  void markAttempt() {
+  void markAttempt({bool cuda = false}) {
     markCalls++;
     trace?.add('mark');
-    super.markAttempt();
+    super.markAttempt(cuda: cuda);
   }
 
   @override

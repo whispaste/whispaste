@@ -1288,5 +1288,18 @@
   "errorSelectionEditUnsupported": "Editar uma seleção exige o Auto-Paste, que não está disponível nesta versão",
   "errorSelectionEditCopyFailed": "Não foi possível ler a seleção — verifique a permissão do Auto-Paste",
   "errorSelectionEditFailed": "A edição falhou — seu texto foi mantido sem alterações",
-  "errorSelectionEditPasteFailed": "Não foi possível substituir a seleção — seu texto foi mantido sem alterações"
+  "errorSelectionEditPasteFailed": "Não foi possível substituir a seleção — seu texto foi mantido sem alterações",
+  "settingsCudaPackTitle": "Aceleração NVIDIA CUDA",
+  "settingsCudaPackSubtitle": "Ditado mais rápido em placas GeForce RTX e GTX 16. Download único de {size}.",
+  "settingsCudaPackInstalledSubtitle": "Instalado. Se o driver de vídeo for antigo demais, o WhisPaste continua usando Vulkan.",
+  "settingsCudaPackDownload": "Baixar",
+  "settingsCudaPackDownloading": "Baixando {percent} %",
+  "settingsCudaPackInstalling": "Instalando …",
+  "settingsCudaPackCancel": "Cancelar download",
+  "settingsCudaPackRemove": "Remover pacote CUDA",
+  "settingsCudaPackToggle": "Usar CUDA",
+  "settingsCudaPackErrorNetwork": "O download falhou. Verifique a conexão e tente novamente.",
+  "settingsCudaPackErrorVerification": "O download chegou corrompido. Tente novamente.",
+  "settingsCudaPackErrorStorage": "Não foi possível salvar o pacote. Verifique o espaço livre em disco.",
+  "recoveryCudaDisabledToast": "A aceleração CUDA foi desativada por causa de um problema na última inicialização. O WhisPaste agora usa Vulkan, e o ditado funciona normalmente."
 }

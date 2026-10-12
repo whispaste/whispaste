@@ -151,6 +151,40 @@ void main() {
       await tempDir.delete(recursive: true);
     });
 
+    test('a crash with the CUDA pack switches only CUDA off: Vulkan stays, '
+        'no GPU strike, one CUDA notice', () async {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path)
+        ..markAttempt(cuda: true);
+      expect(guard.crashedLastAttemptWithCuda, isTrue);
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(AppSettings.defaults),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      await recoverFromGpuLoadCrash(container);
+
+      final behavior = container.read(settingsProvider).value!.behavior;
+      expect(behavior.cudaAcceleration, isFalse);
+      expect(behavior.gpuAcceleration, 'auto');
+      expect(guard.crashedLastAttempt, isFalse);
+      expect(guard.consecutiveCrashes, 0);
+      expect(guard.consumePendingUserNotice(), isFalse);
+      expect(guard.consumePendingCudaNotice(), isTrue);
+      expect(guard.consumePendingCudaNotice(), isFalse);
+    });
+
+    test('a plain GPU attempt is not blamed on CUDA', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path)..markAttempt();
+      expect(guard.crashedLastAttempt, isTrue);
+      expect(guard.crashedLastAttemptWithCuda, isFalse);
+    });
+
     test('no marker present → settings are left untouched', () async {
       final container = ProviderContainer(
         overrides: [
