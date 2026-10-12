@@ -19,6 +19,9 @@ const {
   FUTURE_STORES,
   SCREENS,
   ASSET_PATHS,
+  UI_LANG,
+  ALL_LANGS,
+  WEBSITE_LANGS,
   OUTPUT,
   GOLDENS,
   WEBSITE_SCREENSHOTS_ROOT,
@@ -74,17 +77,19 @@ function toDataUri(filePath) {
 /**
  * Resolves the golden screenshot path for a given screen, language, and store.
  *
- * Mac goldens live under `mac/` while Windows goldens are at the root.
+ * Mac goldens live under `mac/` while Windows goldens are at the root. The
+ * store copy language is mapped to the app-UI language via UI_LANG (es/pt/it/zh
+ * reuse the English UI).
  */
 function screenshotPathFor(screen, lang, storeId) {
   const store = STORE_SIZES[storeId];
   const base = store.goldenBase || '';
-  return path.join(GOLDENS, base + screen.screenshot[lang]);
+  return path.join(GOLDENS, base + screen.screenshot[UI_LANG[lang]]);
 }
 
 function verifySourceImages() {
   for (const storeId of ENABLED_STORES) {
-    for (const lang of ['en', 'de']) {
+    for (const lang of ALL_LANGS) {
       for (const screen of SCREENS) {
         // Hero screens are pure HTML/CSS and have no golden screenshot.
         if (!screen.screenshot) {
@@ -327,7 +332,7 @@ async function generateForStore(storeId, lang, copyWebsite) {
   const slicePaths = await renderPanorama(lang, storeId);
   const files = await sliceForStore(slicePaths, lang, storeId);
 
-  // Copy only the primary store's screenshots to the website.
+  // Copy only the primary store's screenshots to the website (en/de only).
   if (copyWebsite && storeId === ENABLED_STORES[0]) {
     copyStoreScreensToWebsite(lang, files);
     copyUiScreensToWebsite(lang);
@@ -339,14 +344,19 @@ async function generateForStore(storeId, lang, copyWebsite) {
 async function main() {
   const args = process.argv.slice(2);
   const langArg = args.find((arg) => arg.startsWith('--lang='))?.split('=')[1] || 'all';
-  const langs = langArg === 'all' ? ['en', 'de'] : [langArg];
+  const langs = langArg === 'all' ? ALL_LANGS : [langArg];
+  for (const lang of langs) {
+    if (!UI_LANG[lang]) {
+      throw new Error(`Unknown --lang="${lang}". Supported: ${ALL_LANGS.join(', ')}, all`);
+    }
+  }
   const copyWebsite = !args.includes('--no-website');
 
   verifySourceImages();
   ensureDir(OUTPUT);
   cleanDir(path.join(OUTPUT, 'panorama'));
 
-  if (copyWebsite) {
+  if (copyWebsite && langs.some((lang) => WEBSITE_LANGS.includes(lang))) {
     ensureDir(WEBSITE_SCREENSHOTS_ROOT);
     ensureDir(WEBSITE_STORE_SCREENSHOTS);
     ensureDir(WEBSITE_UI_SCREENSHOTS);
@@ -371,7 +381,7 @@ async function main() {
   for (const lang of langs) {
     console.log(`\n🎨 Generating ${lang.toUpperCase()} screenshots...`);
     for (const storeId of ENABLED_STORES) {
-      await generateForStore(storeId, lang, copyWebsite);
+      await generateForStore(storeId, lang, copyWebsite && WEBSITE_LANGS.includes(lang));
     }
     console.log(`✅ ${lang.toUpperCase()} done`);
   }

@@ -18,4 +18,4 @@ Di una palabra de activación y WhisPaste inserta el texto completo: firmas, sal
 Alternar o push-to-talk · Superposición en vivo con vista previa opcional · Botón flotante · Panel lateral del portapapeles en el borde de la pantalla · Bandeja del sistema e inicio automático · Interfaz en inglés, alemán, hebreo y ruso (todavía no en español)
 
 💶 COMPRA ÚNICA, SIN SUSCRIPCIÓN
-WhisPaste es de código abierto (licencia MIT) y gratuita en GitHub. La versión de la Store tiene las mismas funciones, se actualiza automáticamente y tu compra financia directamente el desarrollo.
+WhisPaste es de código abierto (licencia MIT) y gratuita en GitHub. La versión de la Store tiene las mismas funciones principales, se actualiza automáticamente y tu compra financia directamente el desarrollo.

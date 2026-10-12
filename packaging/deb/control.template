@@ -13,6 +13,7 @@ Description: Voice-input tool — hotkey, speak, paste anywhere
  .
  Transcription runs locally on your device via whisper.cpp (no network
  traffic) or, optionally, through a cloud provider you choose. The local
- Sprachdienst (whisper-server) is downloaded automatically on first use into
- the user's writable config dir ($XDG_CONFIG_HOME/whispaste, default
- ~/.config/whispaste); audio never leaves your device in local mode.
+ The speech engine (whisper.cpp) runs inside the app process. The speech model is
+ downloaded once, when you start the model download during setup, into the user's
+ writable config dir ($XDG_CONFIG_HOME/whispaste, default ~/.config/whispaste);
+ audio never leaves your device in local mode.

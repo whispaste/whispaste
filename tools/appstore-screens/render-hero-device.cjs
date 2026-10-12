@@ -15,7 +15,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const { STORE_SIZES, SCREENS, GOLDENS, OUTPUT } = require('./config');
+const { STORE_SIZES, SCREENS, GOLDENS, OUTPUT, UI_LANG, ALL_LANGS } = require('./config');
 
 const TEMPLATE_PATH = path.resolve(__dirname, 'hero-device-template.html');
 // v2 photo: realistically proportioned widescreen 16:10 panel, so the golden
@@ -79,7 +79,7 @@ function toDataUri(filePath) {
 
 function goldenFor(lang, storeId) {
   const base = STORE_SIZES[storeId].goldenBase || '';
-  return path.join(GOLDENS, `${base}${lang}/dark/01_workspace_overview.png`);
+  return path.join(GOLDENS, `${base}${UI_LANG[lang]}/dark/01_workspace_overview.png`);
 }
 
 async function render(page, lang, storeId, hero) {
@@ -132,7 +132,10 @@ async function render(page, lang, storeId, hero) {
 
 async function main() {
   const langArg = process.argv.slice(2).find((a) => a.startsWith('--lang='))?.split('=')[1] || 'all';
-  const langs = langArg === 'all' ? ['en', 'de'] : [langArg];
+  const langs = langArg === 'all' ? ALL_LANGS : [langArg];
+  for (const lang of langs) {
+    if (!UI_LANG[lang]) throw new Error(`Unknown --lang="${lang}". Supported: ${ALL_LANGS.join(', ')}, all`);
+  }
 
   const hero = SCREENS.find((s) => s.id === 'hero');
   if (!hero) throw new Error('No hero entry in SCREENS');

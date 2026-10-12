@@ -18,4 +18,4 @@ Sag ein Stichwort, und WhisPaste fügt den vollständigen Text ein: Signaturen, 
 Umschalten oder Push-to-Talk · Live-Overlay mit optionaler Live-Vorschau · Floating Button · Zwischenablage-Seitenleiste am Bildschirmrand · System-Tray und Autostart · Oberfläche auf Deutsch, Englisch, Hebräisch und Russisch
 
 💶 EINMALKAUF STATT ABO
-WhisPaste ist quelloffen (MIT-Lizenz) und kostenlos auf GitHub. Die Store-Version hat dieselben Funktionen, aktualisiert sich automatisch, und dein Kauf finanziert direkt die Weiterentwicklung.
+WhisPaste ist quelloffen (MIT-Lizenz) und kostenlos auf GitHub. Die Store-Version hat dieselben Kernfunktionen, aktualisiert sich automatisch, und dein Kauf finanziert direkt die Weiterentwicklung.

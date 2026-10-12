@@ -18,8 +18,11 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
 import { t, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
-// Screenshots exist for the German and English app UI; other locales show English.
-const screenshotLang = lang === 'de' ? 'de' : 'en';
+// Screenshots exist for the German and English app UI, and for the Russian UI
+// on the golden-rendered screens 01–05; everything else shows English.
+const RU_SCREEN_IDS = ['01_workspace_overview', '02_workspace_detail', '03_voice_shortcuts', '04_settings', '05_analytics'];
+const screenshotLangFor = (id: string) =>
+  lang === 'de' ? 'de' : lang === 'ru' && RU_SCREEN_IDS.includes(id) ? 'ru' : 'en';
 
 type GalleryTheme = 'dark' | 'light';
 
@@ -65,7 +68,7 @@ const screens: Array<{
         >
           <img
             class="gallery-image"
-            src={`/screenshots/${screenshotLang}/${screen.theme}/${screen.id}.webp`}
+            src={`/screenshots/${screenshotLangFor(screen.id)}/${screen.theme}/${screen.id}.webp`}
             data-gallery-id={screen.id}
             data-gallery-theme={screen.theme}
             alt={t(lang, screen.i18nLabel)}
@@ -195,11 +198,14 @@ const screens: Array<{
     const thumbButtons = root.querySelectorAll<HTMLButtonElement>('.gallery-thumb-btn');
 
     function getLang(): string {
-      return document.documentElement.lang === 'de' ? 'de' : 'en';
+      const docLang = document.documentElement.lang;
+      return docLang === 'de' || docLang === 'ru' ? docLang : 'en';
     }
 
+    // Russian goldens only cover screens 01–05; later screens fall back to English.
     function buildSrc(id: string, lang: string, theme: string): string {
-      return `/screenshots/${lang}/${theme}/${id}.webp`;
+      const shotLang = lang === 'ru' && !/^0[1-5]_/.test(id) ? 'en' : lang;
+      return `/screenshots/${shotLang}/${theme}/${id}.webp`;
     }
 
     function updateImages() {

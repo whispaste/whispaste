@@ -215,7 +215,7 @@ platform :mac do
     )
   end
 
-  desc "Push fastlane/screenshots/{en-US,de-DE} only — no rebuild, no binary/metadata upload. Safety net for fixing a wrong/stale screenshot (e.g. hero) without a full mas_release"
+  desc "Push fastlane/screenshots/* (all 7 locales) only — no rebuild, no binary/metadata upload. Safety net for fixing a wrong/stale screenshot (e.g. hero) without a full mas_release"
   lane :mac_screenshots_only do
     load_asc_api_key
     # Clean baseline first — see dedupe_mas_screenshots' own comment above.
@@ -358,12 +358,12 @@ platform :mac do
       platform:          "osx",
       pkg:               lane_context[SharedValues::PKG_OUTPUT_PATH],
       submit_for_review: false,
-      skip_screenshots:  false,     # fastlane/screenshots/{en-US,de-DE} populated 2026-07-28 (1440x900, from tools/appstore-screens/output/*/mac)
+      skip_screenshots:  false,     # fastlane/screenshots/{en-US,de-DE,es-ES,pt-BR,it,ru,zh-Hans} populated 2026-07-28 (1440x900, from tools/appstore-screens/output/*/mac)
       skip_metadata:     false,     # fastlane/metadata/{en-US,de-DE} populated 2026-07-28
       # Without this, deliver only ADDS local screenshots to whatever is
       # already live on ASC instead of replacing them — root cause of the
       # duplicate/stale screenshots found in App Store Connect on 2026-07-29.
-      # fastlane/screenshots/{en-US,de-DE} is the full, current 6-shot set
+      # fastlane/screenshots/{en-US,de-DE,es-ES,pt-BR,it,ru,zh-Hans} is the full, current 6-shot set
       # per locale, so a full clear-and-replace is always correct here.
       overwrite_screenshots: true,
       # deliver runs precheck before every upload_to_app_store call by

@@ -114,8 +114,8 @@ export interface SoftwareApplicationOptions {
 export const DEFAULT_OPERATING_SYSTEMS: readonly string[] = [
   "Windows 10",
   "Windows 11",
-  "macOS 12",
-  "Linux",
+  "macOS 12 (Apple Silicon)",
+  "Linux (x86_64)",
 ];
 
 /**
@@ -124,17 +124,19 @@ export const DEFAULT_OPERATING_SYSTEMS: readonly string[] = [
  * den Screenshots sichtbar ist (DE-Workspace zeigt deutsche UI).
  */
 export function defaultScreenshotsFor(locale: Locale): readonly string[] {
-  const slug = locale === "de" ? "de" : "en";
+  const slug = locale === "de" || locale === "ru" ? locale : "en";
+  // Russian goldens cover screens 01–05 only; 06–09 stay English.
+  const late = locale === "de" ? "de" : "en";
   return [
     `${SITE_ORIGIN}/screenshots/${slug}/dark/01_workspace_overview.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/02_workspace_detail.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/03_voice_shortcuts.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/04_settings.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/05_analytics.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/06_smart_mode.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/07_snippet_picker.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/08_interactive_snippet.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/09_side_panel.png`,
+    `${SITE_ORIGIN}/screenshots/${late}/dark/06_smart_mode.webp`,
+    `${SITE_ORIGIN}/screenshots/${late}/dark/07_snippet_picker.webp`,
+    `${SITE_ORIGIN}/screenshots/${late}/dark/08_interactive_snippet.webp`,
+    `${SITE_ORIGIN}/screenshots/${late}/dark/09_side_panel.webp`,
   ];
 }
 

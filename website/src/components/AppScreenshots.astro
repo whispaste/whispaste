@@ -68,11 +68,13 @@ const lang = currentLocale(Astro.currentLocale);
                   >
                     <img
                       class="teaser-img"
-                      src="/screenshots/en/dark/01_workspace_overview.webp"
+                      src={`/screenshots/${lang === "de" || lang === "ru" ? lang : "en"}/dark/01_workspace_overview.webp`}
                       data-screenshot-en="/screenshots/en/dark/01_workspace_overview.webp"
                       data-screenshot-de="/screenshots/de/dark/01_workspace_overview.webp"
+                      data-screenshot-ru="/screenshots/ru/dark/01_workspace_overview.webp"
                       data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.webp"
                       data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.webp"
+                      data-screenshot-mac-ru="/screenshots/mac/ru/dark/01_workspace_overview.webp"
                       alt={t(lang, "screenshots.teaser.overview.alt")}
                       width="1920"
                       height="1080"
@@ -108,11 +110,13 @@ const lang = currentLocale(Astro.currentLocale);
         >
           <img
             class="teaser-img"
-            src="/screenshots/en/dark/02_workspace_detail.webp"
+            src={`/screenshots/${lang === "de" || lang === "ru" ? lang : "en"}/dark/02_workspace_detail.webp`}
             data-screenshot-en="/screenshots/en/dark/02_workspace_detail.webp"
             data-screenshot-de="/screenshots/de/dark/02_workspace_detail.webp"
+            data-screenshot-ru="/screenshots/ru/dark/02_workspace_detail.webp"
             data-screenshot-mac-en="/screenshots/mac/en/dark/02_workspace_detail.webp"
             data-screenshot-mac-de="/screenshots/mac/de/dark/02_workspace_detail.webp"
+            data-screenshot-mac-ru="/screenshots/mac/ru/dark/02_workspace_detail.webp"
             alt={t(lang, "screenshots.teaser.detail.alt")}
             width="1920"
             height="1080"
@@ -506,14 +510,16 @@ const lang = currentLocale(Astro.currentLocale);
 
 <script>
   function syncScreenshots() {
-    const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
+    const docLang = document.documentElement.lang;
     const os = document.documentElement.dataset.os ?? '';
     document.querySelectorAll<HTMLImageElement>('img[data-screenshot-en]').forEach(img => {
+      const d = img.dataset;
       let nextSrc: string | undefined;
       if (os === 'macos') {
-        nextSrc = lang === 'de' ? img.dataset.screenshotMacDe : img.dataset.screenshotMacEn;
+        nextSrc = docLang === 'de' ? d.screenshotMacDe : docLang === 'ru' ? d.screenshotMacRu : d.screenshotMacEn;
       }
-      nextSrc ??= lang === 'de' ? img.dataset.screenshotDe : img.dataset.screenshotEn;
+      nextSrc ??= docLang === 'de' ? d.screenshotDe : docLang === 'ru' ? d.screenshotRu : d.screenshotEn;
+      nextSrc ??= d.screenshotEn;
       if (nextSrc && img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
     });
   }

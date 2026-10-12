@@ -18,4 +18,4 @@ Pronuncia una parola di attivazione e WhisPaste inserisce il testo completo: fir
 Attiva/disattiva o push-to-talk · Overlay in tempo reale con anteprima facoltativa · Pulsante flottante · Pannello laterale degli appunti sul bordo dello schermo · Area di notifica e avvio automatico · Interfaccia in inglese, tedesco, ebraico e russo (non ancora in italiano)
 
 💶 ACQUISTO UNICO, NESSUN ABBONAMENTO
-WhisPaste è open source (licenza MIT) e gratuito su GitHub. La versione dello Store ha le stesse funzioni, si aggiorna automaticamente e il tuo acquisto finanzia direttamente lo sviluppo.
+WhisPaste è open source (licenza MIT) e gratuito su GitHub. La versione dello Store ha le stesse funzioni principali, si aggiorna automaticamente e il tuo acquisto finanzia direttamente lo sviluppo.

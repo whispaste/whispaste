@@ -147,10 +147,11 @@ $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 # above for what actually determines which locale is live.
 $LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de'; 'es-ES' = 'es-es'; 'pt-BR' = 'pt-br'; 'it-IT' = 'it-it'; 'ru-RU' = 'ru-ru'; 'zh-CN' = 'zh-cn' }
 
-# store/ folder name → tools/appstore-screens output lang folder ('en'/'de').
-# Screenshots exist in English and German only; the other listings reuse the
-# English set (the app UI is English for those locales, Russian aside).
-$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de'; 'es-ES' = 'en'; 'pt-BR' = 'en'; 'it-IT' = 'en'; 'ru-RU' = 'en'; 'zh-CN' = 'en' }
+# store/ folder name → tools/appstore-screens output lang folder. Each listing
+# has its own localized composites (copy in its language). The app UI inside
+# them is localized only for en/de/ru; es/pt/it/zh show the English UI, which
+# is what the app actually displays there.
+$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de'; 'es-ES' = 'es'; 'pt-BR' = 'pt'; 'it-IT' = 'it'; 'ru-RU' = 'ru'; 'zh-CN' = 'zh' }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

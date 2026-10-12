@@ -18,4 +18,4 @@ Say a trigger word and WhisPaste inserts the full text: signatures, greetings, p
 Toggle or push-to-talk · Live overlay with optional live preview · Floating button · Clipboard side panel at the screen edge · System tray and autostart · Interface in English, German, Hebrew and Russian
 
 💶 ONE-TIME PURCHASE, NO SUBSCRIPTION
-WhisPaste is open source (MIT license) and free on GitHub. The Store version has the same features, updates automatically, and your purchase directly funds further development.
+WhisPaste is open source (MIT license) and free on GitHub. The Store version has the same core features, updates automatically, and your purchase directly funds further development.

@@ -45,7 +45,7 @@ import jwt
 APP_ID = "6795319409"  # de.whispaste.app, App Store Connect
 BASE = "https://api.appstoreconnect.apple.com"
 CREDENTIALS_FILE = os.path.expanduser("~/.config/whispaste-ios-credentials/fastlane.env")
-LOCALES = ("en-US", "de-DE")
+LOCALES = ("en-US", "de-DE", "es-ES", "pt-BR", "it", "ru", "zh-Hans")
 
 # Editable-app-version states in which we're willing to touch screenshots.
 # Deliberately excludes READY_FOR_SALE / post-submission states — this tool

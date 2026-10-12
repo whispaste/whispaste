@@ -55,7 +55,7 @@ const rows = matrix.map((cell) => {
   const measured = benchmarkData.rows.find(
     (r) => r.engine === cell.engine && r.model === cell.model && r.hardwareClass === cell.hardwareClass,
   );
-  const speedMultiplier = measured ? Math.round(1 / measured.rtf) : null;
+  const speedMultiplier = measured ? Number((1 / measured.rtf).toFixed(1)) : null;
   const accuracyPercent = measured ? (100 - measured.wer * 100).toFixed(1) : null;
   return { ...cell, measured, speedMultiplier, accuracyPercent };
 });

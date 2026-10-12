@@ -43,7 +43,7 @@ import 'screenshot_shell.dart';
 // Configuration
 // ---------------------------------------------------------------------------
 
-const _locales = ['en', 'de'];
+const _locales = ['en', 'de', 'ru'];
 
 final _screenshots = <_ScreenDef>[
   _ScreenDef(
@@ -132,6 +132,7 @@ void main() {
     for (final (localeName, entries) in [
       ('en', _demoEntriesEn),
       ('de', _demoEntriesDe),
+      ('ru', _demoEntriesRu),
     ]) {
       test(
         '$localeName: at least 6 of 8 categorical slots are represented',
@@ -303,14 +304,20 @@ Widget _buildScreenshotApp({
 }
 
 Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
-  final firstTitle = locale == 'de'
-      ? 'Wöchentliche Standup-Notizen'
-      : 'Weekly standup notes';
+  final firstTitle = switch (locale) {
+    'de' => 'Wöchentliche Standup-Notizen',
+    'ru' => 'Еженедельные заметки по стендапу',
+    _ => 'Weekly standup notes',
+  };
   await tester.tap(find.text(firstTitle).first);
 }
 
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
-  final sectionTitle = locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
+  final sectionTitle = switch (locale) {
+    'de' => 'Tastenkürzel',
+    'ru' => 'Горячая клавиша',
+    _ => 'Keyboard Shortcut',
+  };
   // Scoped to the scroll content: SettingsAnchorChipBar (Ticket 16) sits in
   // the sticky header above the scrollable and renders a chip with this
   // exact section label, so a bare `find.text` now matches both.
@@ -353,16 +360,19 @@ final _screenshotNow = DateTime(2026, 9, 30, 14, 54);
 
 Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   final now = clock.now();
-  final isGerman = locale == 'de';
 
-  final tagLabels = isGerman
-      ? ['Arbeit', 'Privat', 'Meeting', 'Idee', 'E-Mail']
-      : ['Work', 'Personal', 'Meeting', 'Idea', 'Email'];
+  final tagLabels = switch (locale) {
+    'de' => ['Arbeit', 'Privat', 'Meeting', 'Idee', 'E-Mail'],
+    'ru' => ['Работа', 'Личное', 'Встреча', 'Идея', 'Почта'],
+    _ => ['Work', 'Personal', 'Meeting', 'Idea', 'Email'],
+  };
 
   final tagIds = <String, String>{};
-  for (final tag in tagLabels) {
-    final id =
-        'tag-${tag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
+  for (var i = 0; i < tagLabels.length; i++) {
+    final tag = tagLabels[i];
+    // Index-based id: the ASCII-slug formula collapses every Cyrillic tag
+    // name to the same id ('tag--'), which breaks the primary key.
+    final id = 'tag-$locale-$i';
     tagIds[tag] = id;
     await db
         .into(db.tags)
@@ -371,7 +381,11 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
         );
   }
 
-  final entries = isGerman ? _demoEntriesDe : _demoEntriesEn;
+  final entries = switch (locale) {
+    'de' => _demoEntriesDe,
+    'ru' => _demoEntriesRu,
+    _ => _demoEntriesEn,
+  };
   for (final entry in entries) {
     final ts = now.subtract(Duration(minutes: entry.minutesAgo));
     await db
@@ -403,7 +417,11 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
     }
   }
 
-  final replacements = isGerman ? _replacementsDe : _replacementsEn;
+  final replacements = switch (locale) {
+    'de' => _replacementsDe,
+    'ru' => _replacementsRu,
+    _ => _replacementsEn,
+  };
   for (var i = 0; i < replacements.length; i++) {
     final (trigger, replacement) = replacements[i];
     final replacementId = 'repl-$locale-$i';
@@ -651,6 +669,119 @@ const _replacementsDe = <(String, String)>[
   ('meine mail', 'alex@whispaste.dev'),
   ('meeting link', 'https://meet.example.com/team-sync'),
   ('bin gleich zurück', 'Bin gleich wieder da, gib mir bitte einen Moment.'),
+];
+
+const _demoEntriesRu = <_DemoEntry>[
+  _DemoEntry(
+    id: 'demo-1',
+    title: 'Еженедельные заметки по стендапу',
+    content:
+        'Бэкенд-команда выпустила новый процесс входа. Фронтенд успевает к '
+        'дизайн-ревью в четверг. Мобильной команде нужен ещё один день на '
+        'интеграцию push-уведомлений. Блокеров нет.',
+    durationSec: 42.3,
+    minutesAgo: 15,
+    tags: ['Работа', 'Встреча'],
+    model: 'Whisper Large v3',
+    pinned: true,
+    colorSlot: 5,
+  ),
+  _DemoEntry(
+    id: 'demo-2',
+    title: 'Письмо клиенту — обновление по проекту',
+    content:
+        'Привет, Sarah! Короткое обновление по проекту. Редизайн дашборда идёт '
+        'раньше графика, новый раздел аналитики будет готов к тестированию '
+        'в понедельник. Ссылку на стейджинг отправлю сразу после этого.',
+    durationSec: 28.7,
+    minutesAgo: 45,
+    tags: ['Работа', 'Почта'],
+    model: 'Whisper Large v3',
+    colorSlot: 6,
+  ),
+  _DemoEntry(
+    id: 'demo-3',
+    title: 'Идея для продукта — голосовые ярлыки',
+    content:
+        'Голосовые ярлыки могут раскрываться во целые фразы. Если я скажу '
+        '«подпись», автоматически вставится мой завершающий текст. Это '
+        'экономит время на однотипном наборе.',
+    durationSec: 18.5,
+    minutesAgo: 120,
+    tags: ['Идея'],
+    model: 'Whisper Medium',
+    pinned: true,
+    colorSlot: 0,
+  ),
+  _DemoEntry(
+    id: 'demo-4',
+    title: 'Список покупок на выходные',
+    content:
+        'Авокадо, закваска, черри-томаты, моцарелла, свежий базилик, '
+        'оливковое масло, паста, куриная грудка, чеснок, лук и тёмный шоколад.',
+    durationSec: 12.1,
+    minutesAgo: 180,
+    tags: ['Личное'],
+    model: 'Whisper Medium',
+    colorSlot: 1,
+  ),
+  _DemoEntry(
+    id: 'demo-5',
+    title: 'Итоги встречи — планирование Q2',
+    content:
+        'Главное: цель по выручке — рост на пятнадцать процентов, утверждены '
+        'три новых инженера, дата запуска в сентябре зафиксирована. Нужно '
+        'обсудить с дизайном обновление бренда.',
+    durationSec: 55.8,
+    minutesAgo: 360,
+    tags: ['Работа', 'Встреча'],
+    model: 'Whisper Large v3',
+    colorSlot: 3,
+  ),
+  _DemoEntry(
+    id: 'demo-6',
+    title: 'Короткое напоминание — визит к стоматологу',
+    content:
+        'Визит к стоматологу перенесли на пятницу, на девять утра. Уточнить '
+        'на ресепшене, работает ли парковка с валидацией для ранних записей.',
+    durationSec: 8.2,
+    minutesAgo: 25,
+    tags: ['Личное'],
+    model: 'Whisper Medium',
+    colorSlot: 7,
+  ),
+  _DemoEntry(
+    id: 'demo-7',
+    title: 'Итоги интервью — кандидат на бэкенд',
+    content:
+        'Силён в распределённых системах, слабее в работе с фронтендом. '
+        'Склоняюсь к найму, но перед звонком с предложением подключите '
+        'руководителя фронтенда.',
+    durationSec: 61.4,
+    minutesAgo: 300,
+    tags: ['Работа', 'Встреча'],
+    model: 'Whisper Large v3',
+    colorSlot: 2,
+  ),
+  _DemoEntry(
+    id: 'demo-8',
+    title: 'Заметка о поездке — конференция в следующем месяце',
+    content:
+        'Забронировать перелёт, пока цены не выросли, и проверить, открыт ли '
+        'ещё блок номеров в отеле для ранней регистрации.',
+    durationSec: 15.0,
+    minutesAgo: 500,
+    tags: ['Идея'],
+    model: 'Whisper Medium',
+    colorSlot: 4,
+  ),
+];
+
+const _replacementsRu = <(String, String)>[
+  ('подпись', 'С уважением,\nAlex'),
+  ('моя почта', 'alex@whispaste.dev'),
+  ('ссылка на встречу', 'https://meet.example.com/team-sync'),
+  ('сейчас вернусь', 'Сейчас вернусь, дай мне минутку.'),
 ];
 
 class _DemoEntry {
