@@ -458,7 +458,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 42.3,
     minutesAgo: 15,
     tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     pinned: true,
     colorSlot: 5,
   ),
@@ -472,7 +472,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 28.7,
     minutesAgo: 45,
     tags: ['Work', 'Email'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 6,
   ),
   _DemoEntry(
@@ -511,7 +511,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 55.8,
     minutesAgo: 360,
     tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 3,
   ),
   _DemoEntry(
@@ -535,7 +535,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 61.4,
     minutesAgo: 300,
     tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 2,
   ),
   _DemoEntry(
@@ -563,7 +563,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 42.3,
     minutesAgo: 15,
     tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     pinned: true,
     colorSlot: 5,
   ),
@@ -577,7 +577,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 28.7,
     minutesAgo: 45,
     tags: ['Arbeit', 'E-Mail'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 6,
   ),
   _DemoEntry(
@@ -616,7 +616,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 55.8,
     minutesAgo: 360,
     tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 3,
   ),
   _DemoEntry(
@@ -640,7 +640,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 61.4,
     minutesAgo: 300,
     tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 2,
   ),
   _DemoEntry(
@@ -682,7 +682,7 @@ const _demoEntriesRu = <_DemoEntry>[
     durationSec: 42.3,
     minutesAgo: 15,
     tags: ['Работа', 'Встреча'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     pinned: true,
     colorSlot: 5,
   ),
@@ -696,7 +696,7 @@ const _demoEntriesRu = <_DemoEntry>[
     durationSec: 28.7,
     minutesAgo: 45,
     tags: ['Работа', 'Почта'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 6,
   ),
   _DemoEntry(
@@ -735,7 +735,7 @@ const _demoEntriesRu = <_DemoEntry>[
     durationSec: 55.8,
     minutesAgo: 360,
     tags: ['Работа', 'Встреча'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 3,
   ),
   _DemoEntry(
@@ -760,7 +760,7 @@ const _demoEntriesRu = <_DemoEntry>[
     durationSec: 61.4,
     minutesAgo: 300,
     tags: ['Работа', 'Встреча'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 2,
   ),
   _DemoEntry(
@@ -842,7 +842,11 @@ const _sampleAnalytics = AnalyticsData(
   timeSavedMinutes: 846,
   weeklyActivity: [12.4, 18.2, 15.7, 22.1, 19.5, 8.3, 5.0],
   modelUsage: [
-    AnalyticsModelUsage(model: 'Whisper Large v3', count: 612, fraction: 0.72),
+    AnalyticsModelUsage(
+      model: 'Whisper Large v3 Turbo',
+      count: 612,
+      fraction: 0.72,
+    ),
     AnalyticsModelUsage(model: 'Whisper Medium', count: 183, fraction: 0.22),
     AnalyticsModelUsage(model: 'OpenAI API', count: 52, fraction: 0.06),
   ],

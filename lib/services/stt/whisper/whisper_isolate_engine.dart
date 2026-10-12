@@ -766,6 +766,28 @@ class WhisperIsolateEngine
   }
 }
 
+/// Picks the whisper.cpp backend from the user's "Grafikbeschleunigung"
+/// setting and the detected [gpu].
+///
+/// `disabled` always forces CPU and `enabled` always uses the detected
+/// backend. `auto` additionally routes known-problematic GPUs (Kepler/Fermi,
+/// old AMD GCN — see [shouldUseGpu]) to CPU up front instead of waiting for
+/// the reactive load-timeout fallback.
+WhisperBackend selectWhisperBackend({
+  required String? gpuPreference,
+  required GpuInfo? gpu,
+}) {
+  if (gpuPreference == GpuAcceleration.disabled.value) {
+    return WhisperBackend.cpu;
+  }
+  if (gpu != null &&
+      gpuPreference != GpuAcceleration.enabled.value &&
+      !shouldUseGpu(gpu)) {
+    return WhisperBackend.cpu;
+  }
+  return whisperBackendFromName(gpu?.optimalBackend);
+}
+
 /// Overrideable [WhisperEngine] for the on-device whisper path.
 ///
 /// Defaults to a [WhisperIsolateEngine] (worker isolate, see file doc
@@ -782,11 +804,10 @@ final whisperEngineProvider = Provider<WhisperEngine>((ref) {
   final gpuPreference = ref.watch(
     settingsProvider.select((s) => s.value?.behavior.gpuAcceleration),
   );
-  final backend = gpuPreference == GpuAcceleration.disabled.value
-      ? WhisperBackend.cpu
-      : whisperBackendFromName(
-          ref.watch(gpuInfoProvider).value?.optimalBackend,
-        );
+  final backend = selectWhisperBackend(
+    gpuPreference: gpuPreference,
+    gpu: ref.watch(gpuInfoProvider).value,
+  );
   final engine = WhisperIsolateEngine(backend: backend);
   ref.onDispose(engine.shutdown);
   return engine;

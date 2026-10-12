@@ -135,6 +135,20 @@ void main() {
       expect(shouldUseGpu(gpu), isFalse);
     });
 
+    test('Kepler GT 730 without CUDA runtime → false', () {
+      expect(shouldUseGpu(_nvidiaNoCuda), isFalse);
+    });
+
+    test('Modern NVIDIA without CUDA runtime stays on GPU (Vulkan)', () {
+      const gpu = GpuInfo(
+        vendor: GpuVendor.nvidia,
+        name: 'NVIDIA GeForce RTX 3060',
+        vulkanAvailable: true,
+      );
+      expect(shouldUseGpu(gpu), isTrue);
+      expect(gpu.optimalBackend, 'vulkan');
+    });
+
     // Modern NVIDIA → true
     test('RTX 4090 (CUDA) → true', () {
       expect(shouldUseGpu(_nvidiaWithCuda), isTrue);

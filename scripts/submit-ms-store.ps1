@@ -209,12 +209,13 @@ function Read-LineList {
 # Lists the generated Store screenshots for one locale, sorted by their
 # numeric prefix (01_hero.png, 02_workspace-overview.png, …). Returns an
 # array of hashtables: LocalPath (source file), ZipEntry (path inside the
-# upload ZIP, relative to its root), Description (human caption derived from
-# the filename's slug, since tools/appstore-screens doesn't emit one
-# separately). Returns an empty array (not an error) if the directory is
-# missing — the caller decides whether that's fatal.
+# upload ZIP, relative to its root), Description (the localized caption from
+# store/<locale>/screenshot-captions.txt, one line per image in file order;
+# falls back to a caption derived from the filename's slug when the file or
+# the line is missing). Returns an empty array (not an error) if the
+# directory is missing — the caller decides whether that's fatal.
 function Read-LocaleImages {
-  param([string] $ScreenshotsDir, [string] $LangFolder, [string] $Locale)
+  param([string] $ScreenshotsDir, [string] $LangFolder, [string] $Locale, [string[]] $Captions = @())
 
   $dir = Join-Path $ScreenshotsDir (Join-Path $LangFolder 'microsoft')
   if (-not (Test-Path $dir)) { return @() }
@@ -222,13 +223,17 @@ function Read-LocaleImages {
   $files = Get-ChildItem -Path $dir -Filter '*.png' |
     Sort-Object { [int]([regex]::Match($_.Name, '^\d+').Value) }
 
+  $index = 0
   return @($files | ForEach-Object {
-    $slug = $_.BaseName -replace '^\d+_', '' -replace '-', ' '
-    $caption = (Get-Culture).TextInfo.ToTitleCase($slug)
+    $caption = if ($index -lt $Captions.Count -and $Captions[$index]) { $Captions[$index] } else {
+      $slug = $_.BaseName -replace '^\d+_', '' -replace '-', ' '
+      "WhisPaste — $((Get-Culture).TextInfo.ToTitleCase($slug))"
+    }
+    $index++
     @{
       LocalPath   = $_.FullName
       ZipEntry    = "images/$Locale/$($_.Name)"
-      Description = "WhisPaste — $caption"
+      Description = $caption
     }
   })
 }
@@ -338,7 +343,8 @@ foreach ($folder in $LOCALE_MAP.Keys) {
   $images = @()
   if ($ScreenshotsDir) {
     $langFolder = $SCREENSHOT_LANG_MAP[$folder]
-    $images     = Read-LocaleImages -ScreenshotsDir $ScreenshotsDir -LangFolder $langFolder -Locale $locale
+    $captions   = Read-LineList (Join-Path $dir 'screenshot-captions.txt')
+    $images     = Read-LocaleImages -ScreenshotsDir $ScreenshotsDir -LangFolder $langFolder -Locale $locale -Captions $captions
   }
   $managed[$locale] = @{
     title        = $title

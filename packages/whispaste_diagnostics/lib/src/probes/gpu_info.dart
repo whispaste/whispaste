@@ -217,8 +217,14 @@ class GpuInfo {
   /// assume CUDA 12 works: such machines are modern in practice, and a missed
   /// false-negative there is far rarer than the Kepler crash-loop we guard
   /// against.
-  bool get supportsCuda12 {
-    if (vendor != GpuVendor.nvidia || !cudaAvailable) return false;
+  bool get supportsCuda12 =>
+      vendor == GpuVendor.nvidia && cudaAvailable && !isPreMaxwellNvidia;
+
+  /// Whether the model name identifies a Fermi/Kepler-era NVIDIA card
+  /// (GeForce 4xx–7xx, Quadro/Tesla/GRID K), independent of whether a CUDA
+  /// runtime was found.
+  bool get isPreMaxwellNvidia {
+    if (vendor != GpuVendor.nvidia) return false;
     final upper = name.toUpperCase();
     // GeForce 400/500/600/700 (Fermi + Kepler): a three-digit model number in
     // the 400–799 range. GTX 745/750/750 Ti are technically Maxwell but share
@@ -226,13 +232,10 @@ class GpuInfo {
     // runs fine on them), whereas a missed Kepler is a hard crash loop — so we
     // deliberately err toward Vulkan for the whole 7xx range.
     if (RegExp(r'\b(?:GTX|GT|GEFORCE)\s*[4-7]\d{2}\b').hasMatch(upper)) {
-      return false;
+      return true;
     }
     // Kepler-era professional cards: Quadro K / Tesla K / GRID K series.
-    if (RegExp(r'\b(?:QUADRO|TESLA|GRID)\s*K\d').hasMatch(upper)) {
-      return false;
-    }
-    return true;
+    return RegExp(r'\b(?:QUADRO|TESLA|GRID)\s*K\d').hasMatch(upper);
   }
 
   @override
@@ -410,7 +413,7 @@ List<String> serverAssetPatterns(
 /// Returns `true` (conservative) for all other cases: unknown names, modern
 /// cards, non-GPU vendors that embed a fixed backend (Metal, Vulkan on Intel).
 ///
-/// Precedence in [SttServerStateNotifier._start]:
+/// Precedence in the app's `selectWhisperBackend` (whisper_isolate_engine.dart):
 ///   1. User override (`gpuAcceleration` = `enabled`/`disabled`)
 ///   2. This predicate (`shouldUseGpu == false` → CPU)
 ///   3. The existing `auto`-path (optimalBackend etc.)
@@ -421,15 +424,11 @@ bool shouldUseGpu(GpuInfo gpu) {
   // GpuVendor.none → no GPU present, CPU is the only option.
   if (gpu.vendor == GpuVendor.none) return false;
 
-  // NVIDIA Kepler/Fermi: already detected by supportsCuda12 (false for 4xx–7xx
-  // GeForce and Quadro K / Tesla K). These cards either crash the cuda12 build
+  // NVIDIA Kepler/Fermi (4xx–7xx GeForce and Quadro K / Tesla K). These cards either crash the cuda12 build
   // or hang the Vulkan build (FLUTTER_WHISPASTE-9W / -6X). Route to CPU.
-  if (gpu.vendor == GpuVendor.nvidia) {
-    // supportsCuda12 returns false for Kepler/Fermi, regardless of backend.
-    // Reuse the same heuristic to keep the logic DRY.
-    if (!gpu.supportsCuda12) return false;
-    return true;
-  }
+  // Name-based on purpose: a modern NVIDIA card without a CUDA runtime still
+  // runs fine on Vulkan and must not be routed to CPU.
+  if (gpu.vendor == GpuVendor.nvidia) return !gpu.isPreMaxwellNvidia;
 
   // AMD: old GCN (HD 7xxx / HD 8xxx, codenames Tahiti / Cape Verde / Pitcairn)
   // predates the ROCm/Vulkan support level whisper.cpp needs. Identified

@@ -209,6 +209,10 @@ msix_config:
   store: true
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
+  # UI languages the app actually ships (lib/core/l10n). Store listings in
+  # other languages (es, pt-BR, it, zh-CN) are listing-only "additional
+  # languages", which Partner Center allows without package support.
+  languages: en-us, de-de, he-il, ru-ru
 
 # sentry_dart_plugin — uploads native debug symbols (.pdb/.dSYM/.so) per
 # Release build. Auth token MUST come from the SENTRY_AUTH_TOKEN env var

@@ -1368,7 +1368,10 @@ jobs:
           fi
 
           ZIP_NAME="WhisPaste-${VERSION}-linux-x64.tar.gz"
-          tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" .
+          # Ship the uinput udev rule + installer so Auto-Paste can be enabled
+          # with one sudo call (the .deb applies it automatically).
+          tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" . \
+            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules install-uinput-rule.sh
 
           echo "Release artifacts:"
           ls -lh "$ARTIFACT_DIR"
