@@ -1,7 +1,7 @@
 Da voce a testo per il tuo Mac: premi una scorciatoia, parla, e WhisPaste scrive le tue parole proprio nel cursore, in qualsiasi app: Mail, Note, Slack, VS Code o ovunque tu scriva.
 
 LA TUA VOCE RESTA SUL TUO MAC
-Due motori sul dispositivo fanno il lavoro: Whisper (Small, Medium o Large v3 Turbo, fino a 99 lingue, accelerato da Metal su Apple Silicon) e il particolarmente veloce Parakeet. Dopo il download, una tantum, del modello la trascrizione funziona offline e il tuo audio non lascia mai il Mac. La trascrizione cloud tramite OpenAI o Deepgram è facoltativa, usa la tua chiave API e va direttamente al provider, mai tramite i server di WhisPaste. Non serve alcun account.
+Due motori sul dispositivo fanno il lavoro: Whisper (Small, Medium o Large v3 Turbo, fino a 99 lingue, accelerato da Metal su Apple Silicon) e Parakeet, particolarmente veloce. Dopo il download del modello, che avviene una sola volta, la trascrizione funziona offline e il tuo audio non lascia mai il Mac. La trascrizione cloud tramite OpenAI o Deepgram è facoltativa, usa la tua chiave API e va direttamente al provider, mai tramite i server di WhisPaste. Non serve alcun account.
 
 SMART MODE
 Fai pulire, accorciare o tradurre il testo prima che venga incollato, sul tuo Mac o tramite OpenAI. Puoi anche applicarlo in seguito a una trascrizione passata.

@@ -1,10 +1,10 @@
-Entrada por voz para tu Mac: pulsa un atajo, habla, y WhisPaste escribe tus palabras justo en el cursor, en cualquier app: Mail, Notas, Slack, VS Code o donde sea que escribas.
+Entrada por voz para tu Mac: pulsa un atajo, habla y WhisPaste escribe tus palabras justo en el cursor, en cualquier app: Mail, Notas, Slack, VS Code o donde sea que escribas.
 
 TU AUDIO SE QUEDA EN TU MAC
 Dos motores en el dispositivo hacen el trabajo: Whisper (Small, Medium o Large v3 Turbo, hasta 99 idiomas, acelerado por Metal en Apple Silicon) y el motor especialmente rápido Parakeet. Tras la descarga única del modelo, la transcripción funciona sin conexión y tu audio nunca sale de tu Mac. La transcripción en la nube con OpenAI o Deepgram es opcional, usa tu propia clave de API y va directamente al proveedor, nunca pasa por los servidores de WhisPaste. No necesitas cuenta.
 
 SMART MODE
-Haz que tu texto se limpie, se acorte o se traduzca antes de pegarlo, en tu Mac o a través de OpenAI. También puedes aplicarlo después a una transcripción anterior.
+Limpia, acorta o traduce tu texto antes de pegarlo, en tu Mac o a través de OpenAI. También puedes aplicarlo después a una transcripción anterior.
 
 EDITAR EL TEXTO SELECCIONADO POR VOZ
 Selecciona una frase en cualquier app, pulsa el atajo de selección y di qué debe cambiar, por ejemplo «hazlo más amable». WhisPaste reescribe la selección en su sitio. Desactivado por defecto.

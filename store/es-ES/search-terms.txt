@@ -3,5 +3,5 @@ reconocimiento de voz
 dictado
 whisper IA
 transcripción
-transcripción offline
+transcripción sin conexión
 escritura por voz

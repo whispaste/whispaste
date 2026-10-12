@@ -4,7 +4,7 @@ SEU ÁUDIO FICA NO SEU MAC
 Dois motores no dispositivo fazem o trabalho: Whisper (Small, Medium ou Large v3 Turbo, até 99 idiomas, acelerado por Metal em Apple Silicon) e o Parakeet, especialmente rápido. Depois do download único do modelo, a transcrição roda offline e seu áudio nunca sai do seu Mac. A transcrição na nuvem via OpenAI ou Deepgram é opcional, usa sua própria chave de API e vai direto ao provedor, nunca passando por servidores do WhisPaste. Não é preciso conta.
 
 SMART MODE
-Deixe seu texto limpo, encurtado ou traduzido antes de ser colado, no seu Mac ou via OpenAI. Você também pode aplicá-lo depois a uma transcrição anterior.
+Tenha seu texto limpo, encurtado ou traduzido antes de ser colado, no seu Mac ou via OpenAI. Você também pode aplicá-lo depois a uma transcrição anterior.
 
 EDITAR TEXTO SELECIONADO POR VOZ
 Selecione uma frase em qualquer app, pressione o atalho de seleção e diga o que deve mudar, como “deixe mais amigável”. O WhisPaste reescreve a seleção no lugar. Desativado por padrão.
@@ -15,7 +15,7 @@ Diga um gatilho curto e o WhisPaste insere o texto completo: assinaturas, sauda�
 HISTÓRICO E EXPORTAÇÃO
 Cada transcrição é salva no seu Mac. Pesquise, marque, fixe, arquive e mescle entradas, proteja o histórico com um PIN e exporte para TXT, Markdown, JSON, CSV ou Word.
 
-COMPRA ÚNICA, NÃO ASSINATURA
+COMPRA ÚNICA, SEM ASSINATURA
 Sem assinatura, sem limite de tempo, sem custos recorrentes. O WhisPaste é de código aberto (licença MIT) e é desenvolvido abertamente no GitHub. Sua compra apoia diretamente o desenvolvimento.
 
 FEITO PARA O DIA A DIA
