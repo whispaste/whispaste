@@ -15,7 +15,7 @@ Jedes Transkript wird lokal gespeichert und ist durchsuchbar. Verschlagworten, a
 Sag ein Stichwort, und WhisPaste fügt den vollständigen Text ein: Signaturen, Grußformeln, Sätze, die du jeden Tag tippst. Interaktive Textbausteine füllen Vorlagen Feld für Feld. Eigenes Vokabular und Ersetzungen sorgen dafür, dass Namen und Fachbegriffe stimmen.
 
 🎛️ FÜR DEINEN ARBEITSALLTAG
-Umschalten oder Push-to-Talk · Live-Overlay mit optionaler Live-Vorschau · Floating Button · Zwischenablage-Seitenleiste am Bildschirmrand · System-Tray und Autostart · Oberfläche auf Deutsch, Englisch, Hebräisch und Russisch
+Umschalten oder Push-to-Talk · Live-Overlay mit optionaler Live-Vorschau · Floating Button · Zwischenablage-Seitenleiste am Bildschirmrand · System-Tray und Autostart · Oberfläche auf Deutsch, Englisch, Hebräisch, Russisch, Spanisch und Portugiesisch (Brasilien)
 
 💶 EINMALKAUF STATT ABO
 WhisPaste ist quelloffen (MIT-Lizenz) und kostenlos auf GitHub. Die Store-Version hat dieselben Kernfunktionen, aktualisiert sich automatisch, und dein Kauf finanziert direkt die Weiterentwicklung.

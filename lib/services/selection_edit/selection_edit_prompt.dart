@@ -39,6 +39,10 @@ const Map<SelectionEditQuickAction, Set<String>> _keywords = {
     'קצר', 'לקצר', 'תקצר', 'קצר יותר',
     // ru
     'короче', 'сократи', 'сократить', 'сделай короче',
+    // es
+    'más corto', 'acortar', 'acorta', 'hazlo más corto',
+    // pt
+    'encurtar', 'encurte', 'mais curto', 'deixe mais curto',
   },
   SelectionEditQuickAction.improve: {
     // en
@@ -49,6 +53,10 @@ const Map<SelectionEditQuickAction, Set<String>> _keywords = {
     'שפר', 'לשפר', 'תשפר',
     // ru
     'улучши', 'улучшить', 'сделай лучше',
+    // es
+    'mejorar', 'mejora', 'mejóralo', 'hazlo mejor',
+    // pt
+    'melhorar', 'melhore', 'deixe melhor',
   },
   SelectionEditQuickAction.translate: {
     // en
@@ -59,6 +67,10 @@ const Map<SelectionEditQuickAction, Set<String>> _keywords = {
     'תרגם', 'לתרגם', 'תתרגם',
     // ru
     'переведи', 'перевести',
+    // es
+    'traducir', 'traduce', 'tradúcelo',
+    // pt
+    'traduzir', 'traduza',
   },
 };
 

@@ -81,9 +81,16 @@ void main() {
           reason: 'expected native label for ${locale.languageCode}',
         );
       }
-      // Sanity: today's bundled locales are de/en/he/ru, so we expect
-      // exactly four labels — guards against accidental duplication.
-      expect(L10n.supportedLocales.length, 4);
+      // Sanity: pins the bundled set, guarding against accidental
+      // duplication or a locale dropped from the build.
+      expect(L10n.supportedLocales.map((l) => l.languageCode).toSet(), {
+        'de',
+        'en',
+        'es',
+        'he',
+        'pt',
+        'ru',
+      });
     });
 
     testWidgets('updates locale when the German label is tapped', (
@@ -533,6 +540,20 @@ void main() {
       expect(localeNativeName(const Locale('en')), 'English');
       expect(localeNativeName(const Locale('de')), 'Deutsch');
       expect(localeNativeName(const Locale('he')), 'עברית');
+      expect(localeNativeName(const Locale('es')), 'Español');
+      expect(localeNativeName(const Locale('pt')), 'Português (Brasil)');
+    });
+
+    test('every supported locale has a real endonym, never the fallback', () {
+      for (final locale in L10n.supportedLocales) {
+        expect(
+          localeNativeName(locale),
+          isNot(locale.languageCode.toUpperCase()),
+          reason:
+              '${locale.toLanguageTag()} needs an entry in '
+              'localeNativeName',
+        );
+      }
     });
 
     test('falls back to upper-cased language subtag for unknown locales', () {

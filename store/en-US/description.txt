@@ -15,7 +15,7 @@ Every transcript is saved locally and searchable. Tag, pin, archive, merge and e
 Say a trigger word and WhisPaste inserts the full text: signatures, greetings, phrases you type every day. Interactive snippets fill templates field by field. Custom vocabulary and replacements make names and jargon come out right.
 
 🎛️ BUILT FOR DAILY WORK
-Toggle or push-to-talk · Live overlay with optional live preview · Floating button · Clipboard side panel at the screen edge · System tray and autostart · Interface in English, German, Hebrew and Russian
+Toggle or push-to-talk · Live overlay with optional live preview · Floating button · Clipboard side panel at the screen edge · System tray and autostart · Interface in English, German, Hebrew, Russian, Spanish and Portuguese (Brazil)
 
 💶 ONE-TIME PURCHASE, NO SUBSCRIPTION
 WhisPaste is open source (MIT license) and free on GitHub. The Store version has the same core features, updates automatically, and your purchase directly funds further development.

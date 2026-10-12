@@ -14,12 +14,12 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/widgets/recording_behavior.dart';
 
 void main() {
-  for (final locale in const ['en', 'de', 'he', 'ru']) {
-    group('doneToastLabel ($locale)', () {
+  for (final locale in L10n.supportedLocales) {
+    group('doneToastLabel (${locale.toLanguageTag()})', () {
       late L10n l10n;
 
       setUpAll(() async {
-        l10n = await L10n.delegate.load(Locale(locale));
+        l10n = await L10n.delegate.load(locale);
       });
 
       test('selection edit does not say "transcription complete"', () {

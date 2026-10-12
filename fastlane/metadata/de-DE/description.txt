@@ -19,4 +19,4 @@ EINMALIG STATT ABO
 Kein Abo, kein Zeitlimit, keine wiederkehrenden Kosten. WhisPaste ist quelloffen (MIT-Lizenz) und wird offen auf GitHub entwickelt. Mit deinem Kauf unterstützt du direkt die Weiterentwicklung.
 
 FÜR DEINEN ARBEITSALLTAG
-Toggle oder Push-to-talk · Live-Overlay beim Sprechen · schwebender Aufnahme-Button · Schnelleinfüge-Seitenleiste am Bildschirmrand · eigenes Vokabular und Ersetzungen · Menüleiste · Start bei der Anmeldung · Oberfläche auf Deutsch, Englisch, Hebräisch und Russisch
+Toggle oder Push-to-talk · Live-Overlay beim Sprechen · schwebender Aufnahme-Button · Schnelleinfüge-Seitenleiste am Bildschirmrand · eigenes Vokabular und Ersetzungen · Menüleiste · Start bei der Anmeldung · Oberfläche auf Deutsch, Englisch, Hebräisch, Russisch, Spanisch und Portugiesisch (Brasilien)

@@ -15,7 +15,7 @@ Ogni trascrizione viene salvata in locale ed è ricercabile. Puoi taggare, fissa
 Pronuncia una parola di attivazione e WhisPaste inserisce il testo completo: firme, saluti, frasi che scrivi ogni giorno. Gli snippet interattivi compilano i modelli campo per campo. Vocabolario personalizzato e sostituzioni fanno sì che nomi e gergo vengano scritti correttamente.
 
 🎛️ PENSATA PER IL LAVORO QUOTIDIANO
-Attiva/disattiva o push-to-talk · Overlay in tempo reale con anteprima facoltativa · Pulsante flottante · Pannello laterale degli appunti sul bordo dello schermo · Area di notifica e avvio automatico · Interfaccia in inglese, tedesco, ebraico e russo (non ancora in italiano)
+Attiva/disattiva o push-to-talk · Overlay in tempo reale con anteprima facoltativa · Pulsante flottante · Pannello laterale degli appunti sul bordo dello schermo · Area di notifica e avvio automatico · Interfaccia in inglese, tedesco, ebraico, russo, spagnolo e portoghese brasiliano (non ancora in italiano)
 
 💶 ACQUISTO UNICO, NESSUN ABBONAMENTO
 WhisPaste è open source (licenza MIT) e gratuito su GitHub. La versione dello Store ha le stesse funzioni principali, si aggiorna automaticamente e il tuo acquisto finanzia direttamente lo sviluppo.

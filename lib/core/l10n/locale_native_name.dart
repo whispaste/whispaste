@@ -12,8 +12,9 @@ import 'package:flutter/widgets.dart';
 /// subtag in upper-case so the UI never crashes — but the fallback is a
 /// last-resort and should not ship to end users.
 String localeNativeName(Locale locale) {
-  // Match on the lower-cased language code; ignore script/region for now —
-  // WhisPaste does not ship region-specific variants.
+  // Match on the lower-cased language code; ignore script/region —
+  // WhisPaste ships one variant per language. Portuguese is the Brazilian
+  // variant, so its name says so.
   final code = locale.languageCode.toLowerCase();
   return switch (code) {
     'de' => 'Deutsch',
@@ -21,6 +22,7 @@ String localeNativeName(Locale locale) {
     'he' => 'עברית',
     'fr' => 'Français',
     'es' => 'Español',
+    'pt' => 'Português (Brasil)',
     'ru' => 'Русский',
     _ => code.toUpperCase(),
   };

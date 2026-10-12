@@ -19,4 +19,4 @@ COMPRA ÚNICA, SEM ASSINATURA
 Sem assinatura, sem limite de tempo, sem custos recorrentes. O WhisPaste é de código aberto (licença MIT) e é desenvolvido abertamente no GitHub. Sua compra apoia diretamente o desenvolvimento.
 
 FEITO PARA O DIA A DIA
-Alternar ou push-to-talk · overlay ao vivo enquanto você fala · botão flutuante de gravação · painel lateral de colagem rápida na borda da tela · vocabulário personalizado e substituições · barra de menus · início com o login · interface em inglês, alemão, hebraico e russo; ainda não em português
+Alternar ou push-to-talk · overlay ao vivo enquanto você fala · botão flutuante de gravação · painel lateral de colagem rápida na borda da tela · vocabulário personalizado e substituições · barra de menus · início com o login · interface em inglês, alemão, hebraico, russo, espanhol e português do Brasil

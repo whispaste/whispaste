@@ -19,4 +19,4 @@ ACQUISTO UNICO, NON UN ABBONAMENTO
 Nessun abbonamento, nessun limite di tempo, nessun costo ricorrente. WhisPaste è open source (licenza MIT) e sviluppato apertamente su GitHub. Il tuo acquisto sostiene direttamente lo sviluppo.
 
 PENSATA PER IL LAVORO QUOTIDIANO
-Attiva/disattiva o push-to-talk · overlay in tempo reale mentre parli · pulsante di registrazione flottante · pannello laterale per l'incolla rapido sul bordo dello schermo · vocabolario personalizzato e sostituzioni · barra dei menu · avvio al login · interfaccia in inglese, tedesco, ebraico e russo (non ancora in italiano)
+Attiva/disattiva o push-to-talk · overlay in tempo reale mentre parli · pulsante di registrazione flottante · pannello laterale per l'incolla rapido sul bordo dello schermo · vocabolario personalizzato e sostituzioni · barra dei menu · avvio al login · interfaccia in inglese, tedesco, ebraico, russo, spagnolo e portoghese brasiliano (non ancora in italiano)

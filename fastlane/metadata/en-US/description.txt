@@ -19,4 +19,4 @@ ONE-TIME PURCHASE, NOT A SUBSCRIPTION
 No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and developed in the open on GitHub. Your purchase directly supports its development.
 
 BUILT FOR DAILY WORK
-Toggle or push-to-talk · live overlay while you speak · floating record button · quick-paste side panel at the screen edge · custom vocabulary and replacements · menu bar · launch at login · English, German, Hebrew and Russian interface
+Toggle or push-to-talk · live overlay while you speak · floating record button · quick-paste side panel at the screen edge · custom vocabulary and replacements · menu bar · launch at login · English, German, Hebrew, Russian, Spanish and Portuguese (Brazil) interface
