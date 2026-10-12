@@ -87,28 +87,28 @@ while IFS= read -r f; do
   # Lokale Pfade — nur in Nicht-Test-Dateien flaggen (Test-Fixtures dürfen
   # /Users/test/, /home/user/ etc. enthalten).
   if ! is_test "$f"; then
-    if printf '%s' "$content" | LC_ALL=C grep -qE "$PATH_RE"; then
-      hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$PATH_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+    if LC_ALL=C grep -qE "$PATH_RE" <<<"$content"; then
+      hit="$(LC_ALL=C grep -nE "$PATH_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
       err "$f: lokaler Pfad (Infra-Leak) → $hit"
     fi
   fi
   # Echte Secrets — IMMER flaggen, auch in Test-Dateien (keine Fixture-Legitimität).
-  if printf '%s' "$content" | LC_ALL=C grep -qE "$SECRET_HARD_RE"; then
-    hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$SECRET_HARD_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+  if LC_ALL=C grep -qE "$SECRET_HARD_RE" <<<"$content"; then
+    hit="$(LC_ALL=C grep -nE "$SECRET_HARD_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
     err "$f: Secret/Hard-Key-Leak → $hit"
   fi
-  if printf '%s' "$content" | LC_ALL=C grep -qE "$KEY_RE"; then
-    hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$KEY_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+  if LC_ALL=C grep -qE "$KEY_RE" <<<"$content"; then
+    hit="$(LC_ALL=C grep -nE "$KEY_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
     err "$f: Secret/Key-Pattern → $hit"
   fi
-  if [ -n "$LOCAL_RE" ] && printf '%s' "$content" | LC_ALL=C grep -qiE "$LOCAL_RE"; then
-    hit="$(printf '%s' "$content" | LC_ALL=C grep -niE "$LOCAL_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+  if [ -n "$LOCAL_RE" ] && LC_ALL=C grep -qiE "$LOCAL_RE" <<<"$content"; then
+    hit="$(LC_ALL=C grep -niE "$LOCAL_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
     err "$f: Blocklisten-Treffer (Internas) → $hit"
   fi
   # Private IPs — nicht in Test-Dateien und nicht in Source-Code (Build-Nummern, SDK-Versionen).
   if ! is_test "$f" && ! is_source "$f"; then
-    if printf '%s' "$content" | LC_ALL=C grep -qE "$IP_RE"; then
-      hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$IP_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+    if LC_ALL=C grep -qE "$IP_RE" <<<"$content"; then
+      hit="$(LC_ALL=C grep -nE "$IP_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
       err "$f: private IP (Infra-Leak) → $hit"
     fi
   fi
@@ -125,17 +125,17 @@ for f in $ENGLISH_FILES; do
   exists "$f" || continue
   c="$(read_file "$f")"
   [ -z "$c" ] && continue
-  if printf '%s' "$c" | grep -qiE 'security[ -]by[ -]design|security-by-default|battle-tested|military-grade|bank-grade|hardened by design'; then
+  if grep -qiE 'security[ -]by[ -]design|security-by-default|battle-tested|military-grade|bank-grade|hardened by design' <<<"$c"; then
     err "$f: Security-Werbung (Guardrail: Security nicht bewerben)"
   fi
-  if printf '%s' "$c" | grep -qE 'silvio-l/whispaste'; then
+  if grep -qE 'silvio-l/whispaste' <<<"$c"; then
     err "$f: falsche Identität 'silvio-l/whispaste' (existiert nicht — erwartet silvio-l/WhisPaste oder whispaste)"
     # Note: the actual GitHub org+repo may differ; adjust to match reality
   fi
-  if printf '%s' "$c" | grep -qE 'TODO|FIXME|XXX|PLACEHOLDER|LOREM IPSUM'; then
+  if grep -qE 'TODO|FIXME|XXX|PLACEHOLDER|LOREM IPSUM' <<<"$c"; then
     err "$f: Platzhalter (TODO/FIXME/…) in öffentlicher Doku"
   fi
-  if printf '%s' "$c" | grep -qE '<[^>]+@[^>]+>' 2>/dev/null; then
+  if grep -qE '<[^>]+@[^>]+>' 2>/dev/null <<<"$c"; then
     err "$f: E-Mail-Adresse (Anzeigename <addr>) in öffentlicher Markdown"
   fi
   # German markers — public GH Markdown must be English. Scanned on a
@@ -144,7 +144,7 @@ for f in $ENGLISH_FILES; do
   # or org name like "…/silvio-und-maik/…") can otherwise false-positive
   # on "und" between two non-alpha boundary chars.
   c_prose="$(printf '%s' "$c" | sed -E 's/\]\([^)]*\)/]()/g; s/(href|src)="[^"]*"/\1=""/g')"
-  if printf '%s' "$c_prose" | LC_ALL=C grep -qE "$GERMAN_RE"; then
+  if LC_ALL=C grep -qE "$GERMAN_RE" <<<"$c_prose"; then
     err "$f: deutsche Sprachmarker — öffentliche GitHub-Markdown muss Englisch sein"
   fi
 done
