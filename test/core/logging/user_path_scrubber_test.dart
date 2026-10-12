@@ -68,6 +68,41 @@ void main() {
     });
   });
 
+  group('scrubUserPathsInMap (Sentry extras context)', () {
+    test('scrubs String leaves recursively in maps and lists', () {
+      final out = scrubUserPathsInMap(
+        {
+          'model': '/Users/alice/m.bin',
+          'count': 3,
+          'enabled': true,
+          'nested': {
+            'paths': ['/home/alice/a.wav', 42],
+            'deeper': {'note': 'alice was here'},
+          },
+        },
+        home: '/Users/alice',
+        userName: 'alice',
+      );
+
+      expect(out['model'], isNot(contains('alice')));
+      expect(out['count'], 3);
+      expect(out['enabled'], isTrue);
+      final nested = out['nested'] as Map<String, dynamic>;
+      expect((nested['paths'] as List)[0], isNot(contains('alice')));
+      expect((nested['paths'] as List)[1], 42);
+      expect(
+        (nested['deeper'] as Map<String, dynamic>)['note'],
+        isNot(contains('alice')),
+      );
+    });
+
+    test('does not mutate the input map', () {
+      final input = <String, dynamic>{'p': '/Users/alice/x'};
+      scrubUserPathsInMap(input, home: '/Users/alice', userName: 'alice');
+      expect(input['p'], '/Users/alice/x');
+    });
+  });
+
   group('CrashReporter.beforeSend scrubs user paths', () {
     test('message, exception value, breadcrumb message and data', () {
       final event = SentryEvent(

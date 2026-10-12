@@ -49,3 +49,33 @@ String? _environmentUserName() {
   final env = Platform.environment;
   return Platform.isWindows ? env['USERNAME'] : env['USER'];
 }
+
+/// Returns a copy of [values] with [scrubUserPaths] applied to every String
+/// leaf, recursing into nested maps and lists. Keys and non-string values
+/// are kept as they are.
+Map<String, dynamic> scrubUserPathsInMap(
+  Map<String, dynamic> values, {
+  String? home,
+  String? userName,
+}) {
+  return {
+    for (final entry in values.entries)
+      entry.key: _scrubValue(entry.value, home: home, userName: userName),
+  };
+}
+
+Object? _scrubValue(Object? value, {String? home, String? userName}) {
+  return switch (value) {
+    String() => scrubUserPaths(value, home: home, userName: userName),
+    Map() => scrubUserPathsInMap(
+      value.cast<String, dynamic>(),
+      home: home,
+      userName: userName,
+    ),
+    List() => [
+      for (final item in value)
+        _scrubValue(item, home: home, userName: userName),
+    ],
+    _ => value,
+  };
+}

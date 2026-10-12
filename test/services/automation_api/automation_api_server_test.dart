@@ -102,12 +102,9 @@ void main() {
     });
 
     test('stop() then immediately start() again on the SAME fixed port '
-        'succeeds repeatedly — the port-reuse ticket. Without `shared: true` '
-        'on the underlying bind, a port this process just released can stay '
-        'unrebindable (TIME_WAIT) for a while, which is exactly what pushed '
-        'a fast restart loop (e.g. WhisPaste relaunching itself after a '
-        'permission grant) through the whole port-fallback range for no '
-        'real reason.', () async {
+        'succeeds repeatedly — guards the fast restart loop (e.g. WhisPaste '
+        'relaunching itself after a permission grant) against falling '
+        'through the whole port-fallback range.', () async {
       Response handler(Request request) => Response.ok('hello');
 
       // Reserve a real free port first (0 = ephemeral), then reuse that
@@ -120,6 +117,20 @@ void main() {
         server = AutomationApiServer();
         final port = await server.start(port: fixedPort, handler: handler);
         expect(port, fixedPort);
+
+        // One real request per round, so the server-side connection is in
+        // TIME_WAIT when the next round rebinds the same port.
+        final client = HttpClient();
+        try {
+          final response = await (await client.get(
+            '127.0.0.1',
+            port,
+            '/',
+          )).close();
+          await response.drain<void>();
+        } finally {
+          client.close(force: true);
+        }
         await server.stop();
       }
     });

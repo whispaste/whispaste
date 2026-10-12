@@ -233,7 +233,7 @@ class CrashReporter {
             scope.setTag('error_type', type);
             if (processName != null) scope.setTag('process', processName);
             if (extras != null) {
-              scope.setContexts('extras', extras);
+              scope.setContexts('extras', scrubUserPathsInMap(extras));
             }
             if (fingerprint.isNotEmpty) {
               scope.fingerprint = fingerprint;
@@ -254,7 +254,7 @@ class CrashReporter {
             scope.setTag('error_type', type);
             if (processName != null) scope.setTag('process', processName);
             if (extras != null) {
-              scope.setContexts('extras', extras);
+              scope.setContexts('extras', scrubUserPathsInMap(extras));
             }
             if (fingerprint.isNotEmpty) {
               scope.fingerprint = fingerprint;
