@@ -143,6 +143,28 @@ class RecordingState {
 }
 
 // ---------------------------------------------------------------------------
+// Transcription budget
+// ---------------------------------------------------------------------------
+
+/// Budget per second of audio for the transcribing stuck-guards. A CPU-only
+/// Whisper run has to finish within this many times the recording's length
+/// before it counts as stuck. Not measured on CPU-only hardware; chosen so a
+/// 60-minute recording gets three hours before it is abandoned.
+const double kTranscriptionBudgetFactor = 3.0;
+
+/// The stuck-guard budget for transcribing [audio]:
+/// `max(floor, factor × audio)`.
+///
+/// Shared by the Whisper inference guard (`SttServerStateNotifier`) and the
+/// transcribing guard in [RecordingNotifier]. [floor] is the minimum budget
+/// (5 min in production), so short recordings keep their previous timeout.
+/// Non-positive durations return [floor].
+Duration transcriptionStuckBudget(Duration audio, {required Duration floor}) {
+  final scaled = audio * kTranscriptionBudgetFactor;
+  return scaled > floor ? scaled : floor;
+}
+
+// ---------------------------------------------------------------------------
 // Notifier
 // ---------------------------------------------------------------------------
 
@@ -152,8 +174,8 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
   Timer? _elapsedTimer;
 
-  /// Safety-net timer: if the state machine stays in transcribing
-  /// for longer than this, auto-fail to unblock the UI.
+  /// Safety-net timer: if the state machine stays in transcribing for longer
+  /// than its budget (at least [_stuckTimeout]), auto-fail to unblock the UI.
   Timer? _stuckGuard;
   static const _stuckTimeout = Duration(minutes: 5);
 
@@ -288,11 +310,17 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// Safety net: auto-fail if stuck in transcribing too long.
   void _startStuckGuard() {
     _stuckGuard?.cancel();
-    _stuckGuard = Timer(_stuckTimeout, () {
+    // The budget scales with the recording's length (`state.elapsed`), with
+    // [_stuckTimeout] as the floor for short recordings.
+    final budget = transcriptionStuckBudget(
+      state.elapsed,
+      floor: _stuckTimeout,
+    );
+    _stuckGuard = Timer(budget, () {
       if (state.phase == RecordingPhase.transcribing) {
         _log.error(
           'State machine stuck in ${state.phase} for '
-          '${_stuckTimeout.inMinutes} min — auto-failing '
+          '${budget.inMinutes} min — auto-failing '
           '(session=${state.sessionId})',
         );
         fail('pipeline_timeout');

@@ -11,6 +11,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
 import '../../recording/clipping_state.dart';
 import '../../../widgets/section.dart';
+import '../record_duration_steps.dart';
 import '../settings_widgets.dart';
 
 /// Audio input settings: microphone, gain.
@@ -179,16 +180,34 @@ class RecordingSafetySection extends ConsumerWidget {
             subtitle: l10n.settingsMaxRecordDurationSubtitle,
             trailing: settingsSlider(
               context: context,
-              value: settings.maxRecordDuration.toDouble(),
+              value: recordDurationStepIndex(
+                settings.maxRecordDuration,
+              ).toDouble(),
               min: 0,
-              max: 600,
-              divisions: 20,
-              valueLabel: fmtDuration(context, settings.maxRecordDuration),
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWith(maxRecordDuration: v.round()),
-                  ),
+              max: (kRecordDurationStepCount - 1).toDouble(),
+              divisions: kRecordDurationStepCount - 1,
+              valueLabel: fmtDuration(
+                context,
+                recordDurationSecondsAt(
+                  recordDurationStepIndex(settings.maxRecordDuration),
+                ),
+              ),
+              onChanged: (v) {
+                final index = v.round();
+                // Off-grid legacy values keep their stored number until the
+                // user actually moves to a different step.
+                if (index ==
+                    recordDurationStepIndex(settings.maxRecordDuration)) {
+                  return;
+                }
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(
+                        maxRecordDuration: recordDurationSecondsAt(index),
+                      ),
+                    );
+              },
             ),
           ),
         ],

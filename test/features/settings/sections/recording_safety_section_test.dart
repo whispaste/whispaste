@@ -131,8 +131,7 @@ void main() {
 
         final initial = notifier.state.value!.behavior.maxRecordDuration;
 
-        // Slider 2 = maxRecordDuration. Range 0–600, div 20 (step 30).
-        // Center 90 px + 60 px = 150 px → 150/180*600 = 500 → div-30 = 510 ≠ 120.
+        // Slider 2 = maxRecordDuration. 17 discrete steps (index 0–16).
         await tester.drag(find.byType(Slider).at(2), const Offset(60, 0));
         await tester.pump();
 
@@ -140,6 +139,47 @@ void main() {
           notifier.state.value!.behavior.maxRecordDuration,
           isNot(initial),
         );
+      },
+    );
+
+    testWidgets(
+      'max-record-duration: a legacy off-grid value is shown as its nearest '
+      'step and stays stored until the slider moves',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(maxRecordDuration: 90),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: RecordingSafetySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 90 s is a tie between 60 s and 120 s; the shorter limit is shown.
+        expect(find.text('1m'), findsOneWidget);
+        expect(notifier.state.value!.behavior.maxRecordDuration, 90);
+      },
+    );
+
+    testWidgets(
+      'max-record-duration: dragging to the far right stores 0 (Unlimited)',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: RecordingSafetySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.drag(find.byType(Slider).at(2), const Offset(400, 0));
+        await tester.pumpAndSettle();
+
+        expect(notifier.state.value!.behavior.maxRecordDuration, 0);
+        expect(find.text('Unlimited'), findsOneWidget);
       },
     );
   });

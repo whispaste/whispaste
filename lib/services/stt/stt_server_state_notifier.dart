@@ -22,7 +22,8 @@ import '../../core/config/whisper_languages.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
-import '../../core/recording/recording_state.dart' show SttServerState;
+import '../../core/recording/recording_state.dart'
+    show SttServerState, transcriptionStuckBudget;
 import '../hardware_info_service.dart' as hw;
 import '../model_download_service.dart';
 import '../path_service.dart';
@@ -842,8 +843,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
   /// [WhisperFailureKind] signals:
   ///
-  /// - **Stuck-Guard** — the call is raced against [stuckGuardTimeout]; a hang
-  ///   ends as a clean [WhisperFailureKind.timeout] error, never a deadlock.
+  /// - **Stuck-Guard** — the call is raced against
+  ///   `transcriptionStuckBudget(audio, floor: stuckGuardTimeout)`, so long
+  ///   recordings get a budget that scales with their length; a hang ends as a
+  ///   clean [WhisperFailureKind.timeout] error, never a deadlock.
   /// - **CPU-Fallback** — a [WhisperFailureKind.gpuCrash] degrades to CPU once
   ///   (`cpuFallbackActive` set) and retries.
   /// - **Retry** — a [WhisperFailureKind.transient] failure is retried up to
@@ -886,7 +889,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               vadEnabled: vadEnabled,
               reducedThreads: _isRecordingActive,
             )
-            .timeout(stuckGuardTimeout);
+            .timeout(
+              transcriptionStuckBudget(
+                Duration(milliseconds: audioDurationMs),
+                floor: stuckGuardTimeout,
+              ),
+            );
       } on TimeoutException {
         const failure = WhisperEngineException(
           WhisperFailureKind.timeout,
