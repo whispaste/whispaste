@@ -361,6 +361,7 @@
   "statusTranscribing": "Transkribiere…",
   "statusProcessing": "Verarbeite…",
   "statusTranscriptionDone": "Transkription abgeschlossen",
+  "statusSelectionEdited": "Auswahl bearbeitet",
   "statusCopied": "Kopiert!",
   "statusLocal": "Lokal",
   "statusCloud": "Cloud",

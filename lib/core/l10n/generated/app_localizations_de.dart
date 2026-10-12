@@ -1154,6 +1154,9 @@ class L10nDe extends L10n {
   String get statusTranscriptionDone => 'Transkription abgeschlossen';
 
   @override
+  String get statusSelectionEdited => 'Auswahl bearbeitet';
+
+  @override
   String get statusCopied => 'Kopiert!';
 
   @override

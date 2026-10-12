@@ -390,6 +390,7 @@
   "statusTranscribing": "מתמלל…",
   "statusProcessing": "מעבד…",
   "statusTranscriptionDone": "תמלול הושלם",
+  "statusSelectionEdited": "הבחירה נערכה",
   "statusCopied": "הועתק!",
   "statusLocal": "מקומי",
   "statusCloud": "ענן",

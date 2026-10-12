@@ -459,7 +459,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // engine surfaces as a setup hint without recording anything — the
       // instruction would have nowhere to go.
       if (target == RecordingTarget.selectionEdit) {
-        final selectionEditError = _selectionEditPreflight();
+        final selectionEditError = await _selectionEditPreflight();
         if (selectionEditError != null) {
           _log.info('Edit selection unavailable: $selectionEditError');
           _stateMachine.transition(
@@ -1322,12 +1322,20 @@ class RecordingOrchestrator extends Notifier<void> {
     return true;
   }
 
+  /// Upper bound for waiting on the Smart Mode startup disk scan before the
+  /// edit-selection gate gives up and reports a missing engine.
+  static const _selectionEditScanTimeout = Duration(seconds: 10);
+
   /// Gate for [RecordingTarget.selectionEdit]: returns an error code when
   /// the feature cannot run, `null` when it can. Needs the paste path
   /// (`selectionEditServiceProvider` is null without one) and a usable
   /// Smart Mode engine — the downloaded local model, or an OpenAI key for
   /// the cloud provider (strict either-or, ADR 0010).
-  String? _selectionEditPreflight() {
+  ///
+  /// `modelDownloaded` is only known once the startup disk scan has run, so
+  /// a hotkey pressed right after launch waits for that scan instead of
+  /// misreporting an installed model as "not set up".
+  Future<String?> _selectionEditPreflight() async {
     if (ref.read(selectionEditServiceProvider) == null) {
       return 'selection_edit_unsupported';
     }
@@ -1341,9 +1349,20 @@ class RecordingOrchestrator extends Notifier<void> {
     if (provider.isLocal && !ref.read(smartModeLocalEngineAvailableProvider)) {
       return 'selection_edit_local_unavailable';
     }
-    final engineReady = provider.isLocal
-        ? ref.read(smartModeDownloadProvider).modelDownloaded
-        : settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+    final bool engineReady;
+    if (provider.isLocal) {
+      final download = ref.read(smartModeDownloadProvider.notifier);
+      await download.awaitInitialScan().timeout(
+        _selectionEditScanTimeout,
+        onTimeout: () => _log.warning(
+          'Smart Mode startup scan still pending after '
+          '${_selectionEditScanTimeout.inSeconds}s — treating model as missing',
+        ),
+      );
+      engineReady = ref.read(smartModeDownloadProvider).modelDownloaded;
+    } else {
+      engineReady = settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+    }
     return engineReady ? null : 'selection_edit_no_engine';
   }
 

@@ -142,6 +142,15 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
 // Widget
 // ---------------------------------------------------------------------------
 
+/// Label of the success toast shown when a run finishes. An edit-selection
+/// run replaces text rather than transcribing it, so it gets its own label
+/// (the recording target is kept after the run, see `startRecording`).
+@visibleForTesting
+String doneToastLabel(L10n l10n, RecordingTarget target) =>
+    target == RecordingTarget.selectionEdit
+    ? l10n.statusSelectionEdited
+    : l10n.statusTranscriptionDone;
+
 /// Invisible wrapper that reacts to [RecordingState] transitions.
 class WpRecordingBehavior extends ConsumerStatefulWidget {
   const WpRecordingBehavior({super.key, required this.child});
@@ -361,7 +370,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     WpToast.show(
       context,
       message:
-          '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
+          '${doneToastLabel(l10n, ref.read(recordingTargetProvider))} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
       type: WpToastType.success,
     );
     // Auto-reset after a short delay so the FAB returns to idle.

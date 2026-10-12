@@ -1183,6 +1183,9 @@ class L10nRu extends L10n {
   String get statusTranscriptionDone => 'Транскрипция завершена';
 
   @override
+  String get statusSelectionEdited => 'Выделение отредактировано';
+
+  @override
   String get statusCopied => 'Скопировано!';
 
   @override

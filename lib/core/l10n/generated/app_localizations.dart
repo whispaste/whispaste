@@ -2045,6 +2045,12 @@ abstract class L10n {
   /// **'Transcription complete'**
   String get statusTranscriptionDone;
 
+  /// No description provided for @statusSelectionEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'Selection edited'**
+  String get statusSelectionEdited;
+
   /// No description provided for @statusCopied.
   ///
   /// In en, this message translates to:

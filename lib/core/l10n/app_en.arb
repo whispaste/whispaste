@@ -441,6 +441,7 @@
   "statusTranscribing": "Transcribing…",
   "statusProcessing": "Processing…",
   "statusTranscriptionDone": "Transcription complete",
+  "statusSelectionEdited": "Selection edited",
   "statusCopied": "Copied!",
   "statusLocal": "Local",
   "statusCloud": "Cloud",

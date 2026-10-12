@@ -335,6 +335,7 @@
   "statusTranscribing": "Транскрипция…",
   "statusProcessing": "Обработка…",
   "statusTranscriptionDone": "Транскрипция завершена",
+  "statusSelectionEdited": "Выделение отредактировано",
   "statusCopied": "Скопировано!",
   "statusLocal": "Локально",
   "statusCloud": "В облаке",

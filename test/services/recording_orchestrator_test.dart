@@ -40,7 +40,10 @@ import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
-    show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
+    show
+        smartModeEngineProvider,
+        smartModeLocalEngineAvailableProvider,
+        smartModeModelDirOverride;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
@@ -5291,6 +5294,7 @@ void main() {
       String provider = 'local',
       bool pasteAvailable = true,
       bool localEngineAvailable = true,
+      Future<bool> Function(String path)? scanHook,
     }) async {
       ensureFakeLocalSttFilesExist();
       container.dispose();
@@ -5329,8 +5333,13 @@ void main() {
             }),
           ),
           smartModeDownloadProvider.overrideWith(
-            () =>
-                FakeSmartModeDownloadNotifier(modelDownloaded: modelDownloaded),
+            () => scanHook != null
+                // Real notifier: its startup disk scan runs through the hook,
+                // so the test controls when the scan finishes.
+                ? (SmartModeDownloadNotifier()..existsHookOverride = scanHook)
+                : FakeSmartModeDownloadNotifier(
+                    modelDownloaded: modelDownloaded,
+                  ),
           ),
           smartModeEngineProvider.overrideWith((ref) => engine),
           smartModeLocalEngineAvailableProvider.overrideWithValue(
@@ -5419,6 +5428,37 @@ void main() {
       expect(fakeAudio.startCallCount, 0);
       expect(fakeDesktopPaste.copyCalls, 0);
       expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('startup race: Smart Mode disk scan still pending → the edit waits '
+        'for it instead of reporting "no engine"', () async {
+      final modelDir = await Directory.systemTemp.createTemp(
+        'wp_sel_edit_scan_',
+      );
+      smartModeModelDirOverride = modelDir.path;
+      addTearDown(() {
+        smartModeModelDirOverride = null;
+        modelDir.deleteSync(recursive: true);
+      });
+      final scan = Completer<bool>();
+      final orch = await setUpSelectionEdit(scanHook: (_) => scan.future);
+      fakeDesktopPaste.onCopySelection = () => clipboardText = 'Ein Absatz.';
+      fakeStt.transcriptToReturn = 'shorter';
+
+      // Hotkey pressed while the startup scan is still in flight (the
+      // model file exists on disk, the scan just has not reported yet).
+      final starting = orch.startRecording(
+        target: RecordingTarget.selectionEdit,
+      );
+      scan.complete(true);
+      await starting;
+
+      expect(container.read(recordingProvider).errorMessage, isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(engine.runCalls, 1);
     });
 
     test('local engine library missing from this build: same hint as the '

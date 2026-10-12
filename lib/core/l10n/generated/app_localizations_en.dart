@@ -1142,6 +1142,9 @@ class L10nEn extends L10n {
   String get statusTranscriptionDone => 'Transcription complete';
 
   @override
+  String get statusSelectionEdited => 'Selection edited';
+
+  @override
   String get statusCopied => 'Copied!';
 
   @override

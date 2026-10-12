@@ -1133,6 +1133,9 @@ class L10nHe extends L10n {
   String get statusTranscriptionDone => 'תמלול הושלם';
 
   @override
+  String get statusSelectionEdited => 'הבחירה נערכה';
+
+  @override
   String get statusCopied => 'הועתק!';
 
   @override
