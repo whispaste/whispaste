@@ -14,6 +14,11 @@
 #                            aufbaukonform UND inhaltlich aktuell -> stempelt HEAD
 #                            nach .docs-attest.
 #   docs-attest.sh attested  Gibt den zuletzt attestierten Commit aus (oder leer).
+#   docs-attest.sh attested-tree <commit>
+#                            Exit 0, wenn der Inhalt (Tree) von <commit> auf diesem
+#                            Rechner schon attestiert wurde -- z. B. der Squash-Commit
+#                            des RepoBridge-Landers, der denselben Stand wie der
+#                            attestierte Feature-Branch trägt, aber eine neue SHA hat.
 #
 # Genutzt vom .githooks/pre-push (Schranke), der CI (qa) und dem Flutter-Test-Gate.
 #
@@ -33,6 +38,9 @@ GLOSSARY="$WEBSRC/data/brand-glossary.ts"
 APP_URLS="$ROOT/lib/core/app_urls.dart"
 SPEC="$ROOT/docs/public-docs-spec.md"   # interne QS-Spec, bewusst gitignored
 ATTEST="$ROOT/.docs-attest"
+# Host-wide list of attested tree hashes, shared by every checkout, worktree and
+# landing clone on this machine (a tree hash names exactly the attested content).
+ATTEST_TREES="${XDG_STATE_HOME:-$HOME/.local/state}/whispaste/docs-attested-trees"
 PAGES="$WEBSRC/pages"
 
 fail=0
@@ -305,15 +313,25 @@ cmd_check() {
 cmd_attest() {
   cmd_check
   git -C "$ROOT" rev-parse HEAD > "$ATTEST"
+  mkdir -p "$(dirname "$ATTEST_TREES")"
+  { git -C "$ROOT" rev-parse 'HEAD^{tree}'; tail -n 199 "$ATTEST_TREES" 2>/dev/null || true; } \
+    | awk '!seen[$0]++' > "$ATTEST_TREES.tmp" && mv "$ATTEST_TREES.tmp" "$ATTEST_TREES"
   echo "Öffentliche Docs als aktuell & aufbaukonform bestätigt für $(cat "$ATTEST")."
   echo "Hinweis: attest = README, CHANGELOG, Website (DE+EN) und Plattform/Store-SSoT GELESEN und gegen den Repo-Stand geprüft."
 }
 
 cmd_attested() { [ -f "$ATTEST" ] && cat "$ATTEST" || true; }
 
+cmd_attested_tree() {
+  local tree
+  tree="$(git -C "$ROOT" rev-parse --verify --quiet "${1:?commit}^{tree}")" || return 1
+  [ -f "$ATTEST_TREES" ] && grep -qx "$tree" "$ATTEST_TREES"
+}
+
 case "${1:-}" in
   check)    cmd_check ;;
   attest)   cmd_attest ;;
   attested) cmd_attested ;;
-  *) echo "usage: $0 {check|attest|attested}" >&2; exit 2 ;;
+  attested-tree) cmd_attested_tree "${2:-}" ;;
+  *) echo "usage: $0 {check|attest|attested|attested-tree <commit>}" >&2; exit 2 ;;
 esac
