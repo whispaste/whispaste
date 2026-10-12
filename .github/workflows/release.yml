@@ -275,14 +275,14 @@ jobs:
           $env:SENTRY_RELEASE = "whispaste@$version"
           dart run sentry_dart_plugin
           # The plugin only scans the Flutter Release dir, where no PDB may
-          # go (it is packaged as-is). Upload the whisper/ggml/llama/shim
-          # PDBs from their staging dirs with the sentry-cli the plugin just
-          # downloaded and checksum-verified. A failed upload must not block
-          # the release, so it only warns.
+          # go (it is packaged as-is). Upload the runner (whispaste.exe) and
+          # whisper/ggml/llama/shim PDBs from their staging dirs with the
+          # sentry-cli the plugin just downloaded and checksum-verified. A
+          # failed upload must not block the release, so it only warns.
           & .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli.exe --url https://de.sentry.io `
             debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste `
-            .build/libwhisper/windows/pdb .build/libllama/windows/pdb
-          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whisper/ggml/llama stay unsymbolicated for this release." }
+            build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama stay unsymbolicated for this release." }
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
@@ -460,7 +460,7 @@ jobs:
         run: |
           # AC-5 / Q2 (PRD §6.3): Beta tags build NO MSIX and trigger NO Store
           # submission. Setting skip=true here short-circuits every downstream
-          # MSIX step in this job (Build MSIX, Upload MSIX, .appxupload, symbol
+          # MSIX step in this job (Build MSIX, Upload MSIX, .msixupload, symbol
           # upload) AND flips the `msix-built` job output to false, which in
           # turn skips wack-gate and the MSIX download in create-release.
           $refName = "${{ github.ref_name }}"
@@ -506,55 +506,65 @@ jobs:
           name: msix-release
           path: build/windows/x64/runner/Release/*.msix
 
-      # Build a Store symbol package (.appxupload) so the Partner Center can
-      # resolve failureHash/Stack-Signaturen for native crashes. .appxsym ist
-      # schlicht ein ZIP der PDBs (kein MakeAppx nötig); .appxupload ist ein
-      # ZIP aus MSIX + .appxsym, das der Partner Center beim Submission-Upload
-      # automatisch in App + Symbole zerlegt.
-      # Fault-tolerant: ein Fehlschlag blockiert niemals den Release — Sentry
-      # bleibt die kanonische Crash-Quelle (Issue 04). Ergänzt MS für
-      # failureHash-Trending pro Signatur + early-boot-Native-Crashes die
-      # Sentry nie erreicht. Beim manuellen Submission das .appxupload statt
-      # der nackten .msix hochladen.
-      - name: Build Store symbol package (.appxupload)
+      # Build the Store upload package (.msixupload = ZIP of MSIX + .appxsym,
+      # .appxsym = ZIP of public PDBs), which submit-ms-store submits instead
+      # of the bare .msix. Without it Partner Center cannot symbolicate native
+      # crashes: failure names end in `!unknown` and the Health report shows
+      # rising crash rates with no usable cause. Up to v1.3.0 this step looked
+      # for PDBs only in the Release bundle dir, where none may live, so it
+      # always logged "No PDBs (0)" and was skipped silently.
+      # PDB sources: the runner (windows/runner/CMakeLists.txt) plus the
+      # whisper/ggml/llama/shim staging dirs. ggml backend DLLs exist in both
+      # the whisper and the llama tree under the same name; the .appxsym is
+      # flat, so for those names the whisper PDB (dictation hot path) wins.
+      # Fails the job on purpose: a release without symbols is what hid the
+      # v1.3.0 crash causes.
+      - name: Build Store upload package (.msixupload)
         if: steps.msix_config.outputs.skip != 'true'
-        id: appxupload
-        continue-on-error: true
+        id: msixupload
         shell: pwsh
         run: |
           $buildDir = "build\windows\x64\runner\Release"
-          $pdbs = Get-ChildItem -Path $buildDir -Filter *.pdb -Recurse -ErrorAction SilentlyContinue
           $msix = Get-ChildItem "$buildDir\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $pdbs -or $pdbs.Count -eq 0 -or -not $msix) {
-            Write-Warning "No PDBs ($($pdbs.Count)) or MSIX ($msix) — skipping .appxupload"
-            echo "built=false" >> $env:GITHUB_OUTPUT
-            exit 0
-          }
-          $symStaging = "$buildDir\appxsym-staging"
+          if (-not $msix) { throw "No MSIX in $buildDir -- cannot build .msixupload" }
+          $runnerPdb = "build\windows\x64\symbols\whispaste.pdb"
+          if (-not (Test-Path $runnerPdb)) { throw "$runnerPdb missing -- check /DEBUG + /PDB in windows/runner/CMakeLists.txt" }
+          $symStaging = "build\windows\x64\appxsym-staging"
+          if (Test-Path $symStaging) { Remove-Item -Recurse -Force $symStaging }
           New-Item -ItemType Directory -Path $symStaging -Force | Out-Null
-          $pdbs | Copy-Item -Destination $symStaging -Force
-          $appxsym = "$buildDir\WhisPaste.appxsym"
+          # Order matters for name collisions: later copies win (see above).
+          foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb")) {
+            if (-not (Test-Path $dir)) { throw "PDB dir $dir missing" }
+            Get-ChildItem -Path $dir -Filter *.pdb | ForEach-Object {
+              if (Test-Path (Join-Path $symStaging $_.Name)) { Write-Host "PDB name collision, $dir wins: $($_.Name)" }
+              Copy-Item $_.FullName $symStaging -Force
+            }
+          }
+          $pdbCount = (Get-ChildItem $symStaging -Filter *.pdb).Count
+          $appxsym = "build\windows\x64\WhisPaste.appxsym"
           Compress-Archive -Path "$symStaging\*.pdb" -DestinationPath $appxsym -Force
           Remove-Item -Recurse -Force $symStaging
-          if (-not (Test-Path release-artifacts)) { New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null }
-          $upStaging = "$buildDir\appxupload-staging"
+          $upStaging = "build\windows\x64\msixupload-staging"
+          if (Test-Path $upStaging) { Remove-Item -Recurse -Force $upStaging }
           New-Item -ItemType Directory -Path $upStaging -Force | Out-Null
           Copy-Item $msix.FullName $upStaging
           Copy-Item $appxsym $upStaging
-          $appxupload = "release-artifacts\WhisPaste.appxupload"
-          Compress-Archive -Path "$upStaging\*" -DestinationPath $appxupload -Force
+          New-Item -ItemType Directory -Path store-upload -Force | Out-Null
+          # Compress-Archive only writes .zip; rename to the extension Partner Center expects.
+          $zip = "store-upload\WhisPaste.zip"
+          Compress-Archive -Path "$upStaging\*" -DestinationPath $zip -Force
+          Move-Item $zip "store-upload\WhisPaste.msixupload" -Force
           Remove-Item -Recurse -Force $upStaging
-          $sizeMB = [math]::Round((Get-Item $appxupload).Length / 1MB, 1)
-          Write-Host "Built .appxupload with $($pdbs.Count) PDBs ($sizeMB MB)"
-          echo "built=true" >> $env:GITHUB_OUTPUT
+          $sizeMB = [math]::Round((Get-Item "store-upload\WhisPaste.msixupload").Length / 1MB, 1)
+          Write-Host "Built .msixupload with $pdbCount PDBs ($sizeMB MB)"
 
-      - name: Upload MSIX symbol package
-        if: steps.appxupload.outputs.built == 'true'
-        continue-on-error: true
+      - name: Upload Store upload package
+        if: steps.msix_config.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: msix-symbol-package
-          path: release-artifacts/*.appxupload
+          path: store-upload/WhisPaste.msixupload
+          if-no-files-found: error
 
       # Package smoke test (handy-catchup ticket 11): silent NSIS install +
       # MSIX side-load (throwaway test certificate, the uploaded MSIX stays
@@ -738,6 +748,16 @@ jobs:
           name: msix-release
           path: msix
 
+      # .msixupload (MSIX + public PDBs) built in build-windows; submitted in
+      # place of the bare .msix so Partner Center can symbolicate crashes.
+      - name: Download Store upload package
+        if: steps.store_check.outputs.skip != 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: msix-symbol-package
+          path: msixupload
+
       # Generates the Microsoft Store screenshot set (tools/appstore-screens/
       # output/<lang>/microsoft/*.png) that submit-ms-store.ps1 uploads below.
       # Reads from the Flutter-golden PNGs already committed under
@@ -790,7 +810,13 @@ jobs:
         if: steps.store_check.outputs.skip != 'true'
         shell: pwsh
         run: |
-          $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
+          # Prefer the .msixupload (symbols); the bare .msix is only a fallback
+          # and leaves Partner Center crash reports unsymbolicated.
+          $msix = Get-ChildItem -Path msixupload -Filter *.msixupload -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msix) {
+            Write-Host "::warning::No .msixupload found — submitting the bare .msix; Partner Center crash reports will lack symbols."
+            $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
+          }
           if (-not $msix) {
             Write-Host "::warning::No .msix file found in the msix-release artifact — skipping Store submission."
             exit 0

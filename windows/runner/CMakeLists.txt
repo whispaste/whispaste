@@ -40,6 +40,26 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_MINOR=${FLUTT
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_PATCH=${FLUTTER_VERSION_PATCH}")
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_BUILD=${FLUTTER_VERSION_BUILD}")
 
+# Release builds also emit a PDB so Partner Center (.msixupload) and Sentry
+# can symbolicate native crash frames in whispaste.exe. /DEBUG alone would
+# switch the linker to /OPT:NOREF, so REF/ICF are restored explicitly. The PDB
+# goes to symbols/ next to the runner build dir, not into the Release bundle
+# dir: everything there ships as-is (portable ZIP, NSIS, MSIX).
+# /PDBALTPATH records only the file name in the exe instead of the absolute
+# build path. Spelled out instead of the linker's %_PDB% macro: the VS
+# generator escapes % so the exe would name "%%%whispaste.pdb%%%", which
+# symbol servers would never match against the uploaded whispaste.pdb.
+set(WHISPASTE_SYMBOLS_DIR "${CMAKE_BINARY_DIR}/symbols")
+file(MAKE_DIRECTORY "${WHISPASTE_SYMBOLS_DIR}")
+target_compile_options(${BINARY_NAME} PRIVATE "$<$<CONFIG:Release>:/Zi>")
+target_link_options(${BINARY_NAME} PRIVATE
+  "$<$<CONFIG:Release>:/DEBUG>"
+  "$<$<CONFIG:Release>:/OPT:REF>"
+  "$<$<CONFIG:Release>:/OPT:ICF>"
+  "$<$<CONFIG:Release>:/PDB:${WHISPASTE_SYMBOLS_DIR}/${BINARY_NAME}.pdb>"
+  "$<$<CONFIG:Release>:/PDBALTPATH:${BINARY_NAME}.pdb>"
+)
+
 # Disable Windows macros that collide with C++ standard library functions.
 target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 

@@ -90,7 +90,9 @@
 .PARAMETER ClientSecret
   Service principal client secret.
 .PARAMETER MsixPath
-  Local path to the .msix file to upload.
+  Local path to the package to upload: preferably the .msixupload (MSIX +
+  .appxsym symbols, lets Partner Center symbolicate crash stacks), or a bare
+  .msix.
 .PARAMETER StoreDir
   Path to the store/ directory containing listing content. Default: 'store'.
 .PARAMETER ScreenshotsDir

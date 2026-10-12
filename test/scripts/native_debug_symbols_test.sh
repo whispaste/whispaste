@@ -41,5 +41,29 @@ n=$(grep -c "hashFiles(.*'scripts/collect-pdbs-windows.ps1'" "$RELEASE" || true)
 n=$(grep -c "hashFiles(.*'scripts/split-debug-linux.sh'" "$RELEASE" || true)
 [[ $n -ge 2 ]] || { echo "FAIL: Linux lib cache keys do not hash split-debug-linux.sh ($n/2)"; fail=1; }
 
+# whispaste.exe: Release links with /DEBUG and writes its PDB outside the
+# shipped bundle dir; Sentry gets it too.
+RUNNER="$ROOT/windows/runner/CMakeLists.txt"
+expect "$RUNNER" '$<$<CONFIG:Release>:/DEBUG>' "whispaste.exe Release is linked without /DEBUG"
+expect "$RUNNER" '$<$<CONFIG:Release>:/PDB:${WHISPASTE_SYMBOLS_DIR}/' "whispaste.exe PDB is not redirected out of the bundle dir"
+expect "$RUNNER" '$<$<CONFIG:Release>:/PDBALTPATH:${BINARY_NAME}.pdb>' "whispaste.exe embeds the absolute build path of its PDB"
+# %_PDB% gets double-escaped by the VS generator ("%%%whispaste.pdb%%%").
+if grep -v '^[[:space:]]*#' "$RUNNER" | grep -qF '%_PDB%'; then
+  echo "FAIL: /PDBALTPATH uses the %_PDB% macro, which CMake's VS generator mangles ($RUNNER)"
+  fail=1
+fi
+expect "$RELEASE" "build/windows/x64/symbols .build/libwhisper/windows/pdb" "whispaste.exe PDB is not uploaded to Sentry"
+
+# Partner Center: the .msixupload must carry the PDBs from the symbol dirs
+# (up to v1.3.0 it searched only the Release dir, found 0 PDBs and was
+# skipped), must fail loudly, and the Store submission must use it.
+expect "$RELEASE" 'foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb"))' ".msixupload does not collect the runner/whisper/llama PDBs"
+expect "$RELEASE" 'Move-Item $zip "store-upload\WhisPaste.msixupload"' ".msixupload is not built"
+expect "$RELEASE" "-Filter *.msixupload" "Store submission does not prefer the .msixupload"
+if grep -qF 'Write-Warning "No PDBs' "$RELEASE"; then
+  echo "FAIL: .msixupload step still skips silently when no PDBs are found ($RELEASE)"
+  fail=1
+fi
+
 [[ $fail -eq 0 ]] && echo "PASS: native libs build with debug info and release.yml uploads it to Sentry"
 exit $fail
