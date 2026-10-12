@@ -18,5 +18,20 @@ cd "$(dirname "$0")/.."
 # instance first instead of attaching to it.
 npx astro preview stop >/dev/null 2>&1 || true
 
+# The daemon outlives this script: stop it whenever the caller ends us
+# (Playwright's webServer teardown, Ctrl+C, a killed hook), or every test run
+# leaves a preview server behind. The log follower runs in the background so
+# the traps fire instead of being replaced by `exec`.
+follower=""
+cleanup() {
+  [ -n "$follower" ] && kill "$follower" 2>/dev/null || true
+  npx astro preview stop >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
 npx astro preview "$@"
-exec npx astro preview logs --follow
+npx astro preview logs --follow &
+follower=$!
+wait "$follower"
