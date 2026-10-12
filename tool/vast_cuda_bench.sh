@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # vast_cuda_bench.sh — CUDA vs Vulkan vs CPU whisper benchmark on a rented
-# RTX 3090 (Vast.ai), orchestrated entirely from this Mac (handy-catchup
+# NVIDIA GPU (Vast.ai, default RTX 3090), orchestrated entirely from this Mac (handy-catchup
 # ticket 13). Runs tool/gpu_bench_vast.sh on the box.
 #
 # Flow: search offers (free) -> rent -> wait for SSH (6 min) -> if SSH never
-# comes up, destroy and rent once more on another offer -> rsync the worktree ->
-# Flutter Linux bundle, libwhisper (CPU+Vulkan), CUDA module (nvcc from the devel
-# image) -> tool/gpu_bench_vast.sh -> copy results to
-# ~/whispaste-gpu-bench/<timestamp>/ -> destroy the instance.
+# comes up, stop (or with --retry-unreachable: destroy and rent once more on
+# another offer) -> rsync the worktree ->
+# Flutter Linux bundle, libwhisper (CPU+Vulkan), CUDA module for the box's own
+# compute capability (nvcc from the devel image) -> tool/gpu_bench_vast.sh ->
+# copy results to ~/whispaste-gpu-bench/<timestamp>/ -> destroy the instance.
+# A clean commit reuses an earlier bundle and CUDA module from
+# ~/whispaste-gpu-bench/cache/<sha>/ (skips the flutter and libwhisper steps).
 #
 # GitHub policy (user rule "1a"): the box may download public third-party
 # dependencies from github.com, as a normal local build does (CMake FetchContent,
@@ -23,7 +26,11 @@
 # or the wall clock reaches min(WALL_CAP_H, 0.9 x HARD_BUDGET_USD / burn rate).
 # Burn rate = dph_total + DISK_GB x storage_cost / 730 (per hour).
 #
-# Usage: tool/vast_cuda_bench.sh [--search-only] [--out DIR] [--help]
+# Usage: tool/vast_cuda_bench.sh [--gpu "<name>"] [--with-cpu] [--search-only] [--out DIR] [--help]
+#   --gpu NAME     GPU model to rent, as Vast names it (default "RTX 3090"),
+#                  e.g. "RTX 3060", "GTX 1660 Ti", "RTX 2060", "Tesla T4"
+#   --with-cpu     also measure the CPU mode (off by default: the rented box's CPU
+#                  says nothing about desktop users)
 #   --search-only  list the cheapest matching offer and exit (no rent, free)
 #   --out DIR      results directory (default ~/whispaste-gpu-bench/<timestamp>)
 #   --retry-unreachable  if the box never answers SSH, destroy it and rent once
@@ -47,6 +54,9 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)-$$"
 LABEL="wp-gpubench-$RUN_ID"
 
 SEARCH_ONLY=0
+GPU_NAME="RTX 3090"
+WITH_CPU=0
+REMOTE_PRELUDE=""
 MAX_RENT_ATTEMPTS=1
 OUT_DIR=""
 INSTANCE_ID=""
@@ -63,6 +73,8 @@ usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --search-only) SEARCH_ONLY=1 ;;
+    --with-cpu) WITH_CPU=1 ;;
+    --gpu) GPU_NAME="${2:?--gpu needs a name, e.g. \"RTX 3060\"}"; shift ;;
     --retry-unreachable) MAX_RENT_ATTEMPTS=2 ;;
     --out) OUT_DIR="${2:?--out needs a directory}"; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -97,7 +109,8 @@ credit() {
 # >= DISK_GB disk and CUDA >= 12.8 (needed for the devel image's nvcc).
 # Prints: <id> <burn USD/h> <gpu> <reliability> <cores> <disk GB>
 search_offer() { # [excluded machine ids, space separated]
-  local query="reliability > $MIN_RELIABILITY num_gpus=1 gpu_name=RTX_3090 verified=true rentable=true direct_port_count>=1 disk_space>=$DISK_GB cuda_max_good>=12.8"
+  local gpu_q="${GPU_NAME// /_}"
+  local query="reliability > $MIN_RELIABILITY num_gpus=1 gpu_name=$gpu_q verified=true rentable=true direct_port_count>=1 disk_space>=$DISK_GB cuda_max_good>=12.8"
   "$VASTAI" search offers "$query" -o dph_total --raw 2>/dev/null | python3 -c '
 import json, sys
 disk = float(sys.argv[1])
@@ -264,6 +277,7 @@ remote_step() { # <name>
   {
     printf 'set -euo pipefail\nexport DEBIAN_FRONTEND=noninteractive\n'
     printf 'export PATH=/opt/flutter/bin:/usr/local/cuda/bin:$PATH\n'
+    printf '%s\n' "${REMOTE_PRELUDE:-}"
     printf 'mkdir -p /opt/wp-state\n'
     printf 'if [ -f /opt/wp-state/%s.done ]; then echo "== %s: already done"; exit 0; fi\n' "$name" "$name"
     cat
@@ -288,6 +302,22 @@ remote_step() { # <name>
     wait_ready || die "step $name: instance unreachable"
   done
   die "step $name: connection kept failing"
+}
+
+# Copies a local directory to /opt/wp-src/<path> on the box, or back.
+push_dir() { # <local dir> <path under /opt/wp-src>
+  ssh_cmd "mkdir -p /opt/wp-src/$2"
+  rsync -az -e "$(rsync_ssh)" "$1" "root@$SSH_HOST:/opt/wp-src/$2"
+}
+pull_dir() { # <path under /opt/wp-src> <local dir>
+  mkdir -p "$2"
+  rsync -az -e "$(rsync_ssh)" "root@$SSH_HOST:/opt/wp-src/$1" "$2"
+}
+# Fills a cache entry atomically: an interrupted pull never leaves a partial entry.
+cache_store() { # <path under /opt/wp-src> <cache dir>
+  local tmp="$2.partial"
+  rm -rf "$tmp"
+  pull_dir "$1" "$tmp" && rm -rf "$2" && mv "$tmp" "$2"
 }
 
 sync_sources() {
@@ -339,6 +369,7 @@ main() {
   offer="$(search_offer)" || die "no matching RTX 3090 offer"
   set -- $offer
   local offer_id="$1" burn="$2" gpu="$3" rel="$4" cores="$5" disk="$6"
+  log "gpu model: $GPU_NAME"
   log "cheapest match: offer $offer_id, $gpu, reliability $rel, $cores cores, ${disk} GB, burn ${burn} USD/h"
   if [[ "$SEARCH_ONLY" == 1 ]]; then
     exit 0
@@ -410,7 +441,23 @@ STEP
 
   sync_sources
 
-  remote_step flutter <<'STEP'
+  # Build cache: a clean commit reuses its Flutter bundle and its CUDA module
+  # (per GPU architecture) from an earlier run on this Mac.
+  local sha="" cache="" cap cuda_cache=""
+  if [[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
+    # Keyed by the last commit outside tool/ and website/: script tweaks keep the cache.
+    sha="$(git -C "$REPO_ROOT" log -1 --format=%h --abbrev=12 -- . ':(exclude)tool' ':(exclude)website')"
+    cache="$STATE_DIR/cache/$sha"
+  else
+    log "worktree has uncommitted changes: build cache disabled"
+  fi
+
+  if [[ -n "$cache" && -x "$cache/bundle/whispaste" && -f "$cache/bundle/lib/libggml-vulkan.so" ]]; then
+    log "build cache hit: Flutter bundle for $sha"
+    push_dir "$cache/bundle/" build/linux/x64/release/bundle/
+    ssh_cmd "mkdir -p /opt/wp-state && touch /opt/wp-state/flutter.done /opt/wp-state/libwhisper_cpu_vulkan.done"
+  else
+    remote_step flutter <<'STEP'
 cd /opt/wp-src
 export TRY_SYSTEM_LIBS_FIRST=1
 export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(which javac)")")")"
@@ -419,7 +466,7 @@ flutter build linux --release --no-tree-shake-icons
 ls build/linux/x64/release/bundle/whispaste
 STEP
 
-  remote_step libwhisper_cpu_vulkan <<'STEP'
+    remote_step libwhisper_cpu_vulkan <<'STEP'
 cd /opt/wp-src
 if [ ! -d .build/deps/whisper.cpp/v1.8.4 ]; then
   git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
@@ -430,20 +477,46 @@ cp .build/libwhisper/linux/*.so* build/linux/x64/release/bundle/lib/
 cp assets/models/vad/ggml-silero-v5.1.2.bin build/linux/x64/release/bundle/lib/
 ls build/linux/x64/release/bundle/lib
 STEP
+    if [[ -n "$cache" ]]; then
+      cache_store build/linux/x64/release/bundle/ "$cache/bundle"
+    fi
+  fi
 
-  remote_step libwhisper_cuda <<'STEP'
+  # CUDA module for this box's GPU only (its compute capability, e.g. 86 -> sm_86).
+  cap="$(ssh_cmd nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n 1 | tr -d '.' || true)"
+  [[ "$cap" =~ ^[0-9]+$ ]] || die "could not read the GPU compute capability: '$cap'"
+  log "GPU compute capability $cap: building the CUDA module for sm_$cap only"
+  [[ -n "$cache" ]] && cuda_cache="$cache/linux-cuda-$cap"
+  if [[ -n "$cuda_cache" && -f "$cuda_cache/libggml-cuda.so" ]]; then
+    log "build cache hit: CUDA module for sm_$cap"
+    push_dir "$cuda_cache/" .build/libwhisper/linux-cuda/
+    ssh_cmd "mkdir -p /opt/wp-state && touch /opt/wp-state/libwhisper_cuda.done"
+  else
+    REMOTE_PRELUDE="export CUDA_ARCHS=${cap}-real"
+    remote_step libwhisper_cuda <<'STEP'
 cd /opt/wp-src
 export CUDA_HOME=/usr/local/cuda CUDACXX=/usr/local/cuda/bin/nvcc
 export PATH=/usr/local/cuda/bin:$PATH
 nvcc --version | tail -n 1
+# The source is missing when the bundle came from the build cache.
+if [ ! -d .build/deps/whisper.cpp/v1.8.4 ]; then
+  git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+fi
 jobs="$(nproc)"; if [ "$jobs" -gt 8 ]; then jobs=8; fi
 BUILD_JOBS="$jobs" bash scripts/build-libwhisper-linux.sh --cuda
 STEP
+    REMOTE_PRELUDE=""
+    if [[ -n "$cuda_cache" ]]; then
+      cache_store .build/libwhisper/linux-cuda/ "$cuda_cache"
+    fi
+  fi
 
+  REMOTE_PRELUDE="export BENCH_WITH_CPU=$WITH_CPU"
   remote_step bench <<'STEP'
 cd /opt/wp-src
 bash tool/gpu_bench_vast.sh build/linux/x64/release/bundle .build/libwhisper/linux-cuda /opt/wp-bench/results
 STEP
+  REMOTE_PRELUDE=""
 
   mkdir -p "$OUT_DIR/results"
   rsync -az -e "$(rsync_ssh)" "root@$SSH_HOST:/opt/wp-bench/results/" "$OUT_DIR/results/"

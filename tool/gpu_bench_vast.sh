@@ -20,7 +20,8 @@
 #                   (libggml-cuda.so + libcudart/libcublas/libcublasLt)
 #
 # Usage: bash gpu_bench_vast.sh <bundle-dir> <cuda-lib-dir> [out-dir]
-# Env:   BENCH_REPEAT (default 5), BENCH_MODELS (default "whisper-medium
+# Env:   BENCH_REPEAT (default 10 measured runs), BENCH_WARMUP (default 2, dropped
+#        before the median), BENCH_WITH_CPU (default 0; 1 adds the CPU mode), BENCH_MODELS (default "whisper-medium
 #        whisper-large-v3-turbo"), BENCH_CLIPS (seconds, default "10 30"),
 #        BENCH_SAMPLES (default: website/scripts/librispeech-sample of this repo)
 # Output: <out-dir>/{system.json,<mode>-<model>-<clip>s.json,results.json,results.md}
@@ -29,7 +30,9 @@ set -euo pipefail
 BUNDLE_SRC="${1:?usage: gpu_bench_vast.sh <bundle-dir> <cuda-lib-dir> [out-dir]}"
 CUDA_SRC="${2:?usage: gpu_bench_vast.sh <bundle-dir> <cuda-lib-dir> [out-dir]}"
 OUT="$(mkdir -p "${3:-gpu-bench-results}" && cd "${3:-gpu-bench-results}" && pwd)"
-REPEAT="${BENCH_REPEAT:-5}"
+REPEAT="${BENCH_REPEAT:-10}"
+WARMUP="${BENCH_WARMUP:-2}"
+WITH_CPU="${BENCH_WITH_CPU:-0}"
 MODELS="${BENCH_MODELS:-whisper-medium whisper-large-v3-turbo}"
 CLIPS="${BENCH_CLIPS:-10 30}"
 WORK="${BENCH_WORK:-/opt/wp-bench}"
@@ -138,13 +141,18 @@ run() { # <mode> <model> <clip-seconds>
     cuda) install_cuda ;;
     cpu) gpu=disabled ;;
   esac
+  # A vulkan or cpu run must not see the CUDA module at all.
+  if [[ "$mode" != cuda ]] && compgen -G "$BUNDLE/lib/libggml-cuda*" >/dev/null; then
+    echo "ERROR: CUDA module still in $BUNDLE/lib during $mode run" >&2
+    exit 1
+  fi
   echo "── $tag"
   nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -lms 200 > "$peak" &
   local smi=$!
   local rc=0
   timeout 1800 xvfb-run -a dbus-run-session -- "$BUNDLE/whispaste" \
     --transcribe-file "$WORK/clips/clip-${clip}s.wav" --engine whisper \
-    --model "$model" --language en --gpu "$gpu" --repeat "$REPEAT" \
+    --model "$model" --language en --gpu "$gpu" --repeat "$((REPEAT + WARMUP))" \
     --json --out "$OUT/$tag.json" >/dev/null || rc=$?
   kill "$smi" 2>/dev/null || true
   wait "$smi" 2>/dev/null || true
@@ -170,29 +178,39 @@ for model in $MODELS; do
     else
       echo "── vulkan-$model-${clip}s: skipped (no NVIDIA Vulkan ICD in this container)"
     fi
-    run cpu "$model" "$clip"
+    if [[ "$WITH_CPU" == 1 ]]; then
+      run cpu "$model" "$clip"
+    fi
   done
 done
 remove_cuda
 
-python3 -I - "$OUT" <<'PY'
-import glob, json, os, sys
-out = sys.argv[1]
+python3 -I - "$OUT" "$WARMUP" <<'PY'
+import glob, json, os, statistics, sys
+out, warmup = sys.argv[1], int(sys.argv[2])
 system = json.load(open(os.path.join(out, "system.json")))
 rows = []
 for path in sorted(glob.glob(os.path.join(out, "*-*s.json"))):
     r = json.load(open(path))
-    runs = [x["transcribeMs"] for x in r.get("runs", [])]
+    # The first runs carry one-off costs (shader or kernel warm-up), drop them.
+    runs = [x["transcribeMs"] for x in r.get("runs", [])][warmup:]
+    median = statistics.median(runs) if runs else None
+    audio = r.get("audioDurationMs")
     expected = {"cuda": "CUDA", "vulkan": "Vulkan", "cpu": None}[r["mode"]]
     device = r.get("gpuDevice")
     ok = r.get("exitCode") == 0 and (
         device is None if expected is None else (device or "").startswith(expected))
+    # The app's own "backend" field comes from GPU detection (CUDA runtime
+    # present means "cuda") and is not the device used; measuredBackend is.
+    measured = "cpu" if device is None else ("cuda" if device.startswith("CUDA") else "vulkan")
     rows.append({
         "mode": r["mode"], "model": r.get("model"),
         "clipMs": r.get("audioDurationMs"), "gpuDevice": device,
-        "loadMs": r.get("loadMs"), "transcribeMsMedian": r.get("transcribeMsMedian"),
-        "transcribeMsMin": min(runs) if runs else None, "rtfMedian": r.get("rtfMedian"),
-        "vramPeakMiB": r.get("vramPeakMiB"), "ok": ok,
+        "loadMs": r.get("loadMs"), "transcribeMsMedian": median,
+        "transcribeMsMin": min(runs) if runs else None,
+        "rtfMedian": median / audio if median and audio else None,
+        "vramPeakMiB": r.get("vramPeakMiB"), "backendField": r.get("backend"),
+        "measuredBackend": measured, "ok": ok,
     })
 json.dump({"system": system, "runs": rows}, open(os.path.join(out, "results.json"), "w"), indent=2)
 lines = [
@@ -208,6 +226,15 @@ for r in rows:
         f"| {r['mode']} | {r['model']} | {(r['clipMs'] or 0) / 1000:.0f} s | {r['gpuDevice'] or 'CPU'} "
         f"| {r['loadMs']} | {r['transcribeMsMedian']} | {r['transcribeMsMin']} | {rtf} "
         f"| {r['vramPeakMiB']} | {'ja' if r['ok'] else 'NEIN'} |")
+lines += ["", "CUDA vs Vulkan (median latency, speedup = vulkan / cuda - 1):", "",
+          "| Modell | Clip | CUDA ms | Vulkan ms | CUDA schneller um |", "|---|---:|---:|---:|---:|"]
+by = {(r["model"], r["clipMs"], r["measuredBackend"]): r for r in rows if r["ok"]}
+for (model, clip, backend) in sorted({(r["model"], r["clipMs"], "cuda") for r in rows}):
+    c, v = by.get((model, clip, "cuda")), by.get((model, clip, "vulkan"))
+    if c and v and c["transcribeMsMedian"]:
+        pct = (v["transcribeMsMedian"] / c["transcribeMsMedian"] - 1) * 100
+        lines.append(f"| {model} | {(clip or 0) / 1000:.0f} s | {c['transcribeMsMedian']} "
+                     f"| {v['transcribeMsMedian']} | {pct:+.0f} % |")
 open(os.path.join(out, "results.md"), "w").write("\n".join(lines) + "\n")
 print("\n".join(lines))
 PY
