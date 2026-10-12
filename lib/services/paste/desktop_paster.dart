@@ -198,6 +198,11 @@ class DesktopPaster implements Paster {
       'detail=${pasteResult.detail ?? "<none>"}',
     );
 
+    // Wait before restoring clipboard. Minimum 500 ms so the OS paste has
+    // landed before we overwrite it — with a receipt, this is only the upper
+    // bound (timeout fallback).
+    final restoreBuffer = Duration(milliseconds: math.max(500, delayMs + 350));
+
     if (!pasteResult.isSuccess) {
       // The native paste shortcut didn't land — retry once via direct
       // Unicode typing on macOS/Windows (some apps don't react to a
@@ -214,7 +219,16 @@ class DesktopPaster implements Paster {
       if ((Platform.isMacOS || Platform.isWindows) &&
           !requiresRealPaste(text)) {
         final typeOutcome = await _typeTextCore(text, options);
-        if (typeOutcome == PasteOutcome.success) return typeOutcome;
+        if (typeOutcome == PasteOutcome.success) {
+          // The transcript was delivered by typing, so the clipboard must be
+          // restored exactly as after a successful native paste.
+          await _restorePreviousClipboard(
+            receipts,
+            previousClipboard,
+            restoreBuffer,
+          );
+          return typeOutcome;
+        }
         _log.info(
           'Fallback typing also did not land ($typeOutcome) — reporting '
           'the original paste failure',
@@ -223,30 +237,48 @@ class DesktopPaster implements Paster {
       return _mapFailure(pasteResult);
     }
 
-    // 5. Wait before restoring clipboard.
-    // Minimum 500 ms so the OS paste has landed before we overwrite it —
-    // with a receipt, this is only the upper bound (timeout fallback).
-    final restoreBuffer = Duration(milliseconds: math.max(500, delayMs + 350));
+    // 5. Restore previous clipboard contents.
+    await _restorePreviousClipboard(receipts, previousClipboard, restoreBuffer);
+    return PasteOutcome.success;
+  }
+
+  /// Puts the user's clipboard back after the transcript was delivered.
+  ///
+  /// Skipped when there is no plain-text snapshot (the read failed, or the
+  /// clipboard held no text — e.g. an image or file). The transcript was
+  /// already written over that content before the paste, so the original
+  /// non-text content is gone at this point. Restoring `''` in that case would
+  /// only clear the clipboard; leaving the transcript there keeps it available
+  /// for a manual paste. Recovering non-text content would need a native
+  /// multi-format snapshot, which is not implemented.
+  Future<void> _restorePreviousClipboard(
+    ClipboardReceiptBridge? receipts,
+    String? previousClipboard,
+    Duration restoreBuffer,
+  ) async {
     if (receipts != null) {
       await _restoreAfterReceipt(receipts, previousClipboard, restoreBuffer);
-      return PasteOutcome.success;
+      return;
+    }
+    if (previousClipboard == null) {
+      _log.info(
+        'No plain-text snapshot before paste — leaving the transcript on the '
+        'clipboard',
+      );
+      return;
     }
     await Future<void>.delayed(restoreBuffer);
 
-    // 6. Restore previous clipboard contents — same history-exclusion as the
-    // transcript write above: restoring is WhisPaste's own housekeeping, not
-    // a fresh copy the user made, so it shouldn't surface as a new history
-    // entry either (issue #146).
+    // Restoring is WhisPaste's own housekeeping, not a fresh copy the user
+    // made, so it shouldn't surface as a new history entry either (issue #146).
     try {
       await _writeTransientClipboardText(
-        previousClipboard ?? '',
+        previousClipboard,
       ).timeout(const Duration(seconds: 5));
     } on Exception catch (e) {
       // Non-fatal — clipboard restore is best-effort.
       _log.debug('Clipboard restore after paste failed', e);
     }
-
-    return PasteOutcome.success;
   }
 
   /// Tries the receipt write for [text]; `false` (no bridge, unsupported,
@@ -297,12 +329,18 @@ class DesktopPaster implements Paster {
         break;
     }
 
-    final restoreText = previousClipboard ?? '';
-    AppClipboard.markTransientWrite(restoreText);
+    if (previousClipboard == null) {
+      _log.info(
+        'No plain-text snapshot before paste — leaving the transcript on the '
+        'clipboard',
+      );
+      return;
+    }
+    AppClipboard.markTransientWrite(previousClipboard);
     ClipboardRestoreOutcome outcome;
     try {
       outcome = await receipts
-          .restoreClipboardTextIfOwner(restoreText)
+          .restoreClipboardTextIfOwner(previousClipboard)
           .timeout(const Duration(seconds: 5));
     } on Exception catch (e) {
       // Non-fatal — clipboard restore is best-effort.

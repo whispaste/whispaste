@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller_interface.dart';
 import 'package:whispaste/services/paste/paster.dart';
@@ -37,11 +39,22 @@ class _FakeCopier {
   bool throws = false;
   int calls = 0;
 
+  /// When set, the target app replaces the clipboard this long after the key
+  /// event — simulates a busy app that copies late.
+  Duration? lateBy;
+
   Future<NativePasteResult> call(Duration delay) async {
     calls++;
     if (throws) throw Exception('channel gone');
     if (status == NativePasteStatus.success && selection != null) {
-      clipboard.text = selection;
+      final late = lateBy;
+      if (late == null) {
+        clipboard.text = selection;
+      } else {
+        unawaited(
+          Future<void>.delayed(late).then((_) => clipboard.text = selection),
+        );
+      }
     }
     return NativePasteResult(status: status);
   }
@@ -171,9 +184,37 @@ void main() {
       },
     );
 
+    test('no text snapshot (image/file) is written back as empty, so the '
+        'internal sentinel never stays on the clipboard', () async {
+      clipboard.text = null;
+      final copier = _FakeCopier(clipboard);
+      expect(await reader(copier).read(), isA<SelectionReadEmpty>());
+      expect(clipboard.text, '');
+    });
+
     test('a throwing channel still restores the clipboard', () async {
       final copier = _FakeCopier(clipboard, selection: 'x')..throws = true;
       expect(await reader(copier).read(), isA<SelectionReadFailed>());
+      expect(clipboard.text, 'user clipboard');
+    });
+
+    test('a target that copies after pollTimeout but within lateCopyGrace '
+        'is still read before the restore', () async {
+      final copier = _FakeCopier(clipboard, selection: 'slow selection')
+        ..lateBy = const Duration(milliseconds: 60);
+      final slowReader = SelectionReader(
+        copy: copier.call,
+        clipboard: clipboard,
+        pollInterval: const Duration(milliseconds: 5),
+        pollTimeout: const Duration(milliseconds: 10),
+        lateCopyGrace: const Duration(milliseconds: 200),
+        sentinelFactory: () => '<sentinel>',
+      );
+
+      final result = await slowReader.read();
+
+      expect(result, isA<SelectionReadOk>());
+      expect((result as SelectionReadOk).text, 'slow selection');
       expect(clipboard.text, 'user clipboard');
     });
   });

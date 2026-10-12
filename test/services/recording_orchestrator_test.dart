@@ -640,16 +640,19 @@ void main() {
   late File wavFile;
   String? clipboardText;
 
-  /// Waits for DesktopPaster's clipboard restore after a snippet-picker
-  /// paste. The picker pastes fire-and-forget, and the restore lands
-  /// >= 500 ms later — without this, its '' write hits whichever test runs
-  /// next (run 36733764290: the cancel-from-transcribing test saw '' instead
-  /// of an untouched clipboard).
-  Future<void> waitForClipboardRestore() async {
-    for (var i = 0; i < 300 && clipboardText != ''; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    expect(clipboardText, '', reason: 'the paste never restored the clipboard');
+  /// Lets a snippet-picker paste's deferred clipboard work finish. The picker
+  /// pastes fire-and-forget, and any restore lands >= 500 ms later, so this
+  /// waits past that window — otherwise a late write would hit whichever test
+  /// runs next (run 36733764290). The clipboard was empty before the paste, so
+  /// there is no snapshot to restore: the transcript stays and no blank write
+  /// may follow it.
+  Future<void> waitForDeferredClipboardWork() async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    expect(
+      clipboardText,
+      isNot(''),
+      reason: 'no blank restore when the clipboard had no prior text',
+    );
   }
 
   ProviderContainer buildContainer(AppSettings settings) {
@@ -1370,7 +1373,7 @@ void main() {
         expect(clipboardText, 'Hello there!');
         expect(fakeDesktopPaste.typeCalls, 0);
         expect(fakeDesktopPaste.captureCalls, 0);
-        await waitForClipboardRestore();
+        await waitForDeferredClipboardWork();
       },
     );
 
@@ -1770,7 +1773,7 @@ void main() {
           expect(fakeDesktopPaste.captureCalls, 1);
           expect(fakeDesktopPaste.pasteCalls, 1);
           expect(clipboardText, 'Hello there!');
-          await waitForClipboardRestore();
+          await waitForDeferredClipboardWork();
         },
       );
 
