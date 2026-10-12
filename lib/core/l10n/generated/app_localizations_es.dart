@@ -390,7 +390,7 @@ class L10nEs extends L10n {
 
   @override
   String get pushToTalkUnavailableLinuxTooltip =>
-      'Tu escritorio no informa aquí de cuándo sueltas una tecla. Asigna “whispaste --toggle” a un atajo en los ajustes de tu sistema.';
+      'Tu escritorio no informa aquí de cuándo sueltas una tecla. Asigna «whispaste --toggle» a un atajo en los ajustes de tu sistema.';
 
   @override
   String get settingsExperimentalBadge => 'Experimental';
@@ -596,7 +596,7 @@ class L10nEs extends L10n {
       'El sistema rechazó el pegado. El texto está en el portapapeles; pégalo manualmente con ⌘V / Ctrl+V.';
 
   @override
-  String get pasteNotificationFailedTray => 'Auto-Paste fallido';
+  String get pasteNotificationFailedTray => 'Error en Auto-Paste';
 
   @override
   String get pasteCapabilityCheckTitle => 'Un momento…';
@@ -609,7 +609,7 @@ class L10nEs extends L10n {
       'Tu dictado aparece justo en el cursor.';
 
   @override
-  String get pasteCapabilityPermissionMissing => 'Aún no permitido';
+  String get pasteCapabilityPermissionMissing => 'Sin permiso todavía';
 
   @override
   String get pasteCapabilityUnsupported =>
@@ -756,8 +756,7 @@ class L10nEs extends L10n {
   String get onboardingPasteGrantCta => 'Permitir Auto-Paste';
 
   @override
-  String get onboardingPasteSkip =>
-      'Por ahora solo copiar, sin insertar automáticamente';
+  String get onboardingPasteSkip => 'Solo copiar, sin Auto-Paste';
 
   @override
   String get onboardingPasteWhyMac =>
@@ -847,10 +846,10 @@ class L10nEs extends L10n {
       'Dónde aparece el overlay flotante al empezar a grabar';
 
   @override
-  String get settingsOverlayStartTopCenter => 'Arriba al centro';
+  String get settingsOverlayStartTopCenter => 'Centro superior';
 
   @override
-  String get settingsOverlayStartBottomCenter => 'Abajo al centro';
+  String get settingsOverlayStartBottomCenter => 'Centro inferior';
 
   @override
   String get settingsOverlayStartLastPosition => 'Recordar la última posición';
@@ -947,7 +946,7 @@ class L10nEs extends L10n {
       'Restablecer, informes de errores, actualizaciones y comportamiento del sistema';
 
   @override
-  String get settingsResetToDefaults => 'Restablecer valores predeterminados';
+  String get settingsResetToDefaults => 'Restaurar predeterminados';
 
   @override
   String get settingsResetTitle => 'Restablecer ajustes';
@@ -1008,8 +1007,7 @@ class L10nEs extends L10n {
       'El restablecimiento de fábrica no se completó. Reinicia la app.';
 
   @override
-  String get settingsPortabilitySectionTitle =>
-      'Copia de seguridad y transferencia';
+  String get settingsPortabilitySectionTitle => 'Copia y transferencia';
 
   @override
   String get settingsPortabilitySectionSubtitle =>
@@ -1386,7 +1384,7 @@ class L10nEs extends L10n {
 
   @override
   String get replacementsEmptyHint =>
-      'Añade reemplazos para sustituir palabras automáticamente mientras grabas.\nEjemplo: \"btw\" → \"by the way\"';
+      'Añade reemplazos para sustituir palabras automáticamente mientras grabas.\nEjemplo: «btw» → «by the way»';
 
   @override
   String get replacementsNoMatches => 'No hay coincidencias';
@@ -1451,7 +1449,7 @@ class L10nEs extends L10n {
 
   @override
   String replacementsDeleteMessage(String trigger) {
-    return '¿Quitar el reemplazo \"$trigger\"? No se puede deshacer.';
+    return '¿Quitar el reemplazo «$trigger»? No se puede deshacer.';
   }
 
   @override
@@ -1493,11 +1491,10 @@ class L10nEs extends L10n {
 
   @override
   String get correctionLearningHowTo =>
-      'Mientras grabas una nota en el historial, di “correct: …” seguido del texto corregido para sobrescribirla. Si corriges lo mismo dos veces, WhisPaste lo ofrece aquí como reemplazo automático.';
+      'Mientras grabas una nota en el historial, di «correct: …» (o «korrektur: …») seguido del texto corregido para sobrescribirla. Si corriges lo mismo dos veces, WhisPaste lo ofrece aquí como reemplazo automático.';
 
   @override
-  String get correctionCandidatesCardTitle =>
-      'Sugerido a partir de tus correcciones';
+  String get correctionCandidatesCardTitle => 'Basado en tus correcciones';
 
   @override
   String correctionCandidatesCardHint(int count) {
@@ -1538,7 +1535,7 @@ class L10nEs extends L10n {
 
   @override
   String get replacementsImportReviewSelectAllFiltered =>
-      'Seleccionar todos los visibles';
+      'Seleccionar lo visible';
 
   @override
   String get replacementsImportReviewDeselectAll => 'Deseleccionar todos';
@@ -1733,7 +1730,7 @@ class L10nEs extends L10n {
 
   @override
   String snippetsDeleteMessage(String title) {
-    return '¿Quitar el snippet \"$title\"? No se puede deshacer.';
+    return '¿Eliminar el snippet «$title»? No se puede deshacer.';
   }
 
   @override
@@ -1784,7 +1781,7 @@ class L10nEs extends L10n {
   String get aboutGitHub => 'GitHub';
 
   @override
-  String get aboutReportIssue => 'Notificar un problema';
+  String get aboutReportIssue => 'Informar de un problema';
 
   @override
   String get aboutSupportTitle => 'Apoya este proyecto';
@@ -1834,7 +1831,7 @@ class L10nEs extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'Reconocimiento de voz local optimizado para velocidad en CPU normales (~25 idiomas).';
+      'Reconocimiento de voz local optimizado para la velocidad en CPU convencionales (~25 idiomas).';
 
   @override
   String get aboutPrivacyFirst => 'Privacidad ante todo';
@@ -1893,7 +1890,7 @@ class L10nEs extends L10n {
       'Copia un resumen compacto de diagnóstico para informar de errores.';
 
   @override
-  String get aboutCopyDebugInfo => 'Copiar información de depuración';
+  String get aboutCopyDebugInfo => 'Copiar info de depuración';
 
   @override
   String get aboutCopied => '¡Copiado!';
@@ -2075,11 +2072,11 @@ class L10nEs extends L10n {
 
   @override
   String get statusBarAutoPasteOffHint =>
-      'Pegado automático desactivado; actívalo en Ajustes';
+      'Auto-Paste desactivado; actívalo en Ajustes';
 
   @override
   String get statusBarAutoPasteOffHintTooltip =>
-      'El pegado automático está desactivado. Haz clic para abrir Ajustes.';
+      'Auto-Paste está desactivado. Haz clic para abrir Ajustes.';
 
   @override
   String get statusBarAutoPasteOffHintDismiss => 'Descartar';
@@ -2336,7 +2333,7 @@ class L10nEs extends L10n {
       'La memoria de tu GPU se ha agotado. Elige cómo seguir:';
 
   @override
-  String get oomRecoveryTrySmaller => 'Probar un modelo más pequeño';
+  String get oomRecoveryTrySmaller => 'Probar modelo más pequeño';
 
   @override
   String oomRecoveryTrySmallerHint(String model) {
@@ -2400,7 +2397,7 @@ class L10nEs extends L10n {
 
   @override
   String get errorCloudQuota =>
-      'El proveedor en la nube ha alcanzado su límite de uso. Espera un momento e inténtalo de nuevo.';
+      'El proveedor en la nube ha alcanzado su límite de solicitudes. Espera un momento e inténtalo de nuevo.';
 
   @override
   String get errorOnboardingNotCompleted =>
@@ -2550,7 +2547,7 @@ class L10nEs extends L10n {
 
   @override
   String get historyVoiceNoteHint =>
-      'Consejo: di “etiqueta: nombre” o “corrige: texto” mientras grabas.';
+      'Consejo: di «tag: nombre» o «correct: texto» mientras grabas.';
 
   @override
   String get historyNoteAdded => 'Anotación añadida';
@@ -2795,7 +2792,7 @@ class L10nEs extends L10n {
   String get settingsChangeHotkey => 'Cambiar';
 
   @override
-  String get settingsHotkeyRecorderTitle => 'Grabar nuevo atajo';
+  String get settingsHotkeyRecorderTitle => 'Definir nuevo atajo';
 
   @override
   String get settingsHotkeyRecorderHint =>
@@ -2909,26 +2906,25 @@ class L10nEs extends L10n {
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'Envía informes de fallos y errores con un ID de dispositivo anonimizado; nunca tu audio ni tu texto';
+      'Envía informes de fallos y errores con un hash del ID del dispositivo; nunca tu audio ni tu texto';
 
   @override
   String get settingsErrorReportingRestartHint =>
       'Se aplica al reiniciar WhisPaste.';
 
   @override
-  String get settingsAutoPasteDelay => 'Retraso del pegado automático';
+  String get settingsAutoPasteDelay => 'Retraso de Auto-Paste';
 
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Tiempo de espera antes de pegar en la ventana activa';
 
   @override
-  String get settingsAutoPasteBlocklist =>
-      'Lista de bloqueo del pegado automático';
+  String get settingsAutoPasteBlocklist => 'Lista de bloqueo de Auto-Paste';
 
   @override
   String get settingsAutoPasteBlocklistSubtitle =>
-      'Identificadores de apps separados por comas en los que el pegado automático está desactivado';
+      'Identificadores de apps separados por comas en los que Auto-Paste está desactivado';
 
   @override
   String get settingsAutoPasteBlocklistPlaceholder =>
@@ -3050,7 +3046,7 @@ class L10nEs extends L10n {
 
   @override
   String get onboardingModelChangeLater =>
-      'Puedes ajustar la calidad más tarde en los ajustes';
+      'Puedes ajustar la calidad más tarde en Ajustes';
 
   @override
   String get onboardingModelDownloading => 'Descargando…';
@@ -3105,11 +3101,11 @@ class L10nEs extends L10n {
 
   @override
   String get onboardingTestRecordingMicBypassHint =>
-      'Sin un micrófono que funcione, WhisPaste todavía no puede empezar a grabar. Puedes solucionarlo cuando quieras desde el estado del micrófono en esta página o en los ajustes.';
+      'Sin un micrófono que funcione, WhisPaste todavía no puede empezar a grabar. Puedes solucionarlo cuando quieras desde el estado del micrófono en esta página o en Ajustes.';
 
   @override
   String get onboardingTestRecordingPlaceholder =>
-      'Tu texto hablado aparecerá aquí …';
+      'Tu texto hablado aparecerá aquí…';
 
   @override
   String get onboardingTestRecordingInProgress =>
@@ -3153,15 +3149,15 @@ class L10nEs extends L10n {
 
   @override
   String get onboardingReadyContextCarryoverHint =>
-      'WhisPaste mantiene el contexto de tu grabación anterior durante hasta diez minutos. Antes de cambiar de golpe a un tema no relacionado, una pausa breve mantiene el siguiente resultado en el buen camino.';
+      'WhisPaste mantiene el contexto de tu grabación anterior durante hasta diez minutos. Haz una pausa breve antes de cambiar de golpe a un tema no relacionado, para que el siguiente resultado no se desvíe.';
 
   @override
   String get onboardingReadyAutostartToggle =>
-      'Iniciar WhisPaste al arrancar sesión';
+      'Abrir WhisPaste al iniciar sesión';
 
   @override
   String get onboardingReadyAutostartToggleHint =>
-      'Desactivado por defecto; actívalo cuando quieras en los ajustes';
+      'Desactivado por defecto; actívalo cuando quieras en Ajustes';
 
   @override
   String get onboardingTriggerTitle => '¿Cómo quieres empezar a grabar?';
@@ -3230,7 +3226,7 @@ class L10nEs extends L10n {
 
   @override
   String get onboardingRevisionExitConfirmBody =>
-      'Este recorrido de la actualización solo se muestra una vez, así que los pasos que saltes ahora no se configurarán por ti. Puedes volver a abrir los mismos pasos cuando quieras en Ajustes → Introducción, y cada ajuste que cubren tiene también su sitio en los ajustes. Lo que ya hayas configurado no se modifica.';
+      'Este recorrido de la actualización solo se muestra una vez, así que los pasos que saltes ahora no se configurarán por ti. Puedes volver a abrir los mismos pasos cuando quieras en Ajustes → Introducción, y cada ajuste que cubren tiene también su sitio en Ajustes. Lo que ya hayas configurado no se modifica.';
 
   @override
   String get onboardingRevisionExitConfirmAction => 'Salir';
@@ -3384,7 +3380,7 @@ class L10nEs extends L10n {
 
   @override
   String get historyVoiceNoteButtonTooltip =>
-      'Nota de voz: di “etiqueta: …” para añadir una etiqueta, o “corrige: …” para reescribir esta transcripción';
+      'Nota de voz: di «tag: …» para añadir una etiqueta, o «correct: …» para reescribir esta transcripción';
 
   @override
   String updateAvailable(String version) {
@@ -3427,7 +3423,7 @@ class L10nEs extends L10n {
   }
 
   @override
-  String get settingsOverlaySize => 'Tamaño del overlay';
+  String get settingsOverlaySize => 'Tamaño de superposición';
 
   @override
   String get settingsOverlaySizeSubtitle =>
@@ -3443,7 +3439,7 @@ class L10nEs extends L10n {
   String get settingsOverlaySizeMini => 'Mini';
 
   @override
-  String get settingsOverlayStyle => 'Estilo del overlay';
+  String get settingsOverlayStyle => 'Estilo de superposición';
 
   @override
   String get settingsOverlayStyleSubtitle =>
@@ -3481,7 +3477,7 @@ class L10nEs extends L10n {
   String get overlayContextSwitchMini => 'Cambiar a Mini';
 
   @override
-  String get overlayContextHide => 'Ocultar overlay';
+  String get overlayContextHide => 'Ocultar superposición';
 
   @override
   String get buttonContextOpen => 'Abrir WhisPaste';
@@ -3511,8 +3507,7 @@ class L10nEs extends L10n {
   String get settingsHistoryMaxEntriesUnlimited => 'Sin límite';
 
   @override
-  String get settingsHistoryAutoTrashDays =>
-      'Vaciar la papelera automáticamente después de';
+  String get settingsHistoryAutoTrashDays => 'Vaciar la papelera tras';
 
   @override
   String get settingsHistoryAutoTrashNever => 'Nunca';
@@ -3785,7 +3780,7 @@ class L10nEs extends L10n {
       'El servicio de voz no puede iniciarse. Reinicia la app o vuelve a cargar el modelo de voz.';
 
   @override
-  String get recoveryExhaustedAction => 'Abrir ajustes';
+  String get recoveryExhaustedAction => 'Abrir Ajustes';
 
   @override
   String get recoveryVcRuntimeToast =>
@@ -3896,7 +3891,7 @@ class L10nEs extends L10n {
   String get parakeetModelCancel => 'Cancelar';
 
   @override
-  String get settingsSearchHint => 'Buscar en ajustes…';
+  String get settingsSearchHint => 'Buscar en Ajustes…';
 
   @override
   String get settingsSearchNoResults => 'Sin resultados';
@@ -3906,7 +3901,7 @@ class L10nEs extends L10n {
       'Prueba con otro término de búsqueda.';
 
   @override
-  String get settingsSearchFieldLabel => 'Buscar en ajustes';
+  String get settingsSearchFieldLabel => 'Buscar en Ajustes';
 
   @override
   String settingsSearchResultCount(int count) {
@@ -4136,7 +4131,7 @@ class L10nEs extends L10n {
   }
 
   @override
-  String get markdownToolbarHeading => 'Título';
+  String get markdownToolbarHeading => 'Encabezado';
 
   @override
   String markdownToolbarBulletList(String shortcut) {
@@ -4324,7 +4319,7 @@ class L10nEs extends L10n {
 
   @override
   String get settingsSmartModeHotkeyHint =>
-      'Inicia una grabación con un preset fijo, independiente del preset estándar de arriba. Admite pulsar para hablar, igual que el atajo principal.';
+      'Inicia una grabación con un preset fijo, independiente del preset estándar de arriba. Admite push-to-talk, igual que el atajo principal.';
 
   @override
   String get settingsSmartModeHotkeyPreset => 'Preset';
@@ -4510,7 +4505,7 @@ class L10nEs extends L10n {
 
   @override
   String get overlaySelectionEditHint =>
-      'Di qué cambiar, o bien: más corto · mejorar · traducir';
+      'Di qué cambiar, o di: más corto · mejorar · traducir';
 
   @override
   String get overlayEditingSelection => 'Editando selección…';
@@ -4528,11 +4523,11 @@ class L10nEs extends L10n {
 
   @override
   String get errorSelectionEditUnsupported =>
-      'Editar una selección requiere pegado automático, que no está disponible en esta versión';
+      'Editar una selección requiere Auto-Paste, que no está disponible en esta versión';
 
   @override
   String get errorSelectionEditCopyFailed =>
-      'No se pudo leer la selección; revisa el permiso de pegado automático';
+      'No se pudo leer la selección; revisa el permiso de Auto-Paste';
 
   @override
   String get errorSelectionEditFailed =>
