@@ -2,6 +2,69 @@
 
 All entries are written in English.
 
+## 1.4.0
+
+1.4 adds voice-driven editing of selected text, spoken line breaks, optional filler-word removal, push-to-talk on Linux (experimental) and an interface in Spanish and Brazilian Portuguese. Smart Mode stays loaded between runs, more hardware runs without crashing, and the crash-report opt-out now applies from the first start.
+
+### Highlights
+
+- **Edit selected text by voice:** select text, press the new hotkey and say what should change. Off by default.
+- **Line breaks by voice:** say "new paragraph" or "new line" to start a new paragraph or line.
+- **Recordings up to 60 minutes:** the recording limit now goes up to 60 minutes, with Unlimited at the far right.
+- **Remove filler words:** optionally drop "um", "äh" and similar from dictation. Off by default.
+- **Push-to-talk on Linux (experimental):** hold a hotkey to dictate, on X11 and on Wayland.
+- **Smart Mode keeps its model loaded:** repeated rewrites no longer reload the local model every time.
+- **More hardware runs cleanly:** CPUs without AVX2 and older NVIDIA cards no longer crash or hang WhisPaste.
+- **Crash-report opt-out from the first start:** turning it off also covers people who opted out in an earlier version.
+- **Start and stop from a desktop shortcut:** `whispaste --toggle` controls the running app.
+- **Spanish and Brazilian Portuguese interface:** the app now speaks six languages.
+
+### New Features
+
+- **Edit selection by voice:** a new hotkey, off by default, copies the current selection, records your spoken instruction and replaces the selection with the result. "Shorter", "improve" and "translate" work as quick actions in all six UI languages; any other sentence is passed on as a free-form instruction. It uses your Smart Mode engine (local or cloud). Nothing is written to history, and your clipboard is always restored.
+- **Spoken line breaks:** say "new paragraph" or "new line" and WhisPaste inserts a real paragraph or line break. Works in all six UI languages (for example "neuer Absatz" / "neue Zeile", "nuevo párrafo" / "nueva línea") and follows the transcription language. On by default; turn it off under Speech recognition.
+- **Line breaks in replacements:** a replacement can now contain `\n` for a line break (`\\n` keeps a literal backslash-n). Existing replacements that contained a literal `\n` now insert a line break.
+- **Filler word removal:** new toggle under Speech recognition, off by default. It removes unambiguous fillers as whole words before Smart Mode and replacements run ("um" only in English). The history keeps the original transcript.
+- **Push-to-talk on Linux (experimental):** key release is read through XInput2 on X11 and through the GlobalShortcuts portal on Wayland (GNOME 48+, Plasma 6+). If the desktop does not report key release, the hotkey stays toggle-only. Settings and onboarding carry an "Experimental" badge until this has been verified on real GNOME and KDE desktops.
+- **Smart Mode on Linux (experimental):** Linux packages include the on-device engine. If its library is missing, the option stays disabled with a hint.
+- **Start and stop from a desktop shortcut:** `whispaste --toggle` starts or stops dictation in the running instance, `whispaste --cancel` discards it. Without a running instance, `--toggle` starts the app and begins dictation after the first frame. SIGUSR2 also toggles on Linux and macOS. The README shows GNOME and KDE setup.
+- **Spanish and Brazilian Portuguese interface:** WhisPaste's interface is now available in Spanish and Brazilian Portuguese alongside English, German, Hebrew and Russian. It follows your system language and can be changed in onboarding and settings. The translations have not yet been reviewed by native speakers; feedback is welcome.
+- **Transcribe files from the command line:** `whispaste --transcribe-file <wav>` runs the app's transcriber on a WAV file and prints the text (`--json`, `--engine`, `--model`, `--replacements`). Meant for scripting and latency checks.
+
+### Bug Fixes
+
+- **Windows: quitting no longer crashes.** The native window now cleans up on destruction, and the app ships its own VC++ runtime, so an older system runtime cannot crash a mutex call on exit.
+- **Windows: on-device Smart Mode could fail to load** (error 127) when Whisper had loaded first. The two engines' ggml libraries now have their own names.
+- **Parakeet: long recordings no longer fail.** Audio beyond about 35 seconds is split into chunks of up to 25 seconds at the quietest point.
+- **Native engine errors no longer crash the app.** C++ exceptions from Whisper (including Vulkan) and sherpa-onnx become errors instead of aborting the process.
+- **Model downloads resume** after a dropped connection. Remaining failures are reported as retryable network errors.
+- **Windows: deleting or replacing model and log files** no longer fails while a previous handle is still held; short sharing violations are retried.
+- **Windows: dictation reaches the clipboard history less often.** A clipboard that another process holds open for a moment is retried for up to about 100 ms, instead of falling back to a plain write that Win+V records (#146).
+- **Older NVIDIA cards run on the CPU in automatic mode.** GeForce 4xx to 7xx and Quadro, Tesla or GRID K cards crashed or hung on the GPU path. Choosing GPU manually still uses the GPU.
+- **CPUs without AVX2 no longer crash the engine.** Windows and Linux ship several CPU backend variants and pick the best instruction set at runtime. On Linux, a model load no longer aborts when the backend library is missing.
+- **Privacy: the crash-report opt-out takes effect immediately.** Turning it off writes a marker and closes Sentry, so later starts never initialise it, including native crashes. Users who opted out in an earlier version are covered from their first start. Usernames are removed from paths and free text in reports. The app checks for updates on start and every 24 hours only while "Check for updates" is on.
+- **Cancelling a transcription is final.** Starting a new recording right after cancelling no longer lets the cancelled text be pasted, the stop hotkey works again immediately, and an aborted edit-selection or snippet run can no longer paste into the next dictation.
+- **GPU crashes during transcription fall back to the CPU.** The retry now really runs on the CPU engine instead of on the same GPU context.
+- **Clipboard:** an empty or non-text clipboard is no longer overwritten with an empty string after pasting, the previous text is restored when typing had to be used as fallback, and edit selection waits a little longer for slow apps to copy.
+- **macOS: hotkeys added in a later version default to ⌘** instead of Ctrl, matching a fresh install.
+- **Rare crash when the speech engine answered twice** is fixed.
+- **Automation API hardening:** the local API only answers requests addressed to localhost, and its port is no longer opened in shared mode.
+- **Crash reports:** extra diagnostic fields are scrubbed of user paths too, and unrecognised graphics adapters are reported by name so they can be supported.
+- **Mac App Store 1.3.0:** the feedback form and telemetry were inactive, because the build was missing its configuration.
+
+### Improvements
+
+- **Longer recording limits:** the maximum recording length offers steps from 30 seconds up to 60 minutes, and Unlimited sits at the right end of the slider. Long recordings get a transcription budget that grows with their length instead of a fixed 5 minutes.
+- **Hold-or-tap push-to-talk:** a new option for macOS and Windows (disabled on Linux). A press starts recording. If you hold the key for at least 300 ms and release it, recording stops, as with classic push-to-talk. A shorter press keeps recording until the next press. The option applies to the main and Smart Mode hotkeys.
+- **Live preview shows the newest words:** the one-line overlay keeps the words you just said visible instead of cutting them off at the end.
+- **Dictation stops faster:** stopping cancels a running live-preview decode instead of waiting for it.
+- **Smart Mode keeps its model warm:** the local model stays loaded in a background worker and is unloaded after the speech-recognition idle timeout (5 minutes by default). On machines with less than 12 GB RAM it is unloaded after every run. Timeouts cancel generation.
+- **Clipboard restored sooner:** after pasting, the previous clipboard returns about 150 ms after the target has read the paste, not after a fixed 500 ms, and is left alone if another app copied something in between. Linux is unchanged.
+- **Clearer message when no microphone is found** instead of an error report.
+- **Linux .deb sets up Auto-Paste permissions:** the package loads `uinput` and applies the udev rule during installation, so Auto-Paste works without a reboot or re-login.
+- **Homebrew cask requires macOS 12 or later,** matching the app itself.
+- **Hebrew and Russian translations:** 52 missing strings added.
+
 ## 1.3.0
 
 With 1.3, WhisPaste bundles the features of the last few weeks into a single minor release. The details for each version are listed below.

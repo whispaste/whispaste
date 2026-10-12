@@ -3923,6 +3923,13 @@ class L10nHe extends L10n {
       'הגן על התמלולים שלך בקוד PIN – גם בסרגל הצד ובתפריט הכפתור הצף – עם נעילה אוטומטית אופציונלית אחרי חוסר פעילות. הגדרות ← היסטוריה.';
 
   @override
+  String get featureSpotlightEditSelectionTitle => 'עריכת טקסט מסומן בקול';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור לעריכת הבחירה ואמרו מה לשנות – או פשוט „קצר”, „שפר” או „תרגם”. משתמש במנוע Smart Mode שלכם. כבוי כברירת מחדל: הפעילו בהגדרות ← Smart Mode.';
+
+  @override
   String get featureSpotlightChangelogLink => 'צפייה ביומן השינויים המלא';
 
   @override

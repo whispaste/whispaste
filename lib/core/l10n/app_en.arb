@@ -1599,6 +1599,8 @@
   "featureSpotlightSmartModeDescription": "Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.",
   "featureSpotlightHistoryPinTitle": "Lock your history with a PIN",
   "featureSpotlightHistoryPinDescription": "Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.",
+  "featureSpotlightEditSelectionTitle": "Edit selected text by voice",
+  "featureSpotlightEditSelectionDescription": "Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.",
   "featureSpotlightChangelogLink": "View full changelog",
   "featureSpotlightReviewLabel": "Review the new features",
   "featureSpotlightReviewAction": "Show",

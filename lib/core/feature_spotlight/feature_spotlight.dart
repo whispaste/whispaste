@@ -70,7 +70,7 @@ typedef FeatureSpotlightRegistry = List<FeatureSpotlightEntry>;
 /// behaviour tweaks or extra options on an existing feature, new languages,
 /// developer-facing features (automation API), internal work. Every entry
 /// interrupts every existing user once — when in doubt, leave it out.
-const kFeatureSpotlightReviewedVersion = '1.3.0';
+const kFeatureSpotlightReviewedVersion = '1.4.0';
 
 /// Maintainer note: append new entries at the END of this list. There is no
 /// version field (unlike the onboarding revision registry) — declaration
@@ -130,6 +130,14 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
     id: 'history_pin_lock',
     title: (l10n) => l10n.featureSpotlightHistoryPinTitle,
     description: (l10n) => l10n.featureSpotlightHistoryPinDescription,
+  ),
+  // 1.4.0: edit the selected text by voice (`feat(recording): edit the
+  // selected text by voice`). Its hotkey is off by default, so the target
+  // audience would not find it without a pointer to Settings → Smart Mode.
+  FeatureSpotlightEntry(
+    id: 'edit_selection_voice',
+    title: (l10n) => l10n.featureSpotlightEditSelectionTitle,
+    description: (l10n) => l10n.featureSpotlightEditSelectionDescription,
   ),
 ];
 

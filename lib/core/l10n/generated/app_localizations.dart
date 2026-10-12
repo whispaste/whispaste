@@ -6936,6 +6936,18 @@ abstract class L10n {
   /// **'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.'**
   String get featureSpotlightHistoryPinDescription;
 
+  /// No description provided for @featureSpotlightEditSelectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit selected text by voice'**
+  String get featureSpotlightEditSelectionTitle;
+
+  /// No description provided for @featureSpotlightEditSelectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.'**
+  String get featureSpotlightEditSelectionDescription;
+
   /// No description provided for @featureSpotlightChangelogLink.
   ///
   /// In en, this message translates to:

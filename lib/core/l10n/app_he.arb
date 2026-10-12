@@ -1571,6 +1571,8 @@
   "featureSpotlightSmartModeDescription": "נקה, קצר או תרגם את ההכתבה שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.",
   "featureSpotlightHistoryPinTitle": "נעילת ההיסטוריה בקוד PIN",
   "featureSpotlightHistoryPinDescription": "הגן על התמלולים שלך בקוד PIN – גם בסרגל הצד ובתפריט הכפתור הצף – עם נעילה אוטומטית אופציונלית אחרי חוסר פעילות. הגדרות ← היסטוריה.",
+  "featureSpotlightEditSelectionTitle": "עריכת טקסט מסומן בקול",
+  "featureSpotlightEditSelectionDescription": "סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור לעריכת הבחירה ואמרו מה לשנות – או פשוט „קצר”, „שפר” או „תרגם”. משתמש במנוע Smart Mode שלכם. כבוי כברירת מחדל: הפעילו בהגדרות ← Smart Mode.",
   "featureSpotlightChangelogLink": "צפייה ביומן השינויים המלא",
   "featureSpotlightReviewLabel": "צפייה חוזרת בתכונות החדשות",
   "featureSpotlightReviewAction": "הצגה",

@@ -95,6 +95,7 @@ supabase/
 # und nur diese Ausnahmen sind öffentlich erlaubt)
 scripts/GITHUB-SECRETS-SETUP.md
 scripts/docs-attest.sh
+scripts/approve-release.sh
 scripts/docs-drift.sh
 scripts/check-workflow-hygiene.sh
 scripts/ci/detect-changes.sh

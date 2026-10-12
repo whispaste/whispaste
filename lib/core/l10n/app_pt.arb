@@ -1138,6 +1138,8 @@
   "featureSpotlightSmartModeDescription": "Limpe, encurte ou traduza seu ditado antes de ele ser colado — totalmente no dispositivo, com atalho, predefinição e idioma de destino próprios.",
   "featureSpotlightHistoryPinTitle": "Proteja seu histórico com um PIN",
   "featureSpotlightHistoryPinDescription": "Mantenha suas transcrições privadas atrás de um PIN — inclusive o painel lateral e o menu do botão flutuante — com bloqueio automático opcional após inatividade. Configurações → Histórico.",
+  "featureSpotlightEditSelectionTitle": "Edite o texto selecionado por voz",
+  "featureSpotlightEditSelectionDescription": "Selecione um texto em qualquer app, pressione o atalho “Editar seleção” e diga o que deve mudar — ou apenas “mais curto”, “melhorar” ou “traduzir”. Usa o seu motor do Smart Mode. Desativado por padrão: ative em Configurações → Smart Mode.",
   "featureSpotlightChangelogLink": "Ver changelog completo",
   "featureSpotlightReviewLabel": "Conhecer os novos recursos",
   "featureSpotlightReviewAction": "Mostrar",

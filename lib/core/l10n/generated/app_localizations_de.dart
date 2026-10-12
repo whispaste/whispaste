@@ -4007,6 +4007,14 @@ class L10nDe extends L10n {
       'Schütze deine Transkriptionen mit einer PIN – auch in der Seitenleiste und im Menü des schwebenden Buttons –, auf Wunsch mit automatischer Sperre nach Inaktivität. Einstellungen → Verlauf.';
 
   @override
+  String get featureSpotlightEditSelectionTitle =>
+      'Markierten Text per Stimme bearbeiten';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'Markiere Text in einer beliebigen App, drück den Hotkey „Auswahl bearbeiten“ und sag, was sich ändern soll – oder einfach „kürzer“, „verbessern“ oder „übersetzen“. Nutzt deine Smart-Mode-Engine. Standardmäßig aus: einschalten unter Einstellungen → Smart Mode.';
+
+  @override
   String get featureSpotlightChangelogLink => 'Vollständiges Changelog ansehen';
 
   @override

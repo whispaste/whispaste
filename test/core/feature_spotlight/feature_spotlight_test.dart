@@ -76,7 +76,19 @@ void main() {
     test('history_pin_lock follows smart_mode and applies to every '
         'platform', () {
       final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
-      expect(ids.sublist(ids.indexOf('smart_mode') + 1), ['history_pin_lock']);
+      expect(ids[ids.indexOf('smart_mode') + 1], 'history_pin_lock');
+      final entry = kFeatureSpotlightRegistry.firstWhere(
+        (e) => e.id == 'history_pin_lock',
+      );
+      expect(entry.platforms, isNull);
+    });
+
+    test('edit_selection_voice follows history_pin_lock and applies to every '
+        'platform', () {
+      final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
+      expect(ids.sublist(ids.indexOf('history_pin_lock') + 1), [
+        'edit_selection_voice',
+      ]);
       final entry = kFeatureSpotlightRegistry.last;
       expect(entry.platforms, isNull);
     });

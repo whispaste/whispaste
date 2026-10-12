@@ -4007,6 +4007,14 @@ class L10nEs extends L10n {
       'Mantén tus transcripciones privadas tras un PIN, también en el panel lateral y en el menú del botón flotante, con bloqueo automático opcional tras un periodo de inactividad. Ajustes → Historial.';
 
   @override
+  String get featureSpotlightEditSelectionTitle =>
+      'Edita el texto seleccionado con la voz';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'Selecciona texto en cualquier app, pulsa el atajo «Editar selección» y di qué debe cambiar, o simplemente «más corto», «mejorar» o «traducir». Usa tu motor de Smart Mode. Desactivado por defecto: actívalo en Ajustes → Smart Mode.';
+
+  @override
   String get featureSpotlightChangelogLink =>
       'Ver el registro de cambios completo';
 

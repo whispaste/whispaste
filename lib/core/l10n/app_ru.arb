@@ -1159,6 +1159,8 @@
   "featureSpotlightSmartModeDescription": "Очищайте, сокращайте или переводите диктовку перед вставкой — полностью на устройстве, со своей горячей клавишей и пресетом.",
   "featureSpotlightHistoryPinTitle": "PIN-код для истории",
   "featureSpotlightHistoryPinDescription": "Защитите свои транскрипции PIN-кодом — в том числе в боковой панели и меню плавающей кнопки, — с автоблокировкой после бездействия. Настройки → История.",
+  "featureSpotlightEditSelectionTitle": "Редактирование выделенного текста голосом",
+  "featureSpotlightEditSelectionDescription": "Выделите текст в любом приложении, нажмите горячую клавишу редактирования выделения и скажите, что изменить, — или просто «короче», «улучши» или «переведи». Использует движок Умного режима. По умолчанию выключено: включите в Настройках → Умный режим.",
   "featureSpotlightChangelogLink": "Полный список изменений",
   "featureSpotlightReviewLabel": "Посмотреть новые функции",
   "featureSpotlightReviewAction": "Показать",

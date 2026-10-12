@@ -147,6 +147,7 @@ scripts/*
 !scripts/verify-ms-store-listing.ps1
 !scripts/generate-whisper-server-manifest.sh
 !scripts/docs-attest.sh
+!scripts/approve-release.sh
 !scripts/docs-drift.sh
 !scripts/probe-packaging-validate.sh
 !scripts/check-workflow-hygiene.sh

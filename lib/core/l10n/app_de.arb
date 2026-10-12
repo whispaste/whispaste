@@ -1384,6 +1384,8 @@
   "featureSpotlightSmartModeDescription": "Bereinige, kürze oder übersetze dein Diktat vor dem Einfügen – komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.",
   "featureSpotlightHistoryPinTitle": "Verlauf mit PIN schützen",
   "featureSpotlightHistoryPinDescription": "Schütze deine Transkriptionen mit einer PIN – auch in der Seitenleiste und im Menü des schwebenden Buttons –, auf Wunsch mit automatischer Sperre nach Inaktivität. Einstellungen → Verlauf.",
+  "featureSpotlightEditSelectionTitle": "Markierten Text per Stimme bearbeiten",
+  "featureSpotlightEditSelectionDescription": "Markiere Text in einer beliebigen App, drück den Hotkey „Auswahl bearbeiten“ und sag, was sich ändern soll – oder einfach „kürzer“, „verbessern“ oder „übersetzen“. Nutzt deine Smart-Mode-Engine. Standardmäßig aus: einschalten unter Einstellungen → Smart Mode.",
   "featureSpotlightChangelogLink": "Vollständiges Changelog ansehen",
   "featureSpotlightReviewLabel": "Neue Funktionen erneut ansehen",
   "featureSpotlightReviewAction": "Anzeigen",
