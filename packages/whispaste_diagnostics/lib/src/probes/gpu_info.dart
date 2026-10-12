@@ -262,9 +262,15 @@ bool _gpuDetectionCaptureSent = false;
 /// Register this from the app layer to route the event into Sentry or any
 /// other telemetry sink — the core package has no Sentry dependency.
 ///
-/// Callback signature: `void Function({required String reason, bool cudaAvailable})`.
+/// Callback signature: `void Function({required String reason, bool cudaAvailable, List<String> adapterNames})`.
+/// [adapterNames] are the raw adapter names the probes reported (empty when
+/// no probe answered), so unknown vendor strings can be read from telemetry.
 typedef GpuDetectionFailureCallback =
-    void Function({required String reason, bool cudaAvailable});
+    void Function({
+      required String reason,
+      bool cudaAvailable,
+      List<String> adapterNames,
+    });
 
 GpuDetectionFailureCallback? _onDetectionFailed;
 
@@ -283,10 +289,15 @@ void setGpuDetectionFailureCallback(GpuDetectionFailureCallback? callback) {
 void captureGpuDetectionFailureOnce({
   required String reason,
   bool cudaAvailable = false,
+  List<String> adapterNames = const [],
 }) {
   if (_gpuDetectionCaptureSent) return;
   _gpuDetectionCaptureSent = true;
-  _onDetectionFailed?.call(reason: reason, cudaAvailable: cudaAvailable);
+  _onDetectionFailed?.call(
+    reason: reason,
+    cudaAvailable: cudaAvailable,
+    adapterNames: adapterNames,
+  );
 }
 
 /// Detects the primary GPU. Result is cached after the first call.
@@ -822,6 +833,7 @@ Future<GpuInfo> _detectWindows() async {
           ? 'windows-both-probes-empty'
           : 'windows-vendor-unclassified',
       cudaAvailable: cudaAvailable,
+      adapterNames: parsed?.adapterNames ?? const [],
     );
     return GpuInfo(
       vendor: GpuVendor.none,
@@ -956,9 +968,21 @@ _GpuParsed? _parseWmicList(String output) {
 
   if (gpus.isEmpty) return null;
 
-  // Prefer discrete GPU: NVIDIA > AMD > Intel > None.
+  return _preferDiscrete(gpus);
+}
+
+/// Picks the discrete GPU to report (NVIDIA > AMD > Intel > None) and keeps
+/// every raw adapter name, so a failed classification can be diagnosed.
+_GpuParsed _preferDiscrete(List<_GpuParsed> gpus) {
+  final adapterNames = [for (final g in gpus) g.name];
   gpus.sort((a, b) => a.vendor.index.compareTo(b.vendor.index));
-  return gpus.first;
+  final best = gpus.first;
+  return _GpuParsed(
+    name: best.name,
+    vendor: best.vendor,
+    vramMB: best.vramMB,
+    adapterNames: adapterNames,
+  );
 }
 
 Future<_GpuParsed?> _powershellGetGpus() async {
@@ -992,8 +1016,7 @@ Future<_GpuParsed?> _powershellGetGpus() async {
     }
 
     if (gpus.isEmpty) return null;
-    gpus.sort((a, b) => a.vendor.index.compareTo(b.vendor.index));
-    return gpus.first;
+    return _preferDiscrete(gpus);
   } on TimeoutException {
     return null;
   } catch (e) {
@@ -1357,24 +1380,37 @@ int? _linuxAmdVramMB() {
 // Vendor classification
 // ---------------------------------------------------------------------------
 
+/// Short model/brand tokens that are only matched as whole words: as plain
+/// substrings they would hit ordinary text ("Marc", "Data", "Search").
+final _nvidiaModelToken = RegExp(r'\b(gtx|rtx)\b');
+final _amdBrandToken = RegExp(r'\bati\b');
+final _intelBrandToken = RegExp(r'\barc\b');
+
+// Deliberately NOT mapped, so they stay GpuVendor.none (CPU backend):
+// - Qualcomm Adreno / Snapdragon (Windows on ARM): no GPU whisper backend
+//   exists for them and the enum has no non-accelerated vendor slot.
+// - Microsoft Basic Display Adapter, Parallels, VMware, VirtualBox: virtual
+//   or software adapters; a GPU backend on them would be a false positive.
 GpuVendor _classifyVendor(String gpuName) {
   final lower = gpuName.toLowerCase();
   if (lower.contains('nvidia') ||
       lower.contains('geforce') ||
       lower.contains('quadro') ||
-      lower.contains('rtx ') ||
-      lower.contains('tesla')) {
+      lower.contains('tesla') ||
+      _nvidiaModelToken.hasMatch(lower)) {
     return GpuVendor.nvidia;
   }
   if (lower.contains('amd') ||
       lower.contains('radeon') ||
-      lower.contains('rx ')) {
+      lower.contains('rx ') ||
+      _amdBrandToken.hasMatch(lower)) {
     return GpuVendor.amd;
   }
   if (lower.contains('intel') ||
       lower.contains('iris') ||
       lower.contains('uhd') ||
-      lower.contains('hd graphics')) {
+      lower.contains('hd graphics') ||
+      _intelBrandToken.hasMatch(lower)) {
     return GpuVendor.intel;
   }
   if (lower.contains('apple') ||
@@ -1392,8 +1428,16 @@ GpuVendor _classifyVendor(String gpuName) {
 // ---------------------------------------------------------------------------
 
 class _GpuParsed {
-  _GpuParsed({required this.name, required this.vendor, this.vramMB});
+  _GpuParsed({
+    required this.name,
+    required this.vendor,
+    this.vramMB,
+    this.adapterNames = const [],
+  });
   final String name;
   final GpuVendor vendor;
   final int? vramMB;
+
+  /// Raw names of every adapter the probe reported, not only [name].
+  final List<String> adapterNames;
 }

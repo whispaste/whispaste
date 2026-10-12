@@ -10,6 +10,7 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -187,6 +188,56 @@ class _UnloadAck {
 
 class _ShutdownRequest {
   const _ShutdownRequest();
+}
+
+/// Completes [completer] with [value] unless it is already completed.
+///
+/// Worker replies can outlive the call that asked for them (a duplicate ack,
+/// or a reply to a call that already timed out), and a second `complete()`
+/// throws "Future already completed" from inside the message handler
+/// (FLUTTER_WHISPASTE-148613655).
+void _completeIfPending<T>(Completer<T>? completer, [T? value]) {
+  if (completer != null && !completer.isCompleted) {
+    completer.complete(value);
+  }
+}
+
+/// FIFO of waiters for the worker's [_UnloadAck]s.
+///
+/// The worker answers every [_UnloadRequest] and [_ShutdownRequest] with
+/// exactly one [_UnloadAck], in order. Each waiter therefore takes the next
+/// ack, instead of sharing one overwritten field: with a single field, a
+/// second unload()/shutdown() orphaned the first caller's awaiter (it hung
+/// until its timeout) and let the second ack complete the same completer twice.
+class WorkerAckQueue {
+  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+
+  /// Number of waiters still waiting for an ack.
+  int get length => _waiters.length;
+
+  /// Registers a waiter for the next ack and returns it.
+  Completer<void> enqueue() {
+    final completer = Completer<void>();
+    _waiters.add(completer);
+    return completer;
+  }
+
+  /// Drops a waiter whose request was never sent, so no ack will match it.
+  void cancel(Completer<void> completer) => _waiters.remove(completer);
+
+  /// Completes the oldest waiter. An ack without a waiter is ignored.
+  void onAck() {
+    if (_waiters.isEmpty) return;
+    _completeIfPending(_waiters.removeFirst());
+  }
+
+  /// Completes every remaining waiter, e.g. once the worker has exited and
+  /// no further acks can arrive.
+  void completeAll() {
+    while (_waiters.isNotEmpty) {
+      _completeIfPending(_waiters.removeFirst());
+    }
+  }
 }
 
 /// Isolate entry point. Must be a top-level/static function (Dart isolate
@@ -408,7 +459,7 @@ class WhisperIsolateEngine
   SendPort? _workerPort;
   StreamSubscription<dynamic>? _sub;
   Completer<_LoadResult>? _loadCompleter;
-  Completer<void>? _unloadCompleter;
+  final WorkerAckQueue _unloadAcks = WorkerAckQueue();
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
@@ -435,10 +486,24 @@ class WhisperIsolateEngine
     gpuDevice: _gpuDevice,
   );
 
-  @override
-  Future<void> load({required String modelPath, String? vadModelPath}) async {
-    if (_isLoaded) return;
+  /// Shared while a load is in flight: a concurrent second call used to
+  /// overwrite [_loadCompleter], orphaning the first caller until its 60 s
+  /// timeout.
+  Future<void>? _loadInFlight;
 
+  @override
+  Future<void> load({required String modelPath, String? vadModelPath}) {
+    if (_isLoaded) return Future<void>.value();
+    return _loadInFlight ??= _loadOnce(
+      modelPath: modelPath,
+      vadModelPath: vadModelPath,
+    ).whenComplete(() => _loadInFlight = null);
+  }
+
+  Future<void> _loadOnce({
+    required String modelPath,
+    String? vadModelPath,
+  }) async {
     if (_isolate == null) {
       final mainReceivePort = ReceivePort();
       final isolate = await Isolate.spawn(
@@ -570,8 +635,19 @@ class WhisperIsolateEngine
     return result.count ?? 0;
   }
 
+  /// Shared while a start is in flight, for the same reason as [_loadInFlight]:
+  /// an overwritten [_startPreviewCompleter] would leave the first caller
+  /// awaiting a reply that never arrives.
+  Future<void>? _startPreviewInFlight;
+
   @override
-  Future<void> startLivePreview() async {
+  Future<void> startLivePreview() {
+    return _startPreviewInFlight ??= _startLivePreviewOnce().whenComplete(
+      () => _startPreviewInFlight = null,
+    );
+  }
+
+  Future<void> _startLivePreviewOnce() async {
     if (!_isLoaded || _workerPort == null) {
       throw StateError('whisper_engine_not_loaded');
     }
@@ -664,11 +740,11 @@ class WhisperIsolateEngine
     // down Metal/GGML before whisper_free() ran, ggml_metal_rsets_free's
     // "resources still allocated" assertion aborts the whole app
     // (FLUTTER_WHISPASTE-BC, reproduced live on macOS at quit time).
-    final completer = Completer<void>();
-    _unloadCompleter = completer;
+    final completer = _unloadAcks.enqueue();
     try {
       _workerPort!.send(const _UnloadRequest());
     } catch (e) {
+      _unloadAcks.cancel(completer);
       _log.warning('Failed to signal worker unload: $e');
       _isLoaded = false;
       return;
@@ -719,8 +795,7 @@ class WhisperIsolateEngine
     final isolate = _isolate;
     if (isolate == null) return;
 
-    final completer = Completer<void>();
-    _unloadCompleter = completer;
+    final completer = _unloadAcks.enqueue();
     try {
       _workerPort?.send(const _ShutdownRequest());
     } catch (e) {
@@ -739,6 +814,9 @@ class WhisperIsolateEngine
         isolate.kill(priority: Isolate.immediate);
       },
     );
+    // The worker is gone (acked or killed), so no earlier unload ack can
+    // arrive either: release any unload() still waiting on one.
+    _unloadAcks.completeAll();
     // A killed worker's native decode may still be running and reading the
     // flag — leak four bytes rather than risk a use-after-free.
     final abortFlag = _previewAbortFlag;
@@ -758,21 +836,21 @@ class WhisperIsolateEngine
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
       case final _LoadResult r:
-        _loadCompleter?.complete(r);
+        _completeIfPending(_loadCompleter, r);
       case final _TranscribeResult r:
-        _pending.remove(r.requestId)?.complete(r);
+        _completeIfPending(_pending.remove(r.requestId), r);
       case final _PartialTranscriptUpdate u:
         _partialController.add(u.text);
       case final _StartLivePreviewResult r:
-        _startPreviewCompleter?.complete(r);
+        _completeIfPending(_startPreviewCompleter, r);
       case final _LivePreviewDecodeResult r:
-        _pendingPreview.remove(r.requestId)?.complete(r);
+        _completeIfPending(_pendingPreview.remove(r.requestId), r);
       case _StopLivePreviewAck():
-        _stopPreviewCompleter?.complete(const _StopLivePreviewAck());
+        _completeIfPending(_stopPreviewCompleter, const _StopLivePreviewAck());
       case final _TokenCountResult r:
-        _pendingTokenCount.remove(r.requestId)?.complete(r);
+        _completeIfPending(_pendingTokenCount.remove(r.requestId), r);
       case _UnloadAck():
-        _unloadCompleter?.complete();
+        _unloadAcks.onAck();
     }
   }
 }

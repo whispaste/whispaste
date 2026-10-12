@@ -308,4 +308,109 @@ void main() {
       expect(gpu.optimalBackend, 'metal');
     });
   });
+
+  // Windows vendor classification, driven through the real wmic parser with
+  // a fake ProcessRunner (the classifier itself is private).
+  group('Windows vendor classification (_classifyVendor via wmic)', () {
+    void fakeWindowsAdapters(List<String> adapterNames) {
+      setProcessRunnerForTesting((executable, arguments) async {
+        if (executable == 'wmic') {
+          return ProcessResult(
+            0,
+            0,
+            adapterNames
+                .map((n) => 'Name=$n\nAdapterRAM=1073741824\n\n')
+                .join(),
+            '',
+          );
+        }
+        return ProcessResult(0, 1, '', ''); // powershell: no answer
+      });
+    }
+
+    setUp(() {
+      clearGpuCache();
+    });
+
+    tearDown(() {
+      setProcessRunnerForTesting(null);
+      setGpuDetectionFailureCallback(null);
+      clearGpuCache();
+    });
+
+    final cases = <String, GpuVendor>{
+      // Newly recognised vendor strings.
+      'ATI Technologies Inc. Radeon HD 5770': GpuVendor.amd,
+      'ATI Technologies Inc.': GpuVendor.amd,
+      'GTX 1060 6GB': GpuVendor.nvidia,
+      'Arc A380': GpuVendor.intel,
+      // Already recognised; pinned so a later edit cannot drop them.
+      'Radeon(TM) 780M Graphics': GpuVendor.amd,
+      'NVIDIA GeForce GTX 1650': GpuVendor.nvidia,
+      'Intel(R) Arc(TM) A770 Graphics': GpuVendor.intel,
+      'Intel(R) UHD Graphics 770': GpuVendor.intel,
+      'Intel(R) Iris(R) Xe Graphics': GpuVendor.intel,
+      // Word-boundary guard: substrings inside ordinary words stay unknown.
+      'Marcus Virtual Display': GpuVendor.none,
+      // Virtual, software and ARM adapters stay on the CPU path.
+      'Microsoft Basic Display Adapter': GpuVendor.none,
+      'Parallels Display Adapter (WDDM)': GpuVendor.none,
+      'VMware SVGA 3D': GpuVendor.none,
+      'VirtualBox Graphics Adapter (WDDM)': GpuVendor.none,
+      'Qualcomm(R) Adreno(TM) 690 GPU': GpuVendor.none,
+      'Snapdragon X Adreno GPU': GpuVendor.none,
+    };
+
+    for (final entry in cases.entries) {
+      test('"${entry.key}" classifies as ${entry.value.name}', () async {
+        fakeWindowsAdapters([entry.key]);
+        final gpu = await detectGpuWindowsForTesting();
+        expect(gpu.vendor, entry.value);
+      });
+    }
+
+    test('an unclassified adapter reports every raw adapter name to the '
+        'failure callback', () async {
+      fakeWindowsAdapters([
+        'Qualcomm(R) Adreno(TM) 690 GPU',
+        'Microsoft Basic Display Adapter',
+      ]);
+      List<String>? reported;
+      setGpuDetectionFailureCallback(({
+        required String reason,
+        bool cudaAvailable = false,
+        List<String> adapterNames = const [],
+      }) {
+        reported = adapterNames;
+      });
+
+      final gpu = await detectGpuWindowsForTesting();
+
+      expect(gpu.vendor, GpuVendor.none);
+      expect(reported, [
+        'Qualcomm(R) Adreno(TM) 690 GPU',
+        'Microsoft Basic Display Adapter',
+      ]);
+    });
+
+    test(
+      'a recognised adapter does not trigger the failure callback',
+      () async {
+        fakeWindowsAdapters(['Radeon(TM) 780M Graphics']);
+        var calls = 0;
+        setGpuDetectionFailureCallback(({
+          required String reason,
+          bool cudaAvailable = false,
+          List<String> adapterNames = const [],
+        }) {
+          calls++;
+        });
+
+        final gpu = await detectGpuWindowsForTesting();
+
+        expect(gpu.vendor, GpuVendor.amd);
+        expect(calls, 0);
+      },
+    );
+  });
 }

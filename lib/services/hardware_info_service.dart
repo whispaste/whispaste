@@ -20,6 +20,7 @@ import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
 import '../core/logging/app_logger.dart';
 import '../core/logging/crash_fingerprints.dart';
 import '../core/logging/crash_reporter.dart';
+import '../core/logging/user_path_scrubber.dart';
 
 // ---------------------------------------------------------------------------
 // Re-exports — keep callers unchanged
@@ -76,6 +77,7 @@ void initHardwareInfoTelemetry() {
   diag.setGpuDetectionFailureCallback(({
     required String reason,
     bool cudaAvailable = false,
+    List<String> adapterNames = const [],
   }) {
     _log.warning('GPU detection failed, defaulting to CPU: $reason');
     CrashReporter.instance?.captureError(
@@ -89,9 +91,38 @@ void initHardwareInfoTelemetry() {
         'os_version': Platform.operatingSystemVersion,
         'cuda_available': cudaAvailable,
         'num_processors': Platform.numberOfProcessors,
+        'gpu_adapters': gpuAdapterNamesForTelemetry(adapterNames),
       },
     );
   });
+}
+
+/// At most this many adapter names are sent (multi-GPU laptops rarely exceed
+/// two; the cap bounds the event size).
+const int _maxTelemetryAdapters = 4;
+
+/// Longer names are cut: a real adapter string is well under this.
+const int _maxTelemetryAdapterNameLength = 100;
+
+/// Prepares raw adapter names from the GPU probes for Sentry extras.
+///
+/// Adapter names are hardware identifiers, not personal data, so they are
+/// sent as-is apart from two guards: the OS account name and home paths are
+/// scrubbed with the same [scrubUserPaths] used for crash text (a driver or
+/// adapter string can embed a profile path), and the list and each name are
+/// capped. Empty names are dropped.
+@visibleForTesting
+List<String> gpuAdapterNamesForTelemetry(List<String> adapterNames) {
+  final out = <String>[];
+  for (final raw in adapterNames) {
+    if (out.length == _maxTelemetryAdapters) break;
+    var name = scrubUserPaths(raw.trim());
+    if (name.length > _maxTelemetryAdapterNameLength) {
+      name = name.substring(0, _maxTelemetryAdapterNameLength);
+    }
+    if (name.isNotEmpty) out.add(name);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
