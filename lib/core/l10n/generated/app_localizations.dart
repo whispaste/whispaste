@@ -411,6 +411,18 @@ abstract class L10n {
   /// **'< 1 min read'**
   String get historyReadingTimeUnder1;
 
+  /// Approximate word count shown in a history list row. Plural-aware: the count selects the form, so a translator can phrase '1 word' differently from 'N words'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{approx. 1 word} other{approx. {count} words}}'**
+  String historyListWordCount(int count);
+
+  /// Tooltip and label of the single overflow button that replaces the selection, sort and view controls when the History filter row is too narrow for them.
+  ///
+  /// In en, this message translates to:
+  /// **'View and selection'**
+  String get historyToolsMenu;
+
   /// No description provided for @historyEditing.
   ///
   /// In en, this message translates to:
@@ -6834,36 +6846,6 @@ abstract class L10n {
   /// **'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically'**
   String get settingsRetainRecentAudioSubtitle;
 
-  /// No description provided for @storeThankYouTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Thanks for your support!'**
-  String get storeThankYouTitle;
-
-  /// No description provided for @storeThankYouBody.
-  ///
-  /// In en, this message translates to:
-  /// **'We\'re really glad you\'re here. If WhisPaste makes your day a little easier, a short review means a lot to us.'**
-  String get storeThankYouBody;
-
-  /// No description provided for @storeThankYouCtaStore.
-  ///
-  /// In en, this message translates to:
-  /// **'★ Rate on the Store'**
-  String get storeThankYouCtaStore;
-
-  /// No description provided for @storeThankYouCtaGitHub.
-  ///
-  /// In en, this message translates to:
-  /// **'⭐ Star on GitHub'**
-  String get storeThankYouCtaGitHub;
-
-  /// No description provided for @storeThankYouDismiss.
-  ///
-  /// In en, this message translates to:
-  /// **'Close'**
-  String get storeThankYouDismiss;
-
   /// No description provided for @featureSpotlightHeading.
   ///
   /// In en, this message translates to:
@@ -7952,6 +7934,348 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.'**
   String get recoveryCudaDisabledToast;
+
+  /// No description provided for @supportPromptSnooze.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t ask for 90 days'**
+  String get supportPromptSnooze;
+
+  /// No description provided for @supportPayPalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'PayPal'**
+  String get supportPayPalLabel;
+
+  /// No description provided for @supportStoreThankYouLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for buying WhisPaste in the store. Any further support is optional.'**
+  String get supportStoreThankYouLine;
+
+  /// No description provided for @supportShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'I use WhisPaste to speak text straight into my apps. Local on my computer and open source:'**
+  String get supportShareText;
+
+  /// No description provided for @supportPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support WhisPaste'**
+  String get supportPageTitle;
+
+  /// No description provided for @supportPageOpenAction.
+  ///
+  /// In en, this message translates to:
+  /// **'All ways to help'**
+  String get supportPageOpenAction;
+
+  /// No description provided for @supportIntroDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste is free and open source. A contribution or recommendation helps the project.'**
+  String get supportIntroDirect;
+
+  /// No description provided for @supportCostsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Contributions help cover development and the ongoing costs of publishing, hosting and the domain.'**
+  String get supportCostsNote;
+
+  /// No description provided for @supportSectionOnce.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time support'**
+  String get supportSectionOnce;
+
+  /// No description provided for @supportSectionOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Other ways to support'**
+  String get supportSectionOthers;
+
+  /// No description provided for @supportSectionReach.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommend WhisPaste'**
+  String get supportSectionReach;
+
+  /// No description provided for @supportStoreTitleWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste in the Microsoft Store'**
+  String get supportStoreTitleWindows;
+
+  /// No description provided for @supportStoreTitleMac.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste in the Mac App Store'**
+  String get supportStoreTitleMac;
+
+  /// No description provided for @supportStoreFactManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Installation and updates are handled by the store.'**
+  String get supportStoreFactManaged;
+
+  /// No description provided for @supportStoreFactPurchase.
+  ///
+  /// In en, this message translates to:
+  /// **'Your one-time purchase supports WhisPaste.'**
+  String get supportStoreFactPurchase;
+
+  /// No description provided for @supportStoreFactSameFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Same features. The direct version stays free to use.'**
+  String get supportStoreFactSameFeatures;
+
+  /// No description provided for @supportStoreCtaWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'View in Microsoft Store'**
+  String get supportStoreCtaWindows;
+
+  /// No description provided for @supportStoreCtaMac.
+  ///
+  /// In en, this message translates to:
+  /// **'View in Mac App Store'**
+  String get supportStoreCtaMac;
+
+  /// No description provided for @supportStorePriceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Price in the store'**
+  String get supportStorePriceNote;
+
+  /// No description provided for @supportStoreCoffeeNote.
+  ///
+  /// In en, this message translates to:
+  /// **'A one-time purchase, roughly the price of a coffee. The store shows the current price.'**
+  String get supportStoreCoffeeNote;
+
+  /// No description provided for @supportStoreDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide store option'**
+  String get supportStoreDismiss;
+
+  /// No description provided for @supportStoreShowAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Show store option'**
+  String get supportStoreShowAgain;
+
+  /// No description provided for @supportSponsorsCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open GitHub Sponsors'**
+  String get supportSponsorsCta;
+
+  /// No description provided for @supportSponsorsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly or with an amount you choose. Pick the amount and rhythm there.'**
+  String get supportSponsorsNote;
+
+  /// No description provided for @supportKofiCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Ko-fi'**
+  String get supportKofiCta;
+
+  /// No description provided for @supportPayPalCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Support with PayPal'**
+  String get supportPayPalCta;
+
+  /// No description provided for @supportNativeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support once in the store'**
+  String get supportNativeTitle;
+
+  /// No description provided for @supportNativeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'A one-time amount, billed by the store. Same features, no subscription.'**
+  String get supportNativeDescription;
+
+  /// No description provided for @supportNativeCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Support once'**
+  String get supportNativeCta;
+
+  /// No description provided for @supportSheetChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an amount'**
+  String get supportSheetChoose;
+
+  /// No description provided for @supportSheetLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading amounts …'**
+  String get supportSheetLoading;
+
+  /// No description provided for @supportSheetBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Support for {price}'**
+  String supportSheetBuy(String price);
+
+  /// No description provided for @supportSheetPurchasing.
+  ///
+  /// In en, this message translates to:
+  /// **'The store is confirming your purchase …'**
+  String get supportSheetPurchasing;
+
+  /// No description provided for @supportSheetThanks.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for your support!'**
+  String get supportSheetThanks;
+
+  /// No description provided for @supportSheetThanksDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Your supporter badge is active now. All features stay available to everyone.'**
+  String get supportSheetThanksDetail;
+
+  /// No description provided for @supportSheetPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your purchase is awaiting confirmation.'**
+  String get supportSheetPending;
+
+  /// No description provided for @supportSheetPurchaseError.
+  ///
+  /// In en, this message translates to:
+  /// **'The purchase could not be completed. Please try again later.'**
+  String get supportSheetPurchaseError;
+
+  /// No description provided for @supportSheetPricesError.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices couldn\'t be loaded. Please try again later.'**
+  String get supportSheetPricesError;
+
+  /// No description provided for @supportSheetUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No amounts are available in the store right now.'**
+  String get supportSheetUnavailable;
+
+  /// No description provided for @supportSheetRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get supportSheetRetry;
+
+  /// No description provided for @supportSheetClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get supportSheetClose;
+
+  /// No description provided for @supportSelfDeclareCta.
+  ///
+  /// In en, this message translates to:
+  /// **'I already support WhisPaste'**
+  String get supportSelfDeclareCta;
+
+  /// No description provided for @supportSelfDeclareNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.'**
+  String get supportSelfDeclareNote;
+
+  /// No description provided for @supportSelfDeclareHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is verified. Use this if you already contributed.'**
+  String get supportSelfDeclareHint;
+
+  /// No description provided for @supportSupporterLine.
+  ///
+  /// In en, this message translates to:
+  /// **'You support WhisPaste. Thank you!'**
+  String get supportSupporterLine;
+
+  /// No description provided for @supportSupporterBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Supporter'**
+  String get supportSupporterBadge;
+
+  /// No description provided for @supportRateCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate in the store'**
+  String get supportRateCta;
+
+  /// No description provided for @supportShareCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get supportShareCopy;
+
+  /// No description provided for @supportShareCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get supportShareCopied;
+
+  /// No description provided for @supportShareEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get supportShareEmail;
+
+  /// No description provided for @supportChipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsor'**
+  String get supportChipLabel;
+
+  /// No description provided for @supportChipTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Support WhisPaste'**
+  String get supportChipTooltip;
+
+  /// No description provided for @supportChipThanksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks'**
+  String get supportChipThanksLabel;
+
+  /// No description provided for @supportChipThanksTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for your support'**
+  String get supportChipThanksTooltip;
+
+  /// No description provided for @supportChipHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get supportChipHide;
+
+  /// No description provided for @settingsSponsorChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsor button in the status bar'**
+  String get settingsSponsorChip;
+
+  /// No description provided for @settingsSponsorChipSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here.'**
+  String get settingsSponsorChipSubtitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

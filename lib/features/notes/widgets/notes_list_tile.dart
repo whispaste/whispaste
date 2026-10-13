@@ -77,8 +77,16 @@ class _NotesListTileState extends State<NotesListTile> {
   // toggles this tile's own setState on every mouse enter/exit, and
   // re-deriving title/preview from a potentially long content string on each
   // of those would be wasted work (same pattern as _HistoryEntryRowState).
-  late String? _title = deriveNoteTitle(widget.note.content);
+  late String? _title = _deriveTitle(widget.note.content);
   late String _preview = _derivePreview(widget.note.content);
+
+  /// The title may wrap to two lines, so it keeps far more of the first line
+  /// than the editor's 80-character display cap does. Only the display is
+  /// capped here; the stored content is never touched.
+  static const _titleMaxLength = 240;
+
+  static String? _deriveTitle(String content) =>
+      deriveNoteTitle(content, maxLength: _titleMaxLength);
 
   /// Cap for how much content the preview derivation scans — the preview
   /// shows at most two ellipsized lines, so scanning a multi-kilobyte note
@@ -109,7 +117,7 @@ class _NotesListTileState extends State<NotesListTile> {
   void didUpdateWidget(NotesListTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note != widget.note) {
-      _title = deriveNoteTitle(widget.note.content);
+      _title = _deriveTitle(widget.note.content);
       _preview = _derivePreview(widget.note.content);
     }
   }
@@ -168,6 +176,10 @@ class _NotesListTileState extends State<NotesListTile> {
     const textMuted = WpColors.textMuted;
 
     final title = _title ?? l10n.notesUntitled;
+    // Metadata drops from muted to secondary on any tinted row state: muted
+    // text falls below 4.5:1 on the hover/selection washes (see DESIGN.md
+    // contrast rules).
+    final isTinted = _isHovered || widget.isSelected || widget.isFocused;
 
     return Semantics(
       // Deliberately no `label:`. It used to be `title` — the very string
@@ -209,8 +221,8 @@ class _NotesListTileState extends State<NotesListTile> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Row 1: favourite toggle + title + relative date (+ trash
-                // actions when the trash filter is active)
+                // Row 1: favourite toggle + title (up to two lines) + row
+                // actions (trash actions when the trash filter is active)
                 Row(
                   children: [
                     if (!widget.isTrashView) ...[
@@ -272,24 +284,16 @@ class _NotesListTileState extends State<NotesListTile> {
                     Expanded(
                       child: Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: WpTypography.heading,
+                          fontSize: WpTypography.subheading,
                           fontWeight: FontWeight.w600,
                           color: textPrimary,
                         ),
                       ),
                     ),
                     const SizedBox(width: WpSpacing.xs),
-                    Text(
-                      _relativeDateLabel(context),
-                      style: const TextStyle(
-                        fontSize: WpTypography.caption,
-                        color: textMuted,
-                      ),
-                    ),
-                    const SizedBox(width: WpSpacing.xxs),
                     WpRowActions(
                       visible: _isHovered || widget.isFocused,
                       dense: true,
@@ -353,13 +357,22 @@ class _NotesListTileState extends State<NotesListTile> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: WpTypography.subheading,
+                      fontSize: WpTypography.body,
                       color: textSecondary,
                       height: 1.35,
                     ),
                   ),
                 ],
-                // Row 3: compact tag pills — informative only (no tap;
+                // Row 3: update time as metadata
+                const SizedBox(height: WpSpacing.xxs),
+                Text(
+                  _relativeDateLabel(context),
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: isTinted ? textSecondary : textMuted,
+                  ),
+                ),
+                // Row 4: compact tag pills — informative only (no tap;
                 // tag filtering may come in a later ticket)
                 if (widget.tags.isNotEmpty) ...[
                   const SizedBox(height: WpSpacing.xxs),

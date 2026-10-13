@@ -16,7 +16,7 @@ import '../core/theme/tokens.dart';
 // Rows that sit two clicks apart in the same window should not disagree
 // about what a row *is*, so the recipe now lives in exactly one place.
 //
-// ## Two variants, one recipe
+// ## Variants, one recipe
 //
 // The split is not cosmetic — it follows the surface a list sits on:
 //
@@ -31,11 +31,15 @@ import '../core/theme/tokens.dart';
 //     (DESIGN.md "Quiet Signal"), and spends its ink on the states that
 //     matter in a panel with a detail pane: selection and the keyboard
 //     cursor, both drawn in accent.
+//   * [WpListTileVariant.overview] — a full-width list with no detail pane
+//     open (history overview). The row is a quiet card: frost fill, 1 px
+//     neutral edge, `md` radius, so a short list does not read as bare text.
 //
-// Everything the two share is fixed here and cannot drift again: radius
-// (`WpRadius.borderLg`), resting border width (1.5) and the hover-in/hover-out
-// motion. Guarded by `test/widgets/list_tile_surface_consistency_test.dart`,
-// which compares the four real call sites *against each other* rather than
+// Everything the variants share is fixed here and cannot drift again: the
+// hover-in/hover-out motion and the tile state rules. Radius and resting border
+// width are per variant (`overview` is the one that differs). Guarded by
+// `test/widgets/list_tile_surface_consistency_test.dart`, which compares the
+// four real call sites *against each other* rather than
 // against numbers.
 //
 // ## Why there is no shadow (Ticket 08)
@@ -80,6 +84,12 @@ enum WpListTileVariant {
 
   /// Transparent-at-rest row in a narrow split-view panel (history, notes).
   panel,
+
+  /// Quiet card row in a full-width list with no detail open (history
+  /// overview). It reads as a row on the page ground: frost fill, a 1 px
+  /// neutral edge and the smaller `md` radius, with the same tile state
+  /// rules as [card] (hover/focus brighten, selection tints).
+  overview,
 }
 
 /// The shared envelope of every list row: fill, radius, border, shadow fade
@@ -114,7 +124,8 @@ class WpListTileSurface extends StatelessWidget {
   /// [WpFocusRing] at the call site.
   final bool isFocused;
 
-  /// The row is the one shown in the detail pane (panel variant only).
+  /// The row is the one shown in the detail pane (panel variant only). In the
+  /// overview variant it means "checked" (multi-select) and tints the fill.
   final bool isSelected;
 
   /// Optional trailing actions at the envelope level — typically a
@@ -137,21 +148,30 @@ class WpListTileSurface extends StatelessWidget {
   /// Off-scale on purpose — `WpSpacing.xxs` would read as a list gap.
   static const double panelVerticalMargin = 1.0;
 
-  /// Resting border width, shared by both variants. The dark-theme selection
-  /// stroke is the single documented exception (2 px, see [_border]).
+  /// Resting border width, shared by the card and panel variants. The
+  /// dark-theme selection stroke is the single documented exception (2 px,
+  /// see [_border]). The overview variant draws a 1 px edge instead, see
+  /// [overviewBorderWidth].
   static const double borderWidth = 1.5;
+
+  /// Edge width of the [WpListTileVariant.overview] row.
+  static const double overviewBorderWidth = 1.0;
 
   bool get _isActive => isHovered || isFocused || isSelected;
 
   Color _fill() {
     switch (variant) {
       case WpListTileVariant.card:
+      case WpListTileVariant.overview:
         // Frost, not `surfaceElevated`/`hover`: a card row is a translucent
         // tinted plate over the one ambient gradient, so the ground keeps
         // running underneath the list instead of being cut into opaque bands.
         // The hover delta is deliberately quiet (~1.03:1) — it is carried
         // jointly by the fill and the tinted edge in [_border], and the row's
         // real hover affordance is the action slot it reveals.
+        if (variant == WpListTileVariant.overview && isSelected) {
+          return WpColors.accentSubtle;
+        }
         return _isActive ? WpColors.cardFillElevated : WpColors.cardFill;
       case WpListTileVariant.panel:
         if (isSelected) {
@@ -174,6 +194,17 @@ class WpListTileSurface extends StatelessWidget {
         return Border.all(
           color: _isActive ? WpColors.cardEdgeHighlight : WpColors.borderSubtle,
           width: borderWidth,
+        );
+      case WpListTileVariant.overview:
+        if (isSelected) {
+          return Border.all(
+            color: WpColors.accent.withValues(alpha: 0.5),
+            width: overviewBorderWidth,
+          );
+        }
+        return Border.all(
+          color: _isActive ? WpColors.cardEdgeHighlight : WpColors.borderSubtle,
+          width: overviewBorderWidth,
         );
       case WpListTileVariant.panel:
         const accent = WpColors.accent;
@@ -214,6 +245,21 @@ class WpListTileSurface extends StatelessWidget {
           horizontal: WpSpacing.sm,
           vertical: WpSpacing.md,
         );
+      case WpListTileVariant.overview:
+        return const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.sm,
+        );
+    }
+  }
+
+  BorderRadius _radius() {
+    switch (variant) {
+      case WpListTileVariant.overview:
+        return WpRadius.borderMd;
+      case WpListTileVariant.card:
+      case WpListTileVariant.panel:
+        return WpRadius.borderLg;
     }
   }
 
@@ -227,6 +273,9 @@ class WpListTileSurface extends StatelessWidget {
           horizontal: panelHorizontalMargin,
           vertical: panelVerticalMargin,
         );
+      case WpListTileVariant.overview:
+        // 8 px between rows: each row carries 4 px above and below.
+        return const EdgeInsets.symmetric(vertical: WpSpacing.xxs);
     }
   }
 
@@ -251,7 +300,7 @@ class WpListTileSurface extends StatelessWidget {
       padding: _padding(),
       decoration: BoxDecoration(
         color: _fill(),
-        borderRadius: WpRadius.borderLg,
+        borderRadius: _radius(),
         border: _border(),
         // No `boxShadow` at all — see the library comment. A row lives in the
         // plane; its depth is the brightness delta.

@@ -31,8 +31,7 @@ import 'sections/smart_mode_section.dart';
 import 'sections/stt_section.dart';
 import 'sections/updates_section.dart';
 import 'settings_widgets.dart';
-import 'widgets/settings_anchor_chip_bar.dart';
-import 'widgets/settings_search_field.dart';
+import 'widgets/settings_section_picker.dart';
 
 /// Settings page — thin coordinator that composes extracted section widgets.
 ///
@@ -44,12 +43,12 @@ import 'widgets/settings_search_field.dart';
 /// Selecting a suggestion scrolls to and briefly highlights the target section
 /// via [settingsHighlightTargetProvider].
 ///
-/// Below the search field, a [SettingsAnchorChipBar] (Ticket 16, the variant
-/// Ticket 15 chose) offers one chip per visible section for orientation
-/// without typing a query — tapping a chip drives the exact same scroll +
-/// highlight path as picking a search suggestion. It renders whichever
-/// sections [visibleSections] already resolved to, so it narrows and
-/// disappears along with the search filter rather than duplicating it.
+/// Beside the search field, a [SettingsSectionPicker] (concept proposal 5,
+/// which replaced the Ticket 16 chip wall) offers the visible sections for
+/// orientation without typing a query — choosing one drives the exact same
+/// scroll + highlight path as picking a search suggestion. It renders whichever
+/// sections [visibleSections] already resolved to, so it narrows and disappears
+/// along with the search filter rather than duplicating it.
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -65,10 +64,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   // (see _updateActiveSection).
   final _contentKey = GlobalKey();
 
-  // The chip bar's "current section" highlight (Discussion #147). Kept
-  // separate from _sectionKeys/settingsHighlightTargetProvider's transient
-  // locator ring, which marks *where a search hit landed*, not *what's on
-  // screen right now*.
+  // The section picker's "current section" (Discussion #147). Kept separate
+  // from _sectionKeys/settingsHighlightTargetProvider's transient locator
+  // ring, which marks *where a search hit landed*, not *what's on screen
+  // right now*.
   List<String> _sectionOrder = const [];
   String? _activeSectionKey;
   double _lastScrollPixels = 0;
@@ -149,12 +148,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   /// How far (in scroll-content pixels) a section's top may still be below
   /// the viewport's top edge and still count as "current" — small enough
-  /// that the chip lights up as soon as a section is actually the one on
+  /// that the picker switches as soon as a section is actually the one on
   /// screen, not only once it is perfectly flush with the top.
   static const _activationThresholdPx = 24.0;
 
   /// Finds the last section (in on-screen order) whose top has scrolled up
-  /// to/past the viewport's top edge, and makes it the chip bar's active
+  /// to/past the viewport's top edge, and makes it the picker's active
   /// section. [_contentKey]'s render box gives each section's fixed offset
   /// from the top of the scrolled content — subtracting the current scroll
   /// position turns that into "distance from the viewport's top edge"
@@ -422,9 +421,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return matchSet == null || matchSet.contains(s.$1);
     }).toList();
 
-    // Re-derive the chip bar's active section whenever the visible-section
-    // order changes (search narrows/widens it, onboarding review appears)
-    // — the previously active key may no longer be on screen at all.
+    // Re-derive the section picker's active section whenever the
+    // visible-section order changes (search narrows/widens it, onboarding
+    // review appears) — the previously active key may no longer be on screen
+    // at all.
     final sectionOrder = visibleSections
         .map((s) => s.$1)
         .toList(growable: false);
@@ -490,7 +490,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               // Default Rule) — no cap-width, so Settings stays consistent
               // with History/Analytics/etc. even on very wide windows.
               //
-              // The search field — and the anchor-chip bar under it — ride the
+              // The search field and the section picker beside it ride the
               // shell's sticky header slot, so both stay visible while the
               // sections below scroll.
               //
@@ -503,25 +503,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               // plane is the same seam Ticket 06 removed from the nav rail, one
               // layer in.
               return WpPageShell(
-                header: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SettingsSearchField(focusNode: _searchFocusNode),
-                    // Hidden along with the chip bar itself when a search
-                    // narrows visibleSections to zero (the "No Results" empty
-                    // state takes over below) — an empty Wrap has no height,
-                    // but skipping it here also drops the otherwise-orphaned
-                    // gap above it.
-                    if (visibleSections.isNotEmpty) ...[
-                      const SizedBox(height: WpSpacing.sm),
-                      SettingsAnchorChipBar(
-                        sectionKeys: sectionOrder,
-                        locale: Localizations.localeOf(context).languageCode,
-                        activeSectionKey: _activeSectionKey,
-                      ),
-                    ],
-                  ],
+                // Empty sectionOrder (a search with no matches) leaves only the
+                // search field: the picker has nothing to offer and is hidden.
+                header: SettingsSearchSectionRow(
+                  searchFocusNode: _searchFocusNode,
+                  sectionKeys: sectionOrder,
+                  locale: Localizations.localeOf(context).languageCode,
+                  activeSectionKey: _activeSectionKey,
                 ),
                 child: KeyedSubtree(key: _contentKey, child: scrollContent),
               );

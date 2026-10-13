@@ -170,6 +170,20 @@ class L10nEn extends L10n {
   String get historyReadingTimeUnder1 => '< 1 min read';
 
   @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'approx. $count words',
+      one: 'approx. 1 word',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'View and selection';
+
+  @override
   String get historyEditing => 'Editing';
 
   @override
@@ -3914,22 +3928,6 @@ class L10nEn extends L10n {
       'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically';
 
   @override
-  String get storeThankYouTitle => 'Thanks for your support!';
-
-  @override
-  String get storeThankYouBody =>
-      'We\'re really glad you\'re here. If WhisPaste makes your day a little easier, a short review means a lot to us.';
-
-  @override
-  String get storeThankYouCtaStore => '★ Rate on the Store';
-
-  @override
-  String get storeThankYouCtaGitHub => '⭐ Star on GitHub';
-
-  @override
-  String get storeThankYouDismiss => 'Close';
-
-  @override
   String get featureSpotlightHeading => 'New in WhisPaste';
 
   @override
@@ -4558,4 +4556,195 @@ class L10nEn extends L10n {
   @override
   String get recoveryCudaDisabledToast =>
       'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.';
+
+  @override
+  String get supportPromptSnooze => 'Don\'t ask for 90 days';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'Thank you for buying WhisPaste in the store. Any further support is optional.';
+
+  @override
+  String get supportShareText =>
+      'I use WhisPaste to speak text straight into my apps. Local on my computer and open source:';
+
+  @override
+  String get supportPageTitle => 'Support WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'All ways to help';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste is free and open source. A contribution or recommendation helps the project.';
+
+  @override
+  String get supportCostsNote =>
+      'Contributions help cover development and the ongoing costs of publishing, hosting and the domain.';
+
+  @override
+  String get supportSectionOnce => 'One-time support';
+
+  @override
+  String get supportSectionOthers => 'Other ways to support';
+
+  @override
+  String get supportSectionReach => 'Recommend WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste in the Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste in the Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'Installation and updates are handled by the store.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'Your one-time purchase supports WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'Same features. The direct version stays free to use.';
+
+  @override
+  String get supportStoreCtaWindows => 'View in Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'View in Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'Price in the store';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'A one-time purchase, roughly the price of a coffee. The store shows the current price.';
+
+  @override
+  String get supportStoreDismiss => 'Hide store option';
+
+  @override
+  String get supportStoreShowAgain => 'Show store option';
+
+  @override
+  String get supportSponsorsCta => 'Open GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'Monthly or with an amount you choose. Pick the amount and rhythm there.';
+
+  @override
+  String get supportKofiCta => 'Open Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'Support with PayPal';
+
+  @override
+  String get supportNativeTitle => 'Support once in the store';
+
+  @override
+  String get supportNativeDescription =>
+      'A one-time amount, billed by the store. Same features, no subscription.';
+
+  @override
+  String get supportNativeCta => 'Support once';
+
+  @override
+  String get supportSheetChoose => 'Choose an amount';
+
+  @override
+  String get supportSheetLoading => 'Loading amounts …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'Support for $price';
+  }
+
+  @override
+  String get supportSheetPurchasing =>
+      'The store is confirming your purchase …';
+
+  @override
+  String get supportSheetThanks => 'Thank you for your support!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'Your supporter badge is active now. All features stay available to everyone.';
+
+  @override
+  String get supportSheetPending => 'Your purchase is awaiting confirmation.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'The purchase could not be completed. Please try again later.';
+
+  @override
+  String get supportSheetPricesError =>
+      'Prices couldn\'t be loaded. Please try again later.';
+
+  @override
+  String get supportSheetUnavailable =>
+      'No amounts are available in the store right now.';
+
+  @override
+  String get supportSheetRetry => 'Try again';
+
+  @override
+  String get supportSheetClose => 'Close';
+
+  @override
+  String get supportSelfDeclareCta => 'I already support WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'Nothing is verified. Use this if you already contributed.';
+
+  @override
+  String get supportSupporterLine => 'You support WhisPaste. Thank you!';
+
+  @override
+  String get supportSupporterBadge => 'Supporter';
+
+  @override
+  String get supportRateCta => 'Rate in the store';
+
+  @override
+  String get supportShareCopy => 'Copy link';
+
+  @override
+  String get supportShareCopied => 'Link copied';
+
+  @override
+  String get supportShareEmail => 'Email';
+
+  @override
+  String get supportChipLabel => 'Sponsor';
+
+  @override
+  String get supportChipTooltip => 'Support WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'Thanks';
+
+  @override
+  String get supportChipThanksTooltip => 'Thank you for your support';
+
+  @override
+  String get supportChipHide => 'Hide';
+
+  @override
+  String get settingsSponsorChip => 'Sponsor button in the status bar';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here.';
 }

@@ -78,6 +78,20 @@ class _HostState<T> extends State<_Host<T>> {
   Widget build(BuildContext context) => widget.builder(_selected);
 }
 
+/// A list that holds state of its own, so a test can tell whether the element
+/// survived a layout change.
+class _ProbeList extends StatefulWidget {
+  const _ProbeList({super.key});
+
+  @override
+  State<_ProbeList> createState() => _ProbeListState();
+}
+
+class _ProbeListState extends State<_ProbeList> {
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
+}
+
 void main() {
   group('WpSplitView', () {
     testWidgets('cross-fades between two selections', (tester) async {
@@ -182,6 +196,9 @@ void main() {
       // it one level deeper, into _WpSplitViewState. It survives the stream
       // emits that push a new selection only because the WpSplitView element
       // is updated in place rather than rebuilt — this pins that.
+      // The test view, not makeTestable's `size`, decides the layout width.
+      tester.view.physicalSize = _wide * tester.view.devicePixelRatio;
+      addTearDown(tester.view.resetPhysicalSize);
       final key = GlobalKey<_HostState<String>>();
       await tester.pumpWidget(
         makeTestable(
@@ -220,6 +237,82 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.getSize(listColumn).width, dragged);
+    });
+  });
+
+  group('narrow windows', () {
+    Finder dividerFinder() => find.byWidgetPredicate(
+      (w) => w is GestureDetector && w.onHorizontalDragUpdate != null,
+    );
+
+    Future<void> pumpAt(WidgetTester tester, double width) async {
+      tester.view.physicalSize =
+          Size(width, 800) * tester.view.devicePixelRatio;
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        makeTestable(
+          WpSplitView<String>(
+            selectedItem: 'a',
+            idOf: (id) => id,
+            listBuilder: (_, _) => const SizedBox.expand(),
+            detailBuilder: (_, id) => Text('detail-$id'),
+          ),
+          size: Size(width, 800),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('below list + divider + readable detail the split collapses', (
+      tester,
+    ) async {
+      // 240 list + 8 divider + 440 detail = 688.
+      await pumpAt(tester, 680);
+      expect(dividerFinder(), findsNothing);
+      await pumpAt(tester, 700);
+      expect(dividerFinder(), findsOneWidget);
+    });
+
+    testWidgets('the list keeps its state across collapse and expand', (
+      tester,
+    ) async {
+      tester.view.physicalSize = _wide * tester.view.devicePixelRatio;
+      addTearDown(tester.view.resetPhysicalSize);
+      final listKey = GlobalKey<_ProbeListState>();
+      final key = GlobalKey<_HostState<String?>>();
+      await tester.pumpWidget(
+        makeTestable(
+          _Host<String?>(
+            key: key,
+            initial: null,
+            builder: (selected) => WpSplitView<String>(
+              selectedItem: selected,
+              idOf: (id) => id,
+              listBuilder: (_, _) => _ProbeList(key: listKey),
+              detailBuilder: (_, id) => Text('detail-$id'),
+            ),
+          ),
+          size: _wide,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final listState = listKey.currentState!;
+
+      key.currentState!.select('a');
+      await tester.pumpAndSettle();
+      expect(listKey.currentState, same(listState));
+
+      // Narrow window: the detail goes full width, the list stays mounted.
+      tester.view.physicalSize =
+          const Size(680, 800) * tester.view.devicePixelRatio;
+      await tester.pumpAndSettle();
+      expect(listKey.currentState, same(listState));
+
+      key.currentState!.select(null);
+      tester.view.physicalSize = _wide * tester.view.devicePixelRatio;
+      await tester.pumpAndSettle();
+      expect(listKey.currentState, same(listState));
+      expect(tester.takeException(), isNull);
     });
   });
 

@@ -19,6 +19,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
 import 'hotkey_key_resolver.dart';
+import 'prompt_display_arbiter.dart';
 import 'keyboard_up_monitor.dart';
 
 // ---------------------------------------------------------------------------
@@ -400,8 +401,12 @@ class HotkeyService extends Notifier<void> {
   /// honoured. Comfortably larger than typical auto-repeat initial delays.
   static const _autoRepeatWindow = Duration(milliseconds: 1200);
 
+  /// Shared nudge window. Read in [build]; null until the notifier is built.
+  PromptDisplayArbiter? _promptArbiter;
+
   @override
   void build() {
+    _promptArbiter = ref.read(promptDisplayArbiterProvider);
     if (!_isDesktop) return;
 
     _wireMonitor();
@@ -1211,6 +1216,9 @@ class HotkeyService extends Notifier<void> {
     }
     state.keyHeld = true;
     _log.info('$label hotkey pressed');
+    // A hotkey press closes an open nudge prompt. The close records nothing,
+    // so it is neither a dismissal nor a snooze.
+    _promptArbiter?.closeOpenPrompt();
     if (actionId == _globalActionId) {
       // Stamp t₀ for hotkey→overlay latency BEFORE dispatching so the mark
       // captures the earliest possible Dart-layer moment of this event.

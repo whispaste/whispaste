@@ -37,10 +37,14 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/core/theme/tokens.dart';
+import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
+import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
+import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
@@ -64,6 +68,49 @@ const _windowCornerRadius = 12.0;
 const _outputDir = 'screenshots';
 
 const _locales = ['en', 'de'];
+
+/// `--dart-define=WP_SHOT_SET=review` captures every main view at several
+/// window sizes and 2x pixel ratio into `screenshots/review/` — for UI
+/// before/after comparisons, not for store listings.
+const _shotSet = String.fromEnvironment('WP_SHOT_SET', defaultValue: 'store');
+const _isReview = _shotSet == 'review';
+
+/// Review window sizes: a typical laptop window and the app's minimum size.
+const _reviewSizes = <Size>[Size(1440, 900), Size(800, 640)];
+
+const _reviewLocales = ['de'];
+
+final _reviewScreens = <_ScreenDef>[
+  ..._screens.take(3),
+  _ScreenDef(
+    name: '06_notes',
+    pageId: 'notes',
+    builder: () => const NotesPage(),
+  ),
+  _ScreenDef(
+    name: '07_snippets',
+    pageId: 'snippets',
+    builder: () => const SnippetsPage(),
+  ),
+  _screens[4],
+  _ScreenDef(
+    name: '08_feedback',
+    pageId: 'feedback',
+    builder: () => const FeedbackPage(),
+  ),
+  _ScreenDef(
+    name: '09_about',
+    pageId: 'about',
+    builder: () => const AboutPage(),
+  ),
+  for (var i = 0; i < 6; i++)
+    _ScreenDef(
+      name: '10_settings_${i.toString().padLeft(2, '0')}',
+      pageId: 'settings',
+      builder: () => const SettingsPage(),
+      arrange: (tester, _) => _scrollContent(tester, i * 700.0),
+    ),
+];
 
 final _screens = <_ScreenDef>[
   _ScreenDef(
@@ -110,63 +157,68 @@ void main() {
   // Single testWidgets for all locale/theme combos — avoids the framework's
   // inter-test pumpAndSettle which hangs on infinite animations.
   testWidgets('Store screenshots', (tester) async {
-    // Configure window — not maximized, for rounded-corner screenshots
-    await tester.runAsync(() async {
-      await windowManager.ensureInitialized();
-      await windowManager.setSize(_windowSize);
-      await windowManager.center();
-    });
-    await _settle(tester, const Duration(seconds: 2));
-
-    for (final locale in _locales) {
-      // ignore: avoid_print
-      print('\n=== $locale ===');
-
-      // Fresh in-memory database per locale
-      final db = await tester.runAsync(() async {
-        final d = HistoryDatabase.forTesting(NativeDatabase.memory());
-        await _seedDemoData(d, locale: locale);
-        return d;
+    const sizes = _isReview ? _reviewSizes : [_windowSize];
+    for (final size in sizes) {
+      // Configure window — not maximized, for rounded-corner screenshots
+      await tester.runAsync(() async {
+        await windowManager.ensureInitialized();
+        await windowManager.setSize(size);
+        await windowManager.center();
       });
+      await _settle(tester, const Duration(seconds: 2));
 
-      for (final screen in _screens) {
+      for (final locale in _isReview ? _reviewLocales : _locales) {
         // ignore: avoid_print
-        print('  Rendering: ${screen.name}');
+        print('\n=== $locale ===');
 
-        final settings = AppSettings.defaults.copyWith(
-          locale: locale,
-          textReplacementsEnabled: screen.textReplacementsEnabled,
-          hotkeyEnabled: true,
-          hotkeyKey: 'D',
-          hotkeyModifiers: 'ctrl+shift',
-          onboardingCompleted: true,
-        );
+        // Fresh in-memory database per locale
+        final db = await tester.runAsync(() async {
+          final d = HistoryDatabase.forTesting(NativeDatabase.memory());
+          await _seedDemoData(d, locale: locale);
+          return d;
+        });
 
-        final app = _buildScreenshotApp(
-          db: db!,
-          settings: settings,
-          locale: locale,
-          pageId: screen.pageId,
-          child: screen.builder(),
-        );
+        for (final screen in _isReview ? _reviewScreens : _screens) {
+          // ignore: avoid_print
+          print('  Rendering: ${screen.name}');
 
-        await tester.pumpWidget(app);
-        await _settle(tester, const Duration(seconds: 1));
+          final settings = AppSettings.defaults.copyWith(
+            locale: locale,
+            textReplacementsEnabled: screen.textReplacementsEnabled,
+            hotkeyEnabled: true,
+            hotkeyKey: 'D',
+            hotkeyModifiers: 'ctrl+shift',
+            onboardingCompleted: true,
+          );
 
-        // Run any screen-specific arrangement (open detail, scroll, etc.)
-        if (screen.arrange != null) {
-          await screen.arrange!(tester, locale);
-          await _settle(tester);
+          final app = _buildScreenshotApp(
+            db: db!,
+            settings: settings,
+            locale: locale,
+            pageId: screen.pageId,
+            child: screen.builder(),
+          );
+
+          await tester.pumpWidget(app);
+          await _settle(tester, const Duration(seconds: 1));
+
+          // Run any screen-specific arrangement (open detail, scroll, etc.)
+          if (screen.arrange != null) {
+            await screen.arrange!(tester, locale);
+            await _settle(tester);
+          }
+
+          // Capture
+          final path = _isReview
+              ? '$_outputDir/review/${size.width.toInt()}x${size.height.toInt()}/$locale/${screen.name}.png'
+              : '$_outputDir/$locale/dark/${screen.name}.png';
+          await _captureScreen(tester, path);
         }
 
-        // Capture
-        final path = '$_outputDir/$locale/dark/${screen.name}.png';
-        await _captureScreen(tester, path);
+        // In-memory DB is GC'd — no explicit close needed.
+        // (db.close() hangs because Riverpod providers still hold stream
+        // subscriptions; they're disposed on the next pumpWidget anyway.)
       }
-
-      // In-memory DB is GC'd — no explicit close needed.
-      // (db.close() hangs because Riverpod providers still hold stream
-      // subscriptions; they're disposed on the next pumpWidget anyway.)
     }
 
     // ignore: avoid_print
@@ -203,7 +255,9 @@ Widget _buildScreenshotApp({
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: wpDarkTheme().copyWith(scaffoldBackgroundColor: Colors.transparent),
+      theme: wpDarkTheme().copyWith(
+        scaffoldBackgroundColor: Colors.transparent,
+      ),
       locale: Locale(locale),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
@@ -386,7 +440,10 @@ Future<void> _captureScreen(WidgetTester tester, String path) async {
   final bytes = await tester.runAsync<List<int>>(() async {
     final renderView = tester.binding.renderViews.first;
     final layer = renderView.debugLayer! as OffsetLayer;
-    final image = await layer.toImage(renderView.paintBounds, pixelRatio: 1.0);
+    final image = await layer.toImage(
+      renderView.paintBounds,
+      pixelRatio: _isReview ? 2.0 : 1.0,
+    );
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) {
       throw StateError('Failed to convert image to PNG bytes');
@@ -419,6 +476,25 @@ Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
     await tester.tap(finder.first);
     await _settle(tester);
   }
+}
+
+/// Scrolls the content panel (the last [Scrollable]) down by [dy] pixels.
+Future<void> _scrollContent(WidgetTester tester, double dy) async {
+  if (dy == 0) return;
+  // The page body is the vertical scrollable with the most content; chip
+  // rows and nested lists would otherwise swallow the jump.
+  ScrollPosition? position;
+  for (final element in find.byType(Scrollable).evaluate()) {
+    final candidate = (element as StatefulElement).state as ScrollableState;
+    final p = candidate.position;
+    if (p.axis != Axis.vertical) continue;
+    if (position == null || p.maxScrollExtent > position.maxScrollExtent) {
+      position = p;
+    }
+  }
+  if (position == null) return;
+  position.jumpTo((position.pixels + dy).clamp(0, position.maxScrollExtent));
+  await _settle(tester);
 }
 
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
@@ -519,19 +595,64 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
     }
   }
 
-  final replacements = isGerman ? _replacementsDe : _replacementsEn;
-  for (var i = 0; i < replacements.length; i++) {
-    final (trigger, replacement) = replacements[i];
+  final notes = isGerman
+      ? [
+          'Ideen fürs Quartalsreview: Onboarding vereinfachen, Exportformate '
+              'erweitern, Hotkey-Konflikte früher erkennen.',
+          'Einkaufsliste: Kaffee, Haferdrink, Batterien fürs Headset.',
+        ]
+      : [
+          'Ideas for the quarterly review: simplify onboarding, add export '
+              'formats, detect hotkey conflicts earlier.',
+          'Shopping list: coffee, oat milk, batteries for the headset.',
+        ];
+  for (var i = 0; i < notes.length; i++) {
+    final ts = now.subtract(Duration(hours: i * 5 + 1));
     await db
-        .into(db.textReplacements)
+        .into(db.notes)
         .insert(
-          TextReplacementsCompanion(
-            id: Value('repl-$locale-$i'),
-            trigger: Value(trigger),
-            replacement: Value(replacement),
+          NotesCompanion(
+            id: Value('note-$locale-$i'),
+            content: Value(notes[i]),
+            pinned: Value(i == 0),
+            createdAt: Value(ts),
+            updatedAt: Value(ts),
+          ),
+        );
+  }
+
+  final snippets = isGerman
+      ? [
+          ('Signatur', 'Viele Grüße\nSilvio'),
+          ('Terminvorschlag', 'Passt dir Donnerstag um 10 Uhr?'),
+        ]
+      : [
+          ('Signature', 'Best regards,\nSilvio'),
+          ('Meeting proposal', 'Does Thursday at 10 am work for you?'),
+        ];
+  for (var i = 0; i < snippets.length; i++) {
+    final (title, body) = snippets[i];
+    await db
+        .into(db.snippets)
+        .insert(
+          SnippetsCompanion(
+            id: Value('snippet-$locale-$i'),
+            title: Value(title),
+            body: Value(body),
             createdAt: Value(now),
           ),
         );
+  }
+
+  final replacements = isGerman ? _replacementsDe : _replacementsEn;
+  for (var i = 0; i < replacements.length; i++) {
+    final (trigger, replacement) = replacements[i];
+    await db.upsertReplacementWithTriggers(
+      id: 'repl-$locale-$i',
+      triggers: [trigger],
+      replacement: replacement,
+      createdAt: now,
+    );
   }
 }
 

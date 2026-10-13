@@ -14,6 +14,7 @@ class AppDelegate: FlutterAppDelegate {
   private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var autostartHost: AutostartHost?
   private var secureBookmarkHost: SecureBookmarkHost?
+  private var supportStoreHost: SupportStoreHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
   /// Whether macOS launched this process as a login item. Captured once at
@@ -108,6 +109,7 @@ class AppDelegate: FlutterAppDelegate {
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
     autostartHost = AutostartHost(messenger: messenger)
     secureBookmarkHost = SecureBookmarkHost(messenger: messenger)
+    supportStoreHost = SupportStoreHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(

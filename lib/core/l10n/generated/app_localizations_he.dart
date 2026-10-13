@@ -170,6 +170,20 @@ class L10nHe extends L10n {
   String get historyReadingTimeUnder1 => 'פחות מדקה קריאה';
 
   @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'כ-$count מילים',
+      one: 'כ-מילה אחת',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'תצוגה ובחירה';
+
+  @override
   String get historyEditing => 'עריכה';
 
   @override
@@ -3866,22 +3880,6 @@ class L10nHe extends L10n {
       'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically';
 
   @override
-  String get storeThankYouTitle => 'תודה על תמיכתך!';
-
-  @override
-  String get storeThankYouBody =>
-      'אנחנו שמחים שאתה איתנו. אם WhisPaste עוזר לך בעבודה, דירוג קצר יעשה עבורנו הבדל גדול.';
-
-  @override
-  String get storeThankYouCtaStore => '★ דרג בחנות';
-
-  @override
-  String get storeThankYouCtaGitHub => '⭐ כוכב ב-GitHub';
-
-  @override
-  String get storeThankYouDismiss => 'סגור';
-
-  @override
   String get featureSpotlightHeading => 'חדש ב-WhisPaste';
 
   @override
@@ -4504,4 +4502,193 @@ class L10nHe extends L10n {
   @override
   String get recoveryCudaDisabledToast =>
       'האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההכתבה פועלת כרגיל.';
+
+  @override
+  String get supportPromptSnooze => 'אל תשאל למשך 90 יום';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'תודה שרכשת את WhisPaste בחנות. כל תמיכה נוספת היא מרצון.';
+
+  @override
+  String get supportShareText =>
+      'אני משתמש ב-WhisPaste כדי להכניס טקסט בדיבור ישירות לאפליקציות שלי. מקומי על המחשב ובקוד פתוח:';
+
+  @override
+  String get supportPageTitle => 'לתמוך ב-WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'כל הדרכים לתמוך';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste חינמי וקוד פתוח. תרומה או המלצה עוזרות לפרויקט.';
+
+  @override
+  String get supportCostsNote =>
+      'תרומות עוזרות לכסות את הפיתוח ואת העלויות השוטפות של פרסום, אירוח ודומיין.';
+
+  @override
+  String get supportSectionOnce => 'תמיכה חד-פעמית';
+
+  @override
+  String get supportSectionOthers => 'דרכים נוספות לתמוך';
+
+  @override
+  String get supportSectionReach => 'להמליץ על WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste ב-Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste ב-Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'ההתקנה והעדכונים מנוהלים על ידי החנות.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'הרכישה החד-פעמית שלך תומכת ב-WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'אותן יכולות. הגרסה הישירה נשארת חינמית לשימוש.';
+
+  @override
+  String get supportStoreCtaWindows => 'הצג ב-Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'הצג ב-Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'המחיר בחנות';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'רכישה חד-פעמית, בערך מחיר של קפה. החנות מציגה את המחיר העדכני.';
+
+  @override
+  String get supportStoreDismiss => 'הסתר את אפשרות החנות';
+
+  @override
+  String get supportStoreShowAgain => 'הצג את אפשרות החנות';
+
+  @override
+  String get supportSponsorsCta => 'פתח את GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'חודשי או בסכום לבחירתך. את הסכום ואת התדירות בוחרים שם.';
+
+  @override
+  String get supportKofiCta => 'פתח את Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'לתמוך דרך PayPal';
+
+  @override
+  String get supportNativeTitle => 'לתמוך פעם אחת בחנות';
+
+  @override
+  String get supportNativeDescription =>
+      'סכום חד-פעמי שהחנות גובה. אותן יכולות, ללא מנוי.';
+
+  @override
+  String get supportNativeCta => 'לתמוך פעם אחת';
+
+  @override
+  String get supportSheetChoose => 'בחר סכום';
+
+  @override
+  String get supportSheetLoading => 'טוען סכומים …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'לתמוך ב-$price';
+  }
+
+  @override
+  String get supportSheetPurchasing => 'החנות מאשרת את הרכישה שלך …';
+
+  @override
+  String get supportSheetThanks => 'תודה על התמיכה!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'תג התומך שלך פעיל עכשיו. כל היכולות נשארות זמינות לכולם.';
+
+  @override
+  String get supportSheetPending => 'הרכישה שלך ממתינה לאישור.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'לא ניתן היה להשלים את הרכישה. נסה שוב מאוחר יותר.';
+
+  @override
+  String get supportSheetPricesError =>
+      'לא ניתן היה לטעון את הסכומים. נסה שוב מאוחר יותר.';
+
+  @override
+  String get supportSheetUnavailable => 'כרגע אין סכומים זמינים בחנות.';
+
+  @override
+  String get supportSheetRetry => 'נסה שוב';
+
+  @override
+  String get supportSheetClose => 'סגור';
+
+  @override
+  String get supportSelfDeclareCta => 'אני כבר תומך ב-WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'רק הערה במכשיר הזה, שום דבר לא נבדק. כפתור התורם בשורת המצב מוסתר.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'שום דבר לא נבדק. השתמש באפשרות הזו אם כבר תרמת.';
+
+  @override
+  String get supportSupporterLine => 'אתה תומך ב-WhisPaste. תודה!';
+
+  @override
+  String get supportSupporterBadge => 'תומך';
+
+  @override
+  String get supportRateCta => 'דרג בחנות';
+
+  @override
+  String get supportShareCopy => 'העתק קישור';
+
+  @override
+  String get supportShareCopied => 'הקישור הועתק';
+
+  @override
+  String get supportShareEmail => 'דוא״ל';
+
+  @override
+  String get supportChipLabel => 'תורם';
+
+  @override
+  String get supportChipTooltip => 'לתמוך ב-WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'תודה';
+
+  @override
+  String get supportChipThanksTooltip => 'תודה על התמיכה';
+
+  @override
+  String get supportChipHide => 'הסתר';
+
+  @override
+  String get settingsSponsorChip => 'כפתור התורם בשורת המצב';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'מציג את הדרך לעמוד התמיכה. אפשר להסתיר אותו אחרי שתמכת בפרויקט בחנות או אישרת זאת כאן.';
 }

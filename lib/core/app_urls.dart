@@ -45,6 +45,15 @@ const String kWindowsStoreReviewUrl =
 const String kMacAppStoreReviewUrl =
     'macappstore://apps.apple.com/app/id6795319409?action=write-review';
 
+/// Microsoft Store product page (listing, not a review sheet). Used by the
+/// support page's store card and as the share target of store builds.
+const String kMicrosoftStoreListingUrl =
+    'https://apps.microsoft.com/detail/9P22JVKRQ2V0';
+
+/// Mac App Store product page. Used by the support page's store card and as
+/// the share target of Mac App Store builds.
+const String kMacAppStoreListingUrl = 'https://apps.apple.com/app/id6795319409';
+
 /// GitHub Sponsors page for the maintainer. Used by the About page's support
 /// section.
 const String kGitHubSponsorsUrl = 'https://github.com/sponsors/silvio-l';
@@ -52,6 +61,11 @@ const String kGitHubSponsorsUrl = 'https://github.com/sponsors/silvio-l';
 /// Ko-fi support page for the maintainer. Used by the About page's support
 /// section.
 const String kKofiUrl = 'https://ko-fi.com/silviol';
+
+/// PayPal one-time support link (extra button next to Ko-fi, direct builds
+/// only).
+const String kPayPalUrl =
+    'https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY';
 
 /// Maintainer's X (Twitter) profile. Used by the About page's links section
 /// and the public website's footer.

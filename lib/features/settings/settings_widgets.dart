@@ -22,6 +22,18 @@ import '../../widgets/wp_text_field.dart';
 /// put it on the same start edge instead of guessing the value.
 const double kSettingRowInset = WpSpacing.sm;
 
+/// Width of the leading icon column plus the gap after it, measured from the
+/// row's own inset. [SettingRow] draws its label on this offset.
+const double kSettingRowContentOffset = WpIconSize.sm + WpSpacing.sm;
+
+/// Start edge of a [SettingRow]'s label, measured from the section's left edge
+/// (inset + icon column + gap = 40). Dependent content that is not a SettingRow
+/// (a model's info copy, a key-combination line, an inline notice) starts on
+/// this edge rather than on its own indent: the dependency reads from its
+/// position under the row that controls it, and a nested indent on top of the
+/// row's inset put the text on a third edge.
+const double kSettingRowTextInset = kSettingRowInset + kSettingRowContentOffset;
+
 class SettingRow extends StatefulWidget {
   const SettingRow({
     super.key,
@@ -304,8 +316,8 @@ class HotkeyComboLine extends StatelessWidget {
     required this.hotkeyKeyDisplay,
     required this.onChange,
     this.changeButtonKey,
-    this.padding = const EdgeInsets.fromLTRB(
-      kSettingRowInset,
+    this.padding = const EdgeInsetsDirectional.fromSTEB(
+      kSettingRowTextInset,
       WpSpacing.xxs,
       kSettingRowInset,
       WpSpacing.xs,
@@ -712,4 +724,59 @@ void syncController(TextEditingController controller, String value) {
     selection: TextSelection.collapsed(offset: value.length),
     composing: TextRange.empty,
   );
+}
+
+/// Unobtrusive inline notice under a hotkey combination line.
+///
+/// Colour and icon follow the conflict warning of the recording dialog, but
+/// without border or fill: there the warning is the dialog's centrepiece,
+/// here it is a footnote on one of many setting rows. A boxed notice in the
+/// settings column would draw more attention than the hotkey itself.
+class HotkeyNotice extends StatelessWidget {
+  const HotkeyNotice({
+    super.key,
+    required this.noticeKey,
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final Key noticeKey;
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: noticeKey,
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        kSettingRowTextInset,
+        0,
+        kSettingRowInset,
+        WpSpacing.xs,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            // Aligned to the first text line's baseline so the icon does not
+            // float beside a multi-line paragraph.
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: WpIconSize.sm, color: color),
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                height: 1.4,
+              ).copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -25,6 +25,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
+import 'package:whispaste/services/support/support_capabilities.dart';
+import 'package:whispaste/services/support/support_state.dart';
 import 'package:whispaste/services/support_prompt_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -37,6 +39,7 @@ import 'package:whispaste/services/support_prompt_service.dart';
 Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
   required Map<String, Object> prefs,
   int activeEntries = 0,
+  List<SupportAsk>? capabilities,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final db = HistoryDatabase.forTesting(NativeDatabase.memory());
@@ -58,6 +61,8 @@ Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
       // as part of its coordination check; the deploy channel override
       // keeps that read deterministic in tests.
       deployChannelProvider.overrideWithValue(DeployChannel.portable),
+      if (capabilities != null)
+        supportCapabilitiesProvider.overrideWithValue(capabilities),
     ],
   );
   return (container: container, db: db);
@@ -220,15 +225,36 @@ void main() {
       expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
-    test('dismiss() increments the impression counter', () async {
+    test('markPresented() counts the impression, and dismiss() does not '
+        'count a second one', () async {
       final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
       addTearDown(harness.container.dispose);
       final notifier = harness.container.read(supportPromptProvider.notifier);
       await _check(harness.container);
+      await notifier.markPresented();
       await notifier.dismiss();
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_impressionCountKey), 1);
+    });
+
+    test('a due prompt that never reached the screen counts nothing and '
+        'starts no snooze', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+
+      notifier.cancelPresentation();
+
+      expect(
+        harness.container.read(supportPromptProvider).shouldShowPrompt,
+        isFalse,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(_impressionCountKey), isNull);
+      expect(prefs.getInt(_snoozeKey), isNull);
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
     });
   });
 
@@ -341,21 +367,24 @@ void main() {
       addTearDown(harness.container.dispose);
       final notifier = harness.container.read(supportPromptProvider.notifier);
 
-      // Impression 1: dismiss.
+      // Impression 1: shown, then dismissed.
       expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.markPresented();
       await notifier.dismiss();
 
       // Clear the snooze so eligibility depends only on the cap, not timing.
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_snoozeKey);
 
-      // Impression 2: dismiss again.
+      // Impression 2: shown, then dismissed again.
       expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.markPresented();
       await notifier.dismiss();
       await prefs.remove(_snoozeKey);
 
-      // Impression 3: dismiss again — reaches the cap.
+      // Impression 3: shown, then dismissed — reaches the cap.
       expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.markPresented();
       await notifier.dismiss();
       await prefs.remove(_snoozeKey);
 
@@ -402,6 +431,45 @@ void main() {
   // `review_prompt_last_shown` key, which `runBundleIdMigration` may have
   // persisted as a String. Before the safe-read fix, this crashed with a
   // fatal, uncaught TypeError on every check for a migrated user.
+  group('support status and build capabilities', () {
+    test('a verified supporter is never prompted', () async {
+      final harness = await _bootstrap(
+        prefs: {'support_verified_supporter': true},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('a self-declared supporter is never prompted', () async {
+      final harness = await _bootstrap(
+        prefs: {'support_self_declared': true},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('a build without an external payment route gets no prompt (Mac App '
+        'Store)', () async {
+      final harness = await _bootstrap(
+        prefs: const {},
+        activeEntries: 40,
+        capabilities: const [
+          SupportAsk.nativeTip,
+          SupportAsk.rate,
+          SupportAsk.star,
+          SupportAsk.share,
+        ],
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+  });
+
   group('bundle-ID migration String coercion', () {
     test('does not throw when the review prompt\'s last-shown timestamp was '
         'migrated as a String', () async {

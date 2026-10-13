@@ -14,6 +14,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/sponsors.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
+import '../../core/navigation/page_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
 import '../../services/stt/stt_bundle.dart';
@@ -167,6 +168,15 @@ class AboutPage extends ConsumerWidget {
                 spacing: WpSpacing.sm,
                 runSpacing: WpSpacing.sm,
                 children: [
+                  WpButton(
+                    key: const ValueKey('about-support-page-button'),
+                    label: l10n.supportPageOpenAction,
+                    variant: WpButtonVariant.secondary,
+                    icon: LucideIcons.heart,
+                    onPressed: () => ref
+                        .read(activePageProvider.notifier)
+                        .setPage('support'),
+                  ),
                   WpButton(
                     label: l10n.reviewSupportEntry,
                     variant: WpButtonVariant.secondary,

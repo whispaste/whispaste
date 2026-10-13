@@ -75,7 +75,6 @@ const _documentedExceptions = <String, String>{
 
   // Test seams — not public component API.
   'platformIsWindowsOverride': '@visibleForTesting seam',
-  'storeThankYouPlatformIsWindowsOverride': '@visibleForTesting seam',
 };
 
 /// Matches a top-level type declaration at column 0, with any leading

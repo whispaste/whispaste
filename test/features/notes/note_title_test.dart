@@ -40,5 +40,14 @@ void main() {
       final line = 'a' * 80;
       expect(deriveNoteTitle(line), line);
     });
+
+    test('maxLength raises the cap for callers that can show more', () {
+      final longLine = 'a' * 200;
+      expect(deriveNoteTitle(longLine, maxLength: 240), longLine);
+
+      final capped = deriveNoteTitle('b' * 300, maxLength: 240)!;
+      expect(capped.length, 241); // 240 chars + ellipsis
+      expect(capped.endsWith('…'), isTrue);
+    });
   });
 }

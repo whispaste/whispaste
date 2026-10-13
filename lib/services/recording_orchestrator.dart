@@ -34,7 +34,6 @@ import 'recording/pipeline_step_runner.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
-import 'store_thank_you_service.dart';
 import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
@@ -1320,21 +1319,10 @@ class RecordingOrchestrator extends Notifier<void> {
       pasteFailed: _pasteFailureSoundPlayedThisPipeline,
     );
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
-    // Two independent fire-and-forget checks, mirroring the existing
-    // single-call pattern — the support prompt's coordination check reads
-    // (never mutates) the review prompt's in-session/persisted state, so it
-    // does not need to be awaited after the review check specifically.
+    // Two independent fire-and-forget checks. Each one only sets its own
+    // due flag; the shared display arbiter decides when a dialog opens.
     unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
     unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
-    // Re-evaluate after every real recording (not just at onboarding-complete
-    // time) so the engagement gate in shouldShowStoreThankYou — added after
-    // Apple's Guideline 5.6.3 rejection of v1.2.66 — actually gets to fire
-    // once the user crosses the threshold.
-    unawaited(
-      ref
-          .read(storeThankYouProvider.notifier)
-          .checkAndMaybeShow(onboardingCompleted: settings.onboardingCompleted),
-    );
     _oomHandler.reset();
     timing.outcome = 'ok';
 

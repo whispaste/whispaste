@@ -77,6 +77,8 @@ class HistoryEntryList extends StatelessWidget {
               ? selectedIds.contains(entry.id)
               : entry.id == selectedId,
           isFocused: !multiSelectMode && entry.id == focusedId,
+          // No selection means no detail pane beside the list: the overview.
+          inSplitView: selectedId != null,
           onTap: () => onEntryTap(entry),
           onCopy: () => onCopy(entry),
           onPin: () => onPin(entry),

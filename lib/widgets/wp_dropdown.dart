@@ -43,6 +43,8 @@
 /// the same height the trigger stands at.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -93,6 +95,7 @@ class WpDropdownItem<T> {
     this.enabled = true,
     this.disabledTooltip,
     this.activeKey,
+    this.itemKey,
   });
 
   final T value;
@@ -109,6 +112,10 @@ class WpDropdownItem<T> {
   /// Attached to this entry's row **only while it is the selected one**, so
   /// tests can pin the active-row treatment without a golden.
   final Key? activeKey;
+
+  /// Stable identifier for this entry's menu row, present whether or not it
+  /// is selected (e.g. `settings-section-picker-<sectionId>`).
+  final Key? itemKey;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +130,7 @@ class WpDropdown<T> extends StatefulWidget {
     required this.onChanged,
     this.hint,
     this.expanded = false,
+    this.menuMinWidth,
   });
 
   /// Currently selected value, or `null` for an unset picker (see [hint]).
@@ -139,6 +147,11 @@ class WpDropdown<T> extends StatefulWidget {
   /// Fills the parent's width and ellipsizes long labels — for an [Expanded]
   /// slot or a fixed-width [SizedBox], rather than a trailing settings slot.
   final bool expanded;
+
+  /// Lower bound for the opened menu's width, for triggers narrower than
+  /// their longest label. The menu still measures from the trigger when that
+  /// is already wider.
+  final double? menuMinWidth;
 
   @override
   State<WpDropdown<T>> createState() => _WpDropdownState<T>();
@@ -211,6 +224,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
       items: [
         for (final item in widget.items)
           DropdownMenuItem<T>(
+            key: item.itemKey,
             value: item.value,
             enabled: item.enabled,
             child: _WpDropdownRow(
@@ -262,7 +276,9 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
       // — and it would inset the hover/focus ink from the frame as well.
       padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
       itemHeight: WpLayout.minTouchTarget,
-      menuWidth: _menuWidth,
+      menuWidth: _menuWidth == null
+          ? null
+          : math.max(_menuWidth!, widget.menuMinWidth ?? 0),
       dropdownColor: menuSurface,
       borderRadius: radius,
       // Keyboard focus is drawn by WpFocusRing outside the control, the way

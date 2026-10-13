@@ -186,6 +186,22 @@ class L10nRu extends L10n {
   String get historyReadingTimeUnder1 => '< 1 мин чтения';
 
   @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'около $count слов',
+      many: 'около $count слов',
+      few: 'около $count слова',
+      one: 'около $count слово',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'Вид и выбор';
+
+  @override
   String get historyEditing => 'Редактирование';
 
   @override
@@ -3997,22 +4013,6 @@ class L10nRu extends L10n {
       'Сохраняет аудио ваших последних 20 диктовок на устройстве для отладки или восстановления транскрипции; старые записи удаляются автоматически';
 
   @override
-  String get storeThankYouTitle => 'Спасибо за поддержку!';
-
-  @override
-  String get storeThankYouBody =>
-      'Мы очень рады, что вы с нами. Если WhisPaste делает ваш день немного проще, ваш отзыв будет много значить для нас.';
-
-  @override
-  String get storeThankYouCtaStore => '★ Оценить в магазине';
-
-  @override
-  String get storeThankYouCtaGitHub => '⭐ Поставить звезду на GitHub';
-
-  @override
-  String get storeThankYouDismiss => 'Закрыть';
-
-  @override
   String get featureSpotlightHeading => 'Новое в WhisPaste';
 
   @override
@@ -4649,4 +4649,193 @@ class L10nRu extends L10n {
   @override
   String get recoveryCudaDisabledToast =>
       'Ускорение CUDA отключено из-за проблемы при последнем запуске. WhisPaste теперь использует Vulkan, диктовка работает как обычно.';
+
+  @override
+  String get supportPromptSnooze => 'Не спрашивать 90 дней';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'Спасибо, что купили WhisPaste в магазине. Любая дополнительная поддержка добровольна.';
+
+  @override
+  String get supportShareText =>
+      'Я использую WhisPaste, чтобы диктовать текст прямо в приложения. Работает локально на компьютере и с открытым кодом:';
+
+  @override
+  String get supportPageTitle => 'Поддержать WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'Все способы поддержки';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste бесплатный и с открытым исходным кодом. Вклад или рекомендация помогают проекту.';
+
+  @override
+  String get supportCostsNote =>
+      'Взносы помогают покрывать разработку и текущие расходы на публикацию, хостинг и домен.';
+
+  @override
+  String get supportSectionOnce => 'Разовая поддержка';
+
+  @override
+  String get supportSectionOthers => 'Другие способы поддержки';
+
+  @override
+  String get supportSectionReach => 'Рекомендовать WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste в Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste в Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'Установку и обновления выполняет магазин.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'Ваша разовая покупка поддерживает WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'Те же функции. Прямая версия остаётся бесплатной.';
+
+  @override
+  String get supportStoreCtaWindows => 'Открыть в Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'Открыть в Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'Цена в магазине';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'Разовая покупка примерно за цену чашки кофе. Актуальную цену показывает магазин.';
+
+  @override
+  String get supportStoreDismiss => 'Скрыть вариант с магазином';
+
+  @override
+  String get supportStoreShowAgain => 'Показать вариант с магазином';
+
+  @override
+  String get supportSponsorsCta => 'Открыть GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'Ежемесячно или на сумму по вашему выбору. Сумму и периодичность выбираете там.';
+
+  @override
+  String get supportKofiCta => 'Открыть Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'Поддержать через PayPal';
+
+  @override
+  String get supportNativeTitle => 'Разовая поддержка в магазине';
+
+  @override
+  String get supportNativeDescription =>
+      'Разовая сумма, которую списывает магазин. Те же функции, без подписки.';
+
+  @override
+  String get supportNativeCta => 'Поддержать один раз';
+
+  @override
+  String get supportSheetChoose => 'Выберите сумму';
+
+  @override
+  String get supportSheetLoading => 'Загружаем суммы …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'Поддержать за $price';
+  }
+
+  @override
+  String get supportSheetPurchasing => 'Магазин подтверждает покупку …';
+
+  @override
+  String get supportSheetThanks => 'Спасибо за поддержку!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'Значок поддержки уже активен. Все функции остаются доступны всем.';
+
+  @override
+  String get supportSheetPending => 'Покупка ожидает подтверждения.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'Не удалось завершить покупку. Попробуйте позже.';
+
+  @override
+  String get supportSheetPricesError =>
+      'Не удалось загрузить суммы. Попробуйте позже.';
+
+  @override
+  String get supportSheetUnavailable => 'Сейчас в магазине нет доступных сумм.';
+
+  @override
+  String get supportSheetRetry => 'Повторить';
+
+  @override
+  String get supportSheetClose => 'Закрыть';
+
+  @override
+  String get supportSelfDeclareCta => 'Я уже поддерживаю WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'Просто отметка на этом устройстве, ничего не проверяется. Кнопка поддержки в строке состояния скрывается.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'Ничего не проверяется. Используйте, если вы уже вносили вклад.';
+
+  @override
+  String get supportSupporterLine => 'Вы поддерживаете WhisPaste. Спасибо!';
+
+  @override
+  String get supportSupporterBadge => 'Сторонник';
+
+  @override
+  String get supportRateCta => 'Оценить в магазине';
+
+  @override
+  String get supportShareCopy => 'Копировать ссылку';
+
+  @override
+  String get supportShareCopied => 'Ссылка скопирована';
+
+  @override
+  String get supportShareEmail => 'Эл. почта';
+
+  @override
+  String get supportChipLabel => 'Спонсор';
+
+  @override
+  String get supportChipTooltip => 'Поддержать WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'Спасибо';
+
+  @override
+  String get supportChipThanksTooltip => 'Спасибо за поддержку';
+
+  @override
+  String get supportChipHide => 'Скрыть';
+
+  @override
+  String get settingsSponsorChip => 'Кнопка поддержки в строке состояния';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'Показывает путь к странице поддержки. Скрыть можно, когда вы поддержали проект в магазине или подтвердили это здесь.';
 }

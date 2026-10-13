@@ -49,11 +49,9 @@ void main() {
         'definition of earned',
     'lib/widgets/status_bar.dart':
         'the app\'s status-chip group (Ticket 10): the phase dot reports what '
-        'the recording pipeline just did. Noted, not waved through: '
-        '`SttServerState.ready` (:616) paints green while nothing has just '
-        'happened, which the rule\'s prose calls resting green even though '
-        'its component scope sanctions it. Ticket 32 finding, not this '
-        'ticket\'s screen',
+        'the recording pipeline just did. Only `RecordingPhase.done` paints '
+        'green; the resting `SttServerState.ready` idle dot is neutral '
+        '(`textMuted`) since the Ticket 32 pass',
     'lib/widgets/paste_capability_indicator.dart':
         'the paste-capability status badge — one chip reporting the outcome '
         'of the permission handshake the user just went through. Same '

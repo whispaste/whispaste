@@ -61,6 +61,10 @@ void main() {
         'lib/services/desktop_paste/desktop_paste_controller.dart',
         'lib/services/deploy_channel_service.dart',
         'lib/widgets/status_bar.dart',
+        // StoreKit tips exist only in the MAS build. Support purchases
+        // only — never STT provider selection.
+        'lib/services/support/support_store_bridge_factory.dart',
+        'lib/services/support/mac_storekit_support_store_bridge.dart',
       };
 
       final flagPattern = RegExp(r'\b(kIsMasBuild|MAS_BUILD|WHISPASTE_MAS)\b');

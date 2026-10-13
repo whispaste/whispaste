@@ -22,6 +22,7 @@ add_executable(${BINARY_NAME} WIN32
   "side_panel_window.cpp"
   "snippet_picker_host.cpp"
   "snippet_picker_window.cpp"
+  "support_store_channel.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -63,10 +64,14 @@ target_link_options(${BINARY_NAME} PRIVATE
 # Disable Windows macros that collide with C++ standard library functions.
 target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 
+# C++/WinRT (support_store_channel.cpp) needs C++20 coroutines; under C++17 it
+# falls back to <experimental/coroutine>, which current MSVC toolsets reject.
+target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
+
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib" "windowsapp.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Copy the dedicated tray icon next to the executable for dev runs.

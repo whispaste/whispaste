@@ -193,11 +193,12 @@ void main() {
     ) async {
       await tester.pumpWidget(makeTestable(_panel(_historyRow())));
       await tester.pumpAndSettle();
-      expect(find.text('09:41'), findsOneWidget);
+      // The metadata is one text run, so the time is matched inside it.
+      expect(find.textContaining('09:41'), findsOneWidget);
 
       await _hover(tester, find.byType(HistoryEntryRow));
       expect(
-        find.text('09:41'),
+        find.textContaining('09:41'),
         findsOneWidget,
         reason: 'actions must not take the timestamp\'s place',
       );

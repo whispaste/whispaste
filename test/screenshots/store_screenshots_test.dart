@@ -355,9 +355,9 @@ Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
     'ru' => 'Горячая клавиша',
     _ => 'Keyboard Shortcut',
   };
-  // Scoped to the scroll content: SettingsAnchorChipBar (Ticket 16) sits in
-  // the sticky header above the scrollable and renders a chip with this
-  // exact section label, so a bare `find.text` now matches both.
+  // Scoped to the scroll content: the section picker sits in the sticky header
+  // above the scrollable and can show this exact section label, so a bare
+  // `find.text` may match both.
   await tester.dragUntilVisible(
     find.descendant(
       of: find.byType(SingleChildScrollView),

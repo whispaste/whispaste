@@ -18,9 +18,13 @@ All entries are written in English.
 - **Crash-report opt-out from the first start:** turning it off also covers people who opted out in an earlier version.
 - **Start and stop from a desktop shortcut:** `whispaste --toggle` controls the running app.
 - **Spanish and Brazilian Portuguese interface:** the app now speaks six languages.
+- **Calmer, clearer interface:** history and notes rows have a clear hierarchy, long entries keep a readable width, and settings sections are picked from one menu.
+- **Support WhisPaste from the app:** a new Support page collects the ways to help. Store versions offer optional one-time tips through the Microsoft Store and the Mac App Store. Tips unlock nothing; the app stays complete without them.
 
 ### New Features
 
+- **Refreshed interface:** history and notes rows show title, preview and details in a clear order, the selected entry stands out, and the history detail keeps a readable line width on wide windows. Settings replace the row of section chips with a section picker. Word counts read "approx. 27 words" instead of "~27 w".
+- **Support page:** About › Support WhisPaste lists every way to help: GitHub Sponsors, Ko-fi and PayPal on direct downloads, native one-time tips on the Microsoft Store and the Mac App Store, plus rating, starring and sharing. A small chip in the status bar leads there and turns into a thank-you once you have supported the project; supporters can hide it, and Settings › Interface brings it back. A verified store purchase earns a small supporter badge. Nothing in the app is locked behind a payment.
 - **Edit selection by voice:** a new hotkey, off by default, copies the current selection, records your spoken instruction and replaces the selection with the result. "Shorter", "improve" and "translate" work as quick actions in all six UI languages; any other sentence is passed on as a free-form instruction. It uses your Smart Mode engine (local or cloud). Nothing is written to history, and your clipboard is always restored.
 - **Spoken line breaks:** say "new paragraph" or "new line" and WhisPaste inserts a real paragraph or line break. Works in all six UI languages (for example "neuer Absatz" / "neue Zeile", "nuevo párrafo" / "nueva línea") and follows the transcription language. On by default; turn it off under Speech recognition.
 - **Line breaks in replacements:** a replacement can now contain `\n` for a line break (`\\n` keeps a literal backslash-n). Existing replacements that contained a literal `\n` now insert a line break.

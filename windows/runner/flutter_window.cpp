@@ -80,6 +80,9 @@ bool FlutterWindow::OnCreate() {
   clipboard_monitor_host_ = std::make_unique<ClipboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
 
+  support_store_channel_ = std::make_unique<SupportStoreChannel>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // An autostart launch leaves showing to Dart (`_initDesktopWindow` in
@@ -141,6 +144,8 @@ void FlutterWindow::OnDestroy() {
     clipboard_monitor_host_.reset();
   }
 
+  support_store_channel_.reset();
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -193,6 +198,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
        message == WM_DESTROYCLIPBOARD) &&
       desktop_paste_host_ &&
       desktop_paste_host_->HandleClipboardOwnerMessage(message, wparam)) {
+    return 0;
+  }
+
+  // Store purchase replies are posted here (see SupportStoreChannel).
+  if (support_store_channel_ &&
+      support_store_channel_->HandleWindowMessage(message, wparam, lparam)) {
     return 0;
   }
 

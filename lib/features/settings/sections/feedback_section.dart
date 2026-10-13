@@ -204,84 +204,71 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock>
           // comment on it); the line only restated it, in the one register
           // that cuts across the window's single ambient gradient.
           settingsInlineBreak,
-          Padding(
-            // Die Einrückung, die den Block als Unterpunkt des Haupt-Hotkeys
-            // liest — dasselbe Idiom, mit dem Betriebssystem-Einstellungen
-            // abhängige Optionen unter ihre Hauptoption setzen.
-            //
-            // `EdgeInsetsDirectional`, nicht `EdgeInsets`: die Einrückung ist
-            // das *einzige* Signal, das die Unterordnung trägt. Physisch links
-            // gesetzt läge sie auf Hebräisch an der Schlusskante und läse sich
-            // als beliebige Lücke statt als Einrückung.
-            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SettingRow(
-                  icon: LucideIcons.notebookPen,
-                  label: l10n.settingsQuickNoteHotkeyEnabled,
-                  // Der Ein-Zeilen-Hinweis, wohin der Text geht. Er steht am
-                  // Umschalter und nicht an der Kombination, weil er die Frage
-                  // beantwortet, die *beim Einschalten* aufkommt — und weil er
-                  // so auch sichtbar bleibt, wenn der Hotkey aus ist.
-                  subtitle: l10n.settingsQuickNoteHotkeyHint,
-                  semanticToggledValue: enabled,
-                  trailing: settingsToggle(
-                    key: const Key('quickNoteHotkeyToggle'),
-                    value: enabled,
-                    onChanged: (v) {
-                      // Eine Kollisions-Meldung gehört zur Kombination, die
-                      // sie ausgelöst hat; beim Umschalten ist sie erledigt.
-                      clearHotkeyCollision();
-                      unawaited(setQuickNoteHotkeyEnabled(ref, enabled: v));
-                    },
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SettingRow(
+                icon: LucideIcons.notebookPen,
+                label: l10n.settingsQuickNoteHotkeyEnabled,
+                // Der Ein-Zeilen-Hinweis, wohin der Text geht. Er steht am
+                // Umschalter und nicht an der Kombination, weil er die Frage
+                // beantwortet, die *beim Einschalten* aufkommt — und weil er
+                // so auch sichtbar bleibt, wenn der Hotkey aus ist.
+                subtitle: l10n.settingsQuickNoteHotkeyHint,
+                semanticToggledValue: enabled,
+                trailing: settingsToggle(
+                  key: const Key('quickNoteHotkeyToggle'),
+                  value: enabled,
+                  onChanged: (v) {
+                    // Eine Kollisions-Meldung gehört zur Kombination, die
+                    // sie ausgelöst hat; beim Umschalten ist sie erledigt.
+                    clearHotkeyCollision();
+                    unawaited(setQuickNoteHotkeyEnabled(ref, enabled: v));
+                  },
                 ),
-                AnimatedOpacity(
-                  opacity: enabled ? 1.0 : 0.4,
-                  duration: WpMotion.durationFor(context, WpMotion.normal),
-                  // Dasselbe Paar wie beim Haupt-Hotkey: die abgeblendete
-                  // Zeile darf weder mit der Maus noch mit der Tabulatortaste
-                  // erreichbar sein.
-                  child: ExcludeFocus(
-                    excluding: !enabled,
-                    child: IgnorePointer(
-                      ignoring: !enabled,
-                      child: HotkeyComboLine(
-                        key: const Key('quickNoteHotkeyComboLine'),
-                        label: l10n.settingsQuickNoteCurrentHotkey,
-                        hotkeyKey: quickNote.quickNoteHotkeyKey,
-                        hotkeyModifiers: quickNote.quickNoteHotkeyModifiers,
-                        hotkeyKeyDisplay: quickNote.quickNoteHotkeyKeyDisplay,
-                        changeButtonKey: const Key('quickNoteHotkeyChange'),
-                        onChange: () => unawaited(_record()),
-                      ),
+              ),
+              AnimatedOpacity(
+                opacity: enabled ? 1.0 : 0.4,
+                duration: WpMotion.durationFor(context, WpMotion.normal),
+                // Dasselbe Paar wie beim Haupt-Hotkey: die abgeblendete
+                // Zeile darf weder mit der Maus noch mit der Tabulatortaste
+                // erreichbar sein.
+                child: ExcludeFocus(
+                  excluding: !enabled,
+                  child: IgnorePointer(
+                    ignoring: !enabled,
+                    child: HotkeyComboLine(
+                      key: const Key('quickNoteHotkeyComboLine'),
+                      label: l10n.settingsQuickNoteCurrentHotkey,
+                      hotkeyKey: quickNote.quickNoteHotkeyKey,
+                      hotkeyModifiers: quickNote.quickNoteHotkeyModifiers,
+                      hotkeyKeyDisplay: quickNote.quickNoteHotkeyKeyDisplay,
+                      changeButtonKey: const Key('quickNoteHotkeyChange'),
+                      onChange: () => unawaited(_record()),
                     ),
                   ),
                 ),
-                if (collidingAction != null)
-                  _HotkeyNotice(
-                    noticeKey: const Key('quickNoteHotkeyCollisionNotice'),
-                    icon: LucideIcons.circleAlert,
-                    color: WpColors.error,
-                    text: l10n.settingsQuickNoteHotkeyCollision(
-                      collidingAction!,
-                    ),
-                  ),
-                if (registrationFailed)
-                  _HotkeyNotice(
-                    noticeKey: const Key('quickNoteHotkeyInactiveNotice'),
-                    icon: LucideIcons.triangleAlert,
-                    color: WpColors.warning,
-                    // Sagt „nicht aktiv" und „wähl eine andere" — und nennt
-                    // bewusst keine Ersatzkombination, weil es anders als beim
-                    // Haupt-Hotkey keine gibt. Eine zu suggerieren wäre die
-                    // schlimmere Variante des Fehlers: der Nutzer hielte den
-                    // Hotkey für belegt und fände nie heraus, womit.
-                    text: l10n.settingsQuickNoteHotkeyInactive,
-                  ),
-              ],
-            ),
+              ),
+              if (collidingAction != null)
+                HotkeyNotice(
+                  noticeKey: const Key('quickNoteHotkeyCollisionNotice'),
+                  icon: LucideIcons.circleAlert,
+                  color: WpColors.error,
+                  text: l10n.settingsQuickNoteHotkeyCollision(collidingAction!),
+                ),
+              if (registrationFailed)
+                HotkeyNotice(
+                  noticeKey: const Key('quickNoteHotkeyInactiveNotice'),
+                  icon: LucideIcons.triangleAlert,
+                  color: WpColors.warning,
+                  // Sagt „nicht aktiv" und „wähl eine andere" — und nennt
+                  // bewusst keine Ersatzkombination, weil es anders als beim
+                  // Haupt-Hotkey keine gibt. Eine zu suggerieren wäre die
+                  // schlimmere Variante des Fehlers: der Nutzer hielte den
+                  // Hotkey für belegt und fände nie heraus, womit.
+                  text: l10n.settingsQuickNoteHotkeyInactive,
+                ),
+            ],
           ),
         ],
       ),
@@ -355,33 +342,28 @@ class _SnippetPickerHotkeyBlockState
           // comment on it); the line only restated it, in the one register
           // that cuts across the window's single ambient gradient.
           settingsInlineBreak,
-          Padding(
-            // `EdgeInsetsDirectional` wie oben: die Einrückung trägt die
-            // Unterordnung und muss deshalb der Leserichtung folgen.
-            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: available
-                  ? _configurable(
-                      l10n,
-                      snippetPicker,
-                      enabled,
-                      registrationFailed,
-                    )
-                  : [
-                      SettingRow(
-                        key: const Key('snippetPickerHotkeyUnavailable'),
-                        icon: LucideIcons.notebookText,
-                        label: l10n.settingsSnippetPickerHotkeyEnabled,
-                        // Derselbe Satz wie auf der Snippets-Seite: es ist
-                        // dieselbe Auskunft, und zwei Formulierungen wären
-                        // zwei Behauptungen.
-                        subtitle: l10n.snippetsPickerUnavailable,
-                        // Kein Umschalter — genau das ist die Aussage.
-                        trailing: const SizedBox.shrink(),
-                      ),
-                    ],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: available
+                ? _configurable(
+                    l10n,
+                    snippetPicker,
+                    enabled,
+                    registrationFailed,
+                  )
+                : [
+                    SettingRow(
+                      key: const Key('snippetPickerHotkeyUnavailable'),
+                      icon: LucideIcons.notebookText,
+                      label: l10n.settingsSnippetPickerHotkeyEnabled,
+                      // Derselbe Satz wie auf der Snippets-Seite: es ist
+                      // dieselbe Auskunft, und zwei Formulierungen wären
+                      // zwei Behauptungen.
+                      subtitle: l10n.snippetsPickerUnavailable,
+                      // Kein Umschalter — genau das ist die Aussage.
+                      trailing: const SizedBox.shrink(),
+                    ),
+                  ],
           ),
         ],
       ),
@@ -434,14 +416,14 @@ class _SnippetPickerHotkeyBlockState
       ),
     ),
     if (collidingAction != null)
-      _HotkeyNotice(
+      HotkeyNotice(
         noticeKey: const Key('snippetPickerHotkeyCollisionNotice'),
         icon: LucideIcons.circleAlert,
         color: WpColors.error,
         text: l10n.settingsSnippetPickerHotkeyCollision(collidingAction!),
       ),
     if (registrationFailed)
-      _HotkeyNotice(
+      HotkeyNotice(
         noticeKey: const Key('snippetPickerHotkeyInactiveNotice'),
         icon: LucideIcons.triangleAlert,
         color: WpColors.warning,
@@ -450,61 +432,6 @@ class _SnippetPickerHotkeyBlockState
         text: l10n.settingsSnippetPickerHotkeyInactive,
       ),
   ];
-}
-
-/// Unaufdringlicher Inline-Hinweis unter der Kombinations-Zeile.
-///
-/// Farbgebung und Icon-Konvention wie die Konflikt-Warnung im
-/// Aufzeichnungs-Dialog, aber ohne Rahmen und Füllung: dort ist die Warnung
-/// das zentrale Element eines Dialogs, hier eine Fußnote an einer von vielen
-/// Einstellungszeilen. Ein Kasten in der Einstellungsspalte zöge mehr
-/// Aufmerksamkeit auf sich als der Hotkey selbst.
-class _HotkeyNotice extends StatelessWidget {
-  const _HotkeyNotice({
-    required this.noticeKey,
-    required this.icon,
-    required this.color,
-    required this.text,
-  });
-
-  final Key noticeKey;
-  final IconData icon;
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: noticeKey,
-      padding: const EdgeInsets.fromLTRB(
-        kSettingRowInset,
-        0,
-        kSettingRowInset,
-        WpSpacing.xs,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            // Auf die Grundlinie der ersten Textzeile gesetzt, damit das Icon
-            // bei mehrzeiligem Text nicht mittig neben dem Absatz schwebt.
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(icon, size: WpIconSize.sm, color: color),
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: WpTypography.caption,
-                height: 1.4,
-              ).copyWith(color: color),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -641,23 +568,19 @@ class _HoldOrTapRow extends ConsumerWidget {
           : null,
     );
 
-    return Padding(
-      // Directional, so the subordination reads correctly in Hebrew too.
-      padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
-      child: SettingRow(
-        icon: LucideIcons.timer,
-        label: l10n.settingsHoldOrTap,
-        subtitle: l10n.settingsHoldOrTapHint,
-        semanticToggledValue: enabled ? audio.holdOrTap : null,
-        trailing: supportsKeyUp
-            ? toggle
-            : Tooltip(
-                message: pushToTalkUnavailableMessage(l10n),
-                // Same reasoning as in _PushToTalkRow: a disabled Switch would
-                // otherwise merge its own toggled-state flags into the row.
-                child: ExcludeSemantics(child: toggle),
-              ),
-      ),
+    return SettingRow(
+      icon: LucideIcons.timer,
+      label: l10n.settingsHoldOrTap,
+      subtitle: l10n.settingsHoldOrTapHint,
+      semanticToggledValue: enabled ? audio.holdOrTap : null,
+      trailing: supportsKeyUp
+          ? toggle
+          : Tooltip(
+              message: pushToTalkUnavailableMessage(l10n),
+              // Same reasoning as in _PushToTalkRow: a disabled Switch would
+              // otherwise merge its own toggled-state flags into the row.
+              child: ExcludeSemantics(child: toggle),
+            ),
     );
   }
 }

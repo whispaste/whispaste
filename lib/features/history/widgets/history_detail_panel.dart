@@ -309,10 +309,16 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         : displayedContent;
     final words = computeWordCountFast(source);
     final readMinutes = (words / 200).ceil(); // ~200 wpm average
-    final wordStr = l10n.historyWordCount(words);
-    final timeStr = readMinutes < 1
-        ? l10n.historyReadingTimeUnder1
-        : l10n.historyReadingTime(readMinutes);
+    // Non-breaking spaces inside each group: the only break opportunities left
+    // are the separators, so "67 Wörter · 1 Min. Lesezeit" wraps as two whole
+    // groups and never splits a group across two lines.
+    String group(String text) => text.replaceAll(' ', '\u00A0');
+    final wordStr = group(l10n.historyWordCount(words));
+    final timeStr = group(
+      readMinutes < 1
+          ? l10n.historyReadingTimeUnder1
+          : l10n.historyReadingTime(readMinutes),
+    );
     return '$wordStr · $timeStr';
   }
 
@@ -722,6 +728,8 @@ class _ShortcutRow extends StatelessWidget {
 // Detail panel header (avatar + title/edit + timestamp + action buttons)
 // ---------------------------------------------------------------------------
 
+/// Square extent of one [HistoryDetailAction]: its icon plus padding on each
+/// side. The header measures against it to decide whether its actions still
 class _DetailPanelHeader extends StatelessWidget {
   const _DetailPanelHeader({
     required this.entry,
@@ -779,6 +787,144 @@ class _DetailPanelHeader extends StatelessWidget {
     const textMuted = WpColors.textMuted;
     final avatarCol = historyAvatarSlot(entry).color();
 
+    final avatar = HistoryEntryAvatar(
+      color: avatarCol,
+      icon: historyAvatarIcon,
+      isPinned: entry
+          .pinned, // Off-scale on purpose (explicit default): mid-sized between
+      // the card (32) and the list row (42) — the header shares the
+      // row with title/metadata/actions, unlike the list row.
+      size: 36,
+    );
+
+    // The title column: heading (edit field or read row) and the timestamp.
+    final titleColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isEditingTitle)
+          WpTextField(
+            controller: titleController,
+            focusNode: titleFocusNode,
+            variant: WpTextFieldVariant.heading,
+            hintText: l10n.historyTitlePlaceholder,
+            onSubmitted: (_) => onSaveTitle(),
+            onEditingComplete: onSaveTitle,
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: !isTrashView,
+                  onTapHint: isTrashView ? null : l10n.historyEditTitle,
+                  onTap: isTrashView ? null : onStartTitleEdit,
+                  child: _tooltipIf(
+                    isTrashView ? null : l10n.historyEditTitle,
+                    child: WpFocusRing(
+                      focusNode: titleFocusNode,
+                      radius: WpRadius.sm,
+                      child: InkWell(
+                        onDoubleTap: isTrashView ? null : onStartTitleEdit,
+                        focusNode: titleFocusNode,
+                        borderRadius: WpRadius.borderSm,
+                        focusColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        mouseCursor: isTrashView
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.click,
+                        child: HighlightedText(
+                          text: entry.title.isNotEmpty
+                              ? entry.title
+                              : l10n.historyUntitled,
+                          // Read view and edit view of the same
+                          // title: one style, so opening edit mode
+                          // never resizes the text.
+                          style: WpTextField.styleFor(
+                            WpTextFieldVariant.heading,
+                            color: textPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 2),
+        Text(
+          timestamp,
+          // One line: the date is the header's second fact and must not wrap
+          // into the title's line count.
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: WpTypography.small,
+            color: textMuted,
+          ),
+        ),
+      ],
+    );
+
+    // Actions stay on the title's row, as before.
+    final actions = <Widget>[
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+      HistoryDetailAction(
+        icon: LucideIcons.copy,
+        tooltip: '${l10n.historyCopyText} (Ctrl+C)',
+        onTap: onCopy,
+      ),
+      if (isTrashView) ...[
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          icon: LucideIcons.undo2,
+          tooltip: l10n.historyRestore,
+          onTap: onRestore,
+        ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          icon: LucideIcons.trash2,
+          tooltip: l10n.historyDeleteForever,
+          onTap: onDelete,
+          isDestructive: true,
+        ),
+      ] else
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+          icon: entry.pinned ? null : LucideIcons.star,
+          activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
+          tooltip:
+              '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
+          onTap: onPin,
+        ),
+      // Overflow menu for secondary actions
+      _DetailOverflowMenu(
+        entry: entry,
+        textSecondary: textSecondary,
+        onCopyMarkdown: onCopyMarkdown,
+        onDuplicate: onDuplicate,
+        onExport: onExport,
+        onArchive: onArchive,
+        onDelete: onDelete,
+        applyingPreset: applyingPreset,
+        onApplyPreset: onApplyPreset,
+        isTrashView: isTrashView,
+      ),
+      const SizedBox(width: WpSpacing.xxs),
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+      HistoryDetailAction(
+        icon: LucideIcons.x,
+        tooltip: '${l10n.historyClose} (Esc)',
+        onTap: onClose,
+      ),
+    ];
+    final actionsRow = Row(mainAxisSize: MainAxisSize.min, children: actions);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         WpSpacing.xl,
@@ -789,141 +935,10 @@ class _DetailPanelHeader extends StatelessWidget {
       child: ClipRect(
         child: Row(
           children: [
-            HistoryEntryAvatar(
-              color: avatarCol,
-              icon: historyAvatarIcon,
-              isPinned: entry
-                  .pinned, // Off-scale on purpose (explicit default): mid-sized between
-              // the card (32) and the list row (42) — the header shares the
-              // row with title/metadata/actions, unlike the list row.
-              size: 36,
-            ),
+            avatar,
             const SizedBox(width: WpSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isEditingTitle)
-                    WpTextField(
-                      controller: titleController,
-                      focusNode: titleFocusNode,
-                      variant: WpTextFieldVariant.heading,
-                      hintText: l10n.historyTitlePlaceholder,
-                      onSubmitted: (_) => onSaveTitle(),
-                      onEditingComplete: onSaveTitle,
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Semantics(
-                            button: !isTrashView,
-                            onTapHint: isTrashView
-                                ? null
-                                : l10n.historyEditTitle,
-                            onTap: isTrashView ? null : onStartTitleEdit,
-                            child: _tooltipIf(
-                              isTrashView ? null : l10n.historyEditTitle,
-                              child: WpFocusRing(
-                                focusNode: titleFocusNode,
-                                radius: WpRadius.sm,
-                                child: InkWell(
-                                  onDoubleTap: isTrashView
-                                      ? null
-                                      : onStartTitleEdit,
-                                  focusNode: titleFocusNode,
-                                  borderRadius: WpRadius.borderSm,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  splashColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  mouseCursor: isTrashView
-                                      ? SystemMouseCursors.basic
-                                      : SystemMouseCursors.click,
-                                  child: HighlightedText(
-                                    text: entry.title.isNotEmpty
-                                        ? entry.title
-                                        : l10n.historyUntitled,
-                                    // Read view and edit view of the same
-                                    // title: one style, so opening edit mode
-                                    // never resizes the text.
-                                    style: WpTextField.styleFor(
-                                      WpTextFieldVariant.heading,
-                                      color: textPrimary,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 2),
-                  Text(
-                    timestamp,
-                    style: const TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Action buttons
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
-            HistoryDetailAction(
-              icon: LucideIcons.copy,
-              tooltip: '${l10n.historyCopyText} (Ctrl+C)',
-              onTap: onCopy,
-            ),
-            if (isTrashView) ...[
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
-              HistoryDetailAction(
-                icon: LucideIcons.undo2,
-                tooltip: l10n.historyRestore,
-                onTap: onRestore,
-              ),
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
-              HistoryDetailAction(
-                icon: LucideIcons.trash2,
-                tooltip: l10n.historyDeleteForever,
-                onTap: onDelete,
-                isDestructive: true,
-              ),
-            ] else ...[
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
-              HistoryDetailAction(
-                faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
-                icon: entry.pinned ? null : LucideIcons.star,
-                activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
-                tooltip:
-                    '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
-                onTap: onPin,
-              ),
-            ],
-            // Overflow menu for secondary actions
-            _DetailOverflowMenu(
-              entry: entry,
-              textSecondary: textSecondary,
-              onCopyMarkdown: onCopyMarkdown,
-              onDuplicate: onDuplicate,
-              onExport: onExport,
-              onArchive: onArchive,
-              onDelete: onDelete,
-              applyingPreset: applyingPreset,
-              onApplyPreset: onApplyPreset,
-              isTrashView: isTrashView,
-            ),
-            const SizedBox(width: WpSpacing.xxs),
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
-            HistoryDetailAction(
-              icon: LucideIcons.x,
-              tooltip: '${l10n.historyClose} (Esc)',
-              onTap: onClose,
-            ),
+            Expanded(child: titleColumn),
+            actionsRow,
           ],
         ),
       ),
@@ -1454,72 +1469,67 @@ class _TranscriptEditBar extends StatelessWidget {
     final showBadge = entry.titleEdited || isEditing;
     final showWordCount = entry.content.isNotEmpty || isEditing;
 
-    return Row(
+    // One wrapping line of whole groups: metadata, the raw/edited controls and
+    // the edit button. A Row with an Expanded metadata group gave that group
+    // zero width once the right-hand controls took the row, which wrapped the
+    // word count one character per line.
+    return Wrap(
+      spacing: WpSpacing.xs,
+      runSpacing: WpSpacing.xxs,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // Left: metadata fills available space
-        Expanded(
-          child: Row(
-            children: [
-              if (showBadge)
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.sm,
-                      vertical: WpSpacing.xxs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isEditing
-                          ? accent.withValues(alpha: 0.15)
-                          : textMuted.withValues(alpha: 0.1),
-                      borderRadius: WpRadius.borderFull,
-                    ),
-                    // Resting state is a *status*, not an offer: the badge
-                    // marks a transcript that was hand-corrected. It used to
-                    // read "Edit transcript" — an action verb, word for word
-                    // the same as the button 8 px to its right, so the row
-                    // showed the same command twice and said nothing about the
-                    // entry. `historyNoteEdited` is the generic past
-                    // participle ("edited"/"bearbeitet"); its key name is the
-                    // only thing note-specific about it. A dedicated
-                    // transcript key would mean touching the ARB files, which
-                    // are outside this change — bewusst nicht umgesetzt,
-                    // künftiges Ticket.
-                    child: Text(
-                      isEditing ? l10n.historyEditing : l10n.historyNoteEdited,
-                      style: TextStyle(
-                        fontSize: WpTypography.micro,
-                        fontWeight: isEditing
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: isEditing ? accent : textMuted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+        Wrap(
+          spacing: WpSpacing.xs,
+          runSpacing: WpSpacing.xxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (showBadge)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: WpSpacing.xxs,
                 ),
-              if (showBadge && showWordCount)
-                const SizedBox(width: WpSpacing.xs),
-              if (showWordCount)
-                // Flexible (not a hard ConstrainedBox) so the word-count yields
-                // space when the badge + count would otherwise overrun the row
-                // by a couple of pixels (FLUTTER_WHISPASTE-64).
-                Flexible(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 120),
-                    child: Text(
-                      wordCountLabel,
-                      style: const TextStyle(
-                        fontSize: WpTypography.caption,
-                        color: textMuted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                decoration: BoxDecoration(
+                  color: isEditing
+                      ? accent.withValues(alpha: 0.15)
+                      : textMuted.withValues(alpha: 0.1),
+                  borderRadius: WpRadius.borderFull,
                 ),
-            ],
-          ),
+                // Resting state is a *status*, not an offer: the badge
+                // marks a transcript that was hand-corrected. It used to
+                // read "Edit transcript" — an action verb, word for word
+                // the same as the button 8 px to its right, so the row
+                // showed the same command twice and said nothing about the
+                // entry. `historyNoteEdited` is the generic past
+                // participle ("edited"/"bearbeitet"); its key name is the
+                // only thing note-specific about it. A dedicated
+                // transcript key would mean touching the ARB files, which
+                // are outside this change — bewusst nicht umgesetzt,
+                // künftiges Ticket.
+                child: Text(
+                  isEditing ? l10n.historyEditing : l10n.historyNoteEdited,
+                  style: TextStyle(
+                    fontSize: WpTypography.micro,
+                    fontWeight: isEditing ? FontWeight.w600 : FontWeight.normal,
+                    color: isEditing ? accent : textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            // No width cap: the count and reading time are one fact pair and
+            // must never be truncated (FLUTTER_WHISPASTE-64 capped it at 120).
+            // The Wrap moves the whole label to a new line when it does not
+            // fit beside the badge, and the group-wise break keeps it intact.
+            if (showWordCount)
+              Text(
+                wordCountLabel,
+                style: const TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: textMuted,
+                ),
+              ),
+          ],
         ),
         if (!isEditing && hasEditedVersion) ...[
           _RawEditedToggle(

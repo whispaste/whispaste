@@ -1,13 +1,13 @@
-/// Chip labels and search titles must read in every app UI language, not only
-/// in German and English. Expected strings are the section headings the page
-/// renders for each locale (the same ARB keys), so chips never drift from them.
+/// Section-picker labels and search titles must read in every app UI language,
+/// not only in German and English. Expected strings are the section headings
+/// the page renders for each locale (the same ARB keys), so the picker never
+/// drifts from them.
 library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
-import 'package:whispaste/features/settings/widgets/settings_anchor_chip_bar.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -104,8 +104,8 @@ void main() {
     });
   });
 
-  group('SettingsAnchorChipBar in ru', () {
-    testWidgets('chips show the Russian section titles, not English', (
+  group('SettingsSectionPicker in ru', () {
+    testWidgets('the picker shows Russian section titles, not English', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -117,24 +117,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final bar = find.byType(SettingsAnchorChipBar);
-      expect(bar, findsOneWidget);
+      final picker = find.byKey(const Key('settings-section-picker'));
+      expect(picker, findsOneWidget);
       expect(
-        find.descendant(of: bar, matching: find.text('Интерфейс')),
+        find.descendant(of: picker, matching: find.text('Интерфейс')),
         findsOneWidget,
       );
+
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+
       expect(
-        find.descendant(of: bar, matching: find.text('Распознавание речи')),
+        find.byKey(const Key('settings-section-picker-stt')),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: bar, matching: find.text('Interface')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: bar, matching: find.text('Speech Recognition')),
-        findsNothing,
-      );
+      expect(find.text('Распознавание речи'), findsWidgets);
+      expect(find.text('Speech Recognition'), findsNothing);
     });
   });
 }

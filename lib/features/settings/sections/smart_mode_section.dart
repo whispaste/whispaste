@@ -220,7 +220,7 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
           ],
           if (isLocal && !localAvailable) ...[
             const SizedBox(height: WpSpacing.md),
-            _SmartModeHotkeyNotice(
+            HotkeyNotice(
               noticeKey: const Key('smartModeLocalUnavailableHint'),
               icon: LucideIcons.info,
               color: WpColors.textMuted,
@@ -298,122 +298,117 @@ class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           settingsInlineBreak,
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SettingRow(
-                  icon: LucideIcons.keyboardMusic,
-                  label: l10n.settingsSmartModeHotkeyEnabled,
-                  subtitle: l10n.settingsSmartModeHotkeyHint,
-                  semanticToggledValue: enabled,
-                  trailing: settingsToggle(
-                    key: const Key('smartModeHotkeyToggle'),
-                    value: enabled,
-                    onChanged: (v) {
-                      clearHotkeyCollision();
-                      unawaited(setSmartModeHotkeyEnabled(ref, enabled: v));
-                    },
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SettingRow(
+                icon: LucideIcons.keyboardMusic,
+                label: l10n.settingsSmartModeHotkeyEnabled,
+                subtitle: l10n.settingsSmartModeHotkeyHint,
+                semanticToggledValue: enabled,
+                trailing: settingsToggle(
+                  key: const Key('smartModeHotkeyToggle'),
+                  value: enabled,
+                  onChanged: (v) {
+                    clearHotkeyCollision();
+                    unawaited(setSmartModeHotkeyEnabled(ref, enabled: v));
+                  },
                 ),
-                AnimatedOpacity(
-                  opacity: enabled ? 1.0 : 0.4,
-                  duration: WpMotion.durationFor(context, WpMotion.normal),
-                  child: ExcludeFocus(
-                    excluding: !enabled,
-                    child: IgnorePointer(
-                      ignoring: !enabled,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+              ),
+              AnimatedOpacity(
+                opacity: enabled ? 1.0 : 0.4,
+                duration: WpMotion.durationFor(context, WpMotion.normal),
+                child: ExcludeFocus(
+                  excluding: !enabled,
+                  child: IgnorePointer(
+                    ignoring: !enabled,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SettingRow(
+                          icon: LucideIcons.sparkles,
+                          label: l10n.settingsSmartModeHotkeyPreset,
+                          subtitle: presetDescription(
+                            smartModeHotkey.smartModeHotkeyPreset,
+                          ),
+                          trailing: settingsDropdown(
+                            context: context,
+                            value: smartModeHotkey.smartModeHotkeyPreset,
+                            items: const ['cleanup', 'concise', 'translate'],
+                            labels: const [
+                              'cleanup',
+                              'concise',
+                              'translate',
+                            ].map(presetLabel).toList(),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              unawaited(
+                                setSmartModeHotkeyPreset(ref, preset: v),
+                              );
+                            },
+                          ),
+                        ),
+                        if (smartModeHotkey.smartModeHotkeyPreset ==
+                            'translate') ...[
+                          const SizedBox(height: WpSpacing.md),
                           SettingRow(
-                            icon: LucideIcons.sparkles,
-                            label: l10n.settingsSmartModeHotkeyPreset,
-                            subtitle: presetDescription(
-                              smartModeHotkey.smartModeHotkeyPreset,
-                            ),
+                            icon: LucideIcons.languages,
+                            label: l10n.smartModeTargetLanguage,
                             trailing: settingsDropdown(
                               context: context,
-                              value: smartModeHotkey.smartModeHotkeyPreset,
-                              items: const ['cleanup', 'concise', 'translate'],
-                              labels: const [
-                                'cleanup',
-                                'concise',
-                                'translate',
-                              ].map(presetLabel).toList(),
+                              value: smartModeTargetLanguageFromSettingsValue(
+                                smartModeHotkey.smartModeHotkeyTargetLanguage,
+                              ).code,
+                              items: smartModeValidatedTargetLanguages
+                                  .map((lang) => lang.code)
+                                  .toList(),
+                              labels: smartModeValidatedTargetLanguages
+                                  .map(_targetLanguageLabel(l10n))
+                                  .toList(),
                               onChanged: (v) {
                                 if (v == null) return;
                                 unawaited(
-                                  setSmartModeHotkeyPreset(ref, preset: v),
+                                  setSmartModeHotkeyTargetLanguage(
+                                    ref,
+                                    targetLanguage: v,
+                                  ),
                                 );
                               },
                             ),
                           ),
-                          if (smartModeHotkey.smartModeHotkeyPreset ==
-                              'translate') ...[
-                            const SizedBox(height: WpSpacing.md),
-                            SettingRow(
-                              icon: LucideIcons.languages,
-                              label: l10n.smartModeTargetLanguage,
-                              trailing: settingsDropdown(
-                                context: context,
-                                value: smartModeTargetLanguageFromSettingsValue(
-                                  smartModeHotkey.smartModeHotkeyTargetLanguage,
-                                ).code,
-                                items: smartModeValidatedTargetLanguages
-                                    .map((lang) => lang.code)
-                                    .toList(),
-                                labels: smartModeValidatedTargetLanguages
-                                    .map(_targetLanguageLabel(l10n))
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v == null) return;
-                                  unawaited(
-                                    setSmartModeHotkeyTargetLanguage(
-                                      ref,
-                                      targetLanguage: v,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: WpSpacing.md),
-                          HotkeyComboLine(
-                            key: const Key('smartModeHotkeyComboLine'),
-                            label: l10n.settingsSmartModeCurrentHotkey,
-                            hotkeyKey: smartModeHotkey.smartModeHotkeyKey,
-                            hotkeyModifiers:
-                                smartModeHotkey.smartModeHotkeyModifiers,
-                            hotkeyKeyDisplay:
-                                smartModeHotkey.smartModeHotkeyKeyDisplay,
-                            changeButtonKey: const Key('smartModeHotkeyChange'),
-                            onChange: () => unawaited(_record()),
-                          ),
                         ],
-                      ),
+                        const SizedBox(height: WpSpacing.md),
+                        HotkeyComboLine(
+                          key: const Key('smartModeHotkeyComboLine'),
+                          label: l10n.settingsSmartModeCurrentHotkey,
+                          hotkeyKey: smartModeHotkey.smartModeHotkeyKey,
+                          hotkeyModifiers:
+                              smartModeHotkey.smartModeHotkeyModifiers,
+                          hotkeyKeyDisplay:
+                              smartModeHotkey.smartModeHotkeyKeyDisplay,
+                          changeButtonKey: const Key('smartModeHotkeyChange'),
+                          onChange: () => unawaited(_record()),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                if (collidingAction != null)
-                  _SmartModeHotkeyNotice(
-                    noticeKey: const Key('smartModeHotkeyCollisionNotice'),
-                    icon: LucideIcons.circleAlert,
-                    color: WpColors.error,
-                    text: l10n.settingsSmartModeHotkeyCollision(
-                      collidingAction!,
-                    ),
-                  ),
-                if (registrationFailed)
-                  _SmartModeHotkeyNotice(
-                    noticeKey: const Key('smartModeHotkeyInactiveNotice'),
-                    icon: LucideIcons.triangleAlert,
-                    color: WpColors.warning,
-                    text: l10n.settingsSmartModeHotkeyInactive,
-                  ),
-              ],
-            ),
+              ),
+              if (collidingAction != null)
+                HotkeyNotice(
+                  noticeKey: const Key('smartModeHotkeyCollisionNotice'),
+                  icon: LucideIcons.circleAlert,
+                  color: WpColors.error,
+                  text: l10n.settingsSmartModeHotkeyCollision(collidingAction!),
+                ),
+              if (registrationFailed)
+                HotkeyNotice(
+                  noticeKey: const Key('smartModeHotkeyInactiveNotice'),
+                  icon: LucideIcons.triangleAlert,
+                  color: WpColors.warning,
+                  text: l10n.settingsSmartModeHotkeyInactive,
+                ),
+            ],
           ),
         ],
       ),
@@ -467,107 +462,57 @@ class _SelectionEditHotkeyBlockState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           settingsInlineBreak,
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SettingRow(
-                  icon: LucideIcons.textSelect,
-                  label: l10n.settingsSelectionEditHotkeyEnabled,
-                  subtitle: l10n.settingsSelectionEditHotkeyHint,
-                  semanticToggledValue: enabled,
-                  trailing: settingsToggle(
-                    key: const Key('selectionEditHotkeyToggle'),
-                    value: enabled,
-                    onChanged: (v) {
-                      clearHotkeyCollision();
-                      unawaited(setSelectionEditHotkeyEnabled(ref, enabled: v));
-                    },
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SettingRow(
+                icon: LucideIcons.textSelect,
+                label: l10n.settingsSelectionEditHotkeyEnabled,
+                subtitle: l10n.settingsSelectionEditHotkeyHint,
+                semanticToggledValue: enabled,
+                trailing: settingsToggle(
+                  key: const Key('selectionEditHotkeyToggle'),
+                  value: enabled,
+                  onChanged: (v) {
+                    clearHotkeyCollision();
+                    unawaited(setSelectionEditHotkeyEnabled(ref, enabled: v));
+                  },
                 ),
-                AnimatedOpacity(
-                  opacity: enabled ? 1.0 : 0.4,
-                  duration: WpMotion.durationFor(context, WpMotion.normal),
-                  child: ExcludeFocus(
-                    excluding: !enabled,
-                    child: IgnorePointer(
-                      ignoring: !enabled,
-                      child: HotkeyComboLine(
-                        key: const Key('selectionEditHotkeyComboLine'),
-                        label: l10n.settingsSmartModeCurrentHotkey,
-                        hotkeyKey: hotkey.selectionEditHotkeyKey,
-                        hotkeyModifiers: hotkey.selectionEditHotkeyModifiers,
-                        hotkeyKeyDisplay: hotkey.selectionEditHotkeyKeyDisplay,
-                        changeButtonKey: const Key('selectionEditHotkeyChange'),
-                        onChange: () => unawaited(_record()),
-                      ),
+              ),
+              AnimatedOpacity(
+                opacity: enabled ? 1.0 : 0.4,
+                duration: WpMotion.durationFor(context, WpMotion.normal),
+                child: ExcludeFocus(
+                  excluding: !enabled,
+                  child: IgnorePointer(
+                    ignoring: !enabled,
+                    child: HotkeyComboLine(
+                      key: const Key('selectionEditHotkeyComboLine'),
+                      label: l10n.settingsSmartModeCurrentHotkey,
+                      hotkeyKey: hotkey.selectionEditHotkeyKey,
+                      hotkeyModifiers: hotkey.selectionEditHotkeyModifiers,
+                      hotkeyKeyDisplay: hotkey.selectionEditHotkeyKeyDisplay,
+                      changeButtonKey: const Key('selectionEditHotkeyChange'),
+                      onChange: () => unawaited(_record()),
                     ),
                   ),
                 ),
-                if (collidingAction != null)
-                  _SmartModeHotkeyNotice(
-                    noticeKey: const Key('selectionEditHotkeyCollisionNotice'),
-                    icon: LucideIcons.circleAlert,
-                    color: WpColors.error,
-                    text: l10n.settingsSmartModeHotkeyCollision(
-                      collidingAction!,
-                    ),
-                  ),
-                if (registrationFailed)
-                  _SmartModeHotkeyNotice(
-                    noticeKey: const Key('selectionEditHotkeyInactiveNotice'),
-                    icon: LucideIcons.triangleAlert,
-                    color: WpColors.warning,
-                    text: l10n.settingsSelectionEditHotkeyInactive,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Local twin of the identically-shaped notice in `feedback_section.dart`
-/// (quick-note/Snippet-Picker hotkey blocks) — same repo-wide per-file
-/// duplication convention as the `*_hotkey_flow.dart` files, not accidental
-/// duplication.
-class _SmartModeHotkeyNotice extends StatelessWidget {
-  const _SmartModeHotkeyNotice({
-    required this.noticeKey,
-    required this.icon,
-    required this.color,
-    required this.text,
-  });
-
-  final Key noticeKey;
-  final IconData icon;
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: noticeKey,
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, WpSpacing.xs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(icon, size: WpIconSize.sm, color: color),
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: WpTypography.caption,
-                height: 1.4,
-              ).copyWith(color: color),
-            ),
+              ),
+              if (collidingAction != null)
+                HotkeyNotice(
+                  noticeKey: const Key('selectionEditHotkeyCollisionNotice'),
+                  icon: LucideIcons.circleAlert,
+                  color: WpColors.error,
+                  text: l10n.settingsSmartModeHotkeyCollision(collidingAction!),
+                ),
+              if (registrationFailed)
+                HotkeyNotice(
+                  noticeKey: const Key('selectionEditHotkeyInactiveNotice'),
+                  icon: LucideIcons.triangleAlert,
+                  color: WpColors.warning,
+                  text: l10n.settingsSelectionEditHotkeyInactive,
+                ),
+            ],
           ),
         ],
       ),
@@ -585,64 +530,74 @@ class _ModelDownloadRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(smartModeDownloadProvider.notifier);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${smartModeModel.label} · ${smartModeModel.sizeLabel}',
-                style: const TextStyle(
-                  fontSize: WpTypography.body,
-                  color: WpColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                l10n.smartModeMemoryFootprintInfo,
-                style: const TextStyle(
-                  fontSize: WpTypography.caption,
-                  color: WpColors.textMuted,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                l10n.smartModeSpeedExampleInfo,
-                style: const TextStyle(
-                  fontSize: WpTypography.caption,
-                  color: WpColors.textMuted,
-                  height: 1.4,
-                ),
-              ),
-              if (download.isBusy) ...[
-                const SizedBox(height: 6),
-                _ProgressInfo(download: download, l10n: l10n),
-              ] else if (download.isError) ...[
-                const SizedBox(height: 4),
+    return Padding(
+      // Text edge of the SettingRows above, not the section edge: the model
+      // copy is the Smart Mode dependency and reads under its row.
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        kSettingRowTextInset,
+        0,
+        kSettingRowInset,
+        0,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  download.errorMessage ?? '',
+                  '${smartModeModel.label} · ${smartModeModel.sizeLabel}',
                   style: const TextStyle(
-                    fontSize: WpTypography.caption,
-                    color: WpColors.error,
+                    fontSize: WpTypography.body,
+                    color: WpColors.textPrimary,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.smartModeMemoryFootprintInfo,
+                  style: const TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: WpColors.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.smartModeSpeedExampleInfo,
+                  style: const TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: WpColors.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+                if (download.isBusy) ...[
+                  const SizedBox(height: 6),
+                  _ProgressInfo(download: download, l10n: l10n),
+                ] else if (download.isError) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    download.errorMessage ?? '',
+                    style: const TextStyle(
+                      fontSize: WpTypography.caption,
+                      color: WpColors.error,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        const SizedBox(width: WpSpacing.md),
-        _ActionButton(
-          download: download,
-          l10n: l10n,
-          onDownload: () => _startDownload(context, notifier),
-          onCancel: notifier.cancelDownload,
-          onDelete: () => notifier.deleteModel(),
-        ),
-      ],
+          const SizedBox(width: WpSpacing.md),
+          _ActionButton(
+            download: download,
+            l10n: l10n,
+            onDownload: () => _startDownload(context, notifier),
+            onCancel: notifier.cancelDownload,
+            onDelete: () => notifier.deleteModel(),
+          ),
+        ],
+      ),
     );
   }
 

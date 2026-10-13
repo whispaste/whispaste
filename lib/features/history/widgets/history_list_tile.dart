@@ -34,6 +34,7 @@ class HistoryEntryRow extends StatefulWidget {
     this.isChecked = false,
     this.isTrashView = false,
     this.isFocused = false,
+    this.inSplitView = false,
     this.onTagTap,
   });
 
@@ -48,6 +49,11 @@ class HistoryEntryRow extends StatefulWidget {
   final bool isChecked;
   final bool isTrashView;
   final bool isFocused;
+
+  /// Whether a detail pane is open beside the list. Split rows are transparent
+  /// panel rows with a two-line preview; overview rows (no detail) are quiet
+  /// cards with a one-line preview that uses the full row width.
+  final bool inSplitView;
   final void Function(String tag)? onTagTap;
 
   @override
@@ -150,7 +156,9 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: WpListTileSurface(
-            variant: WpListTileVariant.panel,
+            variant: widget.inSplitView
+                ? WpListTileVariant.panel
+                : WpListTileVariant.overview,
             isHovered: _isHovered,
             isFocused: widget.isFocused,
             isSelected: widget.isSelected,
@@ -192,6 +200,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                 Expanded(
                   child: _EntryRowContent(
                     entry: widget.entry,
+                    inSplitView: widget.inSplitView,
                     showActions: showActions,
                     timeLabel: _timeLabel,
                     durationLabel: _durationLabel,
@@ -220,6 +229,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
 class _EntryRowContent extends StatelessWidget {
   const _EntryRowContent({
     required this.entry,
+    required this.inSplitView,
     required this.showActions,
     required this.timeLabel,
     required this.durationLabel,
@@ -233,6 +243,7 @@ class _EntryRowContent extends StatelessWidget {
   });
 
   final HistoryEntry entry;
+  final bool inSplitView;
   final bool showActions;
   final String timeLabel;
   final String durationLabel;
@@ -249,110 +260,98 @@ class _EntryRowContent extends StatelessWidget {
     final l10n = L10n.of(context);
     const textPrimary = WpColors.textPrimary;
     const textSecondary = WpColors.textSecondary;
+    final actions = WpRowActions(
+      visible: showActions,
+      dense: true,
+      children: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        WpRowAction(
+          icon: LucideIcons.copy,
+          tooltip: l10n.historyCopyText,
+          onTap: onCopy,
+          dense: true,
+        ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        WpRowAction(
+          faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+          icon: entry.pinned ? null : LucideIcons.star,
+          activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
+          tooltip: entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+          onTap: onPin,
+          dense: true,
+        ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        if (onDuplicate case final onDuplicate?)
+          WpRowAction(
+            icon: LucideIcons.files,
+            tooltip: l10n.actionDuplicate,
+            onTap: onDuplicate,
+            dense: true,
+          ),
+        WpRowAction(
+          icon: LucideIcons.trash2,
+          tooltip: l10n.actionDelete,
+          onTap: onDelete,
+          isDestructive: true,
+          dense: true,
+        ),
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: title + quick actions. The time label used to sit here and
-        // was swapped out for the actions on hover — information disappearing
-        // behind chrome. It now lives in the metadata row below, which is
-        // where the rest of the entry's facts already are, so the two never
-        // compete for the same space again: at the 240px minimum panel width
-        // three actions plus a timestamp simply do not fit one line.
-        // No fixed row height any more: WpRowActions reserves its extent
-        // whether or not it is showing, so the row cannot jitter, and the
-        // row is free to grow with an enlarged system font.
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              // Excluded because the row's Semantics wrapper already carries
-              // this exact string as its label; without this the title was
-              // announced twice, once from the label and once from the text
-              // the label was merely prepended to. The preview and metadata
-              // below stay announced — they are content, not a duplicate.
-              child: ExcludeSemantics(
-                child: HighlightedText(
-                  text: entry.title.isNotEmpty
-                      ? entry.title
-                      : l10n.historyUntitledRecording,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    // Off-scale on purpose: one step above `subheading` (14)
-                    // — the preview line below stays at 14, so the title now
-                    // carries real size contrast instead of only weight/color.
-                    fontSize: WpTypography.heading,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
-                  ),
-                ),
-              ),
+        // Row 1: the title takes the whole line. The row actions used to sit
+        // here and reserved ~112 dp, which starved the title to nothing at the
+        // 240 px panel minimum; they now share the metadata line below, where
+        // the least critical facts give way first.
+        ExcludeSemantics(
+          // Excluded because the row's Semantics wrapper already carries this
+          // exact string as its label; without this the title was announced
+          // twice. The preview and metadata stay announced — they are content.
+          child: HighlightedText(
+            text: entry.title.isNotEmpty
+                ? entry.title
+                : l10n.historyUntitledRecording,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: WpTypography.subheading,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              color: textPrimary,
             ),
-            const SizedBox(width: WpSpacing.xs),
-            WpRowActions(
-              visible: showActions,
-              dense: true,
-              children: [
-                // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                WpRowAction(
-                  icon: LucideIcons.copy,
-                  tooltip: l10n.historyCopyText,
-                  onTap: onCopy,
-                  dense: true,
-                ),
-                // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                WpRowAction(
-                  faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
-                  icon: entry.pinned ? null : LucideIcons.star,
-                  activeColor: entry.pinned
-                      ? WpSharedColors.pinnedAccent
-                      : null,
-                  tooltip: entry.pinned
-                      ? l10n.historyUnpin
-                      : l10n.historyPinToTop,
-                  onTap: onPin,
-                  dense: true,
-                ),
-                // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                if (onDuplicate case final onDuplicate?)
-                  WpRowAction(
-                    icon: LucideIcons.files,
-                    tooltip: l10n.actionDuplicate,
-                    onTap: onDuplicate,
-                    dense: true,
-                  ),
-                WpRowAction(
-                  icon: LucideIcons.trash2,
-                  tooltip: l10n.actionDelete,
-                  onTap: onDelete,
-                  isDestructive: true,
-                  dense: true,
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
         const SizedBox(height: 3),
-        // Row 2: Content preview — two lines for more context
+        // Row 2: content preview. Two lines in a split panel, one in the
+        // overview, where the row is wide enough to show more on one line.
         HighlightedText(
           text: entry.content,
-          maxLines: 2,
+          maxLines: inSplitView ? 2 : 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: WpTypography.subheading,
+            fontSize: WpTypography.body,
             color: textSecondary,
-            height: 1.35,
+            height: 1.5,
           ),
         ),
         const SizedBox(height: 4),
-        // Row 3: Subtle inline metadata (duration + language)
-        _EntryMetaRow(
-          timeLabel: timeLabel,
-          durationLabel: durationLabel,
-          wordCount: wordCount,
-          language: entry.language,
-          isLocal: entry.isLocal,
+        // Row 3: metadata, with the row actions on the same line at the end.
+        Row(
+          children: [
+            Expanded(
+              child: _EntryMetaRow(
+                timeLabel: timeLabel,
+                durationLabel: durationLabel,
+                wordCount: wordCount,
+                language: entry.language,
+                isLocal: entry.isLocal,
+              ),
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            actions,
+          ],
         ),
         // Tag chips — only rendered when entry has tags
         if (tags.isNotEmpty) ...[
@@ -381,71 +380,57 @@ class _EntryMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     const textMuted = WpColors.textMuted;
     const textSecondary = WpColors.textSecondary;
-    return Row(
-      children: [
-        const Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
-        const SizedBox(width: 3),
-        Flexible(
-          // Off-scale on purpose: only the primary metric steps up from
-          // `micro`/`textMuted` to `caption`/`textSecondary` — the rest stays
-          // at micro so the row doesn't get louder overall. That primary slot
-          // is the time of the recording, which moved here out of the title
-          // row so the hover actions can no longer displace it.
-          child: Text(
-            timeLabel,
-            style: const TextStyle(
-              fontSize: WpTypography.caption,
-              color: textSecondary,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+    const metaStyle = TextStyle(
+      fontSize: WpTypography.caption,
+      color: textMuted,
+    );
+    // One text run, so the line ellipsizes as a whole and can never overflow
+    // the space beside the row actions. Icons and the status chip sit inline
+    // as widget spans. Every fact is joined by the same separator.
+    const separator = TextSpan(text: ' · ', style: metaStyle);
+    final spans = <InlineSpan>[
+      const WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Padding(
+          padding: EdgeInsets.only(right: 3),
+          child: Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
         ),
-        const SizedBox(width: WpSpacing.xxs),
-        Flexible(
-          child: Text(
-            '· $durationLabel',
-            style: const TextStyle(
-              fontSize: WpTypography.micro,
-              color: textMuted,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+      ),
+      TextSpan(
+        text: timeLabel,
+        style: const TextStyle(
+          fontSize: WpTypography.caption,
+          color: textSecondary,
         ),
-        if (wordCount > 0) ...[
-          const SizedBox(width: WpSpacing.xs),
-          // Flexible like the two facts before it: the metadata row carries
-          // the entry's least critical numbers, so it is the row that gives
-          // way first when the panel is dragged to its 240px minimum.
-          Flexible(
-            child: Text(
-              '· ~$wordCount w',
-              style: const TextStyle(
-                fontSize: WpTypography.micro,
-                color: textMuted,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-        if (language.isNotEmpty) ...[
-          const SizedBox(width: WpSpacing.xs),
-          HistoryStatusChip(label: language.toUpperCase()),
-        ],
-        if (!isLocal) ...[
-          const SizedBox(width: WpSpacing.xs),
-          const Text(
-            '·',
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          const Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
-        ],
+      ),
+      separator,
+      TextSpan(text: durationLabel, style: metaStyle),
+      if (wordCount > 0) ...[
+        separator,
+        TextSpan(text: l10n.historyListWordCount(wordCount), style: metaStyle),
       ],
+      if (language.isNotEmpty) ...[
+        separator,
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: HistoryStatusChip(label: language.toUpperCase()),
+        ),
+      ],
+      if (!isLocal) ...[
+        separator,
+        const WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
+        ),
+      ],
+    ];
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

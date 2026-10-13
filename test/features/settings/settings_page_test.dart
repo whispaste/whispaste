@@ -14,9 +14,9 @@ import '../../fixtures/test_helpers.dart';
 late L10n l10n;
 
 /// Finds [text] inside the scroll content only, excluding the sticky header
-/// (search field + `SettingsAnchorChipBar`, Ticket 16). A section's own
-/// heading and its anchor chip render the identical localized label, so a
-/// bare `find.text(...)` anywhere on the page now matches both.
+/// (search field + section picker). A section's own heading and the picker's
+/// trigger can render the identical localized label, so a bare
+/// `find.text(...)` anywhere on the page may match both.
 Finder _sectionText(String text) => find.descendant(
   of: find.byType(SingleChildScrollView),
   matching: find.text(text),

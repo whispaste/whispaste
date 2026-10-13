@@ -14,6 +14,13 @@ import 'package:whispaste/core/app_urls.dart';
 
 void main() {
   group('app_urls', () {
+    test('kPayPalUrl is the WhisPaste PayPal donation button', () {
+      expect(
+        kPayPalUrl,
+        'https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY',
+      );
+    });
+
     test('kGitHubRepoUrl is the WhisPaste GitHub repository home', () {
       expect(kGitHubRepoUrl, 'https://github.com/whispaste/whispaste');
       expect(kGitHubRepoUrl, startsWith('https://github.com/whispaste/'));

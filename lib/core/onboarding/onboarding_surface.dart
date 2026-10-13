@@ -19,7 +19,7 @@ import 'onboarding_revision.dart';
 
 /// Schedules [onCheck] once after the first mounted frame, passing whether
 /// onboarding was already completed in a previous session. Shared by
-/// `WpFeatureSpotlightWatcher` and `WpStoreThankYouWatcher` — both need this
+/// `WpFeatureSpotlightWatcher` and the support prompt — both need this
 /// exact "handle returning users" check on first mount.
 void runOnboardingCheckOnFirstMount(
   WidgetRef ref,
@@ -37,7 +37,7 @@ void runOnboardingCheckOnFirstMount(
 
 /// Watches for the moment onboarding completes during the current session
 /// (first-run users) and calls [onCompleted] exactly once when it flips to
-/// `true`. Shared by `WpFeatureSpotlightWatcher` and `WpStoreThankYouWatcher`.
+/// `true`. Shared by `WpFeatureSpotlightWatcher` and the support prompt.
 void watchOnboardingCompletion(WidgetRef ref, void Function() onCompleted) {
   ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
     final wasCompleted = prev?.value?.onboarding.onboardingCompleted ?? false;

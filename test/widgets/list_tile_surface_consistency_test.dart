@@ -174,11 +174,15 @@ Note _note() => Note(
   updatedAt: DateTime(2026, 4, 14, 9, 41),
 );
 
-Widget _historyList() => HistoryEntryList(
+/// The history list. With [split] it is shown beside an open detail pane (the
+/// panel variant the other three areas use); without it, the overview. The
+/// split fixture selects a different entry, so the probed row is unselected
+/// and its resting border is measured rather than the 2 px selection stroke.
+Widget _historyList({bool split = false}) => HistoryEntryList(
   groups: [
     DateGroup(labelKey: 'today', entries: [_entry()]),
   ],
-  selectedId: null,
+  selectedId: split ? 'some-other-entry' : null,
   onEntryTap: (_) {},
   onCopy: (_) {},
   onPin: (_) {},
@@ -295,7 +299,12 @@ void main() {
         insets[area] = _inset(tester, _surfaceBox());
       }
 
-      await probe('history', () => _pumpPlain(tester, _historyList()));
+      // Measured in split: the overview is a deliberately different surface
+      // (quiet card, see the overview test below).
+      await probe(
+        'history',
+        () => _pumpPlain(tester, _historyList(split: true)),
+      );
       await probe('notes', () => _pumpPlain(tester, _notesList()));
       await probe('snippets', () => _pumpSnippets(tester));
       await probe('replacements', () => _pumpReplacements(tester));
@@ -398,6 +407,16 @@ void main() {
         isNot(atRest.fill),
         reason: 'hovering a row must change something; the fill stayed put',
       );
+    });
+
+    testWidgets('the history overview rows are quiet 1 px cards', (
+      tester,
+    ) async {
+      await _pumpPlain(tester, _historyList());
+      final overview = _measureEnvelope(tester);
+      expect(overview.radius, WpRadius.borderMd);
+      expect(overview.borderWidth, WpListTileSurface.overviewBorderWidth);
+      expect(overview.hasShadow, isFalse);
     });
 
     testWidgets('every area indents its tiles by the same amount', (
@@ -601,14 +620,34 @@ void main() {
 
             // The controls have to stay inside too: stacking the two groups
             // only helps while each of them can still break internally.
-            final toggle = tester.getRect(find.byType(HistoryViewModeToggle));
+            // Narrow bars collapse the view toggle and the tools into one
+            // 48x48 overflow button, so whichever control is on screen is
+            // the one that has to stay inside.
+            final overflow = find.byKey(
+              const ValueKey('history-toolbar-overflow'),
+            );
+            final control =
+                find.byType(HistoryViewModeToggle).evaluate().isNotEmpty
+                ? find.byType(HistoryViewModeToggle)
+                : overflow;
+            expect(control, findsOneWidget);
+            final controlRect = tester.getRect(control);
             expect(
-              toggle.right,
+              controlRect.right,
               lessThanOrEqualTo(barRight + 0.01),
               reason:
-                  'the view-mode toggle is painted outside the bar at '
+                  'the view controls are painted outside the bar at '
                   '$panel dp @${scale}x',
             );
+            if (overflow.evaluate().isNotEmpty) {
+              expect(
+                tester.getSize(overflow),
+                const Size.square(WpLayout.minTouchTarget),
+                reason:
+                    'the collapsed tools button must stay a 48x48 touch target '
+                    'at $panel dp @${scale}x',
+              );
+            }
 
             // Below roughly 500 dp the *search* row above still overflows:
             // its "new recording" button is a non-flexible child with a text
