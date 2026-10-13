@@ -2352,6 +2352,28 @@ class L10nDe extends L10n {
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'Das ausgewählte Sprachmodell ($size) ist noch nicht heruntergeladen.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Jetzt herunterladen';
+
+  @override
+  String get statusBarModelMissing => 'Modell fehlt';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Modell wird geladen … $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Herunterladen';
+
+  @override
+  String get modelMissingDownloadAction => 'Fehlt – herunterladen';
+
+  @override
   String get infoPipelineBusy =>
       'WhisPaste ist noch mit der vorherigen Aufnahme beschäftigt.';
 

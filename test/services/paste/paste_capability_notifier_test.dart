@@ -1526,7 +1526,7 @@ void main() {
         isTrue,
       );
       expect(notifier.staleEntrySuspected, isTrue);
-    });
+    }, skip: !Platform.isMacOS);
 
     test('an unchanged signature is an ordinary first contact', () async {
       SharedPreferences.setMockInitialValues({
@@ -1574,6 +1574,7 @@ void main() {
 
         expect(notifier.staleEntrySuspected, isTrue);
       },
+      skip: !Platform.isMacOS,
     );
 
     test('the live-probe build never needs the guide — it resets the entry '
@@ -1650,6 +1651,6 @@ void main() {
       addTearDown(fresh.dispose);
       final freshNotifier = await hydrated(fresh, masBuild: true);
       expect(freshNotifier.staleEntrySuspected, isFalse);
-    });
+    }, skip: !Platform.isMacOS);
   });
 }

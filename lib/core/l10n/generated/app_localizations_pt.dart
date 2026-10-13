@@ -2350,6 +2350,28 @@ class L10nPt extends L10n {
       'Baixe primeiro um modelo de voz em Configurações.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'O modelo de voz selecionado ($size) ainda não foi baixado.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Baixar agora';
+
+  @override
+  String get statusBarModelMissing => 'Modelo ausente';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Baixando modelo… $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Baixar';
+
+  @override
+  String get modelMissingDownloadAction => 'Ausente: baixar';
+
+  @override
   String get infoPipelineBusy =>
       'O WhisPaste ainda está ocupado com a gravação anterior.';
 

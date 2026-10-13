@@ -2388,6 +2388,28 @@ class L10nRu extends L10n {
   String get infoModelMissing => 'Сначала скачайте модель речи в Настройках.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'Выбранная модель речи ($size) ещё не скачана.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Скачать сейчас';
+
+  @override
+  String get statusBarModelMissing => 'Модель не скачана';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Загрузка модели… $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Скачать';
+
+  @override
+  String get modelMissingDownloadAction => 'Нет — скачать';
+
+  @override
   String get infoPipelineBusy => 'WhisPaste все еще занят предыдущей записью.';
 
   @override

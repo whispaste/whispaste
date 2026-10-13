@@ -460,6 +460,21 @@ class _TierRowState extends State<_TierRow> {
       );
     }
 
+    // Selected but not on disk: dictation cannot run until it is, so the
+    // row says so and carries the download instead of looking ready.
+    if (widget.isCurrentTier &&
+        widget.downloadState.scanned &&
+        widget.onSelect != null) {
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
+      return _ActionChip(
+        key: ValueKey('stt-model-download-${widget.tier.name}'),
+        label: widget.l10n.modelMissingDownloadAction,
+        icon: LucideIcons.download,
+        color: WpColors.warning,
+        onTap: widget.onSelect,
+      );
+    }
+
     return const SizedBox.shrink();
   }
 }
@@ -802,6 +817,7 @@ class _DownloadProgressInfo extends StatelessWidget {
 
 class _ActionChip extends StatelessWidget {
   const _ActionChip({
+    super.key,
     required this.label,
     required this.icon,
     required this.color,

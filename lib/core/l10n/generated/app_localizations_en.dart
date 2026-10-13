@@ -2329,6 +2329,28 @@ class L10nEn extends L10n {
       'Please download a speech model in Settings first.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'The selected speech model ($size) isn\'t downloaded yet.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Download now';
+
+  @override
+  String get statusBarModelMissing => 'Model missing';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Downloading model… $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Download';
+
+  @override
+  String get modelMissingDownloadAction => 'Missing — download';
+
+  @override
   String get infoPipelineBusy =>
       'WhisPaste is still busy with the previous recording.';
 

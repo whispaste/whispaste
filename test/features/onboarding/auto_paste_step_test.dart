@@ -473,11 +473,8 @@ void main() {
       await tester.pump();
 
       expect(paste.repairCalls, 0);
-      // The native channel only exists on a macOS host.
-      if (Platform.isMacOS) {
-        expect(nativeCalls, contains('showStaleEntryRemovalGuide'));
-      }
-    });
+      expect(nativeCalls, contains('showStaleEntryRemovalGuide'));
+    }, skip: !Platform.isMacOS); // the guide's native channel is macOS-only
 
     testWidgets('successful repair triggers the follow-on grant flow '
         '(prompted check + polling start)', (tester) async {

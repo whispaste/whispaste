@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/settings_enums.dart';
 import '../config/settings_provider.dart';
 import '../logging/app_logger.dart';
 import '../../services/model_download_service.dart';
@@ -404,23 +405,33 @@ enum RecordingReadiness {
   modelMissing,
 }
 
-/// Computed readiness state — watches download state + settings.
-final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
+/// The selected on-device Whisper model when its file is not on disk.
+///
+/// `null` whenever nothing is known to be missing: before onboarding is done
+/// (onboarding downloads the model itself), before the initial disk scan has
+/// landed, for cloud providers, for Parakeet (its own bundle and downloader)
+/// and while that very model is downloading.
+final missingSttModelProvider = Provider<SttModelInfo?>((ref) {
   final dl = ref.watch(modelDownloadProvider);
   final settings = ref.watch(settingsProvider).value;
-
-  // While settings are loading or onboarding isn't done, report ready
-  // and let the orchestrator's hard preflight catch those cases.
-  if (settings == null || !settings.onboardingCompleted) {
-    return RecordingReadiness.ready;
+  if (settings == null || !settings.onboardingCompleted || !dl.scanned) {
+    return null;
   }
-
+  if (settings.sttProviderType != SttProviderType.onDevice ||
+      settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+    return null;
+  }
   final modelId = settings.effectiveModelId;
-  if (!dl.downloadedModels.contains(modelId)) {
-    return RecordingReadiness.modelMissing;
-  }
+  if (dl.downloadedModels.contains(modelId)) return null;
+  if (dl.isBusy && dl.activeModelId == modelId) return null;
+  return findSttModel(modelId);
+});
 
-  return RecordingReadiness.ready;
+/// Computed readiness state — watches download state + settings.
+final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
+  return ref.watch(missingSttModelProvider) == null
+      ? RecordingReadiness.ready
+      : RecordingReadiness.modelMissing;
 });
 
 /// Lightweight info notification channel for the recording pipeline.

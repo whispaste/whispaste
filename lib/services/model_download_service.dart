@@ -283,6 +283,7 @@ class ModelDownloadState {
     this.statusLabel,
     this.errorMessage,
     this.downloadedModels = const {},
+    this.scanned = false,
   });
 
   /// Currently downloading model ID (null when idle).
@@ -309,6 +310,11 @@ class ModelDownloadState {
   /// Set of STT model IDs whose files exist on disk.
   final Set<String> downloadedModels;
 
+  /// Whether [downloadedModels] reflects a disk scan. Before the deferred
+  /// initial scan lands it is empty for everyone, so "not in the set" must
+  /// not yet be read as "missing".
+  final bool scanned;
+
   bool get isDownloading => phase == DownloadPhase.downloading;
   bool get isError => phase == DownloadPhase.error;
   bool get isBusy =>
@@ -328,6 +334,7 @@ class ModelDownloadState {
     String? statusLabel,
     String? errorMessage,
     Set<String>? downloadedModels,
+    bool? scanned,
   }) {
     return ModelDownloadState(
       activeModelId: activeModelId ?? this.activeModelId,
@@ -341,6 +348,7 @@ class ModelDownloadState {
       statusLabel: statusLabel ?? this.statusLabel,
       errorMessage: errorMessage,
       downloadedModels: downloadedModels ?? this.downloadedModels,
+      scanned: scanned ?? this.scanned,
     );
   }
 }
@@ -380,7 +388,7 @@ Future<ModelDownloadState> _scanExistingModelsAsync(
   }
 
   _log.info('Scan: ${downloaded.length} STT models');
-  return ModelDownloadState(downloadedModels: downloaded);
+  return ModelDownloadState(downloadedModels: downloaded, scanned: true);
 }
 
 // ---------------------------------------------------------------------------

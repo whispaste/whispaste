@@ -712,4 +712,91 @@ void main() {
       );
     });
   });
+
+  group('selected model missing on disk', () {
+    const premiumKey = ValueKey('stt-model-download-premium');
+
+    testWidgets('the selected tier offers the download once the scan has '
+        'shown its model is missing', (tester) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          downloadState: const ModelDownloadState(scanned: true),
+          currentModelId: 'whisper-large-v3-turbo',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(premiumKey), findsOneWidget);
+      expect(find.text(l10n.modelMissingDownloadAction), findsOneWidget);
+    });
+
+    testWidgets('no download chip before the initial scan has landed', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _makeTestable(currentModelId: 'whisper-large-v3-turbo'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(premiumKey), findsNothing);
+    });
+
+    testWidgets('no download chip when the selected model is on disk', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          downloadState: const ModelDownloadState(
+            scanned: true,
+            downloadedModels: {'whisper-large-v3-turbo'},
+          ),
+          currentModelId: 'whisper-large-v3-turbo',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(premiumKey), findsNothing);
+    });
+
+    testWidgets('tapping the chip downloads the selected model', (
+      tester,
+    ) async {
+      late _ControllableDownloadNotifier notifier;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            modelDownloadProvider.overrideWith(() {
+              notifier = _ControllableDownloadNotifier(
+                const ModelDownloadState(scanned: true),
+              );
+              return notifier;
+            }),
+            localSttBundleProvider.overrideWith(() => _FakeSttNotifier()),
+            hw.gpuInfoProvider.overrideWith(
+              (ref) async =>
+                  const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
+            ),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: wpDarkTheme(),
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: Scaffold(
+              body: SttModelSelector(
+                currentModelId: 'whisper-large-v3-turbo',
+                onModelSelected: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(premiumKey));
+      await tester.pump();
+
+      expect(notifier.downloadModelCalls, ['whisper-large-v3-turbo']);
+    });
+  });
 }

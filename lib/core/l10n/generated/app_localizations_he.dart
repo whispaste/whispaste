@@ -2307,6 +2307,28 @@ class L10nHe extends L10n {
   String get infoModelMissing => 'הורד קודם מודל דיבור בהגדרות.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'מודל הדיבור שנבחר ($size) עדיין לא הורד.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'הורד עכשיו';
+
+  @override
+  String get statusBarModelMissing => 'המודל חסר';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'מוריד מודל… $percent%';
+  }
+
+  @override
+  String get modelDownloadAction => 'הורד';
+
+  @override
+  String get modelMissingDownloadAction => 'חסר — הורד';
+
+  @override
   String get infoPipelineBusy => 'WhisPaste עדיין עסוק בהקלטה הקודמת.';
 
   @override

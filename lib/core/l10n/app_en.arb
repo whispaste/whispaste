@@ -960,6 +960,22 @@
 
   "infoEngineDownloading": "Speech service is being prepared. Please wait a moment.",
   "infoModelMissing": "Please download a speech model in Settings first.",
+  "infoModelMissingSelected": "The selected speech model ({size}) isn't downloaded yet.",
+  "@infoModelMissingSelected": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "infoModelMissingDownload": "Download now",
+  "statusBarModelMissing": "Model missing",
+  "statusBarModelDownloading": "Downloading model… {percent} %",
+  "@statusBarModelDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "modelDownloadAction": "Download",
+  "modelMissingDownloadAction": "Missing — download",
   "infoPipelineBusy": "WhisPaste is still busy with the previous recording.",
   "infoSnippetPickerEmpty": "Trigger word recognized, but you have no snippets yet — the text was inserted as usual.",
   "infoSnippetPickerEmptyAction": "Open Snippets",

@@ -402,11 +402,11 @@
       "message": "Comment only names a generic structural category — it adds no information beyond what the code already shows."
     },
     {
-      "fingerprint": "1e91197e8485b89d",
+      "fingerprint": "73d623721fc3ee4c",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/recording/recording_state.dart",
-      "line": 101,
-      "message": "2 occurrences of duplicated block (63 tokens): lib/core/recording/recording_state.dart:101, lib/services/update_service.dart:111"
+      "line": 102,
+      "message": "2 occurrences of duplicated block (63 tokens): lib/core/recording/recording_state.dart:102, lib/services/update_service.dart:111"
     },
     {
       "fingerprint": "b99138cfca5bfacb",
@@ -433,28 +433,28 @@
       "fingerprint": "8380b59275a1214d",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
-      "line": 303,
+      "line": 314,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "b12095a4e56391f6",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
-      "line": 305,
+      "line": 316,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "30912c129e63f359",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
-      "line": 672,
+      "line": 683,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {
       "fingerprint": "18da804981be4f86",
       "ruleId": "slop-narrative-comment",
       "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
-      "line": 675,
+      "line": 686,
       "message": "Decorative divider/banner comment adds no information — code structure and formatting already delimit sections."
     },
     {

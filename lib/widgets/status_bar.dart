@@ -109,6 +109,8 @@ class WpStatusBar extends StatelessWidget {
     this.backendKind,
     this.backendUtilizationPercent,
     this.sttStartingSince,
+    this.sttModelMissing = false,
+    this.sttModelDownloadPercent,
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
     this.afterAction,
@@ -223,6 +225,13 @@ class WpStatusBar extends StatelessWidget {
 
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
+
+  /// The selected on-device model is not on disk — idle "Standby" would
+  /// read as "all set" although the next dictation cannot run.
+  final bool sttModelMissing;
+
+  /// Progress of a running speech-model download, `null` when none runs.
+  final int? sttModelDownloadPercent;
 
   /// Callback when user selects a different after-transcription action.
   final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
@@ -344,6 +353,8 @@ class WpStatusBar extends StatelessWidget {
                               modeLabel: sttModeLabel,
                               state: sttState,
                               startingSince: sttStartingSince,
+                              modelMissing: sttModelMissing,
+                              modelDownloadPercent: sttModelDownloadPercent,
                               recordingPhase: recordingPhase,
                               textStyle: textStyle,
                               l10n: l10n,
@@ -533,6 +544,8 @@ class _SttChip extends StatefulWidget {
     required this.modeLabel,
     required this.state,
     this.startingSince,
+    this.modelMissing = false,
+    this.modelDownloadPercent,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
     required this.l10n,
@@ -542,6 +555,8 @@ class _SttChip extends StatefulWidget {
   final String modeLabel;
   final SttServerState state;
   final DateTime? startingSince;
+  final bool modelMissing;
+  final int? modelDownloadPercent;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
   final L10n l10n;
@@ -569,7 +584,8 @@ class _SttChipState extends State<_SttChip> {
       _syncTicker();
     }
     if (old.recordingPhase != widget.recordingPhase ||
-        old.state != widget.state) {
+        old.state != widget.state ||
+        old.modelMissing != widget.modelMissing) {
       final (_, stateLabel, _) = _resolveDisplay();
       SemanticsService.sendAnnouncement(
         View.of(context),
@@ -707,6 +723,20 @@ class _SttChipState extends State<_SttChip> {
       case RecordingPhase.idle:
         // Fall through to STT subprocess state below.
         break;
+    }
+
+    // Idle — a missing or downloading model outranks the subprocess state:
+    // "Standby" would promise a dictation that cannot run yet.
+    final downloadPercent = widget.modelDownloadPercent;
+    if (downloadPercent != null) {
+      return (
+        WpColors.accent,
+        widget.l10n.statusBarModelDownloading(downloadPercent),
+        true,
+      );
+    }
+    if (widget.modelMissing) {
+      return (WpColors.warning, widget.l10n.statusBarModelMissing, false);
     }
 
     // Idle — show STT subprocess state.

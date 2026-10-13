@@ -52,6 +52,7 @@ import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
 import 'services/permissions/mic_permission_notifier.dart';
+import 'services/model_download_service.dart';
 import 'services/permissions/startup_permission_gate.dart';
 import 'services/permissions/stale_entry_removal_guide.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
@@ -1050,6 +1051,11 @@ class _AppShellState extends ConsumerState<_AppShell>
     final statusBarSttState = parakeetStatus != null
         ? _sttServerStateFor(parakeetStatus.state)
         : sttStatus.serverState;
+    final sttModelMissing = ref.watch(missingSttModelProvider) != null;
+    final modelDownload = ref.watch(modelDownloadProvider);
+    final sttModelDownloadPercent = modelDownload.isBusy
+        ? modelDownload.progressPercent
+        : null;
     // Parakeet has no GPU backend at all (CPU-only, see its `aboutParakeetDesc`
     // copy) — the indicator only earns its keep for the local Whisper engine,
     // where "GPU or CPU?" is an actual question with two possible answers.
@@ -1294,6 +1300,9 @@ class _AppShellState extends ConsumerState<_AppShell>
                                   sttStartingSince: parakeetStatus != null
                                       ? null
                                       : sttStatus.startingSince,
+                                  sttModelMissing: sttModelMissing,
+                                  sttModelDownloadPercent:
+                                      sttModelDownloadPercent,
                                   recordingPhase: recordingPhase,
                                   afterActionLabel:
                                       afterTranscriptionStatusLabel(

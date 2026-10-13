@@ -4137,6 +4137,42 @@ abstract class L10n {
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
 
+  /// No description provided for @infoModelMissingSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected speech model ({size}) isn\'t downloaded yet.'**
+  String infoModelMissingSelected(String size);
+
+  /// No description provided for @infoModelMissingDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download now'**
+  String get infoModelMissingDownload;
+
+  /// No description provided for @statusBarModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Model missing'**
+  String get statusBarModelMissing;
+
+  /// No description provided for @statusBarModelDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading model… {percent} %'**
+  String statusBarModelDownloading(int percent);
+
+  /// No description provided for @modelDownloadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get modelDownloadAction;
+
+  /// No description provided for @modelMissingDownloadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing — download'**
+  String get modelMissingDownloadAction;
+
   /// No description provided for @infoPipelineBusy.
   ///
   /// In en, this message translates to:
