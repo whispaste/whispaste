@@ -4,7 +4,7 @@ LA TUA VOCE RESTA SUL TUO MAC
 Due motori sul dispositivo fanno il lavoro: Whisper (Small, Medium o Large v3 Turbo, fino a 99 lingue, accelerato da Metal su Apple Silicon) e Parakeet, particolarmente veloce. Dopo il download del modello, che avviene una sola volta, la trascrizione funziona offline e il tuo audio non lascia mai il Mac. La trascrizione cloud tramite OpenAI o Deepgram è facoltativa, usa la tua chiave API e va direttamente al provider, mai tramite i server di WhisPaste. Non serve alcun account.
 
 SMART MODE
-Fai pulire, accorciare o tradurre il testo prima che venga incollato, sul tuo Mac o tramite OpenAI. Puoi anche applicarlo in seguito a una trascrizione passata.
+Fai pulire, accorciare o tradurre il testo prima che venga incollato, sul tuo Mac o tramite OpenAI. Puoi anche applicarlo in seguito a una trascrizione precedente.
 
 MODIFICA A VOCE IL TESTO SELEZIONATO
 Seleziona una frase in qualsiasi app, premi la scorciatoia della selezione e dì cosa deve cambiare, per esempio “rendilo più amichevole”. WhisPaste riscrive la selezione sul posto. Disattivato per impostazione predefinita.
@@ -13,10 +13,10 @@ VOICE SNIPPETS
 Pronuncia una parola di attivazione breve e WhisPaste inserisce il testo completo: firme, saluti, frasi ricorrenti o modelli interattivi con più campi.
 
 CRONOLOGIA ED ESPORTAZIONE
-Ogni trascrizione viene salvata sul tuo Mac. Cerca, tagga, fissa, archivia e unisci le voci, proteggi la cronologia con un PIN ed esporta in TXT, Markdown, JSON, CSV o Word. Note e note rapide raccolgono i pensieri più lunghi in un unico posto.
+Ogni trascrizione viene salvata sul tuo Mac. Cerca, tagga, fissa, archivia e unisci le voci, proteggi la cronologia con un PIN ed esporta in TXT, Markdown, JSON, CSV o Word. Note e appunti rapidi raccolgono i pensieri più lunghi in un unico posto.
 
 ACQUISTO UNICO, NON UN ABBONAMENTO
 Nessun abbonamento, nessun limite di tempo, nessun costo ricorrente. WhisPaste è open source (licenza MIT) e sviluppato apertamente su GitHub. Il tuo acquisto sostiene direttamente lo sviluppo.
 
 PENSATA PER IL LAVORO QUOTIDIANO
-Attiva/disattiva o push-to-talk · overlay in tempo reale mentre parli · pulsante di registrazione flottante · pannello laterale per l'incolla rapido sul bordo dello schermo · vocabolario personalizzato e sostituzioni · barra dei menu · avvio al login · interfaccia in inglese, tedesco, ebraico, russo, spagnolo e portoghese brasiliano (non ancora in italiano)
+Attiva/disattiva o push-to-talk · overlay in tempo reale mentre parli · pulsante di registrazione flottante · pannello laterale di incolla rapida sul bordo dello schermo · vocabolario personalizzato e sostituzioni · barra dei menu · avvio al login · interfaccia in inglese, tedesco, ebraico, russo, spagnolo e portoghese brasiliano (non ancora in italiano)

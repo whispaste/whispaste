@@ -7,7 +7,7 @@ SMART MODE
 Lass deinen Text vor dem Einfügen aufräumen, kürzen oder übersetzen, auf deinem Mac oder über OpenAI. Auch nachträglich auf eine frühere Transkription anwendbar.
 
 MARKIERTEN TEXT PER STIMME BEARBEITEN
-Markiere einen Satz in einer beliebigen App, drück den Auswahl-Hotkey und sag, was sich ändern soll, etwa „mach es freundlicher“. WhisPaste schreibt die Markierung direkt um. Standardmäßig aus.
+Markiere einen Satz in einer beliebigen App, drücke den Auswahl-Hotkey und sag, was sich ändern soll, etwa „mach es freundlicher“. WhisPaste schreibt die Markierung direkt um. Standardmäßig aus.
 
 TEXTBAUSTEINE PER STIMME
 Sag ein kurzes Stichwort, und WhisPaste fügt den vollständigen Text ein: Signaturen, Anreden, wiederkehrende Formulierungen oder interaktive Vorlagen mit mehreren Feldern.
