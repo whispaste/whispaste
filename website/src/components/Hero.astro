@@ -192,7 +192,7 @@ const platformBadges = [
         <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
       </p>
 
-      <!-- Platform badges (macOS · Windows · Ubuntu Linux, linked to the
+      <!-- Platform badges (macOS · Windows · Linux, linked to the
            matching download anchor) and the GitHub stars count share one quiet
            row. The OS detected by the data-os head script (Layout.astro) is
            highlighted via CSS only; unknown OS → all three equal. The stars
@@ -275,7 +275,7 @@ const platformBadges = [
     }
   }
 
-  /* ---- Platform-badge row (Issue 09): macOS / Windows / Ubuntu Linux ----
+  /* ---- Platform-badge row (Issue 09): macOS / Windows / Linux ----
      The base pill look matches the trust chips below (same Tailwind utility
      classes) for visual consistency; only the highlight state below needs
      custom CSS, since it must react to the `data-os` attribute set on <html>
