@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
-import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/navigation/page_state.dart';
@@ -52,9 +51,9 @@ import 'features/onboarding/mic_probe.dart'
 import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
-import 'services/paste/tcc_reset_notice.dart';
 import 'services/permissions/mic_permission_notifier.dart';
 import 'services/permissions/startup_permission_gate.dart';
+import 'services/permissions/stale_entry_removal_guide.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
 import 'services/automation_api/automation_api_controller.dart';
 import 'services/microphone_selection_service.dart';
@@ -544,14 +543,14 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// Strictly ordered startup sequence for everything permission-shaped:
   /// an onboarding revision run starts first — before any of the checks
   /// below read `onboardingRevisionRunning`, so none of them can race a
-  /// native dialog onto the onboarding surface — then the TCC-reset notice
-  /// hydrates the restart marker and runs the first capability probe, the
+  /// native dialog onto the onboarding surface — then the first capability
+  /// probe hydrates the cross-process recovery state, the
   /// restart watch must be armed before any grant flow can trigger a
   /// restart, and the proactive gate runs last so it reads a settled
   /// capability state.
   Future<void> _runStartupPermissionFlows() async {
     await _maybeStartOnboardingRevisionRun();
-    await _maybeShowTccResetNotice();
+    await _probeAutoPasteCapability();
     _setupAutoPasteRestartWatch();
     await _runStartupPermissionGate();
   }
@@ -616,15 +615,13 @@ class _AppShellState extends ConsumerState<_AppShell>
       }
       _restartModalActive = true;
       // Second-attempt awareness: if a grant-driven restart ALREADY happened
-      // (the cross-process marker is set) and we're back in "restart needed",
-      // a plain restart demonstrably isn't taking — auto-restarting again just
-      // loops the backgrounded user forever. Break out with an actionable
-      // manual alert (opens System Settings) instead of the forced restart.
-      final alreadyRestarted = ref
-          .read(pasteCapabilityNotifierProvider)
-          .restartAttempted;
-      if (alreadyRestarted) {
-        unawaited(_showManualGrantAlert());
+      // (the cross-process marker is set), or the grant was bound to another
+      // signature, another plain restart cannot help — the entry the user
+      // switched on is stale. Guide its removal instead; that guide ends in
+      // the one relaunch that does work.
+      final capState = ref.read(pasteCapabilityNotifierProvider);
+      if (capState.restartAttempted || capState.signatureChanged) {
+        unawaited(_guideStaleEntryRemoval());
       } else {
         unawaited(_showForcedRestartModal(notifier));
       }
@@ -646,77 +643,28 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
   }
 
-  /// The loop exit: a plain restart already ran and the permission is STILL
-  /// missing, so instead of forcing yet another relaunch this native alert
-  /// tells the user plainly and — on confirm — opens System Settings →
-  /// Accessibility so they can verify/re-toggle WhisPaste themselves. Surfaces
-  /// even when backgrounded, so the honest dead-end is never buried on a
-  /// settings page the user doesn't have open.
-  Future<void> _showManualGrantAlert() async {
+  /// Guides the removal of a stale Auto-Paste entry and relaunches on
+  /// confirm — see `stale_entry_removal_guide.dart`. Native and always on top,
+  /// so it reaches the tray-only user too.
+  Future<void> _guideStaleEntryRemoval() async {
     if (!mounted) return;
-    final l10n = L10n.of(context);
-    await MacOSLifecycleChannel.showManualGrantAlert(
-      title: l10n.pasteManualGrantAlertTitle,
-      body: l10n.pasteManualGrantAlertBody,
-      confirmLabel: l10n.pasteManualGrantAlertConfirm,
+    await runStaleEntryRemovalGuide(
+      l10n: L10n.of(context),
+      notifier: ref.read(pasteCapabilityNotifierProvider.notifier),
     );
   }
 
-  /// Proactive, one-time-per-version nudge when macOS reset the Auto-Paste
-  /// (Accessibility) permission as a side effect of an app update — see
-  /// tcc_reset_notice.dart. Previously the only way to discover a reset
-  /// permission was to stumble into Settings → After Transcription; this
-  /// surfaces it right after the update that caused it, with a one-tap fix.
-  Future<void> _maybeShowTccResetNotice() async {
+  /// Settles the Auto-Paste capability state before any permission surface
+  /// reads it. Hydrating BEFORE the first probe matters twice: the cold-start
+  /// `capability.probed` breadcrumb carries the restart marker, and the
+  /// signature comparison is what tells a stale entry apart from a missing
+  /// toggle. Deliberately no UI here — the startup gate is the single
+  /// surface that acts on the result, so a launch never stacks two dialogs.
+  Future<void> _probeAutoPasteCapability() async {
     if (!Platform.isMacOS) return;
     final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    // Hydrate the cross-process restart marker BEFORE the first probe so the
-    // cold-start `capability.probed` breadcrumb carries it — that single trace
-    // is what tells "the grant never persisted" apart from "the restart never
-    // produced a fresh process" on the next live test.
     await capNotifier.hydrateRestartMarker();
     await capNotifier.check();
-    if (!mounted) return;
-    // The probe above stays (it settles the capability state the startup
-    // gate reads), but the notice itself is an Auto-Paste surface — never
-    // show it to users whose after-transcription action doesn't paste.
-    if (!_userPastesAfterTranscription()) return;
-    final capability = ref.read(pasteCapabilityNotifierProvider).capability;
-    final onboarding = ref.read(settingsProvider).value?.onboarding;
-    final shouldShow = await maybeMarkTccResetNoticeVersion(
-      currentVersion: appVersion,
-      onboardingCompleted: onboarding?.onboardingCompleted ?? false,
-      onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
-      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
-      isMacOS: true,
-      capabilityStatus: capability?.status,
-    );
-    if (!shouldShow || !mounted) return;
-    final l10n = L10n.of(context);
-    WpToast.show(
-      context,
-      message: l10n.tccResetAfterUpdateToast,
-      type: WpToastType.warning,
-      duration: const Duration(seconds: 12),
-      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the WpButton in _ToastCard.build derives its accessible label from `label`
-      action: WpToastAction(
-        label: l10n.pasteCapabilityGrantButton,
-        onPressed: () => unawaited(_grantAccessibilityFromNotice(capNotifier)),
-      ),
-    );
-  }
-
-  Future<void> _grantAccessibilityFromNotice(
-    PasteCapabilityNotifier capNotifier,
-  ) async {
-    // This notice only fires when a signature change was just detected (see
-    // shouldShowTccResetNotice) — the entry is bound to the old code-signing
-    // hash, so unlike the general requestGrant() flow (which assumes a
-    // possibly-still-good grant and tries a non-destructive restart before
-    // ever wiping anything), repair() here is the correct first step, not an
-    // escalation: a plain re-request would just re-hit the same stale entry.
-    await capNotifier.repair();
-    await capNotifier.requestGrant();
   }
 
   /// Proactive permission gate: on EVERY start (after onboarding has been
@@ -754,7 +702,7 @@ class _AppShellState extends ConsumerState<_AppShell>
               readStatus: _readAutoPasteGateStatus,
               showGrantAlert: _showAutoPasteGateGrantAlert,
               startGrantFlow: _startAutoPasteGateGrantFlow,
-              showManualGrantAlert: _showManualGrantAlert,
+              guideStaleEntryRemoval: _guideStaleEntryRemoval,
             )
           : null,
     );
@@ -833,9 +781,8 @@ class _AppShellState extends ConsumerState<_AppShell>
   }
 
   /// Whether the current user's resolved after-transcription action
-  /// actually injects keystrokes. The one predicate all three proactive
-  /// Auto-Paste surfaces (startup gate, restart watch, TCC-reset notice)
-  /// share — see [afterTranscriptionActionPastes]. Unloaded settings count
+  /// actually injects keystrokes. The one predicate both proactive
+  /// Auto-Paste surfaces (startup gate, restart watch) share — see [afterTranscriptionActionPastes]. Unloaded settings count
   /// as "doesn't paste": the factory default is clipboard-only, and a
   /// permission dialog must never fire on a guess.
   bool _userPastesAfterTranscription() {
@@ -853,7 +800,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     var capability = ref.read(pasteCapabilityNotifierProvider).capability;
     if (capability == null) {
-      // Normally _maybeShowTccResetNotice has already probed; this is the
+      // Normally _probeAutoPasteCapability has already probed; this is the
       // fallback for an early-failed probe.
       await notifier.hydrateRestartMarker();
       await notifier.check();
@@ -862,9 +809,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     if (capability?.status != PasteCapabilityStatus.permissionMissing) {
       return AutoPasteGateStatus.notNeeded;
     }
-    if (notifier.restartWasIneffective) {
-      return AutoPasteGateStatus.missingAfterIneffectiveRestart;
-    }
+    if (notifier.staleEntrySuspected) return AutoPasteGateStatus.staleEntry;
     // `grantRequiresEntryReset` is the live-probe (Developer-ID / ad-hoc)
     // build — the one where the grant handoff calls
     // `AXIsProcessTrustedWithOptions(prompt:)` and macOS therefore raises its
@@ -900,7 +845,7 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// "how do we hand off" decision can never drift apart:
   ///
   /// * live-probe build (Developer-ID / ad-hoc) → [repairAndRequestGrant], the
-  ///   repair-aware pendant of [_grantAccessibilityFromNotice]. A bare
+  ///   repair-aware grant flow. A bare
   ///   `requestGrant()` would send the user to a Settings row that is already
   ///   switched on (live-reported dead end, verified: `repairTccEntries` never
   ///   appeared in the native log).

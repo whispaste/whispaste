@@ -92,10 +92,10 @@ enum AutoPasteGateOutcome {
   /// ([AutoPasteGateStatus.missingWithOsPrompt]).
   grantFlowStarted,
 
-  /// A grant-driven restart already ran and the permission is STILL
-  /// missing — the honest manual-grant loop-exit alert was shown instead of
-  /// forcing another restart cycle.
-  manualAlertShown,
+  /// The permission entry is stale ([AutoPasteGateStatus.staleEntry]) and
+  /// the user was guided through removing it — the one fix a sandboxed build
+  /// cannot apply itself. Ends in a relaunch when the user confirms.
+  staleEntryGuideShown,
 
   /// The user declined the guided grant alert ("Not now") — no Settings
   /// pane, no grant flow. Re-offered on the next start while Auto-Paste
@@ -138,9 +138,14 @@ enum AutoPasteGateStatus {
   /// missing toggle, so it stays.
   missing,
 
-  /// Permission missing although a grant-driven restart already ran
-  /// (`PasteCapabilityNotifier.restartWasIneffective`).
-  missingAfterIneffectiveRestart,
+  /// Permission missing and the existing entry is stale
+  /// (`PasteCapabilityNotifier.staleEntrySuspected`): bound to another code
+  /// signature, or still not working after a grant-driven restart. On the
+  /// sandboxed build neither a new request nor a toggle can fix that — macOS
+  /// shows no dialog for an existing entry, and toggling never rebinds it —
+  /// so the user is guided to remove the entry once and relaunch, after which
+  /// macOS asks afresh.
+  staleEntry,
 }
 
 /// Microphone-side seams. All UI hooks resolve when the user has acted (or
@@ -185,7 +190,7 @@ class AutoPasteGateHooks {
     required this.readStatus,
     required this.showGrantAlert,
     required this.startGrantFlow,
-    required this.showManualGrantAlert,
+    required this.guideStaleEntryRemoval,
   });
 
   /// Collapses capability + settings into the gate's view. Expected to have
@@ -209,9 +214,9 @@ class AutoPasteGateHooks {
   /// from there (forced-restart modal on MAS, live flip on Developer-ID).
   final Future<void> Function() startGrantFlow;
 
-  /// Presents the honest "the restart didn't help — re-check System
-  /// Settings" loop-exit dialog.
-  final Future<void> Function() showManualGrantAlert;
+  /// Guides the user through removing the stale entry and relaunching.
+  /// Resolves once the user made a choice (or the guide could not be shown).
+  final Future<void> Function() guideStaleEntryRemoval;
 }
 
 /// Orchestrates one startup pass over both permissions. Construct fresh per
@@ -307,9 +312,9 @@ class StartupPermissionGate {
       switch (await hooks.readStatus()) {
         case AutoPasteGateStatus.notNeeded:
           return AutoPasteGateOutcome.notNeeded;
-        case AutoPasteGateStatus.missingAfterIneffectiveRestart:
-          await hooks.showManualGrantAlert();
-          return AutoPasteGateOutcome.manualAlertShown;
+        case AutoPasteGateStatus.staleEntry:
+          await hooks.guideStaleEntryRemoval();
+          return AutoPasteGateOutcome.staleEntryGuideShown;
         case AutoPasteGateStatus.missingWithOsPrompt:
           // macOS raises its own alert inside the grant flow — a pre-alert
           // here would be the same question twice. See the enum doc.

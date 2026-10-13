@@ -962,6 +962,7 @@
 					"@executable_path/../Frameworks",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D MAS_BUILD";
+				PRODUCT_BUNDLE_IDENTIFIER = de.whispaste.app;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};

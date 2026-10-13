@@ -206,9 +206,12 @@
   "pasteRestartAlertTitle": "WhisPaste jetzt neu starten",
   "pasteRestartAlertBody": "Die Auto-Einfügen-Berechtigung ist gesetzt, greift aber erst nach einem Neustart. WhisPaste beendet sich und kommt sofort zurück.",
   "pasteRestartAlertConfirm": "Jetzt neu starten",
-  "pasteManualGrantAlertTitle": "Neustart hat nicht geholfen",
-  "pasteManualGrantAlertBody": "WhisPaste wurde bereits neu gestartet, aber die Auto-Einfügen-Berechtigung greift immer noch nicht. Bitte prüfe in den Systemeinstellungen unter Datenschutz & Sicherheit → Bedienungshilfen, ob WhisPaste dort aktiviert ist, und aktiviere den Schalter bei Bedarf neu.",
-  "pasteManualGrantAlertConfirm": "Systemeinstellungen öffnen",
+  "pasteStaleEntryGuideTitle": "Alten WhisPaste-Eintrag entfernen",
+  "pasteStaleEntryGuideBody": "macOS hält noch die Auto-Einfügen-Berechtigung einer früheren WhisPaste-Version fest. Dieser Eintrag lässt sich nicht einschalten – er muss einmal entfernt werden:\n\n1. In der Liste „WhisPaste“ auswählen.\n2. Unter der Liste auf „−“ klicken.\n3. Zu WhisPaste zurückkehren.\n\nNach einem Neustart fragt macOS erneut – einfach erlauben.",
+  "pasteStaleEntryGuideConfirm": "Systemeinstellungen öffnen",
+  "pasteStaleEntryRestartTitle": "WhisPaste neu starten",
+  "pasteStaleEntryRestartBody": "Sobald der alte Eintrag entfernt ist, starte WhisPaste neu. macOS fragt dann erneut nach der Berechtigung – bestätige sie und schalte WhisPaste ein.",
+  "pasteStaleEntryRestartConfirm": "WhisPaste neu starten",
   "permissionAlertLaterButton": "Später",
   "micGateAlertTitle": "Mikrofonzugriff fehlt",
   "micGateAlertBody": "Ohne Mikrofonzugriff kann WhisPaste nichts aufnehmen. Bestätige, um Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon zu öffnen — aktiviere dort den Schalter für WhisPaste. Deine Freigabe erkennt WhisPaste automatisch.",
@@ -348,7 +351,6 @@
   "settingsAutosaveErrorLocation": "Autosicherung fehlgeschlagen: Der gewählte Ordner ist nicht erreichbar.",
   "settingsAutosaveErrorWrite": "Autosicherung fehlgeschlagen: {reason}",
   "groqRemovedToast": "Groq STT wurde entfernt. Provider auf On-Device zurückgesetzt.",
-  "tccResetAfterUpdateToast": "macOS hat deine Auto-Paste-Berechtigung beim Update zurückgesetzt.",
   "migrationComplete": "{count, plural, one{1 Aufnahme von WhisPaste 1.x migriert} other{{count} Aufnahmen von WhisPaste 1.x migriert}}",
   "@migrationComplete": {
     "placeholders": {

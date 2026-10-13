@@ -1490,4 +1490,166 @@ void main() {
       },
     );
   });
+
+  group('PasteCapabilityNotifier — signature change / stale entry', () {
+    const oldRequirement = 'identifier "de.whispaste.app" and anchor apple';
+    const newRequirement =
+        'identifier "de.whispaste.app" and certificate leaf = H"abc"';
+
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Future<PasteCapabilityNotifier> hydrated(
+      ProviderContainer container, {
+      required bool masBuild,
+      String? running = newRequirement,
+    }) async {
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier)
+        ..usesCachedPermissionProbe = masBuild
+        ..readSigningRequirement = () async => running;
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
+      return notifier;
+    }
+
+    test('a grant bound to another signature is a stale entry on the MAS '
+        'build — on the very first start, without any restart', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).signatureChanged,
+        isTrue,
+      );
+      expect(notifier.staleEntrySuspected, isTrue);
+    });
+
+    test('an unchanged signature is an ordinary first contact', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: newRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(notifier.staleEntrySuspected, isFalse);
+    });
+
+    test('no remembered signature (fresh install) is no evidence', () async {
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(notifier.staleEntrySuspected, isFalse);
+    });
+
+    test('an unreadable running signature is no evidence', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true, running: null);
+
+      expect(notifier.staleEntrySuspected, isFalse);
+    });
+
+    test(
+      'an ineffective restart counts as a stale entry on the MAS build',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          kAutoPasteRestartMarkerKey: true,
+        });
+        final container = _container(paster: _FakePaster());
+        addTearDown(container.dispose);
+
+        final notifier = await hydrated(container, masBuild: true);
+
+        expect(notifier.staleEntrySuspected, isTrue);
+      },
+    );
+
+    test('the live-probe build never needs the guide — it resets the entry '
+        'itself before every grant flow', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: false);
+
+      expect(notifier.requiresManualEntryRemoval, isFalse);
+      expect(notifier.staleEntrySuspected, isFalse);
+      expect(notifier.grantRequiresEntryReset, Platform.isMacOS);
+    });
+
+    test('a ready probe remembers the running signature and clears the '
+        'stale signal', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final paster = _FakePaster(
+        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).signatureChanged,
+        isFalse,
+      );
+      expect(notifier.staleEntrySuspected, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(kAutoPasteGrantedSigningRequirementKey),
+        newRequirement,
+      );
+    });
+
+    test('restartForEntryRemoval clears both cross-process markers so the '
+        'fresh process is a genuine first contact (no guide loop)', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      const channel = MethodChannel('com.whispaste.app_lifecycle');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+      final notifier = await hydrated(container, masBuild: true);
+      expect(notifier.staleEntrySuspected, isTrue);
+
+      await notifier.restartForEntryRemoval();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kAutoPasteRestartMarkerKey), isNull);
+      expect(prefs.getString(kAutoPasteGrantedSigningRequirementKey), isNull);
+      if (Platform.isMacOS) expect(calls, contains('restart'));
+
+      // What the relaunched process sees: no evidence of a stale entry left.
+      final fresh = _container(paster: _FakePaster());
+      addTearDown(fresh.dispose);
+      final freshNotifier = await hydrated(fresh, masBuild: true);
+      expect(freshNotifier.staleEntrySuspected, isFalse);
+    });
+  });
 }

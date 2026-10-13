@@ -148,24 +148,6 @@ class MacOSLifecycleChannel {
     confirmLabel: confirmLabel,
   );
 
-  /// Presents the native "the restart didn't apply the permission — check
-  /// System Settings" modal, shown when a grant-driven restart already ran and
-  /// the permission is still missing. Confirming opens System Settings →
-  /// Privacy & Security → Accessibility natively. This is the loop exit for the
-  /// backgrounded, tray-only user: unlike [showRestartRequiredAlert] it does
-  /// NOT relaunch, so a permission that genuinely won't persist can't force an
-  /// endless restart cycle. Same idempotency/always-on-top behavior.
-  static Future<void> showManualGrantAlert({
-    required String title,
-    required String body,
-    required String confirmLabel,
-  }) => _invokeAlert(
-    'showManualGrantAlert',
-    title: title,
-    body: body,
-    confirmLabel: confirmLabel,
-  );
-
   /// Callbacks keyed by alert id, invoked (with the user's confirm/decline
   /// choice) when the native side reports a [showPermissionGrantAlert]
   /// dialog was dismissed — via the inbound `permissionAlertConfirmed`
@@ -179,7 +161,7 @@ class MacOSLifecycleChannel {
   /// HIG a permission surface must always be declinable. Runs [onDismiss]
   /// on the Dart side with the user's choice.
   ///
-  /// Unlike the fixed-behavior restart/manual-grant alerts, dismissing this
+  /// Unlike the fixed-behavior restart alert, dismissing this
   /// one performs no native action — the native side calls back with [id]
   /// and the registered [onDismiss] decides what happens (open a settings
   /// pane, start a grant flow, or nothing on decline). Requires
@@ -215,8 +197,66 @@ class MacOSLifecycleChannel {
     }
   }
 
-  /// Shared invoker for the two native always-on-top alert channel methods —
-  /// identical marshalling, only the method name differs.
+  /// Mac App Store build only: guides the user through removing a stale
+  /// Accessibility entry — the one thing a sandboxed app cannot do itself.
+  /// Step 1 ([title]/[body]) explains it and, on confirm, opens the
+  /// Accessibility pane; step 2 ([restartTitle]/[restartBody]) appears once
+  /// the user is back in WhisPaste and offers the relaunch. [onDismiss]
+  /// fires once: `true` only when the user asked for that relaunch, which
+  /// the caller performs (it must persist its recovery marker first).
+  ///
+  /// Returns `false` when the channel call failed — [onDismiss] will then
+  /// never fire.
+  static Future<bool> showStaleEntryRemovalGuide({
+    required String id,
+    required String title,
+    required String body,
+    required String confirmLabel,
+    required String cancelLabel,
+    required String restartTitle,
+    required String restartBody,
+    required String restartConfirmLabel,
+    required String restartCancelLabel,
+    required void Function(bool restart) onDismiss,
+  }) async {
+    if (!Platform.isMacOS) return false;
+    _permissionAlertCallbacks[id] = onDismiss;
+    try {
+      await _channel.invokeMethod('showStaleEntryRemovalGuide', {
+        'id': id,
+        'title': title,
+        'body': body,
+        'confirmLabel': confirmLabel,
+        'cancelLabel': cancelLabel,
+        'restartTitle': restartTitle,
+        'restartBody': restartBody,
+        'restartConfirmLabel': restartConfirmLabel,
+        'restartCancelLabel': restartCancelLabel,
+      });
+      return true;
+    } on PlatformException catch (e) {
+      _permissionAlertCallbacks.remove(id);
+      _log.warning('showStaleEntryRemovalGuide failed', e);
+      return false;
+    }
+  }
+
+  /// The designated code-signing requirement of the running app — the
+  /// identity macOS binds privacy grants to. `null` off macOS, on unsigned
+  /// builds, or when the channel call fails.
+  static Future<String?> signingRequirement() async {
+    if (!Platform.isMacOS) return null;
+    try {
+      return await _channel.invokeMethod<String>('signingRequirement');
+    } on PlatformException catch (e) {
+      _log.warning('signingRequirement failed', e);
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// Shared invoker for the fixed-behavior native always-on-top alerts.
   static Future<void> _invokeAlert(
     String method, {
     required String title,

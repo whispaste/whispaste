@@ -246,9 +246,12 @@
   "pasteRestartAlertTitle": "Restart WhisPaste now",
   "pasteRestartAlertBody": "The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.",
   "pasteRestartAlertConfirm": "Restart now",
-  "pasteManualGrantAlertTitle": "The restart didn't help",
-  "pasteManualGrantAlertBody": "WhisPaste already restarted, but the Auto-Paste permission still isn't taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.",
-  "pasteManualGrantAlertConfirm": "Open System Settings",
+  "pasteStaleEntryGuideTitle": "Remove the old WhisPaste entry",
+  "pasteStaleEntryGuideBody": "macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can't be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.",
+  "pasteStaleEntryGuideConfirm": "Open System Settings",
+  "pasteStaleEntryRestartTitle": "Restart WhisPaste",
+  "pasteStaleEntryRestartBody": "Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.",
+  "pasteStaleEntryRestartConfirm": "Restart WhisPaste",
   "permissionAlertLaterButton": "Not now",
   "micGateAlertTitle": "Microphone access is missing",
   "micGateAlertBody": "WhisPaste can't record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.",
@@ -437,7 +440,6 @@
     }
   },
   "groqRemovedToast": "Groq STT was removed. Provider reset to On-Device.",
-  "tccResetAfterUpdateToast": "macOS reset your Auto-Paste permission during the update.",
   "migrationComplete": "{count, plural, one{1 recording migrated from WhisPaste 1.x} other{{count} recordings migrated from WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {

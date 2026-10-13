@@ -702,14 +702,24 @@ class L10nRu extends L10n {
   String get pasteRestartAlertConfirm => 'Перезапустить';
 
   @override
-  String get pasteManualGrantAlertTitle => 'Перезапуск не помог';
+  String get pasteStaleEntryGuideTitle => 'Удалите старую запись WhisPaste';
 
   @override
-  String get pasteManualGrantAlertBody =>
-      'WhisPaste перезапустился, но разрешение так и не заработало. Пожалуйста, проверьте Системные настройки → Конфиденциальность и безопасность → Универсальный доступ.';
+  String get pasteStaleEntryGuideBody =>
+      'macOS всё ещё хранит разрешение на автовставку от предыдущей версии WhisPaste. Эту запись нельзя включить — её нужно один раз удалить:\n\n1. Выберите «WhisPaste» в списке.\n2. Нажмите «−» под списком.\n3. Вернитесь в WhisPaste.\n\nПосле перезапуска macOS спросит снова — просто разрешите.';
 
   @override
-  String get pasteManualGrantAlertConfirm => 'Открыть Системные настройки';
+  String get pasteStaleEntryGuideConfirm => 'Открыть Системные настройки';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'Перезапустить WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'Когда старая запись удалена, перезапустите WhisPaste. macOS снова запросит разрешение — подтвердите его и включите WhisPaste.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'Перезапустить WhisPaste';
 
   @override
   String get permissionAlertLaterButton => 'Не сейчас';
@@ -1166,10 +1176,6 @@ class L10nRu extends L10n {
   @override
   String get groqRemovedToast =>
       'STT Groq был удален. Провайдер сброшен на устройство.';
-
-  @override
-  String get tccResetAfterUpdateToast =>
-      'macOS сбросила ваше разрешение во время обновления.';
 
   @override
   String migrationComplete(int count) {

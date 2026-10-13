@@ -544,7 +544,7 @@ platform :mac do
       # staples the ticket to the .app on success.
       notarize(
         package:      app_path,
-        bundle_id:    "de.whispaste.app",
+        bundle_id:    "de.whispaste.direct",
         api_key:      api_key
       )
     end

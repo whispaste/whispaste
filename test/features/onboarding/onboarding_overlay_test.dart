@@ -163,6 +163,12 @@ class _TroubleshootPasteCapabilityNotifier extends PasteCapabilityNotifier {
   @override
   Future<TccRepairResult> repair() async =>
       const TccRepairResult(accessibilityCleared: 0, appleEventsCleared: 0);
+
+  // Keep the in-page repair (and its result banner) on screen: a real MAS
+  // build hands that button to the native removal guide instead, which adds
+  // nothing to the page — this fake measures the tallest layout either way.
+  @override
+  bool get requiresManualEntryRemoval => false;
 }
 
 /// Seeds one Auto-Paste phase and holds it against the step's on-mount

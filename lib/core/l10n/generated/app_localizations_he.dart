@@ -661,14 +661,24 @@ class L10nHe extends L10n {
   String get pasteRestartAlertConfirm => 'הפעל מחדש עכשיו';
 
   @override
-  String get pasteManualGrantAlertTitle => 'ההפעלה מחדש לא עזרה';
+  String get pasteStaleEntryGuideTitle => 'הסר את הרשומה הישנה של WhisPaste';
 
   @override
-  String get pasteManualGrantAlertBody =>
-      'WhisPaste כבר הופעל מחדש, אך הרשאת ההדבקה האוטומטית עדיין אינה נכנסת לתוקף. בדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות אם WhisPaste מופעל שם, והפעל מחדש את המתג במידת הצורך.';
+  String get pasteStaleEntryGuideBody =>
+      'macOS עדיין שומר את הרשאת ההדבקה האוטומטית של גרסה קודמת של WhisPaste. אי אפשר להפעיל את הרשומה הזו — יש להסיר אותה פעם אחת:\n\n1. בחר ב-„WhisPaste“ ברשימה.\n2. לחץ על „−“ מתחת לרשימה.\n3. חזור ל-WhisPaste.\n\nלאחר הפעלה מחדש macOS ישאל שוב — פשוט אשר.';
 
   @override
-  String get pasteManualGrantAlertConfirm => 'פתח את הגדרות המערכת';
+  String get pasteStaleEntryGuideConfirm => 'פתח את הגדרות המערכת';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'הפעל מחדש את WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'לאחר שהרשומה הישנה הוסרה, הפעל מחדש את WhisPaste. macOS יבקש את ההרשאה שוב — אשר אותה והפעל את WhisPaste.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'הפעל מחדש את WhisPaste';
 
   @override
   String get permissionAlertLaterButton => 'לא עכשיו';
@@ -1116,10 +1126,6 @@ class L10nHe extends L10n {
 
   @override
   String get groqRemovedToast => 'Groq STT הוסר. ספק אופס למקומי.';
-
-  @override
-  String get tccResetAfterUpdateToast =>
-      'macOS איפסה את הרשאת ההדבקה האוטומטית במהלך העדכון.';
 
   @override
   String migrationComplete(int count) {

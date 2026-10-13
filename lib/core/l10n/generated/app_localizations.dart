@@ -1263,23 +1263,41 @@ abstract class L10n {
   /// **'Restart now'**
   String get pasteRestartAlertConfirm;
 
-  /// No description provided for @pasteManualGrantAlertTitle.
+  /// No description provided for @pasteStaleEntryGuideTitle.
   ///
   /// In en, this message translates to:
-  /// **'The restart didn\'t help'**
-  String get pasteManualGrantAlertTitle;
+  /// **'Remove the old WhisPaste entry'**
+  String get pasteStaleEntryGuideTitle;
 
-  /// No description provided for @pasteManualGrantAlertBody.
+  /// No description provided for @pasteStaleEntryGuideBody.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste already restarted, but the Auto-Paste permission still isn\'t taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.'**
-  String get pasteManualGrantAlertBody;
+  /// **'macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can\'t be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.'**
+  String get pasteStaleEntryGuideBody;
 
-  /// No description provided for @pasteManualGrantAlertConfirm.
+  /// No description provided for @pasteStaleEntryGuideConfirm.
   ///
   /// In en, this message translates to:
   /// **'Open System Settings'**
-  String get pasteManualGrantAlertConfirm;
+  String get pasteStaleEntryGuideConfirm;
+
+  /// No description provided for @pasteStaleEntryRestartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste'**
+  String get pasteStaleEntryRestartTitle;
+
+  /// No description provided for @pasteStaleEntryRestartBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.'**
+  String get pasteStaleEntryRestartBody;
+
+  /// No description provided for @pasteStaleEntryRestartConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste'**
+  String get pasteStaleEntryRestartConfirm;
 
   /// No description provided for @permissionAlertLaterButton.
   ///
@@ -2018,12 +2036,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Groq STT was removed. Provider reset to On-Device.'**
   String get groqRemovedToast;
-
-  /// No description provided for @tccResetAfterUpdateToast.
-  ///
-  /// In en, this message translates to:
-  /// **'macOS reset your Auto-Paste permission during the update.'**
-  String get tccResetAfterUpdateToast;
 
   /// No description provided for @migrationComplete.
   ///

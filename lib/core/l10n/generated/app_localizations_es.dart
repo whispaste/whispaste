@@ -670,14 +670,25 @@ class L10nEs extends L10n {
   String get pasteRestartAlertConfirm => 'Reiniciar ahora';
 
   @override
-  String get pasteManualGrantAlertTitle => 'El reinicio no sirvió';
+  String get pasteStaleEntryGuideTitle =>
+      'Quitar la entrada antigua de WhisPaste';
 
   @override
-  String get pasteManualGrantAlertBody =>
-      'WhisPaste ya se ha reiniciado, pero el permiso de Auto-Paste sigue sin aplicarse. Comprueba en Ajustes del Sistema → Privacidad y seguridad → Accesibilidad que WhisPaste esté activado y, si hace falta, vuelve a activar el interruptor.';
+  String get pasteStaleEntryGuideBody =>
+      'macOS todavía conserva el permiso de Auto-Paste de una versión anterior de WhisPaste. Esa entrada no se puede activar: hay que quitarla una vez:\n\n1. Selecciona «WhisPaste» en la lista.\n2. Haz clic en «−» debajo de la lista.\n3. Vuelve a WhisPaste.\n\nTras reiniciar, macOS te lo volverá a preguntar: simplemente permítelo.';
 
   @override
-  String get pasteManualGrantAlertConfirm => 'Abrir Ajustes del Sistema';
+  String get pasteStaleEntryGuideConfirm => 'Abrir Ajustes del Sistema';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'Reiniciar WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'Cuando hayas quitado la entrada antigua, reinicia WhisPaste. macOS volverá a pedir el permiso: confírmalo y activa WhisPaste.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'Reiniciar WhisPaste';
 
   @override
   String get permissionAlertLaterButton => 'Ahora no';
@@ -1136,10 +1147,6 @@ class L10nEs extends L10n {
   @override
   String get groqRemovedToast =>
       'Groq STT se ha eliminado. El proveedor se ha restablecido a En el dispositivo.';
-
-  @override
-  String get tccResetAfterUpdateToast =>
-      'macOS restableció tu permiso de Auto-Paste durante la actualización.';
 
   @override
   String migrationComplete(int count) {

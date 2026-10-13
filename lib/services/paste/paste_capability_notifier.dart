@@ -70,6 +70,15 @@ const String onboardingAutoPasteBreadcrumbCategory = 'onboarding.autopaste';
 /// Settings", and it self-clears the instant the capability turns ready.
 const String kAutoPasteRestartMarkerKey = 'auto_paste_restart_attempted';
 
+/// SharedPreferences key: the code-signing designated requirement the
+/// Auto-Paste permission last worked for. macOS binds the grant to exactly
+/// this requirement, so a different value on a later start proves the
+/// existing System Settings entry belongs to another signature — it may still
+/// show as switched on, but it can never apply to the running app again (see
+/// [PasteCapabilityState.signatureChanged]).
+const String kAutoPasteGrantedSigningRequirementKey =
+    'auto_paste_granted_signing_requirement';
+
 /// Explicit lifecycle phase of the capability polling loop.
 ///
 /// Replaces the implicit `_pollTimer != null` view of the world with a state
@@ -119,6 +128,7 @@ class PasteCapabilityState {
     this.sentToOsGrantFlow = false,
     this.pollingPhase = PollingPhase.idle,
     this.restartAttempted = false,
+    this.signatureChanged = false,
   });
 
   /// Latest probe result. `null` means "no probe has resolved yet".
@@ -142,17 +152,25 @@ class PasteCapabilityState {
   /// state. See [PasteCapabilityNotifier.restartWasIneffective].
   final bool restartAttempted;
 
+  /// Hydrated at startup: `true` when the permission last worked for a
+  /// different code signature than the running app's. A permission that reads
+  /// missing in that state is a stale entry for certain — not a toggle the
+  /// user forgot. See [kAutoPasteGrantedSigningRequirementKey].
+  final bool signatureChanged;
+
   PasteCapabilityState copyWith({
     PasteCapability? capability,
     bool? sentToOsGrantFlow,
     PollingPhase? pollingPhase,
     bool? restartAttempted,
+    bool? signatureChanged,
   }) {
     return PasteCapabilityState(
       capability: capability ?? this.capability,
       sentToOsGrantFlow: sentToOsGrantFlow ?? this.sentToOsGrantFlow,
       pollingPhase: pollingPhase ?? this.pollingPhase,
       restartAttempted: restartAttempted ?? this.restartAttempted,
+      signatureChanged: signatureChanged ?? this.signatureChanged,
     );
   }
 }
@@ -219,6 +237,16 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// [requestGrant]/[openAccessibilitySettings] additionally gate on
   /// [PasteCapabilityState.restartAttempted] for exactly that case.
   bool _osPromptFiredThisProcess = false;
+
+  /// Reads the running app's designated requirement. Settable so tests can
+  /// simulate a signature change without a platform channel.
+  @visibleForTesting
+  Future<String?> Function() readSigningRequirement =
+      MacOSLifecycleChannel.signingRequirement;
+
+  /// The running app's designated requirement, read once by
+  /// [hydrateRestartMarker]. `null` until then, off macOS, or when unreadable.
+  String? _signingRequirement;
 
   @override
   PasteCapabilityState build() {
@@ -381,6 +409,35 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       state.restartAttempted &&
       requiredAction == PastePermissionAction.grant;
 
+  /// `true` on the build that cannot clear its own permission entry (the
+  /// sandboxed Mac App Store build: no `tccutil`, Guideline 2.5.2). There a
+  /// stale entry needs the user to remove it once — see
+  /// [restartForEntryRemoval].
+  bool get requiresManualEntryRemoval =>
+      Platform.isMacOS && usesCachedPermissionProbe;
+
+  /// `true` when the missing permission is almost certainly a stale entry on
+  /// the build that cannot remove it itself ([requiresManualEntryRemoval]).
+  ///
+  /// Two independent signals, verified on macOS 26:
+  ///
+  ///   1. [PasteCapabilityState.signatureChanged] — the grant was bound to
+  ///      another signature. macOS keeps that old entry switched on in System
+  ///      Settings, never shows its own dialog again, and toggling the row
+  ///      off and on does not rebind it. Only removing it and relaunching does.
+  ///   2. [restartWasIneffective] — the grant-driven restart already ran and
+  ///      the permission is still missing. Either the user never switched it
+  ///      on, or the row they switched on is stale. Guiding the removal covers
+  ///      both: a removed entry makes the next fresh process show macOS's own
+  ///      dialog again.
+  ///
+  /// The live-probe build never needs this: [repairAndRequestGrant] clears the
+  /// entry itself before every grant flow.
+  bool get staleEntrySuspected =>
+      requiresManualEntryRemoval &&
+      state.capability?.status == PasteCapabilityStatus.permissionMissing &&
+      (state.signatureChanged || restartWasIneffective);
+
   /// Runs one capability probe through the [Paster].
   ///
   /// Overlapping **probes** are coalesced — a second `check()` entered while
@@ -446,9 +503,9 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       // The capability is live again — clear the persisted restart marker so
       // the honest "restart didn't take" copy never lingers after a genuine
       // recovery, and a future missing state starts clean.
-      if (result.status == PasteCapabilityStatus.ready &&
-          state.restartAttempted) {
-        await _clearRestartMarker();
+      if (result.status == PasteCapabilityStatus.ready) {
+        if (state.restartAttempted) await _clearRestartMarker();
+        await _rememberGrantedSignature();
       }
     } finally {
       if (!rodeAlong) _checkInFlight = false;
@@ -576,8 +633,40 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       if (marked && !state.restartAttempted) {
         state = state.copyWith(restartAttempted: true);
       }
+      _signingRequirement ??= await readSigningRequirement();
+      final granted = prefs.getString(kAutoPasteGrantedSigningRequirementKey);
+      final changed =
+          granted != null &&
+          _signingRequirement != null &&
+          granted != _signingRequirement;
+      if (changed != state.signatureChanged) {
+        state = state.copyWith(signatureChanged: changed);
+      }
+      if (changed) _log.info('code signature changed since the last grant');
     } catch (e) {
       _log.debug('restart marker hydrate failed (non-fatal): $e');
+    }
+  }
+
+  /// Persists the signature the permission now works for, so a later start
+  /// can recognise a stale entry with certainty ([staleEntrySuspected]).
+  Future<void> _rememberGrantedSignature() async {
+    if (state.signatureChanged) {
+      state = state.copyWith(signatureChanged: false);
+    }
+    final requirement = _signingRequirement;
+    if (requirement == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(kAutoPasteGrantedSigningRequirementKey) !=
+          requirement) {
+        await prefs.setString(
+          kAutoPasteGrantedSigningRequirementKey,
+          requirement,
+        );
+      }
+    } catch (e) {
+      _log.debug('signature persist failed (non-fatal): $e');
     }
   }
 
@@ -628,6 +717,31 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// confirm (never round-tripping through [MacOSLifecycleChannel.restart]).
   Future<void> restartForGrant() async {
     await markRestartAttempted();
+    await MacOSLifecycleChannel.restart();
+  }
+
+  /// Relaunch after the user removed a stale entry ([staleEntrySuspected]).
+  ///
+  /// The fresh process must start as a genuine first contact: macOS only
+  /// shows its own permission dialog to a process that starts after the
+  /// entry is gone (verified — the removing process itself never gets one).
+  /// So both cross-process markers are cleared rather than set: the restart
+  /// marker would make the fresh process read "restart was ineffective"
+  /// again, and the remembered signature would keep [signatureChanged] true
+  /// for an entry that no longer exists. Either would loop straight back
+  /// into this guide.
+  Future<void> restartForEntryRemoval() async {
+    _emitBreadcrumb('stale_entry.removal_restart');
+    await _clearRestartMarker();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(kAutoPasteGrantedSigningRequirementKey);
+    } catch (e) {
+      _log.debug('signature clear failed (non-fatal): $e');
+    }
+    if (Platform.isMacOS) {
+      await SingleInstanceService.release();
+    }
     await MacOSLifecycleChannel.restart();
   }
 
