@@ -59,6 +59,7 @@ All entries are written in English.
 - **Automation API hardening:** the local API only answers requests addressed to localhost, and its port is no longer opened in shared mode.
 - **Crash reports:** extra diagnostic fields are scrubbed of user paths too, and unrecognised graphics adapters are reported by name so they can be supported.
 - **Mac App Store 1.3.0:** the feedback form and telemetry were inactive, because the build was missing its configuration.
+- **A missing speech model is visible before you dictate.** If the selected on-device model is not downloaded, the status bar says so instead of "Standby", the selected quality tier in Settings offers the download, and the dictation hint downloads it with one click, showing its size.
 - **macOS: Auto-Paste permission recovers on its own after updates.** macOS ties the Accessibility permission to the app's identity and signature. The direct download and the Mac App Store version shared one identity, so switching between them could leave an entry that looked enabled but did nothing. The direct download now has its own identity (`de.whispaste.direct`) and takes over your settings on first start; macOS asks for the permission once. If an entry still goes stale, WhisPaste detects it and walks you through fixing it instead of restarting in a loop.
 - **macOS: on-device Smart Mode is included again.** The macOS download and the Mac App Store build shipped without the Smart Mode engine, so the option stayed disabled. Release builds now fail instead of leaving it out.
 
