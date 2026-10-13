@@ -18,7 +18,7 @@ store/
   en-US/copyright.txt         CopyrightTrademarkInformation
   en-US/license-terms.txt     AdditionalLicenseTerms
   de-DE/…                     same files, German
-  es-ES/ pt-BR/ it-IT/ ru-RU/ zh-CN/  same files, further listing languages
+  es-ES/ pt-BR/ it-IT/ ru-RU/ zh-CN/ fr-FR/  same files, further listing languages
                               (screenshots: English set, see $SCREENSHOT_LANG_MAP)
 ```
 

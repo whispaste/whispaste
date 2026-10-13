@@ -147,13 +147,13 @@ $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 # entry." on the 2026-07-29 run and concluded 'de-de' was therefore new/fake.
 # That log line is real, but the conclusion drawn from it was backwards - see
 # above for what actually determines which locale is live.
-$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de'; 'es-ES' = 'es-es'; 'pt-BR' = 'pt-br'; 'it-IT' = 'it-it'; 'ru-RU' = 'ru-ru'; 'zh-CN' = 'zh-cn' }
+$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de'; 'es-ES' = 'es-es'; 'pt-BR' = 'pt-br'; 'it-IT' = 'it-it'; 'ru-RU' = 'ru-ru'; 'zh-CN' = 'zh-cn'; 'fr-FR' = 'fr-fr' }
 
 # store/ folder name → tools/appstore-screens output lang folder. Each listing
 # has its own localized composites (copy in its language). The app UI inside
-# them is localized only for en/de/ru; es/pt/it/zh show the English UI, which
+# them is localized only for en/de/ru; es/pt/it/zh/fr show the English UI, which
 # is what the app actually displays there.
-$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de'; 'es-ES' = 'es'; 'pt-BR' = 'pt'; 'it-IT' = 'it'; 'ru-RU' = 'ru'; 'zh-CN' = 'zh' }
+$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de'; 'es-ES' = 'es'; 'pt-BR' = 'pt'; 'it-IT' = 'it'; 'ru-RU' = 'ru'; 'zh-CN' = 'zh'; 'fr-FR' = 'fr' }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

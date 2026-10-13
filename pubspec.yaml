@@ -210,7 +210,7 @@ msix_config:
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
   # UI languages the app actually ships (lib/core/l10n). Store listings in
-  # other languages (it, zh-CN) are listing-only "additional languages",
+  # other languages (it, zh-CN, fr) are listing-only "additional languages",
   # which Partner Center allows without package support.
   languages: en-us, de-de, he-il, ru-ru, es-es, pt-br
 

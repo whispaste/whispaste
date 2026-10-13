@@ -27,6 +27,7 @@ const UI_LANG = {
   it: 'en',
   ru: 'ru',
   zh: 'en',
+  fr: 'en',
 };
 
 /** Every language a composite is rendered for (`generate.cjs --lang=all`). */
@@ -93,6 +94,7 @@ const SCREENS = [
       it: 'Parla, e WhisPaste\nscrive in <em>qualsiasi app</em>',
       ru: 'Говори — и WhisPaste\nпечатает в <em>любом приложении</em>',
       zh: '说出来，WhisPaste\n就能输入到<em>任何应用</em>',
+      fr: 'Parlez, et WhisPaste\nécrit <em>partout</em>',
     },
     subtitle: {
       en: 'Press your hotkey, talk, and the finished text lands right at your cursor.',
@@ -102,6 +104,7 @@ const SCREENS = [
       it: 'Premi la tua scorciatoia, parla, e il testo finito appare proprio sul tuo cursore.',
       ru: 'Нажми горячую клавишу, говори, и готовый текст появится прямо у курсора.',
       zh: '按下快捷键、开始说话，完成的文字就会直接出现在光标处。',
+      fr: 'Appuyez sur votre raccourci, parlez, et le texte fini arrive pile à votre curseur.',
     },
     badges: {
       // Price/procurement-neutral only (maintainer rule, 2026-07-29): this
@@ -114,6 +117,7 @@ const SCREENS = [
       it: ['Funziona offline', 'Nessun account richiesto', 'Open source'],
       ru: ['Работает офлайн', 'Аккаунт не нужен', 'Открытый исходный код'],
       zh: ['可离线使用', '无需账户', '开源'],
+      fr: ['Fonctionne hors ligne', 'Aucun compte requis', 'Open source'],
     },
     theme: 'dark',
   },
@@ -134,6 +138,7 @@ const SCREENS = [
       it: 'AREA DI LAVORO',
       ru: 'ЗАПИСИ',
       zh: '工作区',
+      fr: 'ESPACE DE TRAVAIL',
     },
     headline: {
       en: 'Keep every recording\nclose at hand',
@@ -143,6 +148,7 @@ const SCREENS = [
       it: 'Tieni ogni registrazione\na portata di mano',
       ru: 'Держи каждую запись\nпод рукой',
       zh: '让每段录音\n触手可及',
+      fr: 'Gardez chaque enregistrement\nà portée de main',
     },
     subtitle: {
       en: 'Search, tag, favorite, and archive what you said when the day gets busy.',
@@ -152,6 +158,7 @@ const SCREENS = [
       it: 'Cerca, tagga, aggiungi ai preferiti e archivia ciò che hai detto quando la giornata si complica.',
       ru: 'Ищи, помечай, добавляй в избранное и архивируй то, что наговорил, когда день становится загруженным.',
       zh: '在忙碌的日子里，搜索、标记、收藏并归档你说过的内容。',
+      fr: 'Cherchez, taguez, mettez en favori et archivez ce que vous avez dit quand la journée s’emballe.',
     },
     theme: 'dark',
   },
@@ -172,6 +179,7 @@ const SCREENS = [
       it: 'DETTAGLIO',
       ru: 'ДЕТАЛИ',
       zh: '详情',
+      fr: 'DÉTAIL',
     },
     headline: {
       en: 'Open one thought\nand finish it',
@@ -181,6 +189,7 @@ const SCREENS = [
       it: 'Apri un pensiero\ne portalo a termine',
       ru: 'Открой мысль\nи доведи её до конца',
       zh: '打开一段想法\n把它完成',
+      fr: 'Ouvrez une idée\net menez-la au bout',
     },
     subtitle: {
       en: 'Review one recording, clean it up, and keep the final text ready to paste.',
@@ -190,6 +199,7 @@ const SCREENS = [
       it: 'Rivedi una registrazione, sistemala e tieni pronto il testo finale da incollare.',
       ru: 'Просмотри запись, приведи её в порядок и держи финальный текст готовым к вставке.',
       zh: '查看一段录音、整理润色，并让最终文本随时可以粘贴。',
+      fr: 'Relisez un enregistrement, mettez-le au propre et gardez le texte final prêt à coller.',
     },
     theme: 'dark',
   },
@@ -210,6 +220,7 @@ const SCREENS = [
       it: 'SCORCIATOIE VOCALI',
       ru: 'ГОЛОСОВЫЕ ЯРЛЫКИ',
       zh: '语音快捷短语',
+      fr: 'RACCOURCIS VOCAUX',
     },
     headline: {
       en: 'Reuse the phrases\nyou type every day',
@@ -219,6 +230,7 @@ const SCREENS = [
       it: 'Riusa le frasi\nche digiti ogni giorno',
       ru: 'Используй снова фразы,\nкоторые печатаешь каждый день',
       zh: '重复使用你每天\n都在输入的短语',
+      fr: 'Réutilisez les phrases\nque vous tapez chaque jour',
     },
     subtitle: {
       en: 'Say a trigger phrase and WhisPaste inserts the full text automatically.',
@@ -228,6 +240,7 @@ const SCREENS = [
       it: 'Di\' una frase di attivazione e WhisPaste inserisce automaticamente il testo completo.',
       ru: 'Произнеси фразу-триггер, и WhisPaste автоматически вставит весь текст.',
       zh: '说出触发短语，WhisPaste 会自动插入完整文本。',
+      fr: 'Prononcez une phrase-déclencheur et WhisPaste insère automatiquement le texte complet.',
     },
     theme: 'dark',
   },
@@ -248,6 +261,7 @@ const SCREENS = [
       it: 'CONFIGURAZIONE',
       ru: 'НАСТРОЙКА',
       zh: '设置',
+      fr: 'CONFIGURATION',
     },
     headline: {
       en: 'Choose a shortcut\nthat fits your flow',
@@ -257,6 +271,7 @@ const SCREENS = [
       it: 'Scegli una scorciatoia\nadatta al tuo flusso',
       ru: 'Выбери сочетание клавиш,\nподходящее твоему процессу',
       zh: '选择适合你工作流程\n的快捷键',
+      fr: 'Choisissez un raccourci\nadapté à votre rythme',
     },
     subtitle: {
       en: 'Keep recording one key combo away and turn it off whenever you do not need it.',
@@ -266,6 +281,7 @@ const SCREENS = [
       it: 'Tieni la registrazione a una combinazione di tasti di distanza e disattivala quando non serve.',
       ru: 'Запись всегда в одном сочетании клавиш, а когда она не нужна, её можно выключить.',
       zh: '让录音只需一组按键即可开始，不需要时随时可以关闭。',
+      fr: 'Gardez l’enregistrement à une combinaison de touches et désactivez-le quand vous n’en avez pas besoin.',
     },
     theme: 'dark',
   },
@@ -286,6 +302,7 @@ const SCREENS = [
       it: 'STATISTICHE',
       ru: 'СТАТИСТИКА',
       zh: '数据洞察',
+      fr: 'STATISTIQUES',
     },
     headline: {
       en: 'See how much time\nvoice gives back',
@@ -295,6 +312,7 @@ const SCREENS = [
       it: 'Scopri quanto tempo\nti restituisce la voce',
       ru: 'Посмотри, сколько времени\nвозвращает голос',
       zh: '看看语音为你\n节省了多少时间',
+      fr: 'Voyez combien de temps\nla voix vous fait gagner',
     },
     subtitle: {
       en: 'Track usage, activity, and the minutes you save when speaking replaces typing.',
@@ -304,6 +322,7 @@ const SCREENS = [
       it: 'Tieni d\'occhio utilizzo, attività e i minuti che risparmi quando parlare sostituisce scrivere.',
       ru: 'Следи за использованием, активностью и минутами, которые экономишь, когда речь заменяет набор текста.',
       zh: '跟踪使用情况、活动，以及用语音代替打字所节省的时间。',
+      fr: 'Suivez l’usage, l’activité et les minutes gagnées quand la parole remplace la frappe.',
     },
     theme: 'dark',
   },

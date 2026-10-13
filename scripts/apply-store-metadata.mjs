@@ -139,6 +139,7 @@ export function loadManagedMetadata(storeDir) {
     'it-IT': 'it-it',
     'ru-RU': 'ru-ru',
     'zh-CN': 'zh-cn',
+    'fr-FR': 'fr-fr',
   };
 
   const listings = {};
