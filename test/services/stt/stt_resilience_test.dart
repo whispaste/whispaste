@@ -513,6 +513,11 @@ void main() {
       );
       expect(gpuEngine.unloaded, isFalse);
       expect(container.read(localSttBundleProvider).cpuFallbackActive, isFalse);
+
+      // Drain the GPU-fatal capture here so it cannot land in the next
+      // test's freshly cleared event list (seen on Windows CI).
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, hasLength(1));
     });
   });
 
