@@ -5,17 +5,13 @@ const lang = currentLocale(Astro.currentLocale);
 const downloadHref = pathForSlug(lang, 'download');
 ---
 
-<!-- Sticky mobile download bar — reveals once the hero has scrolled out.
-     Mobile only (sm:hidden); desktop keeps the nav download button. -->
-<div id="mobile-cta" class="mobile-cta sm:hidden" aria-hidden="true">
-  <a
-    href={downloadHref}
-    class="mobile-cta-btn"
-    data-i18n="nav.download"
-    tabindex="-1"
-  >
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-    {t(lang, "nav.download")}
+<!-- Sticky mobile download bar (below 768px). Appears once the hero has
+     been scrolled past, hides again while the pricing/download area is on
+     screen. Hidden state is inert, so its link never sits in the tab order. -->
+<div id="mobile-cta" class="mobile-cta md:hidden" data-testid="mobile-cta" inert>
+  <a href={downloadHref} class="mobile-cta-btn" data-testid="mobile-cta-download">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+    <span data-i18n="mobileCta.label">{t(lang, "mobileCta.label")}</span>
   </a>
 </div>
 
@@ -50,7 +46,11 @@ const downloadHref = pathForSlug(lang, 'download');
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
-    padding: 0.85rem 1rem;
+    max-width: 22rem;
+    min-height: 48px;
+    margin-inline: auto;
+    padding: 0.75rem 1rem;
+    text-align: center;
     border-radius: var(--radius-pill);
     background: var(--gradient-accent-cta);
     /* Dark, not white — see StoreButton.astro for the measured contrast
@@ -72,21 +72,29 @@ const downloadHref = pathForSlug(lang, 'download');
 
 <script>
   const bar = document.getElementById('mobile-cta');
-  const link = bar?.querySelector<HTMLAnchorElement>('.mobile-cta-btn');
-  if (bar) {
-    let shown = false;
-    const update = () => {
-      // Reveal once the user has scrolled roughly past the hero viewport.
-      const past = window.scrollY > window.innerHeight * 0.85;
-      if (past !== shown) {
-        shown = past;
-        bar.classList.toggle('visible', past);
-        bar.setAttribute('aria-hidden', past ? 'false' : 'true');
-        if (link) link.tabIndex = past ? 0 : -1;
-      }
+  const hero = document.querySelector('[data-testid="hero"]');
+  const downloadArea = document.getElementById('pricing');
+  if (bar && hero) {
+    let pastHero = false;
+    let downloadVisible = false;
+    const apply = () => {
+      const show = pastHero && !downloadVisible;
+      // Never pull the bar away from under a focused link.
+      if (!show && bar.contains(document.activeElement)) return;
+      bar.classList.toggle('visible', show);
+      bar.toggleAttribute('inert', !show);
     };
-    update();
-    window.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
-    window.addEventListener('resize', update, { passive: true });
+    new IntersectionObserver(([entry]) => {
+      // Past = hero fully out of view above the viewport.
+      pastHero = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
+      apply();
+    }).observe(hero);
+    if (downloadArea) {
+      new IntersectionObserver(([entry]) => {
+        downloadVisible = entry.isIntersecting;
+        apply();
+      }).observe(downloadArea);
+    }
+    bar.addEventListener('focusout', () => requestAnimationFrame(apply));
   }
 </script>

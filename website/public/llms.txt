@@ -41,7 +41,7 @@
 
 ## Other languages
 
-- [Español](https://whispaste.de/es/), [Português (Brasil)](https://whispaste.de/pt/), [Italiano](https://whispaste.de/it/), [Русский](https://whispaste.de/ru/), [简体中文](https://whispaste.de/zh/): the landing page and guides in further languages
+- [Español](https://whispaste.de/es/), [Português (Brasil)](https://whispaste.de/pt/), [Italiano](https://whispaste.de/it/), [Русский](https://whispaste.de/ru/), [简体中文](https://whispaste.de/zh/), [Français](https://whispaste.de/fr/): the landing page and guides in further languages
 
 ## Source & Releases
 

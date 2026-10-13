@@ -1,1 +1,1 @@
-MIT License: https://github.com/whispaste/whispaste/blob/main/LICENSE
+Licence MIT : https://github.com/whispaste/whispaste/blob/main/LICENSE

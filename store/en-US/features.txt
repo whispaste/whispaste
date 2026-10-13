@@ -1,5 +1,5 @@
 Press a hotkey, speak, and the text appears at your cursor in any Windows app
-Two on-device engines: Whisper (99 languages, GPU via Vulkan) and Parakeet (fast on the CPU)
+Two on-device engines: Whisper (99 languages, GPU acceleration) and Parakeet (fast on the CPU)
 Your audio stays on your PC; works offline after a one-time model download
 Optional cloud transcription via OpenAI or Deepgram with your own API key, direct to the provider
 Smart Mode: clean up, shorten or translate before pasting, locally or via OpenAI

@@ -9,8 +9,9 @@
  *   appear spring (scale 0.88 → 1.0 + fade, easeOutCubic 300 ms)
  *     → recording (live waveform, timer, progress timeline, liquid wobble)
  *     → transcribing (150 ms content crossfade + pill-width spring)
- *     → done — or, every 4th episode, error (280 ms status reveal:
- *       check draws on stroke-first / error icon settles in)
+ *     → done (280 ms status reveal: check draws on stroke-first). The
+ *       marketing demo never ends in the error state: on a product page a
+ *       red "Error" reads as a broken app, not as an honest state.
  *     → brief fade-out, short rest, next episode.
  *
  * One episode ≈ 9.7 s — a quiet, legible narrative, not a strobe. The 8 s
@@ -95,9 +96,6 @@ const PHASE_ORDER: readonly DemoPhase[] = [
   'fadeout',
   'gap',
 ];
-
-/** Every Nth episode ends in the error state instead of done. */
-const ERROR_EVERY_NTH_EPISODE = 4;
 
 /**
  * Speech-like envelope with periodic pauses so the release smoothing visibly
@@ -235,9 +233,7 @@ export class OverlayDemo {
   }
 
   private get endState(): OverlayState {
-    return this.episode % ERROR_EVERY_NTH_EPISODE === ERROR_EVERY_NTH_EPISODE - 1
-      ? 'error'
-      : 'done';
+    return 'done';
   }
 
   private currentState(): OverlayState {

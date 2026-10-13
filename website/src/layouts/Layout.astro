@@ -84,6 +84,41 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
       <link rel="alternate" hreflang={LOCALE_META[l].tag} href={absolute(alternates[l])} />
     ))}
     <link rel="alternate" hreflang="x-default" href={absolute(alternates.en)} />
+    {/* Browser-language redirect (static hosting, no Accept-Language on the
+        server). Runs before anything renders. Only on an entry from outside
+        the site, once per session, never for crawlers or automation (Googlebot
+        reports en-US and must still see every locale), and a language picked
+        in the switcher (localStorage "wp-lang") wins over the browser setting.
+        The target comes from this page's own hreflang alternates, so this
+        must stay below them. */}
+    <script is:inline>
+      (function () {
+        try {
+          if (navigator.webdriver || /bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit/i.test(navigator.userAgent)) return;
+          if (document.referrer && new URL(document.referrer).host === location.host) return;
+          if (sessionStorage.getItem('wp-lang-auto')) return;
+          sessionStorage.setItem('wp-lang-auto', '1');
+          var map = { de: 'de', en: 'en', es: 'es', pt: 'pt-BR', it: 'it', ru: 'ru', zh: 'zh-Hans', fr: 'fr' };
+          var want = null;
+          try { want = localStorage.getItem('wp-lang'); } catch (e) {}
+          if (!map[want]) {
+            want = 'en';
+            var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+            for (var i = 0; i < langs.length; i++) {
+              var base = String(langs[i]).toLowerCase().split('-')[0];
+              if (map[base]) { want = base; break; }
+            }
+          }
+          var tag = map[want];
+          if (document.documentElement.lang === tag) return;
+          var link = document.querySelector('link[rel="alternate"][hreflang="' + tag + '"]');
+          if (!link) return;
+          var target = new URL(link.href, location.href);
+          if (target.pathname === location.pathname) return;
+          location.replace(target.pathname + location.search + location.hash);
+        } catch (e) {}
+      })();
+    </script>
     <title>{title}</title>
 
     <!-- Open Graph -->

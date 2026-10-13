@@ -16,7 +16,7 @@ export default defineConfig({
   // gesetzt; jede Sprache wird vollständig serverseitig gerendert.
   i18n: {
     defaultLocale: 'de',
-    locales: ['de', 'en', 'es', 'pt', 'it', 'ru', 'zh'],
+    locales: ['de', 'en', 'es', 'pt', 'it', 'ru', 'zh', 'fr'],
     routing: {
       prefixDefaultLocale: false,
     },
@@ -37,6 +37,7 @@ export default defineConfig({
           it: 'it',
           ru: 'ru',
           zh: 'zh-Hans',
+          fr: 'fr',
         },
       },
       // `lastmod` auf den Build-Zeitstempel setzen — bei einer statisch

@@ -29,83 +29,89 @@ const osDictationHref = pathForSlug(lang, 'comparison/whispaste-vs-system-speech
 const gpuCheckHref = pathForSlug(lang, 'gpu-compatibility');
 const modelSizeHref = pathForSlug(lang, 'whisper-model-size');
 const linuxSttHref = pathForSlug(lang, 'linux-speech-to-text');
+
+const productLinks = [
+  { id: 'download', href: downloadHref, key: 'footer.download' },
+  { id: 'screenshots', href: screenshotsHref, key: 'footer.screenshots' },
+  { id: 'changelog', href: changelogHref, key: 'footer.changelog' },
+];
+// First three stay visible, the rest sits in the "more resources" disclosure.
+const resourceLinks = [
+  { id: 'engines', href: enginesHref, key: 'explainer.engines.breadcrumb' },
+  { id: 'offline-stt', href: offlineSttHref, key: 'explainer.offlineStt.breadcrumb' },
+  { id: 'privacy-explainer', href: privacyExplainerHref, key: 'explainer.privacy.breadcrumb' },
+  { id: 'engine-benchmarks', href: engineBenchmarksHref, key: 'explainer.engineBenchmarks.breadcrumb' },
+  { id: 'whisper-desktop', href: whisperDesktopHref, key: 'explainer.whisperDesktop.breadcrumb' },
+  { id: 'gpu-check', href: gpuCheckHref, key: 'gpuCheck.breadcrumb' },
+  { id: 'model-size', href: modelSizeHref, key: 'modelSize.breadcrumb' },
+  { id: 'linux-stt', href: linuxSttHref, key: 'linuxStt.breadcrumb' },
+  { id: 'dictation-alternatives', href: dictationAlternativesHref, key: 'comparison.dictationAlternatives.breadcrumb' },
+  { id: 'os-dictation', href: osDictationHref, key: 'comparison.osDictation.breadcrumb' },
+];
 ---
 
 {/* pb-28 unter 640px: die fixe MobileCta-Leiste (~75px hoch) verdeckte sonst
     am Seitenende dauerhaft die letzte Footer-Zeile. */}
 {variant === 'landing' ? (
-  <footer class="footer-flow pt-14 pb-28 sm:pb-8 border-t border-white/5">
+  <footer class="footer-flow pt-14 pb-28 md:pb-8 border-t border-white/5" data-testid="footer">
     <div class="wp-container">
-      <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr]">
+      <div class="footer-grid">
         <!-- Brand + tagline -->
-        <div class="max-w-xs">
-          <div class="flex items-center gap-2 mb-3">
-            <img src="/wordmark-dark.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto" />
-          </div>
+        <div class="footer-brand">
+          <img src="/wordmark-dark.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto mb-3" />
           <p class="text-ink-muted text-sm leading-relaxed" data-i18n="footer.tagline">{t(lang, "footer.tagline")}</p>
         </div>
 
-        <!-- Produkt -->
-        <nav aria-label={t(lang, "nav.footerAria")} data-i18n-aria="nav.footerAria" class="flex flex-col gap-2.5 text-sm">
-          <p class="text-ink-subtle text-xs font-semibold uppercase tracking-wider mb-1" data-i18n="footer.col.product">{t(lang, "footer.col.product")}</p>
-          <a href={downloadHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="footer.download">{t(lang, "footer.download")}</a>
-          <a href={screenshotsHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="footer.screenshots">{t(lang, "footer.screenshots")}</a>
-          <a href={changelogHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="footer.changelog">{t(lang, "footer.changelog")}</a>
+        <!-- Product -->
+        <nav class="footer-col" aria-labelledby="footer-h-product" data-testid="footer-product">
+          <p class="footer-col__title" id="footer-h-product" data-i18n="footer.col.product">{t(lang, "footer.col.product")}</p>
+          {productLinks.map((l) => (
+            <a href={l.href} class="footer-link" data-testid={`footer-link-${l.id}`}><span data-i18n={l.key}>{t(lang, l.key)}</span></a>
+          ))}
         </nav>
 
-        <!-- Ressourcen -->
-        <nav class="flex flex-col gap-2.5 text-sm">
-          <p class="text-ink-subtle text-xs font-semibold uppercase tracking-wider mb-1" data-i18n="footer.col.resources">{t(lang, "footer.col.resources")}</p>
-          <a href={enginesHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.engines.breadcrumb">{t(lang, "explainer.engines.breadcrumb")}</a>
-          <a href={engineBenchmarksHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.engineBenchmarks.breadcrumb">{t(lang, "explainer.engineBenchmarks.breadcrumb")}</a>
-          <a href={offlineSttHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.offlineStt.breadcrumb">{t(lang, "explainer.offlineStt.breadcrumb")}</a>
-          <a href={whisperDesktopHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.whisperDesktop.breadcrumb">{t(lang, "explainer.whisperDesktop.breadcrumb")}</a>
-          <a href={gpuCheckHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="gpuCheck.breadcrumb">{t(lang, "gpuCheck.breadcrumb")}</a>
-          <a href={modelSizeHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="modelSize.breadcrumb">{t(lang, "modelSize.breadcrumb")}</a>
-          <a href={linuxSttHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="linuxStt.breadcrumb">{t(lang, "linuxStt.breadcrumb")}</a>
-          <a href={privacyExplainerHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.privacy.breadcrumb">{t(lang, "explainer.privacy.breadcrumb")}</a>
-          <a href={dictationAlternativesHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="comparison.dictationAlternatives.breadcrumb">{t(lang, "comparison.dictationAlternatives.breadcrumb")}</a>
-          <a href={osDictationHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="comparison.osDictation.breadcrumb">{t(lang, "comparison.osDictation.breadcrumb")}</a>
+        <!-- Resources: three central explainers open, the rest in a native
+             disclosure. Collapsed links stay in the DOM, so every long-tail
+             page keeps an internal link from the homepage (seo-audit
+             2026-07-02). -->
+        <nav class="footer-col" aria-labelledby="footer-h-resources" data-testid="footer-resources">
+          <p class="footer-col__title" id="footer-h-resources" data-i18n="footer.col.resources">{t(lang, "footer.col.resources")}</p>
+          {resourceLinks.slice(0, 3).map((l) => (
+            <a href={l.href} class="footer-link" data-testid={`footer-link-${l.id}`}><span data-i18n={l.key}>{t(lang, l.key)}</span></a>
+          ))}
+          <details class="footer-more" data-testid="footer-resources-more">
+            <summary class="footer-link footer-more__summary"><span data-i18n="footer.resourcesMore">{t(lang, "footer.resourcesMore")}</span></summary>
+            <div class="footer-more__list">
+              {resourceLinks.slice(3).map((l) => (
+                <a href={l.href} class="footer-link" data-testid={`footer-link-${l.id}`}><span data-i18n={l.key}>{t(lang, l.key)}</span></a>
+              ))}
+            </div>
+          </details>
         </nav>
 
-        <!-- Rechtliches -->
-        <nav class="flex flex-col gap-2.5 text-sm">
-          <p class="text-ink-subtle text-xs font-semibold uppercase tracking-wider mb-1" data-i18n="footer.col.legal">{t(lang, "footer.col.legal")}</p>
-          <a href={impressumHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="footer.impressum">{t(lang, "footer.impressum")}</a>
-          <a href={privacyHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="footer.privacy" data-i18n-href="footer.privacy.href">{t(lang, "footer.privacy")}</a>
-          <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
-        </nav>
-
-        <!-- Projekt -->
-        <nav class="flex flex-col gap-2.5 text-sm">
-          <p class="text-ink-subtle text-xs font-semibold uppercase tracking-wider mb-1" data-i18n="footer.col.project">{t(lang, "footer.col.project")}</p>
-          <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" aria-label={t(lang, "nav.githubAria")} data-i18n-aria="nav.githubAria" class="inline-flex items-center gap-1.5 text-ink-muted hover:text-white transition-colors group">
-            <svg class="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.11.82-.26.82-.58v-2.16c-3.34.73-4.04-1.61-4.04-1.61a3.18 3.18 0 0 0-1.33-1.76c-1.09-.74.08-.73.08-.73a2.52 2.52 0 0 1 1.84 1.24 2.56 2.56 0 0 0 3.5 1 2.56 2.56 0 0 1 .76-1.6c-2.67-.3-5.47-1.33-5.47-5.93a4.64 4.64 0 0 1 1.24-3.22 4.3 4.3 0 0 1 .12-3.18s1-.33 3.3 1.23a11.38 11.38 0 0 1 6 0c2.28-1.56 3.29-1.23 3.29-1.23a4.3 4.3 0 0 1 .12 3.18 4.64 4.64 0 0 1 1.23 3.22c0 4.61-2.81 5.63-5.48 5.93a2.86 2.86 0 0 1 .82 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 12 .3"/></svg>
-            GitHub
-          </a>
-          <a href="https://x.com/silviolindstedt" target="_blank" rel="noopener" aria-label={t(lang, "nav.xAria")} data-i18n-aria="nav.xAria" class="inline-flex items-center gap-1.5 text-ink-muted hover:text-white transition-colors group">
-            <svg class="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23.3 22H16.9l-5-6.5L6.1 22H3l8.1-9.3L2.1 2h6.6l4.5 6ZM17.7 20h1.7L8.4 4H6.6Z"/></svg>
-            X
-          </a>
-          <a href={sponsorHref} class="inline-flex items-center gap-1.5 text-pink-400/80 hover:text-pink-400 transition-colors font-medium" data-i18n="footer.sponsor">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            {t(lang, "footer.sponsor")}
-          </a>
-          <a href="https://app.votepit.com/silvio-und-maik/whispaste" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-ink-muted hover:text-white transition-colors group" data-i18n="footer.ideas">
-            <svg class="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.6.6 1.35 1.5 1.5 2.5"/></svg>
-            {t(lang, "footer.ideas")}
-          </a>
+        <!-- Project -->
+        <nav class="footer-col" aria-labelledby="footer-h-project" data-testid="footer-project">
+          <p class="footer-col__title" id="footer-h-project" data-i18n="footer.col.project">{t(lang, "footer.col.project")}</p>
+          <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" aria-label={t(lang, "nav.githubAria")} data-i18n-aria="nav.githubAria" class="footer-link" data-testid="footer-link-github">GitHub</a>
+          <a href="https://x.com/silviolindstedt" target="_blank" rel="noopener" aria-label={t(lang, "nav.xAria")} data-i18n-aria="nav.xAria" class="footer-link" data-testid="footer-link-x">X</a>
+          <a href={sponsorHref} class="footer-link" data-testid="footer-link-sponsor"><span data-i18n="footer.sponsor">{t(lang, "footer.sponsor")}</span></a>
+          <a href="https://app.votepit.com/silvio-und-maik/whispaste" target="_blank" rel="noopener" class="footer-link" data-testid="footer-link-ideas"><span data-i18n="footer.ideas">{t(lang, "footer.ideas")}</span></a>
           {/* Self-hosted copy of the official AlternativeTo badge: no third-party request on page load. */}
-          <a href="https://alternativeto.net/software/whispaste/about/?utm_source=badge&utm_medium=referral" target="_blank" rel="noopener" aria-label={t(lang, "footer.alternativeto")} data-i18n-aria="footer.alternativeto" class="mt-1 inline-block w-fit opacity-80 hover:opacity-100 transition-opacity">
-            <img src="/badges/alternativeto.svg" alt="" width="140" height="48" loading="lazy" decoding="async" class="h-auto w-[140px]" />
+          <a href="https://alternativeto.net/software/whispaste/about/?utm_source=badge&utm_medium=referral" target="_blank" rel="noopener" aria-label={t(lang, "footer.alternativeto")} data-i18n-aria="footer.alternativeto" class="mt-2 inline-block w-fit opacity-70 hover:opacity-100 transition-opacity" data-testid="footer-link-alternativeto">
+            <img src="/badges/alternativeto.svg" alt="" width="140" height="48" loading="lazy" decoding="async" class="h-auto w-[120px]" />
           </a>
         </nav>
       </div>
 
-      <!-- Bottom bar -->
-      <div class="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-ink-subtle">
-        <p>© {year} WhisPaste</p>
-        <p data-i18n="footer.rights">{t(lang, "footer.rights")}</p>
+      <!-- Legal line: always visible, full width. -->
+      <div class="footer-legal" data-testid="footer-legal">
+        <nav class="footer-legal__links" aria-labelledby="footer-h-legal">
+          <span class="sr-only" id="footer-h-legal" data-i18n="footer.col.legal">{t(lang, "footer.col.legal")}</span>
+          <a href={impressumHref} class="footer-legal__link" data-testid="footer-link-impressum"><span data-i18n="footer.impressum">{t(lang, "footer.impressum")}</span></a>
+          <a href={privacyHref} class="footer-legal__link" data-testid="footer-link-privacy" data-i18n-href="footer.privacy.href"><span data-i18n="footer.privacy">{t(lang, "footer.privacy")}</span></a>
+          <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="footer-legal__link" data-testid="footer-link-license"><span data-i18n="footer.license">{t(lang, "footer.license")}</span></a>
+        </nav>
+        <p>© {year} WhisPaste · <span data-i18n="footer.rights">{t(lang, "footer.rights")}</span></p>
       </div>
     </div>
   </footer>
@@ -119,6 +125,90 @@ const linuxSttHref = pathForSlug(lang, 'linux-speech-to-text');
 )}
 
 <style>
+  .footer-grid {
+    display: grid;
+    gap: 2.5rem 2rem;
+  }
+  @media (min-width: 640px) {
+    .footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .footer-brand { grid-column: 1 / -1; max-width: 22rem; }
+  }
+  @media (min-width: 1024px) {
+    .footer-grid { grid-template-columns: minmax(0, 4fr) repeat(3, minmax(0, 2.67fr)); }
+    .footer-brand { grid-column: auto; }
+  }
+  .footer-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer-col__title {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+  }
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    font-size: 0.9375rem;
+    color: var(--color-ink-muted);
+    text-decoration: none;
+    transition: color var(--dur-fast) ease;
+  }
+  .footer-link:hover { color: var(--color-ink); }
+  .footer-more__summary {
+    cursor: pointer;
+    list-style: none;
+    gap: 0.375rem;
+    color: var(--color-brand-cyan);
+  }
+  .footer-more__summary::-webkit-details-marker { display: none; }
+  .footer-more__summary::after {
+    content: '+';
+    font-weight: 600;
+  }
+  .footer-more[open] .footer-more__summary::after { content: '−'; }
+  .footer-more__list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer-legal {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgb(255 255 255 / 0.05);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
+  }
+  .footer-legal__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.25rem;
+  }
+  .footer-legal__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    color: var(--color-ink-muted);
+    text-decoration: none;
+  }
+  .footer-legal__link:hover { color: var(--color-ink); }
+  .footer-link:focus-visible,
+  .footer-legal__link:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+    border-radius: var(--radius-chip);
+  }
+
   /* Flow-Glint — ein leiser Cyan-Schimmer wandert langsam über die obere
      Haarlinie des Landing-Footers, wie Licht auf einer Wasserkante: das
      Fluss-Motiv klingt am Seitenende aus statt hart abzureißen. Nur

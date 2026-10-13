@@ -3,7 +3,7 @@ WhisPaste convierte tu voz en texto justo donde está tu cursor, en cualquier ap
 Funciona donde escribas: Outlook, Teams, Word, VS Code, Chrome, Slack y cualquier otra app.
 
 🔒 TU VOZ SE QUEDA EN TU PC
-Whisper (tres tamaños de modelo, 99 idiomas) y el motor rápido Parakeet (unos 25 idiomas europeos, solo CPU) transcriben por completo en tu ordenador. Las grabaciones no se conservan después de la transcripción. Una tarjeta gráfica acelera Whisper mediante Vulkan, pero nunca es obligatoria. Tras la descarga única del modelo, la transcripción funciona sin conexión a internet. La transcripción en la nube con OpenAI o Deepgram es opcional y usa tu propia clave de API; el audio va directamente al proveedor, nunca pasa por un servidor de WhisPaste. No necesitas cuenta.
+Whisper (tres tamaños de modelo, 99 idiomas) y el motor rápido Parakeet (unos 25 idiomas europeos, solo CPU) transcriben por completo en tu ordenador. Por defecto, las grabaciones no se conservan después de la transcripción. Una tarjeta gráfica puede acelerar Whisper, pero nunca es obligatoria. Tras la descarga única del modelo, la transcripción funciona sin conexión a internet. La transcripción en la nube con OpenAI o Deepgram es opcional y usa tu propia clave de API; el audio va directamente al proveedor, nunca pasa por un servidor de WhisPaste. No necesitas cuenta.
 
 ✨ SMART MODE (OPCIONAL)
 Elimina muletillas y corrige la puntuación, acorta un texto o tradúcelo a siete idiomas antes de pegarlo. Funciona con un modelo de IA local o a través de OpenAI con tu propia clave. Selecciona texto en cualquier app, di qué debe cambiar y WhisPaste lo reescribe en el mismo sitio.

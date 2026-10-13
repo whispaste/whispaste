@@ -70,11 +70,10 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
         Anker — vorher hatten Unterseiten nur "Zurück" + Sprache, was dünn
         und wenig konversionsstark wirkte. */}
     <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-ink-muted">
-      <a href={anchor("app-paste-demo")} class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-      <a href={anchor("engines")} class="hover:text-white transition-colors" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-      <a href={anchor("languages")} class="hover:text-white transition-colors" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-      <a href={anchor("faq")} class="hover:text-white transition-colors" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-      <a href={anchor("support")} class="hover:text-white transition-colors" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+      <a href={anchor("app-paste-demo")} class="hover:text-white transition-colors" data-testid="nav-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+      <a href={anchor("features")} class="hover:text-white transition-colors" data-testid="nav-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
+      <a href={anchor("privacy")} class="hover:text-white transition-colors" data-testid="nav-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
+      <a href={anchor("faq")} class="hover:text-white transition-colors" data-testid="nav-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
     </div>
     {/* Rechte Aktionsgruppe: Utilities (Sprache/Theme/GitHub) nur ab lg,
         der Download-CTA schon ab sm (640–1023px behält so die eine primäre
@@ -131,11 +130,10 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
   </div>
   <div id="mobileMenu" class="wp-container lg:hidden hidden pointer-events-auto mt-2 rounded-2xl border border-white/[0.08] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
-        <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-        <a href={anchor("engines")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-        <a href={anchor("languages")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-        <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-        <a href={anchor("support")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+        <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-testid="nav-menu-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href={anchor("features")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
+        <a href={anchor("privacy")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
+        <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
           <LanguageSwitcher lang={lang} variant="inline" />
           <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub">

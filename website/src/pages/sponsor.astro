@@ -31,7 +31,7 @@ const breadcrumbItems = [
         </div>
 
         <!-- Sponsor cards -->
-        <div class="grid sm:grid-cols-2 gap-5 mb-12">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
 
           <!-- GitHub Sponsors -->
           <a
@@ -75,6 +75,30 @@ const breadcrumbItems = [
             <p class="text-ink-muted text-sm leading-relaxed" data-i18n="sponsor.kofi.desc">{t(lang, "sponsor.kofi.desc")}</p>
             <div class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-pink-400 group-hover:text-pink-300 transition-colors">
               <span data-i18n="sponsor.kofi.cta">{t(lang, "sponsor.kofi.cta")}</span>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- PayPal (one-time) -->
+          <a
+            href="https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY"
+            target="_blank"
+            rel="noopener"
+            data-testid="sponsor-paypal"
+            class="sponsor-card group relative rounded-2xl border border-white/[0.06] p-6 transition-all hover:scale-[1.02] hover:border-pink-500/30 hover:shadow-md"
+          >
+            <div class="flex items-center gap-4 mb-4">
+              <div class="shrink-0 w-12 h-12 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center group-hover:border-pink-500/20 transition-colors">
+                <svg class="w-6 h-6 text-ink-muted group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.08 21.5H3.6a.6.6 0 0 1-.59-.7L5.9 2.7A1 1 0 0 1 6.89 2h6.6c3.63 0 5.95 1.9 5.3 5.36-.7 3.73-3.36 5.39-6.83 5.39H9.8a.8.8 0 0 0-.79.67L7.98 20.8a.8.8 0 0 1-.9.7Zm13.1-12.9c-.15-.1-.32.03-.36.2-.84 3.6-3.6 5.55-7.5 5.55h-1.4a.6.6 0 0 0-.59.5l-1.05 6.62a.6.6 0 0 0 .6.7h2.65a.8.8 0 0 0 .79-.67l.7-4.44a.8.8 0 0 1 .79-.68h.8c3 0 5.3-1.4 5.9-4.6.28-1.5.03-2.67-.33-3.18Z"/></svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-white" data-i18n="sponsor.paypal.title">{t(lang, "sponsor.paypal.title")}</h2>
+                <p class="text-sm text-ink-subtle" data-i18n="sponsor.paypal.subtitle">{t(lang, "sponsor.paypal.subtitle")}</p>
+              </div>
+            </div>
+            <p class="text-ink-muted text-sm leading-relaxed" data-i18n="sponsor.paypal.desc">{t(lang, "sponsor.paypal.desc")}</p>
+            <div class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-pink-400 group-hover:text-pink-300 transition-colors">
+              <span data-i18n="sponsor.paypal.cta">{t(lang, "sponsor.paypal.cta")}</span>
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </div>
           </a>

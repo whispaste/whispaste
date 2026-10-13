@@ -294,7 +294,7 @@ test('package manager section stays scannable at 390px mobile width', async ({
 
 test('recording overlay renders on a canvas in the paste demo (no privacy badge)', async ({ page }) => {
   await page.goto('/');
-  // The hero shows the promo film now; the former three-scene carousel
+  // The hero shows a static e-mail example; the former three-scene carousel
   // mockup (and its own overlay canvas) is gone.
   await expect(page.locator('.carousel-dot')).toHaveCount(0);
   await expect(page.locator('#overlay-canvas')).toHaveCount(0);

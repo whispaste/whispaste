@@ -21,7 +21,7 @@ WhisPaste turns the moment you would normally start typing into the moment you s
 
 The default mode runs entirely on your computer. WhisPaste ships three on-device Whisper AI models (Small, Medium, and Large v3 Turbo, up to 99 languages) plus the extra-fast, CPU-only Parakeet engine, so your audio never leaves the machine you are working on. If you ever want cloud-grade accuracy, OpenAI and Deepgram are opt-in and the audio goes straight from your device to the provider you picked, never through a WhisPaste server. There is no account to create, no subscription to manage, and nothing about your work gets stored anywhere it would not otherwise live.
 
-Writers, developers, support staff, and anyone whose hands hurt at the end of the day all use WhisPaste for the same reason: the keyboard becomes optional. A five-sentence reply to a code review takes about ten seconds of voice input instead of two minutes of typing. A first draft of a long email is a single hotkey press away. A clarification on a customer ticket goes out without leaving the ticket UI. On a day when typing is painful, voice input takes over for whichever sentences need to happen, and you keep working without switching tools.
+Writers, developers, support staff, and anyone whose hands hurt at the end of the day all use WhisPaste for the same reason: the keyboard becomes optional. A five-sentence reply to a code review is spoken in a few breaths instead of typed out line by line. A first draft of a long email is a single hotkey press away. A clarification on a customer ticket goes out without leaving the ticket UI. On a day when typing is painful, voice input takes over for whichever sentences need to happen, and you keep working without switching tools.
 
 Every transcript is saved to a local history you control. Search across everything you have ever recorded, tag entries by project, pin the ones you reuse, archive what you do not need, and export to TXT, Markdown, JSON, CSV, or Word whenever you want a copy outside the app. Voice Snippets turn short spoken triggers into reusable phrases (signatures, greetings, project codes, anything you find yourself typing repeatedly), and they are expanded before the text is pasted.
 
@@ -32,7 +32,7 @@ WhisPaste is open source under the MIT license. The full source is on GitHub, ev
 - **Reply to email** in your own words without touching the keyboard, whether that's Outlook, Gmail, or anything else in the browser.
 - **Answer code reviews, write commit messages, and comment on issues** without leaving the GitHub or GitLab tab.
 - **Work through support tickets faster** by speaking the personal sentences on top of your macros, right inside Zendesk, Freshdesk, Intercom, or your own helpdesk app.
-- **Keep writing on bad-hands days** even with RSI, carpal tunnel, or tendonitis: voice input replaces typing wherever your cursor is.
+- **Give your hands a rest on long writing days:** voice input replaces typing wherever your cursor is.
 - **Brainstorm and outline out loud**, then edit the transcript instead of staring at an empty document.
 - **Capture meeting notes and follow-ups** straight into Notion, Obsidian, OneNote, or whatever notes app you use.
 - **Talk to chatbots and AI tools** by speaking the prompt instead of typing it, then refine the result in place.

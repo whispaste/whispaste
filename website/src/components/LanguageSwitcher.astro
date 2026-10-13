@@ -29,6 +29,7 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
         <li>
           <a
             href={paths[l]}
+            data-lang-choice={l}
             hreflang={LOCALE_META[l].tag}
             lang={LOCALE_META[l].tag}
             data-testid={`${idPrefix}-${l}`}
@@ -47,6 +48,7 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
     {SUPPORTED_LOCALES.map((l) => (
       <a
         href={paths[l]}
+        data-lang-choice={l}
         hreflang={LOCALE_META[l].tag}
         lang={LOCALE_META[l].tag}
         data-testid={`${idPrefix}-${l}`}
@@ -63,6 +65,13 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
 </style>
 
 <script is:inline>
+  // Remember an explicit language choice; the browser-language redirect in
+  // Layout.astro honours it over navigator.languages.
+  document.addEventListener('click', function (e) {
+    var a = e.target instanceof Element ? e.target.closest('a[data-lang-choice]') : null;
+    if (!a) return;
+    try { localStorage.setItem('wp-lang', a.getAttribute('data-lang-choice')); } catch (err) {}
+  });
   // Close the language menu on outside click / Escape.
   document.addEventListener('click', function (e) {
     document.querySelectorAll('details.lang-switch[open]').forEach(function (d) {

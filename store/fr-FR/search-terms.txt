@@ -1,7 +1,7 @@
-dictée vocale
+voix vers texte
 reconnaissance vocale
-voix en texte
+dictée
 whisper AI
 transcription
-dictée hors ligne
+reconnaissance vocale hors ligne
 saisie vocale

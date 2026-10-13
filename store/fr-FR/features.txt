@@ -1,13 +1,13 @@
-Appuyez sur un raccourci, parlez, et le texte apparaît au curseur dans n’importe quelle app Windows
-Deux moteurs sur l’appareil : Whisper (99 langues, GPU via Vulkan) et Parakeet (rapide sur le CPU)
+Appuyez sur un raccourci, parlez, et le texte apparaît à votre curseur dans n'importe quelle application Windows
+Deux moteurs sur l'appareil : Whisper (99 langues, accélération GPU) et Parakeet (rapide sur le processeur)
 Votre audio reste sur votre PC ; fonctionne hors ligne après un téléchargement unique du modèle
-Transcription cloud facultative via OpenAI ou Deepgram avec votre propre clé API, directement chez le fournisseur
-Mode intelligent : nettoyer, raccourcir ou traduire avant de coller, en local ou via OpenAI
-Modifiez un texte sélectionné à la voix : dites ce qui doit changer et WhisPaste le réécrit
-Snippets vocaux : des mots-déclencheurs qui insèrent un texte complet, y compris des modèles interactifs
+Transcription cloud facultative via OpenAI ou Deepgram avec votre propre clé API, directement auprès du fournisseur
+Smart Mode : nettoyez, raccourcissez ou traduisez avant de coller, en local ou via OpenAI
+Modifiez le texte sélectionné à la voix : dites ce qui doit changer et WhisPaste le réécrit
+Voice Snippets : déclencheurs vocaux qui insèrent un texte complet, y compris des modèles interactifs
 Vocabulaire personnalisé et remplacements pour les noms et le jargon
-Historique consultable avec tags, épingles, archives, fusion et verrouillage par code PIN
+Historique consultable avec étiquettes, épingles, archive, fusion et verrouillage par code PIN
 Export en TXT, Markdown, JSON, CSV et Word (.docx)
-Mode bascule ou push-to-talk avec un raccourci global personnalisable
+Activation/désactivation ou push-to-talk avec un raccourci global personnalisable
 Overlay en direct, bouton flottant, panneau latéral du presse-papiers, zone de notification et démarrage automatique
-Achat unique, sans abonnement, sans compte ; open source sous licence MIT
+Achat unique, sans abonnement ni compte ; open source sous licence MIT

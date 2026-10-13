@@ -1,5 +1,5 @@
 Premi una scorciatoia, parla e il testo compare nel cursore in qualsiasi app di Windows
-Due motori sul dispositivo: Whisper (99 lingue, GPU tramite Vulkan) e Parakeet (veloce sulla CPU)
+Due motori sul dispositivo: Whisper (99 lingue, accelerazione GPU) e Parakeet (veloce sulla CPU)
 Il tuo audio resta sul PC; funziona offline dopo l'unico download del modello
 Trascrizione cloud facoltativa tramite OpenAI o Deepgram con la tua chiave API, diretta al provider
 Smart Mode: pulisci, accorcia o traduci prima di incollare, in locale o tramite OpenAI

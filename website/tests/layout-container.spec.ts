@@ -55,16 +55,16 @@ for (const path of ['/', '/en/']) {
   }
 }
 
-test('hero film dominates the split layout on wide screens', async ({ page }) => {
+test('hero example dominates the split layout on wide screens', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => document.fonts.ready);
-  const film = await page.getByTestId('promo-film').boundingBox();
+  const film = await page.getByTestId('hero-example').boundingBox();
   const copy = await page.getByTestId('hero').locator('.hero-copy').boundingBox();
   expect(film && copy).toBeTruthy();
   expect(film!.width).toBeGreaterThan(copy!.width);
   expect(film!.width).toBeGreaterThanOrEqual(700);
-  // Side by side, and the film starts above the fold.
+  // Side by side, and the example sits fully above the fold.
   expect(film!.x).toBeGreaterThan(copy!.x + copy!.width - 1);
   expect(film!.y + film!.height).toBeLessThanOrEqual(900);
 });

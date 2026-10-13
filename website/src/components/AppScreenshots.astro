@@ -4,508 +4,353 @@ import SectionEyebrow from './SectionEyebrow.astro';
 import { t, localePath, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
+const shotLang = lang === 'de' || lang === 'ru' ? lang : 'en';
+
+// Two real app views (dark, the app's only theme). Both stay in the DOM so the
+// lightbox can page through them; the switcher only changes which is shown.
+const views = [
+  { id: 'history', file: '01_workspace_overview', label: 'screenshots.view.history', caption: 'screenshots.workspace', aria: 'screenshots.teaser.overview.aria', alt: 'screenshots.teaser.overview.alt' },
+  { id: 'detail', file: '02_workspace_detail', label: 'screenshots.view.detail', caption: 'screenshots.detail', aria: 'screenshots.teaser.detail.aria', alt: 'screenshots.teaser.detail.alt' },
+] as const;
 ---
-<!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
-<section id="app-screenshots" class="band band-deep relative py-24 sm:py-32 scroll-mt-20 wp-parallax-scope">
+<!-- Screenshot teaser: one large real screenshot, no device frame, with a
+     switch between history and detail editor. Full view opens the shared
+     lightbox; the full gallery lives on /screenshots/. -->
+<section id="app-screenshots" class="band band-deep relative wp-section scroll-mt-20">
   <div class="relative wp-container">
-    <div class="max-w-2xl mx-auto text-center mb-10 scroll-reveal">
-      <SectionEyebrow key="screenshots.label" />
-      <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="text-gradient-brand" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>
-      <p class="mt-3 text-ink-muted text-base" data-i18n="screenshots.desc">
-        {t(lang, "screenshots.desc")}
-      </p>
+    <div class="shots-head">
+      <div class="wp-section-head">
+        <SectionEyebrow key="screenshots.label" />
+        <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="text-gradient-brand" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>
+        <p class="wp-lead mt-4" data-i18n="screenshots.desc">{t(lang, "screenshots.desc")}</p>
+      </div>
     </div>
 
-    <!-- Two hero screenshots: workspace overview + detail editor, both dark
-         (the app's only theme since the light theme was removed) -->
-    <div class="teaser-pair">
-      <div class="teaser-glow wp-parallax-layer" aria-hidden="true"></div>
-      <figure class="teaser-card teaser-card--primary wp-clip-reveal">
-        {/* MacBook device frame — grounds the app as a real macOS desktop app.
-            Purely decorative chrome around the existing screenshot button; the
-            lightbox wiring and lang/os/theme sync stay untouched. */}
-        <div class="mbp">
-          <div class="mbp-lid">
-            <div class="mbp-screen">
-              {/* The display: macOS wallpaper behind a menu bar, a windowed app,
-                  and the dock — matching how a real notched MacBook renders. */}
-              <div class="mbp-display">
-                <div class="mbp-wallpaper wp-parallax-layer" aria-hidden="true"></div>
-                {/* Camera notch — cut into the centre of the menu bar */}
-                <div class="mbp-notch" aria-hidden="true"></div>
+    <div class="shots-stage" data-view="history" data-testid="screenshots">
+      <div class="shots-controls">
+        <div class="shots-switch" role="group" aria-label={t(lang, "screenshots.viewsAria")} data-i18n-aria="screenshots.viewsAria">
+          {views.map((v, i) => (
+            <button
+              type="button"
+              class="shots-switch-btn"
+              data-view-btn={v.id}
+              aria-pressed={i === 0 ? 'true' : 'false'}
+              data-testid={`screenshots-view-${v.id}`}
+            ><span data-i18n={v.label}>{t(lang, v.label)}</span></button>
+          ))}
+        </div>
+        <button type="button" class="shots-open" data-testid="screenshots-open">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+          <span data-i18n="screenshots.openFull">{t(lang, "screenshots.openFull")}</span>
+        </button>
+      </div>
 
-                {/* macOS menu bar over the wallpaper, flowing around the notch */}
-                <div class="mbp-menubar" aria-hidden="true">
-                  <div class="mbp-mb-left">
-                    <svg class="mbp-apple" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"/>
-                    </svg>
-                    <span class="mbp-mb-app">WhisPaste</span>
-                    <span class="mbp-mb-menus mbp-lang-de">Ablage&nbsp;&nbsp;Bearbeiten&nbsp;&nbsp;Darstellung&nbsp;&nbsp;Fenster&nbsp;&nbsp;Hilfe</span>
-                    <span class="mbp-mb-menus mbp-lang-en">File&nbsp;&nbsp;Edit&nbsp;&nbsp;View&nbsp;&nbsp;Window&nbsp;&nbsp;Help</span>
-                  </div>
-                  <div class="mbp-mb-right">
-                    <svg class="mbp-mb-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="11" cy="11" r="6"/><path d="m20 20-3.2-3.2"/>
-                    </svg>
-                    <svg class="mbp-mb-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M4 11.5a11 11 0 0 1 16 0"/><path d="M7.5 15a6 6 0 0 1 9 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor" stroke="none"/>
-                    </svg>
-                    <svg class="mbp-mb-glyph mbp-mb-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="2" y="8" width="17" height="8" rx="2.5"/><rect x="4" y="10" width="11" height="4" rx="1" fill="currentColor" stroke="none"/><path d="M21.5 11.5v3"/>
-                    </svg>
-                    <span class="mbp-clock">9:41</span>
-                  </div>
+      {/* Pure-CSS MacBook Pro: aluminium lid, black bezel with notch, a macOS
+          desktop (wallpaper + menu bar) and the app as a window on it. The
+          frame is decoration; the screenshot buttons inside keep the
+          lightbox wiring and the lang/os sync. */}
+      <div class="mbp">
+        <div class="mbp-lid">
+          <div class="mbp-screen">
+            <div class="mbp-display">
+              <div class="mbp-wallpaper" aria-hidden="true"></div>
+              <div class="mbp-notch" aria-hidden="true"></div>
+              <div class="mbp-menubar" aria-hidden="true">
+                <div class="mbp-mb-left">
+                  <svg class="mbp-apple" viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"/></svg>
+                  <span class="mbp-mb-app">WhisPaste</span>
+                  <span class="mbp-mb-menus mbp-lang-de">Ablage&nbsp;&nbsp;Bearbeiten&nbsp;&nbsp;Darstellung&nbsp;&nbsp;Fenster&nbsp;&nbsp;Hilfe</span>
+                  <span class="mbp-mb-menus mbp-lang-en">File&nbsp;&nbsp;Edit&nbsp;&nbsp;View&nbsp;&nbsp;Window&nbsp;&nbsp;Help</span>
                 </div>
-
-                {/* The app as a maximised window — stops above the dock, wallpaper
-                    showing around it (it does not run edge-to-edge). */}
-                <div class="mbp-window">
+                <div class="mbp-mb-right">
+                  <svg class="mbp-mb-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5a11 11 0 0 1 16 0"/><path d="M7.5 15a6 6 0 0 1 9 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor" stroke="none"/></svg>
+                  <svg class="mbp-mb-glyph mbp-mb-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="17" height="8" rx="2.5"/><rect x="4" y="10" width="11" height="4" rx="1" fill="currentColor" stroke="none"/><path d="M21.5 11.5v3"/></svg>
+                  <span class="mbp-clock">9:41</span>
+                </div>
+              </div>
+              {views.map((v, i) => (
+                <div class="mbp-window" data-view-only={v.id}>
                   <button
+                    type="button"
                     class="teaser-thumb-btn"
-                    data-teaser-idx="0"
-                    aria-label={t(lang, "screenshots.teaser.overview.aria")}
+                    data-teaser-idx={i}
+                    aria-label={t(lang, v.aria)}
+                    data-i18n-aria={v.aria}
                   >
                     <img
                       class="teaser-img"
-                      src={`/screenshots/${lang === "de" || lang === "ru" ? lang : "en"}/dark/01_workspace_overview.webp`}
-                      data-screenshot-en="/screenshots/en/dark/01_workspace_overview.webp"
-                      data-screenshot-de="/screenshots/de/dark/01_workspace_overview.webp"
-                      data-screenshot-ru="/screenshots/ru/dark/01_workspace_overview.webp"
-                      data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.webp"
-                      data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.webp"
-                      data-screenshot-mac-ru="/screenshots/mac/ru/dark/01_workspace_overview.webp"
-                      alt={t(lang, "screenshots.teaser.overview.alt")}
+                      src={`/screenshots/${shotLang}/dark/${v.file}.webp`}
+                      data-screenshot-en={`/screenshots/en/dark/${v.file}.webp`}
+                      data-screenshot-de={`/screenshots/de/dark/${v.file}.webp`}
+                      data-screenshot-ru={`/screenshots/ru/dark/${v.file}.webp`}
+                      data-screenshot-mac-en={`/screenshots/mac/en/dark/${v.file}.webp`}
+                      data-screenshot-mac-de={`/screenshots/mac/de/dark/${v.file}.webp`}
+                      data-screenshot-mac-ru={`/screenshots/mac/ru/dark/${v.file}.webp`}
+                      alt={t(lang, v.alt)}
                       width="1920"
                       height="1080"
-                      loading="eager"
+                      loading={i === 0 ? 'eager' : 'lazy'}
                       decoding="async"
                     />
                   </button>
                 </div>
-
-                {/* macOS Dock — translucent, floats over the wallpaper at the bottom */}
-                <div class="mbp-dock" aria-hidden="true">
-                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#5ec2ff,#1f7fe0)"></span>
-                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#9ad0ff,#2b6fd6)"></span>
-                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#7be0a0,#1faf6a)"></span>
-                  <img class="mbp-dock-icon mbp-dock-app" src="/app-icon-dark.png" alt="" width="48" height="48" />
-                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#ffd866,#f2a93b)"></span>
-                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#c8ccd2,#8a9099)"></span>
-                  <span class="mbp-dock-sep"></span>
-                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#cfd4da,#9aa0a8)"></span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-          <div class="mbp-base" aria-hidden="true"></div>
         </div>
-      </figure>
+        <div class="mbp-base" aria-hidden="true"><span class="mbp-groove"></span></div>
+      </div>
 
-      <figure class="teaser-card teaser-card--secondary wp-clip-reveal">
-        <button
-          class="teaser-thumb-btn"
-          data-teaser-idx="1"
-          aria-label={t(lang, "screenshots.teaser.detail.aria")}
-        >
-          <img
-            class="teaser-img"
-            src={`/screenshots/${lang === "de" || lang === "ru" ? lang : "en"}/dark/02_workspace_detail.webp`}
-            data-screenshot-en="/screenshots/en/dark/02_workspace_detail.webp"
-            data-screenshot-de="/screenshots/de/dark/02_workspace_detail.webp"
-            data-screenshot-ru="/screenshots/ru/dark/02_workspace_detail.webp"
-            data-screenshot-mac-en="/screenshots/mac/en/dark/02_workspace_detail.webp"
-            data-screenshot-mac-de="/screenshots/mac/de/dark/02_workspace_detail.webp"
-            data-screenshot-mac-ru="/screenshots/mac/ru/dark/02_workspace_detail.webp"
-            alt={t(lang, "screenshots.teaser.detail.alt")}
-            width="1920"
-            height="1080"
-            loading="lazy"
-            decoding="async"
-          />
-        </button>
-      </figure>
+      {views.map((v) => (
+        <p class="shots-caption" data-view-only={v.id} data-i18n={v.caption}>{t(lang, v.caption)}</p>
+      ))}
     </div>
 
-    <div class="text-center mt-8 scroll-reveal">
-      <a
-        href={localePath(lang, "screenshots")}
-        class="inline-flex items-center gap-2 text-brand-cyan hover:underline font-medium text-sm transition-colors"
-        data-i18n="screenshots.seeAll"
-      >
-        {t(lang, "screenshots.seeAll")}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <p class="shots-more">
+      <a href={localePath(lang, "screenshots")} class="shots-more-link" data-testid="screenshots-gallery-link">
+        <span data-i18n="screenshots.seeAll">{t(lang, "screenshots.seeAll")}</span>
       </a>
-    </div>
+    </p>
   </div>
 </section>
 
 <ScreenshotLightbox />
 
 <style>
-  .teaser-pair {
-    position: relative;
+  .shots-stage {
     display: grid;
-    gap: 1.75rem;
-    max-width: 64rem;
-    margin: 0 auto;
+    gap: 1rem;
+    max-width: 70rem;
+    margin-inline: auto;
   }
-  /* Soft cyan pedestal so the screenshots read as a deliberate showcase rather
-     than a flat pair sitting on the band. Sits behind the figures, inside the
-     band's stacking context (theme-aware via color-mix). Echtes Div statt
-     ::before, weil `.wp-parallax-layer` ein animierbares Element für seinen
-     eigenen `translate` braucht (Gegen-Drift zum Wallpaper, siehe unten). */
-  .teaser-glow {
-    position: absolute;
-    /* Horizontal kein Bleed (0 statt -6%): der Glow lief bei breiten-
-       gedeckelten Viewports (768/1024px) über den Seitenrand und erzeugte
-       19-35px scrollWidth-Overflow — Verstoß gegen die No-H-Scroll-Regel. */
-    inset: -10% 0 -14%;
-    z-index: -1;
-    pointer-events: none;
-    --wp-parallax-depth: -18px;
-    background: radial-gradient(
-      ellipse 68% 60% at 50% 42%,
-      color-mix(in srgb, var(--color-brand-cyan) 15%, transparent) 0%,
-      transparent 70%
-    );
-    filter: blur(10px);
+  .shots-stage:not([data-view="history"]) [data-view-only="history"],
+  .shots-stage:not([data-view="detail"]) [data-view-only="detail"] {
+    display: none;
   }
-
-  /* Iris-Reveal-Tuning pro Karte: Endradius 140-145% statt Default 75% —
-     der persistente clip-path (fill-mode: both) läge sonst innerhalb der
-     60-84px weichen MacBook-Schatten bzw. des 3px-Fokusrings und würde sie
-     dauerhaft anschneiden. Sekundäre Karte öffnet ~10% Scroll-Range nach
-     der primären (nur in unterstützenden Browsern relevant). */
-  .teaser-card--primary {
-    --wp-clip-end: 145%;
-    --wp-clip-origin: 50% 46%;
+  .shots-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
   }
-  .teaser-card--secondary {
-    --wp-clip-end: 140%;
+  .shots-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
-  @supports (animation-timeline: view()) {
-    .teaser-card--secondary.wp-clip-reveal {
-      animation-range: entry 10% entry 62%;
-    }
-  }
-
-  /* Wallpaper als eigener Tiefen-Layer (ersetzt das statische background von
-     .mbp-display): überscannt (inset -14px vertikal > 8px Drift), damit beim
-     Driften keine Kante aufreißt — .mbp-display { overflow: hidden } clippt
-     den Überstand. z-index 0 liegt unter Fenster/Dock/Menübar/Notch, die
-     bleiben komplett statisch (eine wandernde Menüleiste läse sich als
-     kaputtes UI, nicht als Tiefe). */
-  .mbp-wallpaper {
-    position: absolute;
-    inset: -14px 0;
-    z-index: 0;
-    pointer-events: none;
-    --wp-parallax-depth: 8px;
-    background:
-      radial-gradient(120% 90% at 78% 10%, rgba(120, 230, 240, 0.45) 0%, transparent 45%),
-      radial-gradient(120% 100% at 10% 96%, rgba(40, 70, 150, 0.5) 0%, transparent 55%),
-      linear-gradient(150deg, #14304c 0%, #1d4f6e 32%, #1f6f87 56%, #2f93a8 78%, #57bcd0 100%);
-  }
-
-  @media (min-width: 768px) {
-    .teaser-pair {
-      grid-template-columns: 1fr 1fr;
-      align-items: start;
-    }
-
-    .teaser-card--secondary {
-      margin-top: 3rem;
-    }
-  }
-
-  .teaser-card {
-    margin: 0;
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .teaser-thumb-btn {
-    display: block;
-    width: 100%;
-    padding: 0;
-    border: none;
-    background: none;
+  .shots-switch-btn,
+  .shots-open {
+    min-height: 44px;
+    padding: 0.5rem 1.125rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background: transparent;
+    color: var(--color-ink-muted);
+    font-size: 0.9375rem;
+    font-weight: 600;
     cursor: pointer;
-    border-radius: 14px;
-    overflow: hidden;
+    transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .shots-switch-btn:hover,
+  .shots-open:hover { color: var(--color-ink); }
+  .shots-switch-btn[aria-pressed="true"] {
+    color: var(--color-brand-darker);
+    background: var(--color-brand-cyan);
+    border-color: var(--color-brand-cyan);
+  }
+  .shots-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .shots-open svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .shots-switch-btn:focus-visible,
+  .shots-open:focus-visible,
+  .teaser-thumb-btn:focus-visible,
+  .shots-more-link:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
     outline-offset: 3px;
   }
-
-  .teaser-img {
-    display: block;
-    width: 100%;
-    height: auto;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
-    transition:
-      transform 0.4s var(--ease-flow),
-      box-shadow 0.4s var(--ease-flow);
-  }
-
-  .teaser-thumb-btn:hover .teaser-img,
-  .teaser-thumb-btn:focus-visible .teaser-img {
-    transform: translateY(-6px);
-    box-shadow: 0 36px 84px rgba(0, 0, 0, 0.5);
-  }
-
-  /* =========================================================================
-     MacBook device frame (primary teaser) — pure CSS, theme-independent
-     aluminium so it reads as a real space-gray laptop on either band.
-     ========================================================================= */
-  /* The frame provides its own silhouette + shadow, so the primary card must
-     not clip it or stack a second radius/shadow on top. */
-  .teaser-card--primary {
-    overflow: visible;
-    border-radius: 0;
-  }
-
+  /* ---- MacBook Pro frame (pure CSS, space-gray aluminium) ---- */
   .mbp {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     width: 100%;
-    transition: transform 0.4s var(--ease-flow);
+    max-width: 66rem;
+    margin: 1rem auto 0;
+    filter: drop-shadow(0 40px 60px rgb(0 0 0 / 0.45)) drop-shadow(0 0 80px color-mix(in srgb, var(--color-brand-cyan) 14%, transparent));
   }
-  .mbp:hover,
-  .mbp:focus-within {
-    transform: translateY(-6px);
-  }
-
-  /* Lid: aluminium edge wrapping the screen */
   .mbp-lid {
-    width: 94%;
-    padding: 8px 8px 0;
-    border-radius: 16px 16px 8px 8px;
-    background: linear-gradient(180deg, #43464c 0%, #2b2d32 100%);
+    width: 88%;
+    margin-inline: auto;
+    padding: 0.6%;
+    border-radius: 2.2% 2.2% 0.6% 0.6% / 3.4% 3.4% 0.9% 0.9%;
+    background: linear-gradient(180deg, #5a5e66 0%, #33363c 6%, #2a2c31 100%);
     box-shadow:
-      0 30px 60px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      inset 0 1px 0 rgb(255 255 255 / 0.22),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06);
   }
-
-  /* Screen: black bezel. Container so the mocked macOS chrome scales with width. */
   .mbp-screen {
     position: relative;
-    padding: 11px;
-    border-radius: 10px 10px 4px 4px;
-    background: #050506;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-    overflow: hidden;
+    padding: 1.6%;
+    border-radius: 1.8% 1.8% 0.4% 0.4% / 2.8% 2.8% 0.6% 0.6%;
+    background: #060607;
     container-type: inline-size;
+    overflow: hidden;
   }
-
-  /* Display: macOS wallpaper behind the menu bar, the windowed app, and the dock.
-     padding-bottom reserves the wallpaper strip the floating dock sits in, so the
-     app window does not run edge-to-edge — exactly how a maximised macOS window
-     stops above the dock. */
+  /* Glass reflection across the panel */
+  .mbp-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    background: linear-gradient(115deg, rgb(255 255 255 / 0.07) 0%, rgb(255 255 255 / 0.02) 28%, transparent 42%);
+  }
   .mbp-display {
     position: relative;
-    border-radius: 3px;
+    aspect-ratio: 16 / 10.4;
+    border-radius: 0.6cqw;
     overflow: hidden;
-    /* Real notched-MacBook display proportion (~16:10.5) so the device keeps
-       authentic dimensions; the app window flexes to fill the inner space. */
-    aspect-ratio: 16 / 10.5;
     display: flex;
     flex-direction: column;
-    /* Solide Fallback-Farbe statt der Gradients direkt hier — die sitzen jetzt
-       im eigenen .mbp-wallpaper-Tiefen-Layer (erstes Kind). Kein Flash, falls
-       der Layer je fehlt (z. B. reduced-motion-Edge-Fall). */
-    background: #14304c;
+    background: #0c1a33;
   }
-
-  /* macOS camera notch — black cut-out in the centre of the menu bar */
+  .mbp-wallpaper {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(90% 80% at 80% 0%, rgb(34 211 238 / 0.55) 0%, transparent 55%),
+      radial-gradient(80% 90% at 0% 100%, rgb(99 102 241 / 0.55) 0%, transparent 60%),
+      radial-gradient(60% 60% at 55% 60%, rgb(14 165 233 / 0.35) 0%, transparent 70%),
+      linear-gradient(160deg, #0b1d3a 0%, #13305a 45%, #0e2347 100%);
+  }
   .mbp-notch {
     position: absolute;
     top: 0;
     left: 50%;
-    transform: translateX(-50%);
-    width: 17cqw;
-    height: 3.4cqw;
-    background: #050506;
-    border-radius: 0 0 1.4cqw 1.4cqw;
+    translate: -50% 0;
+    width: 13cqw;
+    height: 2.9cqw;
+    background: #060607;
+    border-radius: 0 0 1.1cqw 1.1cqw;
     z-index: 5;
   }
-
-  /* ---- macOS menu bar (translucent over the wallpaper) ---- */
   .mbp-menubar {
     position: relative;
     z-index: 4;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex: 0 0 auto;
-    height: 3.4cqw;
-    padding: 0 2.2cqw;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.1) 100%);
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 1.5cqw;
+    height: 2.9cqw;
+    padding: 0 1.8cqw;
+    background: rgb(0 0 0 / 0.22);
+    color: rgb(255 255 255 / 0.92);
+    font-size: 1.25cqw;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
-    overflow: hidden;
   }
   .mbp-mb-left {
     display: flex;
     align-items: center;
-    gap: 1.7cqw;
-    min-width: 0;
-    max-width: 40%; /* stay clear of the centre notch */
-  }
-  .mbp-apple {
-    width: 1.9cqw;
-    height: 1.9cqw;
-    flex-shrink: 0;
-  }
-  .mbp-mb-app {
-    font-weight: 700;
-    color: #fff;
-  }
-  .mbp-mb-menus {
-    color: rgba(255, 255, 255, 0.85);
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .mbp-mb-right {
-    display: flex;
-    align-items: center;
     gap: 1.5cqw;
-    flex-shrink: 0;
+    min-width: 0;
+    max-width: 40%;
+    overflow: hidden;
   }
-  .mbp-mb-glyph {
-    width: 2cqw;
-    height: 2cqw;
-  }
-  .mbp-mb-battery {
-    width: 2.6cqw;
-    height: 2.6cqw;
-  }
-  .mbp-clock {
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-  }
-  /* Menu titles follow <html lang>: German menus on German pages, English
-     everywhere else (the app UI ships in English for those locales). */
+  .mbp-apple { width: 1.6cqw; height: 1.6cqw; flex-shrink: 0; }
+  .mbp-mb-app { font-weight: 700; color: #fff; }
+  .mbp-mb-menus { color: rgb(255 255 255 / 0.82); overflow: hidden; text-overflow: ellipsis; }
+  .mbp-mb-right { display: flex; align-items: center; gap: 1.3cqw; }
+  .mbp-mb-glyph { width: 1.7cqw; height: 1.7cqw; }
+  .mbp-mb-battery { width: 2.2cqw; height: 2.2cqw; }
+  .mbp-clock { font-variant-numeric: tabular-nums; }
   .mbp-lang-de { display: none; }
   :global(html[lang="de"]) .mbp-lang-de { display: inline; }
   :global(html[lang="de"]) .mbp-lang-en { display: none; }
-
-  /* Hide the menu titles when the device gets narrow — keep apple + app name. */
-  @container (max-width: 360px) {
+  @container (max-width: 420px) {
     .mbp-mb-menus { display: none; }
     :global(html[lang]) .mbp-mb-menus { display: none; }
   }
-
-  /* ---- App window: maximised, but stopping above the dock ---- */
+  /* App window floating on the desktop */
   .mbp-window {
     position: relative;
     z-index: 2;
-    flex: 1 1 auto;
-    min-height: 0;
-    /* bottom margin reserves the wallpaper strip for the floating dock */
-    margin: 1.6cqw 2.2cqw 10cqw;
-    border-radius: 1.3cqw;
+    margin: auto 3.2cqw;
+    border-radius: 1cqw;
     overflow: hidden;
     box-shadow:
-      0 2.2cqw 4cqw rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(0, 0, 0, 0.25);
+      0 2.4cqw 5cqw rgb(0 0 0 / 0.5),
+      0 0 0 1px rgb(255 255 255 / 0.1);
   }
-
-  /* The screenshot fills its window: drop its standalone chrome and let it
-     cover the window box, anchored to the top so the app header stays visible. */
-  .mbp .teaser-thumb-btn {
+  .mbp-window:last-child { margin-bottom: auto; }
+  .teaser-thumb-btn {
     display: block;
     width: 100%;
-    height: 100%;
-    border-radius: 0;
+    padding: 0;
+    border: 0;
+    background: var(--color-brand-darker);
+    cursor: zoom-in;
   }
-  .mbp .teaser-img {
+  .teaser-img {
+    display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
     object-fit: cover;
     object-position: top center;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    transform: none !important;
   }
-
-  /* ---- macOS dock (floats over the wallpaper strip) ---- */
-  .mbp-dock {
-    position: absolute;
-    left: 50%;
-    bottom: 2cqw;
-    transform: translateX(-50%);
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    gap: 1.4cqw;
-    padding: 1cqw 1.3cqw;
-    border-radius: 2.4cqw;
-    /* Solid --color-brand-floating, same floating-chrome material as the
-       Nav pill/lightbox controls -- no glass/frost material sitewide. */
-    background: var(--color-brand-floating);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 1.2cqw 2.4cqw rgba(0, 0, 0, 0.3);
-    pointer-events: none;
-  }
-  .mbp-dock-icon {
-    width: 5.2cqw;
-    height: 5.2cqw;
-    border-radius: 1.4cqw;
-    flex-shrink: 0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.28);
-  }
-  .mbp-dock-app {
-    object-fit: cover;
-    background: #0b1622;
-  }
-  .mbp-dock-sep {
-    width: 1px;
-    height: 4.6cqw;
-    background: rgba(255, 255, 255, 0.3);
-    margin: 0 0.4cqw;
-    flex-shrink: 0;
-    box-shadow: none;
-  }
-
-  /* Base deck: slightly wider than the lid, with the opening groove */
+  /* Base: wider than the lid, bevelled front edge and the thumb groove. */
   .mbp-base {
     position: relative;
     width: 100%;
-    height: 13px;
-    background: linear-gradient(180deg, #4d5057 0%, #303237 55%, #1c1d21 100%);
-    border-radius: 2px 2px 11px 11px / 2px 2px 9px 9px;
-    box-shadow: 0 16px 26px rgba(0, 0, 0, 0.45);
+    height: 0;
+    padding-bottom: 2.6%;
+    border-radius: 0 0 46% 46% / 0 0 100% 100%;
+    background: linear-gradient(180deg, #6b6f77 0%, #3b3e44 38%, #1f2125 100%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
   }
-  .mbp-base::before {
-    content: "";
+  .mbp-groove {
     position: absolute;
     top: 0;
     left: 50%;
-    transform: translateX(-50%);
-    width: 16%;
-    height: 7px;
-    background: linear-gradient(180deg, #141519, #26282d);
-    border-radius: 0 0 7px 7px;
+    translate: -50% 0;
+    width: 14%;
+    height: 38%;
+    border-radius: 0 0 0.6rem 0.6rem;
+    background: linear-gradient(180deg, #24262a, #44474e);
   }
-
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .mbp { transition: transform 0.5s var(--ease-flow); }
+    .mbp:hover { transform: translateY(-4px); }
+  }
+  .shots-caption {
+    margin-top: 0.5rem;
+    text-align: center;
+    font-size: 0.9375rem;
+    color: var(--color-ink-muted);
+  }
+  .shots-more {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
+  .shots-more-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-weight: 600;
+    color: var(--color-brand-cyan);
+    text-decoration: none;
+    border-radius: var(--radius-chip);
+  }
+  .shots-more-link:hover { text-decoration: underline; }
   @media (prefers-reduced-motion: reduce) {
-    .mbp {
-      transition: none;
-    }
-    .mbp:hover,
-    .mbp:focus-within {
-      transform: none;
-    }
+    .shots-switch-btn,
+    .shots-open { transition: none; }
   }
-
 </style>
 
 <script>
@@ -529,16 +374,30 @@ const lang = currentLocale(Astro.currentLocale);
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'data-os'] });
   window.addEventListener('pageshow', syncScreenshots);
 
-  // Wire teaser thumbnails to shared lightbox (ScreenshotLightbox.astro)
+  // Wire the screenshots to the shared lightbox (ScreenshotLightbox.astro).
+  const openLightbox = (idx: number) => {
+    const teaserImgs = Array.from(
+      document.querySelectorAll<HTMLImageElement>('.teaser-img')
+    ).map(i => ({ src: i.getAttribute('src') || '', alt: i.getAttribute('alt') || '' }));
+    if ((window as any).openScreenshotLightbox) {
+      (window as any).openScreenshotLightbox(teaserImgs, idx);
+    }
+  };
   document.querySelectorAll<HTMLButtonElement>('.teaser-thumb-btn').forEach(btn => {
+    btn.addEventListener('click', () => openLightbox(parseInt(btn.dataset.teaserIdx || '0', 10)));
+  });
+
+  // View switcher: aria-pressed buttons swap the visible screenshot.
+  const stage = document.querySelector<HTMLElement>('.shots-stage');
+  const viewBtns = stage?.querySelectorAll<HTMLButtonElement>('[data-view-btn]') ?? [];
+  for (const btn of viewBtns) {
     btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.teaserIdx || '0', 10);
-      const teaserImgs = Array.from(
-        document.querySelectorAll<HTMLImageElement>('.teaser-img')
-      ).map(i => ({ src: i.getAttribute('src') || '', alt: i.getAttribute('alt') || '' }));
-      if ((window as any).openScreenshotLightbox) {
-        (window as any).openScreenshotLightbox(teaserImgs, idx);
-      }
+      if (!stage) return;
+      stage.dataset.view = btn.dataset.viewBtn;
+      for (const b of viewBtns) b.setAttribute('aria-pressed', String(b === btn));
     });
+  }
+  stage?.querySelector('.shots-open')?.addEventListener('click', () => {
+    openLightbox(stage.dataset.view === 'detail' ? 1 : 0);
   });
 </script>

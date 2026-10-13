@@ -1,86 +1,145 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale } from '../scripts/i18n.ts';
-import { DEFAULT_FAQ_KEYS } from './schema/builders.ts';
+import { FAQ_GROUPS } from './schema/builders.ts';
 
 const lang = currentLocale(Astro.currentLocale);
-
-// Same order as the FAQPage schema, so rich results match the visible text.
-const faqs = DEFAULT_FAQ_KEYS.map((key) => ({ key }));
+// FAQ_GROUPS flattened is DEFAULT_FAQ_KEYS, the FAQPage schema order, so
+// rich results match the visible text.
 ---
 
-<!-- FAQ Section -->
-<section id="faq" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
-  <!-- Decorative context motif: speech bubbles with a question mark — the FAQ
-       "ask us anything" cue. Theme-adaptive, faint, non-interactive.
-       Own overflow:hidden wrapper instead of on the section — see Pricing.astro/
-       Languages.astro for the reasoning (the wp-kinetic-line view() timeline
-       below needs the real page scroll container). -->
-  <div class="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-    <div
-      class="absolute left-1/2 top-8 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
-    >
-      <svg width="250" height="200" viewBox="0 0 250 200" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M35 25h150a20 20 0 0 1 20 20v70a20 20 0 0 1-20 20h-70l-40 30v-30h-40a20 20 0 0 1-20-20V45a20 20 0 0 1 20-20Z" />
-        <path d="M92 68a18 18 0 1 1 30 13c-7 6-12 9-12 17" />
-        <path d="M110 118h.01" />
-      </svg>
-    </div>
-  </div>
-  <div class="relative wp-container max-w-3xl">
-    <div class="text-center mb-12">
-      <SectionEyebrow key="faq.label" class="reveal-up" />
-      <h2 class="section-title wp-kinetic-line"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
+<!-- FAQ: three topic groups of open divider rows (native details, several
+     may be open). Each question has an id so #faq-<key> deep links open it. -->
+<section id="faq" class="band band-raised relative wp-section scroll-mt-20" data-testid="faq">
+  <div class="relative wp-container faq-layout">
+    <div class="wp-section-head faq-head">
+      <SectionEyebrow key="faq.label" />
+      <h2 class="section-title"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
     </div>
 
-    <div class="space-y-3 scroll-reveal" id="faq-accordion">
-      {faqs.map(({ key }) => (
-        <details class="faq-item group rounded-2xl border border-white/[0.06] overflow-hidden">
-          <summary class="flex items-center justify-between gap-4 px-6 py-5 cursor-pointer select-none text-white font-medium hover:bg-white/[0.02] transition-colors" data-i18n={`faq.${key}.q`}>
-            {t(lang, `faq.${key}.q`)}
-            <svg class="faq-chevron w-5 h-5 text-ink-subtle shrink-0 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="px-6 pb-5 text-ink-muted text-sm leading-relaxed" data-i18n={`faq.${key}.a`}>{t(lang, `faq.${key}.a`)}</div>
-        </details>
+    <div class="faq-groups" id="faq-accordion">
+      {FAQ_GROUPS.map((group) => (
+        <div class="faq-group" data-testid={`faq-group-${group.key}`}>
+          <h3 class="faq-group__title" data-i18n={`faq.group.${group.key}`}>{t(lang, `faq.group.${group.key}`)}</h3>
+          {group.keys.map((key) => (
+            <details class="faq-row scroll-mt-24" id={`faq-${key}`} data-testid={`faq-${key}`}>
+              <summary class="faq-row__q">
+                <span data-i18n={`faq.${key}.q`}>{t(lang, `faq.${key}.q`)}</span>
+                <span class="faq-row__icon" aria-hidden="true"></span>
+              </summary>
+              <div class="faq-row__a" data-i18n={`faq.${key}.a`}>{t(lang, `faq.${key}.a`)}</div>
+            </details>
+          ))}
+        </div>
       ))}
     </div>
   </div>
 </section>
 
-<style>
-  .faq-item {
-    background: var(--color-brand-card);
-  }
-  .faq-item summary::-webkit-details-marker {
-    display: none;
-  }
-  .faq-item summary::marker {
-    content: '';
-  }
+<script>
+  // Deep link (#faq-free etc.) opens the targeted question.
+  const openFromHash = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id.startsWith('faq-')) return;
+    const el = document.getElementById(id);
+    if (el instanceof HTMLDetailsElement) {
+      el.open = true;
+      el.scrollIntoView({ block: 'start' });
+    }
+  };
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+</script>
 
-  /* Fließendes Öffnen — die Antwort gleitet auf statt zu springen (das
-     Flow-Prinzip als Interaktion: kein harter Zustandsschnitt). Progressive
-     Enhancement: Browser ohne details-content-Pseudo bzw. interpolate-size
-     öffnen wie bisher instantan — kein Regressionsrisiko. */
-  .faq-item {
-    interpolate-size: allow-keywords;
+<style>
+  .faq-layout {
+    display: grid;
+    gap: 2rem;
   }
-  .faq-item::details-content {
-    opacity: 0;
-    block-size: 0;
-    overflow-y: clip;
-    transition:
-      content-visibility 0.42s allow-discrete,
-      opacity 0.42s var(--ease-flow),
-      block-size 0.42s var(--ease-flow);
+  @media (min-width: 1280px) {
+    .faq-layout {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+      column-gap: 3rem;
+      align-items: start;
+    }
+    .faq-head {
+      position: sticky;
+      top: 6rem;
+    }
   }
-  .faq-item[open]::details-content {
-    opacity: 1;
-    block-size: auto;
+  .faq-head {
+    margin-bottom: 0;
+  }
+  .faq-groups {
+    display: grid;
+    gap: 2.5rem;
+    max-width: 50rem;
+  }
+  .faq-group__title {
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-brand-cyan);
+  }
+  .faq-row {
+    border-bottom: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .faq-row__q {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.125rem 0.5rem;
+    margin-inline: -0.5rem;
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    list-style: none;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--color-ink);
+    transition: background-color var(--dur-fast) ease;
+  }
+  .faq-row__q::-webkit-details-marker { display: none; }
+  .faq-row__q::marker { content: ''; }
+  .faq-row__q:hover { background: rgb(255 255 255 / 0.03); }
+  .faq-row__q:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+  /* Plus/minus with reserved space so long questions never squeeze it. */
+  .faq-row__icon {
+    position: relative;
+    flex: 0 0 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.1rem;
+  }
+  .faq-row__icon::before,
+  .faq-row__icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.875rem;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-brand-cyan);
+    translate: -50% -50%;
+    transition: rotate var(--dur-base) ease;
+  }
+  .faq-row__icon::after { rotate: 90deg; }
+  .faq-row[open] .faq-row__icon::after { rotate: 0deg; }
+  .faq-row__a {
+    padding: 0 0 1.25rem;
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--color-ink-muted);
+    max-width: var(--measure-lead);
   }
   @media (prefers-reduced-motion: reduce) {
-    .faq-item::details-content {
-      transition: none;
-    }
+    .faq-row__q,
+    .faq-row__icon::after { transition: none; }
   }
 </style>

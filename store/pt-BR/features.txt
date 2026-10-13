@@ -1,5 +1,5 @@
 Pressione um atalho, fale, e o texto aparece no cursor em qualquer app do Windows
-Dois motores no dispositivo: Whisper (99 idiomas, GPU via Vulkan) e Parakeet (rápido na CPU)
+Dois motores no dispositivo: Whisper (99 idiomas, aceleração por GPU) e Parakeet (rápido na CPU)
 Seu áudio fica no seu PC; funciona offline após um download único do modelo
 Transcrição opcional na nuvem via OpenAI ou Deepgram com sua própria chave de API, direto ao provedor
 Smart Mode: limpe, encurte ou traduza antes de colar, localmente ou via OpenAI

@@ -10,12 +10,13 @@ import it from '../i18n/it.ts';
 import pt from '../i18n/pt.ts';
 import ru from '../i18n/ru.ts';
 import zh from '../i18n/zh.ts';
+import fr from '../i18n/fr.ts';
 
 import { DEFAULT_LOCALE, isLocale, type Locale } from './locales.ts';
 
 export * from './locales.ts';
 
-export const i18n: Record<Locale, Record<string, string>> = { de, en, es, pt, it, ru, zh };
+export const i18n: Record<Locale, Record<string, string>> = { de, en, es, pt, it, ru, zh, fr };
 
 /**
  * Translation helper. Resolves `key` in `lang`, falls back to English and

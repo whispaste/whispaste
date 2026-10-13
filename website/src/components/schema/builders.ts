@@ -135,6 +135,7 @@ export function defaultScreenshotsFor(locale: Locale): readonly string[] {
     `${SITE_ORIGIN}/screenshots/${slug}/dark/07_snippet_picker.webp`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/08_interactive_snippet.webp`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/09_side_panel.webp`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/10_notes.webp`,
   ];
 }
 
@@ -386,24 +387,20 @@ export interface FAQPageOptions {
 }
 
 /**
- * Default-Fragen für die Landing-Page-FAQ; spiegelt die `FAQ.astro`-Sequenz
- * exakt, damit der Schema-Inhalt mit dem sichtbaren FAQ-Akkordeon
- * korrespondiert (Google-Rich-Results-Anforderung).
+ * Landing-page FAQ topic groups, in visible order (`FAQ.astro`).
  */
-export const DEFAULT_FAQ_KEYS: readonly string[] = [
-  "free",
-  "offline",
-  "accuracy",
-  "sysreq",
-  "languages",
-  "engines",
-  "snippets",
-  "smartmode",
-  "privacy",
-  "windows",
-  "smartscreen",
-  "gatekeeper",
+export const FAQ_GROUPS: readonly { readonly key: string; readonly keys: readonly string[] }[] = [
+  { key: "start", keys: ["free", "windows", "sysreq", "smartscreen", "gatekeeper"] },
+  { key: "local", keys: ["offline", "privacy", "engines", "languages", "accuracy"] },
+  { key: "features", keys: ["smartmode", "snippets"] },
 ];
+
+/**
+ * Default questions for the landing-page FAQ: the groups flattened, so the
+ * schema content matches the visible accordion exactly (Google rich-results
+ * requirement).
+ */
+export const DEFAULT_FAQ_KEYS: readonly string[] = FAQ_GROUPS.flatMap((g) => g.keys);
 
 export function buildFAQPageSchema(
   options: FAQPageOptions,

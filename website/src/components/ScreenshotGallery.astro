@@ -7,7 +7,7 @@
  *
  * Theme per screenshot is fixed by the storyboard (see
  * `test/screenshots/store_screenshots_test.dart`): goldens are only produced
- * in one theme each, so there is nothing to toggle to at runtime. All five are
+ * in one theme each, so there is nothing to toggle to at runtime. All of them are
  * `dark` — the app's light theme was removed, so `store_screenshots_test.dart`
  * no longer produces a `light` variant at all. `GalleryTheme` keeps the
  * `'light'` member for now rather than collapsing the type, since the
@@ -51,6 +51,8 @@ const screens: Array<{
   { id: '07_snippet_picker',       theme: 'dark', i18nLabel: 'gallery.picker',      defaultLabel: 'Search and insert snippets right at your cursor', deLabel: 'Snippets direkt am Cursor suchen und einfügen', height: 1072 },
   { id: '08_interactive_snippet',  theme: 'dark', i18nLabel: 'gallery.interactive', height: 1072 },
   { id: '09_side_panel',           theme: 'dark', i18nLabel: 'gallery.sidepanel',   defaultLabel: 'Your clipboard and transcripts, one edge-pull away', deLabel: 'Zwischenablage und Transkripte, nur einen Handgriff entfernt', height: 1080 },
+  // 10 is a Flutter golden (windowsStore device, 1920×1080) like 01–05, not a capture.
+  { id: '10_notes',              theme: 'dark', i18nLabel: 'gallery.notes',       height: 1080 },
 ];
 ---
 

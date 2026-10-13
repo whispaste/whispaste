@@ -48,6 +48,42 @@ try {
   // Build continues without testimonials — section stays hidden
 }
 
+// Abstract, friendly avatar per testimonial: a tilted rounded shape with a
+// simple face on a colour field (no photo, no person). Shape details come
+// deterministically from the text; the colour pair is offset by the card index
+// so neighbouring cards never share a tone. No names exist (no PII by design).
+const AVATAR_PAIRS: [string, string][] = [
+  ['#0e7490', '#67e8f9'],
+  ['#9d174d', '#f9a8d4'],
+  ['#b45309', '#fcd34d'],
+  ['#4338ca', '#a5b4fc'],
+  ['#047857', '#6ee7b7'],
+  ['#7e22ce', '#d8b4fe'],
+];
+
+function hashText(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function avatarFor(text: string, index: number) {
+  const h = hashText(text);
+  const [bg, face] = AVATAR_PAIRS[index % AVATAR_PAIRS.length];
+  return {
+    bg,
+    face,
+    rot: -14 + ((h >>> 3) % 29),
+    dx: -3 + ((h >>> 9) % 7),
+    dy: -2 + ((h >>> 13) % 5),
+    round: (h >>> 17) % 2 === 0,
+    open: (h >>> 19) % 3 === 0,
+  };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -59,22 +95,45 @@ function escapeHtml(s: string): string {
 ---
 
 {testimonials.length > 0 && (
-  <section id="testimonials" class="band band-spotlight py-24 sm:py-32 relative scroll-mt-20">
+  <section id="testimonials" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="testimonials">
     <div class="wp-container">
-      <div class="text-center mb-12">
-        <SectionEyebrow key="testimonials.label" class="reveal-up" />
-        <h2 class="section-title wp-kinetic-line"><span data-i18n="testimonials.titleLead">{t(lang, "testimonials.titleLead")}</span><span class="text-gradient-brand" data-i18n="testimonials.titleAccent">{t(lang, "testimonials.titleAccent")}</span><span data-i18n="testimonials.titleTail">{t(lang, "testimonials.titleTail")}</span></h2>
-        <p class="mt-4 text-ink-muted max-w-xl mx-auto reveal-up" data-i18n="testimonials.subtitle">{t(lang, "testimonials.subtitle")}</p>
+      <div class="wp-section-head">
+        <SectionEyebrow key="testimonials.label" />
+        <h2 class="section-title"><span data-i18n="testimonials.titleLead">{t(lang, "testimonials.titleLead")}</span><span class="text-gradient-brand" data-i18n="testimonials.titleAccent">{t(lang, "testimonials.titleAccent")}</span><span data-i18n="testimonials.titleTail">{t(lang, "testimonials.titleTail")}</span></h2>
+        <p class="wp-lead mt-4" data-i18n="testimonials.subtitle">{t(lang, "testimonials.subtitle")}</p>
       </div>
 
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 scroll-reveal">
-        {testimonials.map((t) => {
-          const r = Math.max(0, Math.min(5, Math.round(t.rating) || 0));
+      <div class="testimonial-grid">
+        {testimonials.map((item, i) => {
+          const r = Math.max(0, Math.min(5, Math.round(item.rating) || 0));
+          const av = avatarFor(item.text, i);
+          const id = `tm-av-${i}`;
           return (
-            <div class="testimonial-card">
-              <div class="testimonial-stars">{'★'.repeat(r)}{'☆'.repeat(5 - r)}</div>
-              <p class="testimonial-text" set:html={`"${escapeHtml(t.text)}"`} />
-            </div>
+            <figure class="testimonial-card" data-testid={`testimonials-card-${i}`}>
+              <span class="testimonial-mark" aria-hidden="true">“</span>
+              <svg class="testimonial-avatar" viewBox="0 0 48 48" aria-hidden="true" style={`--tm-tone: ${av.face}`}>
+                <defs>
+                  <clipPath id={`${id}-c`}><circle cx="24" cy="24" r="24" /></clipPath>
+                </defs>
+                <g clip-path={`url(#${id}-c)`}>
+                  <rect width="48" height="48" fill={av.bg} />
+                  <g transform={`translate(${av.dx} ${av.dy + 6}) rotate(${av.rot} 24 24)`}>
+                    <rect x="7" y="7" width="34" height="38" rx={av.round ? 17 : 10} fill={av.face} />
+                    <circle cx="18" cy="22" r="2.4" fill={av.bg} />
+                    <circle cx="30" cy="22" r="2.4" fill={av.bg} />
+                    {av.open
+                      ? <path d="M18 29q6 7 12 0z" fill={av.bg} />
+                      : <path d="M18.5 29.5q5.5 4.5 11 0" stroke={av.bg} stroke-width="2.2" stroke-linecap="round" fill="none" />}
+                  </g>
+                </g>
+              </svg>
+              <div class="testimonial-body">
+                <div class="testimonial-stars" role="img" aria-label={`${r}/5`}>
+                  <span aria-hidden="true">{'★'.repeat(r)}<span class="testimonial-stars__off">{'★'.repeat(5 - r)}</span></span>
+                </div>
+                <blockquote class="testimonial-text" set:html={escapeHtml(item.text)} />
+              </div>
+            </figure>
           );
         })}
       </div>
@@ -83,56 +142,83 @@ function escapeHtml(s: string): string {
 )}
 
 <style>
+  .testimonial-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .testimonial-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+  }
+  @media (min-width: 1024px) {
+    .testimonial-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  /* Avatar + quote read as one message: the face sits beside the stars and
+     the text, a large faint quote mark anchors the card's corner. */
   .testimonial-card {
     position: relative;
-    background: var(--color-brand-card);
-    /* 12% wie alle Strukturkanten der Seite (Flutter borderSubtle, global.css) */
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 1rem;
+    padding: 1.5rem 1.5rem 1.75rem;
+    overflow: hidden;
     border-radius: var(--radius-card);
-    padding: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background:
+      radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--tm-glow, var(--color-brand-cyan)) 9%, transparent), transparent 60%),
+      var(--color-brand-card);
     box-shadow: var(--shadow-card);
     transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow), box-shadow 0.3s var(--ease-flow);
   }
   .testimonial-card:hover {
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 24%, transparent);
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
   }
-  /* Lit-edge-Sheen auf Hover — dieselbe obere Lichtkante wie feature-card
-     und use-case-card, damit die Kartenfamilie eine gemeinsame Hover-Sprache
-     spricht (Glas fängt Licht, wenn man sich ihm nähert). */
-  .testimonial-card::after {
-    content: '';
+  .testimonial-mark {
     position: absolute;
-    inset-inline: 1.25rem;
-    top: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-brand-cyan) 55%, transparent), transparent);
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    top: 0.5rem;
+    right: 1.25rem;
+    font-family: var(--font-display, inherit);
+    font-size: 6rem;
+    line-height: 1;
+    font-weight: 700;
+    color: var(--color-brand-cyan);
+    opacity: 0.1;
     pointer-events: none;
+    user-select: none;
   }
-  .testimonial-card:hover::after {
-    opacity: 1;
+  .testimonial-avatar {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 3px var(--color-brand-card),
+      0 0 0 4px color-mix(in srgb, var(--tm-tone) 55%, transparent),
+      0 6px 18px -6px color-mix(in srgb, var(--tm-tone) 60%, transparent);
   }
-  @media (prefers-reduced-motion: reduce) {
-    .testimonial-card,
-    .testimonial-card::after {
-      transition: none;
-    }
-    .testimonial-card:hover {
-      transform: none;
-    }
+  .testimonial-body {
+    position: relative;
+    min-width: 0;
   }
   .testimonial-stars {
-    color: #FBBF24;
+    color: #fbbf24;
     font-size: 0.875rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+  }
+  .testimonial-stars__off {
+    color: rgb(255 255 255 / 0.18);
   }
   .testimonial-text {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9375rem;
-    line-height: 1.6;
-    margin-top: 0.75rem;
+    margin: 0.5rem 0 0;
+    color: var(--color-ink);
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .testimonial-card { transition: none; }
+    .testimonial-card:hover { transform: none; }
   }
 </style>

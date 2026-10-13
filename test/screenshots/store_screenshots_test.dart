@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -29,6 +30,7 @@ import 'package:whispaste/core/theme/colors.dart' show WpCategorySlot;
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
+import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/audio_service.dart';
@@ -81,6 +83,15 @@ final _screenshots = <_ScreenDef>[
     name: '05_analytics_dark',
     activePageId: 'analytics',
     builder: () => const AnalyticsPage(),
+  ),
+  // Website gallery only (10 has no store-listing slot): the Notizen area with
+  // the quick-note mark, opened on that note.
+  _ScreenDef(
+    name: '10_notes_dark',
+    activePageId: 'notes',
+    builder: () => const NotesPage(),
+    needsNotesData: true,
+    arrange: _openQuickNote,
   ),
 ];
 
@@ -203,16 +214,32 @@ void _screenshotTest(_ScreenDef screen, String locale) {
         (tester) => withClock(Clock.fixed(_screenshotNow), () async {
           final device = goldenDevice.device;
           final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-          final settings = AppSettings.defaults.copyWith(
-            locale: locale,
-            textReplacementsEnabled: screen.textReplacementsEnabled,
-            hotkeyEnabled: true,
-            hotkeyKey: 'D',
-            hotkeyModifiers: 'ctrl+shift',
-          );
+          final settings = AppSettings.defaults
+              .copyWith(
+                locale: locale,
+                textReplacementsEnabled: screen.textReplacementsEnabled,
+                hotkeyEnabled: true,
+                hotkeyKey: 'D',
+                hotkeyModifiers: 'ctrl+shift',
+              )
+              // The quick-note hotkey is off by default. The Notizen shot shows
+              // it active, the way a user who set it up sees the page.
+              .copyWithSections(
+                quickNoteHotkey: screen.needsNotesData
+                    ? const QuickNoteHotkeySettings(
+                        quickNoteHotkeyEnabled: true,
+                        quickNoteHotkeyKey: 'N',
+                        quickNoteHotkeyKeyDisplay: 'N',
+                        quickNoteHotkeyModifiers: 'ctrl+shift',
+                      )
+                    : null,
+              );
 
           if (screen.needsDemoData) {
             await _seedDemoData(db, locale: locale);
+          }
+          if (screen.needsNotesData) {
+            await _seedNotesDemo(db, locale: locale);
           }
 
           final app = _buildScreenshotApp(
@@ -312,6 +339,12 @@ Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
   await tester.tap(find.text(firstTitle).first);
 }
 
+/// Opens the quick note (see [_seedNotesDemo]; it is listed below the pinned
+/// note, so it is selected by its title rather than by position).
+Future<void> _openQuickNote(WidgetTester tester, String locale) async {
+  await tester.tap(find.text(_quickNoteTitle(locale)).first);
+}
+
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
   final sectionTitle = switch (locale) {
     'de' => 'Tastenkürzel',
@@ -337,6 +370,7 @@ class _ScreenDef {
     required this.activePageId,
     required this.builder,
     this.needsDemoData = false,
+    this.needsNotesData = false,
     this.textReplacementsEnabled = false,
     this.arrange,
   });
@@ -345,6 +379,7 @@ class _ScreenDef {
   final String activePageId;
   final Widget Function() builder;
   final bool needsDemoData;
+  final bool needsNotesData;
   final bool textReplacementsEnabled;
   final Future<void> Function(WidgetTester tester, String locale)? arrange;
 
@@ -357,6 +392,56 @@ class _ScreenDef {
 
 /// The moment the committed baselines were rendered at.
 final _screenshotNow = DateTime(2026, 9, 30, 14, 54);
+
+/// Demo notes for the Notizen screen. Each note's content is Markdown; the
+/// list title is its first non-blank line (no title column). Index 0 is the
+/// quick note; index 1 is pinned and therefore listed first.
+List<String> _notesFor(String locale) => switch (locale) {
+  'de' => const [
+    'Schnellnotiz: Ideen für den Newsletter\n- Release-Text für Version 1.4\n- Screenshot der Notizen-Ansicht\n- Feedback aus der Community sammeln',
+    'Lesenotizen Kapitel 3\n\nDer Abschnitt zu Gedächtnisprozessen fasst die Kernthesen gut zusammen. Quellen für die Hausarbeit noch prüfen.',
+    'Wochenplan Team\n\nMontag: Designreview. Mittwoch: Release-Check mit dem Backend-Team. Freitag: Retro.',
+    'Ideen für den Urlaub\n\nZugverbindungen nach Wien vergleichen und eine Unterkunft mit Küche suchen.',
+  ],
+  'ru' => const [
+    'Быстрая заметка: идеи для рассылки\n- Текст релиза для версии 1.4\n- Скриншот экрана заметок\n- Собрать отзывы сообщества',
+    'Конспект, глава 3\n\nРаздел о консолидации памяти хорошо суммирует основные аргументы. Проверить источники для реферата.',
+    'План команды на неделю\n\nПонедельник: ревью дизайна. Среда: проверка релиза с командой бэкенда. Пятница: ретро.',
+    'Идеи для поездки\n\nСравнить поезда до Вены и найти жильё с кухней.',
+  ],
+  _ => const [
+    'Quick note: newsletter ideas\n- Release text for version 1.4\n- Screenshot of the notes view\n- Collect community feedback',
+    'Reading notes, chapter 3\n\nThe section on memory consolidation sums up the core arguments well. Check the sources for the essay.',
+    'Team plan for the week\n\nMonday: design review. Wednesday: release check with the backend team. Friday: retro.',
+    'Ideas for the trip\n\nCompare train connections to Vienna and look for accommodation with a kitchen.',
+  ],
+};
+
+String _quickNoteTitle(String locale) =>
+    _notesFor(locale).first.split('\n').first;
+
+Future<void> _seedNotesDemo(
+  HistoryDatabase db, {
+  required String locale,
+}) async {
+  final now = clock.now();
+  final notes = _notesFor(locale);
+  for (var i = 0; i < notes.length; i++) {
+    final updatedAt = now.subtract(Duration(minutes: 5 * (i + 1)));
+    await db
+        .into(db.notes)
+        .insert(
+          NotesCompanion.insert(
+            id: 'note-$locale-$i',
+            content: Value(notes[i]),
+            pinned: Value(i == 1),
+            createdAt: updatedAt.subtract(const Duration(hours: 2)),
+            updatedAt: updatedAt,
+          ),
+        );
+  }
+  await db.setQuickNote('note-$locale-0');
+}
 
 Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   final now = clock.now();

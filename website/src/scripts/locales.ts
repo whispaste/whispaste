@@ -7,10 +7,10 @@
  * Non-German locales share the English slugs; only German has its own slugs
  * (`/datenschutz/` ↔ `/en/privacy/`), see `DE_SLUGS`.
  */
-export type Locale = 'de' | 'en' | 'ru' | 'es' | 'pt' | 'it' | 'zh';
+export type Locale = 'de' | 'en' | 'ru' | 'es' | 'pt' | 'it' | 'zh' | 'fr';
 
 /** Display order of the language switcher. */
-export const SUPPORTED_LOCALES: readonly Locale[] = ['de', 'en', 'es', 'pt', 'it', 'ru', 'zh'];
+export const SUPPORTED_LOCALES: readonly Locale[] = ['de', 'en', 'es', 'pt', 'it', 'ru', 'zh', 'fr'];
 
 export const DEFAULT_LOCALE: Locale = 'de';
 
@@ -36,6 +36,7 @@ export const LOCALE_META: Record<Locale, LocaleMeta> = {
   it: { tag: 'it', ogLocale: 'it_IT', nativeName: 'Italiano', short: 'IT' },
   ru: { tag: 'ru', ogLocale: 'ru_RU', nativeName: 'Русский', short: 'RU' },
   zh: { tag: 'zh-Hans', ogLocale: 'zh_CN', nativeName: '简体中文', short: '中文' },
+  fr: { tag: 'fr', ogLocale: 'fr_FR', nativeName: 'Français', short: 'FR' },
 };
 
 export function isLocale(value: unknown): value is Locale {

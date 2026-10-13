@@ -4,66 +4,37 @@ import { t, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
 
-// Twelve cards (3×4) below the lead card (hotkey → text). Icon paths are
-// Lucide outlines (24×24, stroke), inlined like the site's other SVGs.
-const cards = [
-  {
-    key: 'snippets',
-    icon: 'M13 4H8.8c-1.68 0-2.52 0-3.16.33a3 3 0 0 0-1.31 1.3C4 6.29 4 7.13 4 8.8v6.4c0 1.68 0 2.52.33 3.16a3 3 0 0 0 1.3 1.31c.65.33 1.49.33 3.17.33h6.4c1.68 0 2.52 0 3.16-.33a3 3 0 0 0 1.31-1.3c.33-.65.33-1.49.33-3.17V11M9 15h2m-2-4h5M18.4 2.6a2.1 2.1 0 0 1 3 3L16 11l-4 1 1-4Z',
-  },
-  {
-    key: 'smartmode',
-    icon: 'M12 3v3m0 12v3M5.6 5.6l2.2 2.2m8.4 8.4 2.2 2.2M3 12h3m12 0h3M5.6 18.4l2.2-2.2m8.4-8.4 2.2-2.2M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z',
-  },
-  {
-    key: 'editSelection',
-    icon: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z',
-  },
-  {
-    key: 'sidepanel',
-    icon: 'M4 4h16c.55 0 1 .45 1 1v14c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V5c0-.55.45-1 1-1Zm5 0v16M6 8h1m-1 3h1m-1 3h1',
-  },
-  {
-    key: 'history',
-    icon: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5m4-1v5l4 2',
-  },
-  {
-    key: 'privacy',
-    icon: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z',
-  },
-  {
-    key: 'cloud',
-    icon: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z',
-  },
-  {
-    key: 'hardware',
-    icon: 'M6 9a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3Zm3 0h6v6H9ZM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4',
-  },
-  {
-    key: 'notes',
-    icon: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Zm0 0v5h5M8 13h8m-8 4h5',
-  },
-  {
-    key: 'vocabulary',
-    icon: 'm4 7 4-4 4 4M8 3v11m4 3h8m-8-4h8M4 21h16',
-  },
-  {
-    key: 'overlay',
-    icon: 'M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3',
-  },
-  {
-    key: 'remote',
-    icon: 'm4 17 6-6-6-6m8 14h8',
-  },
+// Row 2: three everyday features as equal cards. Icon paths are Lucide
+// outlines (24×24, stroke), inlined like the site's other SVGs.
+const rowCards = [
+  { key: 'editSelection', icon: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z' },
+  { key: 'history', icon: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5m4-1v5l4 2' },
+  { key: 'notes', icon: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Zm0 0v5h5M8 13h8m-8 4h5' },
 ] as const;
+
+// Everything else stays on the page (crawlable, searchable) in one native
+// disclosure instead of a wall of equal-rank cards.
+const moreKeys = [
+  'hotkey',
+  'sidepanel',
+  'vocabulary',
+  'overlay',
+  'hardware',
+  'privacy',
+  'cloud',
+  'remote',
+] as const;
+
+const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.example2', 'highlights.snippets.example3'] as const;
 ---
 
-<!-- FeatureHighlights — Funktionsüberblick zwischen SpatialJourney (deep)
-     und UseCaseCards (raised). Nutzen-zuerst-Copy, Details stehen im FAQ
-     und in der Screenshot-Galerie (interner Link unten). -->
-<section id="features" class="band band-spotlight py-24 sm:py-32 relative scroll-mt-20">
+<!-- FeatureHighlights — what WhisPaste does beyond plain dictation. Smart Mode
+     and Snippets carry the section as two asymmetric showcase cards with a
+     concrete example each; three everyday features follow as a row; the rest
+     sits in one "more" disclosure. Details live in the FAQ and the gallery. -->
+<section id="features" class="band band-spotlight wp-section relative scroll-mt-20">
   <div class="relative wp-container">
-    <div class="text-center mb-14">
+    <div class="wp-section-head">
       <SectionEyebrow key="highlights.label" class="reveal-up" />
       <h2 class="section-title wp-kinetic-line">
         <span data-i18n="highlights.titleLead">{t(lang, 'highlights.titleLead')}</span><!--
@@ -72,136 +43,308 @@ const cards = [
       </h2>
     </div>
 
-    {/* Lead-Karte: der Kernmechanismus (Hotkey→Text) in voller Breite. */}
-    <div class="feature-card feature-card--lead scroll-reveal">
-      <span class="feature-card__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm7 10a7 7 0 0 1-14 0m7 7v3" />
-        </svg>
-      </span>
-      <div>
-        <h3 class="feature-card__title" data-i18n="highlights.hotkey.title">{t(lang, 'highlights.hotkey.title')}</h3>
-        <p class="feature-card__desc" data-i18n="highlights.hotkey.desc">{t(lang, 'highlights.hotkey.desc')}</p>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6 stagger-children scroll-reveal">
-      {cards.map(({ key, icon }) => (
-        <div class="feature-card stagger-item">
-          <span class="feature-card__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d={icon} />
-            </svg>
-          </span>
-          <div>
-            <h3 class="feature-card__title" data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</h3>
-            <p class="feature-card__desc" data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</p>
+    <div class="fh-showcase">
+      <!-- Smart Mode: spoken vs. cleaned-up text -->
+      <article class="fh-card fh-card--smart" data-testid="features-smartmode">
+        <div class="fh-card-head">
+          <h3 class="fh-title" data-i18n="highlights.smartmode.title">{t(lang, 'highlights.smartmode.title')}</h3>
+          <span class="fh-badge" data-i18n="highlights.optional">{t(lang, 'highlights.optional')}</span>
+        </div>
+        <p class="fh-desc" data-i18n="highlights.smartmode.desc">{t(lang, 'highlights.smartmode.desc')}</p>
+        <div class="fh-compare" aria-hidden="true">
+          <div class="fh-compare-row">
+            <span class="fh-compare-label" data-i18n="highlights.smartmode.spokenLabel">{t(lang, 'highlights.smartmode.spokenLabel')}</span>
+            <p class="fh-compare-text fh-compare-text--raw" data-i18n="highlights.smartmode.spokenText">{t(lang, 'highlights.smartmode.spokenText')}</p>
+          </div>
+          <div class="fh-compare-row">
+            <span class="fh-compare-label" data-i18n="highlights.smartmode.cleanLabel">{t(lang, 'highlights.smartmode.cleanLabel')}</span>
+            <p class="fh-compare-text fh-compare-text--clean" data-i18n="highlights.smartmode.cleanText">{t(lang, 'highlights.smartmode.cleanText')}</p>
           </div>
         </div>
+      </article>
+
+      <!-- Snippets: the picker that opens at the cursor -->
+      <article class="fh-card" data-testid="features-snippets">
+        <h3 class="fh-title" data-i18n="highlights.snippets.title">{t(lang, 'highlights.snippets.title')}</h3>
+        <p class="fh-desc" data-i18n="highlights.snippets.desc">{t(lang, 'highlights.snippets.desc')}</p>
+        <ul class="fh-picker" aria-hidden="true">
+          {snippetExamples.map((key, i) => (
+            <li class:list={['fh-picker-item', { 'is-active': i === 0 }]}>
+              <span data-i18n={key}>{t(lang, key)}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            </li>
+          ))}
+        </ul>
+      </article>
+    </div>
+
+    <div class="fh-row">
+      {rowCards.map(({ key, icon }) => (
+        <article class="fh-card fh-card--small">
+          <span class="fh-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d={icon} /></svg>
+          </span>
+          <h3 class="fh-title fh-title--small" data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</h3>
+          <p class="fh-desc" data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</p>
+        </article>
       ))}
     </div>
 
-    <p class="text-center mt-10">
-      <a href="#app-screenshots" class="feature-gallery-link">
+    <details class="fh-more" data-testid="features-more">
+      <summary class="fh-more-summary" data-testid="features-more-toggle">
+        <span data-i18n="highlights.more">{t(lang, 'highlights.more')}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </summary>
+      <dl class="fh-more-list">
+        {moreKeys.map((key) => (
+          <div class="fh-more-item">
+            <dt data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</dt>
+            <dd data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+
+    <p class="fh-gallery">
+      <a href="#app-screenshots" class="fh-gallery-link" data-testid="features-gallery-link">
         <span data-i18n="highlights.galleryLink">{t(lang, 'highlights.galleryLink')}</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h14" />
-          <path d="m12 5 7 7-7 7" />
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
       </a>
     </p>
   </div>
 </section>
 
 <style>
-  .feature-card {
+  /* ---- Cards ---- */
+  .fh-card {
     display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1.5rem;
-    border-radius: var(--radius-card);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: var(--color-brand-card);
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: clamp(1.25rem, 1rem + 1vw, 2rem);
+    border-radius: var(--radius-surface);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background: color-mix(in srgb, var(--color-brand-card) 80%, transparent);
     box-shadow: var(--shadow-card);
-    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow), box-shadow 0.3s var(--ease-flow);
+    min-width: 0;
   }
-
-  .feature-card:hover {
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-card-hover);
+  .fh-card--smart {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 28%, transparent);
+    background:
+      radial-gradient(ellipse 80% 70% at 0% 0%, color-mix(in srgb, var(--color-brand-cyan) 10%, transparent), transparent 70%),
+      color-mix(in srgb, var(--color-brand-card) 88%, transparent);
   }
-
-  .feature-card--lead {
-    padding: 2rem 1.75rem;
+  .fh-card--small {
+    border-radius: var(--radius-card);
   }
-
-  .feature-card__icon {
+  .fh-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+  .fh-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.875rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+  .fh-title--small {
+    font-family: var(--font-sans);
+    font-size: var(--type-card-title);
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .fh-badge {
+    padding: 0.2rem 0.625rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgb(255 255 255 / 0.18);
+    font-size: 0.8125rem;
+    color: var(--color-ink-muted);
+  }
+  .fh-desc {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--color-ink-muted);
+  }
+  .fh-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 0.75rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-control);
     color: var(--color-brand-cyan);
     background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
   }
-
-  .feature-card__icon svg {
-    width: 1.375rem;
-    height: 1.375rem;
+  .fh-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
-  .feature-card__title {
-    font-size: 1.0625rem;
+  /* ---- Layout: 8/4 showcase, then a row of three ---- */
+  .fh-showcase,
+  .fh-row {
+    display: grid;
+    gap: 1.25rem;
+  }
+  .fh-row {
+    margin-top: 1.25rem;
+  }
+  @media (min-width: 768px) {
+    .fh-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .fh-showcase { grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); }
+  }
+
+  /* ---- Smart Mode before/after ---- */
+  .fh-compare {
+    margin-top: auto;
+    padding-top: 0.75rem;
+    display: grid;
+    gap: 1rem;
+  }
+  .fh-compare-row {
+    display: grid;
+    gap: 0.375rem;
+  }
+  .fh-compare-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink-subtle);
+  }
+  .fh-compare-text {
+    margin: 0;
+    padding: 0.875rem 1rem;
+    border-radius: var(--radius-control);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background: rgb(11 18 42 / 0.45);
+    font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+    line-height: 1.5;
+  }
+  .fh-compare-text--raw {
+    color: var(--color-ink-muted);
+  }
+  .fh-compare-text--clean {
+    color: var(--color-ink);
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+  }
+
+  /* ---- Snippet picker ---- */
+  .fh-picker {
+    margin: auto 0 0;
+    padding: 0.75rem 0 0;
+    list-style: none;
+    display: grid;
+    gap: 0.375rem;
+  }
+  .fh-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-control);
+    border: 1px solid rgb(255 255 255 / 0.08);
+    font-size: 1rem;
+    color: var(--color-ink-muted);
+  }
+  .fh-picker-item.is-active {
+    color: var(--color-ink);
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+    background: color-mix(in srgb, var(--color-brand-cyan) 8%, transparent);
+  }
+  .fh-picker-item svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  /* ---- More features (native disclosure) ---- */
+  .fh-more {
+    margin-top: 1.25rem;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .fh-more-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 44px;
+    padding: 1rem 1.25rem;
     font-weight: 600;
     color: var(--color-ink);
-    margin-bottom: 0.375rem;
-    line-height: 1.3;
+    cursor: pointer;
+    list-style: none;
+    border-radius: var(--radius-card);
   }
-
-  .feature-card__desc {
+  .fh-more-summary::-webkit-details-marker { display: none; }
+  .fh-more-summary:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+  .fh-more-summary svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--color-brand-cyan);
+    transition: transform var(--dur-base, 0.2s) var(--ease-flow);
+  }
+  .fh-more[open] .fh-more-summary svg {
+    transform: rotate(180deg);
+  }
+  .fh-more-list {
+    margin: 0;
+    padding: 0 1.25rem 1.25rem;
+    display: grid;
+    gap: 1.25rem 2.5rem;
+  }
+  @media (min-width: 768px) {
+    .fh-more-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .fh-more-item dt {
+    font-weight: 700;
+    color: var(--color-ink);
+    margin-bottom: 0.25rem;
+  }
+  .fh-more-item dd {
+    margin: 0;
     font-size: 0.9375rem;
     line-height: 1.65;
     color: var(--color-ink-muted);
   }
 
-  .feature-gallery-link {
+  .fh-gallery {
+    margin-top: 2rem;
+  }
+  .fh-gallery-link {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.875rem;
+    min-height: 44px;
     font-weight: 600;
     color: var(--color-brand-cyan);
     text-decoration: none;
   }
-
-  .feature-gallery-link svg {
+  .fh-gallery-link svg {
     width: 1rem;
     height: 1rem;
-    flex-shrink: 0;
-    transition: transform 0.25s var(--ease-flow);
+    transition: transform var(--dur-base, 0.2s) var(--ease-flow);
   }
-
-  .feature-gallery-link:hover svg {
+  .fh-gallery-link:hover svg {
     transform: translateX(4px);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .feature-card,
-    .feature-gallery-link svg {
+    .fh-more-summary svg,
+    .fh-gallery-link svg {
       transition: none;
-    }
-
-    .feature-card:hover {
-      transform: none;
-      box-shadow: var(--shadow-card);
-    }
-
-    .feature-gallery-link:hover svg {
-      transform: none;
     }
   }
 </style>

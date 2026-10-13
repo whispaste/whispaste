@@ -1,5 +1,5 @@
 ---
-import PromoFilm from './PromoFilm.astro';
+import HeroExample from './HeroExample.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import StoreButton from './StoreButton.astro';
 import MacStoreButton from './MacStoreButton.astro';
@@ -93,12 +93,10 @@ const platformBadges = [
        viewports. Splitting it onto a static layer keeps it aligned always. -->
   <div class="hero-handoff-glow absolute inset-0 pointer-events-none" aria-hidden="true"></div>
 
-  <!-- Split hero from xl (5/7: copy + CTAs left, the promo film as the
-       dominant visual right); below xl the copy sits centred above a
-       near-container-wide film. The film replaced the
-       former three-scene carousel mockup: it shows the real flow — hotkey,
-       speak, text at the cursor — in three everyday apps instead of an
-       abstract window, and it is the LCP element via its preloaded poster. -->
+  <!-- Split hero from xl (5/7: copy + CTAs left, the e-mail example right);
+       below xl the copy sits centred above the example. The example is a
+       static, finished result (no film, no media download): the claim "text
+       appears at your cursor" is readable on the first frame. -->
   <div class="wp-recede wp-container relative z-10 grid gap-10 sm:gap-12 xl:gap-16 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center">
     <div class="hero-copy text-center xl:text-left min-w-0">
       <SectionEyebrow
@@ -127,7 +125,7 @@ const platformBadges = [
         >
       </h1>
       <p
-        class="hero-fade-rise mt-4 sm:mt-6 text-base sm:text-lg xl:text-xl text-ink-muted max-w-2xl mx-auto xl:mx-0 xl:max-w-xl leading-relaxed"
+        class="hero-fade-rise wp-lead mt-4 sm:mt-6 mx-auto xl:mx-0"
         data-i18n="hero.desc"
         style="--wp-rise-delay: 360ms"
       >
@@ -155,10 +153,20 @@ const platformBadges = [
              bei positiv erkanntem Windows/macOS, im ungegateten Fallback
              (alle drei CTAs sichtbar) bewusst versteckt. -->
         <div data-requires-os="windows macos">
-          <p class="text-xs text-ink-subtle flex items-center gap-1" data-testid="hero-store-hint">
-            <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
-          </p>
+          <ul class="hero-perks" data-testid="hero-store-hint" aria-label={t(lang, "hero.store.perksAria")}>
+            <li>
+              <svg class="hero-perks__icon is-heart" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span data-i18n="hero.store.perk.support">{t(lang, "hero.store.perk.support")}</span>
+            </li>
+            <li>
+              <svg class="hero-perks__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              <span data-i18n="hero.store.perk.safe">{t(lang, "hero.store.perk.safe")}</span>
+            </li>
+            <li>
+              <svg class="hero-perks__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+              <span data-i18n="hero.store.perk.updates">{t(lang, "hero.store.perk.updates")}</span>
+            </li>
+          </ul>
         </div>
 
         <!-- Secondary CTA: every download route in one place, incl. the free
@@ -184,53 +192,52 @@ const platformBadges = [
         <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
       </p>
 
-      <!-- Platform badges: macOS · Windows · Ubuntu Linux, linked to the
-           matching download-page anchor. The OS detected by the data-os head
-           script (Layout.astro) is highlighted via CSS attribute selectors
-           only (no reflow); unknown OS → all three shown equally. -->
-      <div class="platform-row hero-fade-rise mt-6 flex flex-col items-center xl:items-start gap-2.5" style="--wp-rise-delay: 600ms">
-        <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle" data-i18n="hero.platforms.claim">
-          {t(lang, "hero.platforms.claim")}
-        </p>
-        <div class="flex flex-wrap items-center justify-center xl:justify-start gap-2 sm:gap-2.5">
-          {platformBadges.map(({ os, icon }) => (
-            <a
-              href={`${localePath(lang, "download")}#${os}`}
-              data-testid={`hero-platform-badge-${os}`}
-              aria-label={`${t(lang, `hero.platforms.${os}`)}: ${t(lang, "nav.download")}`}
-              class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
-              data-platform-badge={os}
-            >
-              <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={icon} />
-              <span data-i18n={`hero.platforms.${os}`}>{t(lang, `hero.platforms.${os}`)}</span>
-              <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      <!-- GitHub stars — hidden until fetched (index.astro script fills
-           #github-stars-count and clears display:none). -->
-      <a
-        id="github-stars-badge"
-        href="https://github.com/whispaste/whispaste"
-        target="_blank"
-        rel="noopener"
-        class="hero-fade-rise mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
-        style="display:none; --wp-rise-delay: 680ms"
-        aria-label={t(lang, "nav.githubAria")}
-        data-i18n-aria="nav.githubAria"
+      <!-- Platform badges (macOS · Windows · Ubuntu Linux, linked to the
+           matching download anchor) and the GitHub stars count share one quiet
+           row. The OS detected by the data-os head script (Layout.astro) is
+           highlighted via CSS only; unknown OS → all three equal. The stars
+           link stays hidden until HomePage.astro has fetched the count. -->
+      <div
+        class="platform-row hero-fade-rise mt-6 flex flex-wrap items-center justify-center xl:justify-start gap-2 sm:gap-2.5"
+        style="--wp-rise-delay: 600ms"
+        aria-label={t(lang, "hero.platforms.claim")}
+        data-i18n-aria="hero.platforms.claim"
+        role="group"
       >
-        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span id="github-stars-count" data-template={t(lang, "hero.githubStars")}></span>
-      </a>
+        {platformBadges.map(({ os, icon }) => (
+          <a
+            href={`${localePath(lang, "download")}#${os}`}
+            data-testid={`hero-platform-badge-${os}`}
+            aria-label={`${t(lang, `hero.platforms.${os}`)}: ${t(lang, "nav.download")}`}
+            class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+            data-platform-badge={os}
+          >
+            <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={icon} />
+            <span data-i18n={`hero.platforms.${os}`}>{t(lang, `hero.platforms.${os}`)}</span>
+            <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
+          </a>
+        ))}
+        <a
+          id="github-stars-badge"
+          href="https://github.com/whispaste/whispaste"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
+          style="display:none"
+          aria-label={t(lang, "nav.githubAria")}
+          data-i18n-aria="nav.githubAria"
+          data-testid="hero-github-stars"
+        >
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span id="github-stars-count" data-template={t(lang, "hero.githubStars")}></span>
+        </a>
+      </div>
     </div>
 
-    <!-- Hero visual: the promo film in a device-less framed panel. No
-         opacity/clip entrance animation on purpose — its poster is the LCP
-         element and must paint at full opacity on first frame. -->
-    <div class="hero-film min-w-0 w-full max-w-5xl mx-auto xl:max-w-none">
-      <PromoFilm />
+    <!-- Hero visual: no entrance animation on purpose — its text is the
+         LCP element and must paint at full opacity on the first frame. -->
+    <div class="hero-visual min-w-0 w-full max-w-2xl mx-auto xl:max-w-none">
+      <HeroExample />
     </div>
   </div>
 </section>
@@ -257,8 +264,11 @@ const platformBadges = [
        against each other. */
     padding-bottom: 0.12em;
   }
-  /* Split layout (xl+): the headline shares the row with the film, so it
+  /* Split layout (xl+): the headline shares the row with the example, so it
      scales against the narrower copy column instead of the full viewport. */
+  .hero-copy .wp-lead {
+    max-width: 36rem;
+  }
   @media (min-width: 1280px) {
     .hero-title {
       font-size: clamp(3rem, 0.9rem + 3.4vw, 4.5rem);
@@ -315,8 +325,8 @@ const platformBadges = [
   }
   /* Load partiture ("Der Hotkey-Moment"): eyebrow -> H1 lines (wp-rise-in,
      global.css) -> desc/CTA/badges/GitHub link (this fade-rise), each on its
-     own --wp-rise-delay. Everything lands by ~700ms. The film panel (LCP via
-     its preloaded poster) deliberately has no entrance animation at all. */
+     own --wp-rise-delay. Everything lands by ~700ms. The example panel (LCP)
+     deliberately has no entrance animation at all. */
   .hero-fade-rise {
     animation: fade-in 0.6s var(--ease-flow) var(--wp-rise-delay, 0ms) both;
   }
@@ -532,6 +542,35 @@ const platformBadges = [
     /* show the assembled glyph immediately */
     .hero-bar { transform: none !important; }
     .hero-ribbon { clip-path: none !important; }
+  }
+  /* Store perks under the primary CTA: why the store build is the better pick. */
+  .hero-perks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.375rem 1rem;
+    font-size: 0.8125rem;
+    color: var(--color-ink-muted);
+  }
+  @media (min-width: 1280px) {
+    .hero-perks { justify-content: flex-start; }
+  }
+  .hero-perks li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .hero-perks__icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    color: var(--color-brand-cyan);
+  }
+  .hero-perks__icon.is-heart {
+    color: #f472b6;
   }
 </style>
 

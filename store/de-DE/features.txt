@@ -1,5 +1,5 @@
 Hotkey drücken, sprechen, und der Text erscheint am Cursor, in jeder Windows-App
-Zwei lokale Engines: Whisper (99 Sprachen, GPU über Vulkan) und Parakeet (schnell auf der CPU)
+Zwei lokale Engines: Whisper (99 Sprachen, GPU-Beschleunigung) und Parakeet (schnell auf der CPU)
 Dein Audio bleibt auf deinem PC; nach einmaligem Modell-Download offline nutzbar
 Optionale Cloud-Transkription über OpenAI oder Deepgram mit eigenem API-Schlüssel, direkt zum Anbieter
 Smart Mode: vor dem Einfügen bereinigen, kürzen oder übersetzen, lokal oder über OpenAI
