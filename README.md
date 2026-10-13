@@ -57,7 +57,7 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app (macOS/Windows/Linux with one-time uinput setup; clipboard fallback without setup) · Recording overlay with waveform · Floating record button
 
-**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated) or NVIDIA Parakeet (~25 languages, CPU-only, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine)
+**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated via Vulkan, with an optional CUDA pack for NVIDIA GPUs on Windows and Linux) or NVIDIA Parakeet (~25 languages, CPU-only, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine)
 
 **Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
@@ -154,6 +154,9 @@ flutter build macos   --release --no-tree-shake-icons \
   <a href="https://github.com/sponsors/silvio-l"><img src="https://img.shields.io/badge/Sponsor-❤-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor"></a>&ensp;
   <a href="https://ko-fi.com/silviol"><img src="https://img.shields.io/badge/Ko--fi-☕-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
 </p>
+
+In the app, About › Support WhisPaste lists every way to help, including PayPal. The Microsoft Store
+and Mac App Store versions offer optional one-time tips through the store. Tips unlock nothing.
 
 Contributions welcome — fork, branch, PR. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [Code of Conduct](CODE_OF_CONDUCT.md). Licensed under [MIT](LICENSE).
