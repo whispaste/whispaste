@@ -1186,7 +1186,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// Best-effort GPU/engine warmup so the first real dictation after a cold
   /// load doesn't pay the one-time kernel-compile/cache-fill penalty.
   /// Failures are non-fatal — mirrors the pre-cutover HTTP warmup's contract.
-  Future<void> _warmupInference() async {
+  /// Returns `false` when the warmup threw: a failed warmup proves nothing
+  /// about the GPU, so the caller must not count it as a surviving GPU path.
+  Future<bool> _warmupInference() async {
     final sw = Stopwatch()..start();
     try {
       final silentWav = _generateSilentWav();
@@ -1195,9 +1197,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _log.info(
         'Engine warmup inference completed in ${sw.elapsedMilliseconds}ms',
       );
+      return true;
     } catch (e) {
       sw.stop();
       _log.debug('Engine warmup skipped: $e');
+      return false;
     }
   }
 
@@ -1488,16 +1492,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _activeModel = modelId;
     _resetIdleTimer();
 
-    await _warmupInference();
+    final warmupOk = await _warmupInference();
     // Reaching here proves the process survived the first GPU compute
     // dispatch, not just the weight load — see the crash-loop-breaker
     // comment above. Only fires if the catch branch above didn't already
-    // clear it (GPU abandoned for CPU before we got this far). Also resets
-    // the consecutive-crash streak: the GPU just proved itself, so any
-    // prior crash(es) toward the two-strike threshold no longer apply.
+    // clear it (GPU abandoned for CPU before we got this far). The in-flight
+    // marker is cleared either way (a Dart-level warmup exception is not a
+    // native crash), but the consecutive-crash streak is only reset when the
+    // warmup actually succeeded: a failed warmup is not proof the GPU works.
     if (gpuAttemptPending) {
       crashGuard.clearAttempt();
-      crashGuard.resetCrashStreak();
+      if (warmupOk) crashGuard.resetCrashStreak();
       gpuAttemptPending = false;
     }
     _scheduleBenchmark(modelId);

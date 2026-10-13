@@ -19,13 +19,15 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 
 import '../../core/app_info.dart' show appVersion;
+import '../../core/config/settings_sections.dart' show BehaviorSettings;
 import '../../core/utils/windows_dll_search_path.dart';
-import '../smart_mode/smart_mode_ffi_engine.dart' show smartModeLibraryPathFor;
+import '../smart_mode/smart_mode_ffi_engine.dart'
+    show kSmartModeGpuLayersAuto, smartModeLibraryPathFor;
 import '../stt/native_call_guard.dart';
 import '../stt/whisper/whisper_engine.dart'
     show cpuBackendFeaturesFromSystemInfo;
 import '../stt/whisper/whisper_ffi_engine.dart'
-    show WhisperFfiEngine, whisperLibraryPathFor;
+    show WhisperFfiEngine, ggmlDeviceTypeGpu, whisperLibraryPathFor;
 
 /// Usage text printed for an invalid `--diagnose` command line.
 const String packageDiagnoseUsage = '''
@@ -196,11 +198,16 @@ class PackageDiagnoseReport {
     required this.version,
     required this.executable,
     required this.libraries,
+    this.runtime,
   });
 
   final String version;
   final String executable;
   final List<NativeLibraryResult> libraries;
+
+  /// Informational settings and devices, see [probeRuntimeSettings]. Never
+  /// part of [ok].
+  final Map<String, Object?>? runtime;
 
   bool get ok => libraries.every((l) => l.ok);
 
@@ -210,8 +217,60 @@ class PackageDiagnoseReport {
     'os': Platform.operatingSystem,
     'executable': executable,
     'libraries': [for (final l in libraries) l.toJson()],
+    if (runtime != null) 'runtime': runtime,
   };
 }
+
+/// What the app would use on this machine by default: CPU cores, whisper
+/// threads, the GPU devices ggml registers and the default device pick, and
+/// the Smart Mode GPU layer count. Informational only; a failure to read the
+/// devices is reported in the result and never fails the check.
+///
+/// Not evaluable here, reported as such: the CUDA pack state (depends on the
+/// installed pack and the `cudaAcceleration` setting) and the Smart Mode
+/// device (the shim exposes no device information).
+Map<String, Object?> probeRuntimeSettings(String executable) {
+  final runtime = <String, Object?>{
+    'cpuCores': Platform.numberOfProcessors,
+    'whisperThreads': WhisperFfiEngine.defaultThreadCount,
+    'defaultGpuAcceleration': BehaviorSettings.defaults.gpuAcceleration,
+    'cudaPack':
+        'not evaluated: depends on the installed pack and the cudaAcceleration setting',
+    'smartModeGpuLayersWhenGpuOn': kSmartModeGpuLayersAuto,
+    'smartModeDevice': 'not reported: the shim exposes no device information',
+  };
+  final whisper = whisperLibraryPathFor(executable);
+  try {
+    ensureWindowsDllSearchPath(whisper);
+    final probe = WhisperFfiEngine.probeGpuDevices(
+      ffi.DynamicLibrary.open(whisper),
+      whisper,
+    );
+    if (probe == null) {
+      runtime['gpuDevices'] = 'not reported: library has no device registry';
+    } else {
+      final index = probe.defaultIndex;
+      runtime['gpuDevices'] = {
+        'all': [
+          for (final d in probe.devices)
+            {'name': d.name, 'type': _gpuTypeName(d.type)},
+        ],
+        'defaultPick': index == null
+            ? null
+            : {
+                'index': index,
+                'name': probe.devices[index].name,
+                'type': _gpuTypeName(probe.devices[index].type),
+              },
+      };
+    }
+  } on Object catch (e) {
+    runtime['gpuDevices'] = 'error: $e';
+  }
+  return runtime;
+}
+
+String _gpuTypeName(int type) => type == ggmlDeviceTypeGpu ? 'gpu' : 'igpu';
 
 /// Probes every library in [libraries] with [probe], collecting each failure
 /// instead of stopping at the first one.
@@ -220,6 +279,7 @@ PackageDiagnoseReport runPackageDiagnose({
   required String version,
   required String executable,
   String? Function(NativeLibrary library) probe = probeNativeLibrary,
+  Map<String, Object?>? runtime,
 }) {
   final results = <NativeLibraryResult>[];
   for (final library in libraries) {
@@ -239,6 +299,7 @@ PackageDiagnoseReport runPackageDiagnose({
     version: version,
     executable: executable,
     libraries: results,
+    runtime: runtime,
   );
 }
 
@@ -259,6 +320,7 @@ Future<int> runPackageDiagnoseCli(List<String> args) async {
     libraries: bundledNativeLibraries(executable),
     version: appVersion,
     executable: executable,
+    runtime: probeRuntimeSettings(executable),
   );
   final json = const JsonEncoder.withIndent('  ').convert(report.toJson());
   if (options.outPath case final path?) {

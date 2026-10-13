@@ -23,6 +23,7 @@ All entries are written in English.
 
 ### New Features
 
+- **Optional CUDA pack for NVIDIA GPUs (Windows and Linux):** on NVIDIA RTX and GTX 16 cards, Speech recognition offers a separate, checksum-verified CUDA download under GPU acceleration. You can cancel, switch off or remove it there. Without a working driver WhisPaste stays on Vulkan, and a crash while loading CUDA switches the option off. Not part of the Microsoft Store version.
 - **Refreshed interface:** history and notes rows show title, preview and details in a clear order, the selected entry stands out, and the history detail keeps a readable line width on wide windows. Settings replace the row of section chips with a section picker. Word counts read "approx. 27 words" instead of "~27 w".
 - **Support page:** About › Support WhisPaste lists every way to help: GitHub Sponsors, Ko-fi and PayPal on direct downloads, native one-time tips on the Microsoft Store and the Mac App Store, plus rating, starring and sharing. A small chip in the status bar leads there and turns into a thank-you once you have supported the project; supporters can hide it, and Settings › Interface brings it back. A verified store purchase earns a small supporter badge. Nothing in the app is locked behind a payment.
 - **Edit selection by voice:** a new hotkey, off by default, copies the current selection, records your spoken instruction and replaces the selection with the result. "Shorter", "improve" and "translate" work as quick actions in all six UI languages; any other sentence is passed on as a free-form instruction. It uses your Smart Mode engine (local or cloud). Nothing is written to history, and your clipboard is always restored.
@@ -37,6 +38,9 @@ All entries are written in English.
 
 ### Bug Fixes
 
+- **Smart Mode uses all CPU cores.** The local engine ran with 4 threads on every machine and now follows the CPU's core count.
+- **Smart Mode follows the GPU setting** and retries on the CPU when the model fails to load on the GPU. A rewrite that was cut off is reported instead of being pasted.
+- **More reliable GPU detection:** on Windows a slow first detection no longer keeps the app on the CPU until restart, and graphics memory above 4 GB is read correctly. On Linux laptops with two GPUs, name and memory come from the GPU that is actually used.
 - **Windows: quitting no longer crashes.** The native window now cleans up on destruction, and the app ships its own VC++ runtime, so an older system runtime cannot crash a mutex call on exit.
 - **Windows: on-device Smart Mode could fail to load** (error 127) when Whisper had loaded first. The two engines' ggml libraries now have their own names.
 - **Parakeet: long recordings no longer fail.** Audio beyond about 35 seconds is split into chunks of up to 25 seconds at the quietest point.
@@ -55,6 +59,7 @@ All entries are written in English.
 - **Automation API hardening:** the local API only answers requests addressed to localhost, and its port is no longer opened in shared mode.
 - **Crash reports:** extra diagnostic fields are scrubbed of user paths too, and unrecognised graphics adapters are reported by name so they can be supported.
 - **Mac App Store 1.3.0:** the feedback form and telemetry were inactive, because the build was missing its configuration.
+- **macOS: on-device Smart Mode is included again.** The macOS download and the Mac App Store build shipped without the Smart Mode engine, so the option stayed disabled. Release builds now fail instead of leaving it out.
 
 ### Improvements
 

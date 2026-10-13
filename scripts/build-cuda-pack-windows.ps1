@@ -32,7 +32,7 @@ $PackId = 'WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-windows-x64'
 $WhisperTag = 'v1.8.4'
 $WhisperPinnedCommit = '9386f239401074690479731c1e41683fbbeac557'
 $CudaVersion = '12.8.1'
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommandPath
+$ScriptDir = $PSScriptRoot
 
 $Src = Join-Path $WorkDir 'src\whisper.cpp'
 $CudaHome = Join-Path $WorkDir 'cuda'
@@ -90,10 +90,20 @@ function Import-VsDevEnvironment {
   # VsDevCmd.bat plus `set` dumped by a helper .cmd, so no quoting reaches cmd.exe
   # from PowerShell's argument passing.
   $devCmd = Join-Path $vsPath 'Common7\Tools\VsDevCmd.bat'
+  # CUDA 12.8 accepts MSVC up to the VS 2022 toolsets (14.4x); newer ones fail
+  # even with -allow-unsupported-compiler (cudafe++ crashes on their STL). Use
+  # the newest 14.4x side-by-side toolset when one is installed.
+  $vcvarsVer = ''
+  $toolset = Get-ChildItem (Join-Path $vsPath 'VC\Tools\MSVC') -Directory -Filter '14.4*' -ErrorAction SilentlyContinue |
+    Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+  if ($toolset) {
+    $vcvarsVer = ' -vcvars_ver=' + (($toolset.Name -split '\.')[0..1] -join '.')
+    Write-Host "MSVC toolset pinned: $($toolset.Name)"
+  }
   $envScript = Join-Path $WorkDir 'vsdevenv.cmd'
   Set-Content -Path $envScript -Encoding ascii -Value @(
     '@echo off',
-    "call `"$devCmd`" -arch=amd64 -host_arch=amd64 -no_logo",
+    "call `"$devCmd`" -arch=amd64 -host_arch=amd64 -no_logo$vcvarsVer",
     '@set')
   foreach ($line in (Get-Native 'cmd.exe' @('/d', '/c', $envScript))) {
     if ($line -match '^([^=]+)=(.*)$') {
@@ -102,12 +112,17 @@ function Import-VsDevEnvironment {
   }
 }
 
+# First working Python 3: PATH entries can be stale shims (or the Store alias),
+# so each candidate is actually run.
 function Find-Python {
-  $python = Get-Command python -ErrorAction SilentlyContinue
-  if (-not $python) { throw 'python not on PATH (run once with -InstallPrereqs)' }
-  $version = (Get-Native $python.Source @('--version')) -join ' '
-  if ($version -notmatch 'Python 3\.') { throw "python is not Python 3: $version" }
-  return $python.Source
+  $candidates = @(Get-Command python -All -ErrorAction SilentlyContinue | ForEach-Object { $_.Source })
+  $candidates += @(Get-ChildItem "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe" -ErrorAction SilentlyContinue |
+    Sort-Object FullName -Descending | ForEach-Object { $_.FullName })
+  foreach ($candidate in $candidates) {
+    try { $version = (Get-Native $candidate @('--version')) -join ' ' } catch { continue }
+    if ($version -match 'Python 3\.') { return $candidate }
+  }
+  throw 'no working Python 3 found (run once with -InstallPrereqs)'
 }
 
 function Install-Prereqs {

@@ -272,6 +272,9 @@ platform :mac do
     # unsetting only RBENV_VERSION (an earlier, incomplete fix) does not clear
     # this Bundler-set isolation, so it's unset explicitly here too.
     Dir.chdir(PROJECT_ROOT) do
+      # Smart Mode's libllama + shim must be staged before Xcode's embed
+      # phase runs; it refuses to build a non-Debug configuration without.
+      sh("bash", File.join(PROJECT_ROOT, "scripts/ensure-libllama-macos.sh"))
       defines_file = release_defines_file
       # RBENV_VERSION=system is set (not just RBENV_VERSION unset) belt-and-
       # braces: unsetting alone worked across several runs, then intermittently
@@ -504,6 +507,9 @@ platform :mac do
     # unsetting/resetting RBENV_VERSION alone isn't enough either — the PATH
     # override below is required too.
     Dir.chdir(PROJECT_ROOT) do
+      # Smart Mode's libllama + shim must be staged before Xcode's embed
+      # phase runs; it refuses to build a non-Debug configuration without.
+      sh("bash", File.join(PROJECT_ROOT, "scripts/ensure-libllama-macos.sh"))
       defines_file = release_defines_file
       sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
          "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \

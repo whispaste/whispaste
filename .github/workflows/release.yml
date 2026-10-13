@@ -901,6 +901,29 @@ jobs:
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         run: bash scripts/build-libwhisper-macos.sh
 
+      # ── Build libllama + libsmartmode_shim (Smart Mode's on-device engine) ──
+      # macos/embed_libllama.sh embeds these from .build/libllama/macos, but
+      # nothing in this job ever fetched the llama.cpp source, so the embed
+      # phase's self-heal build failed and it warned-and-skipped: every macOS
+      # release up to v1.3.0 shipped without on-device Smart Mode. Same pin +
+      # cache pattern as the Windows/Linux libllama steps.
+      - name: Cache libllama build (macOS)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/macos
+          key: libllama-macos-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      - name: Build + stage libllama + smartmode_shim (macOS)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: |
+          bash scripts/build-libllama-macos.sh
+          bash scripts/build-smartmode-shim-macos.sh
+
       - name: Build macOS release
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -944,6 +967,16 @@ jobs:
             exit 1
           fi
           echo "libwhisper.dylib present: $(ls -la "$FW")"
+
+      # Same hard-fail for Smart Mode: embed_libllama.sh warns-and-skips too.
+      - name: Verify smartmode_shim is embedded
+        run: |
+          FW="build/macos/Build/Products/Release/WhisPaste.app/Contents/Frameworks/libsmartmode_shim.dylib"
+          if [[ ! -f "$FW" ]]; then
+            echo "::error::libsmartmode_shim.dylib missing from $FW — on-device Smart Mode would be disabled in this build."
+            exit 1
+          fi
+          echo "libsmartmode_shim.dylib present: $(ls -la "$FW")"
 
       # Upload .dSYM debug symbols for native crash symbolication.
       # See the Windows job for rationale and Free-Tier accounting.

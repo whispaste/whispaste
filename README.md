@@ -65,7 +65,7 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Optional privacy gate and PIN lock (also withholds transcriptions from the side panel, floating-button menu and automation API; auto-lock after inactivity)
 
-**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU interface · Autostart · System tray
+**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU/ES/PT interface · Autostart · System tray
 
 ## Command-Line Remote Control
 

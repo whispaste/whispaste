@@ -13,6 +13,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 
 import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
@@ -53,6 +54,18 @@ Future<int> runHeadlessCli(List<String> args) async {
     return headlessExitUsage;
   }
 
+  // Without a listener, package:logging drops every record, so engine
+  // warnings (e.g. a GPU load that fell back to CPU) would be invisible in
+  // a benchmark run. Warnings go to stderr only: stdout carries the result
+  // and must stay parseable. configureLogging() is deliberately not used:
+  // it writes the app's log file and prints its path to stdout.
+  final logSub = Logger.root.onRecord
+      .where((r) => r.level >= Level.WARNING)
+      .listen(
+        (r) => stderr.writeln(
+          'whispaste: [${r.level.name}] ${r.loggerName}: ${r.message}',
+        ),
+      );
   WidgetsFlutterBinding.ensureInitialized();
   final container = ProviderContainer(
     overrides: [
@@ -106,6 +119,7 @@ Future<int> runHeadlessCli(List<String> args) async {
       stderr.writeln('whispaste: engine stop failed: $e');
     }
     container.dispose();
+    await logSub.cancel();
     await stdout.flush();
   }
 }

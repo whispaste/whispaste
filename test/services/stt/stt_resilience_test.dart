@@ -190,6 +190,10 @@ class _LoadFailingEngine implements WhisperEngine {
 
   final WhisperBackend backend;
   bool failLoad;
+
+  /// When set, [transcribe] throws — the warmup inference fails after a
+  /// successful load (must not count as a surviving GPU path).
+  bool failTranscribe = false;
   bool _loaded = false;
   String? lastLoadedModelPath;
 
@@ -225,6 +229,7 @@ class _LoadFailingEngine implements WhisperEngine {
     bool reducedThreads = false,
   }) async {
     trace?.add('transcribe');
+    if (failTranscribe) throw StateError('warmup inference failed');
     return 'ok';
   }
 
@@ -1014,6 +1019,42 @@ void main() {
             'on real hardware would go undetected by the next launch',
       );
     });
+
+    test(
+      'a failed warmup inference clears the marker but does NOT reset the '
+      'crash streak — only a warmup that succeeded proves the GPU works',
+      () async {
+        final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan)
+          ..failTranscribe = true;
+        final container = ProviderContainer(
+          overrides: [
+            whisperEngineProvider.overrideWithValue(gpuEngine),
+            gpuLoadCrashGuardProvider.overrideWithValue(guard),
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+              ),
+            ),
+            modelDownloadProvider.overrideWith(
+              () => _FakeModelDownloadNotifier(),
+            ),
+            hw.gpuInfoProvider.overrideWith(
+              (_) async =>
+                  const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+
+        expect(guard.clearCalls, 1);
+        expect(guard.resetCalls, 0);
+      },
+    );
   });
 }
 
@@ -1026,6 +1067,7 @@ class _SpyGpuLoadCrashGuard extends GpuLoadCrashGuard {
 
   int markCalls = 0;
   int clearCalls = 0;
+  int resetCalls = 0;
 
   /// Optional shared call-order trace — see [_LoadFailingEngine.trace].
   final List<String>? trace;
@@ -1042,5 +1084,11 @@ class _SpyGpuLoadCrashGuard extends GpuLoadCrashGuard {
     clearCalls++;
     trace?.add('clear');
     super.clearAttempt();
+  }
+
+  @override
+  void resetCrashStreak() {
+    resetCalls++;
+    super.resetCrashStreak();
   }
 }

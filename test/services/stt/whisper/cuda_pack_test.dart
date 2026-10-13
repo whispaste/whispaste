@@ -12,8 +12,14 @@ import 'package:path/path.dart' as p;
 
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/services/stt/whisper/cuda_pack.dart';
+import 'package:whispaste/services/stt/whisper/whisper_engine.dart'
+    show WhisperBackend;
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart'
-    show pickGpuDeviceIndex;
+    show
+        backendForDevice,
+        ggmlDeviceTypeGpu,
+        ggmlDeviceTypeIgpu,
+        pickGpuDeviceIndex;
 
 String _sha(List<int> bytes) => sha256.convert(bytes).toString();
 
@@ -33,6 +39,82 @@ void main() {
 
     test('tolerates unnamed devices', () {
       expect(pickGpuDeviceIndex([null, 'CUDA0'], preferCuda: true), 1);
+    });
+
+    test('prefers a discrete GPU over an integrated one registered first', () {
+      // Hybrid laptop: ggml-vulkan enumerates the iGPU first.
+      expect(
+        pickGpuDeviceIndex(
+          ['Vulkan0', 'Vulkan1'],
+          preferCuda: false,
+          gpuTypes: [ggmlDeviceTypeIgpu, ggmlDeviceTypeGpu],
+        ),
+        1,
+      );
+    });
+
+    test('falls back to the integrated GPU when no discrete one exists', () {
+      expect(
+        pickGpuDeviceIndex(
+          ['Vulkan0'],
+          preferCuda: false,
+          gpuTypes: [ggmlDeviceTypeIgpu],
+        ),
+        0,
+      );
+    });
+
+    test('CUDA still wins over a discrete Vulkan device', () {
+      expect(
+        pickGpuDeviceIndex(
+          ['Vulkan0', 'CUDA0'],
+          preferCuda: true,
+          gpuTypes: [ggmlDeviceTypeGpu, ggmlDeviceTypeGpu],
+        ),
+        1,
+      );
+    });
+
+    test('returns the index among GPU devices only (registry order kept)', () {
+      // The index is what whisper_context_params.gpu_device expects: the
+      // N-th GPU/IGPU device, so the discrete card is the second of two.
+      expect(
+        pickGpuDeviceIndex(
+          ['iGPU-A', 'dGPU-B', 'dGPU-C'],
+          preferCuda: false,
+          gpuTypes: [ggmlDeviceTypeIgpu, ggmlDeviceTypeGpu, ggmlDeviceTypeGpu],
+        ),
+        1,
+      );
+    });
+  });
+
+  group('backendForDevice', () {
+    test('reports the backend of the device that actually runs', () {
+      // CUDA requested, but only a Vulkan device is registered: say vulkan.
+      expect(
+        backendForDevice('Vulkan0', WhisperBackend.cuda),
+        WhisperBackend.vulkan,
+      );
+      expect(
+        backendForDevice('CUDA0', WhisperBackend.cuda),
+        WhisperBackend.cuda,
+      );
+      expect(
+        backendForDevice('MTL0', WhisperBackend.metal),
+        WhisperBackend.metal,
+      );
+    });
+
+    test('keeps the requested backend when the device name is unknown', () {
+      expect(
+        backendForDevice(null, WhisperBackend.vulkan),
+        WhisperBackend.vulkan,
+      );
+      expect(
+        backendForDevice('Something0', WhisperBackend.metal),
+        WhisperBackend.metal,
+      );
     });
   });
 
@@ -199,6 +281,21 @@ void main() {
       expect(isCudaPackInstalled(pack, rootDir: root.path), isFalse);
       expect(Directory(store.packDir(pack)).existsSync(), isFalse);
       expect(Directory('${store.packDir(pack)}.partial').existsSync(), isFalse);
+    });
+
+    test('a truncated or missing file makes the pack not installed', () async {
+      final bytes = zipBytes();
+      final pack = packFor('pack.zip', bytes);
+      final store = CudaPackStore(rootDir: root.path);
+      await stageDownload(store, pack, bytes);
+      await store.installFromArchive(pack);
+      final module = File(p.join(store.packDir(pack), 'module.bin'));
+
+      module.writeAsBytesSync(moduleBytes.sublist(0, 4));
+      expect(isCudaPackInstalled(pack, rootDir: root.path), isFalse);
+
+      module.deleteSync();
+      expect(isCudaPackInstalled(pack, rootDir: root.path), isFalse);
     });
 
     test('remove deletes the pack folder', () async {

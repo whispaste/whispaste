@@ -245,7 +245,6 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
   // one crash with it switches only the pack off (Vulkan stays), without
   // touching the GPU strike count.
   if (guard.crashedLastAttemptWithCuda) {
-    guard.clearAttempt();
     CrashReporter.instance?.captureError(
       message:
           'STT model load crashed with the CUDA pack enabled — '
@@ -261,7 +260,13 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
               behavior: s.behavior.copyWith(cudaAcceleration: false),
             ),
           );
+      // Clear the marker only once the override is persisted. If the write
+      // failed, fall through and count the crash like any GPU crash below:
+      // otherwise every launch would re-enable CUDA and crash again without
+      // the strike count ever escalating.
+      guard.clearAttempt();
       guard.markPendingCudaNotice();
+      return;
     } catch (e, st) {
       CrashReporter.instance?.captureError(
         message: 'Failed to persist the CUDA-off override: $e',
@@ -271,7 +276,6 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
         stackTrace: st,
       );
     }
-    return;
   }
 
   // Always clear the in-flight marker: reaching this point already proves

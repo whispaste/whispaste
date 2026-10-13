@@ -114,6 +114,7 @@ scripts/*
 !scripts/build-libllama-macos.sh
 !scripts/build-libllama-linux.sh
 !scripts/build-smartmode-shim-macos.sh
+!scripts/ensure-libllama-macos.sh
 !scripts/build-libllama-windows.ps1
 !scripts/build-smartmode-shim-windows.ps1
 !scripts/bundle-libllama-windows.ps1

@@ -87,6 +87,13 @@ WP_SMART_MODE_API char* smart_mode_run(
 // package's smart_mode backends load. Static storage: do NOT free.
 WP_SMART_MODE_API const char* smart_mode_system_info(void);
 
+// Returns 1 if the response of the most recent successful smart_mode_generate
+// on `session` may be cut off (the 512-token limit, the context filling up,
+// or a decode failure), 0 otherwise. Added after the original surface: an
+// older shim lacks it, so callers must look it up optionally and treat a
+// missing symbol as "complete".
+WP_SMART_MODE_API int smart_mode_last_output_incomplete(const smart_mode_session* session);
+
 // Frees a string previously returned by smart_mode_generate/smart_mode_run.
 // No-op on NULL.
 WP_SMART_MODE_API void smart_mode_free_result(char* result);

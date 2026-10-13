@@ -89,17 +89,81 @@ const _kCudaPackBaseUrl =
 const _windowsPack = CudaPackInfo(
   id: kCudaPackId,
   url: '$_kCudaPackBaseUrl/WhisPaste-CUDA-$kCudaPackId-windows-x64.zip',
-  archiveSizeBytes: 0,
-  archiveSha256: '',
-  files: [],
+  archiveSizeBytes: 664395874,
+  archiveSha256:
+      '540f3152524c41674b6ef441ea9940754b625857c03f2b8a312ecb8dda55b49b',
+  files: [
+    CudaPackFile(
+      'NOTICE.txt',
+      2551,
+      '241d54fdef5e23b5fe211083dabfeb5fb1526389051bb347986364ed2d5396bd',
+    ),
+    CudaPackFile(
+      'SHA256SUMS',
+      405,
+      '6a419918dc86b862a741188d4d605f81e8f3ea17d153b9cd05b27843479bee03',
+    ),
+    CudaPackFile(
+      'cublas64_12.dll',
+      113716224,
+      '9513540e4ec4c51ee9e7304138c2cc255c29a8c181f9e80c38efa25738becd99',
+    ),
+    CudaPackFile(
+      'cublasLt64_12.dll',
+      674667520,
+      'b199d1ff892a81b7fd3d57ba1781549609b41500b36008fef326038393ad46c7',
+    ),
+    CudaPackFile(
+      'cudart64_12.dll',
+      573952,
+      'c2c9a9c22a9bcba90e261825968836787b331038047a26770cffb7a583c28344',
+    ),
+    CudaPackFile(
+      'ggml-cuda.dll',
+      107288064,
+      '681250a2b03e925723a62581dc2e13bf47fcd996ee281a4a542b61d2bf887ea2',
+    ),
+  ],
 );
 
 const _linuxPack = CudaPackInfo(
   id: kCudaPackId,
   url: '$_kCudaPackBaseUrl/WhisPaste-CUDA-$kCudaPackId-linux-x64.tar.gz',
-  archiveSizeBytes: 0,
-  archiveSha256: '',
-  files: [],
+  archiveSizeBytes: 690545297,
+  archiveSha256:
+      '3e6518020318745967504340f15a7092c93a2858db0c31c91a3b6719f15ca805',
+  files: [
+    CudaPackFile(
+      'NOTICE.txt',
+      2551,
+      '241d54fdef5e23b5fe211083dabfeb5fb1526389051bb347986364ed2d5396bd',
+    ),
+    CudaPackFile(
+      'SHA256SUMS',
+      407,
+      '394365fa72dc56f9db956e6a7f15e8efc10ada77f9e8af9aefe3412affdfa02f',
+    ),
+    CudaPackFile(
+      'libcublas.so.12',
+      116388640,
+      '031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21',
+    ),
+    CudaPackFile(
+      'libcublasLt.so.12',
+      751771728,
+      '10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c',
+    ),
+    CudaPackFile(
+      'libcudart.so.12',
+      728800,
+      'c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920',
+    ),
+    CudaPackFile(
+      'libggml-cuda.so',
+      111551297,
+      '75de9f1624d3e80b0b7711823afa4738587b0387b6ab9fdb7dd165f3bf15966f',
+    ),
+  ],
 );
 
 /// The pack for this machine, or `null` where none exists (macOS, ARM).
@@ -123,9 +187,21 @@ const kCudaPackInstalledMarker = '.installed';
 String cudaPackRootDir() => p.join(appDataDir(), 'cuda');
 
 /// Whether [pack] is fully installed below [rootDir].
+///
+/// Also compares every file's size with its pin: loading a truncated library
+/// (disk error, antivirus, a user tidying up) crashes the process with SIGBUS
+/// on Linux instead of failing, so such a pack counts as not installed and
+/// the row offers the download again. A hash check per start would read
+/// ~1 GB; the hashes were verified at install time.
 bool isCudaPackInstalled(CudaPackInfo pack, {required String rootDir}) {
   if (File(p.join(rootDir, '.remove-${pack.id}')).existsSync()) return false;
-  return File(p.join(rootDir, pack.id, kCudaPackInstalledMarker)).existsSync();
+  final dir = p.join(rootDir, pack.id);
+  if (!File(p.join(dir, kCudaPackInstalledMarker)).existsSync()) return false;
+  for (final file in pack.files) {
+    final f = File(p.join(dir, file.name));
+    if (!f.existsSync() || f.lengthSync() != file.sizeBytes) return false;
+  }
+  return true;
 }
 
 /// Whether the CUDA row is shown at all. Pure, so the rules are testable.

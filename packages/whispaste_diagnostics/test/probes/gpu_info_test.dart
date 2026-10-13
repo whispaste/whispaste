@@ -413,4 +413,131 @@ void main() {
       },
     );
   });
+
+  group('Windows VRAM (64-bit registry value over uint32 AdapterRAM)', () {
+    test(
+      'a 24 GB card reports 24 GB from the registry, not the wrapped uint32',
+      () {
+        // AdapterRAM is uint32: a 24 GB card wraps to 0 there.
+        expect(
+          windowsVramMB(
+            qwMemoryBytes: 24 * 1024 * 1024 * 1024,
+            adapterRamBytes: 0,
+          ),
+          24 * 1024,
+        );
+      },
+    );
+
+    test('falls back to AdapterRAM when the registry value is missing', () {
+      expect(windowsVramMB(adapterRamBytes: 1024 * 1024 * 1024), 1024);
+    });
+
+    test('no usable value yields null', () {
+      expect(windowsVramMB(adapterRamBytes: 0), isNull);
+      expect(windowsVramMB(qwMemoryBytes: 0, adapterRamBytes: null), isNull);
+    });
+  });
+
+  group('Windows detection is not cached when every probe fails', () {
+    setUp(() {
+      clearGpuCache();
+    });
+
+    tearDown(() {
+      setProcessRunnerForTesting(null);
+      setGpuDetectionFailureCallback(null);
+      clearGpuCache();
+    });
+
+    test('a timed-out / empty probe pair is reported as not settled', () async {
+      setProcessRunnerForTesting((executable, arguments) async {
+        return ProcessResult(0, 1, '', '');
+      });
+      expect(await windowsDetectionSettledForTesting(), isFalse);
+    });
+
+    test('an answer from a probe is settled and may be cached', () async {
+      setProcessRunnerForTesting((executable, arguments) async {
+        if (executable == 'wmic') {
+          return ProcessResult(
+            0,
+            0,
+            'Name=NVIDIA GeForce RTX 3060\nAdapterRAM=4293918720\n\n',
+            '',
+          );
+        }
+        return ProcessResult(0, 1, '', '');
+      });
+      expect(await windowsDetectionSettledForTesting(), isTrue);
+    });
+  });
+
+  group('pickLspciGpuName (name from the same card as the vendor)', () {
+    const hybrid = '''
+0000:00:02.0 VGA compatible controller: Intel Corporation Alder Lake-P Integrated Graphics Controller (rev 0c)
+0000:01:00.0 3D controller: NVIDIA Corporation GA107M [GeForce RTX 3050 Mobile] (rev a1)
+0000:00:14.0 USB controller: Intel Corporation Alder Lake USB 3.2 Controller
+''';
+
+    test('picks the dGPU by its full PCI address, not the first VGA line', () {
+      expect(
+        pickLspciGpuName(
+          hybrid,
+          pciAddress: '0000:01:00.0',
+          vendor: GpuVendor.nvidia,
+        ),
+        'NVIDIA Corporation GA107M [GeForce RTX 3050 Mobile] (rev a1)',
+      );
+    });
+
+    test('matches a short bus address as well', () {
+      expect(
+        pickLspciGpuName(hybrid, pciAddress: '01:00.0'),
+        contains('GeForce RTX 3050'),
+      );
+    });
+
+    test('without an address, the first GPU of the vendor wins', () {
+      expect(
+        pickLspciGpuName(hybrid, vendor: GpuVendor.intel),
+        'Intel Corporation Alder Lake-P Integrated Graphics Controller (rev 0c)',
+      );
+    });
+
+    test('non-GPU lines and empty output yield null when no GPU is listed', () {
+      expect(
+        pickLspciGpuName(
+          '0000:00:14.0 USB controller: Intel Corporation USB 3.2\n',
+        ),
+        isNull,
+      );
+      expect(pickLspciGpuName(''), isNull);
+    });
+  });
+
+  group('preferDiscreteVendor', () {
+    test('NVIDIA beats an integrated Intel GPU regardless of card order', () {
+      expect(
+        preferDiscreteVendor([GpuVendor.intel, GpuVendor.nvidia]),
+        GpuVendor.nvidia,
+      );
+      expect(
+        preferDiscreteVendor([GpuVendor.nvidia, GpuVendor.intel]),
+        GpuVendor.nvidia,
+      );
+    });
+
+    test('AMD beats Intel, and non-GPU entries are ignored', () {
+      expect(
+        preferDiscreteVendor([GpuVendor.none, GpuVendor.intel, GpuVendor.amd]),
+        GpuVendor.amd,
+      );
+    });
+
+    test('no GPU vendor yields null', () {
+      expect(preferDiscreteVendor(const []), isNull);
+      expect(preferDiscreteVendor([GpuVendor.none]), isNull);
+    });
+  });
 }

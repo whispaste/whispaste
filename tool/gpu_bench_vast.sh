@@ -23,7 +23,10 @@
 # Env:   BENCH_REPEAT (default 10 measured runs), BENCH_WARMUP (default 2, dropped
 #        before the median), BENCH_WITH_CPU (default 0; 1 adds the CPU mode), BENCH_MODELS (default "whisper-medium
 #        whisper-large-v3-turbo"), BENCH_CLIPS (seconds, default "10 30"),
-#        BENCH_SAMPLES (default: website/scripts/librispeech-sample of this repo)
+#        BENCH_SAMPLES (default: website/scripts/librispeech-sample of this repo),
+#        BENCH_PACK (an extracted optional CUDA pack, lib/services/stt/whisper/cuda_pack.dart:
+#        replaces the cuda mode by `pack` (loaded via --cuda-pack, as the app does) and
+#        `pack-broken` (a corrupted copy; the app must fall back to Vulkan, exit 0))
 # Output: <out-dir>/{system.json,<mode>-<model>-<clip>s.json,results.json,results.md}
 set -euo pipefail
 
@@ -34,6 +37,7 @@ REPEAT="${BENCH_REPEAT:-10}"
 WARMUP="${BENCH_WARMUP:-2}"
 WITH_CPU="${BENCH_WITH_CPU:-0}"
 MODELS="${BENCH_MODELS:-whisper-medium whisper-large-v3-turbo}"
+PACK="${BENCH_PACK:-}"
 CLIPS="${BENCH_CLIPS:-10 30}"
 WORK="${BENCH_WORK:-/opt/wp-bench}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -133,13 +137,26 @@ cuda_files() { (cd "$CUDA_DIR" && ls -- *.so*); }
 install_cuda() { cp "$CUDA_DIR"/*.so* "$BUNDLE/lib/"; }
 remove_cuda() { for f in $(cuda_files); do rm -f "$BUNDLE/lib/$f"; done; }
 
+# A copy of the pack whose CUDA module is not a library at all (a damaged
+# download): ggml_backend_load fails on it and the app has to stay on Vulkan.
+# Not a truncated ELF: dlopen maps that and dies with SIGBUS, which no app can
+# catch; the app's size check keeps such a pack from being loaded instead.
+if [[ -n "$PACK" ]]; then
+  rm -rf "$WORK/broken-pack"
+  cp -r "$PACK" "$WORK/broken-pack"
+  head -c 65536 /dev/urandom > "$WORK/broken-pack/libggml-cuda.so"
+fi
+
 run() { # <mode> <model> <clip-seconds>
   local mode="$1" model="$2" clip="$3" gpu=auto
   local tag="$mode-$model-${clip}s" peak="$WORK/$mode-$model-${clip}s.vram"
+  local extra=()
   remove_cuda
   case "$mode" in
     cuda) install_cuda ;;
     cpu) gpu=disabled ;;
+    pack) extra=(--cuda-pack "$PACK") ;;
+    pack-broken) extra=(--cuda-pack "$WORK/broken-pack") ;;
   esac
   # A vulkan or cpu run must not see the CUDA module at all.
   if [[ "$mode" != cuda ]] && compgen -G "$BUNDLE/lib/libggml-cuda*" >/dev/null; then
@@ -153,7 +170,7 @@ run() { # <mode> <model> <clip-seconds>
   timeout 1800 xvfb-run -a dbus-run-session -- "$BUNDLE/whispaste" \
     --transcribe-file "$WORK/clips/clip-${clip}s.wav" --engine whisper \
     --model "$model" --language en --gpu "$gpu" --repeat "$((REPEAT + WARMUP))" \
-    --json --out "$OUT/$tag.json" >/dev/null || rc=$?
+    "${extra[@]}" --json --out "$OUT/$tag.json" >/dev/null || rc=$?
   kill "$smi" 2>/dev/null || true
   wait "$smi" 2>/dev/null || true
   python3 -I - "$OUT/$tag.json" "$peak" "$mode" "$rc" <<'PY'
@@ -172,7 +189,12 @@ PY
 echo "=== runs (repeat $REPEAT) ==="
 for model in $MODELS; do
   for clip in $CLIPS; do
-    run cuda "$model" "$clip"
+    if [[ -n "$PACK" ]]; then
+      run pack "$model" "$clip"
+      run pack-broken "$model" "$clip"
+    else
+      run cuda "$model" "$clip"
+    fi
     if [[ "$VULKAN_OK" == 1 ]]; then
       run vulkan "$model" "$clip"
     else
@@ -196,10 +218,14 @@ for path in sorted(glob.glob(os.path.join(out, "*-*s.json"))):
     runs = [x["transcribeMs"] for x in r.get("runs", [])][warmup:]
     median = statistics.median(runs) if runs else None
     audio = r.get("audioDurationMs")
-    expected = {"cuda": "CUDA", "vulkan": "Vulkan", "cpu": None}[r["mode"]]
+    expected = {"cuda": "CUDA", "pack": "CUDA", "pack-broken": "Vulkan",
+                "vulkan": "Vulkan", "cpu": None}[r["mode"]]
     device = r.get("gpuDevice")
     ok = r.get("exitCode") == 0 and (
         device is None if expected is None else (device or "").startswith(expected))
+    if r["mode"] == "pack-broken":
+        # Fallback check: anything but CUDA (Vulkan, or CPU without a Vulkan ICD).
+        ok = r.get("exitCode") == 0 and not (device or "").startswith("CUDA")
     # The app's own "backend" field comes from GPU detection (CUDA runtime
     # present means "cuda") and is not the device used; measuredBackend is.
     measured = "cpu" if device is None else ("cuda" if device.startswith("CUDA") else "vulkan")
@@ -228,8 +254,10 @@ for r in rows:
         f"| {r['vramPeakMiB']} | {'ja' if r['ok'] else 'NEIN'} |")
 lines += ["", "CUDA vs Vulkan (median latency, speedup = vulkan / cuda - 1):", "",
           "| Modell | Clip | CUDA ms | Vulkan ms | CUDA schneller um |", "|---|---:|---:|---:|---:|"]
-by = {(r["model"], r["clipMs"], r["measuredBackend"]): r for r in rows if r["ok"]}
-for (model, clip, backend) in sorted({(r["model"], r["clipMs"], "cuda") for r in rows}):
+by = {(r["model"], r["clipMs"], r["measuredBackend"]): r
+      for r in rows if r["ok"] and r["mode"] != "pack-broken"}
+# Crashed runs have no model or clip; str() keeps the sort from failing on None.
+for (model, clip) in sorted({(r["model"], r["clipMs"]) for r in rows}, key=str):
     c, v = by.get((model, clip, "cuda")), by.get((model, clip, "vulkan"))
     if c and v and c["transcribeMsMedian"]:
         pct = (v["transcribeMsMedian"] / c["transcribeMsMedian"] - 1) * 100

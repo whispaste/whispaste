@@ -26,8 +26,13 @@ class _FakeNative implements SmartModeNative {
   bool _loaded = false;
 
   @override
-  void load({required String modelPath}) {
-    if (modelPath.endsWith('broken.gguf')) {
+  void load({required String modelPath, required int gpuLayers}) {
+    if (p.basename(modelPath) == 'broken.gguf') {
+      throw StateError('smart_mode_load_failed');
+    }
+    // A GPU-only failure (e.g. a Vulkan driver that rejects the model): the
+    // CPU retry (gpuLayers: 0) must succeed.
+    if (p.basename(modelPath) == 'gpu-broken.gguf' && gpuLayers > 0) {
       throw StateError('smart_mode_load_failed');
     }
     sleep(_fakeLoadTime);
@@ -95,7 +100,45 @@ void main() {
     return engine;
   }
 
+  group('smartModeGpuLayersFor', () {
+    test('"Nur CPU" keeps every layer on the CPU', () {
+      expect(smartModeGpuLayersFor('disabled'), 0);
+    });
+
+    test('auto and enabled offload all layers', () {
+      expect(smartModeGpuLayersFor('auto'), kSmartModeGpuLayersAuto);
+      expect(smartModeGpuLayersFor('enabled'), kSmartModeGpuLayersAuto);
+      expect(smartModeGpuLayersFor(null), kSmartModeGpuLayersAuto);
+    });
+  });
+
   group('SmartModeFfiEngine lifecycle (fake native, worker isolate)', () {
+    test(
+      'a GPU model load failure retries on CPU and the run still succeeds',
+      () async {
+        final gpuBroken = p.join(tmp.path, 'gpu-broken.gguf');
+        File(gpuBroken).writeAsStringSync('fake gguf');
+        final engine = buildEngine(overrideModelPath: gpuBroken);
+
+        final out = await engine.run(systemPrompt: 'sys', userText: 'hi');
+
+        expect(out, '[sys] hi');
+        expect(engine.lastRunStats!.loadedModel, isTrue);
+        expect(engine.modelLoadCount, 1);
+      },
+    );
+
+    test('a load that also fails on CPU surfaces as a StateError', () async {
+      final broken = p.join(tmp.path, 'broken.gguf');
+      File(broken).writeAsStringSync('fake gguf');
+      final engine = buildEngine(overrideModelPath: broken);
+
+      await expectLater(
+        engine.run(systemPrompt: 'sys', userText: 'hi'),
+        throwsStateError,
+      );
+    });
+
     test('first run loads the model once and returns the result', () async {
       final engine = buildEngine();
       expect(engine.isModelResident, isFalse);

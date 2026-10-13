@@ -33,6 +33,10 @@
 #                  says nothing about desktop users)
 #   --search-only  list the cheapest matching offer and exit (no rent, free)
 #   --out DIR      results directory (default ~/whispaste-gpu-bench/<timestamp>)
+#   --pack DIR     test an extracted optional CUDA pack (tool/cuda_pack_build.sh)
+#                  instead of building the CUDA module: rsynced from this Mac, loaded
+#                  by the app via --cuda-pack, plus a corrupted copy that must fall
+#                  back to Vulkan
 #   --retry-unreachable  if the box never answers SSH, destroy it and rent once
 #                  more on another offer (off by default: stop and report instead)
 set -euo pipefail
@@ -56,6 +60,7 @@ LABEL="wp-gpubench-$RUN_ID"
 SEARCH_ONLY=0
 GPU_NAME="RTX 3090"
 WITH_CPU=0
+PACK_DIR=""
 REMOTE_PRELUDE=""
 MAX_RENT_ATTEMPTS=1
 OUT_DIR=""
@@ -77,6 +82,7 @@ while [[ $# -gt 0 ]]; do
     --gpu) GPU_NAME="${2:?--gpu needs a name, e.g. \"RTX 3060\"}"; shift ;;
     --retry-unreachable) MAX_RENT_ATTEMPTS=2 ;;
     --out) OUT_DIR="${2:?--out needs a directory}"; shift ;;
+    --pack) PACK_DIR="${2:?--pack needs an extracted pack directory}"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1 (see --help)" >&2; exit 2 ;;
   esac
@@ -88,6 +94,10 @@ TIMEOUT_BIN="$(command -v gtimeout || command -v timeout || true)"
 [[ -x "$VASTAI" ]] || { echo "ERROR: vastai CLI not found at $VASTAI" >&2; exit 1; }
 [[ -f "$API_KEY_FILE" ]] || { echo "ERROR: missing $API_KEY_FILE" >&2; exit 1; }
 [[ -f "$SSH_KEY" ]] || { echo "ERROR: missing SSH key $SSH_KEY" >&2; exit 1; }
+if [[ -n "$PACK_DIR" ]]; then
+  [[ -f "$PACK_DIR/libggml-cuda.so" ]] || { echo "ERROR: no libggml-cuda.so in $PACK_DIR" >&2; exit 1; }
+  PACK_DIR="$(cd "$PACK_DIR" && pwd)"
+fi
 
 log() {
   local msg
@@ -482,6 +492,19 @@ STEP
     fi
   fi
 
+  if [[ -n "$PACK_DIR" ]]; then
+    log "pack mode: pushing $(basename "$PACK_DIR") instead of building the CUDA module"
+    push_dir "$PACK_DIR/" .build/cuda-pack/
+    REMOTE_PRELUDE="export BENCH_WITH_CPU=$WITH_CPU BENCH_PACK=/opt/wp-src/.build/cuda-pack"
+    remote_step bench <<'STEP'
+cd /opt/wp-src
+bash tool/gpu_bench_vast.sh build/linux/x64/release/bundle .build/cuda-pack /opt/wp-bench/results
+STEP
+    REMOTE_PRELUDE=""
+    fetch_results
+    return
+  fi
+
   # CUDA module for this box's GPU only (its compute capability, e.g. 86 -> sm_86).
   cap="$(ssh_cmd nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n 1 | tr -d '.' || true)"
   [[ "$cap" =~ ^[0-9]+$ ]] || die "could not read the GPU compute capability: '$cap'"
@@ -517,7 +540,10 @@ cd /opt/wp-src
 bash tool/gpu_bench_vast.sh build/linux/x64/release/bundle .build/libwhisper/linux-cuda /opt/wp-bench/results
 STEP
   REMOTE_PRELUDE=""
+  fetch_results
+}
 
+fetch_results() {
   mkdir -p "$OUT_DIR/results"
   rsync -az -e "$(rsync_ssh)" "root@$SSH_HOST:/opt/wp-bench/results/" "$OUT_DIR/results/"
   log "results copied to $OUT_DIR/results"

@@ -176,6 +176,33 @@ void main() {
     });
   });
 
+  group('runtime section', () {
+    test('is reported in the JSON but never changes the outcome', () {
+      const runtime = {'whisperThreads': 6};
+      final report = runPackageDiagnose(
+        libraries: const [
+          NativeLibrary(name: 'a', path: '/x/liba.so', symbols: ['a_init']),
+        ],
+        version: '1.2.3',
+        executable: '/x/whispaste',
+        probe: (_) => null,
+        runtime: runtime,
+      );
+      expect(report.ok, isTrue);
+      expect(report.toJson()['runtime'], runtime);
+    });
+
+    test('is omitted from the JSON when not probed', () {
+      final report = runPackageDiagnose(
+        libraries: const [],
+        version: '1.2.3',
+        executable: '/x/whispaste',
+        probe: (_) => null,
+      );
+      expect(report.toJson().containsKey('runtime'), isFalse);
+    });
+  });
+
   group('selfCheckNativeCallGuard', () {
     test('fails for a missing guard', () {
       expect(

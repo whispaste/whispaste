@@ -111,6 +111,12 @@ check_links() {
     if [[ "$dep" == @rpath/* ]]; then
       for rpath in "${rpaths[@]+"${rpaths[@]}"}"; do
         if [ -e "$rpath/${dep#@rpath/}" ]; then resolved="$rpath/${dep#@rpath/}"; break; fi
+        # The Swift runtime (@rpath/libswift*.dylib via /usr/lib/swift) lives
+        # in the dyld shared cache, not on disk, so -e can never find it.
+        if [[ "$rpath" == /usr/lib/swift && "$dep" == @rpath/libswift* ]]; then
+          resolved="$rpath/${dep#@rpath/}"
+          break
+        fi
       done
     elif [[ "$dep" == @loader_path/* || "$dep" == @executable_path/* ]]; then
       local candidate

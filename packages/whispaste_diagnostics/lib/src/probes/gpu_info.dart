@@ -309,7 +309,14 @@ Future<GpuInfo> detectGpu() async {
 
   try {
     if (Platform.isWindows) {
-      _cached = await _detectWindows();
+      final detection = await _detectWindowsDetection();
+      if (!detection.settled) {
+        // Both PowerShell and WMIC gave no answer (timeout or missing tools).
+        // Report CPU for now, but do not cache it: a later call retries, so a
+        // slow first probe does not pin the whole session to CPU.
+        return detection.info;
+      }
+      _cached = detection.info;
     } else if (Platform.isMacOS) {
       _cached = await _detectMacOS();
     } else if (Platform.isLinux) {
@@ -349,7 +356,14 @@ void clearGpuCache() {
 /// resilience logic on macOS / Linux CI runners. The result is **not** cached
 /// — callers may invoke this repeatedly without `clearGpuCache()`.
 @visibleForTesting
-Future<GpuInfo> detectGpuWindowsForTesting() => _detectWindows();
+Future<GpuInfo> detectGpuWindowsForTesting() async =>
+    (await _detectWindowsDetection()).info;
+
+/// Whether the last Windows detection produced a final answer, i.e. whether
+/// [detectGpu] would cache it. `false` after both probes gave no answer.
+@visibleForTesting
+Future<bool> windowsDetectionSettledForTesting() async =>
+    (await _detectWindowsDetection()).settled;
 
 /// Runs the macOS GPU-detection path regardless of the host platform.
 ///
@@ -796,15 +810,22 @@ List<String> listServerDirFiles(String sttDirPath) {
 // Windows detection
 // ---------------------------------------------------------------------------
 
-Future<GpuInfo> _detectWindows() async {
+/// Windows detection result. [settled] is `false` when no probe produced a
+/// GPU list (timeout, missing tools): the [info] is then a CPU fallback that
+/// must not be cached.
+typedef _WindowsDetection = ({GpuInfo info, bool settled});
+
+Future<_WindowsDetection> _detectWindowsDetection() async {
   // Phase 1: Quick check — is CUDA runtime available?
   final cudaAvailable = File(r'C:\Windows\System32\nvcuda.dll').existsSync();
 
-  // Phase 2: Run wmic + PowerShell in parallel, each with its own 8 s cap.
-  final parsed = await _raceForFirstNonNull<_GpuParsed>([
-    _wmicGetGpus(),
-    _powershellGetGpus(),
-  ]);
+  // Phase 2: PowerShell and WMIC start together, each with its own 8 s cap.
+  // PowerShell wins whenever it answers: it also reads the 64-bit VRAM size
+  // from the registry, while WMIC's AdapterRAM is a uint32 that wraps above
+  // 4 GB. WMIC is only the fallback for a PowerShell failure.
+  final powershell = _powershellGetGpus();
+  final wmic = _wmicGetGpus();
+  final parsed = await powershell ?? await wmic;
 
   String gpuName = 'Unknown';
   GpuVendor vendor = GpuVendor.none;
@@ -827,6 +848,8 @@ Future<GpuInfo> _detectWindows() async {
     vramMB = await _windowsNvidiaVramMB() ?? vramMB;
   }
 
+  final settled = parsed != null;
+
   if (vendor == GpuVendor.none) {
     captureGpuDetectionFailureOnce(
       reason: parsed == null
@@ -835,49 +858,26 @@ Future<GpuInfo> _detectWindows() async {
       cudaAvailable: cudaAvailable,
       adapterNames: parsed?.adapterNames ?? const [],
     );
-    return GpuInfo(
-      vendor: GpuVendor.none,
-      name: 'Detection failed — using CPU',
+    return (
+      info: GpuInfo(
+        vendor: GpuVendor.none,
+        name: 'Detection failed — using CPU',
+        cudaAvailable: cudaAvailable,
+      ),
+      settled: settled,
+    );
+  }
+
+  return (
+    info: GpuInfo(
+      vendor: vendor,
+      name: gpuName,
+      vramMB: vramMB,
       cudaAvailable: cudaAvailable,
-    );
-  }
-
-  return GpuInfo(
-    vendor: vendor,
-    name: gpuName,
-    vramMB: vramMB,
-    cudaAvailable: cudaAvailable,
-    vulkanAvailable: vendor != GpuVendor.none,
+      vulkanAvailable: vendor != GpuVendor.none,
+    ),
+    settled: settled,
   );
-}
-
-/// Races a set of `Future<T?>` probes and returns the first non-null result.
-Future<T?> _raceForFirstNonNull<T>(List<Future<T?>> probes) {
-  if (probes.isEmpty) return Future<T?>.value(null);
-
-  final completer = Completer<T?>();
-  var remaining = probes.length;
-
-  for (final probe in probes) {
-    probe.then(
-      (value) {
-        if (completer.isCompleted) return;
-        if (value != null) {
-          completer.complete(value);
-          return;
-        }
-        remaining -= 1;
-        if (remaining == 0) completer.complete(null);
-      },
-      onError: (Object _, StackTrace _) {
-        if (completer.isCompleted) return;
-        remaining -= 1;
-        if (remaining == 0) completer.complete(null);
-      },
-    );
-  }
-
-  return completer.future;
 }
 
 Future<_GpuParsed?> _wmicGetGpus() async {
@@ -971,6 +971,19 @@ _GpuParsed? _parseWmicList(String output) {
   return _preferDiscrete(gpus);
 }
 
+/// Vendor of the discrete GPU among [vendors] (NVIDIA > AMD > Intel), or
+/// `null` when none is a GPU vendor. Used for sysfs/lspci lists, where the
+/// order of the entries carries no meaning.
+@visibleForTesting
+GpuVendor? preferDiscreteVendor(Iterable<GpuVendor> vendors) {
+  GpuVendor? best;
+  for (final v in vendors) {
+    if (v == GpuVendor.apple || v == GpuVendor.none) continue;
+    if (best == null || v.index < best.index) best = v;
+  }
+  return best;
+}
+
 /// Picks the discrete GPU to report (NVIDIA > AMD > Intel > None) and keeps
 /// every raw adapter name, so a failed classification can be diagnosed.
 _GpuParsed _preferDiscrete(List<_GpuParsed> gpus) {
@@ -985,13 +998,37 @@ _GpuParsed _preferDiscrete(List<_GpuParsed> gpus) {
   );
 }
 
+/// PowerShell script for [_powershellGetGpus]. Prints `name|AdapterRAM|qwMemorySize`
+/// per adapter. `HardwareInformation.qwMemorySize` is the display-class
+/// registry value holding the true 64-bit VRAM size; it is matched by
+/// `DriverDesc`, which equals the Win32_VideoController name.
+const _powershellGpuScript =
+    r"$reg = @{}; "
+    r"Get-ChildItem -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}' "
+    r"-ErrorAction SilentlyContinue | ForEach-Object { "
+    r"$p = Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue; "
+    r"if ($p.DriverDesc) { $reg[[string]$p.DriverDesc] = $p.'HardwareInformation.qwMemorySize' } }; "
+    r"Get-CimInstance Win32_VideoController | ForEach-Object { "
+    r"[string]$_.Name + '|' + [string]$_.AdapterRAM + '|' + [string]$reg[[string]$_.Name] }";
+
+/// VRAM in MB from a Windows adapter's byte counts, preferring the 64-bit
+/// registry value. The uint32 `AdapterRAM` is only used when no registry
+/// value exists, and it under-reports cards with 4 GB or more.
+@visibleForTesting
+int? windowsVramMB({int? qwMemoryBytes, int? adapterRamBytes}) {
+  final bytes = (qwMemoryBytes != null && qwMemoryBytes > 0)
+      ? qwMemoryBytes
+      : adapterRamBytes;
+  if (bytes == null || bytes <= 0) return null;
+  return bytes ~/ (1024 * 1024);
+}
+
 Future<_GpuParsed?> _powershellGetGpus() async {
   try {
     final result = await _processRunner('powershell', [
       '-NoProfile',
       '-Command',
-      r'Get-CimInstance Win32_VideoController | '
-          r'ForEach-Object { "$($_.Name)|$($_.AdapterRAM)" }',
+      _powershellGpuScript,
     ]).timeout(kWindowsGpuProbeTimeout);
 
     if (result.exitCode != 0) return null;
@@ -1002,15 +1039,17 @@ Future<_GpuParsed?> _powershellGetGpus() async {
       if (parts.isEmpty || parts[0].isEmpty) continue;
 
       final name = parts[0];
-      final vramBytes = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      final adapterRam = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      final qwMemory = parts.length > 2 ? int.tryParse(parts[2]) : null;
 
       gpus.add(
         _GpuParsed(
           name: name,
           vendor: _classifyVendor(name),
-          vramMB: vramBytes != null && vramBytes > 0
-              ? vramBytes ~/ (1024 * 1024)
-              : null,
+          vramMB: windowsVramMB(
+            qwMemoryBytes: qwMemory,
+            adapterRamBytes: adapterRam,
+          ),
         ),
       );
     }
@@ -1241,39 +1280,110 @@ String? _extractMacGpuName(String profilerOutput) {
 // Linux detection
 // ---------------------------------------------------------------------------
 
+/// Longest a Linux `lspci` call may take before detection moves on. The
+/// detection runs before `runApp()` (main.dart awaits the GPU probe), so a
+/// wedged `lspci` must not hold the whole app start.
+const Duration _kLspciTimeout = Duration(seconds: 3);
+
+/// A GPU card found in sysfs (`/sys/class/drm/cardN`).
+class _LinuxGpuCard {
+  const _LinuxGpuCard({
+    required this.vendor,
+    required this.devicePath,
+    this.pciAddress,
+  });
+
+  final GpuVendor vendor;
+
+  /// `/sys/class/drm/cardN/device`, where the card's own sysfs files live.
+  final String devicePath;
+
+  /// Full PCI address such as `0000:01:00.0`, matching `lspci -D` output.
+  final String? pciAddress;
+}
+
+/// Every `cardN` in [drmDir] with a known GPU vendor, in name order so the
+/// result does not depend on directory listing order.
+List<_LinuxGpuCard> _linuxGpuCards(Directory drmDir) {
+  final cardPattern = RegExp(r'^card\d+$');
+  final cards = <_LinuxGpuCard>[];
+  final entries =
+      drmDir
+          .listSync()
+          .where((e) => cardPattern.hasMatch(p.basename(e.path)))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+  for (final card in entries) {
+    final devicePath = '${card.path}/device';
+    final vendorFile = File('$devicePath/vendor');
+    if (!vendorFile.existsSync()) continue;
+    final vendorId = vendorFile.readAsStringSync().trim().toLowerCase();
+    final vendor = switch (vendorId) {
+      '0x10de' => GpuVendor.nvidia,
+      '0x1002' => GpuVendor.amd,
+      '0x8086' => GpuVendor.intel,
+      _ => null,
+    };
+    if (vendor == null) continue;
+    String? pciAddress;
+    try {
+      pciAddress = p.basename(Directory(devicePath).resolveSymbolicLinksSync());
+    } on FileSystemException {
+      pciAddress = null;
+    }
+    cards.add(
+      _LinuxGpuCard(
+        vendor: vendor,
+        devicePath: devicePath,
+        pciAddress: pciAddress,
+      ),
+    );
+  }
+  return cards;
+}
+
 Future<GpuInfo> _detectLinux() async {
   // Phase 1: Check PCI vendor IDs via sysfs (fastest, no external tools).
   try {
     final drmDir = Directory('/sys/class/drm');
     if (drmDir.existsSync()) {
-      for (final card in drmDir.listSync()) {
-        final vendorFile = File('${card.path}/device/vendor');
-        if (!vendorFile.existsSync()) continue;
-        final vendorId = vendorFile.readAsStringSync().trim().toLowerCase();
-
-        if (vendorId == '0x10de') {
-          return GpuInfo(
-            vendor: GpuVendor.nvidia,
-            name: await _linuxGpuName() ?? 'NVIDIA GPU',
-            vramMB: await _linuxNvidiaVramMB(),
-            cudaAvailable: _linuxHasCuda(),
-            vulkanAvailable: true,
-          );
-        }
-        if (vendorId == '0x1002') {
-          return GpuInfo(
-            vendor: GpuVendor.amd,
-            name: await _linuxGpuName() ?? 'AMD GPU',
-            vramMB: _linuxAmdVramMB(),
-            vulkanAvailable: true,
-          );
-        }
-        if (vendorId == '0x8086') {
-          return GpuInfo(
-            vendor: GpuVendor.intel,
-            name: await _linuxGpuName() ?? 'Intel GPU',
-            vulkanAvailable: true,
-          );
+      // Collect every card first: on a hybrid laptop the Intel iGPU and the
+      // NVIDIA dGPU both show up, and listSync() order is arbitrary, so
+      // returning at the first match could report the iGPU.
+      final cards = _linuxGpuCards(drmDir);
+      final vendor = preferDiscreteVendor([for (final c in cards) c.vendor]);
+      if (vendor != null) {
+        // The name and VRAM must describe the same card the vendor came from:
+        // the first card of the chosen vendor, looked up by its PCI address.
+        final card = cards.firstWhere((c) => c.vendor == vendor);
+        final name = await _linuxGpuName(
+          pciAddress: card.pciAddress,
+          vendor: vendor,
+        );
+        switch (vendor) {
+          case GpuVendor.nvidia:
+            return GpuInfo(
+              vendor: GpuVendor.nvidia,
+              name: name ?? 'NVIDIA GPU',
+              vramMB: await _linuxNvidiaVramMB(),
+              cudaAvailable: _linuxHasCuda(),
+              vulkanAvailable: true,
+            );
+          case GpuVendor.amd:
+            return GpuInfo(
+              vendor: GpuVendor.amd,
+              name: name ?? 'AMD GPU',
+              vramMB: _linuxAmdVramMB(card.devicePath),
+              vulkanAvailable: true,
+            );
+          case GpuVendor.intel:
+            return GpuInfo(
+              vendor: GpuVendor.intel,
+              name: name ?? 'Intel GPU',
+              vulkanAvailable: true,
+            );
+          default:
+            break;
         }
       }
     }
@@ -1281,7 +1391,9 @@ Future<GpuInfo> _detectLinux() async {
 
   // Phase 2: Fallback to lspci.
   try {
-    final result = await Process.run('lspci', ['-nn']);
+    final result = await _runProcessGuarded('lspci', [
+      '-nn',
+    ], timeout: _kLspciTimeout);
     if (result.exitCode == 0) {
       final output = result.stdout.toString().toLowerCase();
       if (output.contains('[10de:') || output.contains('nvidia')) {
@@ -1299,7 +1411,7 @@ Future<GpuInfo> _detectLinux() async {
         return GpuInfo(
           vendor: GpuVendor.amd,
           name: 'AMD GPU',
-          vramMB: _linuxAmdVramMB(),
+          vramMB: null,
           vulkanAvailable: true,
         );
       }
@@ -1316,20 +1428,64 @@ Future<GpuInfo> _detectLinux() async {
   return const GpuInfo(vendor: GpuVendor.none, name: 'No GPU detected');
 }
 
-Future<String?> _linuxGpuName() async {
+/// The GPU name for the card at [pciAddress] (or, without an address, the
+/// first GPU of [vendor]) from `lspci -D`. `null` when lspci is missing,
+/// times out, or lists no matching GPU.
+Future<String?> _linuxGpuName({String? pciAddress, GpuVendor? vendor}) async {
   try {
-    final result = await Process.run('lspci', []);
+    final result = await _runProcessGuarded('lspci', [
+      '-D',
+    ], timeout: _kLspciTimeout);
     if (result.exitCode != 0) return null;
-    for (final line in result.stdout.toString().split('\n')) {
-      if (line.contains('VGA') ||
-          line.contains('3D controller') ||
-          line.contains('Display controller')) {
-        final colons = line.split(':');
-        if (colons.length >= 3) return colons.sublist(2).join(':').trim();
+    return pickLspciGpuName(
+      result.stdout.toString(),
+      pciAddress: pciAddress,
+      vendor: vendor,
+    );
+  } on Object {
+    return null;
+  }
+}
+
+/// Parses `lspci -D` output and returns the name of the GPU at [pciAddress]
+/// (full `0000:01:00.0` or short `01:00.0`). Without a match it returns the
+/// first GPU whose name classifies as [vendor], then the first GPU at all.
+@visibleForTesting
+String? pickLspciGpuName(
+  String lspciOutput, {
+  String? pciAddress,
+  GpuVendor? vendor,
+}) {
+  final linePattern = RegExp(
+    r'^((?:[0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7])\s+([^:]*):\s*(.+)$',
+    caseSensitive: false,
+  );
+  final gpuClass = RegExp(
+    r'VGA|3D controller|Display controller',
+    caseSensitive: false,
+  );
+  final gpus = <({String address, String name})>[];
+  for (final line in lspciOutput.split('\n')) {
+    final match = linePattern.firstMatch(line.trim());
+    if (match == null) continue;
+    if (!gpuClass.hasMatch(match.group(2)!)) continue;
+    gpus.add((address: match.group(1)!, name: match.group(3)!.trim()));
+  }
+  if (gpus.isEmpty) return null;
+
+  if (pciAddress != null) {
+    for (final gpu in gpus) {
+      if (gpu.address == pciAddress || gpu.address.endsWith(pciAddress)) {
+        return gpu.name;
       }
     }
-  } catch (_) {}
-  return null;
+  }
+  if (vendor != null) {
+    for (final gpu in gpus) {
+      if (_classifyVendor(gpu.name) == vendor) return gpu.name;
+    }
+  }
+  return gpus.first.name;
 }
 
 bool _linuxHasCuda() {
@@ -1357,18 +1513,15 @@ Future<int?> _linuxNvidiaVramMB() async {
   return null;
 }
 
-int? _linuxAmdVramMB() {
+/// VRAM of the card whose sysfs [devicePath] is given (AMD only; the
+/// `mem_info_vram_total` file is not present on other vendors' cards).
+int? _linuxAmdVramMB(String devicePath) {
   try {
-    final drmDir = Directory('/sys/class/drm');
-    if (!drmDir.existsSync()) return null;
-
-    for (final card in drmDir.listSync()) {
-      final vramFile = File('${card.path}/device/mem_info_vram_total');
-      if (!vramFile.existsSync()) continue;
-      final bytes = int.tryParse(vramFile.readAsStringSync().trim());
-      if (bytes != null && bytes > 0) {
-        return bytes ~/ (1024 * 1024);
-      }
+    final vramFile = File('$devicePath/mem_info_vram_total');
+    if (!vramFile.existsSync()) return null;
+    final bytes = int.tryParse(vramFile.readAsStringSync().trim());
+    if (bytes != null && bytes > 0) {
+      return bytes ~/ (1024 * 1024);
     }
   } catch (e) {
     // ignore

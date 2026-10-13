@@ -375,5 +375,28 @@ void main() {
             'requiring two fresh strikes',
       );
     });
+
+    test('a failed CUDA-off write counts the crash as a GPU strike instead of '
+        'dropping it — otherwise every launch re-enables CUDA and crashes '
+        'again with the streak never escalating', () async {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path)
+        ..markAttempt(cuda: true);
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _ThrowingSettingsNotifier(AppSettings.defaults),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      await expectLater(recoverFromGpuLoadCrash(container), completes);
+
+      expect(guard.crashedLastAttempt, isFalse);
+      expect(guard.consecutiveCrashes, 1);
+      expect(guard.consumePendingCudaNotice(), isFalse);
+    });
   });
 }

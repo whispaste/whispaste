@@ -78,6 +78,10 @@ typedef _SmartModeUnloadDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _SmartModeFreeResultNative =
     ffi.Void Function(ffi.Pointer<Utf8> result);
 typedef _SmartModeFreeResultDart = void Function(ffi.Pointer<Utf8> result);
+typedef _SmartModeLastIncompleteNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Void> session);
+typedef _SmartModeLastIncompleteDart =
+    int Function(ffi.Pointer<ffi.Void> session);
 
 /// Test-only override for the directory [smartModeModelPath] resolves
 /// against, mirroring [sttDirOverride]. Must stay null in production code.
@@ -185,6 +189,20 @@ const int kSmartModeResidentMinRamMB = 12 * 1024;
 bool smartModeKeepsModelResident(int? ramMB) =>
     ramMB == null || ramMB >= kSmartModeResidentMinRamMB;
 
+/// `n_gpu_layers` value that offloads every layer (llama.cpp's "all").
+const int kSmartModeGpuLayersAuto = 99;
+
+/// GPU layers for Smart Mode from the user's "Grafikbeschleunigung" setting
+/// ([BehaviorSettings.gpuAcceleration]): `disabled` ("Nur CPU") keeps every
+/// layer on the CPU; `auto` and `enabled` offload everything. With no usable
+/// GPU backend llama.cpp runs on CPU regardless, and a failed GPU load falls
+/// back to CPU inside the worker.
+@visibleForTesting
+int smartModeGpuLayersFor(String? gpuAcceleration) =>
+    gpuAcceleration == GpuAcceleration.disabled.value
+    ? 0
+    : kSmartModeGpuLayersAuto;
+
 /// Thrown by [SmartModeFfiEngine.run] when [SmartModeFfiEngine.cancel]
 /// aborted the generation.
 class SmartModeAbortedException implements Exception {
@@ -198,8 +216,9 @@ class SmartModeAbortedException implements Exception {
 /// isolate — production uses `libsmartmode_shim` via FFI, tests a fake.
 /// Every method is synchronous and only ever called from the worker.
 abstract class SmartModeNative {
-  /// Loads the model at [modelPath]. Throws on failure.
-  void load({required String modelPath});
+  /// Loads the model at [modelPath], offloading [gpuLayers] layers to the GPU
+  /// (0 = CPU only). Throws on failure.
+  void load({required String modelPath, required int gpuLayers});
 
   /// Generates one response on the loaded model. Must stop early once
   /// [abortFlag] holds a non-zero value (it is set from another isolate).
@@ -243,6 +262,10 @@ class _ShimNative implements SmartModeNative {
   _SmartModeGenerateDart? _generate;
   _SmartModeUnloadDart? _unload;
   _SmartModeFreeResultDart? _freeResult;
+
+  /// Optional: missing from a shim built before the truncation flag existed,
+  /// in which case output is trusted as complete (the old behaviour).
+  _SmartModeLastIncompleteDart? _lastIncomplete;
   ffi.Pointer<ffi.Void> _session = ffi.nullptr;
 
   void _bind() {
@@ -269,15 +292,22 @@ class _ShimNative implements SmartModeNative {
     _load = dylib.lookupFunction<_SmartModeLoadNative, _SmartModeLoadDart>(
       'smart_mode_load',
     );
+    if (dylib.providesSymbol('smart_mode_last_output_incomplete')) {
+      _lastIncomplete = dylib
+          .lookupFunction<
+            _SmartModeLastIncompleteNative,
+            _SmartModeLastIncompleteDart
+          >('smart_mode_last_output_incomplete');
+    }
   }
 
   @override
-  void load({required String modelPath}) {
+  void load({required String modelPath, required int gpuLayers}) {
     _bind();
     if (_session != ffi.nullptr) return;
     final modelPathC = modelPath.toNativeUtf8();
     try {
-      _session = _load!(modelPathC, 2048, 99);
+      _session = _load!(modelPathC, 2048, gpuLayers);
     } finally {
       malloc.free(modelPathC);
     }
@@ -314,6 +344,12 @@ class _ShimNative implements SmartModeNative {
       }
       final result = resultPtr.toDartString();
       _freeResult!(resultPtr);
+      // A response cut off by the token limit or a full context is not a
+      // valid rewrite; throwing lets the orchestrator paste the raw
+      // transcript (its usual Smart Mode fallback) instead of a fragment.
+      if ((_lastIncomplete?.call(_session) ?? 0) != 0) {
+        throw StateError('smart_mode_output_incomplete');
+      }
       return result;
     } finally {
       malloc.free(systemPromptC);
@@ -347,12 +383,17 @@ class _RunRequest {
   const _RunRequest({
     required this.requestId,
     required this.modelPath,
+    required this.gpuLayers,
     required this.systemPrompt,
     required this.userText,
     required this.abortFlagAddress,
   });
   final int requestId;
   final String modelPath;
+
+  /// Requested GPU offload (see [smartModeGpuLayersFor]). The worker may run
+  /// on CPU instead if the GPU load fails ([_RunResult.gpuLoadFellBackToCpu]).
+  final int gpuLayers;
   final String systemPrompt;
   final String userText;
 
@@ -372,6 +413,7 @@ class _RunResult {
     this.loadMicros = 0,
     this.generateMicros = 0,
     this.forcedByShutdown = false,
+    this.gpuLoadFellBackToCpu = false,
   });
   final int requestId;
   final String? text;
@@ -381,6 +423,9 @@ class _RunResult {
   final bool resident;
   final int loadMicros;
   final int generateMicros;
+
+  /// The model load on the GPU failed and the worker retried on CPU.
+  final bool gpuLoadFellBackToCpu;
 
   /// Synthesized on the main isolate by [SmartModeFfiEngine.shutdown] for a
   /// run the worker never answered.
@@ -410,9 +455,31 @@ void _smartModeIsolateMain(_WorkerInit init) {
   SmartModeNative? native;
   String? loadedModelPath;
 
+  /// The GPU layer count the resident model was requested with. It can differ
+  /// from what was actually loaded after a CPU retry; comparing against the
+  /// request (not the outcome) stops a model that fell back to CPU from being
+  /// reloaded on every run.
+  int? loadedGpuLayers;
+  var lastLoadFellBackToCpu = false;
+
   void unloadModel() {
     native?.unload();
     loadedModelPath = null;
+    loadedGpuLayers = null;
+  }
+
+  /// Loads with [gpuLayers]; if that fails while offloading, retries once on
+  /// CPU (`gpuLayers: 0`). A GPU/driver problem then costs only speed, not the
+  /// whole Smart Mode run. A CPU load failure is not retried.
+  void loadWithCpuRetry(SmartModeNative n, String modelPath, int gpuLayers) {
+    lastLoadFellBackToCpu = false;
+    try {
+      n.load(modelPath: modelPath, gpuLayers: gpuLayers);
+    } on Object {
+      if (gpuLayers == 0) rethrow;
+      n.load(modelPath: modelPath, gpuLayers: 0);
+      lastLoadFellBackToCpu = true;
+    }
   }
 
   void handleRun(_RunRequest req) {
@@ -432,16 +499,19 @@ void _smartModeIsolateMain(_WorkerInit init) {
     var loadMicros = 0;
     try {
       final n = native ??= init.nativeFactory();
-      if (loadedModelPath != req.modelPath) {
+      if (loadedModelPath != req.modelPath ||
+          loadedGpuLayers != req.gpuLayers) {
         if (loadedModelPath != null) unloadModel();
         final sw = Stopwatch()..start();
-        n.load(modelPath: req.modelPath);
+        loadWithCpuRetry(n, req.modelPath, req.gpuLayers);
         loadMicros = sw.elapsedMicroseconds;
         loadedModelPath = req.modelPath;
+        loadedGpuLayers = req.gpuLayers;
         loadedModel = true;
       }
     } catch (e) {
       loadedModelPath = null;
+      loadedGpuLayers = null;
       mainPort.send(_RunResult(requestId: req.requestId, error: '$e'));
       return;
     }
@@ -468,6 +538,7 @@ void _smartModeIsolateMain(_WorkerInit init) {
         resident: loadedModelPath != null,
         loadMicros: loadMicros,
         generateMicros: sw.elapsedMicroseconds,
+        gpuLoadFellBackToCpu: loadedModel && lastLoadFellBackToCpu,
       ),
     );
   }
@@ -503,17 +574,23 @@ class SmartModeFfiEngine implements SmartModeEngine {
     SmartModeNativeFactory? nativeFactory,
     Duration Function()? idleTimeout,
     Future<int?> Function()? detectRamMB,
+    int Function()? gpuLayers,
   }) : _modelPath = modelPath ?? smartModeModelPath(),
        _nativeFactory =
            nativeFactory ??
            _shimFactory(libraryPath ?? defaultSmartModeLibraryPath()),
        _idleTimeout = idleTimeout ?? (() => const Duration(minutes: 5)),
-       _detectRamMB = detectRamMB ?? hw.detectRamMB;
+       _detectRamMB = detectRamMB ?? hw.detectRamMB,
+       _gpuLayers = gpuLayers ?? (() => kSmartModeGpuLayersAuto);
 
   final String _modelPath;
   final SmartModeNativeFactory _nativeFactory;
   final Duration Function() _idleTimeout;
   final Future<int?> Function() _detectRamMB;
+
+  /// Read at each [run], so a changed "Grafikbeschleunigung" setting applies
+  /// to the next load without rebuilding this long-lived engine.
+  final int Function() _gpuLayers;
 
   Isolate? _isolate;
   SendPort? _workerPort;
@@ -553,6 +630,7 @@ class SmartModeFfiEngine implements SmartModeEngine {
 
     // Registered before the first await, so a [cancel] issued right after
     // this call already covers this run.
+    final gpuLayers = _gpuLayers();
     final requestId = _nextRequestId++;
     final abortFlag = calloc<ffi.Int32>();
     final completer = Completer<_RunResult>();
@@ -572,6 +650,7 @@ class SmartModeFfiEngine implements SmartModeEngine {
       _RunRequest(
         requestId: requestId,
         modelPath: _modelPath,
+        gpuLayers: gpuLayers,
         systemPrompt: systemPrompt,
         userText: userText,
         abortFlagAddress: abortFlag.address,
@@ -592,6 +671,12 @@ class SmartModeFfiEngine implements SmartModeEngine {
       loadTime: Duration(microseconds: result.loadMicros),
       generateTime: Duration(microseconds: result.generateMicros),
     );
+    if (result.gpuLoadFellBackToCpu) {
+      _log.warning(
+        'Smart Mode model load failed with GPU offload ($gpuLayers layers) — '
+        'running on CPU for this model',
+      );
+    }
     if (result.error == null || result.aborted) {
       _log.info(
         result.loadedModel
@@ -781,6 +866,11 @@ final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
           minutes: (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .stt
               .idleTimeoutMinutes,
+        ),
+        gpuLayers: () => smartModeGpuLayersFor(
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .behavior
+              .gpuAcceleration,
         ),
       );
       ref.onDispose(engine.shutdown);
