@@ -57,7 +57,9 @@ const scenes = [
           <div class="apd-step-body">
             <p class="apd-step-title" data-i18n="appdemo.step1.caption">{t(lang, 'appdemo.step1.caption')}</p>
             <div class="apd-hotkey" aria-hidden="true">
-              <kbd class="apd-key" data-i18n="hero.hotkey.mod">{t(lang, 'hero.hotkey.mod')}</kbd>
+              <!-- Default modifier differs per OS: Ctrl on Windows/Linux, Cmd on macOS. -->
+              <kbd class="apd-key apd-key--mod-ctrl" data-i18n="hero.hotkey.mod">{t(lang, 'hero.hotkey.mod')}</kbd>
+              <kbd class="apd-key apd-key--mod-cmd">⌘</kbd>
               <span class="apd-plus">+</span>
               <kbd class="apd-key">Shift</kbd>
               <span class="apd-plus">+</span>
@@ -262,6 +264,15 @@ const scenes = [
     justify-self: start;
     font-family: var(--font-mono);
     font-size: 0.8125rem;
+  }
+  .apd-key--mod-cmd {
+    display: none;
+  }
+  :global([data-os="macos"]) .apd-key--mod-ctrl {
+    display: none;
+  }
+  :global([data-os="macos"]) .apd-key--mod-cmd {
+    display: inline;
   }
   .apd-key {
     padding: 0.15rem 0.45rem;

@@ -3,7 +3,8 @@ Two on-device engines: Whisper (99 languages, GPU acceleration) and Parakeet (fa
 Your audio stays on your PC; works offline after a one-time model download
 Optional cloud transcription via OpenAI or Deepgram with your own API key, direct to the provider
 Smart Mode: clean up, shorten or translate before pasting, locally or via OpenAI
-Edit selected text by voice: say what should change and WhisPaste rewrites it
+Edit selected text by voice: say what should change and WhisPaste rewrites it (off by default)
+Spoken line breaks: say “new paragraph” or “new line” while you dictate
 Voice Snippets: spoken triggers that insert full text, including interactive templates
 Custom vocabulary and replacements for names and jargon
 Searchable history with tags, pins, archive, merge and PIN lock

@@ -6,7 +6,7 @@ Funktioniert überall, wo du schreibst: Outlook, Teams, Word, VS Code, Chrome, S
 Whisper (drei Modellgrößen, 99 Sprachen) und die schnelle Parakeet-Engine (rund 25 europäische Sprachen, reine CPU) transkribieren komplett auf deinem Rechner. Aufnahmen werden standardmäßig nach der Transkription nicht aufbewahrt. Eine Grafikkarte kann Whisper beschleunigen, ist aber nie Pflicht. Nach dem einmaligen Modell-Download funktioniert die Transkription ohne Internet. Cloud-Transkription über OpenAI oder Deepgram ist optional und nutzt deinen eigenen API-Schlüssel; das Audio geht direkt zum Anbieter, nie über einen WhisPaste-Server. Kein Konto nötig.
 
 ✨ SMART MODE (OPTIONAL)
-Füllwörter und Zeichensetzung bereinigen, Text kürzen oder vor dem Einfügen in sieben Sprachen übersetzen. Läuft mit einem lokalen KI-Modell oder über OpenAI mit deinem eigenen Schlüssel. Markier Text in einer beliebigen App, sag, was sich ändern soll, und WhisPaste schreibt ihn direkt um.
+Füllwörter und Zeichensetzung bereinigen, Text kürzen oder vor dem Einfügen in sieben Sprachen übersetzen. Läuft mit einem lokalen KI-Modell oder über OpenAI mit deinem eigenen Schlüssel. Markier Text in einer beliebigen App, sag, was sich ändern soll, und WhisPaste schreibt ihn direkt um. Diese Funktion ist standardmäßig aus.
 
 📋 VERLAUF, NOTIZEN & EXPORT
 Jedes Transkript wird lokal gespeichert und ist durchsuchbar. Verschlagworten, anheften, archivieren, zusammenführen und als TXT, Markdown, JSON, CSV oder Word exportieren. Eine PIN-Sperre hält den Verlauf privat. Notizen und Schnellnotizen sammeln längere Gedanken an einem Ort.

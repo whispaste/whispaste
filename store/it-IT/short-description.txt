@@ -1,1 +1,1 @@
-Parla invece di digitare: le tue parole compaiono come testo proprio nel cursore, in qualsiasi app. La trascrizione gira sul tuo PC con Whisper o Parakeet, funziona offline dopo un unico download del modello e non richiede alcun account. Il cloud è facoltativo. Acquisto unico, nessun abbonamento. Open source (MIT).
+Parla invece di digitare: le tue parole compaiono come testo al cursore, in qualsiasi app. La trascrizione gira sul tuo PC con Whisper o Parakeet, offline dopo un unico download del modello e senza account. Cloud facoltativo. Acquisto unico, open source (MIT).

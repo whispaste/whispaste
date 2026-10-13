@@ -1,1 +1,1 @@
-Sprechen statt tippen: Deine Worte erscheinen als Text direkt am Cursor, in jeder App. Die Transkription läuft mit Whisper oder Parakeet auf deinem PC, funktioniert nach einem einmaligen Modell-Download offline und braucht kein Konto. Cloud optional. Einmalkauf, kein Abo. Quelloffen (MIT).
+Sprechen statt tippen: Deine Worte erscheinen als Text am Cursor, in jeder App. Die Transkription läuft mit Whisper oder Parakeet auf deinem PC, offline nach einmaligem Modell-Download und ohne Konto. Cloud optional. Einmalkauf, quelloffen (MIT).

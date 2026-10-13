@@ -13,10 +13,10 @@ VOICE SNIPPETS
 Diga um gatilho curto e o WhisPaste insere o texto completo: assinaturas, saudações, frases recorrentes ou modelos interativos com vários campos.
 
 HISTÓRICO E EXPORTAÇÃO
-Cada transcrição é salva no seu Mac. Pesquise, marque, fixe, arquive e mescle entradas, proteja o histórico com um PIN e exporte para TXT, Markdown, JSON, CSV ou Word.
+Cada transcrição é salva no seu Mac. Pesquise, marque, fixe, arquive e mescle entradas, proteja o histórico com um PIN e exporte para TXT, Markdown, JSON, CSV ou Word. Notas e notas rápidas reúnem ideias mais longas em um só lugar.
 
 COMPRA ÚNICA, SEM ASSINATURA
 Sem assinatura, sem limite de tempo, sem custos recorrentes. O WhisPaste é de código aberto (licença MIT) e é desenvolvido abertamente no GitHub. Sua compra apoia diretamente o desenvolvimento.
 
 FEITO PARA O DIA A DIA
-Alternar ou push-to-talk · overlay ao vivo enquanto você fala · botão flutuante de gravação · painel lateral de colagem rápida na borda da tela · vocabulário personalizado e substituições · barra de menus · início com o login · interface em inglês, alemão, hebraico, russo, espanhol e português do Brasil
+Alternar ou push-to-talk · quebras de linha por voz · overlay ao vivo enquanto você fala · botão flutuante de gravação · painel lateral de colagem rápida na borda da tela · vocabulário personalizado e substituições · barra de menus · início com o login · interface em inglês, alemão, hebraico, russo, espanhol e português do Brasil

@@ -1,11 +1,11 @@
 # WhisPaste
 
-> WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and inserts the transcript at the cursor position of the active application (on Linux after a one-time uinput setup; otherwise it lands on the clipboard). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated via Metal or Vulkan) and Parakeet via sherpa-onnx (~25 European languages, CPU-only and about ten times faster than whisper.cpp on the same CPU in the project's own benchmark). Optional cloud transcription (OpenAI, Deepgram) uses the user's own API key. It is a desktop-only app; iOS and Android are not planned.
+> WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and copies the transcript to the clipboard or, with Auto-Paste switched on, inserts it at the cursor position of the active application (on Linux through a virtual uinput keyboard). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated) and Parakeet via sherpa-onnx (~25 languages, CPU-only but several times faster than the compact whisper.cpp model on the same CPU in our Apple M5 benchmark). It is a desktop-only app; iOS and Android are not planned.
 
 ## Download
 
-- [Download (Deutsch)](https://whispaste.de/download/): Microsoft Store, DMG für macOS, oder kostenlos von GitHub
-- [Download (English)](https://whispaste.de/en/download/): Microsoft Store, macOS DMG, or free from GitHub
+- [Download (Deutsch)](https://whispaste.de/download/): Microsoft Store, Mac App Store oder kostenlos von GitHub (DMG für macOS sowie Windows- und Linux-Builds)
+- [Download (English)](https://whispaste.de/en/download/): Microsoft Store, Mac App Store, or free from GitHub (macOS DMG, Windows and Linux builds)
 
 ## FAQ
 
@@ -34,14 +34,17 @@
 - [Anwendungsfälle (Deutsch)](https://whispaste.de/use-cases/): Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App
 - [Use cases (English)](https://whispaste.de/en/use-cases/): Voice input for developers, students, and everyday writing — straight at the cursor in any app
 
+## Comparisons
+
+- [Diktiersoftware-Alternativen (Deutsch)](https://whispaste.de/vergleich/diktiersoftware-alternativen/): WhisPaste im Vergleich zu anderen Spracheingabe-Tools: offline, ohne Konto, Einfügen am Cursor
+- [Voice-input tool alternatives (English)](https://whispaste.de/en/comparison/voice-input-tool-alternatives/): How WhisPaste compares with other voice-input tools: offline, no account, pastes at the cursor
+- [WhisPaste vs. Systemspracheingabe (Deutsch)](https://whispaste.de/vergleich/whispaste-vs-system-spracheingabe/): Unterschiede zur eingebauten Spracheingabe von Windows und macOS
+- [WhisPaste vs. built-in speech to text (English)](https://whispaste.de/en/comparison/whispaste-vs-system-speech-to-text/): How WhisPaste differs from the speech to text built into Windows and macOS
+
 ## Screenshots
 
 - [Screenshots (Deutsch)](https://whispaste.de/screenshots/): Visueller Einblick in die App-Oberfläche
 - [Screenshots (English)](https://whispaste.de/en/screenshots/): Visual tour of the app surface
-
-## Other languages
-
-- [Español](https://whispaste.de/es/), [Português (Brasil)](https://whispaste.de/pt/), [Italiano](https://whispaste.de/it/), [Русский](https://whispaste.de/ru/), [简体中文](https://whispaste.de/zh/), [Français](https://whispaste.de/fr/): the landing page and guides in further languages
 
 ## Source & Releases
 

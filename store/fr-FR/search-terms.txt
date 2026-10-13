@@ -3,5 +3,5 @@ reconnaissance vocale
 dictée
 whisper AI
 transcription
-reconnaissance vocale hors ligne
+dictée hors ligne
 saisie vocale

@@ -3,7 +3,7 @@ Deux moteurs sur l'appareil : Whisper (99 langues, accélération GPU) et Parake
 Votre audio reste sur votre PC ; fonctionne hors ligne après un téléchargement unique du modèle
 Transcription cloud facultative via OpenAI ou Deepgram avec votre propre clé API, directement auprès du fournisseur
 Smart Mode : nettoyez, raccourcissez ou traduisez avant de coller, en local ou via OpenAI
-Modifiez le texte sélectionné à la voix : dites ce qui doit changer et WhisPaste le réécrit
+Modifiez le texte sélectionné à la voix : dites ce qui doit changer et WhisPaste le réécrit (désactivé par défaut)
 Voice Snippets : déclencheurs vocaux qui insèrent un texte complet, y compris des modèles interactifs
 Vocabulaire personnalisé et remplacements pour les noms et le jargon
 Historique consultable avec étiquettes, épingles, archive, fusion et verrouillage par code PIN

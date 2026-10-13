@@ -13,7 +13,7 @@ SNIPPETS VOCAUX
 Prononcez un court déclencheur et WhisPaste insère le texte complet : signatures, formules de politesse, phrases récurrentes ou modèles interactifs à plusieurs champs.
 
 HISTORIQUE ET EXPORT
-Chaque transcription est enregistrée sur votre Mac. Recherchez, taguez, épinglez, archivez et fusionnez des entrées, protégez l’historique par un code PIN et exportez en TXT, Markdown, JSON, CSV ou Word.
+Chaque transcription est enregistrée sur votre Mac. Recherchez, taguez, épinglez, archivez et fusionnez des entrées, protégez l’historique par un code PIN et exportez en TXT, Markdown, JSON, CSV ou Word. Les notes et notes rapides rassemblent vos idées plus longues au même endroit.
 
 ACHAT UNIQUE, PAS D’ABONNEMENT
 Pas d’abonnement, pas de limite de durée, pas de frais récurrents. WhisPaste est open source (licence MIT) et développé publiquement sur GitHub. Votre achat soutient directement son développement.

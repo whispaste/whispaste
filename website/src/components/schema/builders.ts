@@ -205,11 +205,11 @@ export function buildSoftwareApplicationSchema(
     offers: {
       "@type": "Offer",
       price: "0",
-      // priceCurrency bewusst weggelassen: WhisPaste ist MIT-lizenziert und
-      // wird kostenlos angeboten. Google Rich Results akzeptiert
-      // `price: "0"` ohne Currency als gültigen Free-Offer-Marker; das
-      // bisherige `USD` war eine Fiktion (keine bezahlte WhisPaste-Variante)
-      // und hätte Locale-Mismatch-Hinweise im Validator ausgelöst.
+      // This offer describes the free MIT-licensed GitHub download that
+      // `downloadUrl` points to; the paid Microsoft Store / Mac App Store
+      // builds are separate channels and intentionally not modelled here.
+      // Google Rich Results accepts `price: "0"` without a currency as a
+      // free-offer marker.
     },
     license: "https://opensource.org/licenses/MIT",
     author: { "@id": ORGANIZATION_ID },

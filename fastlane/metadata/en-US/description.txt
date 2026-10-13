@@ -13,10 +13,10 @@ VOICE SNIPPETS
 Say a short trigger and WhisPaste inserts the full text: signatures, greetings, recurring phrases, or interactive templates with several fields.
 
 HISTORY & EXPORT
-Every transcription is saved on your Mac. Search, tag, pin, archive and merge entries, protect the history with a PIN, and export to TXT, Markdown, JSON, CSV or Word.
+Every transcription is saved on your Mac. Search, tag, pin, archive and merge entries, protect the history with a PIN, and export to TXT, Markdown, JSON, CSV or Word. Notes and quick notes keep longer thoughts in one place.
 
 ONE-TIME PURCHASE, NOT A SUBSCRIPTION
 No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and developed in the open on GitHub. Your purchase directly supports its development.
 
 BUILT FOR DAILY WORK
-Toggle or push-to-talk · live overlay while you speak · floating record button · quick-paste side panel at the screen edge · custom vocabulary and replacements · menu bar · launch at login · English, German, Hebrew, Russian, Spanish and Portuguese (Brazil) interface
+Toggle or push-to-talk · spoken line breaks · live overlay while you speak · floating record button · quick-paste side panel at the screen edge · custom vocabulary and replacements · menu bar · launch at login · English, German, Hebrew, Russian, Spanish and Portuguese (Brazil) interface

@@ -213,6 +213,10 @@ void _screenshotTest(_ScreenDef screen, String locale) {
         // grouping render as text, so wall-clock time would move pixels.
         (tester) => withClock(Clock.fixed(_screenshotNow), () async {
           final device = goldenDevice.device;
+          // Show each platform's default hotkey: Cmd on macOS, Ctrl elsewhere.
+          final modifiers = device.platform == TargetPlatform.macOS
+              ? 'meta+shift'
+              : 'ctrl+shift';
           final db = HistoryDatabase.forTesting(NativeDatabase.memory());
           final settings = AppSettings.defaults
               .copyWith(
@@ -220,17 +224,17 @@ void _screenshotTest(_ScreenDef screen, String locale) {
                 textReplacementsEnabled: screen.textReplacementsEnabled,
                 hotkeyEnabled: true,
                 hotkeyKey: 'D',
-                hotkeyModifiers: 'ctrl+shift',
+                hotkeyModifiers: modifiers,
               )
               // The quick-note hotkey is off by default. The Notizen shot shows
               // it active, the way a user who set it up sees the page.
               .copyWithSections(
                 quickNoteHotkey: screen.needsNotesData
-                    ? const QuickNoteHotkeySettings(
+                    ? QuickNoteHotkeySettings(
                         quickNoteHotkeyEnabled: true,
                         quickNoteHotkeyKey: 'N',
                         quickNoteHotkeyKeyDisplay: 'N',
-                        quickNoteHotkeyModifiers: 'ctrl+shift',
+                        quickNoteHotkeyModifiers: modifiers,
                       )
                     : null,
               );

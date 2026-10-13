@@ -102,11 +102,14 @@ class WpScreenshotShell extends StatelessWidget {
                   ),
                 ),
                 // Same labels the real status bar builds from the default
-                // settings (local provider, Ctrl+Shift+D), localized per locale.
+                // settings (local provider, Ctrl+Shift+D or Cmd+Shift+D on
+                // macOS), localized per locale.
                 WpStatusBar(
                   sttModeLabel: L10n.of(context).statusBarOnDevice,
                   hotkeyLabel: formatHotkeyShortcut(
-                    'ctrl+shift',
+                    Theme.of(context).platform == TargetPlatform.macOS
+                        ? 'meta+shift'
+                        : 'ctrl+shift',
                     'D',
                     l10n: L10n.of(context),
                   ),

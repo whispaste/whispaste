@@ -13,7 +13,7 @@ VOICE SNIPPETS
 Pronuncia una parola di attivazione breve e WhisPaste inserisce il testo completo: firme, saluti, frasi ricorrenti o modelli interattivi con più campi.
 
 CRONOLOGIA ED ESPORTAZIONE
-Ogni trascrizione viene salvata sul tuo Mac. Cerca, tagga, fissa, archivia e unisci le voci, proteggi la cronologia con un PIN ed esporta in TXT, Markdown, JSON, CSV o Word.
+Ogni trascrizione viene salvata sul tuo Mac. Cerca, tagga, fissa, archivia e unisci le voci, proteggi la cronologia con un PIN ed esporta in TXT, Markdown, JSON, CSV o Word. Note e note rapide raccolgono i pensieri più lunghi in un unico posto.
 
 ACQUISTO UNICO, NON UN ABBONAMENTO
 Nessun abbonamento, nessun limite di tempo, nessun costo ricorrente. WhisPaste è open source (licenza MIT) e sviluppato apertamente su GitHub. Il tuo acquisto sostiene direttamente lo sviluppo.
