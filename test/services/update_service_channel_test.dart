@@ -22,7 +22,8 @@ import 'package:whispaste/services/update_service.dart';
 
 /// Responds differently to the single-object `/releases/latest` endpoint
 /// (stable) vs. the newest-first `/releases` list endpoint (beta) — mirrors
-/// what the real GitHub API returns for each.
+/// what the real GitHub API returns for each. The list starts with a CUDA
+/// pack prerelease, which the beta check must skip as a non-app release.
 class _ReleasesAdapter implements HttpClientAdapter {
   static const _assets = [
     {
@@ -56,7 +57,8 @@ class _ReleasesAdapter implements HttpClientAdapter {
     final isLatest = options.path.endsWith('/releases/latest');
     final body = isLatest
         ? '{"tag_name":"v1.2.43","assets":$_jsonAssets,"html_url":"https://example.invalid/v1.2.43"}'
-        : '[{"tag_name":"v1.2.44-beta.6","assets":$_jsonAssets,"html_url":"https://example.invalid/beta.6"},'
+        : '[{"tag_name":"cuda-ggml-v1.9.5-cu12.8-r1","assets":[],"html_url":"https://example.invalid/cuda"},'
+              '{"tag_name":"v1.2.44-beta.6","assets":$_jsonAssets,"html_url":"https://example.invalid/beta.6"},'
               '{"tag_name":"v1.2.43","assets":$_jsonAssets,"html_url":"https://example.invalid/v1.2.43"}]';
     return ResponseBody.fromString(
       body,
