@@ -200,7 +200,7 @@ Code nutzt **`onDevice`**, nie „local".
 | Provider | Engine |
 |---|---|
 | onDevice → Whisper | whisper.cpp (`dart:ffi`/`libwhisper`), 99 Sprachen, GPU-beschleunigt |
-| onDevice → Parakeet | NVIDIA Parakeet-TDT via `sherpa-onnx` (in-process ONNX), ~25 europ. Sprachen, CPU-only, mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
+| onDevice → Parakeet | NVIDIA Parakeet-TDT, ~25 europ. Sprachen. Ab 1.4.0 auf der GPU über libparakeet (whisper.cpp v1.9.5, ggml: Metal/Vulkan/CUDA), automatischer Fallback auf `sherpa-onnx` (in-process ONNX, CPU), wenn keine GPU da ist oder ein GPU-Lauf scheitert. Schon auf der CPU mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
 | openAI | OpenAI Audio API |
 | deepgram | Deepgram Streaming/Batch API |
 
@@ -208,7 +208,7 @@ Code nutzt **`onDevice`**, nie „local".
 
 | onDevice (Whisper) | tiny/base/small/medium/large-v3 (`ggml-*.bin`, lokaler Cache) |
 |---|---|
-| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt, ~640 MB |
+| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt (CPU-Fallback, 639 MB) plus GGUF q8_0 für die GPU (638 MB, SHA-256-geprüft); zusammen ~1,2 GB |
 | openAI | `whisper-1` (fest im Code, `openai_transcriber.dart`; ADR-0005 plant `gpt-transcribe`, nicht umgesetzt) |
 | deepgram | `nova-3` (fest im Code, `deepgram_transcriber.dart` — nicht wählbar) |
 
@@ -216,7 +216,7 @@ Code nutzt **`onDevice`**, nie „local".
 
 ### 4.4 Backend (nur lokal)
 
-Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). Kein eigenes CUDA-Backend wird gebaut — der `WhisperBackend`-Enum (`whisper_engine.dart`) listet `cuda` als möglichen Wert, aber kein Build produziert dafür ein Binary. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: (Stand 2026) kein GPU-Backend, CPU-only, aber schon dort schneller als Whisper auf jedem Backend.
+Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). CUDA kommt seit 1.4.0 als optionaler, prüfsummen-verifizierter CUDA-Pack (Windows/Linux, NVIDIA RTX/GTX 16) per separatem Download, nicht im Installer. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: ab 1.4.0 GPU über libparakeet (dieselben ggml-Backends), CPU-Fallback sherpa-onnx. Gemessen 2026-10-14: M5 Metal 7,0 s statt 38,3 s (18 DE-Diktate, 456 s Audio); i5-1145G7/Iris Xe Vulkan 14,1 s statt 27,1 s (18 MLS-DE, 276 s), DE-WER 7,1 % statt 8,5 %.
 
 ### 4.5 Engine-Lebenszyklus (`SttServerState`)
 

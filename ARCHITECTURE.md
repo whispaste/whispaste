@@ -33,7 +33,7 @@ hotkey ──▶ trigger ──▶ audio capture ──▶ STT engine ──▶ 
 3. **Audio.** `services/audio_service.dart` and `services/audio/` capture 16 kHz mono PCM and write WAV files. During recording, `services/stt/live_preview/` can feed partial audio to the engine for the live transcript in the overlay.
 4. **Transcription.** The selected engine turns the WAV into text:
    - **whisper.cpp** through FFI (`services/stt/whisper/`, native `libwhisper`)
-   - **Parakeet** through `sherpa_onnx` (`services/stt_parakeet/`)
+   - **Parakeet** on the GPU through FFI (`services/stt_parakeet/parakeet_gpu_engine.dart`, native `libparakeet` from the same whisper.cpp tree), with `sherpa_onnx` on the CPU as fallback (`services/stt_parakeet/`)
    - **cloud** through OpenAI or Deepgram (`services/transcription/`)
 
    The orchestrator only sees the engine-neutral lifecycle in `services/stt/on_device_engine_lifecycle.dart` and `services/stt_engine_lifecycle_provider.dart`.
