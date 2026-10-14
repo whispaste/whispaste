@@ -79,14 +79,14 @@ cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DWHISPER_BUILD_TESTS=OFF \
   -DWHISPER_BUILD_SERVER=OFF \
   >/dev/null
-cmake --build "$BUILD_DIR" --config Release -j >/dev/null
+cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(sysctl -n hw.ncpu)}" >/dev/null
 # wp_ffi_guard: catches C++ exceptions before they unwind into Dart FFI
 # frames (native/ffi_guard/ffi_guard.h). Built against the same headers.
 cmake -S "$REPO_ROOT/native/ffi_guard" -B "$BUILD_DIR/ffi_guard" \
   -DCMAKE_BUILD_TYPE=Release \
   -DWHISPER_SOURCE_DIR="$WHISPER_SRC" \
   >/dev/null
-cmake --build "$BUILD_DIR/ffi_guard" --config Release -j >/dev/null
+cmake --build "$BUILD_DIR/ffi_guard" --config Release -j "${BUILD_JOBS:-$(sysctl -n hw.ncpu)}" >/dev/null
 echo "      built."
 
 # --- 3. Stage flat, relocatable dylibs --------------------------------------
