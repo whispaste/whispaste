@@ -13,6 +13,10 @@ on:
   # so the new version's release notes become visible immediately.
   # (release: published cannot be used — Pages env protection only allows main ref)
   workflow_dispatch:
+  # Daily safety net so the changelog (built from the Releases API) cannot
+  # drift from what is published, e.g. when a release is published by hand.
+  schedule:
+    - cron: '17 4 * * *'
 
 permissions:
   contents: read
