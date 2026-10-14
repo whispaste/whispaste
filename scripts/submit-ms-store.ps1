@@ -330,6 +330,11 @@ Write-Host "   Submission ID: $subId"
 Write-Host ":: Setting pricing.priceId = '$priceId'..."
 $sub.pricing.priceId = $priceId
 
+# Releases run fully unattended (maintainer decision 2026-10-14): publish as
+# soon as certification passes instead of inheriting whatever mode the cloned
+# submission carried (a manual mode there would hold the release back).
+$sub.targetPublishMode = 'Immediate'
+
 # ── Load managed listing content from store/ (Title/Description/Features/ ────
 # ── Keywords/ReleaseNotes — same field set as apply-store-metadata.mjs) ───────
 # $defaults was already loaded above for the pricing.priceId validation.
